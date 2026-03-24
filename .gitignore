@@ -1,0 +1,42 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.venv/
+*.egg
+
+# Environment
+.env
+.env.local
+.env*.local
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Testing
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+htmlcov/
+.coverage
+
+# DB
+*.db
+*.db-journal
+
+# Claude Code local
+CLAUDE.local.md
+.claude/settings.local.json
+
+# Audio cache
+cache/
+generated-sets/
+
+# OS
+.DS_Store
+Thumbs.db

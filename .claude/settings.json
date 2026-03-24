@@ -1,0 +1,30 @@
+{
+  "extraKnownMarketplaces": {
+    "fastmcp-builder-dev": {
+      "source": {
+        "source": "github",
+        "repo": "husniadil/fastmcp-builder"
+      }
+    },
+    "awesome-claude-code-plugins": {
+      "source": {
+        "source": "github",
+        "repo": "ccplugins/awesome-claude-code-plugins"
+      }
+    },
+    "claude-skills-marketplace": {
+      "source": {
+        "source": "github",
+        "repo": "mhattingpete/claude-skills-marketplace"
+      }
+    }
+  },
+  "enabledPlugins": {
+    "fastmcp-builder@fastmcp-builder-dev": true,
+    "python-expert@awesome-claude-code-plugins": true,
+    "backend-architect@awesome-claude-code-plugins": true,
+    "test-writer-fixer@awesome-claude-code-plugins": true,
+    "code-architect@awesome-claude-code-plugins": true,
+    "api-tester@awesome-claude-code-plugins": true
+  }
+}
