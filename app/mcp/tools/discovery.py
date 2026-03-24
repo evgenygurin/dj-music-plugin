@@ -68,7 +68,9 @@ async def find_similar_tracks(
                 "track_title": track.title,
                 "strategy": strategy,
                 "similar": [],
-                "message": "Embedding similarity requires audio feature vectors — not yet implemented",
+                "message": (
+                    "Embedding similarity requires audio feature vectors — not yet implemented"
+                ),
             }
 
         if strategy == "llm":
