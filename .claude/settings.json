@@ -25,6 +25,16 @@
     "backend-architect@awesome-claude-code-plugins": true,
     "test-writer-fixer@awesome-claude-code-plugins": true,
     "code-architect@awesome-claude-code-plugins": true,
-    "api-tester@awesome-claude-code-plugins": true
+    "api-tester@awesome-claude-code-plugins": true,
+
+    "superpowers@superpowers-marketplace": true,
+    "episodic-memory@superpowers-marketplace": true,
+
+    "context7@claude-plugins-official": true,
+    "mcp-server-dev@claude-plugins-official": true,
+    "feature-dev@claude-plugins-official": true,
+    "commit-commands@claude-plugins-official": true,
+    "code-review@claude-plugins-official": true,
+    "pyright-lsp@claude-plugins-official": true
   }
 }
