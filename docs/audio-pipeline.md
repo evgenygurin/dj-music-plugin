@@ -1,0 +1,118 @@
+# Audio Analysis Pipeline
+
+## Analyzer Registry
+
+Plugin-based architecture: analyzers register themselves with capabilities and required dependencies.
+
+```text
+AnalyzerRegistry
+├── core (always available, pure Python + numpy)
+│   ├── LoudnessAnalyzer    → integrated_lufs, short_term, momentary, rms, peak, crest, LRA
+│   ├── EnergyAnalyzer      → mean, max, std, slope, 7-band breakdown, ratios
+│   ├── SpectralAnalyzer    → centroid, rolloff, flatness, flux, slope, contrast, HNR
+│   ├── GrooveAnalyzer      → rhythmic complexity, swing metrics
+│   └── StructureAnalyzer   → section boundaries (intro, drop, breakdown, outro, ...)
+│
+├── librosa (requires [audio] extra)
+│   ├── BPMDetector         → bpm, confidence, stability, variable_tempo
+│   ├── KeyDetector         → key_code, confidence, atonality, chroma_vector
+│   ├── BeatDetector        → beat positions, onset_rate, pulse_clarity, kick_prominence, hp_ratio
+│   └── MFCCExtractor       → 13-coefficient vector
+│
+└── ml (requires [stems] extra)
+    └── StemSeparator       → vocals, drums, bass, other (demucs/htdemucs)
+```
+
+## Pipeline Orchestration
+
+```python
+# Pipeline runs all available analyzers, handles partial failures
+pipeline = AnalysisPipeline(registry)
+result = await pipeline.analyze(audio_path, track_id)
+
+# result.features: dict of computed features (47 values)
+# result.sections: list of detected sections
+# result.errors: list of {analyzer, error} for failed analyzers
+# result.pipeline_run_id: FK to feature_extraction_runs table
+```
+
+**Partial failure**: if BPMDetector fails (librosa not installed), pipeline continues with other analyzers. Known errors bubble up, unexpected errors wrapped in `PipelineError`.
+
+## Analyzer Interface
+
+Each analyzer implements:
+
+```python
+class BaseAnalyzer(ABC):
+    name: str                          # e.g., "bpm"
+    capabilities: set[str]             # e.g., {"tempo", "rhythm"}
+    required_packages: list[str]       # e.g., ["librosa"]
+
+    @abstractmethod
+    async def analyze(self, audio: AudioSignal) -> AnalyzerResult:
+        """Run analysis on audio signal."""
+        ...
+
+    def is_available(self) -> bool:
+        """Check if required packages are installed."""
+        ...
+```
+
+## Audio Signal
+
+```python
+@dataclass
+class AudioSignal:
+    samples: np.ndarray       # mono float32
+    sample_rate: int          # from settings.audio_sample_rate (22050)
+    duration_seconds: float
+    file_path: Path
+```
+
+Loaded once per pipeline run, shared across all analyzers.
+
+## Timeseries Storage
+
+Frame-level data (too large for DB) stored as NPZ files:
+
+```text
+cache/timeseries/{track_id}/
+├── energy.npz          # energy per frame
+├── chroma.npz          # chroma features per frame
+├── spectral.npz        # spectral features per frame
+└── beats.npz           # beat positions
+```
+
+DB table `timeseries_references` stores metadata: frame_count, hop_length, sample_rate, shape.
+
+## Mood Classifier
+
+Rule-based, no ML model. Scores each track against 15 subgenre profiles:
+
+```text
+For each subgenre:
+  score = weighted_sum(feature_values × subgenre_weights)
+  if subgenre in {driving, hypnotic}:
+      score *= settings.mood_catch_all_penalty  # prevent domination
+
+Winner = argmax(scores)
+Confidence = (winner_score - second_score) / winner_score
+```
+
+Key discriminating features:
+- `hp_ratio` (harmonic-to-percussive): ambient_dub(high) vs industrial(low)
+- `spectral_centroid`: melodic_deep(low) vs acid(high)
+- `energy_mean`: ambient_dub(low) vs hard_techno(high)
+- `kick_prominence`: minimal(low) vs peak_time(high)
+- `loudness_range`: dub_techno(wide) vs industrial(narrow)
+- `spectral_flux_std`: hypnotic(low, repetitive) vs breakbeat(high, varied)
+
+## Dependencies
+
+| Extra | Packages | Enables |
+|-------|----------|---------|
+| (none) | numpy | Core analyzers (loudness, energy, spectral, groove, structure) |
+| `[audio]` | librosa, soundfile | BPM, key, beat, MFCC detection |
+| `[stems]` | demucs, torch | Stem separation (vocals, drums, bass, other) |
+
+Install: `uv sync --extra audio` or `uv sync --all-extras`

@@ -6,8 +6,19 @@
 
 MCP-сервер для управления DJ techno библиотекой, построения оптимизированных сетов и интеграции с Яндекс Музыкой.
 
-- Спецификация: `REQUIREMENTS.md`
-- Дизайн-документ: `docs/superpowers/specs/2026-03-24-dj-music-plugin-design.md`
+- Спецификация: @REQUIREMENTS.md
+- Дизайн-документ: @docs/superpowers/specs/2026-03-24-dj-music-plugin-design.md
+
+## Документация
+
+При работе с конкретной областью — загрузи соответствующий doc:
+
+- @docs/architecture.md — слои, data flow, ключевые решения
+- @docs/domain-glossary.md — DJ терминология (BPM, Camelot, LUFS, subgenres)
+- @docs/tool-catalog.md — все 44 MCP tools с параметрами
+- @docs/audio-pipeline.md — анализаторы, pipeline, mood classifier
+- @docs/ym-api-guide.md — YM API quirks, rate limiting, diff format
+- @docs/transition-scoring.md — 5-компонентная формула, Camelot wheel, caching
 
 ## Принципы
 
