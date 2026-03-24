@@ -5,12 +5,14 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+from fastmcp.exceptions import ToolError
 from fastmcp.server.context import Context
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.core.constants import ExportFormat
+from app.mcp.dependencies import get_db_session
 from app.models.audio import TrackAudioFeaturesComputed
 from app.models.set import DjSet, SetItem, SetVersion
 from app.models.track import TrackArtist
@@ -30,14 +32,6 @@ from app.services.export import (
 )
 
 # ── Helpers ──────────────────────────────────────────
-
-
-async def _get_session(ctx: Context | None) -> AsyncSession:
-    """Get async session from lifespan context."""
-    if ctx is None:
-        raise RuntimeError("Context required — tools must be called via MCP")
-    factory = ctx.lifespan_context["db_session_factory"]
-    return factory()
 
 
 async def _build_export_data(
@@ -136,17 +130,17 @@ async def deliver_set(
     if ctx:
         await ctx.info(f"Starting delivery for set {set_id}...")
 
-    async with await _get_session(ctx) as session:
+    async with get_db_session() as session:
         set_repo = SetRepository(session)
 
         # Stage 1: Load set
         dj_set = await set_repo.get_by_id(set_id)
         if dj_set is None:
-            return {"error": f"Set {set_id} not found"}
+            raise ToolError(f"Set {set_id} not found")
 
         target_version = await set_repo.get_latest_version(set_id)
         if target_version is None:
-            return {"error": "No version found for this set"}
+            raise ToolError("No version found for this set")
 
         stmt = (
             select(SetItem)
@@ -157,7 +151,7 @@ async def deliver_set(
         items = list(result.scalars().all())
 
         if not items:
-            return {"error": "Set has no tracks"}
+            raise ToolError("Set has no tracks")
 
         if ctx:
             await ctx.info(f"Stage 1/4: Loaded {len(items)} tracks")
@@ -266,18 +260,18 @@ async def export_set(
     """Export set to format: m3u8, rekordbox, json, cheatsheet."""
     valid_formats = {"m3u8", "rekordbox", "json", "cheatsheet", "cheat_sheet"}
     if format not in valid_formats:
-        return {"error": f"Unknown format: {format}. Valid: {', '.join(sorted(valid_formats))}"}
+        raise ToolError(f"Unknown format: {format}. Valid: {', '.join(sorted(valid_formats))}")
 
-    async with await _get_session(ctx) as session:
+    async with get_db_session() as session:
         set_repo = SetRepository(session)
 
         dj_set = await set_repo.get_by_id(set_id)
         if dj_set is None:
-            return {"error": f"Set {set_id} not found"}
+            raise ToolError(f"Set {set_id} not found")
 
         target_version = await set_repo.get_latest_version(set_id)
         if target_version is None:
-            return {"error": "No version found for this set"}
+            raise ToolError("No version found for this set")
 
         stmt = (
             select(SetItem)
@@ -288,7 +282,7 @@ async def export_set(
         items = list(result.scalars().all())
 
         if not items:
-            return {"error": "Set has no tracks"}
+            raise ToolError("Set has no tracks")
 
         export_data = await _build_export_data(session, dj_set, target_version, items)
 
@@ -313,7 +307,7 @@ async def export_set(
             out = base_dir / f"{safe_name}_cheat.txt" if base_dir.is_dir() else base_dir
             path = write_cheat_sheet(export_data, out)
         else:
-            return {"error": f"Unsupported format: {format}"}
+            raise ToolError(f"Unsupported format: {format}")
 
         return {
             "set_id": set_id,

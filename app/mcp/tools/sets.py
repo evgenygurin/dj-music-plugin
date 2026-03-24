@@ -2,21 +2,15 @@
 
 from __future__ import annotations
 
+from fastmcp.exceptions import ToolError
 from fastmcp.server.context import Context
 
+from app.mcp.dependencies import get_db_session
 from app.models.set import DjSet, SetItem, SetVersion
 from app.repositories.set import SetRepository
 from app.repositories.track import TrackRepository
 from app.repositories.transition import TransitionRepository
 from app.server import mcp
-
-
-async def _get_session(ctx: Context | None):  # type: ignore[no-untyped-def]
-    """Get async session from lifespan context."""
-    if ctx is None:
-        raise RuntimeError("Context required")
-    factory = ctx.lifespan_context["db_session_factory"]
-    return factory()
 
 
 @mcp.tool(tags={"sets"}, annotations={"readOnlyHint": False}, timeout=120.0)
@@ -33,7 +27,7 @@ async def build_set(
     if ctx:
         await ctx.info(f"Building set '{name}' from playlist {playlist_id}...")
 
-    async with await _get_session(ctx) as session:
+    async with get_db_session() as session:
         TrackRepository(session)
         SetRepository(session)
 
@@ -51,7 +45,7 @@ async def build_set(
         track_ids = [r[0] for r in result.all()]
 
         if not track_ids:
-            return {"error": "Playlist is empty", "set_id": None}
+            raise ToolError("Playlist is empty")
 
         if ctx:
             await ctx.info(f"Found {len(track_ids)} tracks, building order...")
@@ -84,7 +78,6 @@ async def build_set(
             if ctx:
                 await ctx.info(f"Set created: {dj_set.id}, version: {version.id}")
 
-            await session.commit()
             return {
                 "set_id": dj_set.id,
                 "version_id": version.id,
@@ -114,15 +107,15 @@ async def rebuild_set(
     if ctx:
         await ctx.info(f"Rebuilding set {set_id}...")
 
-    async with await _get_session(ctx) as session:
+    async with get_db_session() as session:
         set_repo = SetRepository(session)
         dj_set = await set_repo.get_by_id(set_id)
         if dj_set is None:
-            return {"error": f"Set {set_id} not found"}
+            raise ToolError(f"Set {set_id} not found")
 
         latest = await set_repo.get_latest_version(set_id)
         if latest is None:
-            return {"error": "No version found for this set"}
+            raise ToolError("No version found for this set")
 
         # Get current track ids from latest version
         from sqlalchemy import select
@@ -154,7 +147,6 @@ async def rebuild_set(
             )
             session.add(item)
         await session.flush()
-        await session.commit()
 
         return {
             "set_id": set_id,
@@ -177,7 +169,7 @@ async def score_transitions(
     ctx: Context | None = None,
 ) -> dict:
     """Score transitions: mode=set (all pairs), pair (two tracks), track_candidates (best next)."""
-    async with await _get_session(ctx) as session:
+    async with get_db_session() as session:
         transition_repo = TransitionRepository(session)
         TrackRepository(session)
 
@@ -222,7 +214,7 @@ async def score_transitions(
             set_repo = SetRepository(session)
             latest = await set_repo.get_latest_version(set_id)
             if not latest:
-                return {"error": "No version found"}
+                raise ToolError("No version found")
 
             from sqlalchemy import select
 
@@ -256,7 +248,7 @@ async def score_transitions(
                 "transitions": transitions_data,
             }
 
-        return {"error": "Invalid mode or missing parameters"}
+        raise ToolError("Invalid mode or missing parameters")
 
 
 @mcp.tool(tags={"sets"}, annotations={"readOnlyHint": True})
@@ -266,17 +258,17 @@ async def get_set_cheat_sheet(
     ctx: Context | None = None,
 ) -> str:
     """Human-readable cheat sheet: BPM flow, key changes, energy arc."""
-    async with await _get_session(ctx) as session:
+    async with get_db_session() as session:
         set_repo = SetRepository(session)
         track_repo = TrackRepository(session)
 
         dj_set = await set_repo.get_by_id(set_id)
         if not dj_set:
-            return f"Set {set_id} not found"
+            raise ToolError(f"Set {set_id} not found")
 
         latest = await set_repo.get_latest_version(set_id)
         if not latest:
-            return "No version found"
+            raise ToolError("No version found")
 
         from sqlalchemy import select
 

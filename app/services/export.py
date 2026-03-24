@@ -26,6 +26,7 @@ class ExportTrack:
     sections: list[dict[str, Any]] = field(default_factory=list)
     mood: str | None = None
     notes: str | None = None
+    eq_settings: dict[str, Any] | None = None
 
 
 @dataclass
@@ -101,6 +102,10 @@ def write_m3u8(data: SetExportData, output_path: Path) -> Path:
                 f"{trans.score or 0:.2f},{trans.bpm_delta or 0:.1f},"
                 f"{trans.key_distance or 0},{trans.energy_delta or 0:.1f}"
             )
+
+        if track.eq_settings:
+            eq_parts = ",".join(f"{k}={v}" for k, v in track.eq_settings.items())
+            lines.append(f"#EXTDJ-EQ:{eq_parts}")
 
         if track.notes:
             lines.append(f"#EXTDJ-NOTE:{track.notes}")

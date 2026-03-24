@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from fastmcp.exceptions import ToolError
 from fastmcp.server.context import Context
 
 from app.server import mcp
@@ -27,7 +28,7 @@ async def ym_search(
     """
     valid_types = ("tracks", "albums", "artists", "playlists", "all")
     if type not in valid_types:
-        return {"error": f"Invalid type: {type}. Valid: {', '.join(valid_types)}"}
+        raise ToolError(f"Invalid type: {type}. Valid: {', '.join(valid_types)}")
 
     # Stub — real implementation needs YM client from lifespan
     return {
@@ -55,9 +56,9 @@ async def ym_get_tracks(
 ) -> dict[str, Any]:
     """Batch get tracks from Yandex Music by IDs (up to 100)."""
     if not track_ids:
-        return {"error": "track_ids required"}
+        raise ToolError("track_ids required")
     if len(track_ids) > 100:
-        return {"error": "Maximum 100 track IDs per request"}
+        raise ToolError("Maximum 100 track IDs per request")
 
     # Stub — real implementation needs YM client from lifespan
     return {
@@ -109,7 +110,7 @@ async def ym_artist_tracks(
     """
     valid_sorts = ("date", "popularity")
     if sort_by not in valid_sorts:
-        return {"error": f"Invalid sort_by: {sort_by}. Valid: {', '.join(valid_sorts)}"}
+        raise ToolError(f"Invalid sort_by: {sort_by}. Valid: {', '.join(valid_sorts)}")
 
     # Stub — real implementation needs YM client from lifespan
     return {
@@ -147,19 +148,19 @@ async def ym_playlists(
     """
     valid_actions = ("get", "list", "create", "rename", "delete", "add_tracks", "remove_tracks")
     if action not in valid_actions:
-        return {"error": f"Invalid action: {action}. Valid: {', '.join(valid_actions)}"}
+        raise ToolError(f"Invalid action: {action}. Valid: {', '.join(valid_actions)}")
 
     if action in ("get", "rename", "delete", "add_tracks", "remove_tracks") and kind is None:
-        return {"error": f"kind required for action '{action}'"}
+        raise ToolError(f"kind required for action '{action}'")
 
     if action in ("create", "rename") and not name:
-        return {"error": f"name required for action '{action}'"}
+        raise ToolError(f"name required for action '{action}'")
 
     if action in ("add_tracks", "remove_tracks"):
         if not track_ids:
-            return {"error": f"track_ids required for action '{action}'"}
+            raise ToolError(f"track_ids required for action '{action}'")
         if revision is None:
-            return {"error": f"revision required for action '{action}'"}
+            raise ToolError(f"revision required for action '{action}'")
 
     # Stub — real implementation needs YM client from lifespan
     return {
@@ -189,10 +190,10 @@ async def ym_likes(
     """
     valid_actions = ("get_liked", "add", "remove")
     if action not in valid_actions:
-        return {"error": f"Invalid action: {action}. Valid: {', '.join(valid_actions)}"}
+        raise ToolError(f"Invalid action: {action}. Valid: {', '.join(valid_actions)}")
 
     if action in ("add", "remove") and not track_ids:
-        return {"error": f"track_ids required for action '{action}'"}
+        raise ToolError(f"track_ids required for action '{action}'")
 
     # Stub — real implementation needs YM client from lifespan
     return {

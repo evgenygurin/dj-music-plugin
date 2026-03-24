@@ -4,24 +4,14 @@ from __future__ import annotations
 
 from typing import Any
 
+from fastmcp.exceptions import ToolError
 from fastmcp.server.context import Context
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.mcp.dependencies import get_db_session
 from app.models.track import Track, TrackExternalId
 from app.repositories.track import TrackRepository
 from app.server import mcp
-
-# ── Helpers ──────────────────────────────────────────
-
-
-async def _get_session(ctx: Context | None) -> AsyncSession:
-    """Get async session from lifespan context."""
-    if ctx is None:
-        raise RuntimeError("Context required — tools must be called via MCP")
-    factory = ctx.lifespan_context["db_session_factory"]
-    return factory()
-
 
 # ── 1. find_similar_tracks ──────────────────────────
 
@@ -41,15 +31,15 @@ async def find_similar_tracks(
     """Find similar tracks by strategy: ym, embedding, llm, combined."""
     valid_strategies = {"ym", "embedding", "llm", "combined"}
     if strategy not in valid_strategies:
-        return {
-            "error": f"Unknown strategy: {strategy}. Valid: {', '.join(sorted(valid_strategies))}"
-        }
+        raise ToolError(
+            f"Unknown strategy: {strategy}. Valid: {', '.join(sorted(valid_strategies))}"
+        )
 
-    async with await _get_session(ctx) as session:
+    async with get_db_session() as session:
         track_repo = TrackRepository(session)
         track = await track_repo.get_by_id(track_id)
         if track is None:
-            return {"error": f"Track {track_id} not found"}
+            raise ToolError(f"Track {track_id} not found")
 
         if strategy == "ym":
             # Stub: YM similar tracks API will be integrated later
@@ -107,9 +97,9 @@ async def import_tracks(
 ) -> dict[str, Any]:
     """Import YM track IDs into local DB. Idempotent — skips existing."""
     if not track_refs:
-        return {"error": "track_refs is required (list of YM track IDs)"}
+        raise ToolError("track_refs is required (list of YM track IDs)")
 
-    async with await _get_session(ctx) as session:
+    async with get_db_session() as session:
         track_repo = TrackRepository(session)
 
         imported = 0
@@ -153,8 +143,6 @@ async def import_tracks(
             if ctx and imported % 10 == 0:
                 await ctx.info(f"Imported {imported} tracks...")
 
-        await session.commit()
-
         if ctx:
             await ctx.info(f"Import complete: {imported} new, {skipped} skipped")
 
@@ -194,7 +182,7 @@ async def download_tracks(
 ) -> dict[str, Any]:
     """Download MP3 from YM for given track refs."""
     if not track_refs:
-        return {"error": "track_refs is required (list of YM track IDs)"}
+        raise ToolError("track_refs is required (list of YM track IDs)")
 
     # Stub: actual download requires ym_client with authenticated session
     if ctx:

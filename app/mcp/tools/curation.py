@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from fastmcp.exceptions import ToolError
 from fastmcp.server.context import Context
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -12,6 +13,7 @@ from sqlalchemy.orm import selectinload
 from app.audio.mood import MoodClassifier
 from app.config import settings
 from app.core.constants import TechnoSubgenre
+from app.mcp.dependencies import get_db_session
 from app.models.audio import TrackAudioFeaturesComputed
 from app.models.playlist import Playlist, PlaylistItem
 from app.models.set import DjSet, SetItem
@@ -22,14 +24,6 @@ from app.repositories.transition import TransitionRepository
 from app.server import mcp
 
 # ── Helpers ──────────────────────────────────────────
-
-
-async def _get_session(ctx: Context | None) -> AsyncSession:
-    """Get async session from lifespan context."""
-    if ctx is None:
-        raise RuntimeError("Context required — tools must be called via MCP")
-    factory = ctx.lifespan_context["db_session_factory"]
-    return factory()
 
 
 async def _load_track_features(
@@ -92,9 +86,9 @@ async def classify_mood(
 ) -> dict[str, Any]:
     """Classify tracks by 15 techno subgenres using rule-based MoodClassifier."""
     if not track_ids and playlist_id is None:
-        return {"error": "Provide track_ids or playlist_id"}
+        raise ToolError("Provide track_ids or playlist_id")
 
-    async with await _get_session(ctx) as session:
+    async with get_db_session() as session:
         # Resolve track IDs from playlist if needed
         ids_to_classify: list[int] = list(track_ids or [])
         if playlist_id is not None:
@@ -107,7 +101,7 @@ async def classify_mood(
             ids_to_classify.extend(r[0] for r in result.all())
 
         if not ids_to_classify:
-            return {"error": "No tracks to classify"}
+            raise ToolError("No tracks to classify")
 
         classifier = MoodClassifier()
         classifications: list[dict[str, Any]] = []
@@ -171,9 +165,9 @@ async def audit_playlist(
 ) -> dict[str, Any]:
     """Audit playlist for techno quality criteria and library gaps."""
     if playlist_id is None and playlist_query is None:
-        return {"error": "Provide playlist_id or playlist_query"}
+        raise ToolError("Provide playlist_id or playlist_query")
 
-    async with await _get_session(ctx) as session:
+    async with get_db_session() as session:
         # Resolve playlist
         playlist: Playlist | None = None
         if playlist_id is not None:
@@ -195,11 +189,11 @@ async def audit_playlist(
             playlist = result.scalar_one_or_none()
 
         if playlist is None:
-            return {"error": "Playlist not found"}
+            raise ToolError("Playlist not found")
 
         track_ids = [item.track_id for item in sorted(playlist.items, key=lambda i: i.sort_index)]
         if not track_ids:
-            return {"error": "Playlist is empty"}
+            raise ToolError("Playlist is empty")
 
         track_repo = TrackRepository(session)
 
@@ -310,18 +304,18 @@ async def review_set_quality(
     ctx: Context | None = None,
 ) -> dict[str, Any]:
     """Detailed set quality review: transitions, energy arc, key flow."""
-    async with await _get_session(ctx) as session:
+    async with get_db_session() as session:
         set_repo = SetRepository(session)
         TrackRepository(session)
         transition_repo = TransitionRepository(session)
 
         dj_set = await set_repo.get_by_id(set_id)
         if dj_set is None:
-            return {"error": f"Set {set_id} not found"}
+            raise ToolError(f"Set {set_id} not found")
 
         target_version = await set_repo.get_latest_version(set_id)
         if target_version is None:
-            return {"error": "No version found"}
+            raise ToolError("No version found")
 
         stmt = (
             select(SetItem)
@@ -332,7 +326,7 @@ async def review_set_quality(
         items = list(result.scalars().all())
 
         if not items:
-            return {"error": "Set has no tracks"}
+            raise ToolError("Set has no tracks")
 
         # Collect per-track data
         bpm_flow: list[float | None] = []
@@ -434,9 +428,9 @@ async def distribute_to_subgenres(
     """Distribute tracks to 15 subgenre playlists based on mood classification."""
     valid_modes = {"append", "clean_rebuild"}
     if mode not in valid_modes:
-        return {"error": f"Unknown mode: {mode}. Valid: {', '.join(sorted(valid_modes))}"}
+        raise ToolError(f"Unknown mode: {mode}. Valid: {', '.join(sorted(valid_modes))}")
 
-    async with await _get_session(ctx) as session:
+    async with get_db_session() as session:
         # Get source tracks
         if source_playlist_id is not None:
             stmt = (
@@ -453,7 +447,7 @@ async def distribute_to_subgenres(
             track_ids = [r[0] for r in result.all()]
 
         if not track_ids:
-            return {"error": "No tracks to distribute"}
+            raise ToolError("No tracks to distribute")
 
         if ctx:
             await ctx.info(f"Distributing {len(track_ids)} tracks to subgenre playlists...")
@@ -555,7 +549,7 @@ async def get_library_stats(
     ctx: Context | None = None,
 ) -> dict[str, Any]:
     """Library dashboard: counts, coverage, distributions."""
-    async with await _get_session(ctx) as session:
+    async with get_db_session() as session:
         # Track counts
         stmt_total = select(func.count(Track.id))
         result = await session.execute(stmt_total)

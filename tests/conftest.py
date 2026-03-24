@@ -82,3 +82,46 @@ async def seeded_db(db):  # type: ignore[no-untyped-def]
         pass  # Key model not yet created
 
     yield db
+
+
+# ── MCP Client fixtures ──────────────────────────────
+
+
+def _parse_tool_result(result):  # type: ignore[no-untyped-def]
+    """Extract dict from MCP CallToolResult."""
+    import json as _json
+
+    if hasattr(result, "data") and isinstance(result.data, dict):
+        return result.data
+    content = getattr(result, "content", result)
+    if isinstance(content, list) and len(content) > 0:
+        block = content[0]
+        text = getattr(block, "text", None) or str(block)
+        return _json.loads(text)
+    if isinstance(result, dict):
+        return result
+    raise ValueError(f"Unexpected result type: {type(result)}")
+
+
+@pytest.fixture
+async def client(async_engine):  # type: ignore[no-untyped-def]
+    """FastMCP test client with in-memory DB session factory."""
+    from fastmcp import Client
+    from fastmcp.server.lifespan import Lifespan
+    from sqlalchemy.ext.asyncio import async_sessionmaker
+
+    from app.server import mcp
+
+    factory = async_sessionmaker(async_engine, expire_on_commit=False)
+    original_lifespan = mcp._lifespan
+
+    async def _test_lifespan(server):  # type: ignore[no-untyped-def]
+        yield {"db_engine": async_engine, "db_session_factory": factory}
+
+    mcp._lifespan = Lifespan(_test_lifespan)
+
+    try:
+        async with Client(mcp) as c:
+            yield c
+    finally:
+        mcp._lifespan = original_lifespan
