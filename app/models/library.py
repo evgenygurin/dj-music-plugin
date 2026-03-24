@@ -1,6 +1,5 @@
 """DJ library models — file items, beatgrids, cues, loops (REQUIREMENTS §2.3)."""
 
-
 from sqlalchemy import CheckConstraint, ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
