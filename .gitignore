@@ -33,9 +33,23 @@ htmlcov/
 CLAUDE.local.md
 .claude/settings.local.json
 
-# Audio cache
+# Override global .gitignore: track .claude/rules/ and settings.json
+!.claude/
+!.claude/rules/
+!.claude/rules/**
+!.claude/settings.json
+
+# Audio cache & generated output
 cache/
 generated-sets/
+
+# In-Memoria (codebase intelligence)
+in-memoria.db
+in-memoria-vectors.db
+.in-memoria/cache/
+
+# uv
+uv.lock
 
 # OS
 .DS_Store

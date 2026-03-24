@@ -675,10 +675,11 @@ dj-music-plugin/
 │   │   └── dependencies.py    # Depends factories: get_db_session, etc.
 │   ├── core/                  # Shared utilities
 │   │   ├── __init__.py
+│   │   ├── constants.py       # Enums, Camelot keys, domain constants
 │   │   ├── errors.py          # DJMusicError hierarchy
 │   │   ├── pagination.py      # CursorPagination
 │   │   ├── entity_resolver.py # EntityResolver (flexible refs)
-│   │   ├── camelot.py         # Camelot wheel, key distance
+│   │   ├── camelot.py         # Camelot wheel distance/compatibility logic
 │   │   └── schemas.py         # Shared Pydantic response models
 │   └── migrations/            # Alembic
 │       ├── env.py
@@ -712,7 +713,270 @@ dj-music-plugin/
 
 ## 14. Configuration
 
-All via environment variables (pydantic-settings):
+All via environment variables (pydantic-settings). **No magic numbers in code** — every
+tunable value lives in `app/config.py` as a typed, documented, env-overridable field.
+
+### 14.1 Settings Class
+
+```python
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+class Settings(BaseSettings):
+    model_config = SettingsConfigDict(env_prefix="DJ_", env_file=".env")
+
+    # ── Database ──────────────────────────────────────
+    database_url: str = "sqlite+aiosqlite:///dj_music.db"
+
+    # ── Yandex Music ──────────────────────────────────
+    ym_token: str = ""
+    ym_user_id: str = ""
+    ym_base_url: str = "https://api.music.yandex.net"
+    ym_library_path: str = ""
+    ym_rate_limit_delay: float = 1.5        # seconds between YM API calls
+    ym_retry_attempts: int = 3
+    ym_retry_backoff_factor: float = 2.0    # exponential backoff multiplier
+
+    # ── MCP Server ────────────────────────────────────
+    server_name: str = "DJ Music"
+    pagination_size: int = 20
+    pagination_max: int = 100
+    cache_dir: str = "cache/"
+    mcp_retry_attempts: int = 3
+    mcp_retry_delay: float = 1.0
+    payload_logging: bool = False
+    debug: bool = False
+
+    # ── Transition Scoring ────────────────────────────
+    transition_cache_ttl: int = 3600        # seconds
+    transition_cache_max_size: int = 10_000  # max cached pairs
+    transition_hard_reject_bpm_diff: float = 10.0
+    transition_hard_reject_camelot_dist: int = 5
+    transition_hard_reject_energy_gap: float = 6.0  # LUFS
+
+    # ── GA Optimizer ──────────────────────────────────
+    ga_population_size: int = 100
+    ga_max_generations: int = 200
+    ga_mutation_rate: float = 0.15
+    ga_elitism_rate: float = 0.05
+    ga_tournament_size: int = 3
+    ga_convergence_threshold: int = 20      # generations without improvement
+
+    # ── Audio Analysis ────────────────────────────────
+    audio_analysis_timeout: float = 120.0   # per-track timeout (seconds)
+    audio_batch_timeout: float = 600.0
+    audio_stem_timeout: float = 300.0
+    audio_hop_length: int = 512
+    audio_sample_rate: int = 22050
+    audio_mfcc_n_coeffs: int = 13
+
+    # ── Techno Quality Criteria ───────────────────────
+    techno_bpm_min: float = 120.0
+    techno_bpm_max: float = 155.0
+    techno_lufs_min: float = -20.0
+    techno_lufs_max: float = -4.0
+    techno_energy_min: float = 0.05
+    techno_onset_rate_min: float = 1.0
+    techno_kick_prominence_min: float = 0.05
+    techno_pulse_clarity_min: float = 0.02
+    techno_hp_ratio_max: float = 8.0
+    techno_centroid_min: float = 300.0      # Hz
+    techno_centroid_max: float = 10_000.0   # Hz
+    techno_flatness_max: float = 0.5
+    techno_tempo_confidence_min: float = 0.3
+    techno_bpm_stability_min: float = 0.3
+    techno_crest_factor_max: float = 30.0   # dB
+    techno_lra_max: float = 25.0            # LU
+    techno_hnr_min: float = -30.0           # dB
+
+    # ── Mood Classifier ───────────────────────────────
+    mood_catch_all_penalty: float = 0.85    # penalty for driving/hypnotic
+    mood_confidence_threshold: float = 0.3  # min confidence for classification
+
+    # ── Delivery ──────────────────────────────────────
+    delivery_output_dir: str = "generated-sets/"
+    delivery_icloud_stub_threshold: float = 0.9  # blocks/size ratio
+
+    # ── LLM Sampling ─────────────────────────────────
+    anthropic_api_key: str = ""             # env: ANTHROPIC_API_KEY (no DJ_ prefix)
+    sampling_model: str = "claude-sonnet-4-5"
+    sampling_max_tokens: int = 512
+    sampling_temperature: float = 0.8
+
+    # ── Observability ─────────────────────────────────
+    sentry_dsn: str = ""                    # env: SENTRY_DSN (no DJ_ prefix)
+    otel_endpoint: str = ""                 # env: OTEL_EXPORTER_OTLP_ENDPOINT
+    otel_service_name: str = "dj-music"     # env: OTEL_SERVICE_NAME
+
+    @property
+    def is_dev(self) -> bool:
+        return self.debug
+
+    model_config = SettingsConfigDict(
+        env_prefix="DJ_",
+        env_file=".env",
+        env_file_encoding="utf-8",
+        # Allow ANTHROPIC_API_KEY, SENTRY_DSN, OTEL_* without DJ_ prefix
+        env_nested_delimiter=None,
+    )
+
+settings = Settings()
+```
+
+### 14.2 Usage Pattern
+
+All code references `settings.*` — never hardcoded values:
+
+```python
+# ✅ Correct — from settings
+if bpm_diff > settings.transition_hard_reject_bpm_diff:
+    return 0.0
+
+scorer = TransitionScorer(
+    bpm_threshold=settings.transition_hard_reject_bpm_diff,
+    camelot_threshold=settings.transition_hard_reject_camelot_dist,
+    energy_threshold=settings.transition_hard_reject_energy_gap,
+)
+
+optimizer = GeneticAlgorithm(
+    population_size=settings.ga_population_size,
+    max_generations=settings.ga_max_generations,
+    mutation_rate=settings.ga_mutation_rate,
+)
+
+# ❌ Wrong — hardcoded magic numbers
+if bpm_diff > 10:        # What is 10? Where does it come from?
+    return 0.0
+```
+
+### 14.3 Domain Constants (`app/core/constants.py`)
+
+Non-configurable domain constants that define the system's vocabulary:
+
+```python
+from enum import IntEnum, StrEnum
+
+class TrackStatus(IntEnum):
+    ACTIVE = 0
+    ARCHIVED = 1
+
+class SectionType(IntEnum):
+    INTRO = 0
+    ATTACK = 1
+    BUILD = 2
+    PRE_DROP = 3
+    DROP = 4
+    PEAK = 5
+    BREAKDOWN = 6
+    OUTRO = 7
+    RISE = 8
+    VALLEY = 9
+    SUSTAIN = 10
+
+class CueKind(IntEnum):
+    CUE = 0
+    HOT_CUE_1 = 1
+    HOT_CUE_2 = 2
+    HOT_CUE_3 = 3
+    HOT_CUE_4 = 4
+    HOT_CUE_5 = 5
+    HOT_CUE_6 = 6
+    HOT_CUE_7 = 7
+    MEMORY = 8  # not in spec, but logical extension
+
+class TechnoSubgenre(StrEnum):
+    """15 subgenres ordered by energy intensity (low → high)."""
+    AMBIENT_DUB = "ambient_dub"
+    DUB_TECHNO = "dub_techno"
+    MINIMAL = "minimal"
+    DETROIT = "detroit"
+    MELODIC_DEEP = "melodic_deep"
+    PROGRESSIVE = "progressive"
+    HYPNOTIC = "hypnotic"
+    DRIVING = "driving"
+    TRIBAL = "tribal"
+    BREAKBEAT = "breakbeat"
+    PEAK_TIME = "peak_time"
+    ACID = "acid"
+    RAW = "raw"
+    INDUSTRIAL = "industrial"
+    HARD_TECHNO = "hard_techno"
+
+class ExportFormat(StrEnum):
+    M3U8 = "m3u8"
+    REKORDBOX_XML = "rekordbox_xml"
+    JSON_GUIDE = "json_guide"
+    CHEAT_SHEET = "cheat_sheet"
+
+class TargetApp(StrEnum):
+    TRAKTOR = "traktor"
+    REKORDBOX = "rekordbox"
+    DJAY = "djay"
+    GENERIC = "generic"
+
+class Provider(StrEnum):
+    YANDEX_MUSIC = "yandex_music"
+    SPOTIFY = "spotify"
+    BEATPORT = "beatport"
+    SOUNDCLOUD = "soundcloud"
+
+class SetTemplate(StrEnum):
+    WARM_UP_30 = "warm_up_30"
+    CLASSIC_60 = "classic_60"
+    PEAK_HOUR_60 = "peak_hour_60"
+    ROLLER_90 = "roller_90"
+    PROGRESSIVE_120 = "progressive_120"
+    WAVE_120 = "wave_120"
+    CLOSING_60 = "closing_60"
+    FULL_LIBRARY = "full_library"
+
+# Camelot wheel: 24 keys, static
+CAMELOT_KEYS: dict[int, tuple[str, str]] = {
+    # key_code: (camelot_notation, key_name)
+    0: ("1A", "A♭ minor"),   1: ("1B", "B major"),
+    2: ("2A", "E♭ minor"),   3: ("2B", "F♯ major"),
+    4: ("3A", "B♭ minor"),   5: ("3B", "D♭ major"),
+    6: ("4A", "F minor"),    7: ("4B", "A♭ major"),
+    8: ("5A", "C minor"),    9: ("5B", "E♭ major"),
+    10: ("6A", "G minor"),  11: ("6B", "B♭ major"),
+    12: ("7A", "D minor"),  13: ("7B", "F major"),
+    14: ("8A", "A minor"),  15: ("8B", "C major"),
+    16: ("9A", "E minor"),  17: ("9B", "G major"),
+    18: ("10A", "B minor"), 19: ("10B", "D major"),
+    20: ("11A", "F♯ minor"),21: ("11B", "A major"),
+    22: ("12A", "D♭ minor"),23: ("12B", "E major"),
+}
+
+# BPM constraints
+BPM_MIN = 20.0
+BPM_MAX = 300.0
+
+# Confidence constraints
+CONFIDENCE_MIN = 0.0
+CONFIDENCE_MAX = 1.0
+
+# Energy constraints
+ENERGY_MIN = 0.0
+ENERGY_MAX = 1.0
+
+# Hotcue index range
+HOTCUE_INDEX_MIN = 0
+HOTCUE_INDEX_MAX = 15
+
+# Key code range
+KEY_CODE_MIN = 0
+KEY_CODE_MAX = 23
+
+# Transition scoring weights (default, overridable per-template)
+DEFAULT_TRANSITION_WEIGHTS = {
+    "bpm": 0.25,
+    "harmonic": 0.20,
+    "energy": 0.25,
+    "spectral": 0.15,
+    "groove": 0.15,
+}
+```
+
+### 14.4 Environment Variables Reference
 
 | Variable | Default | Purpose |
 |----------|---------|---------|
@@ -723,14 +987,19 @@ All via environment variables (pydantic-settings):
 | `DJ_YM_USER_ID` | — | YM user ID |
 | `DJ_YM_BASE_URL` | `https://api.music.yandex.net` | YM API base URL |
 | `DJ_YM_LIBRARY_PATH` | — | iCloud library path for downloads |
+| `DJ_YM_RATE_LIMIT_DELAY` | `1.5` | Seconds between YM API calls |
 | **MCP** | | |
 | `DJ_CACHE_DIR` | `cache/` | Audio cache directory |
-| `DJ_CACHE_TTL` | `3600` | Transition cache TTL (seconds) |
 | `DJ_PAGINATION_SIZE` | `20` | Default page size |
 | `DJ_MCP_RETRY_ATTEMPTS` | `3` | Retry attempts for transient errors |
 | `DJ_MCP_RETRY_DELAY` | `1.0` | Base retry delay (seconds) |
 | `DJ_PAYLOAD_LOGGING` | `false` | Log full request/response payloads |
 | `DJ_DEBUG` | `false` | Debug mode (hot reload, verbose logs) |
+| **Scoring & Optimization** | | |
+| `DJ_TRANSITION_CACHE_TTL` | `3600` | Transition cache TTL (seconds) |
+| `DJ_GA_POPULATION_SIZE` | `100` | GA population size |
+| `DJ_GA_MAX_GENERATIONS` | `200` | GA max generations |
+| `DJ_GA_MUTATION_RATE` | `0.15` | GA mutation rate |
 | **LLM Sampling** | | |
 | `ANTHROPIC_API_KEY` | — | For sampling fallback |
 | `DJ_SAMPLING_MODEL` | `claude-sonnet-4-5` | Sampling model name |
@@ -793,3 +1062,183 @@ def synthetic_audio():
 | MCP tools | 100% metadata + 90% integration |
 | Resources | 100% |
 | Prompts | 100% structure validation |
+
+---
+
+## 16. Documentation & Developer Infrastructure
+
+### 16.1 CLAUDE.md — Project Rules
+
+CLAUDE.md is the primary Claude Code instructions file. It must contain:
+
+- Project purpose and pointer to REQUIREMENTS.md and design spec
+- Language/framework constraints (Python 3.12+, async, strict typing)
+- Dev commands (`uv sync`, `uv run pytest`, `uv run ruff`, `uv run mypy`)
+- Architecture summary (layers: models → repos → services → tools)
+- Plugin usage rules (when to use fastmcp-builder, mcp-server-dev, etc.)
+- Key patterns: "no magic numbers", "settings.* for all config", "constants.py for enums"
+- Commit conventions (conventional commits, Russian communication)
+
+### 16.2 Path-Specific Rules (`.claude/rules/`)
+
+Rules that activate only when Claude reads/writes files matching a path pattern:
+
+| File | Glob Pattern | Rules |
+|------|-------------|-------|
+| `models.md` | `app/models/**/*.py` | SQLAlchemy 2.0 async style, mapped_column, CheckConstraint for domain ranges, __tablename__ convention, always add created_at/updated_at |
+| `repositories.md` | `app/repositories/**/*.py` | Extend BaseRepository, session.flush() never commit, cursor pagination via _paginate(), return model instances not dicts |
+| `services.md` | `app/services/**/*.py` | Never import session directly, receive repos via __init__, raise domain errors (NotFoundError, ValidationError), no MCP/FastMCP imports |
+| `tools.md` | `app/mcp/tools/**/*.py` | Use @tool decorator, Depends() for DI, annotations required, tags required, descriptions ≤50 words, return Pydantic models for structuredContent |
+| `resources.md` | `app/mcp/resources/**/*.py` | Use @resource decorator, return JSON strings or ResourceResult, tags required, template URIs for parametric |
+| `tests.md` | `tests/**/*.py` | pytest-asyncio, use client fixture for MCP tests, use seeded_db for DB tests, assert on structured_content, never mock the database |
+| `audio.md` | `app/audio/**/*.py` | Check optional deps with try/import, register in AnalyzerRegistry, return typed result dataclasses, handle partial failures |
+| `ym.md` | `app/ym/**/*.py` | All methods async, respect rate_limiter, return typed Pydantic models, handle 429/403/400 specifically |
+| `config.md` | `app/config.py` | All values in Settings class, env_prefix="DJ_", no magic numbers, document units in comments |
+
+### 16.3 README.md Structure
+
+```markdown
+# DJ Music Plugin
+
+> MCP server for DJ techno music library management
+
+## Features
+- 44 MCP tools across 10 categories
+- Audio analysis pipeline (BPM, key, energy, mood classification)
+- DJ set generation (genetic algorithm + greedy builder)
+- Yandex Music integration (search, import, sync)
+- Export: M3U8, Rekordbox XML, JSON guide
+
+## Quick Start
+1. `uv sync`
+2. `cp .env.example .env` — fill in YM token
+3. `uv run fastmcp run app/server.py`
+
+## Development
+- `uv run pytest -v` — tests
+- `uv run ruff check && uv run ruff format --check` — lint
+- `uv run mypy app/` — type check
+- `uv run alembic upgrade head` — apply migrations
+
+## Architecture
+[pointer to design spec]
+
+## Configuration
+[pointer to §14 of design spec or .env.example]
+```
+
+### 16.4 CHANGELOG.md Format
+
+```markdown
+# Changelog
+
+All notable changes to this project will be documented in this file.
+Format based on [Keep a Changelog](https://keepachangelog.com/).
+
+## [Unreleased]
+
+### Added
+- Initial project scaffolding
+- Design specification (docs/superpowers/specs/)
+```
+
+### 16.5 pyproject.toml Structure
+
+```toml
+[project]
+name = "dj-music-plugin"
+version = "0.1.0"
+description = "MCP server for DJ techno music library management"
+requires-python = ">=3.12"
+dependencies = [
+    "fastmcp>=3.1.0",
+    "sqlalchemy[asyncio]>=2.0",
+    "aiosqlite>=0.20",
+    "pydantic>=2.0",
+    "pydantic-settings>=2.0",
+    "httpx>=0.27",
+    "numpy>=1.26",
+    "python-dotenv>=1.0",
+]
+
+[project.optional-dependencies]
+audio = ["librosa>=0.10", "soundfile>=0.12"]
+stems = ["demucs>=4.0", "torch>=2.0"]
+postgres = ["asyncpg>=0.29", "pgvector>=0.3"]
+otel = [
+    "opentelemetry-distro",
+    "opentelemetry-exporter-otlp",
+]
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.24",
+    "ruff>=0.8",
+    "mypy>=1.13",
+    "alembic>=1.14",
+]
+
+[tool.ruff]
+line-length = 99
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "N", "UP", "B", "SIM", "RUF"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+plugins = ["pydantic.mypy"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+```
+
+### 16.6 .env.example
+
+```bash
+# Database
+DJ_DATABASE_URL=sqlite+aiosqlite:///dj_music.db
+
+# Yandex Music (required for YM features)
+DJ_YM_TOKEN=your_oauth_token_here
+DJ_YM_USER_ID=your_user_id_here
+DJ_YM_LIBRARY_PATH=/Users/you/Music/Music/Media.localized/
+
+# Debug
+DJ_DEBUG=false
+
+# LLM Sampling (optional — for find_similar_tracks with strategy=llm)
+# ANTHROPIC_API_KEY=sk-ant-...
+
+# Observability (optional)
+# SENTRY_DSN=https://...@sentry.io/...
+# OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4317
+```
+
+### 16.7 Makefile
+
+```makefile
+.PHONY: install test lint typecheck check migrate dev
+
+install:
+	uv sync --all-extras
+
+test:
+	uv run pytest -v
+
+lint:
+	uv run ruff check app/ tests/
+	uv run ruff format --check app/ tests/
+
+typecheck:
+	uv run mypy app/
+
+check: lint typecheck test
+
+migrate:
+	uv run alembic upgrade head
+
+dev:
+	uv run fastmcp dev app/server.py --reload
+```

@@ -1,6 +1,6 @@
 {
   "extraKnownMarketplaces": {
-    "fastmcp-builder-dev": {
+    "fastmcp-builder-skill": {
       "source": {
         "source": "github",
         "repo": "husniadil/fastmcp-builder"
@@ -26,7 +26,7 @@
     }
   },
   "enabledPlugins": {
-    "fastmcp-builder@fastmcp-builder-dev": true,
+    "fastmcp-builder@fastmcp-builder-skill": true,
     "python-expert@awesome-claude-code-plugins": true,
     "backend-architect@awesome-claude-code-plugins": true,
     "test-writer-fixer@awesome-claude-code-plugins": true,
