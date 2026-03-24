@@ -66,12 +66,21 @@ def _track_standard(
     ).model_dump()
 
 
-def _playlist_summary(p: Playlist) -> dict[str, Any]:
-    """Convert Playlist model to PlaylistSummary dict."""
+def _playlist_summary(p: Playlist, track_count: int | None = None) -> dict[str, Any]:
+    """Convert Playlist model to PlaylistSummary dict.
+
+    If track_count is not provided, attempts to read from items relationship.
+    Pass track_count=0 for newly created playlists to avoid lazy loading.
+    """
+    if track_count is None:
+        try:
+            track_count = len(p.items) if p.items else 0
+        except Exception:
+            track_count = 0
     return PlaylistSummary(
         id=p.id,
         name=p.name,
-        track_count=len(p.items) if p.items else 0,
+        track_count=track_count,
         source_of_truth=p.source_of_truth,
     ).model_dump()
 
@@ -333,7 +342,7 @@ async def manage_playlist(
             )
             playlist = await repo.create(playlist)
             await session.commit()
-            return _playlist_summary(playlist)
+            return _playlist_summary(playlist, track_count=0)
 
         playlist_id = (data or {}).get("id")
         if playlist_id is None:

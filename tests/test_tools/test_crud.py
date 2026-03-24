@@ -12,10 +12,14 @@ from app.server import mcp
 
 
 def _parse_result(result: Any) -> dict[str, Any]:
-    """Extract dict from MCP tool result (list of content blocks)."""
-    # FastMCP Client returns a list of content objects
-    if isinstance(result, list) and len(result) > 0:
-        block = result[0]
+    """Extract dict from MCP tool result (CallToolResult)."""
+    # FastMCP Client.call_tool returns CallToolResult with .data attribute
+    if hasattr(result, "data") and isinstance(result.data, dict):
+        return result.data
+    # Fallback: parse from content blocks
+    content = getattr(result, "content", result)
+    if isinstance(content, list) and len(content) > 0:
+        block = content[0]
         text = getattr(block, "text", None) or str(block)
         return json.loads(text)
     if isinstance(result, dict):
@@ -31,19 +35,19 @@ async def client(async_engine):
 
     factory = async_sessionmaker(async_engine, expire_on_commit=False)
 
-    # Patch lifespan context so tools can get a session
-    original_lifespan = mcp._lifespan_manager
+    # Patch the user-provided lifespan so tools can get a session
+    original_lifespan = mcp._lifespan
 
     async def _test_lifespan(server):  # type: ignore[no-untyped-def]
         yield {"db_engine": async_engine, "db_session_factory": factory}
 
-    mcp._lifespan_manager = Lifespan(_test_lifespan)
+    mcp._lifespan = Lifespan(_test_lifespan)
 
     try:
         async with Client(mcp) as c:
             yield c
     finally:
-        mcp._lifespan_manager = original_lifespan
+        mcp._lifespan = original_lifespan
 
 
 # ── list_tracks ──────────────────────────────────────
