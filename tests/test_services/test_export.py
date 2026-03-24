@@ -122,7 +122,7 @@ def test_m3u8_empty_set(tmp_path: Path) -> None:
     content = path.read_text()
     assert content.startswith("#EXTM3U")
     assert "#PLAYLIST:Empty Set" in content
-    lines = [l for l in content.strip().split("\n") if not l.startswith("#")]
+    lines = [line for line in content.strip().split("\n") if not line.startswith("#")]
     assert len(lines) == 0  # no file paths
 
 

@@ -365,7 +365,9 @@ async def manage_playlist(
                 await repo.add_track(playlist_id, tid, max_idx + 1 + i)
             await session.commit()
             playlist = await repo.get_with_items(playlist_id)
-            return _playlist_summary(playlist) if playlist else {"error": "Playlist lost"}
+            if not playlist:
+                raise ToolError("Playlist lost after add_tracks")
+            return _playlist_summary(playlist)
 
         if action == "remove_tracks":
             if not positions:
@@ -388,7 +390,9 @@ async def manage_playlist(
                 await repo.add_track(playlist_id, tid, pos)
             await session.commit()
             playlist = await repo.get_with_items(playlist_id)
-            return _playlist_summary(playlist) if playlist else {"error": "Playlist lost"}
+            if not playlist:
+                raise ToolError("Playlist lost after reorder")
+            return _playlist_summary(playlist)
 
         raise ToolError("Unreachable")
 
