@@ -63,7 +63,13 @@ mcp.disable(tags={"audio"})
 # Import tool modules to register with mcp
 # (will be populated as tools are implemented)
 import app.mcp.tools.admin
+import app.mcp.tools.audio
 import app.mcp.tools.crud
+import app.mcp.tools.curation
+import app.mcp.tools.delivery
+import app.mcp.tools.discovery
 import app.mcp.tools.reasoning
 import app.mcp.tools.search
-import app.mcp.tools.sets  # noqa: F401
+import app.mcp.tools.sets
+import app.mcp.tools.sync
+import app.mcp.tools.ym  # noqa: F401
