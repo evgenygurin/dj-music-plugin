@@ -1,0 +1,8 @@
+{
+  "name": "dj-music",
+  "version": "0.1.0",
+  "description": "DJ techno music library management — 44 MCP tools for set building, audio analysis, YM integration",
+  "author": {
+    "name": "laptop"
+  }
+}
