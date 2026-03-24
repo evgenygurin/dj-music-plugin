@@ -25,6 +25,8 @@ def decode_cursor(cursor: str) -> int:
 class CursorPage(BaseModel, Generic[T]):
     """Paginated result with cursor-based navigation."""
 
+    model_config = {"arbitrary_types_allowed": True}
+
     items: list[T]
     next_cursor: str | None
     total: int
