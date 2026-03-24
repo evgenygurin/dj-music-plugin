@@ -4,15 +4,43 @@ All fixtures use async SQLAlchemy with in-memory SQLite.
 """
 
 import pytest
+from sqlalchemy import event
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
+from app.models.audio import (  # noqa: F401
+    Embedding,
+    FeatureExtractionRun,
+    TimeseriesReference,
+    TrackAudioFeaturesComputed,
+    TrackSection,
+)
 from app.models.base import Base
+from app.models.key import Key, KeyEdge  # noqa: F401
+from app.models.library import (  # noqa: F401
+    DjBeatgrid,
+    DjBeatgridChangePoint,
+    DjCuePoint,
+    DjLibraryItem,
+    DjSavedLoop,
+)
+from app.models.playlist import Playlist, PlaylistItem  # noqa: F401
+from app.models.set import DjSet, SetConstraint, SetFeedback, SetItem, SetVersion  # noqa: F401
+from app.models.track import Track  # noqa: F401
+from app.models.transition import Transition, TransitionCandidate  # noqa: F401
+
+
+def _set_sqlite_pragma(dbapi_conn, _connection_record):
+    """Enable FK enforcement for SQLite connections."""
+    cursor = dbapi_conn.cursor()
+    cursor.execute("PRAGMA foreign_keys=ON")
+    cursor.close()
 
 
 @pytest.fixture
 async def async_engine():
     """In-memory async SQLite engine with all tables created."""
     engine = create_async_engine("sqlite+aiosqlite:///:memory:")
+    event.listen(engine.sync_engine, "connect", _set_sqlite_pragma)
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
     yield engine
