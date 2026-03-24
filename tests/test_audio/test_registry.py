@@ -1,0 +1,96 @@
+"""Tests for AnalyzerRegistry and BaseAnalyzer."""
+
+from __future__ import annotations
+
+import pytest
+
+from app.audio.registry import AnalyzerRegistry, AnalyzerResult, AudioSignal, BaseAnalyzer
+
+
+class DummyAnalyzer(BaseAnalyzer):
+    """Analyzer that always succeeds."""
+
+    name = "dummy"
+    capabilities = {"test"}
+    required_packages: list[str] = []
+
+    async def analyze(self, signal: AudioSignal) -> AnalyzerResult:
+        return AnalyzerResult(analyzer_name=self.name, features={"value": 42})
+
+
+class UnavailableAnalyzer(BaseAnalyzer):
+    """Analyzer whose dependency is never installed."""
+
+    name = "unavailable"
+    capabilities = {"test"}
+    required_packages = ["nonexistent_package_xyz_999"]
+
+    async def analyze(self, signal: AudioSignal) -> AnalyzerResult:
+        return AnalyzerResult(analyzer_name=self.name)
+
+
+class TestBaseAnalyzer:
+    def test_is_available_no_deps(self) -> None:
+        analyzer = DummyAnalyzer()
+        assert analyzer.is_available() is True
+
+    def test_is_available_missing_dep(self) -> None:
+        analyzer = UnavailableAnalyzer()
+        assert analyzer.is_available() is False
+
+
+class TestAnalyzerRegistry:
+    def test_register_and_get(self) -> None:
+        registry = AnalyzerRegistry()
+        analyzer = DummyAnalyzer()
+        registry.register(analyzer)
+        assert registry.get("dummy") is analyzer
+
+    def test_get_nonexistent(self) -> None:
+        registry = AnalyzerRegistry()
+        assert registry.get("nonexistent") is None
+
+    def test_list_all(self) -> None:
+        registry = AnalyzerRegistry()
+        registry.register(DummyAnalyzer())
+        registry.register(UnavailableAnalyzer())
+        assert sorted(registry.list_all()) == ["dummy", "unavailable"]
+
+    def test_list_available(self) -> None:
+        registry = AnalyzerRegistry()
+        registry.register(DummyAnalyzer())
+        registry.register(UnavailableAnalyzer())
+        assert registry.list_available() == ["dummy"]
+
+    def test_discover(self) -> None:
+        registry = AnalyzerRegistry()
+        registry.discover()
+        all_names = registry.list_all()
+        assert "loudness" in all_names
+        assert "energy" in all_names
+        assert "spectral" in all_names
+
+    def test_discover_all_available(self) -> None:
+        """All core analyzers should be available (pure numpy)."""
+        registry = AnalyzerRegistry()
+        registry.discover()
+        available = registry.list_available()
+        assert "loudness" in available
+        assert "energy" in available
+        assert "spectral" in available
+
+
+@pytest.mark.asyncio
+class TestDummyAnalyzer:
+    async def test_analyze(self) -> None:
+        import numpy as np
+
+        analyzer = DummyAnalyzer()
+        signal = AudioSignal(
+            samples=np.zeros(1000, dtype=np.float32),
+            sample_rate=22050,
+            duration_seconds=1000 / 22050,
+        )
+        result = await analyzer.analyze(signal)
+        assert result.success is True
+        assert result.features["value"] == 42
