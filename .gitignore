@@ -33,11 +33,12 @@ htmlcov/
 CLAUDE.local.md
 .claude/settings.local.json
 
-# Override global .gitignore: track .claude/rules/ and settings.json
+# Override global .gitignore: track .claude/rules/, settings.json, and .mcp.json
 !.claude/
 !.claude/rules/
 !.claude/rules/**
 !.claude/settings.json
+!.mcp.json
 
 # Audio cache & generated output
 cache/

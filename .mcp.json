@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "dj-music": {
+      "command": "bash",
+      "args": ["-c", "cd ${CLAUDE_PLUGIN_ROOT} && source .env 2>/dev/null; uv run fastmcp run app/server.py"],
+      "env": {
+        "DJ_DATABASE_URL": "${DJ_DATABASE_URL}",
+        "DJ_YM_TOKEN": "${DJ_YM_TOKEN}",
+        "DJ_YM_USER_ID": "${DJ_YM_USER_ID}",
+        "DJ_YM_LIBRARY_PATH": "${DJ_YM_LIBRARY_PATH}"
+      }
+    }
+  }
+}
