@@ -115,6 +115,10 @@ class TrackAudioFeaturesComputed(Base, TimestampMixin):
     pulse_clarity: Mapped[float | None] = mapped_column(nullable=True)
     kick_prominence: Mapped[float | None] = mapped_column(nullable=True)
 
+    # --- Classification ---
+    mood: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    mood_confidence: Mapped[float | None] = mapped_column(nullable=True)
+
     # relationships
     pipeline_run: Mapped[Optional["FeatureExtractionRun"]] = relationship(
         back_populates="computed_features",

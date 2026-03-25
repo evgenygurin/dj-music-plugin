@@ -267,7 +267,7 @@ async def test_unlock_tools_unlock_all(ctx):
     result = await unlock_tools(action="unlock", category="all", ctx=ctx)
 
     assert result["action"] == "unlocked"
-    assert len(result["categories"]) == 6
+    assert len(result["categories"]) == 7  # +atomic
 
 
 async def test_unlock_tools_status(ctx):

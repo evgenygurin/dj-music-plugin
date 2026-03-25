@@ -185,6 +185,7 @@ except ImportError:
 
 # ── Component Visibility ─────────────────────────────
 mcp.disable(tags={"audio"})
+mcp.disable(tags={"atomic"})
 
 # ── Module Registration ──────────────────────────────
 import app.mcp.prompts.workflows
@@ -193,6 +194,7 @@ import app.mcp.resources.status
 import app.mcp.resources.templates
 import app.mcp.tools.admin
 import app.mcp.tools.audio
+import app.mcp.tools.audio_atomic
 import app.mcp.tools.crud
 import app.mcp.tools.curation
 import app.mcp.tools.delivery

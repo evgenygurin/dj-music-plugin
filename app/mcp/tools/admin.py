@@ -11,7 +11,7 @@ from app.mcp.dependencies import get_db_session
 from app.models.track import TrackExternalId
 from app.server import mcp
 
-_ALL_CATEGORIES = frozenset({"delivery", "discovery", "curation", "sync", "ym", "audio"})
+_ALL_CATEGORIES = frozenset({"delivery", "discovery", "curation", "sync", "ym", "audio", "atomic"})
 
 
 @mcp.tool(tags={"admin"})
