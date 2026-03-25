@@ -13,8 +13,8 @@ from typing import Any
 
 
 @dataclass
-class TransitionScore:
-    """Cached transition score with all components."""
+class CachedTransitionScore:
+    """Cached transition score with track IDs and timestamp metadata."""
 
     track_id_a: int
     track_id_b: int
@@ -39,10 +39,10 @@ class TransitionCache:
         """
         self._max_size = max_size
         self._ttl = ttl
-        self._cache: dict[tuple[int, int], TransitionScore] = {}
+        self._cache: dict[tuple[int, int], CachedTransitionScore] = {}
         self._access_order: list[tuple[int, int]] = []
 
-    def get(self, track_id_a: int, track_id_b: int) -> TransitionScore | None:
+    def get(self, track_id_a: int, track_id_b: int) -> CachedTransitionScore | None:
         """Get cached score for a track pair.
 
         Returns:
@@ -103,7 +103,7 @@ class TransitionCache:
             del self._cache[oldest]
 
         # Store
-        self._cache[key] = TransitionScore(
+        self._cache[key] = CachedTransitionScore(
             track_id_a=track_id_a,
             track_id_b=track_id_b,
             bpm_score=bpm_score,

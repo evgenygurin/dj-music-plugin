@@ -14,10 +14,10 @@ if TYPE_CHECKING:
 
 
 @dataclass
-class TransitionScore:
-    """Cached transition score between two tracks.
+class CachedTransitionEntry:
+    """Cached transition score entry for KV-store backend.
 
-    Matches the structure from transition_scoring.md design spec.
+    Wraps score components with track pair identifiers for cache storage.
     """
 
     track_id_a: int
@@ -56,11 +56,11 @@ class TransitionScoreCache:
         ordered = tuple(sorted([track_id_a, track_id_b]))
         return f"{ordered[0]}:{ordered[1]}"
 
-    async def get(self, track_id_a: int, track_id_b: int) -> TransitionScore | None:
+    async def get(self, track_id_a: int, track_id_b: int) -> CachedTransitionEntry | None:
         """Retrieve cached transition score.
 
         Returns:
-            TransitionScore if cached, None if miss
+            CachedTransitionEntry if cached, None if miss
         """
         key = self._make_key(track_id_a, track_id_b)
         value = await self.storage.get(collection=self.collection, key=key)
@@ -70,16 +70,16 @@ class TransitionScoreCache:
 
         # Deserialize from dict (py-key-value-aio stores structured data)
         try:
-            return TransitionScore(**value)
+            return CachedTransitionEntry(**value)
         except (TypeError, KeyError):
             # Invalid cache entry — return miss
             return None
 
-    async def set(self, score: TransitionScore) -> None:
+    async def set(self, score: CachedTransitionEntry) -> None:
         """Store transition score in cache.
 
         Args:
-            score: TransitionScore to cache
+            score: CachedTransitionEntry to cache
         """
         key = self._make_key(score.track_id_a, score.track_id_b)
         # py-key-value-aio stores structured data (dict), not JSON string

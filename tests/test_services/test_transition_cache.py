@@ -3,7 +3,7 @@
 import pytest
 from key_value.aio.stores.memory import MemoryStore
 
-from app.services.transition_cache import TransitionScore, TransitionScoreCache
+from app.services.transition_cache import CachedTransitionEntry, TransitionScoreCache
 
 
 @pytest.fixture
@@ -14,9 +14,9 @@ async def cache() -> TransitionScoreCache:
 
 
 @pytest.fixture
-def sample_score() -> TransitionScore:
+def sample_score() -> CachedTransitionEntry:
     """Sample transition score for testing."""
-    return TransitionScore(
+    return CachedTransitionEntry(
         track_id_a=1,
         track_id_b=2,
         bpm_score=0.95,
@@ -36,7 +36,7 @@ async def test_cache_miss(cache: TransitionScoreCache) -> None:
 
 
 @pytest.mark.asyncio
-async def test_cache_hit(cache: TransitionScoreCache, sample_score: TransitionScore) -> None:
+async def test_cache_hit(cache: TransitionScoreCache, sample_score: CachedTransitionEntry) -> None:
     """Test cache hit returns stored score."""
     await cache.set(sample_score)
     result = await cache.get(1, 2)
@@ -49,7 +49,7 @@ async def test_cache_hit(cache: TransitionScoreCache, sample_score: TransitionSc
 
 @pytest.mark.asyncio
 async def test_cache_key_ordering(
-    cache: TransitionScoreCache, sample_score: TransitionScore
+    cache: TransitionScoreCache, sample_score: CachedTransitionEntry
 ) -> None:
     """Test cache key is symmetric (A→B same as B→A)."""
     await cache.set(sample_score)
@@ -69,13 +69,13 @@ async def test_invalidate_by_track_id(cache: TransitionScoreCache) -> None:
     """Test invalidating all scores involving a specific track."""
     # Cache 3 pairs: (1,2), (1,3), (4,5)
     await cache.set(
-        TransitionScore(1, 2, 0.9, 0.8, 0.7, 0.6, 0.5, 0.7)
+        CachedTransitionEntry(1, 2, 0.9, 0.8, 0.7, 0.6, 0.5, 0.7)
     )
     await cache.set(
-        TransitionScore(1, 3, 0.9, 0.8, 0.7, 0.6, 0.5, 0.7)
+        CachedTransitionEntry(1, 3, 0.9, 0.8, 0.7, 0.6, 0.5, 0.7)
     )
     await cache.set(
-        TransitionScore(4, 5, 0.9, 0.8, 0.7, 0.6, 0.5, 0.7)
+        CachedTransitionEntry(4, 5, 0.9, 0.8, 0.7, 0.6, 0.5, 0.7)
     )
 
     # Invalidate track 1
@@ -92,8 +92,8 @@ async def test_invalidate_by_track_id(cache: TransitionScoreCache) -> None:
 @pytest.mark.asyncio
 async def test_clear(cache: TransitionScoreCache) -> None:
     """Test clearing entire cache."""
-    await cache.set(TransitionScore(1, 2, 0.9, 0.8, 0.7, 0.6, 0.5, 0.7))
-    await cache.set(TransitionScore(3, 4, 0.9, 0.8, 0.7, 0.6, 0.5, 0.7))
+    await cache.set(CachedTransitionEntry(1, 2, 0.9, 0.8, 0.7, 0.6, 0.5, 0.7))
+    await cache.set(CachedTransitionEntry(3, 4, 0.9, 0.8, 0.7, 0.6, 0.5, 0.7))
 
     stats_before = await cache.stats()
     assert stats_before["size"] == 2
@@ -114,8 +114,8 @@ async def test_stats(cache: TransitionScoreCache) -> None:
     assert stats_empty["size"] == 0
     assert stats_empty["ttl"] == 3600
 
-    await cache.set(TransitionScore(1, 2, 0.9, 0.8, 0.7, 0.6, 0.5, 0.7))
-    await cache.set(TransitionScore(3, 4, 0.9, 0.8, 0.7, 0.6, 0.5, 0.7))
+    await cache.set(CachedTransitionEntry(1, 2, 0.9, 0.8, 0.7, 0.6, 0.5, 0.7))
+    await cache.set(CachedTransitionEntry(3, 4, 0.9, 0.8, 0.7, 0.6, 0.5, 0.7))
 
     stats_with_data = await cache.stats()
     assert stats_with_data["size"] == 2
@@ -129,7 +129,7 @@ async def test_corrupted_cache_entry_returns_none(cache: TransitionScoreCache) -
     await cache.storage.put(
         collection=cache.collection,
         key=key,
-        value={"invalid": "data"},  # Missing required TransitionScore fields
+        value={"invalid": "data"},  # Missing required CachedTransitionEntry fields
         ttl=cache.ttl,
     )
 
