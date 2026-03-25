@@ -159,15 +159,22 @@ async def set_summary(
         return json.dumps(data, indent=2)
 
     # Count tracks in latest version
+    from app.models.set import SetItem
+
     track_count_result = await session.execute(
-        select(func.count()).where(
-            SetVersion.id == latest_version.id  # TODO: fix when SetItem model exists
-        )
+        select(func.count()).where(SetItem.version_id == latest_version.id)
     )
     track_count = track_count_result.scalar() or 0
 
-    # Calculate total duration (placeholder — needs SetItem join)
-    total_duration_min = 0
+    # Calculate total duration from track durations
+    from app.models.track import Track as TrackModel
+
+    dur_result = await session.execute(
+        select(func.coalesce(func.sum(TrackModel.duration_ms), 0))
+        .join(SetItem, SetItem.track_id == TrackModel.id)
+        .where(SetItem.version_id == latest_version.id)
+    )
+    total_duration_min = round((dur_result.scalar() or 0) / 60_000)
 
     data = {
         "set_id": set_id,
@@ -215,8 +222,13 @@ async def playlist_status(
     if not playlist:
         raise NotFoundError("Playlist", playlist_id)
 
-    # Count tracks in playlist (placeholder — needs PlaylistItem join)
-    track_count = 0  # TODO: count from dj_playlist_items
+    # Count tracks in playlist
+    from app.models.playlist import PlaylistItem
+
+    tc_result = await session.execute(
+        select(func.count()).where(PlaylistItem.playlist_id == playlist_id)
+    )
+    track_count = tc_result.scalar() or 0
 
     data = {
         "playlist_id": playlist_id,
