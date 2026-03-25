@@ -36,12 +36,27 @@ class Settings(BaseSettings):
     payload_logging: bool = False
     debug: bool = False
 
+    # ── Logging ──────────────────────────────────────
+    log_level: str = "INFO"
+    log_format: str = "json"  # json or text
+    log_to_client_debug: bool = False
+
     # ── Transition Scoring ────────────────────────────
     transition_cache_ttl: int = 3600  # seconds
     transition_cache_max_size: int = 10_000
     transition_hard_reject_bpm_diff: float = 10.0
     transition_hard_reject_camelot_dist: int = 5
     transition_hard_reject_energy_gap: float = 6.0  # LUFS
+
+    # ── Storage Backends ─────────────────────────────
+    storage_backend: str = "memory"  # memory, file, redis
+    storage_file_dir: str = "cache/storage"
+    storage_redis_host: str = "localhost"
+    storage_redis_port: int = 6379
+    storage_redis_password: str = ""
+    storage_redis_db: int = 0
+    response_cache_enabled: bool = True
+    response_cache_ttl: int = 300  # seconds
 
     # ── GA Optimizer ──────────────────────────────────
     ga_population_size: int = 100
@@ -87,9 +102,21 @@ class Settings(BaseSettings):
     delivery_icloud_stub_threshold: float = 0.9  # blocks/size ratio
 
     # ── LLM Sampling ─────────────────────────────────
+    anthropic_api_key: str = ""
     sampling_model: str = "claude-sonnet-4-5"
     sampling_max_tokens: int = 512
     sampling_temperature: float = 0.8
+
+    # ── Background Tasks ─────────────────────────────
+    docket_url: str = "memory://"
+    docket_concurrency: int = 4
+    task_poll_interval_seconds: int = 5
+
+    # ── Observability ────────────────────────────────
+    sentry_dsn: str = ""
+    otel_enabled: bool = False
+    otel_service_name: str = "dj-music"
+    otel_endpoint: str = ""
 
     @property
     def is_dev(self) -> bool:

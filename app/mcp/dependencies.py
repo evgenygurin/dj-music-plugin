@@ -2,31 +2,36 @@
 
 All dependencies use Depends() — hidden from tool schemas.
 DB session is cached per-request: multiple repos share one transaction.
+
+Key patterns:
+- get_db_session() is an async context manager with auto-commit/rollback
+- FastMCP's Depends() caches per-request → same session across all repos
+- Repos ONLY flush, never commit (transaction boundary = tool boundary)
 """
 
 from __future__ import annotations
 
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from typing import Annotated
 
+from fastmcp.dependencies import Depends
 from fastmcp.server.dependencies import get_context
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.cache import TransitionCache
 from app.repositories.export import ExportRepository
 from app.repositories.feature import FeatureRepository
 from app.repositories.playlist import PlaylistRepository
 from app.repositories.set import SetRepository
 from app.repositories.track import TrackRepository
 from app.repositories.transition import TransitionRepository
+from app.ym.client import YandexMusicClient
 
 
 @asynccontextmanager
 async def get_db_session() -> AsyncIterator[AsyncSession]:
-    """Scoped async DB session — auto-commit on success, rollback on error.
-
-    Cached per-request by FastMCP's Depends(). Multiple repos using
-    Depends(get_db_session) receive the SAME session instance.
-    """
+    """Scoped async DB session — auto-commit on success, rollback on error."""
     ctx = get_context()
     factory = ctx.lifespan_context["db_session_factory"]
     async with factory() as session:
@@ -38,56 +43,61 @@ async def get_db_session() -> AsyncIterator[AsyncSession]:
             raise
 
 
-async def get_track_repo(
-    session: AsyncSession = None,  # type: ignore[assignment]
+# ── Repository factories ─────────────────────────────
+
+
+def get_track_repo(
+    session: Annotated[AsyncSession, Depends(get_db_session)],
 ) -> TrackRepository:
-    """TrackRepository with injected session."""
-    if session is None:
-        async with get_db_session() as session:
-            return TrackRepository(session)
     return TrackRepository(session)
 
 
-async def get_playlist_repo(
-    session: AsyncSession = None,  # type: ignore[assignment]
+def get_playlist_repo(
+    session: Annotated[AsyncSession, Depends(get_db_session)],
 ) -> PlaylistRepository:
-    if session is None:
-        async with get_db_session() as session:
-            return PlaylistRepository(session)
     return PlaylistRepository(session)
 
 
-async def get_set_repo(
-    session: AsyncSession = None,  # type: ignore[assignment]
+def get_set_repo(
+    session: Annotated[AsyncSession, Depends(get_db_session)],
 ) -> SetRepository:
-    if session is None:
-        async with get_db_session() as session:
-            return SetRepository(session)
     return SetRepository(session)
 
 
-async def get_feature_repo(
-    session: AsyncSession = None,  # type: ignore[assignment]
+def get_feature_repo(
+    session: Annotated[AsyncSession, Depends(get_db_session)],
 ) -> FeatureRepository:
-    if session is None:
-        async with get_db_session() as session:
-            return FeatureRepository(session)
     return FeatureRepository(session)
 
 
-async def get_transition_repo(
-    session: AsyncSession = None,  # type: ignore[assignment]
+def get_transition_repo(
+    session: Annotated[AsyncSession, Depends(get_db_session)],
 ) -> TransitionRepository:
-    if session is None:
-        async with get_db_session() as session:
-            return TransitionRepository(session)
     return TransitionRepository(session)
 
 
-async def get_export_repo(
-    session: AsyncSession = None,  # type: ignore[assignment]
+def get_export_repo(
+    session: Annotated[AsyncSession, Depends(get_db_session)],
 ) -> ExportRepository:
-    if session is None:
-        async with get_db_session() as session:
-            return ExportRepository(session)
     return ExportRepository(session)
+
+
+# ── Lifespan context accessors ───────────────────────
+
+
+def get_ym_client() -> YandexMusicClient:
+    """Get YM client from lifespan context."""
+    ctx = get_context()
+    return ctx.lifespan_context["ym_client"]  # type: ignore[return-value]
+
+
+def get_analyzer_registry():  # type: ignore[no-untyped-def]
+    """Get analyzer registry from lifespan context."""
+    ctx = get_context()
+    return ctx.lifespan_context["analyzer_registry"]
+
+
+def get_transition_cache() -> TransitionCache:
+    """Get in-memory transition cache from lifespan context."""
+    ctx = get_context()
+    return ctx.lifespan_context["transition_cache"]  # type: ignore[return-value]
