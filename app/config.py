@@ -42,6 +42,16 @@ class Settings(BaseSettings):
     transition_hard_reject_camelot_dist: int = 5
     transition_hard_reject_energy_gap: float = 6.0  # LUFS
 
+    # ── Storage Backends ──────────────────────────────
+    storage_backend: str = "memory"  # memory, file, redis
+    storage_file_dir: str = "cache/storage"  # for file backend
+    storage_redis_host: str = "localhost"
+    storage_redis_port: int = 6379
+    storage_redis_password: str = ""
+    storage_redis_db: int = 0
+    response_cache_enabled: bool = True
+    response_cache_ttl: int = 300  # seconds for read-only tool responses
+
     # ── GA Optimizer ──────────────────────────────────
     ga_population_size: int = 100
     ga_max_generations: int = 200

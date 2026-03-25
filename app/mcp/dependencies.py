@@ -12,12 +12,14 @@ from contextlib import asynccontextmanager
 from fastmcp.server.dependencies import get_context
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import settings
 from app.repositories.export import ExportRepository
 from app.repositories.feature import FeatureRepository
 from app.repositories.playlist import PlaylistRepository
 from app.repositories.set import SetRepository
 from app.repositories.track import TrackRepository
 from app.repositories.transition import TransitionRepository
+from app.services.transition_cache import TransitionScoreCache
 
 
 @asynccontextmanager
@@ -91,3 +93,17 @@ async def get_export_repo(
         async with get_db_session() as session:
             return ExportRepository(session)
     return ExportRepository(session)
+
+
+def get_transition_cache() -> TransitionScoreCache:
+    """Get TransitionScoreCache from lifespan context.
+
+    Returns:
+        Configured TransitionScoreCache with storage backend from lifespan
+    """
+    ctx = get_context()
+    storage = ctx.lifespan_context["transition_cache_store"]
+    return TransitionScoreCache(
+        storage=storage,
+        ttl=settings.transition_cache_ttl,
+    )

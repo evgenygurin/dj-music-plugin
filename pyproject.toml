@@ -12,12 +12,14 @@ dependencies = [
     "httpx>=0.27",
     "numpy>=1.26",
     "python-dotenv>=1.0",
+    # py-key-value-aio is provided by fastmcp
 ]
 
 [project.optional-dependencies]
 audio = ["librosa>=0.10", "soundfile>=0.12"]
 stems = ["demucs>=4.0", "torch>=2.0"]
 postgres = ["asyncpg>=0.29", "pgvector>=0.3"]
+# Redis support via py-key-value-aio (already in fastmcp, no extra needed)
 otel = [
     "opentelemetry-distro",
     "opentelemetry-exporter-otlp",
@@ -61,7 +63,7 @@ warn_return_any = true
 warn_unused_configs = true
 
 [[tool.mypy.overrides]]
-module = ["librosa.*", "soundfile.*", "demucs.*"]
+module = ["librosa.*", "soundfile.*", "demucs.*", "key_value.*"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]

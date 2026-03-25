@@ -7,9 +7,11 @@ Usage:
 
 from fastmcp import FastMCP
 from fastmcp.server.lifespan import lifespan
+from fastmcp.server.middleware.caching import ResponseCachingMiddleware
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from app.config import settings
+from app.core.storage import create_storage_backend, create_transition_cache_backend
 
 # ── Lifespans ────────────────────────────────────────
 
@@ -29,6 +31,21 @@ async def db_lifespan(server):  # type: ignore[no-untyped-def]
         await engine.dispose()
 
 
+@lifespan
+async def cache_lifespan(server):  # type: ignore[no-untyped-def]
+    """Storage backends for caching (response cache + transition scores)."""
+    response_cache_store = create_storage_backend()
+    transition_cache_store = create_transition_cache_backend()
+    try:
+        yield {
+            "response_cache_store": response_cache_store,
+            "transition_cache_store": transition_cache_store,
+        }
+    finally:
+        # Cleanup if needed (Redis connections close automatically)
+        pass
+
+
 # ── Server ───────────────────────────────────────────
 
 mcp = FastMCP(
@@ -38,10 +55,29 @@ mcp = FastMCP(
         "and Yandex Music integration. "
         "Use unlock_tools to access hidden tool categories."
     ),
-    lifespan=db_lifespan,
+    lifespan=db_lifespan | cache_lifespan,  # Compose lifespans
     list_page_size=settings.pagination_size,
     on_duplicate="error",
 )
+
+# ── Middleware ───────────────────────────────────────
+
+# Response caching for read-only tools (if enabled)
+if settings.response_cache_enabled:
+    from fastmcp.server.middleware.caching import CallToolSettings
+
+    # Access response_cache_store from lifespan context after server init
+    # For now, create inline — will be refactored when middleware supports lazy init
+    response_cache_store = create_storage_backend()
+    mcp.add_middleware(
+        ResponseCachingMiddleware(
+            cache_storage=response_cache_store,
+            call_tool_settings=CallToolSettings(
+                enabled=True,
+                ttl=settings.response_cache_ttl,
+            ),
+        )
+    )
 
 # Hide audio tools at startup
 mcp.disable(tags={"audio"})
