@@ -50,3 +50,32 @@ async def test_remove_track(playlist_repo, db):
 
     removed = await playlist_repo.remove_track(pl.id, position=0)
     assert removed is True
+
+
+async def test_get_track_ids(playlist_repo, db):
+    """get_track_ids returns ordered track IDs for a playlist."""
+    pl = Playlist(name="Test PL")
+    t1 = Track(title="Track A")
+    t2 = Track(title="Track B")
+    t3 = Track(title="Track C")
+    db.add_all([pl, t1, t2, t3])
+    await db.flush()
+
+    # Add tracks in non-sequential sort order
+    db.add(PlaylistItem(playlist_id=pl.id, track_id=t3.id, sort_index=0))
+    db.add(PlaylistItem(playlist_id=pl.id, track_id=t1.id, sort_index=1))
+    db.add(PlaylistItem(playlist_id=pl.id, track_id=t2.id, sort_index=2))
+    await db.flush()
+
+    track_ids = await playlist_repo.get_track_ids(pl.id)
+    assert track_ids == [t3.id, t1.id, t2.id]
+
+
+async def test_get_track_ids_empty(playlist_repo, db):
+    """get_track_ids returns empty list for playlist with no tracks."""
+    pl = Playlist(name="Empty PL")
+    db.add(pl)
+    await db.flush()
+
+    track_ids = await playlist_repo.get_track_ids(pl.id)
+    assert track_ids == []
