@@ -13,7 +13,6 @@ import json
 from typing import Annotated
 
 from fastmcp.dependencies import Depends
-from fastmcp.resources import resource
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -24,9 +23,10 @@ from app.models.audio import TrackAudioFeaturesComputed
 from app.models.playlist import Playlist
 from app.models.set import DjSet, SetVersion
 from app.models.track import Track
+from app.server import mcp
 
 
-@resource(
+@mcp.resource(
     uri="track://{track_id}/features",
     name="Track Audio Features",
     description="Audio features summary for a specific track",
@@ -112,7 +112,7 @@ async def track_features(
     return json.dumps(data, indent=2)
 
 
-@resource(
+@mcp.resource(
     uri="set://{set_id}/summary",
     name="DJ Set Summary",
     description="Latest version summary for a specific DJ set",
@@ -188,7 +188,7 @@ async def set_summary(
     return json.dumps(data, indent=2)
 
 
-@resource(
+@mcp.resource(
     uri="playlist://{playlist_id}/status",
     name="Playlist Status",
     description="Status information for a specific playlist",
@@ -231,15 +231,12 @@ async def playlist_status(
     return json.dumps(data, indent=2)
 
 
-@resource(
-    uri="catalog://stats",
-    name="Catalog Statistics",
-    description="Filtered catalog statistics by mood, BPM range, etc.",
-    mime_type="application/json",
-    tags={"core"},
-    annotations={"readOnlyHint": True},
-)
-async def catalog_stats(
+# NOTE: catalog://stats{?mood,bpm_min,bpm_max} is exposed via get_library_stats tool
+# instead of resource, because FastMCP doesn't support query params in resource URIs.
+# Keeping the function for potential future use.
+
+
+async def _catalog_stats_impl(
     mood: Annotated[TechnoSubgenre | None, "Filter by mood/subgenre"] = None,
     bpm_min: Annotated[float | None, "Minimum BPM"] = None,
     bpm_max: Annotated[float | None, "Maximum BPM"] = None,

@@ -10,7 +10,7 @@ from __future__ import annotations
 import json
 
 from fastmcp.dependencies import Depends
-from fastmcp.resources import resource
+from app.server import mcp
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -26,7 +26,7 @@ from app.models.platform import (
 from app.models.track import Track
 
 
-@resource(
+@mcp.resource(
     uri="status://library",
     name="Library Health",
     description="Overall library statistics, feature coverage, and health indicators",
@@ -113,7 +113,7 @@ async def library_status(
     return json.dumps(data, indent=2)
 
 
-@resource(
+@mcp.resource(
     uri="status://platforms",
     name="Platform Connectivity",
     description="Connected external platforms and linked track counts",
