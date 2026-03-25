@@ -175,6 +175,22 @@ async def deliver_set(
             )
             await ctx.report_progress(2, 4)
 
+        # Elicitation: ask user if hard conflicts found
+        if conflict_count > 0 and not dry_run and ctx:
+            try:
+                result = await ctx.elicit(
+                    f"Found {conflict_count} hard conflict(s) (score=0.0). Continue delivery?",
+                    response_type=str,
+                )
+                if result.action != "accept":
+                    return {
+                        "aborted": True,
+                        "reason": "User declined due to conflicts",
+                        "conflicts": conflict_count,
+                    }
+            except Exception:
+                pass  # Client doesn't support elicitation — continue
+
         # Build export data
         export_data = await _build_export_data(session, dj_set, target_version, items)
 

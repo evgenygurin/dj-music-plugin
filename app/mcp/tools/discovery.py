@@ -22,7 +22,6 @@ from sqlalchemy import select
 from app.config import settings
 from app.mcp.dependencies import get_db_session, get_ym_client
 from app.models.track import TrackExternalId
-from app.repositories.track import TrackRepository
 from app.ym.client import YandexMusicClient
 
 # ── Helpers ──────────────────────────────────────────
@@ -95,12 +94,75 @@ async def find_similar_tracks(
     strategy: ym (default). genre_filter: whitelist. genre_blacklist: blacklist.
     exclude_patterns: title keywords to skip (default: remix, edit, live, ...).
     """
-    if strategy != "ym":
+    if strategy == "llm" and ctx:
+        # LLM-assisted: use ctx.sample() to generate search queries
+        async with get_db_session() as session:
+            from app.repositories.track import TrackRepository
+
+            track = await TrackRepository(session).get_by_id(track_id)
+            if not track:
+                raise ToolError(f"Track {track_id} not found")
+
+        try:
+            from pydantic import BaseModel
+
+            class SearchQueries(BaseModel):
+                queries: list[str]
+
+            result = await ctx.sample(
+                f"Generate {limit} Yandex Music search queries to find techno tracks "
+                f"similar to '{track.title}'. Return ONLY track/artist names, no explanations.",
+                result_type=SearchQueries,
+            )
+            queries = result.result.queries if result.result else []
+        except Exception as e:
+            return {
+                "track_id": track_id,
+                "strategy": "llm",
+                "similar": [],
+                "message": f"LLM sampling failed: {e}. Configure ANTHROPIC_API_KEY for fallback.",
+            }
+
+        # Search YM for each query
+        all_results = []
+        for q in queries[:limit]:
+            try:
+                sr = await ym.search(q, type="tracks", limit=3)
+                for t in sr.tracks:
+                    if not _genre_ok(
+                        t.albums or [], whitelist=genre_filter, blacklist=genre_blacklist
+                    ):
+                        continue
+                    if _is_excluded(t.title, exclude_patterns):
+                        continue
+                    all_results.append(_ym_track_dict(t))
+            except Exception:
+                continue
+
+        # Dedup
+        seen: set[str] = set()
+        deduped = []
+        for r in all_results:
+            if r["ym_id"] not in seen:
+                seen.add(r["ym_id"])
+                deduped.append(r)
+
+        return {
+            "track_id": track_id,
+            "track_title": track.title,
+            "strategy": "llm",
+            "queries_used": queries,
+            "total_raw": len(all_results),
+            "after_filter": len(deduped),
+            "similar": deduped[:limit],
+        }
+
+    if strategy not in ("ym",):
         return {
             "track_id": track_id,
             "strategy": strategy,
             "similar": [],
-            "message": f"Strategy '{strategy}' not yet implemented (ym only)",
+            "message": f"Strategy '{strategy}' requires: ym or llm",
         }
 
     # Find YM ID for this track
@@ -185,14 +247,27 @@ async def filter_by_feedback(
     if not ym_track_ids:
         raise ToolError("ym_track_ids required")
 
+    # Cache feedback IDs in session state (avoids 2 API calls per invocation)
+    liked_set: set[str] = set()
+    disliked_set: set[str] = set()
     if ctx:
-        await ctx.info("Fetching liked/disliked lists...")
+        cached_liked = await ctx.get_state("ym_liked_ids")
+        cached_disliked = await ctx.get_state("ym_disliked_ids")
+        if cached_liked is not None and cached_disliked is not None:
+            liked_set = set(cached_liked)
+            disliked_set = set(cached_disliked)
+            await ctx.info("Using cached feedback (session state)")
 
-    liked = await ym.get_liked_ids()
-    disliked = await ym.get_disliked_ids()
-
-    liked_set = set(liked)
-    disliked_set = disliked  # already a set[str]
+    if not liked_set and not disliked_set:
+        if ctx:
+            await ctx.info("Fetching liked/disliked from YM API...")
+        liked_raw = await ym.get_liked_ids()
+        disliked_set = await ym.get_disliked_ids()
+        liked_set = set(liked_raw)
+        # Cache for subsequent calls in this session
+        if ctx:
+            await ctx.set_state("ym_liked_ids", list(liked_set))
+            await ctx.set_state("ym_disliked_ids", list(disliked_set))
 
     result_passed: list[str] = []
     result_blocked: list[str] = []
@@ -265,15 +340,26 @@ async def expand_playlist_ym(
     max_seeds = min(len(current), settings.discovery_max_seeds)
     seeds = random.sample(current, max_seeds) if len(current) > max_seeds else list(current)
 
-    # 3. Feedback gate (fetch once)
+    # 3. Feedback gate (use session cache if available)
     disliked: set[str] = set()
     liked: set[str] = set()
     if use_feedback:
         if ctx:
-            await ctx.info("Fetching feedback signals...")
-        liked_ids = await ym.get_liked_ids()
-        liked = set(liked_ids)
-        disliked = await ym.get_disliked_ids()
+            cached_liked = await ctx.get_state("ym_liked_ids")
+            cached_disliked = await ctx.get_state("ym_disliked_ids")
+            if cached_liked is not None and cached_disliked is not None:
+                liked = set(cached_liked)
+                disliked = set(cached_disliked)
+                await ctx.info("Using cached feedback (session state)")
+        if not liked and not disliked:
+            if ctx:
+                await ctx.info("Fetching feedback from YM API...")
+            liked_raw = await ym.get_liked_ids()
+            liked = set(liked_raw)
+            disliked = await ym.get_disliked_ids()
+            if ctx:
+                await ctx.set_state("ym_liked_ids", list(liked))
+                await ctx.set_state("ym_disliked_ids", list(disliked))
 
     # 4. Collect candidates
     min_dur = min_duration_ms or settings.discovery_min_duration_ms
@@ -371,4 +457,3 @@ async def expand_playlist_ym(
         "blocked_disliked": blocked_count,
         "sample_tracks": to_add[:20],
     }
-
