@@ -90,9 +90,24 @@ class Settings(BaseSettings):
     sampling_max_tokens: int = 512
     sampling_temperature: float = 0.8
 
+    # ── Observability ─────────────────────────────────
+    # NOTE: SENTRY_DSN and OTEL_* vars don't use DJ_ prefix (standard env var names)
+    sentry_dsn: str = ""  # Will be read from SENTRY_DSN env var
+    otel_enabled: bool = False  # DJ_OTEL_ENABLED - explicitly enable OTEL
+    otel_service_name: str = "dj-music"  # OTEL_SERVICE_NAME override
+    otel_endpoint: str = ""  # OTEL_EXPORTER_OTLP_ENDPOINT override
+
     @property
     def is_dev(self) -> bool:
         return self.debug
+
+    model_config = SettingsConfigDict(
+        env_prefix="DJ_",
+        env_file=".env",
+        env_file_encoding="utf-8",
+        # Allow specific env vars without DJ_ prefix
+        extra="allow",  # Allow SENTRY_DSN, OTEL_* without validation
+    )
 
 
 settings = Settings()

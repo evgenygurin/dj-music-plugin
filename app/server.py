@@ -3,13 +3,61 @@
 Usage:
     uv run fastmcp dev app/server.py --reload   # development
     uv run fastmcp run app/server.py             # production
+
+    # With OpenTelemetry (requires `uv sync --extra otel`):
+    opentelemetry-instrument \\
+      --service_name dj-music \\
+      --exporter_otlp_endpoint http://localhost:4317 \\
+      fastmcp run app/server.py
+
+    # Or via environment variables:
+    export OTEL_SERVICE_NAME=dj-music
+    export OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4317
+    opentelemetry-instrument fastmcp run app/server.py
 """
+
+import logging
+import os
 
 from fastmcp import FastMCP
 from fastmcp.server.lifespan import lifespan
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from app.config import settings
+
+# ── Observability Setup ──────────────────────────────
+
+logger = logging.getLogger(__name__)
+
+# Configure Sentry if DSN provided
+if settings.sentry_dsn or os.getenv("SENTRY_DSN"):
+    try:
+        import sentry_sdk
+
+        sentry_sdk.init(
+            dsn=settings.sentry_dsn or os.getenv("SENTRY_DSN"),
+            traces_sample_rate=0.1 if not settings.debug else 1.0,
+            profiles_sample_rate=0.1 if not settings.debug else 1.0,
+            environment="development" if settings.debug else "production",
+        )
+        logger.info("Sentry error tracking enabled")
+    except ImportError:
+        logger.warning(
+            "SENTRY_DSN configured but sentry-sdk not installed. "
+            "Install with: uv sync --extra sentry"
+        )
+
+# OpenTelemetry is configured externally via opentelemetry-instrument
+# or programmatically by the user. FastMCP uses opentelemetry-api which
+# is a no-op unless an SDK is configured.
+#
+# To enable OTEL:
+# 1. Install: uv sync --extra otel
+# 2. Run with: opentelemetry-instrument --service_name dj-music fastmcp run app/server.py
+# 3. Or set OTEL_SERVICE_NAME and OTEL_EXPORTER_OTLP_ENDPOINT env vars
+#
+# FastMCP will automatically create spans for tool/resource/prompt operations.
+# Custom spans for heavy operations are added via @instrument_heavy_operation decorator.
 
 # ── Lifespans ────────────────────────────────────────
 
@@ -43,7 +91,22 @@ mcp = FastMCP(
     on_duplicate="error",
 )
 
-# Hide audio tools at startup
+# ── Middleware Pipeline ──────────────────────────────
+# Order: outermost (first added) → innermost (last added)
+# Request flows: first → ... → last → tool handler
+# Response flows: tool handler → last → ... → first
+
+from app.middleware import DetailedTimingMiddleware, StructuredLoggingMiddleware
+
+# Outermost: structured logging captures all requests
+mcp.add_middleware(StructuredLoggingMiddleware())
+
+# Innermost: detailed timing measures actual tool execution
+mcp.add_middleware(DetailedTimingMiddleware())
+
+# ── Component Visibility ─────────────────────────────
+
+# Hide audio tools at startup (require explicit unlock)
 mcp.disable(tags={"audio"})
 
 # ── FileSystemProvider auto-discovers tools/resources/prompts ─
