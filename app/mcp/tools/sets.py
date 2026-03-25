@@ -5,12 +5,16 @@ from __future__ import annotations
 from fastmcp.exceptions import ToolError
 from fastmcp.server.context import Context
 from fastmcp.tools import tool
+from sqlalchemy import select
 
 from app.mcp.dependencies import get_db_session
+from app.models.audio import TrackAudioFeaturesComputed
 from app.models.set import DjSet, SetItem, SetVersion
+from app.models.transition import Transition
 from app.repositories.set import SetRepository
 from app.repositories.track import TrackRepository
 from app.repositories.transition import TransitionRepository
+from app.services.transition import TrackFeatures, TransitionScorer
 
 
 @tool(tags={"sets"}, annotations={"readOnlyHint": False}, timeout=120.0)
@@ -171,32 +175,97 @@ async def score_transitions(
     top_n: int = 10,
     ctx: Context | None = None,
 ) -> dict:
-    """Score transitions: mode=set (all pairs), pair (two tracks), track_candidates (best next)."""
-    async with get_db_session() as session:
-        transition_repo = TransitionRepository(session)
-        TrackRepository(session)
+    """Score transitions: mode=set (all pairs), pair (two tracks), track_candidates (best next).
 
-        if mode == "pair" and from_track_id and to_track_id:
-            score = await transition_repo.get_score(from_track_id, to_track_id)
-            if score:
-                return {
-                    "from_track_id": from_track_id,
-                    "to_track_id": to_track_id,
-                    "overall_quality": score.overall_quality,
-                    "bpm_score": score.bpm_score,
-                    "harmonic_score": score.harmonic_score,
-                    "energy_score": score.energy_score,
-                    "spectral_score": score.spectral_score,
-                    "groove_score": score.groove_score,
-                }
+    Computes scores via TransitionScorer and SAVES to DB.
+    """
+
+    async def _load_features(session, track_id: int) -> TrackFeatures | None:
+        stmt = select(TrackAudioFeaturesComputed).where(
+            TrackAudioFeaturesComputed.track_id == track_id
+        )
+        result = await session.execute(stmt)
+        f = result.scalar_one_or_none()
+        if not f:
+            return None
+        return TrackFeatures(
+            bpm=f.bpm,
+            key_code=f.key_code,
+            integrated_lufs=f.integrated_lufs,
+            spectral_centroid_hz=f.spectral_centroid_hz,
+            spectral_flatness=f.spectral_flatness,
+            energy_mean=f.energy_mean,
+            onset_rate=f.onset_rate,
+            kick_prominence=f.kick_prominence,
+            hnr_db=f.hnr_db,
+            chroma_entropy=f.chroma_entropy,
+        )
+
+    async def _compute_and_save(session, transition_repo, from_id: int, to_id: int) -> dict:
+        """Compute transition score, save to DB, return dict."""
+        # Check cached
+        existing = await transition_repo.get_score(from_id, to_id)
+        if existing and existing.overall_quality is not None:
             return {
-                "from_track_id": from_track_id,
-                "to_track_id": to_track_id,
-                "overall_quality": None,
-                "message": "No transition scored yet",
+                "from_track_id": from_id,
+                "to_track_id": to_id,
+                "overall_quality": existing.overall_quality,
+                "bpm_score": existing.bpm_score,
+                "harmonic_score": existing.harmonic_score,
+                "energy_score": existing.energy_score,
+                "spectral_score": existing.spectral_score,
+                "groove_score": existing.groove_score,
+                "cached": True,
             }
 
-        elif mode == "track_candidates" and track_id:
+        ft_from = await _load_features(session, from_id)
+        ft_to = await _load_features(session, to_id)
+
+        if not ft_from or not ft_to:
+            return {
+                "from_track_id": from_id,
+                "to_track_id": to_id,
+                "overall_quality": None,
+                "message": "Missing audio features for one or both tracks",
+            }
+
+        scorer = TransitionScorer()
+        score = scorer.score(ft_from, ft_to)
+
+        # Save to DB
+        transition = Transition(
+            from_track_id=from_id,
+            to_track_id=to_id,
+            overall_quality=score.overall if not score.hard_reject else 0.0,
+            bpm_score=score.bpm,
+            harmonic_score=score.harmonic,
+            energy_score=score.energy,
+            spectral_score=score.spectral,
+            groove_score=score.groove,
+        )
+        await transition_repo.save_score(transition)
+
+        return {
+            "from_track_id": from_id,
+            "to_track_id": to_id,
+            "overall_quality": round(score.overall, 4) if not score.hard_reject else 0.0,
+            "bpm_score": round(score.bpm, 4),
+            "harmonic_score": round(score.harmonic, 4),
+            "energy_score": round(score.energy, 4),
+            "spectral_score": round(score.spectral, 4),
+            "groove_score": round(score.groove, 4),
+            "hard_reject": score.hard_reject,
+            "reject_reason": score.reject_reason,
+            "cached": False,
+        }
+
+    async with get_db_session() as session:
+        transition_repo = TransitionRepository(session)
+
+        if mode == "pair" and from_track_id and to_track_id:
+            return await _compute_and_save(session, transition_repo, from_track_id, to_track_id)
+
+        if mode == "track_candidates" and track_id:
             candidates = await transition_repo.get_candidates(track_id, limit=top_n)
             return {
                 "track_id": track_id,
@@ -205,21 +274,17 @@ async def score_transitions(
                         "to_track_id": c.to_track_id,
                         "bpm_distance": c.bpm_distance,
                         "key_distance": c.key_distance,
-                        "embedding_similarity": c.embedding_similarity,
                         "fully_scored": c.fully_scored,
                     }
                     for c in candidates
                 ],
             }
 
-        elif mode == "set" and set_id:
-            # Get set items in order
+        if mode == "set" and set_id:
             set_repo = SetRepository(session)
             latest = await set_repo.get_latest_version(set_id)
             if not latest:
                 raise ToolError("No version found")
-
-            from sqlalchemy import select
 
             stmt = (
                 select(SetItem).where(SetItem.version_id == latest.id).order_by(SetItem.sort_index)
@@ -227,26 +292,33 @@ async def score_transitions(
             result = await session.execute(stmt)
             items = list(result.scalars().all())
 
+            if ctx:
+                await ctx.info(f"Scoring {len(items) - 1} transitions...")
+
             transitions_data = []
             for i in range(len(items) - 1):
-                score = await transition_repo.get_score(items[i].track_id, items[i + 1].track_id)
-                transitions_data.append(
-                    {
-                        "position": i,
-                        "from_track_id": items[i].track_id,
-                        "to_track_id": items[i + 1].track_id,
-                        "overall_quality": score.overall_quality if score else None,
-                    }
+                score_data = await _compute_and_save(
+                    session, transition_repo, items[i].track_id, items[i + 1].track_id
                 )
+                score_data["position"] = i
+                transitions_data.append(score_data)
+                if ctx:
+                    await ctx.report_progress(i + 1, len(items) - 1)
 
-            scored = [t for t in transitions_data if t["overall_quality"] is not None]
+            scored = [t for t in transitions_data if t.get("overall_quality") is not None]
+            hard_conflicts = [t for t in scored if t.get("overall_quality") == 0.0]
+
             return {
                 "set_id": set_id,
                 "version_id": latest.id,
                 "total_transitions": len(transitions_data),
                 "scored_transitions": len(scored),
+                "hard_conflicts": len(hard_conflicts),
                 "avg_score": (
-                    sum(t["overall_quality"] for t in scored) / len(scored) if scored else None
+                    sum(t["overall_quality"] for t in scored if t["overall_quality"])
+                    / max(1, len(scored) - len(hard_conflicts))
+                    if scored
+                    else None
                 ),
                 "transitions": transitions_data,
             }
