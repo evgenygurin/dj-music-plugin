@@ -2,13 +2,21 @@
 
 All dependencies use Depends() — hidden from tool schemas.
 DB session is cached per-request: multiple repos share one transaction.
+
+Key patterns:
+- get_db_session() returns AsyncSession via async context manager
+- FastMCP's Depends() caches per-request → same session across all repos
+- Commit happens in get_db_session finally block, not in tools/repos
+- Repos ONLY flush, never commit (transaction boundary = tool boundary)
 """
 
 from __future__ import annotations
 
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from typing import Annotated
 
+from fastmcp.dependencies import Depends
 from fastmcp.server.dependencies import get_context
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -24,8 +32,21 @@ from app.repositories.transition import TransitionRepository
 async def get_db_session() -> AsyncIterator[AsyncSession]:
     """Scoped async DB session — auto-commit on success, rollback on error.
 
-    Cached per-request by FastMCP's Depends(). Multiple repos using
-    Depends(get_db_session) receive the SAME session instance.
+    This is an async context manager that FastMCP's Depends() caches per-request.
+    Multiple repos using Depends(get_db_session) receive the SAME session instance,
+    guaranteeing a single transaction per tool call.
+
+    Transaction lifecycle:
+    1. Session created when first dependency requests it
+    2. Session shared across all repos in the same tool call
+    3. On success: commit
+    4. On error: rollback
+
+    Usage in tools:
+        session: AsyncSession = Depends(get_db_session)
+
+    Usage in repos:
+        repo = TrackRepository(session=Depends(get_db_session))
     """
     ctx = get_context()
     factory = ctx.lifespan_context["db_session_factory"]
@@ -38,56 +59,48 @@ async def get_db_session() -> AsyncIterator[AsyncSession]:
             raise
 
 
-async def get_track_repo(
-    session: AsyncSession = None,  # type: ignore[assignment]
+def get_track_repo(
+    session: Annotated[AsyncSession, Depends(get_db_session)],
 ) -> TrackRepository:
-    """TrackRepository with injected session."""
-    if session is None:
-        async with get_db_session() as session:
-            return TrackRepository(session)
+    """TrackRepository with injected session.
+
+    The session is injected via Depends(get_db_session) and cached per-request.
+    Multiple calls to this dependency in the same tool call receive the same repo
+    instance with the same session.
+    """
     return TrackRepository(session)
 
 
-async def get_playlist_repo(
-    session: AsyncSession = None,  # type: ignore[assignment]
+def get_playlist_repo(
+    session: Annotated[AsyncSession, Depends(get_db_session)],
 ) -> PlaylistRepository:
-    if session is None:
-        async with get_db_session() as session:
-            return PlaylistRepository(session)
+    """PlaylistRepository with injected session."""
     return PlaylistRepository(session)
 
 
-async def get_set_repo(
-    session: AsyncSession = None,  # type: ignore[assignment]
+def get_set_repo(
+    session: Annotated[AsyncSession, Depends(get_db_session)],
 ) -> SetRepository:
-    if session is None:
-        async with get_db_session() as session:
-            return SetRepository(session)
+    """SetRepository with injected session."""
     return SetRepository(session)
 
 
-async def get_feature_repo(
-    session: AsyncSession = None,  # type: ignore[assignment]
+def get_feature_repo(
+    session: Annotated[AsyncSession, Depends(get_db_session)],
 ) -> FeatureRepository:
-    if session is None:
-        async with get_db_session() as session:
-            return FeatureRepository(session)
+    """FeatureRepository with injected session."""
     return FeatureRepository(session)
 
 
-async def get_transition_repo(
-    session: AsyncSession = None,  # type: ignore[assignment]
+def get_transition_repo(
+    session: Annotated[AsyncSession, Depends(get_db_session)],
 ) -> TransitionRepository:
-    if session is None:
-        async with get_db_session() as session:
-            return TransitionRepository(session)
+    """TransitionRepository with injected session."""
     return TransitionRepository(session)
 
 
-async def get_export_repo(
-    session: AsyncSession = None,  # type: ignore[assignment]
+def get_export_repo(
+    session: Annotated[AsyncSession, Depends(get_db_session)],
 ) -> ExportRepository:
-    if session is None:
-        async with get_db_session() as session:
-            return ExportRepository(session)
+    """ExportRepository with injected session."""
     return ExportRepository(session)

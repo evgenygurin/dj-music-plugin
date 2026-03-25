@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Annotated, Any
 
+from fastmcp.dependencies import Depends
 from fastmcp.server.context import Context
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -16,6 +17,12 @@ from app.core.schemas import (
     TrackBrief,
     TrackStandard,
 )
+from app.mcp.dependencies import (
+    get_db_session,
+    get_playlist_repo,
+    get_set_repo,
+    get_track_repo,
+)
 from app.models.audio import TrackAudioFeaturesComputed, TrackSection
 from app.models.playlist import Playlist
 from app.models.set import DjSet, SetConstraint, SetFeedback, SetItem, SetVersion
@@ -26,14 +33,6 @@ from app.repositories.track import TrackRepository
 from app.server import mcp
 
 # ── Helpers ──────────────────────────────────────────
-
-
-async def _get_session(ctx: Context | None) -> AsyncSession:
-    """Get async session from lifespan context."""
-    if ctx is None:
-        raise RuntimeError("Context required — tools must be called via MCP")
-    factory = ctx.lifespan_context["db_session_factory"]
-    return factory()
 
 
 def _track_brief(t: Track) -> dict[str, Any]:
@@ -107,37 +106,35 @@ async def list_tracks(
     bpm_min: float | None = None,
     bpm_max: float | None = None,
     status: str = "active",
+    repo: Annotated[TrackRepository, Depends(get_track_repo)] = None,  # type: ignore
     ctx: Context | None = None,
 ) -> dict[str, Any]:
     """List tracks with optional filters and cursor pagination."""
-    async with await _get_session(ctx) as session:
-        repo = TrackRepository(session)
+    if bpm_min is not None or bpm_max is not None:
+        page = await repo.filter_by_features(
+            bpm_min=bpm_min,
+            bpm_max=bpm_max,
+            limit=limit,
+            cursor=cursor,
+        )
+    else:
+        page = await repo.list_all(limit=limit, cursor=cursor)
 
-        if bpm_min is not None or bpm_max is not None:
-            page = await repo.filter_by_features(
-                bpm_min=bpm_min,
-                bpm_max=bpm_max,
-                limit=limit,
-                cursor=cursor,
+    return PaginatedResponse[TrackBrief](
+        items=[
+            TrackBrief(
+                id=t.id,
+                title=t.title,
+                artist_names=[],
+                bpm=None,
+                key_camelot=None,
+                duration_ms=t.duration_ms,
             )
-        else:
-            page = await repo.list_all(limit=limit, cursor=cursor)
-
-        return PaginatedResponse[TrackBrief](
-            items=[
-                TrackBrief(
-                    id=t.id,
-                    title=t.title,
-                    artist_names=[],
-                    bpm=None,
-                    key_camelot=None,
-                    duration_ms=t.duration_ms,
-                )
-                for t in page.items
-            ],
-            next_cursor=page.next_cursor,
-            total=page.total,
-        ).model_dump()
+            for t in page.items
+        ],
+        next_cursor=page.next_cursor,
+        total=page.total,
+    ).model_dump()
 
 
 # ── 2. get_track ────────────────────────────────────
