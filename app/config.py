@@ -90,6 +90,11 @@ class Settings(BaseSettings):
     sampling_max_tokens: int = 512
     sampling_temperature: float = 0.8
 
+    # ── Background Tasks ──────────────────────────────
+    docket_url: str = "memory://"  # memory:// or redis://host:port/db
+    docket_concurrency: int = 4  # concurrent background tasks per worker
+    task_poll_interval_seconds: int = 5  # client poll interval hint
+
     @property
     def is_dev(self) -> bool:
         return self.debug

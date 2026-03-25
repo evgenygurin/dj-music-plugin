@@ -3,13 +3,26 @@
 Usage:
     uv run fastmcp dev app/server.py --reload   # development
     uv run fastmcp run app/server.py             # production
+
+Background tasks (optional):
+    uv sync --extra tasks                        # install Docket support
+    FASTMCP_DOCKET_URL=redis://localhost:6379 uv run fastmcp run app/server.py
+    FASTMCP_DOCKET_CONCURRENCY=20 uv run fastmcp tasks worker app/server.py
 """
+
+import os
 
 from fastmcp import FastMCP
 from fastmcp.server.lifespan import lifespan
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from app.config import settings
+
+# ── Background Tasks Environment Setup ──────────────
+# FastMCP reads FASTMCP_DOCKET_* from environment.
+# Map DJ_* config to FASTMCP_* for consistency.
+os.environ.setdefault("FASTMCP_DOCKET_URL", settings.docket_url)
+os.environ.setdefault("FASTMCP_DOCKET_CONCURRENCY", str(settings.docket_concurrency))
 
 # ── Lifespans ────────────────────────────────────────
 

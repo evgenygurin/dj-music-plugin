@@ -51,6 +51,8 @@ its own plan → implementation → test cycle:
 ### 2.1 Server Configuration
 
 ```python
+import os
+
 mcp = FastMCP(
     name="DJ Music",
     instructions="DJ techno music library management, set building, and YM integration",
@@ -63,6 +65,10 @@ mcp = FastMCP(
     ),
     sampling_handler_behavior="fallback",
 )
+
+# Background tasks configuration (via environment)
+os.environ.setdefault("FASTMCP_DOCKET_URL", settings.docket_url)
+os.environ.setdefault("FASTMCP_DOCKET_CONCURRENCY", str(settings.docket_concurrency))
 ```
 
 ### 2.2 Composable Lifespans
@@ -197,20 +203,20 @@ async def get_db_session():
 
 ### 4.1 Summary Table
 
-| Category | Tools | Tags | Visibility | Description |
-|----------|-------|------|-----------|-------------|
-| CRUD | 10 | `core` | Always visible | Tracks, playlists, sets, features |
-| Search | 2 | `core` | Always visible | Universal search, parametric filter |
-| Set Building | 4 | `sets` | Always visible | Build, rebuild, score, cheat sheet |
-| Set Reasoning | 5 | `sets` | Always visible | Suggest, explain, replace, compare, quick review |
-| Delivery & Export | 2 | `delivery` | Extended | Deliver pipeline, export formats |
-| Discovery | 3 | `discovery` | Extended | Find similar, import, download |
-| Curation | 5 | `curation` | Extended | Classify, audit, review, distribute, stats |
-| Sync | 2 | `sync` | Extended | Bidirectional sync, push to YM |
-| YM API | 6 | `ym` | Extended | Search, tracks, albums, artists, playlists, likes |
-| Audio | 3 | `audio` | **Hidden** | Analyze, batch, stems |
-| Admin | 2 | `admin` | Always visible | Unlock tools, list platforms |
-| **Total** | **44** | | | |
+| Category | Tools | Tags | Visibility | Description | Background Tasks |
+|----------|-------|------|-----------|-------------|-----------------|
+| CRUD | 10 | `core` | Always visible | Tracks, playlists, sets, features | No |
+| Search | 2 | `core` | Always visible | Universal search, parametric filter | No |
+| Set Building | 5 | `sets` | Always visible | Build, rebuild, score, cheat sheet, **background scoring** | 1 optional |
+| Set Reasoning | 5 | `sets` | Always visible | Suggest, explain, replace, compare, quick review | No |
+| Delivery & Export | 2 | `delivery` | Extended | Deliver pipeline, export formats | No |
+| Discovery | 3 | `discovery` | Extended | Find similar, **import+auto-analyze**, download | **import triggers tasks** |
+| Curation | 5 | `curation` | Extended | Classify, audit, review, distribute, stats | No |
+| Sync | 2 | `sync` | Extended | Bidirectional sync, push to YM | No |
+| YM API | 6 | `ym` | Extended | Search, tracks, albums, artists, playlists, likes | No |
+| Audio | 3 | `audio` | **Hidden** | **Analyze (optional), batch (optional), stems (required)** | **3 task-enabled** |
+| Admin | 2 | `admin` | Always visible | Unlock tools, list platforms | No |
+| **Total** | **45** | | | | **5 background-capable** |
 
 At session start: **23 core tools** visible (~5K tokens in schemas).
 Extended unlocked via `unlock_tools` or auto-unlock on first reference.

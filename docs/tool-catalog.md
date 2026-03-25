@@ -26,14 +26,15 @@ Quick reference for all 44 tools. Full details in design spec §4.
 | `search` | query, entity(tracks\|artists\|playlists\|sets\|all), limit | SearchResults | yes |
 | `filter_tracks` | bpm_min/max?, key?, key_compatible?, energy_min/max?, mood?, centroid_min/max?, has_features?, exclude_set_id?, sort_by, limit, cursor | PaginatedResult[TrackStandard] | yes |
 
-### Set Building (4 tools, tag: `sets`)
+### Set Building (5 tools, tag: `sets`)
 
-| Tool | Params | Returns | RO |
-|------|--------|---------|-----|
-| `build_set` | playlist_id?, playlist_query?, name, template?, target_duration_min?, bpm_min/max?, algorithm, pinned_tracks?, excluded_tracks?, dry_run? | SetBuildResult | no |
-| `rebuild_set` | set_id, pin_tracks?, unpin_tracks?, exclude_tracks?, include_tracks?, swap?, algorithm, version_label? | SetBuildResult | no |
-| `score_transitions` | mode(set\|pair\|track_candidates), set_id?, from_track_id?, to_track_id?, track_id?, top_n? | varies by mode | yes |
-| `get_set_cheat_sheet` | set_id, version? | str (formatted text) | yes |
+| Tool | Params | Returns | RO | Task |
+|------|--------|---------|-----|------|
+| `build_set` | playlist_id?, playlist_query?, name, template?, target_duration_min?, bpm_min/max?, algorithm, pinned_tracks?, excluded_tracks?, dry_run? | SetBuildResult | no | no |
+| `rebuild_set` | set_id, pin_tracks?, unpin_tracks?, exclude_tracks?, include_tracks?, swap?, algorithm, version_label? | SetBuildResult | no | no |
+| `score_transitions` | mode(set\|pair\|track_candidates), set_id?, from_track_id?, to_track_id?, track_id?, top_n? | varies by mode | yes | no |
+| `get_set_cheat_sheet` | set_id, version? | str (formatted text) | yes | no |
+| `score_track_transitions_background` | track_id | TransitionScoreResult | no | optional |
 
 ### Set Reasoning (5 tools, tag: `sets`)
 
@@ -101,14 +102,28 @@ Quick reference for all 44 tools. Full details in design spec §4.
 
 ### Audio Analysis (3 tools, tag: `audio`)
 
-| Tool | Params | Returns | Timeout |
-|------|--------|---------|---------|
-| `analyze_track` | track_id?, track_query?, analyzers?, force? | AnalysisResult | 120s |
-| `analyze_batch` | track_ids?\|playlist_id?, analyzers?, priority? | BatchAnalysisResult | 600s |
-| `separate_stems` | track_id?, track_query?, stems? | StemResult | 300s |
+| Tool | Params | Returns | Timeout | Task Mode |
+|------|--------|---------|---------|-----------|
+| `analyze_track` | track_id?, track_query?, analyzers?, force? | AnalysisResult | 120s | optional |
+| `analyze_batch` | track_ids?\|playlist_id?, analyzers?, priority? | BatchAnalysisResult | 600s | optional |
+| `separate_stems` | track_id?, track_query?, stems? | StemResult | 300s | **required** |
 
 ## Legend
 
 - **RO**: readOnlyHint annotation (yes = no side effects)
+- **Task**: Background task support (`optional` = can run sync or async, `required` = must run as task)
 - **?**: optional parameter
 - **\|**: alternative (enum values)
+
+## Background Tasks
+
+Tools with `Task` column support FastMCP background task execution:
+- **optional**: Client can choose sync or background execution
+- **required**: Always runs as background task (client must request task mode)
+
+Background tasks provide:
+- Progress reporting via `Progress` dependency
+- Async execution with task ID returned immediately
+- Poll-based status checking
+
+To enable background tasks, install: `uv sync --extra tasks`

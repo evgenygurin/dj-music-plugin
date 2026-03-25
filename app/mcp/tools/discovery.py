@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from docket import CurrentDocket, Docket
+from fastmcp.dependencies import Progress
 from fastmcp.server.context import Context
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -103,20 +105,29 @@ async def import_tracks(
     track_refs: list[str],
     playlist_id: int | None = None,
     auto_analyze: bool = False,
+    progress: Progress = Progress(),
+    docket: Docket = CurrentDocket(),
     ctx: Context | None = None,
 ) -> dict[str, Any]:
-    """Import YM track IDs into local DB. Idempotent — skips existing."""
+    """Import YM track IDs into local DB. Idempotent — skips existing.
+
+    If auto_analyze=True, schedules background analysis for imported tracks.
+    """
     if not track_refs:
         return {"error": "track_refs is required (list of YM track IDs)"}
+
+    await progress.set_total(len(track_refs))
+    await progress.set_message("Starting import...")
 
     async with await _get_session(ctx) as session:
         track_repo = TrackRepository(session)
 
         imported = 0
+        imported_ids: list[int] = []
         skipped = 0
         errors: list[str] = []
 
-        for ref in track_refs:
+        for idx, ref in enumerate(track_refs):
             ym_id = ref.strip()
             if not ym_id:
                 continue
@@ -131,6 +142,7 @@ async def import_tracks(
 
             if existing is not None:
                 skipped += 1
+                await progress.increment()
                 continue
 
             # Create track stub (metadata will be filled by YM sync later)
@@ -149,14 +161,15 @@ async def import_tracks(
             )
             session.add(ext_id)
             imported += 1
+            imported_ids.append(track.id)
 
-            if ctx and imported % 10 == 0:
-                await ctx.info(f"Imported {imported} tracks...")
+            if idx % 10 == 0:
+                await progress.set_message(f"Imported {imported} / {len(track_refs)} tracks...")
+            await progress.increment()
 
         await session.commit()
 
-        if ctx:
-            await ctx.info(f"Import complete: {imported} new, {skipped} skipped")
+        await progress.set_message(f"Import complete: {imported} new, {skipped} skipped")
 
         result_dict: dict[str, Any] = {
             "imported": imported,
@@ -170,9 +183,21 @@ async def import_tracks(
             result_dict["playlist_note"] = (
                 "Playlist assignment requires separate manage_playlist call"
             )
-        if auto_analyze:
-            result_dict["auto_analyze_note"] = (
-                "Auto-analyze requires analyze_batch — trigger separately"
+
+        # Schedule background analysis if requested and we imported tracks
+        if auto_analyze and imported_ids:
+            from app.mcp.tools.audio import analyze_batch
+
+            await docket.add(
+                analyze_batch,
+                track_ids=imported_ids,
+                analyzers=None,
+                priority="normal",
+            )
+            result_dict["auto_analyze_scheduled"] = True
+            result_dict["analysis_track_count"] = len(imported_ids)
+            result_dict["note"] = (
+                f"Scheduled background analysis for {len(imported_ids)} imported tracks"
             )
 
         return result_dict

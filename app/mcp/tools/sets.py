@@ -1,9 +1,18 @@
-"""Set building tools: build, rebuild, score transitions, cheat sheet."""
+"""Set building tools: build, rebuild, score transitions, cheat sheet.
+
+Includes background task support for transition scoring.
+"""
 
 from __future__ import annotations
 
-from fastmcp.server.context import Context
+from datetime import timedelta
 
+from docket import CurrentDocket, Docket
+from fastmcp.dependencies import Progress
+from fastmcp.server.context import Context
+from fastmcp.server.tasks import TaskConfig
+
+from app.config import settings
 from app.models.set import DjSet, SetItem, SetVersion
 from app.repositories.set import SetRepository
 from app.repositories.track import TrackRepository
@@ -300,3 +309,42 @@ async def get_set_cheat_sheet(
                     lines[-1] += " [PINNED]"
 
         return "\n".join(lines)
+
+
+@mcp.tool(
+    tags={"sets"},
+    annotations={"readOnlyHint": False},
+    task=TaskConfig(
+        mode="optional",
+        poll_interval=timedelta(seconds=settings.task_poll_interval_seconds),
+    ),
+)
+async def score_track_transitions_background(
+    track_id: int,
+    progress: Progress = Progress(),
+    docket: Docket = CurrentDocket(),
+    ctx: Context | None = None,
+) -> dict:
+    """Score all possible transitions for a track against the library.
+
+    Useful when:
+    - Track features are updated
+    - New track with features is imported
+    - Want to precompute transition cache
+
+    Recommended as background task for large libraries.
+    """
+    from app.services.background_tasks import score_track_transitions
+
+    async with await _get_session(ctx) as session:
+        # Delegate to background task service
+        result = await score_track_transitions(
+            track_id=track_id,
+            session=session,
+            progress=progress,  # type: ignore[arg-type]
+        )
+
+        if "error" not in result:
+            await session.commit()
+
+        return result
