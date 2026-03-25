@@ -12,7 +12,12 @@ from fastmcp.exceptions import ToolError
 from fastmcp.tools import tool
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.mcp.dependencies import get_db_session, get_playlist_repo, get_playlist_service, get_track_service
+from app.mcp.dependencies import (
+    get_db_session,
+    get_playlist_repo,
+    get_playlist_service,
+    get_track_service,
+)
 from app.repositories.playlist import PlaylistRepository
 from app.services.playlist_service import PlaylistService
 from app.services.track_service import TrackService
@@ -131,7 +136,10 @@ async def manage_playlist(
     if action == "remove_tracks":
         if not positions:
             raise ToolError("positions required for remove_tracks")
-        removed = sum(1 for pos in positions if await svc.remove_track(playlist_id, pos))
+        removed = 0
+        for pos in positions:
+            if await svc.remove_track(playlist_id, pos):
+                removed += 1
         return {"removed": removed, "playlist_id": playlist_id}
 
     if action == "reorder":
@@ -147,4 +155,3 @@ async def manage_playlist(
         return svc.to_summary(playlist).model_dump()
 
     raise ToolError("Unreachable")
-
