@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "MCP server for DJ techno music library management"
 requires-python = ">=3.12"
 dependencies = [
-    "fastmcp>=3.1.0",
+    "fastmcp[tasks]>=3.1.0",
     "sqlalchemy[asyncio]>=2.0",
     "aiosqlite>=0.20",
     "pydantic>=2.0",

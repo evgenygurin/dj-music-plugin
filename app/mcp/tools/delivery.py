@@ -115,6 +115,7 @@ async def _build_export_data(
     tags={"delivery"},
     annotations={"destructiveHint": True, "readOnlyHint": False},
     timeout=300.0,
+    task=True,
 )
 async def deliver_set(
     set_id: int,

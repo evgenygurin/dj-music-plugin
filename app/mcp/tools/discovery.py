@@ -301,6 +301,7 @@ async def filter_by_feedback(
     tags={"discovery"},
     annotations={"readOnlyHint": False, "openWorldHint": True},
     timeout=600.0,
+    task=True,
 )
 async def expand_playlist_ym(
     ym_playlist_kind: int,

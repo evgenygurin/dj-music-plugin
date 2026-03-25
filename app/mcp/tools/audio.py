@@ -54,6 +54,7 @@ async def analyze_track(
     tags={"audio"},
     annotations={"idempotentHint": True},
     timeout=600.0,
+    task=True,
 )
 async def analyze_batch(
     track_ids: list[int] | None = None,
