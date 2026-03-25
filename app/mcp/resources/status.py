@@ -82,7 +82,7 @@ async def library_status(
 
     energy_result = await session.execute(
         select(func.count(TrackAudioFeaturesComputed.track_id)).where(
-            TrackAudioFeaturesComputed.energy_lufs_integrated.isnot(None)
+            TrackAudioFeaturesComputed.integrated_lufs.isnot(None)
         )
     )
     tracks_with_energy = energy_result.scalar() or 0

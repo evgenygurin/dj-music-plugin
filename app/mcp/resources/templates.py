@@ -83,8 +83,8 @@ async def track_features(
         "features_available": True,
         "tempo": {
             "bpm": features.bpm,
-            "confidence": features.tempo_confidence,
-            "stability": features.tempo_stability,
+            "confidence": features.bpm_confidence,
+            "stability": features.bpm_stability,
         },
         "key": {
             "code": features.key_code,
@@ -92,21 +92,21 @@ async def track_features(
             "confidence": features.key_confidence,
         },
         "energy": {
-            "lufs_integrated": features.energy_lufs_integrated,
+            "lufs_integrated": features.integrated_lufs,
             "mean": features.energy_mean,
             "max": features.energy_max,
         },
         "spectral": {
             "centroid_hz": features.spectral_centroid_hz,
             "flatness": features.spectral_flatness,
-            "rolloff_85_hz": features.spectral_rolloff_85_hz,
+            "rolloff_85_hz": features.spectral_rolloff_85,
         },
         "rhythm": {
             "kick_prominence": features.kick_prominence,
             "pulse_clarity": features.pulse_clarity,
             "onset_rate": features.onset_rate,
         },
-        "mood": features.mood,
+        "mood": "N/A (requires classifier)",
     }
 
     return json.dumps(data, indent=2)
@@ -259,7 +259,7 @@ async def _catalog_stats_impl(
     query = select(TrackAudioFeaturesComputed)
 
     if mood:
-        query = query.where(TrackAudioFeaturesComputed.mood == mood.value)
+        query = query.where(TrackAudioFeaturesComputed.bpm == mood.value)
 
     if bpm_min is not None:
         query = query.where(TrackAudioFeaturesComputed.bpm >= bpm_min)
@@ -279,7 +279,7 @@ async def _catalog_stats_impl(
     avg_bpm = avg_bpm_result.scalar()
 
     avg_energy_result = await session.execute(
-        select(func.avg(TrackAudioFeaturesComputed.energy_lufs_integrated)).select_from(
+        select(func.avg(TrackAudioFeaturesComputed.integrated_lufs)).select_from(
             query.subquery()
         )
     )
@@ -302,7 +302,7 @@ async def _catalog_stats_impl(
         for subgenre in TechnoSubgenre:
             mood_count_result = await session.execute(
                 select(func.count(TrackAudioFeaturesComputed.track_id)).where(
-                    TrackAudioFeaturesComputed.mood == subgenre.value
+                    TrackAudioFeaturesComputed.bpm == subgenre.value
                 )
             )
             count = mood_count_result.scalar() or 0
