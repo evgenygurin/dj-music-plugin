@@ -12,7 +12,7 @@ from fastmcp.exceptions import ToolError
 from fastmcp.tools import tool
 from sqlalchemy import select
 
-from app.core.schemas import PaginatedResponse, TrackBrief
+from app.core.schemas import PaginatedResponse, TrackBrief, TrackStandard
 from app.mcp.dependencies import get_db_session, get_track_service
 from app.models.audio import TrackSection
 from app.services.track_service import TrackService
@@ -25,7 +25,7 @@ async def list_tracks(
     bpm_min: float | None = None,
     bpm_max: float | None = None,
     svc: TrackService = Depends(get_track_service),  # noqa: B008
-) -> dict[str, Any]:
+) -> PaginatedResponse[TrackBrief]:
     """List tracks with optional filters and cursor pagination."""
     if bpm_min is not None or bpm_max is not None:
         page = await svc.filter_by_features(
@@ -38,7 +38,7 @@ async def list_tracks(
         items=[svc.to_brief(t) for t in page.items],
         next_cursor=page.next_cursor,
         total=page.total,
-    ).model_dump()
+    )
 
 
 @tool(tags={"core"}, annotations={"readOnlyHint": True})
@@ -46,7 +46,7 @@ async def get_track(
     id: int | None = None,
     query: str | None = None,
     svc: TrackService = Depends(get_track_service),  # noqa: B008
-) -> dict[str, Any]:
+) -> TrackStandard:
     """Get full track details by id or text query."""
     if id is None and query is None:
         raise ToolError("Provide id or query")
@@ -59,7 +59,7 @@ async def get_track(
             raise ToolError("Track not found")
         track, features = await svc.get_with_features(results[0].id)
 
-    return svc.to_standard(track, features).model_dump()
+    return svc.to_standard(track, features)
 
 
 @tool(tags={"core"}, annotations={"readOnlyHint": False})
@@ -67,7 +67,7 @@ async def manage_tracks(
     action: str,
     data: dict[str, Any] | None = None,
     svc: TrackService = Depends(get_track_service),  # noqa: B008
-) -> dict[str, Any]:
+) -> TrackStandard:
     """Create, update, archive, or unarchive a track. action: create|update|archive|unarchive."""
     if action not in ("create", "update", "archive", "unarchive"):
         raise ToolError(f"Unknown action: {action}")
@@ -76,7 +76,7 @@ async def manage_tracks(
         if not data or "title" not in data:
             raise ToolError("data.title required for create")
         track = await svc.create(data["title"], data.get("duration_ms"))
-        return svc.to_standard(track).model_dump()
+        return svc.to_standard(track)
 
     track_id = (data or {}).get("id")
     if track_id is None:
@@ -92,7 +92,7 @@ async def manage_tracks(
     else:
         raise ToolError("Unreachable")
 
-    return svc.to_standard(track).model_dump()
+    return svc.to_standard(track)
 
 
 @tool(tags={"core"}, annotations={"readOnlyHint": True})
