@@ -115,8 +115,32 @@ async def client(async_engine):  # type: ignore[no-untyped-def]
     factory = async_sessionmaker(async_engine, expire_on_commit=False)
     original_lifespan = mcp._lifespan
 
+    from unittest.mock import AsyncMock
+
+    from app.audio.registry import AnalyzerRegistry
+    from app.core.cache import TransitionCache
+
+    # Provide all lifespan context keys that tools may need
+    registry = AnalyzerRegistry()
+    registry.discover()
+    cache = TransitionCache(max_size=100, ttl=60)
+
+    # Mock YM client
+    ym_mock = AsyncMock()
+    ym_mock.search = AsyncMock(
+        return_value=AsyncMock(tracks=[], albums=[], artists=[], playlists=[])
+    )
+    ym_mock.get_liked_ids = AsyncMock(return_value=[])
+    ym_mock.get_disliked_ids = AsyncMock(return_value=set())
+
     async def _test_lifespan(server):  # type: ignore[no-untyped-def]
-        yield {"db_engine": async_engine, "db_session_factory": factory}
+        yield {
+            "db_engine": async_engine,
+            "db_session_factory": factory,
+            "ym_client": ym_mock,
+            "analyzer_registry": registry,
+            "transition_cache": cache,
+        }
 
     mcp._lifespan = Lifespan(_test_lifespan)
 
