@@ -51,6 +51,20 @@ class SetRepository(BaseRepository[DjSet]):
 
         return version
 
+    async def get_version_items(self, version_id: int) -> list[SetItem]:
+        """Return ordered set items for a specific version.
+
+        Commonly used by tools to iterate over tracks in a set version
+        for scoring, delivery, and quality review.
+        """
+        stmt = (
+            select(SetItem)
+            .where(SetItem.version_id == version_id)
+            .order_by(SetItem.sort_index)
+        )
+        result = await self.session.execute(stmt)
+        return list(result.scalars().all())
+
     async def get_version_with_items(self, version_id: int) -> SetVersion | None:
         """Load a version with items eagerly."""
         stmt = (

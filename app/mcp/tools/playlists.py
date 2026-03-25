@@ -72,17 +72,19 @@ async def get_playlist(
             raise ToolError("Playlist not found")
 
     response = svc.to_summary(playlist).model_dump()
+    response["tracks"] = []
 
     if include_tracks and playlist.items:
         track_ids = [item.track_id for item in sorted(playlist.items, key=lambda i: i.sort_index)]
-        tracks = []
         for tid in track_ids:
             try:
                 t, _ = await track_svc.get_with_features(tid)
-                tracks.append(track_svc.to_brief(t).model_dump())
+                tracks_entry = track_svc.to_brief(t).model_dump()
+                response["tracks"].append(tracks_entry)
             except Exception:
-                pass
-        response["tracks"] = tracks
+                response["tracks"].append(
+                    {"id": tid, "title": f"[unresolved track {tid}]", "error": True}
+                )
 
     return response
 
@@ -129,7 +131,12 @@ async def manage_playlist(
     if action == "add_tracks":
         if not track_refs:
             raise ToolError("track_refs required for add_tracks")
-        new_count = await svc.add_tracks(playlist_id, track_refs)
+        from app.core.entity_resolver import resolve_track_refs
+
+        resolved_ids = await resolve_track_refs(track_refs, session)
+        if not resolved_ids:
+            raise ToolError("No track refs could be resolved to local DB IDs")
+        new_count = await svc.add_tracks(playlist_id, resolved_ids)
         playlist = await svc.get_by_id(playlist_id)
         return svc.to_summary(playlist, track_count=new_count).model_dump()
 
