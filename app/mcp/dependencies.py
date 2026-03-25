@@ -2,6 +2,12 @@
 
 All dependencies use Depends() — hidden from tool schemas.
 DB session is cached per-request: multiple repos share one transaction.
+
+Lifespan context access:
+- DB: ctx.lifespan_context["db_engine"], ctx.lifespan_context["db_session_factory"]
+- YM: ctx.lifespan_context["ym_client"]
+- Audio: ctx.lifespan_context["analyzer_registry"]
+- Cache: ctx.lifespan_context["transition_cache"]
 """
 
 from __future__ import annotations
@@ -12,12 +18,15 @@ from contextlib import asynccontextmanager
 from fastmcp.server.dependencies import get_context
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.audio.registry import AnalyzerRegistry
+from app.core.cache import TransitionCache
 from app.repositories.export import ExportRepository
 from app.repositories.feature import FeatureRepository
 from app.repositories.playlist import PlaylistRepository
 from app.repositories.set import SetRepository
 from app.repositories.track import TrackRepository
 from app.repositories.transition import TransitionRepository
+from app.ym.client import YandexMusicClient
 
 
 @asynccontextmanager
@@ -91,3 +100,36 @@ async def get_export_repo(
         async with get_db_session() as session:
             return ExportRepository(session)
     return ExportRepository(session)
+
+
+# ── Lifespan context dependencies ─────────────────────
+
+
+def get_ym_client() -> YandexMusicClient:
+    """Get YM client from lifespan context.
+
+    Accessible via Depends(get_ym_client) in tools.
+    """
+    ctx = get_context()
+    client: YandexMusicClient = ctx.lifespan_context["ym_client"]
+    return client
+
+
+def get_analyzer_registry() -> AnalyzerRegistry:
+    """Get analyzer registry from lifespan context.
+
+    Accessible via Depends(get_analyzer_registry) in tools.
+    """
+    ctx = get_context()
+    registry: AnalyzerRegistry = ctx.lifespan_context["analyzer_registry"]
+    return registry
+
+
+def get_transition_cache() -> TransitionCache:
+    """Get transition cache from lifespan context.
+
+    Accessible via Depends(get_transition_cache) in tools.
+    """
+    ctx = get_context()
+    cache: TransitionCache = ctx.lifespan_context["transition_cache"]
+    return cache

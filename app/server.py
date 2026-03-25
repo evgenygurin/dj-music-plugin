@@ -9,14 +9,23 @@ from fastmcp import FastMCP
 from fastmcp.server.lifespan import lifespan
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
+from app.audio.registry import AnalyzerRegistry
 from app.config import settings
+from app.core.cache import TransitionCache
+from app.ym.client import YandexMusicClient
+from app.ym.rate_limiter import RateLimiter
 
 # ── Lifespans ────────────────────────────────────────
 
 
 @lifespan
 async def db_lifespan(server):  # type: ignore[no-untyped-def]
-    """Database engine + session factory lifecycle."""
+    """Database engine + session factory lifecycle.
+
+    Creates async SQLAlchemy engine and session factory.
+    Yields context accessible via ctx.lifespan_context["db_*"].
+    Ensures proper engine disposal on shutdown.
+    """
     engine = create_async_engine(
         settings.database_url,
         echo=settings.debug,
@@ -29,8 +38,74 @@ async def db_lifespan(server):  # type: ignore[no-untyped-def]
         await engine.dispose()
 
 
+@lifespan
+async def ym_lifespan(server):  # type: ignore[no-untyped-def]
+    """Yandex Music client lifecycle.
+
+    Creates YM client with rate limiting (token bucket + exponential backoff).
+    Yields context accessible via ctx.lifespan_context["ym_client"].
+    Ensures proper HTTP client cleanup on shutdown.
+    """
+    rate_limiter = RateLimiter(
+        delay=settings.ym_rate_limit_delay,
+        max_retries=settings.ym_retry_attempts,
+        backoff_factor=settings.ym_retry_backoff_factor,
+    )
+
+    client = YandexMusicClient(
+        token=settings.ym_token,
+        user_id=settings.ym_user_id,
+        base_url=settings.ym_base_url,
+        rate_limiter=rate_limiter,
+    )
+
+    try:
+        yield {"ym_client": client}
+    finally:
+        await client.close()
+
+
+@lifespan
+async def analyzer_lifespan(server):  # type: ignore[no-untyped-def]
+    """Audio analyzer registry lifecycle.
+
+    Discovers and registers all available audio analyzers.
+    Core analyzers (loudness, energy, spectral) always available.
+    Optional analyzers (BPM, key, MFCC) require [audio] extra.
+    Yields context accessible via ctx.lifespan_context["analyzer_registry"].
+    """
+    registry = AnalyzerRegistry()
+    registry.discover()  # Auto-discover built-in analyzers
+
+    try:
+        yield {"analyzer_registry": registry}
+    finally:
+        # No cleanup needed — registry is stateless
+        pass
+
+
+@lifespan
+async def cache_lifespan(server):  # type: ignore[no-untyped-def]
+    """Transition score cache lifecycle.
+
+    Creates in-memory LRU cache for expensive transition scores.
+    Yields context accessible via ctx.lifespan_context["transition_cache"].
+    Cache is cleared on shutdown.
+    """
+    cache = TransitionCache(
+        max_size=settings.transition_cache_max_size,
+        ttl=settings.transition_cache_ttl,
+    )
+
+    try:
+        yield {"transition_cache": cache}
+    finally:
+        cache.clear()
+
+
 # ── Server ───────────────────────────────────────────
 
+# Compose lifespans with | operator (enter left-to-right, exit right-to-left)
 mcp = FastMCP(
     name=settings.server_name,
     instructions=(
@@ -38,7 +113,7 @@ mcp = FastMCP(
         "and Yandex Music integration. "
         "Use unlock_tools to access hidden tool categories."
     ),
-    lifespan=db_lifespan,
+    lifespan=db_lifespan | ym_lifespan | analyzer_lifespan | cache_lifespan,
     list_page_size=settings.pagination_size,
     on_duplicate="error",
 )
