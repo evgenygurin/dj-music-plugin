@@ -7,12 +7,6 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(
-        env_prefix="DJ_",
-        env_file=".env",
-        env_file_encoding="utf-8",
-    )
-
     # ── Database ──────────────────────────────────────
     database_url: str = "sqlite+aiosqlite:///dj_music.db"
 
@@ -86,6 +80,7 @@ class Settings(BaseSettings):
     delivery_icloud_stub_threshold: float = 0.9  # blocks/size ratio
 
     # ── LLM Sampling ─────────────────────────────────
+    anthropic_api_key: str = ""  # env: ANTHROPIC_API_KEY (no DJ_ prefix)
     sampling_model: str = "claude-sonnet-4-5"
     sampling_max_tokens: int = 512
     sampling_temperature: float = 0.8
@@ -93,6 +88,14 @@ class Settings(BaseSettings):
     @property
     def is_dev(self) -> bool:
         return self.debug
+
+    model_config = SettingsConfigDict(
+        env_prefix="DJ_",
+        env_file=".env",
+        env_file_encoding="utf-8",
+        # Allow ANTHROPIC_API_KEY without DJ_ prefix
+        extra="allow",
+    )
 
 
 settings = Settings()

@@ -31,6 +31,22 @@ async def db_lifespan(server):  # type: ignore[no-untyped-def]
 
 # ── Server ───────────────────────────────────────────
 
+# Configure sampling handler for LLM-assisted tools (find_similar_tracks, etc.)
+sampling_handler = None
+if settings.anthropic_api_key:
+    try:
+        from anthropic import AsyncAnthropic
+        from fastmcp.client.sampling.handlers.anthropic import AnthropicSamplingHandler
+
+        client = AsyncAnthropic(api_key=settings.anthropic_api_key)
+        sampling_handler = AnthropicSamplingHandler(
+            default_model=settings.sampling_model,
+            client=client,
+        )
+    except ImportError:
+        # anthropic package not installed — sampling will fallback to client
+        pass
+
 mcp = FastMCP(
     name=settings.server_name,
     instructions=(
@@ -41,6 +57,8 @@ mcp = FastMCP(
     lifespan=db_lifespan,
     list_page_size=settings.pagination_size,
     on_duplicate="error",
+    sampling_handler=sampling_handler,
+    sampling_handler_behavior="fallback" if sampling_handler else None,
 )
 
 # Hide audio tools at startup

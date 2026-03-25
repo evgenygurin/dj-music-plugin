@@ -6,8 +6,10 @@ from typing import Any
 
 from fastmcp.server.context import Context
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from app.config import settings
+from app.mcp.tools.sampling_models import SimilarTrackSearchStrategy
 from app.models.track import Track, TrackExternalId
 from app.repositories.track import TrackRepository
 from app.server import mcp
@@ -19,7 +21,7 @@ async def _get_session(ctx: Context | None) -> AsyncSession:
     """Get async session from lifespan context."""
     if ctx is None:
         raise RuntimeError("Context required — tools must be called via MCP")
-    factory = ctx.lifespan_context["db_session_factory"]
+    factory: async_sessionmaker[AsyncSession] = ctx.lifespan_context["db_session_factory"]
     return factory()
 
 
@@ -74,13 +76,58 @@ async def find_similar_tracks(
             }
 
         if strategy == "llm":
-            return {
-                "track_id": track_id,
-                "track_title": track.title,
-                "strategy": strategy,
-                "similar": [],
-                "message": "LLM similarity requires sampling — not yet implemented",
-            }
+            # Use LLM sampling to generate search queries
+            if ctx is None:
+                return {"error": "Context required for LLM strategy"}
+
+            # Build prompt with track characteristics
+            prompt_parts = [
+                f"Track: {track.title}",
+                f"Duration: {track.duration_ms // 1000}s" if track.duration_ms else "",
+            ]
+            # TODO: add audio features when available (BPM, key, energy, mood)
+
+            prompt = (
+                f"Given this techno track:\n\n{chr(10).join(p for p in prompt_parts if p)}\n\n"
+                f"Generate {limit} search queries to find similar tracks on Yandex Music. "
+                f"Consider: mood, energy, artists, subgenre, BPM range. "
+                f"BPM tolerance: ±{bpm_tolerance}. "
+                f"Key compatible: {key_compatible}."
+            )
+
+            try:
+                # Request structured output from LLM
+                response = await ctx.sample(
+                    messages=[prompt],
+                    result_type=SimilarTrackSearchStrategy,
+                    max_tokens=int(settings.sampling_max_tokens),
+                    temperature=settings.sampling_temperature,
+                )
+
+                strategy_result = response.result
+                return {
+                    "track_id": track_id,
+                    "track_title": track.title,
+                    "strategy": strategy,
+                    "queries": [
+                        {"query": q.query, "rationale": q.rationale}
+                        for q in strategy_result.queries
+                    ],
+                    "focus_areas": strategy_result.focus_areas,
+                    "similar": [],
+                    "message": (
+                        "LLM generated search queries — "
+                        "actual YM search requires ym_client integration"
+                    ),
+                }
+            except Exception as e:
+                return {
+                    "track_id": track_id,
+                    "track_title": track.title,
+                    "strategy": strategy,
+                    "error": f"LLM sampling failed: {e}",
+                    "similar": [],
+                }
 
         # combined
         return {
