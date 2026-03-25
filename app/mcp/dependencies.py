@@ -118,3 +118,4 @@ def get_transition_cache() -> TransitionCache:
     """Get in-memory transition cache from lifespan context."""
     ctx = get_context()
     return ctx.lifespan_context["transition_cache"]  # type: ignore[return-value]
+

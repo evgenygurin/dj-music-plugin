@@ -11,9 +11,10 @@ from fastmcp.exceptions import ToolError
 from fastmcp.server.context import Context
 from fastmcp.tools import tool
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
-from app.mcp.dependencies import get_db_session, get_ym_client
+from app.mcp.dependencies import get_db_session, get_track_repo, get_ym_client
 from app.models.track import Track, TrackExternalId
 from app.repositories.track import TrackRepository
 from app.ym.client import YandexMusicClient
@@ -27,7 +28,7 @@ def _sanitize_filename(title: str, max_len: int = 80) -> str:
     return safe or "untitled"
 
 
-# ── 1. import_tracks ────────────────────────────────
+# ── 1. import_tracks ─────────────────────────────────
 
 
 @tool(
@@ -38,6 +39,9 @@ async def import_tracks(
     track_refs: Any = None,
     playlist_id: int | None = None,
     auto_analyze: bool = False,
+    session: AsyncSession = Depends(get_db_session),  # noqa: B008
+    track_repo: TrackRepository = Depends(get_track_repo),  # noqa: B008
+    ym: YandexMusicClient = Depends(get_ym_client),  # noqa: B008
     ctx: Context | None = None,
 ) -> dict[str, Any]:
     """Import YM track IDs into local DB. Accepts strings or ints. Idempotent — skips existing."""
@@ -47,107 +51,100 @@ async def import_tracks(
     if not track_refs:
         raise ToolError("track_refs is required (list of YM track IDs)")
 
-    async with get_db_session() as session:
-        track_repo = TrackRepository(session)
-        imported = 0
-        skipped = 0
-        imported_ids: list[str] = []  # YM IDs of newly imported tracks
-        id_mapping: dict[str, int] = {}  # ym_id -> local track_id
+    imported = 0
+    skipped = 0
+    imported_ids: list[str] = []
+    id_mapping: dict[str, int] = {}
 
-        for ref in track_refs:
-            ym_id = str(ref).strip()
-            if not ym_id:
-                continue
+    for ref in track_refs:
+        ym_id = str(ref).strip()
+        if not ym_id:
+            continue
 
-            stmt = select(TrackExternalId).where(
-                TrackExternalId.platform == "yandex_music",
-                TrackExternalId.external_id == ym_id,
-            )
-            result = await session.execute(stmt)
-            if result.scalar_one_or_none() is not None:
-                skipped += 1
-                continue
+        stmt = select(TrackExternalId).where(
+            TrackExternalId.platform == "yandex_music",
+            TrackExternalId.external_id == ym_id,
+        )
+        result = await session.execute(stmt)
+        if result.scalar_one_or_none() is not None:
+            skipped += 1
+            continue
 
-            track = Track(title=f"YM:{ym_id}", status=0)
-            track = await track_repo.create(track)
-            await session.flush()
+        track = Track(title=f"YM:{ym_id}", status=0)
+        track = await track_repo.create(track)
+        await session.flush()
 
-            ext_id = TrackExternalId(track_id=track.id, platform="yandex_music", external_id=ym_id)
-            session.add(ext_id)
-            imported += 1
-            imported_ids.append(ym_id)
-            id_mapping[ym_id] = track.id
+        ext_id = TrackExternalId(track_id=track.id, platform="yandex_music", external_id=ym_id)
+        session.add(ext_id)
+        imported += 1
+        imported_ids.append(ym_id)
+        id_mapping[ym_id] = track.id
 
-            if ctx and imported % 10 == 0:
-                await ctx.info(f"Imported {imported} tracks...")
+        if ctx and imported % 10 == 0:
+            await ctx.info(f"Imported {imported} tracks...")
 
-        # Enrich with YM metadata (batch fetch)
-        enriched = 0
-        if imported_ids:
-            try:
-                ym_client = get_ym_client()
-                ym_tracks = await ym_client.get_tracks(imported_ids)
-                ym_by_id = {str(t.id): t for t in ym_tracks}
+    # Enrich with YM metadata (batch fetch)
+    enriched = 0
+    if imported_ids:
+        try:
+            ym_tracks = await ym.get_tracks(imported_ids)
+            ym_by_id = {str(t.id): t for t in ym_tracks}
 
-                from app.models.platform import YandexMetadata
+            from app.models.platform import YandexMetadata
 
-                for ym_id, local_track_id in id_mapping.items():
-                    ym_track = ym_by_id.get(ym_id)
-                    if not ym_track:
-                        continue
+            for ym_id_str, local_track_id in id_mapping.items():
+                ym_track = ym_by_id.get(ym_id_str)
+                if not ym_track:
+                    continue
 
-                    # Update track title and duration
-                    local_track = await track_repo.get_by_id(local_track_id)
-                    if local_track and local_track.title.startswith("YM:"):
-                        artists = ", ".join(a.get("name", "?") for a in (ym_track.artists or []))
-                        local_track.title = (
-                            f"{artists} - {ym_track.title}" if artists else ym_track.title
-                        )
-                        if ym_track.duration_ms:
-                            local_track.duration_ms = ym_track.duration_ms
-                        await session.flush()
-
-                    # Save YandexMetadata
-                    albums = ym_track.albums or []
-                    album = albums[0] if albums else {}
-                    meta = YandexMetadata(
-                        track_id=local_track_id,
-                        yandex_track_id=ym_id,
-                        album_id=str(album.get("id", "")) if album else None,
-                        album_title=album.get("title") if album else None,
-                        album_genre=album.get("genre") if album else None,
-                        album_year=album.get("year") if album else None,
-                        duration_ms=ym_track.duration_ms,
-                        cover_uri=ym_track.cover_uri,
-                        explicit=ym_track.explicit,
+                local_track = await track_repo.get_by_id(local_track_id)
+                if local_track and local_track.title.startswith("YM:"):
+                    artists = ", ".join(a.get("name", "?") for a in (ym_track.artists or []))
+                    local_track.title = (
+                        f"{artists} - {ym_track.title}" if artists else ym_track.title
                     )
-                    session.add(meta)
-                    enriched += 1
+                    if ym_track.duration_ms:
+                        local_track.duration_ms = ym_track.duration_ms
+                    await session.flush()
 
-                await session.flush()
-            except Exception as e:
-                if ctx:
-                    await ctx.info(f"YM metadata enrichment skipped: {e}")
+                albums = ym_track.albums or []
+                album = albums[0] if albums else {}
+                meta = YandexMetadata(
+                    track_id=local_track_id,
+                    yandex_track_id=ym_id_str,
+                    album_id=str(album.get("id", "")) if album else None,
+                    album_title=album.get("title") if album else None,
+                    album_genre=album.get("genre") if album else None,
+                    album_year=album.get("year") if album else None,
+                    duration_ms=ym_track.duration_ms,
+                    cover_uri=ym_track.cover_uri,
+                    explicit=ym_track.explicit,
+                )
+                session.add(meta)
+                enriched += 1
 
-        if ctx:
-            await ctx.info(
-                f"Import complete: {imported} new, {skipped} skipped, {enriched} enriched"
-            )
+            await session.flush()
+        except Exception as e:
+            if ctx:
+                await ctx.info(f"YM metadata enrichment skipped: {e}")
 
-        result_dict: dict[str, Any] = {
-            "imported": imported,
-            "skipped": skipped,
-            "enriched": enriched,
-            "total_refs": len(track_refs),
-        }
-        if playlist_id:
-            result_dict["playlist_note"] = "Use manage_playlist(add_tracks) to add to playlist"
-        if auto_analyze:
-            result_dict["auto_analyze_note"] = "Use analyze_batch to trigger audio analysis"
-        return result_dict
+    if ctx:
+        await ctx.info(f"Import complete: {imported} new, {skipped} skipped, {enriched} enriched")
+
+    result_dict: dict[str, Any] = {
+        "imported": imported,
+        "skipped": skipped,
+        "enriched": enriched,
+        "total_refs": len(track_refs),
+    }
+    if playlist_id:
+        result_dict["playlist_note"] = "Use manage_playlist(add_tracks) to add to playlist"
+    if auto_analyze:
+        result_dict["auto_analyze_note"] = "Use analyze_batch to trigger audio analysis"
+    return result_dict
 
 
-# ── 2. download_tracks ──────────────────────────────
+# ── 2. download_tracks ───────────────────────────────
 
 
 @tool(
@@ -193,7 +190,6 @@ async def download_tracks(
         if ctx:
             await ctx.report_progress(i, total)
 
-        # Get track metadata for filename
         try:
             tracks = await ym.get_tracks([ym_id])
             if tracks:
@@ -217,14 +213,12 @@ async def download_tracks(
                 ym_id, str(dest_path), prefer_bitrate=prefer_bitrate
             )
             downloaded += 1
-            files.append(
-                {
-                    "ym_id": ym_id,
-                    "path": str(dest_path),
-                    "size_bytes": file_size,
-                    "status": "downloaded",
-                }
-            )
+            files.append({
+                "ym_id": ym_id,
+                "path": str(dest_path),
+                "size_bytes": file_size,
+                "status": "downloaded",
+            })
             if ctx:
                 await ctx.info(f"Downloaded: {filename} ({file_size // 1024}KB)")
         except Exception as e:
@@ -246,3 +240,4 @@ async def download_tracks(
         "files": files[:20],
         "errors": errors[:10] if errors else [],
     }
+

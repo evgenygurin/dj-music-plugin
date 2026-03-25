@@ -11,11 +11,12 @@ from fastmcp.dependencies import Depends
 from fastmcp.exceptions import ToolError
 from fastmcp.server.context import Context
 from fastmcp.tools import tool
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.mcp.dependencies import get_audio_service, get_db_session
 from app.services.audio_service import AudioService
 
-# ── 1. analyze_track ───────────────────────────────
+# ── 1. analyze_track ─────────────────────────────────
 
 
 @tool(
@@ -29,6 +30,7 @@ async def analyze_track(
     analyzers: Any = None,
     force: bool = False,
     svc: AudioService = Depends(get_audio_service),  # noqa: B008
+    session: AsyncSession = Depends(get_db_session),  # noqa: B008
     ctx: Context | None = None,
 ) -> dict[str, Any]:
     """Run audio analysis pipeline + mood classification on a track."""
@@ -44,13 +46,12 @@ async def analyze_track(
 
         from app.models.track import Track
 
-        async with get_db_session() as session:
-            stmt = select(Track).where(Track.title.ilike(f"%{track_query}%")).limit(1)
-            result = await session.execute(stmt)
-            track = result.scalar_one_or_none()
-            if not track:
-                raise ToolError(f"Track not found: {track_query}")
-            track_id = track.id
+        stmt = select(Track).where(Track.title.ilike(f"%{track_query}%")).limit(1)
+        result = await session.execute(stmt)
+        track = result.scalar_one_or_none()
+        if not track:
+            raise ToolError(f"Track not found: {track_query}")
+        track_id = track.id
 
     if ctx:
         await ctx.info(f"Analyzing track {track_id}...")
@@ -65,7 +66,7 @@ async def analyze_track(
     return result
 
 
-# ── 2. analyze_batch ──────────────────────────────
+# ── 2. analyze_batch ─────────────────────────────────
 
 
 @tool(
@@ -80,6 +81,7 @@ async def analyze_batch(
     analyzers: Any = None,
     priority: str = "normal",
     svc: AudioService = Depends(get_audio_service),  # noqa: B008
+    session: AsyncSession = Depends(get_db_session),  # noqa: B008
     ctx: Context | None = None,
 ) -> dict[str, Any]:
     """Batch audio analysis for multiple tracks or a playlist."""
@@ -98,14 +100,13 @@ async def analyze_batch(
 
         from app.models.playlist import PlaylistItem
 
-        async with get_db_session() as session:
-            stmt = (
-                select(PlaylistItem.track_id)
-                .where(PlaylistItem.playlist_id == playlist_id)
-                .order_by(PlaylistItem.sort_index)
-            )
-            result = await session.execute(stmt)
-            track_ids = [r[0] for r in result.all()]
+        stmt = (
+            select(PlaylistItem.track_id)
+            .where(PlaylistItem.playlist_id == playlist_id)
+            .order_by(PlaylistItem.sort_index)
+        )
+        result = await session.execute(stmt)
+        track_ids = [r[0] for r in result.all()]
 
     if not track_ids:
         raise ToolError("No tracks to analyze")
@@ -144,13 +145,10 @@ async def analyze_batch(
     }
 
 
-# ── 3. separate_stems ─────────────────────────────
+# ── 3. separate_stems ────────────────────────────────
 
 
-@tool(
-    tags={"audio"},
-    timeout=300.0,
-)
+@tool(tags={"audio"}, timeout=300.0)
 async def separate_stems(
     track_id: int | None = None,
     track_query: str | None = None,
@@ -170,7 +168,6 @@ async def separate_stems(
         if invalid:
             raise ToolError(f"Invalid stems: {sorted(invalid)}. Valid: {sorted(valid_stems)}")
 
-    # Stub — requires demucs + torch
     return {
         "track_id": track_id,
         "track_query": track_query,
@@ -179,3 +176,4 @@ async def separate_stems(
         "output_files": {},
         "note": "Requires [stems] extra: uv sync --extra stems",
     }
+

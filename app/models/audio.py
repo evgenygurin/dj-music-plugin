@@ -1,6 +1,6 @@
 """Audio analysis models (REQUIREMENTS §2.2, §2.8)."""
 
-from typing import Optional
+from typing import Any, ClassVar, Optional
 
 from sqlalchemy import (
     CheckConstraint,
@@ -123,6 +123,24 @@ class TrackAudioFeaturesComputed(Base, TimestampMixin):
     pipeline_run: Mapped[Optional["FeatureExtractionRun"]] = relationship(
         back_populates="computed_features",
     )
+
+    # ── Convenience methods ─────────────────────────────
+
+    _CLASSIFIER_FIELDS: ClassVar[tuple[str, ...]] = (
+        "energy_mean", "energy_max", "energy_std", "energy_slope",
+        "spectral_centroid_hz", "spectral_rolloff_85", "spectral_rolloff_95",
+        "spectral_flatness", "spectral_flux_mean", "spectral_flux_std",
+        "spectral_contrast",
+        "integrated_lufs", "short_term_lufs_mean", "momentary_max",
+        "rms_dbfs", "true_peak_db", "crest_factor_db", "loudness_range_lu",
+        "hp_ratio", "onset_rate", "pulse_clarity", "kick_prominence",
+        "bpm", "bpm_confidence", "bpm_stability",
+        "key_code", "key_confidence", "atonality", "hnr_db",
+    )
+
+    def to_classifier_dict(self) -> dict[str, Any]:
+        """Convert features to dict suitable for MoodClassifier. Single source of truth."""
+        return {field: getattr(self, field) for field in self._CLASSIFIER_FIELDS}
 
     __table_args__ = (
         CheckConstraint("bpm IS NULL OR (bpm >= 20 AND bpm <= 300)", name="ck_tafc_bpm"),

@@ -11,6 +11,7 @@ from fastmcp.dependencies import Depends
 from fastmcp.exceptions import ToolError
 from fastmcp.tools import tool
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.schemas import PaginatedResponse, TrackBrief, TrackStandard
 from app.mcp.dependencies import get_db_session, get_track_service
@@ -104,6 +105,7 @@ async def get_track_features(
     query: str | None = None,
     include_sections: bool = False,
     svc: TrackService = Depends(get_track_service),  # noqa: B008
+    session: AsyncSession = Depends(get_db_session),  # noqa: B008
 ) -> dict[str, Any]:
     """Get audio features for a track by id or query. Optionally include sections."""
     if id is None and query is None:
@@ -137,15 +139,15 @@ async def get_track_features(
     }
 
     if include_sections:
-        async with get_db_session() as session:
-            result = await session.execute(
-                select(TrackSection)
-                .where(TrackSection.track_id == track.id)
-                .order_by(TrackSection.start_ms)
-            )
-            response["sections"] = [
-                {"type": s.section_type, "start_ms": s.start_ms, "end_ms": s.end_ms}
-                for s in result.scalars().all()
-            ]
+        result = await session.execute(
+            select(TrackSection)
+            .where(TrackSection.track_id == track.id)
+            .order_by(TrackSection.start_ms)
+        )
+        response["sections"] = [
+            {"type": s.section_type, "start_ms": s.start_ms, "end_ms": s.end_ms}
+            for s in result.scalars().all()
+        ]
 
     return response
+

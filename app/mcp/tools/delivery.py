@@ -5,6 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+from fastmcp.dependencies import Depends
 from fastmcp.exceptions import ToolError
 from fastmcp.server.context import Context
 from fastmcp.tools import tool
@@ -13,7 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.core.constants import ExportFormat
-from app.mcp.dependencies import get_db_session
+from app.mcp.dependencies import get_db_session, get_set_repo, get_track_repo, get_transition_repo
 from app.models.audio import TrackAudioFeaturesComputed
 from app.models.set import DjSet, SetItem, SetVersion
 from app.models.track import TrackArtist
@@ -39,11 +40,10 @@ async def _build_export_data(
     dj_set: DjSet,
     version: SetVersion,
     items: list[SetItem],
+    track_repo: TrackRepository,
+    transition_repo: TransitionRepository,
 ) -> SetExportData:
     """Build SetExportData from DB models."""
-    track_repo = TrackRepository(session)
-    transition_repo = TransitionRepository(session)
-
     export_tracks: list[ExportTrack] = []
     for item in items:
         track = await track_repo.get_by_id(item.track_id)
@@ -139,6 +139,10 @@ async def deliver_set(
     sync_to_ym: bool = False,
     formats: Any = None,
     dry_run: bool = False,
+    session: AsyncSession = Depends(get_db_session),  # noqa: B008
+    set_repo: SetRepository = Depends(get_set_repo),  # noqa: B008
+    track_repo: TrackRepository = Depends(get_track_repo),  # noqa: B008
+    transition_repo: TransitionRepository = Depends(get_transition_repo),  # noqa: B008
     ctx: Context | None = None,
 ) -> dict[str, Any]:
     """Multi-stage set delivery: score transitions, copy files, generate exports."""
@@ -148,140 +152,75 @@ async def deliver_set(
     if ctx:
         await ctx.info(f"Starting delivery for set {set_id}...")
 
-    async with get_db_session() as session:
-        set_repo = SetRepository(session)
+    # Stage 1: Load set
+    dj_set = await set_repo.get_by_id(set_id)
+    if dj_set is None:
+        raise ToolError(f"Set {set_id} not found")
 
-        # Stage 1: Load set
-        dj_set = await set_repo.get_by_id(set_id)
-        if dj_set is None:
-            raise ToolError(f"Set {set_id} not found")
+    target_version = await set_repo.get_latest_version(set_id)
+    if target_version is None:
+        raise ToolError("No version found for this set")
 
-        target_version = await set_repo.get_latest_version(set_id)
-        if target_version is None:
-            raise ToolError("No version found for this set")
+    stmt = (
+        select(SetItem)
+        .where(SetItem.version_id == target_version.id)
+        .order_by(SetItem.sort_index)
+    )
+    result = await session.execute(stmt)
+    items = list(result.scalars().all())
 
-        stmt = (
-            select(SetItem)
-            .where(SetItem.version_id == target_version.id)
-            .order_by(SetItem.sort_index)
+    if not items:
+        raise ToolError("Set has no tracks")
+
+    if ctx:
+        await ctx.info(f"Stage 1/4: Loaded {len(items)} tracks")
+        await ctx.report_progress(1, 4)
+
+    # Stage 2: Score transitions
+    scored_count = 0
+    conflict_count = 0
+    for i in range(len(items) - 1):
+        score = await transition_repo.get_score(items[i].track_id, items[i + 1].track_id)
+        if score:
+            scored_count += 1
+            if score.overall_quality is not None and score.overall_quality == 0.0:
+                conflict_count += 1
+
+    if ctx:
+        await ctx.info(
+            f"Stage 2/4: {scored_count}/{len(items) - 1} transitions scored, "
+            f"{conflict_count} conflicts"
         )
-        result = await session.execute(stmt)
-        items = list(result.scalars().all())
+        await ctx.report_progress(2, 4)
 
-        if not items:
-            raise ToolError("Set has no tracks")
-
-        if ctx:
-            await ctx.info(f"Stage 1/4: Loaded {len(items)} tracks")
-            await ctx.report_progress(1, 4)
-
-        # Stage 2: Score transitions
-        transition_repo = TransitionRepository(session)
-        scored_count = 0
-        conflict_count = 0
-        for i in range(len(items) - 1):
-            score = await transition_repo.get_score(items[i].track_id, items[i + 1].track_id)
-            if score:
-                scored_count += 1
-                if score.overall_quality is not None and score.overall_quality == 0.0:
-                    conflict_count += 1
-
-        if ctx:
-            await ctx.info(
-                f"Stage 2/4: {scored_count}/{len(items) - 1} transitions scored, "
-                f"{conflict_count} conflicts"
+    # Elicitation: ask user if hard conflicts found
+    if conflict_count > 0 and not dry_run and ctx:
+        try:
+            result = await ctx.elicit(
+                f"Found {conflict_count} hard conflict(s) (score=0.0). Continue delivery?",
+                response_type=str,
             )
-            await ctx.report_progress(2, 4)
+            if result.action != "accept":
+                return {
+                    "aborted": True,
+                    "reason": "User declined due to conflicts",
+                    "conflicts": conflict_count,
+                }
+        except Exception:
+            pass  # Client doesn't support elicitation — continue
 
-        # Elicitation: ask user if hard conflicts found
-        if conflict_count > 0 and not dry_run and ctx:
-            try:
-                result = await ctx.elicit(
-                    f"Found {conflict_count} hard conflict(s) (score=0.0). Continue delivery?",
-                    response_type=str,
-                )
-                if result.action != "accept":
-                    return {
-                        "aborted": True,
-                        "reason": "User declined due to conflicts",
-                        "conflicts": conflict_count,
-                    }
-            except Exception:
-                pass  # Client doesn't support elicitation — continue
+    # Build export data
+    export_data = await _build_export_data(
+        session, dj_set, target_version, items, track_repo, transition_repo,
+    )
 
-        # Build export data
-        export_data = await _build_export_data(session, dj_set, target_version, items)
+    # Determine output directory
+    base_dir = Path(output_dir or settings.delivery_output_dir)
+    set_dir = base_dir / dj_set.name.replace(" ", "_").lower()
 
-        # Determine output directory
-        base_dir = Path(output_dir or settings.delivery_output_dir)
-        set_dir = base_dir / dj_set.name.replace(" ", "_").lower()
-
-        if dry_run:
-            return {
-                "dry_run": True,
-                "set_id": set_id,
-                "set_name": dj_set.name,
-                "version": target_version.label,
-                "track_count": len(items),
-                "scored_transitions": scored_count,
-                "conflicts": conflict_count,
-                "output_dir": str(set_dir),
-                "formats": formats or ["m3u8", "cheat_sheet"],
-            }
-
-        # Stage 3: Create output dir + exports
-        set_dir.mkdir(parents=True, exist_ok=True)
-
-        export_formats = formats or ["m3u8", "cheat_sheet"]
-        generated_files: list[str] = []
-
-        for fmt in export_formats:
-            if fmt == ExportFormat.M3U8 or fmt == "m3u8":
-                path = write_m3u8(export_data, set_dir / f"{dj_set.name}.m3u8")
-                generated_files.append(str(path))
-            elif fmt == ExportFormat.REKORDBOX_XML or fmt == "rekordbox":
-                path = write_rekordbox_xml(export_data, set_dir / f"{dj_set.name}.xml")
-                generated_files.append(str(path))
-            elif fmt == ExportFormat.JSON_GUIDE or fmt == "json":
-                path = write_json_guide(export_data, set_dir / f"{dj_set.name}.json")
-                generated_files.append(str(path))
-            elif fmt == ExportFormat.CHEAT_SHEET or fmt == "cheatsheet" or fmt == "cheat_sheet":
-                path = write_cheat_sheet(export_data, set_dir / f"{dj_set.name}_cheat.txt")
-                generated_files.append(str(path))
-
-        if ctx:
-            await ctx.info(f"Stage 3/4: Generated {len(generated_files)} export files")
-            await ctx.report_progress(3, 4)
-
-        # Stage 4: Copy audio files to set directory
-        copied_files = 0
-        if copy_files:
-            import shutil
-
-            audio_dir = set_dir
-            for i, et in enumerate(export_data.tracks):
-                if not et.file_path:
-                    continue
-                src = Path(et.file_path)
-                if not src.exists():
-                    if ctx:
-                        await ctx.warning(f"File not found: {src.name}")
-                    continue
-                # Check iCloud stub
-                stat = src.stat()
-                if hasattr(stat, "st_blocks") and stat.st_blocks * 512 < stat.st_size * 0.9:
-                    if ctx:
-                        await ctx.warning(f"iCloud stub: {src.name}")
-                    continue
-                dest = audio_dir / f"{i + 1:02d}. {et.artist} - {et.title}.mp3"
-                shutil.copy2(str(src), str(dest))
-                copied_files += 1
-
-        if ctx:
-            await ctx.info("Stage 4/4: Delivery complete")
-            await ctx.report_progress(4, 4)
-
+    if dry_run:
         return {
+            "dry_run": True,
             "set_id": set_id,
             "set_name": dj_set.name,
             "version": target_version.label,
@@ -289,24 +228,86 @@ async def deliver_set(
             "scored_transitions": scored_count,
             "conflicts": conflict_count,
             "output_dir": str(set_dir),
-            "generated_files": generated_files,
-            "copied_audio_files": copied_files,
-            "synced_to_ym": False,  # YM sync is future
+            "formats": formats or ["m3u8", "cheat_sheet"],
         }
 
+    # Stage 3: Create output dir + exports
+    set_dir.mkdir(parents=True, exist_ok=True)
 
-# ── 2. export_set ───────────────────────────────────
+    export_formats = formats or ["m3u8", "cheat_sheet"]
+    generated_files: list[str] = []
+
+    for fmt in export_formats:
+        if fmt == ExportFormat.M3U8 or fmt == "m3u8":
+            path = write_m3u8(export_data, set_dir / f"{dj_set.name}.m3u8")
+            generated_files.append(str(path))
+        elif fmt == ExportFormat.REKORDBOX_XML or fmt == "rekordbox":
+            path = write_rekordbox_xml(export_data, set_dir / f"{dj_set.name}.xml")
+            generated_files.append(str(path))
+        elif fmt == ExportFormat.JSON_GUIDE or fmt == "json":
+            path = write_json_guide(export_data, set_dir / f"{dj_set.name}.json")
+            generated_files.append(str(path))
+        elif fmt == ExportFormat.CHEAT_SHEET or fmt in ("cheatsheet", "cheat_sheet"):
+            path = write_cheat_sheet(export_data, set_dir / f"{dj_set.name}_cheat.txt")
+            generated_files.append(str(path))
+
+    if ctx:
+        await ctx.info(f"Stage 3/4: Generated {len(generated_files)} export files")
+        await ctx.report_progress(3, 4)
+
+    # Stage 4: Copy audio files to set directory
+    copied_files = 0
+    if copy_files:
+        import shutil
+
+        for i, et in enumerate(export_data.tracks):
+            if not et.file_path:
+                continue
+            src = Path(et.file_path)
+            if not src.exists():
+                if ctx:
+                    await ctx.warning(f"File not found: {src.name}")
+                continue
+            stat = src.stat()
+            if hasattr(stat, "st_blocks") and stat.st_blocks * 512 < stat.st_size * 0.9:
+                if ctx:
+                    await ctx.warning(f"iCloud stub: {src.name}")
+                continue
+            dest = set_dir / f"{i + 1:02d}. {et.artist} - {et.title}.mp3"
+            shutil.copy2(str(src), str(dest))
+            copied_files += 1
+
+    if ctx:
+        await ctx.info("Stage 4/4: Delivery complete")
+        await ctx.report_progress(4, 4)
+
+    return {
+        "set_id": set_id,
+        "set_name": dj_set.name,
+        "version": target_version.label,
+        "track_count": len(items),
+        "scored_transitions": scored_count,
+        "conflicts": conflict_count,
+        "output_dir": str(set_dir),
+        "generated_files": generated_files,
+        "copied_audio_files": copied_files,
+        "synced_to_ym": False,
+    }
 
 
-@tool(
-    tags={"delivery"},
-    annotations={"readOnlyHint": False},
-)
+# ── 2. export_set ────────────────────────────────────
+
+
+@tool(tags={"delivery"}, annotations={"readOnlyHint": False})
 async def export_set(
     set_id: int,
     format: str = "m3u8",
     output_path: str | None = None,
     rekordbox_options: Any = None,
+    session: AsyncSession = Depends(get_db_session),  # noqa: B008
+    set_repo: SetRepository = Depends(get_set_repo),  # noqa: B008
+    track_repo: TrackRepository = Depends(get_track_repo),  # noqa: B008
+    transition_repo: TransitionRepository = Depends(get_transition_repo),  # noqa: B008
     ctx: Context | None = None,
 ) -> dict[str, Any]:
     """Export set to format: m3u8, rekordbox, json, cheatsheet."""
@@ -317,57 +318,57 @@ async def export_set(
     if format not in valid_formats:
         raise ToolError(f"Unknown format: {format}. Valid: {', '.join(sorted(valid_formats))}")
 
-    async with get_db_session() as session:
-        set_repo = SetRepository(session)
+    dj_set = await set_repo.get_by_id(set_id)
+    if dj_set is None:
+        raise ToolError(f"Set {set_id} not found")
 
-        dj_set = await set_repo.get_by_id(set_id)
-        if dj_set is None:
-            raise ToolError(f"Set {set_id} not found")
+    target_version = await set_repo.get_latest_version(set_id)
+    if target_version is None:
+        raise ToolError("No version found for this set")
 
-        target_version = await set_repo.get_latest_version(set_id)
-        if target_version is None:
-            raise ToolError("No version found for this set")
+    stmt = (
+        select(SetItem)
+        .where(SetItem.version_id == target_version.id)
+        .order_by(SetItem.sort_index)
+    )
+    result = await session.execute(stmt)
+    items = list(result.scalars().all())
 
-        stmt = (
-            select(SetItem)
-            .where(SetItem.version_id == target_version.id)
-            .order_by(SetItem.sort_index)
-        )
-        result = await session.execute(stmt)
-        items = list(result.scalars().all())
+    if not items:
+        raise ToolError("Set has no tracks")
 
-        if not items:
-            raise ToolError("Set has no tracks")
+    export_data = await _build_export_data(
+        session, dj_set, target_version, items, track_repo, transition_repo,
+    )
 
-        export_data = await _build_export_data(session, dj_set, target_version, items)
+    # Determine output path
+    base_dir = Path(output_path or settings.delivery_output_dir)
+    if base_dir.is_dir() or not base_dir.suffix:
+        base_dir.mkdir(parents=True, exist_ok=True)
 
-        # Determine output path
-        base_dir = Path(output_path or settings.delivery_output_dir)
-        if base_dir.is_dir() or not base_dir.suffix:
-            base_dir.mkdir(parents=True, exist_ok=True)
+    safe_name = dj_set.name.replace(" ", "_").lower()
 
-        safe_name = dj_set.name.replace(" ", "_").lower()
+    if format == "m3u8":
+        out = base_dir / f"{safe_name}.m3u8" if base_dir.is_dir() else base_dir
+        path = write_m3u8(export_data, out)
+    elif format == "rekordbox":
+        out = base_dir / f"{safe_name}.xml" if base_dir.is_dir() else base_dir
+        opts = RekordboxOptions(**rekordbox_options) if rekordbox_options else None
+        path = write_rekordbox_xml(export_data, out, options=opts)
+    elif format == "json":
+        out = base_dir / f"{safe_name}.json" if base_dir.is_dir() else base_dir
+        path = write_json_guide(export_data, out)
+    elif format in ("cheatsheet", "cheat_sheet"):
+        out = base_dir / f"{safe_name}_cheat.txt" if base_dir.is_dir() else base_dir
+        path = write_cheat_sheet(export_data, out)
+    else:
+        raise ToolError(f"Unsupported format: {format}")
 
-        if format == "m3u8":
-            out = base_dir / f"{safe_name}.m3u8" if base_dir.is_dir() else base_dir
-            path = write_m3u8(export_data, out)
-        elif format == "rekordbox":
-            out = base_dir / f"{safe_name}.xml" if base_dir.is_dir() else base_dir
-            opts = RekordboxOptions(**rekordbox_options) if rekordbox_options else None
-            path = write_rekordbox_xml(export_data, out, options=opts)
-        elif format == "json":
-            out = base_dir / f"{safe_name}.json" if base_dir.is_dir() else base_dir
-            path = write_json_guide(export_data, out)
-        elif format in ("cheatsheet", "cheat_sheet"):
-            out = base_dir / f"{safe_name}_cheat.txt" if base_dir.is_dir() else base_dir
-            path = write_cheat_sheet(export_data, out)
-        else:
-            raise ToolError(f"Unsupported format: {format}")
+    return {
+        "set_id": set_id,
+        "format": format,
+        "output_path": str(path),
+        "track_count": len(items),
+        "version": target_version.label,
+    }
 
-        return {
-            "set_id": set_id,
-            "format": format,
-            "output_path": str(path),
-            "track_count": len(items),
-            "version": target_version.label,
-        }

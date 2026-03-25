@@ -18,57 +18,15 @@ from fastmcp.exceptions import ToolError
 from fastmcp.server.context import Context
 from fastmcp.tools import tool
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
-from app.mcp.dependencies import get_db_session, get_ym_client
+from app.core.parsing import ensure_list
+from app.core.schemas import genre_ok, is_excluded_title, ym_track_summary
+from app.mcp.dependencies import get_db_session, get_track_repo, get_ym_client
 from app.models.track import TrackExternalId
+from app.repositories.track import TrackRepository
 from app.ym.client import YandexMusicClient
-
-# ── Helpers ──────────────────────────────────────────
-
-
-def _is_excluded(title: str, patterns: list[str] | None = None) -> bool:
-    """Check if track title matches any exclude pattern."""
-    lower = title.lower()
-    check = patterns or settings.discovery_bad_version_words.split(",")
-    return any(p.strip() in lower for p in check)
-
-
-def _genre_ok(
-    albums: list[dict[str, Any]],
-    whitelist: list[str] | None = None,
-    blacklist: list[str] | None = None,
-) -> bool:
-    """Check album genre against whitelist or blacklist.
-
-    - whitelist: accept ONLY these genres (e.g. ["techno"])
-    - blacklist: reject these genres (default from settings)
-    - both None: use settings.discovery_bad_genres as blacklist
-    """
-    if not albums:
-        return True  # no album info = accept
-    genre = (albums[0].get("genre") or "").lower()
-    if not genre:
-        return True
-    if whitelist:
-        return genre in [g.lower() for g in whitelist]
-    bad = blacklist or settings.discovery_bad_genres.split(",")
-    return genre not in [b.strip() for b in bad]
-
-
-def _ym_track_dict(track: Any) -> dict[str, Any]:
-    """Compact summary of a YM track for tool output."""
-    artists = ", ".join(a.get("name", "?") for a in (track.artists or [])) or "Unknown"
-    albums = track.albums or []
-    return {
-        "ym_id": track.id,
-        "title": track.title,
-        "artists": artists,
-        "duration_ms": track.duration_ms,
-        "album_id": str(albums[0].get("id", "")) if albums else "",
-        "album_genre": albums[0].get("genre", "") if albums else "",
-    }
-
 
 # ── 1. find_similar_tracks ──────────────────────────
 
@@ -81,128 +39,32 @@ async def find_similar_tracks(
     track_id: int,
     strategy: str = "ym",
     limit: int = 20,
-    search_queries: Any = None,
     min_duration_ms: int | None = None,
     max_duration_ms: int | None = None,
     genre_filter: Any = None,
     genre_blacklist: Any = None,
     exclude_patterns: Any = None,
+    session: AsyncSession = Depends(get_db_session),  # noqa: B008
+    track_repo: TrackRepository = Depends(get_track_repo),  # noqa: B008
     ym: YandexMusicClient = Depends(get_ym_client),  # noqa: B008
     ctx: Context | None = None,
 ) -> dict[str, Any]:
     """Find similar tracks via YM API with declarative filters.
 
-    strategy: ym (default), llm (requires search_queries or sampling support).
-    search_queries: list of search terms (client-driven mode for Claude Code MAX).
-    genre_filter: whitelist. genre_blacklist: blacklist.
+    strategy: ym (default). genre_filter: whitelist. genre_blacklist: blacklist.
     exclude_patterns: title keywords to skip (default: remix, edit, live, ...).
-
-    Client-driven mode (Claude Code MAX, no API key needed):
-      Claude generates queries and passes them via search_queries parameter.
-      Example: find_similar_tracks(track_id=42, strategy="llm",
-               search_queries=["Amelie Lens acid techno", "FJAAK industrial techno"])
-
-    Server-side mode (requires ANTHROPIC_API_KEY):
-      ctx.sample() generates queries automatically via fallback handler.
     """
-    from app.core.parsing import ensure_list
+    genre_filter_list = ensure_list(genre_filter) or None
+    genre_blacklist_list = ensure_list(genre_blacklist) or None
+    exclude_patterns_list = ensure_list(exclude_patterns) or None
 
-    genre_filter = ensure_list(genre_filter) or None
-    genre_blacklist = ensure_list(genre_blacklist) or None
-    exclude_patterns = ensure_list(exclude_patterns) or None
-    search_queries = ensure_list(search_queries) or None
+    if strategy == "llm" and ctx:
+        return await _find_similar_llm(
+            track_id, limit, genre_filter_list, genre_blacklist_list,
+            exclude_patterns_list, track_repo, ym, ctx,
+        )
 
-    if strategy == "llm":
-        # Resolve track info
-        async with get_db_session() as session:
-            from app.repositories.track import TrackRepository
-
-            track = await TrackRepository(session).get_by_id(track_id)
-            if not track:
-                raise ToolError(f"Track {track_id} not found")
-
-        queries: list[str] = []
-
-        # Priority 1: Client-provided search queries (Claude Code MAX — no API key needed)
-        if search_queries:
-            queries = list(search_queries)
-            if ctx:
-                await ctx.info(
-                    f"Using {len(queries)} client-provided search queries (client-driven mode)"
-                )
-
-        # Priority 2: Server-side LLM sampling via ctx.sample() (requires API key or sampling)
-        if not queries and ctx:
-            try:
-                from pydantic import BaseModel
-
-                class SearchQueries(BaseModel):
-                    queries: list[str]
-
-                result = await ctx.sample(
-                    f"Generate {limit} Yandex Music search queries to find techno tracks "
-                    f"similar to '{track.title}'. Return ONLY track/artist names, "
-                    "no explanations.",
-                    result_type=SearchQueries,
-                )
-                queries = result.result.queries if result.result else []
-                await ctx.info("Generated queries via server-side LLM sampling")
-            except Exception as e:
-                if ctx:
-                    await ctx.warning(f"Server-side sampling unavailable: {e}")
-
-        # Priority 3: No queries available — inform the client how to proceed
-        if not queries:
-            return {
-                "track_id": track_id,
-                "track_title": track.title,
-                "strategy": "llm",
-                "similar": [],
-                "message": (
-                    "No search queries available. Two options:\n"
-                    "1. Client-driven (Claude Code MAX): pass search_queries=['query1', 'query2'] "
-                    "— generate queries yourself based on the track's style and call again.\n"
-                    "2. Server-side sampling: set DJ_ANTHROPIC_API_KEY for automatic query "
-                    "generation via ctx.sample()."
-                ),
-            }
-
-        # Search YM for each query
-        all_results = []
-        for q in queries[:limit]:
-            try:
-                sr = await ym.search(q, type="tracks", limit=3)
-                for t in sr.tracks:
-                    if not _genre_ok(
-                        t.albums or [], whitelist=genre_filter, blacklist=genre_blacklist
-                    ):
-                        continue
-                    if _is_excluded(t.title, exclude_patterns):
-                        continue
-                    all_results.append(_ym_track_dict(t))
-            except Exception:
-                continue
-
-        # Dedup
-        seen: set[str] = set()
-        deduped = []
-        for r in all_results:
-            if r["ym_id"] not in seen:
-                seen.add(r["ym_id"])
-                deduped.append(r)
-
-        return {
-            "track_id": track_id,
-            "track_title": track.title,
-            "strategy": "llm",
-            "mode": "client-driven" if search_queries else "server-side",
-            "queries_used": queries,
-            "total_raw": len(all_results),
-            "after_filter": len(deduped),
-            "similar": deduped[:limit],
-        }
-
-    if strategy not in ("ym",):
+    if strategy != "ym":
         return {
             "track_id": track_id,
             "strategy": strategy,
@@ -210,18 +72,104 @@ async def find_similar_tracks(
             "message": f"Strategy '{strategy}' requires: ym or llm",
         }
 
-    # Find YM ID for this track
-    async with get_db_session() as session:
-        track = await TrackRepository(session).get_by_id(track_id)
-        if not track:
-            raise ToolError(f"Track {track_id} not found")
+    return await _find_similar_ym(
+        track_id, limit, min_duration_ms, max_duration_ms,
+        genre_filter_list, genre_blacklist_list, exclude_patterns_list,
+        session, track_repo, ym, ctx,
+    )
 
-        stmt = select(TrackExternalId).where(
-            TrackExternalId.track_id == track_id,
-            TrackExternalId.platform == "yandex_music",
+
+async def _find_similar_llm(
+    track_id: int,
+    limit: int,
+    genre_filter_list: list[str] | None,
+    genre_blacklist_list: list[str] | None,
+    exclude_patterns_list: list[str] | None,
+    track_repo: TrackRepository,
+    ym: YandexMusicClient,
+    ctx: Context,
+) -> dict[str, Any]:
+    """LLM-assisted similar track discovery."""
+    track = await track_repo.get_by_id(track_id)
+    if not track:
+        raise ToolError(f"Track {track_id} not found")
+
+    try:
+        from pydantic import BaseModel
+
+        class SearchQueries(BaseModel):
+            queries: list[str]
+
+        result = await ctx.sample(
+            f"Generate {limit} Yandex Music search queries to find techno tracks "
+            f"similar to '{track.title}'. Return ONLY track/artist names, no explanations.",
+            result_type=SearchQueries,
         )
-        result = await session.execute(stmt)
-        ext = result.scalar_one_or_none()
+        queries = result.result.queries if result.result else []
+    except Exception as e:
+        return {
+            "track_id": track_id,
+            "strategy": "llm",
+            "similar": [],
+            "message": f"LLM sampling failed: {e}. Configure ANTHROPIC_API_KEY for fallback.",
+        }
+
+    all_results = []
+    for q in queries[:limit]:
+        try:
+            sr = await ym.search(q, type="tracks", limit=3)
+            for t in sr.tracks:
+                if not genre_ok(t.albums or [], whitelist=genre_filter_list, blacklist=genre_blacklist_list):
+                    continue
+                if is_excluded_title(t.title, exclude_patterns_list):
+                    continue
+                all_results.append(ym_track_summary(t))
+        except Exception:
+            continue
+
+    # Dedup by ym_id
+    seen: set[str] = set()
+    deduped = []
+    for r in all_results:
+        if r["ym_id"] not in seen:
+            seen.add(r["ym_id"])
+            deduped.append(r)
+
+    return {
+        "track_id": track_id,
+        "track_title": track.title,
+        "strategy": "llm",
+        "queries_used": queries,
+        "total_raw": len(all_results),
+        "after_filter": len(deduped),
+        "similar": deduped[:limit],
+    }
+
+
+async def _find_similar_ym(
+    track_id: int,
+    limit: int,
+    min_duration_ms: int | None,
+    max_duration_ms: int | None,
+    genre_filter_list: list[str] | None,
+    genre_blacklist_list: list[str] | None,
+    exclude_patterns_list: list[str] | None,
+    session: AsyncSession,
+    track_repo: TrackRepository,
+    ym: YandexMusicClient,
+    ctx: Context | None,
+) -> dict[str, Any]:
+    """YM API-based similar track discovery."""
+    track = await track_repo.get_by_id(track_id)
+    if not track:
+        raise ToolError(f"Track {track_id} not found")
+
+    stmt = select(TrackExternalId).where(
+        TrackExternalId.track_id == track_id,
+        TrackExternalId.platform == "yandex_music",
+    )
+    result = await session.execute(stmt)
+    ext = result.scalar_one_or_none()
 
     ym_id = ext.external_id if ext else None
 
@@ -241,25 +189,15 @@ async def find_similar_tracks(
                 "message": "Could not find this track on YM",
             }
 
-    # Get similar from YM
     raw_similar = await ym.get_similar(ym_id)
 
-    # Apply filters
     min_dur = min_duration_ms or settings.discovery_min_duration_ms
     max_dur = max_duration_ms or settings.discovery_max_duration_ms
 
-    filtered = []
-    for t in raw_similar:
-        dur = t.duration_ms or 0
-        if dur and (dur < min_dur or dur > max_dur):
-            continue
-        if _is_excluded(t.title, exclude_patterns):
-            continue
-        if not _genre_ok(t.albums or [], whitelist=genre_filter, blacklist=genre_blacklist):
-            continue
-        filtered.append(_ym_track_dict(t))
-        if len(filtered) >= limit:
-            break
+    filtered = _apply_discovery_filters(
+        raw_similar, limit, min_dur, max_dur,
+        genre_filter_list, genre_blacklist_list, exclude_patterns_list,
+    )
 
     return {
         "track_id": track_id,
@@ -270,6 +208,31 @@ async def find_similar_tracks(
         "after_filter": len(filtered),
         "similar": filtered,
     }
+
+
+def _apply_discovery_filters(
+    tracks: list[Any],
+    limit: int,
+    min_dur: int,
+    max_dur: int,
+    genre_filter_list: list[str] | None,
+    genre_blacklist_list: list[str] | None,
+    exclude_patterns_list: list[str] | None,
+) -> list[dict[str, Any]]:
+    """Apply duration/genre/title filters to raw track list. Shared logic."""
+    filtered = []
+    for t in tracks:
+        dur = t.duration_ms or 0
+        if dur and (dur < min_dur or dur > max_dur):
+            continue
+        if is_excluded_title(t.title, exclude_patterns_list):
+            continue
+        if not genre_ok(t.albums or [], whitelist=genre_filter_list, blacklist=genre_blacklist_list):
+            continue
+        filtered.append(ym_track_summary(t))
+        if len(filtered) >= limit:
+            break
+    return filtered
 
 
 # ── 2. filter_by_feedback ────────────────────────────
@@ -289,33 +252,11 @@ async def filter_by_feedback(
     Returns categorized IDs: passed (unknown), blocked (disliked), boosted (liked).
     Claude decides what to do with each category.
     """
-    from app.core.parsing import ensure_list
-
     ym_track_ids = ensure_list(ym_track_ids)
     if not ym_track_ids:
         raise ToolError("ym_track_ids required")
 
-    # Cache feedback IDs in session state (avoids 2 API calls per invocation)
-    liked_set: set[str] = set()
-    disliked_set: set[str] = set()
-    if ctx:
-        cached_liked = await ctx.get_state("ym_liked_ids")
-        cached_disliked = await ctx.get_state("ym_disliked_ids")
-        if cached_liked is not None and cached_disliked is not None:
-            liked_set = set(cached_liked)
-            disliked_set = set(cached_disliked)
-            await ctx.info("Using cached feedback (session state)")
-
-    if not liked_set and not disliked_set:
-        if ctx:
-            await ctx.info("Fetching liked/disliked from YM API...")
-        liked_raw = await ym.get_liked_ids()
-        disliked_set = await ym.get_disliked_ids()
-        liked_set = set(liked_raw)
-        # Cache for subsequent calls in this session
-        if ctx:
-            await ctx.set_state("ym_liked_ids", list(liked_set))
-            await ctx.set_state("ym_disliked_ids", list(disliked_set))
+    liked_set, disliked_set = await _get_feedback_sets(ym, ctx)
 
     result_passed: list[str] = []
     result_blocked: list[str] = []
@@ -340,6 +281,34 @@ async def filter_by_feedback(
             "boosted": len(result_boosted),
         },
     }
+
+
+async def _get_feedback_sets(
+    ym: YandexMusicClient,
+    ctx: Context | None,
+) -> tuple[set[str], set[str]]:
+    """Get liked/disliked sets from session cache or YM API. Shared logic."""
+    liked_set: set[str] = set()
+    disliked_set: set[str] = set()
+
+    if ctx:
+        cached_liked = await ctx.get_state("ym_liked_ids")
+        cached_disliked = await ctx.get_state("ym_disliked_ids")
+        if cached_liked is not None and cached_disliked is not None:
+            await ctx.info("Using cached feedback (session state)")
+            return set(cached_liked), set(cached_disliked)
+
+    if ctx:
+        await ctx.info("Fetching liked/disliked from YM API...")
+    liked_raw = await ym.get_liked_ids()
+    disliked_set = await ym.get_disliked_ids()
+    liked_set = set(liked_raw)
+
+    if ctx:
+        await ctx.set_state("ym_liked_ids", list(liked_set))
+        await ctx.set_state("ym_disliked_ids", list(disliked_set))
+
+    return liked_set, disliked_set
 
 
 # ── 3. expand_playlist_ym ───────────────────────────
@@ -369,11 +338,9 @@ async def expand_playlist_ym(
     One-call orchestrator: fetches seeds → finds similar → filters → adds to playlist.
     Or use find_similar_tracks + filter_by_feedback + ym_playlists separately for full control.
     """
-    from app.core.parsing import ensure_list
-
-    genre_filter = ensure_list(genre_filter) or None
-    genre_blacklist = ensure_list(genre_blacklist) or None
-    exclude_patterns = ensure_list(exclude_patterns) or None
+    genre_filter_list = ensure_list(genre_filter) or None
+    genre_blacklist_list = ensure_list(genre_blacklist) or None
+    exclude_patterns_list = ensure_list(exclude_patterns) or None
     import time as _time
 
     _t0 = _time.monotonic()
@@ -398,26 +365,11 @@ async def expand_playlist_ym(
     max_seeds = min(len(current), settings.discovery_max_seeds)
     seeds = random.sample(current, max_seeds) if len(current) > max_seeds else list(current)
 
-    # 3. Feedback gate (use session cache if available)
-    disliked: set[str] = set()
+    # 3. Feedback gate
     liked: set[str] = set()
+    disliked: set[str] = set()
     if use_feedback:
-        if ctx:
-            cached_liked = await ctx.get_state("ym_liked_ids")
-            cached_disliked = await ctx.get_state("ym_disliked_ids")
-            if cached_liked is not None and cached_disliked is not None:
-                liked = set(cached_liked)
-                disliked = set(cached_disliked)
-                await ctx.info("Using cached feedback (session state)")
-        if not liked and not disliked:
-            if ctx:
-                await ctx.info("Fetching feedback from YM API...")
-            liked_raw = await ym.get_liked_ids()
-            liked = set(liked_raw)
-            disliked = await ym.get_disliked_ids()
-            if ctx:
-                await ctx.set_state("ym_liked_ids", list(liked))
-                await ctx.set_state("ym_disliked_ids", list(disliked))
+        liked, disliked = await _get_feedback_sets(ym, ctx)
 
     # 4. Collect candidates
     min_dur = min_duration_ms or settings.discovery_min_duration_ms
@@ -442,22 +394,18 @@ async def expand_playlist_ym(
                 continue
             if any(c["ym_id"] == t.id for c in candidates):
                 continue
-            # Feedback gate
             if use_feedback and t.id in disliked:
                 blocked_count += 1
                 continue
-            # Duration
             dur = t.duration_ms or 0
             if dur and (dur < min_dur or dur > max_dur):
                 continue
-            # Title patterns
-            if _is_excluded(t.title, exclude_patterns):
+            if is_excluded_title(t.title, exclude_patterns_list):
                 continue
-            # Genre
-            if not _genre_ok(t.albums or [], whitelist=genre_filter, blacklist=genre_blacklist):
+            if not genre_ok(t.albums or [], whitelist=genre_filter_list, blacklist=genre_blacklist_list):
                 continue
 
-            entry = _ym_track_dict(t)
+            entry = ym_track_summary(t)
             entry["is_liked"] = t.id in liked
             candidates.append(entry)
 
@@ -467,7 +415,7 @@ async def expand_playlist_ym(
     if ctx:
         await ctx.report_progress(len(seeds), len(seeds))
 
-    # 5. Dry run
+    # 5. Dry run or add
     to_add = candidates[:need]
 
     if dry_run:
@@ -479,7 +427,7 @@ async def expand_playlist_ym(
             "candidates_found": len(candidates),
             "would_add": len(to_add),
             "blocked_disliked": blocked_count,
-            "seeds_used": min(len(seeds), len(seeds)),
+            "seeds_used": len(seeds),
             "candidates": to_add[:50],
         }
 
@@ -507,10 +455,7 @@ async def expand_playlist_ym(
 
     elapsed_ms = int((_time.monotonic() - _t0) * 1000)
 
-    from fastmcp.tools.tool import ToolResult
-    from mcp.types import TextContent
-
-    data = {
+    return {
         "playlist_kind": ym_playlist_kind,
         "before_count": len(current),
         "after_count": len(current) + added,
@@ -519,18 +464,6 @@ async def expand_playlist_ym(
         "candidates_found": len(candidates),
         "blocked_disliked": blocked_count,
         "sample_tracks": to_add[:20],
+        "execution_time_ms": elapsed_ms,
     }
 
-    return ToolResult(
-        content=[
-            TextContent(
-                type="text", text=f"Added {added} tracks ({len(current)}→{len(current) + added})"
-            )
-        ],
-        structured_content=data,
-        meta={
-            "execution_time_ms": elapsed_ms,
-            "seeds_used": len(seeds),
-            "ym_api_calls": len(seeds) + 2,
-        },
-    )
