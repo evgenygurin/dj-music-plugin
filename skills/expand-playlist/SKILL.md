@@ -1,22 +1,34 @@
 ---
 name: expand-playlist
 description: "This skill should be used when the user asks to \"expand playlist\", \"find similar tracks\", \"add more tracks\", \"discover new tracks\", \"import from Yandex Music\", or \"fill gaps in playlist\". Covers discovery, import, download, and analysis of new tracks."
+version: 0.3.0
 ---
 
 # Expand Playlist Workflow
 
 Guide the user through discovering and importing new tracks to fill playlist gaps.
 
-## Steps
+## Quick Path (one-call)
+
+Use `expand_playlist_ym` for automated expansion:
+```text
+expand_playlist_ym(ym_playlist_kind=..., target_count=100, genre_filter=["techno"], dry_run=true)
+```
+
+Then review candidates and run without dry_run to add.
+
+## Granular Path (step-by-step)
 
 1. **Audit current playlist**
    - `audit_playlist(playlist_id=..., check="all")` — full quality check
    - Report: track count, BPM distribution, key coverage, subgenre balance
-   - Identify gaps: missing subgenres, narrow BPM range, low energy variety
 
 2. **Find similar tracks**
-   - For each gap, pick a representative track and run:
-     `find_similar_tracks(track_id=..., strategy="combined", limit=10)`
+   - `find_similar_tracks(track_id=..., genre_filter=["techno"], limit=20)` — per track
+   - Or `expand_playlist_ym(..., dry_run=true)` — batch from all seeds
+
+3. **Filter by feedback**
+   - `filter_by_feedback(ym_track_ids=[...])` — block disliked, boost liked
    - Strategies:
      - `"ym"` — Yandex Music recommendations (fast, requires YM IDs)
      - `"llm"` — AI-assisted search queries (creative, needs sampling)

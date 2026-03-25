@@ -1,6 +1,7 @@
 ---
 name: curate-library
 description: "This skill should be used when the user asks to \"classify tracks\", \"audit playlist\", \"library stats\", \"distribute to subgenres\", \"mood classification\", or \"review library quality\". Covers mood classification, playlist auditing, subgenre distribution, and library statistics."
+version: 0.3.0
 ---
 
 # Curate DJ Library Workflow

@@ -1,6 +1,7 @@
 ---
 name: deliver-set
 description: "This skill should be used when the user asks to \"deliver set\", \"export set\", \"finalize set\", \"rekordbox export\", \"sync set to YM\", or \"generate cheat sheet\". Covers M3U8, Rekordbox XML, JSON guide, cheat sheet export and YM sync."
+version: 0.3.0
 ---
 
 # Deliver DJ Set Workflow

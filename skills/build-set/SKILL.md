@@ -1,6 +1,7 @@
 ---
 name: build-set
 description: "This skill should be used when the user asks to \"build a DJ set\", \"create a set from playlist\", \"optimize track order\", \"rebuild set\", \"reorder tracks\", or \"make a set\". Covers the full workflow from playlist audit to set optimization and review."
+version: 0.3.0
 ---
 
 # Build DJ Set Workflow
