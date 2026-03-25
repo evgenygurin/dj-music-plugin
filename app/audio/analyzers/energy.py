@@ -11,14 +11,14 @@ import numpy as np
 from app.audio.registry import AnalyzerResult, AudioSignal, BaseAnalyzer
 
 # 7 frequency bands (Hz boundaries)
+# Keys match DB column names: energy_sub, energy_low, energy_lowmid, etc.
 ENERGY_BANDS: dict[str, tuple[float, float]] = {
     "sub": (20.0, 60.0),
     "low": (60.0, 250.0),
-    "low_mid": (250.0, 500.0),
+    "lowmid": (250.0, 500.0),
     "mid": (500.0, 2000.0),
-    "high_mid": (2000.0, 4000.0),
+    "highmid": (2000.0, 4000.0),
     "high": (4000.0, 8000.0),
-    "brilliance": (8000.0, 20000.0),
 }
 
 
@@ -69,8 +69,12 @@ class EnergyAnalyzer(BaseAnalyzer):
         else:
             energy_slope = 0.0
 
-        # 7-band energy breakdown via FFT
+        # 6-band energy breakdown via FFT (matches DB columns)
         band_energies = self._compute_band_energies(samples, sr)
+
+        # Compute ratios (band / total band energy)
+        band_total = sum(band_energies.values()) or 1.0
+        band_ratios = {f"{name}_ratio": val / band_total for name, val in band_energies.items()}
 
         return AnalyzerResult(
             analyzer_name=self.name,
@@ -79,7 +83,8 @@ class EnergyAnalyzer(BaseAnalyzer):
                 "energy_max": energy_max,
                 "energy_std": energy_std,
                 "energy_slope": energy_slope,
-                **{f"energy_band_{name}": val for name, val in band_energies.items()},
+                **{f"energy_{name}": val for name, val in band_energies.items()},
+                **{f"energy_{name}": val for name, val in band_ratios.items()},
             },
         )
 

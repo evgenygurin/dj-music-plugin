@@ -44,9 +44,7 @@ async def analyze_one_track(
 
     analyzers = ensure_list(analyzers) or None
 
-    track = (
-        await session.execute(select(Track).where(Track.id == track_id))
-    ).scalar_one_or_none()
+    track = (await session.execute(select(Track).where(Track.id == track_id))).scalar_one_or_none()
     if not track:
         raise ToolError(f"Track {track_id} not found")
 
@@ -97,7 +95,7 @@ async def analyze_one_track(
     features = TrackAudioFeaturesComputed(
         track_id=track_id,
         pipeline_run_id=run.id,
-        **result.features,
+        **TrackAudioFeaturesComputed.filter_features(result.features),
     )
     session.add(features)
     await session.flush()
@@ -130,9 +128,7 @@ async def classify_one_track(
     ).scalar_one_or_none()
 
     if not features:
-        raise ToolError(
-            f"No audio features for track {track_id}. Run analyze_one_track first."
-        )
+        raise ToolError(f"No audio features for track {track_id}. Run analyze_one_track first.")
 
     # DRY: use model method instead of manual field mapping
     feat_dict = features.to_classifier_dict()
@@ -301,4 +297,3 @@ async def get_similar_one_track(
         "after_filter": len(filtered),
         "similar": filtered,
     }
-
