@@ -532,6 +532,22 @@ async def manage_set(
             await session.commit()
             return _set_summary(dj_set)
 
+        # add_feedback doesn't require set_id
+        if action == "add_feedback":
+            if not data or "version_id" not in data or "rating" not in data:
+                raise ToolError("data.version_id and data.rating required")
+            feedback = SetFeedback(
+                version_id=data["version_id"],
+                rating=data["rating"],
+                feedback_type=data.get("feedback_type", "general"),
+                notes=data.get("notes"),
+                set_item_id=data.get("set_item_id"),
+            )
+            session.add(feedback)
+            await session.flush()
+            await session.commit()
+            return {"feedback_id": feedback.id, "version_id": data["version_id"]}
+
         set_id = (data or {}).get("id")
         if set_id is None:
             raise ToolError("data.id required")
@@ -560,10 +576,13 @@ async def manage_set(
         if action == "add_constraint":
             if not data or "constraint_type" not in data or "constraint_value" not in data:
                 raise ToolError("data.constraint_type and data.constraint_value required")
+            import json as _json
+
+            value = data["constraint_value"]
             constraint = SetConstraint(
                 set_id=set_id,
                 constraint_type=data["constraint_type"],
-                constraint_value=data["constraint_value"],
+                constraint_value=_json.dumps(value) if isinstance(value, dict | list) else value,
             )
             session.add(constraint)
             await session.flush()
@@ -583,21 +602,6 @@ async def manage_set(
             await session.flush()
             await session.commit()
             return {"removed": True, "constraint_id": constraint_id}
-
-        if action == "add_feedback":
-            if not data or "version_id" not in data or "rating" not in data:
-                raise ToolError("data.version_id and data.rating required")
-            feedback = SetFeedback(
-                version_id=data["version_id"],
-                rating=data["rating"],
-                feedback_type=data.get("feedback_type", "general"),
-                notes=data.get("notes"),
-                set_item_id=data.get("set_item_id"),
-            )
-            session.add(feedback)
-            await session.flush()
-            await session.commit()
-            return {"feedback_id": feedback.id, "version_id": data["version_id"]}
 
         raise ToolError("Unreachable")
 

@@ -156,10 +156,13 @@ class TestTrackAudioFeaturesComputed:
         db.add(f1)
         await db.flush()
 
+        # Expunge f1 to avoid SAWarning when adding f2 with same PK
+        db.expunge(f1)
         f2 = TrackAudioFeaturesComputed(track_id=track.id, bpm=140.0)
         db.add(f2)
         with pytest.raises(IntegrityError):
             await db.flush()
+        await db.rollback()
 
     async def test_pipeline_run_relationship(self, db):
         track = await _make_track(db)
