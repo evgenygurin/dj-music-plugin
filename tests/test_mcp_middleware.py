@@ -36,8 +36,8 @@ class MockMiddlewareContext:
         self.fastmcp_context = None
 
 
-# Import our middleware implementations directly (avoids FastMCP import issues)
-from app.mcp.custom_middleware import (
+# Import middleware (all classes in one file now)
+from app.mcp.middleware import (
     DetailedTimingMiddleware,
     StructuredLoggingMiddleware,
     YMRateLimitMiddleware,

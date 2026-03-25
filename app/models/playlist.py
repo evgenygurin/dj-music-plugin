@@ -11,6 +11,7 @@ from sqlalchemy import ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, TimestampMixin
+from app.utils.time import utc_now
 
 
 class Playlist(Base, TimestampMixin):
@@ -50,6 +51,9 @@ class PlaylistItem(Base):
     playlist_id: Mapped[int] = mapped_column(ForeignKey("dj_playlists.id", ondelete="CASCADE"))
     track_id: Mapped[int] = mapped_column(ForeignKey("tracks.id", ondelete="CASCADE"))
     sort_index: Mapped[int] = mapped_column(Integer)
-    added_at: Mapped[datetime.datetime | None] = mapped_column(nullable=True)
+    added_at: Mapped[datetime.datetime | None] = mapped_column(
+        nullable=True,
+        default=utc_now,
+    )
 
     playlist: Mapped[Playlist] = relationship(back_populates="items")

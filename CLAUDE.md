@@ -124,6 +124,12 @@ raise ToolError("Provide either id or query")
 | **context7** | Документация библиотек (FastMCP, SQLAlchemy, librosa) |
 | **commit-commands** | Git commit workflow |
 
+## Правила архитектуры
+
+- **Один файл = одна ответственность.** НИКОГДА не создавать дублирующие/расширяющие файлы (например `middleware.py` + `custom_middleware.py`). Если нужно расширить — расширяй в том же файле
+- **Время:** все datetime-операции через `app/utils/time.py` (`utc_now()`, `utc_timestamp_iso()`, `sa_now()`). Не используй `datetime.now()` / `func.now()` напрямую
+- **Линтер:** ruff + mypy. Pyright **игнорируй** — он выдаёт ложные ошибки (reportMissingImports, reportCallIssue на @tool). VSCode Pyright предупреждения — НЕ баги
+
 ## Gotchas
 
 - `Depends()`: используй `param=Depends(factory)`, НЕ `Annotated[Type, Depends(factory)]` — FastMCP не резолвит Annotated

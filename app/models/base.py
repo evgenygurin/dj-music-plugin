@@ -2,8 +2,9 @@
 
 from datetime import datetime
 
-from sqlalchemy import func
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+
+from app.utils.time import sa_now
 
 
 class Base(DeclarativeBase):
@@ -14,11 +15,11 @@ class TimestampMixin:
     """Adds created_at and updated_at columns with auto-population."""
 
     created_at: Mapped[datetime] = mapped_column(
-        default=func.now(),
-        server_default=func.now(),
+        default=sa_now(),
+        server_default=sa_now(),
     )
     updated_at: Mapped[datetime] = mapped_column(
-        default=func.now(),
-        server_default=func.now(),
-        onupdate=func.now(),
+        default=sa_now(),
+        server_default=sa_now(),
+        onupdate=sa_now(),
     )
