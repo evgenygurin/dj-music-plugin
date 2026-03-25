@@ -5,7 +5,9 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+from fastmcp.dependencies import CurrentContext
 from fastmcp.server.context import Context
+from fastmcp.server.dependencies import get_context
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -32,10 +34,9 @@ from app.services.export import (
 # ── Helpers ──────────────────────────────────────────
 
 
-async def _get_session(ctx: Context | None) -> AsyncSession:
+async def _get_session() -> AsyncSession:
     """Get async session from lifespan context."""
-    if ctx is None:
-        raise RuntimeError("Context required — tools must be called via MCP")
+    ctx = get_context()
     factory = ctx.lifespan_context["db_session_factory"]
     return factory()
 
@@ -130,13 +131,13 @@ async def deliver_set(
     sync_to_ym: bool = False,
     formats: list[str] | None = None,
     dry_run: bool = False,
-    ctx: Context | None = None,
+    ctx: Context = CurrentContext(),
 ) -> dict[str, Any]:
     """Multi-stage set delivery: score transitions, copy files, generate exports."""
     if ctx:
         await ctx.info(f"Starting delivery for set {set_id}...")
 
-    async with await _get_session(ctx) as session:
+    async with await _get_session() as session:
         set_repo = SetRepository(session)
 
         # Stage 1: Load set
@@ -261,14 +262,14 @@ async def export_set(
     format: str = "m3u8",
     output_path: str | None = None,
     rekordbox_options: dict[str, bool] | None = None,
-    ctx: Context | None = None,
+    ctx: Context = CurrentContext(),
 ) -> dict[str, Any]:
     """Export set to format: m3u8, rekordbox, json, cheatsheet."""
     valid_formats = {"m3u8", "rekordbox", "json", "cheatsheet", "cheat_sheet"}
     if format not in valid_formats:
         return {"error": f"Unknown format: {format}. Valid: {', '.join(sorted(valid_formats))}"}
 
-    async with await _get_session(ctx) as session:
+    async with await _get_session() as session:
         set_repo = SetRepository(session)
 
         dj_set = await set_repo.get_by_id(set_id)

@@ -4,7 +4,9 @@ from __future__ import annotations
 
 from typing import Any
 
+from fastmcp.dependencies import CurrentContext
 from fastmcp.server.context import Context
+from fastmcp.server.dependencies import get_context
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -24,10 +26,9 @@ from app.server import mcp
 # ── Helpers ──────────────────────────────────────────
 
 
-async def _get_session(ctx: Context | None) -> AsyncSession:
+async def _get_session() -> AsyncSession:
     """Get async session from lifespan context."""
-    if ctx is None:
-        raise RuntimeError("Context required — tools must be called via MCP")
+    ctx = get_context()
     factory = ctx.lifespan_context["db_session_factory"]
     return factory()
 
@@ -88,13 +89,13 @@ async def classify_mood(
     track_ids: list[int] | None = None,
     playlist_id: int | None = None,
     reclassify: bool = False,
-    ctx: Context | None = None,
+    ctx: Context = CurrentContext(),
 ) -> dict[str, Any]:
     """Classify tracks by 15 techno subgenres using rule-based MoodClassifier."""
     if not track_ids and playlist_id is None:
         return {"error": "Provide track_ids or playlist_id"}
 
-    async with await _get_session(ctx) as session:
+    async with await _get_session() as session:
         # Resolve track IDs from playlist if needed
         ids_to_classify: list[int] = list(track_ids or [])
         if playlist_id is not None:
@@ -167,13 +168,13 @@ async def audit_playlist(
     playlist_query: str | None = None,
     check: str | None = None,
     template: str | None = None,
-    ctx: Context | None = None,
+    ctx: Context = CurrentContext(),
 ) -> dict[str, Any]:
     """Audit playlist for techno quality criteria and library gaps."""
     if playlist_id is None and playlist_query is None:
         return {"error": "Provide playlist_id or playlist_query"}
 
-    async with await _get_session(ctx) as session:
+    async with await _get_session() as session:
         # Resolve playlist
         playlist: Playlist | None = None
         if playlist_id is not None:
@@ -307,10 +308,10 @@ async def audit_playlist(
 async def review_set_quality(
     set_id: int,
     version: str | None = None,
-    ctx: Context | None = None,
+    ctx: Context = CurrentContext(),
 ) -> dict[str, Any]:
     """Detailed set quality review: transitions, energy arc, key flow."""
-    async with await _get_session(ctx) as session:
+    async with await _get_session() as session:
         set_repo = SetRepository(session)
         TrackRepository(session)
         transition_repo = TransitionRepository(session)
@@ -429,14 +430,14 @@ async def distribute_to_subgenres(
     mode: str = "append",
     sync_to_ym: bool = False,
     dry_run: bool = False,
-    ctx: Context | None = None,
+    ctx: Context = CurrentContext(),
 ) -> dict[str, Any]:
     """Distribute tracks to 15 subgenre playlists based on mood classification."""
     valid_modes = {"append", "clean_rebuild"}
     if mode not in valid_modes:
         return {"error": f"Unknown mode: {mode}. Valid: {', '.join(sorted(valid_modes))}"}
 
-    async with await _get_session(ctx) as session:
+    async with await _get_session() as session:
         # Get source tracks
         if source_playlist_id is not None:
             stmt = (
@@ -552,10 +553,10 @@ async def distribute_to_subgenres(
     annotations={"readOnlyHint": True},
 )
 async def get_library_stats(
-    ctx: Context | None = None,
+    ctx: Context = CurrentContext(),
 ) -> dict[str, Any]:
     """Library dashboard: counts, coverage, distributions."""
-    async with await _get_session(ctx) as session:
+    async with await _get_session() as session:
         # Track counts
         stmt_total = select(func.count(Track.id))
         result = await session.execute(stmt_total)

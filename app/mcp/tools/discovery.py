@@ -4,7 +4,9 @@ from __future__ import annotations
 
 from typing import Any
 
+from fastmcp.dependencies import CurrentContext
 from fastmcp.server.context import Context
+from fastmcp.server.dependencies import get_context
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -15,10 +17,9 @@ from app.server import mcp
 # ── Helpers ──────────────────────────────────────────
 
 
-async def _get_session(ctx: Context | None) -> AsyncSession:
+async def _get_session() -> AsyncSession:
     """Get async session from lifespan context."""
-    if ctx is None:
-        raise RuntimeError("Context required — tools must be called via MCP")
+    ctx = get_context()
     factory = ctx.lifespan_context["db_session_factory"]
     return factory()
 
@@ -36,7 +37,7 @@ async def find_similar_tracks(
     limit: int = 10,
     bpm_tolerance: float = 5.0,
     key_compatible: bool = True,
-    ctx: Context | None = None,
+    ctx: Context = CurrentContext(),
 ) -> dict[str, Any]:
     """Find similar tracks by strategy: ym, embedding, llm, combined."""
     valid_strategies = {"ym", "embedding", "llm", "combined"}
@@ -45,7 +46,7 @@ async def find_similar_tracks(
             "error": f"Unknown strategy: {strategy}. Valid: {', '.join(sorted(valid_strategies))}"
         }
 
-    async with await _get_session(ctx) as session:
+    async with await _get_session() as session:
         track_repo = TrackRepository(session)
         track = await track_repo.get_by_id(track_id)
         if track is None:
@@ -103,13 +104,13 @@ async def import_tracks(
     track_refs: list[str],
     playlist_id: int | None = None,
     auto_analyze: bool = False,
-    ctx: Context | None = None,
+    ctx: Context = CurrentContext(),
 ) -> dict[str, Any]:
     """Import YM track IDs into local DB. Idempotent — skips existing."""
     if not track_refs:
         return {"error": "track_refs is required (list of YM track IDs)"}
 
-    async with await _get_session(ctx) as session:
+    async with await _get_session() as session:
         track_repo = TrackRepository(session)
 
         imported = 0
@@ -190,7 +191,7 @@ async def download_tracks(
     track_refs: list[str],
     target_dir: str | None = None,
     skip_existing: bool = True,
-    ctx: Context | None = None,
+    ctx: Context = CurrentContext(),
 ) -> dict[str, Any]:
     """Download MP3 from YM for given track refs."""
     if not track_refs:

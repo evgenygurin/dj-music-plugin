@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+from fastmcp.dependencies import CurrentContext
 from fastmcp.server.context import Context
+from fastmcp.server.dependencies import get_context
 
 from app.core.camelot import camelot_distance, key_code_to_camelot
 from app.models.set import SetItem, SetVersion
@@ -12,9 +14,9 @@ from app.repositories.transition import TransitionRepository
 from app.server import mcp
 
 
-async def _get_session(ctx: Context | None):  # type: ignore[no-untyped-def]
-    if ctx is None:
-        raise RuntimeError("Context required")
+async def _get_session():  # type: ignore[no-untyped-def]
+    """Get async session from lifespan context."""
+    ctx = get_context()
     factory = ctx.lifespan_context["db_session_factory"]
     return factory()
 
@@ -26,10 +28,10 @@ async def suggest_next_track(
     count: int = 5,
     prefer_mood: str | None = None,
     energy_direction: str = "any",
-    ctx: Context | None = None,
+    ctx: Context = CurrentContext(),
 ) -> dict:
     """Suggest best tracks for a set position, scored against both neighbors."""
-    async with await _get_session(ctx) as session:
+    async with await _get_session() as session:
         set_repo = SetRepository(session)
         track_repo = TrackRepository(session)
 
@@ -65,10 +67,10 @@ async def suggest_next_track(
 async def explain_transition(
     from_track_id: int,
     to_track_id: int,
-    ctx: Context | None = None,
+    ctx: Context = CurrentContext(),
 ) -> dict:
     """Explain why a transition works or doesn't — 5-component breakdown."""
-    async with await _get_session(ctx) as session:
+    async with await _get_session() as session:
         track_repo = TrackRepository(session)
         transition_repo = TransitionRepository(session)
 
@@ -156,7 +158,7 @@ async def find_replacement(
     set_id: int,
     position: int,
     count: int = 5,
-    ctx: Context | None = None,
+    ctx: Context = CurrentContext(),
 ) -> dict:
     """Find replacement tracks for a set position, scored against both neighbors."""
     # Stub — full implementation in Sub-Project #5
@@ -173,10 +175,10 @@ async def compare_set_versions(
     set_id: int,
     version_a: int | None = None,
     version_b: int | None = None,
-    ctx: Context | None = None,
+    ctx: Context = CurrentContext(),
 ) -> dict:
     """Compare two versions of a set: tracks added/removed, score changes."""
-    async with await _get_session(ctx) as session:
+    async with await _get_session() as session:
         SetRepository(session)
 
         from sqlalchemy import select
@@ -225,10 +227,10 @@ async def compare_set_versions(
 @mcp.tool(tags={"sets"}, annotations={"readOnlyHint": True})
 async def quick_set_review(
     set_id: int,
-    ctx: Context | None = None,
+    ctx: Context = CurrentContext(),
 ) -> dict:
     """Complete set review in one call: tracks, weak transitions, problems."""
-    async with await _get_session(ctx) as session:
+    async with await _get_session() as session:
         set_repo = SetRepository(session)
         track_repo = TrackRepository(session)
 

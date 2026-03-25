@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from fastmcp.dependencies import CurrentContext
 from fastmcp.server.context import Context
 
 from app.server import mcp
@@ -20,7 +21,7 @@ async def sync_playlist(
     direction: str = "pull",
     conflict_strategy: str = "source_wins",
     dry_run: bool = False,
-    ctx: Context | None = None,
+    ctx: Context = CurrentContext(),
 ) -> dict[str, Any]:
     """Bidirectional sync between local playlist and Yandex Music.
 
@@ -63,7 +64,7 @@ async def push_set_to_ym(
     set_id: int,
     ym_playlist_name: str | None = None,
     mode: str = "auto",
-    ctx: Context | None = None,
+    ctx: Context = CurrentContext(),
 ) -> dict[str, Any]:
     """Push a DJ set as a Yandex Music playlist.
 

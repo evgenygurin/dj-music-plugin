@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from fastmcp.dependencies import CurrentContext
 from fastmcp.server.context import Context
 
 from app.server import mcp
@@ -24,7 +25,7 @@ async def analyze_track(
     track_query: str | None = None,
     analyzers: list[str] | None = None,
     force: bool = False,
-    ctx: Context | None = None,
+    ctx: Context = CurrentContext(),
 ) -> dict[str, Any]:
     """Run audio analysis pipeline on a single track.
 
@@ -60,7 +61,7 @@ async def analyze_batch(
     playlist_id: int | None = None,
     analyzers: list[str] | None = None,
     priority: str = "normal",
-    ctx: Context | None = None,
+    ctx: Context = CurrentContext(),
 ) -> dict[str, Any]:
     """Batch audio analysis for multiple tracks or a playlist.
 
@@ -103,7 +104,7 @@ async def separate_stems(
     track_id: int | None = None,
     track_query: str | None = None,
     stems: list[str] | None = None,
-    ctx: Context | None = None,
+    ctx: Context = CurrentContext(),
 ) -> dict[str, Any]:
     """ML-based stem separation (vocals, drums, bass, other).
 

@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+from fastmcp.dependencies import CurrentContext
 from fastmcp.server.context import Context
+from fastmcp.server.dependencies import get_context
 
 from app.models.set import DjSet, SetItem, SetVersion
 from app.repositories.set import SetRepository
@@ -11,10 +13,9 @@ from app.repositories.transition import TransitionRepository
 from app.server import mcp
 
 
-async def _get_session(ctx: Context | None):  # type: ignore[no-untyped-def]
+async def _get_session():  # type: ignore[no-untyped-def]
     """Get async session from lifespan context."""
-    if ctx is None:
-        raise RuntimeError("Context required")
+    ctx = get_context()
     factory = ctx.lifespan_context["db_session_factory"]
     return factory()
 
@@ -27,13 +28,13 @@ async def build_set(
     target_duration_min: int | None = None,
     algorithm: str = "greedy",
     dry_run: bool = False,
-    ctx: Context | None = None,
+    ctx: Context = CurrentContext(),
 ) -> dict:
     """Build optimized DJ set from playlist. Supports greedy or GA algorithm."""
     if ctx:
         await ctx.info(f"Building set '{name}' from playlist {playlist_id}...")
 
-    async with await _get_session(ctx) as session:
+    async with await _get_session() as session:
         TrackRepository(session)
         SetRepository(session)
 
@@ -108,13 +109,13 @@ async def rebuild_set(
     exclude_tracks: list[int] | None = None,
     algorithm: str = "greedy",
     version_label: str | None = None,
-    ctx: Context | None = None,
+    ctx: Context = CurrentContext(),
 ) -> dict:
     """Rebuild existing set with pinned/excluded tracks. Creates new version."""
     if ctx:
         await ctx.info(f"Rebuilding set {set_id}...")
 
-    async with await _get_session(ctx) as session:
+    async with await _get_session() as session:
         set_repo = SetRepository(session)
         dj_set = await set_repo.get_by_id(set_id)
         if dj_set is None:
@@ -174,10 +175,10 @@ async def score_transitions(
     to_track_id: int | None = None,
     track_id: int | None = None,
     top_n: int = 10,
-    ctx: Context | None = None,
+    ctx: Context = CurrentContext(),
 ) -> dict:
     """Score transitions: mode=set (all pairs), pair (two tracks), track_candidates (best next)."""
-    async with await _get_session(ctx) as session:
+    async with await _get_session() as session:
         transition_repo = TransitionRepository(session)
         TrackRepository(session)
 
@@ -263,10 +264,10 @@ async def score_transitions(
 async def get_set_cheat_sheet(
     set_id: int,
     version: str | None = None,
-    ctx: Context | None = None,
+    ctx: Context = CurrentContext(),
 ) -> str:
     """Human-readable cheat sheet: BPM flow, key changes, energy arc."""
-    async with await _get_session(ctx) as session:
+    async with await _get_session() as session:
         set_repo = SetRepository(session)
         track_repo = TrackRepository(session)
 

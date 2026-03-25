@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+from fastmcp.dependencies import CurrentContext
 from fastmcp.server.context import Context
+from fastmcp.server.dependencies import get_context
 from sqlalchemy import func, select
 
 from app.core.camelot import camelot_to_key_code, is_compatible
@@ -15,10 +17,9 @@ from app.models.track import Artist, Track
 from app.server import mcp
 
 
-async def _get_session(ctx: Context | None):  # type: ignore[no-untyped-def]
+async def _get_session():  # type: ignore[no-untyped-def]
     """Get async session from lifespan context."""
-    if ctx is None:
-        raise RuntimeError("Context required")
+    ctx = get_context()
     factory = ctx.lifespan_context["db_session_factory"]
     return factory()
 
@@ -28,7 +29,7 @@ async def search(
     query: str,
     entity: str = "all",
     limit: int = 10,
-    ctx: Context | None = None,
+    ctx: Context = CurrentContext(),
 ) -> dict:
     """Search across tracks, artists, playlists, and sets by text query."""
     if not query or not query.strip():
@@ -37,7 +38,7 @@ async def search(
     pattern = f"%{query.strip()}%"
     results: dict[str, list[dict]] = {}
 
-    async with await _get_session(ctx) as session:
+    async with await _get_session() as session:
         entities = [entity] if entity != "all" else ["tracks", "artists", "playlists", "sets"]
 
         if "tracks" in entities:
@@ -98,10 +99,10 @@ async def filter_tracks(
     sort_by: str = "bpm",
     limit: int = 20,
     cursor: str | None = None,
-    ctx: Context | None = None,
+    ctx: Context = CurrentContext(),
 ) -> dict:
     """Filter tracks by audio features: BPM, key, energy, mood."""
-    async with await _get_session(ctx) as session:
+    async with await _get_session() as session:
         # Base query: join tracks with audio features
         if has_features is False:
             # Tracks WITHOUT features: left join + NULL check

@@ -4,7 +4,9 @@ from __future__ import annotations
 
 from typing import Any
 
+from fastmcp.dependencies import CurrentContext
 from fastmcp.server.context import Context
+from fastmcp.server.dependencies import get_context
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -28,10 +30,9 @@ from app.server import mcp
 # ── Helpers ──────────────────────────────────────────
 
 
-async def _get_session(ctx: Context | None) -> AsyncSession:
+async def _get_session() -> AsyncSession:
     """Get async session from lifespan context."""
-    if ctx is None:
-        raise RuntimeError("Context required — tools must be called via MCP")
+    ctx = get_context()
     factory = ctx.lifespan_context["db_session_factory"]
     return factory()
 
@@ -107,10 +108,10 @@ async def list_tracks(
     bpm_min: float | None = None,
     bpm_max: float | None = None,
     status: str = "active",
-    ctx: Context | None = None,
+    ctx: Context = CurrentContext(),
 ) -> dict[str, Any]:
     """List tracks with optional filters and cursor pagination."""
-    async with await _get_session(ctx) as session:
+    async with await _get_session() as session:
         repo = TrackRepository(session)
 
         if bpm_min is not None or bpm_max is not None:
@@ -147,13 +148,13 @@ async def list_tracks(
 async def get_track(
     id: int | None = None,
     query: str | None = None,
-    ctx: Context | None = None,
+    ctx: Context = CurrentContext(),
 ) -> dict[str, Any]:
     """Get full track details by id or text query."""
     if id is None and query is None:
         return {"error": "Provide id or query"}
 
-    async with await _get_session(ctx) as session:
+    async with await _get_session() as session:
         repo = TrackRepository(session)
 
         track: Track | None = None
@@ -183,13 +184,13 @@ async def get_track(
 async def manage_tracks(
     action: str,
     data: dict[str, Any] | None = None,
-    ctx: Context | None = None,
+    ctx: Context = CurrentContext(),
 ) -> dict[str, Any]:
     """Create, update, archive, or unarchive a track. action: create|update|archive|unarchive."""
     if action not in ("create", "update", "archive", "unarchive"):
         return {"error": f"Unknown action: {action}"}
 
-    async with await _get_session(ctx) as session:
+    async with await _get_session() as session:
         repo = TrackRepository(session)
 
         if action == "create":
@@ -237,10 +238,10 @@ async def list_playlists(
     source: str | None = None,
     limit: int = 20,
     cursor: str | None = None,
-    ctx: Context | None = None,
+    ctx: Context = CurrentContext(),
 ) -> dict[str, Any]:
     """List playlists with optional source filter and cursor pagination."""
-    async with await _get_session(ctx) as session:
+    async with await _get_session() as session:
         repo = PlaylistRepository(session)
 
         stmt = select(Playlist).options(selectinload(Playlist.items))
@@ -272,13 +273,13 @@ async def get_playlist(
     id: int | None = None,
     query: str | None = None,
     include_tracks: bool = False,
-    ctx: Context | None = None,
+    ctx: Context = CurrentContext(),
 ) -> dict[str, Any]:
     """Get playlist details by id or name query. Optionally include tracks."""
     if id is None and query is None:
         return {"error": "Provide id or query"}
 
-    async with await _get_session(ctx) as session:
+    async with await _get_session() as session:
         repo = PlaylistRepository(session)
 
         playlist: Playlist | None = None
@@ -323,14 +324,14 @@ async def manage_playlist(
     data: dict[str, Any] | None = None,
     track_refs: list[int] | None = None,
     positions: list[int] | None = None,
-    ctx: Context | None = None,
+    ctx: Context = CurrentContext(),
 ) -> dict[str, Any]:
     """Manage playlists. action: create|update|delete|add_tracks|remove_tracks|reorder."""
     valid = ("create", "update", "delete", "add_tracks", "remove_tracks", "reorder")
     if action not in valid:
         return {"error": f"Unknown action: {action}. Valid: {', '.join(valid)}"}
 
-    async with await _get_session(ctx) as session:
+    async with await _get_session() as session:
         repo = PlaylistRepository(session)
 
         if action == "create":
@@ -408,10 +409,10 @@ async def list_sets(
     template: str | None = None,
     limit: int = 20,
     cursor: str | None = None,
-    ctx: Context | None = None,
+    ctx: Context = CurrentContext(),
 ) -> dict[str, Any]:
     """List DJ sets with optional template filter and cursor pagination."""
-    async with await _get_session(ctx) as session:
+    async with await _get_session() as session:
         repo = SetRepository(session)
 
         stmt = select(DjSet)
@@ -448,13 +449,13 @@ async def get_set(
     id: int | None = None,
     query: str | None = None,
     view: str = "summary",
-    ctx: Context | None = None,
+    ctx: Context = CurrentContext(),
 ) -> dict[str, Any]:
     """Get set details by id or query. view: summary|tracks|transitions|full."""
     if id is None and query is None:
         return {"error": "Provide id or query"}
 
-    async with await _get_session(ctx) as session:
+    async with await _get_session() as session:
         repo = SetRepository(session)
 
         dj_set: DjSet | None = None
@@ -507,14 +508,14 @@ async def get_set(
 async def manage_set(
     action: str,
     data: dict[str, Any] | None = None,
-    ctx: Context | None = None,
+    ctx: Context = CurrentContext(),
 ) -> dict[str, Any]:
     """Manage DJ sets. Actions: create, update, delete, add/remove constraint, add feedback."""
     valid = ("create", "update", "delete", "add_constraint", "remove_constraint", "add_feedback")
     if action not in valid:
         return {"error": f"Unknown action: {action}. Valid: {', '.join(valid)}"}
 
-    async with await _get_session(ctx) as session:
+    async with await _get_session() as session:
         repo = SetRepository(session)
 
         if action == "create":
@@ -608,13 +609,13 @@ async def get_track_features(
     id: int | None = None,
     query: str | None = None,
     include_sections: bool = False,
-    ctx: Context | None = None,
+    ctx: Context = CurrentContext(),
 ) -> dict[str, Any]:
     """Get audio features for a track by id or query. Optionally include sections."""
     if id is None and query is None:
         return {"error": "Provide id or query"}
 
-    async with await _get_session(ctx) as session:
+    async with await _get_session() as session:
         track_repo = TrackRepository(session)
 
         track: Track | None = None

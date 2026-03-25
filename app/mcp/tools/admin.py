@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+from fastmcp.dependencies import CurrentContext
 from fastmcp.server.context import Context
+from fastmcp.server.dependencies import get_context
 from sqlalchemy import func, select
 
 from app.core.constants import Provider
@@ -12,10 +14,9 @@ from app.server import mcp
 _ALL_CATEGORIES = frozenset({"delivery", "discovery", "curation", "sync", "ym", "audio"})
 
 
-async def _get_session(ctx: Context | None):  # type: ignore[no-untyped-def]
+async def _get_session():  # type: ignore[no-untyped-def]
     """Get async session from lifespan context."""
-    if ctx is None:
-        raise RuntimeError("Context required")
+    ctx = get_context()
     factory = ctx.lifespan_context["db_session_factory"]
     return factory()
 
@@ -24,7 +25,7 @@ async def _get_session(ctx: Context | None):  # type: ignore[no-untyped-def]
 async def unlock_tools(
     action: str = "status",
     category: str | None = None,
-    ctx: Context | None = None,
+    ctx: Context = CurrentContext(),
 ) -> dict:
     """Control which tool categories are visible in this session."""
     if action == "unlock" and category:
@@ -47,9 +48,9 @@ async def unlock_tools(
 
 
 @mcp.tool(tags={"admin"}, annotations={"readOnlyHint": True})
-async def list_platforms(ctx: Context | None = None) -> list[dict]:
+async def list_platforms(ctx: Context = CurrentContext()) -> list[dict]:
     """List available music platforms and linked track counts."""
-    async with await _get_session(ctx) as session:
+    async with await _get_session() as session:
         stmt = select(
             TrackExternalId.platform,
             func.count(TrackExternalId.id).label("track_count"),

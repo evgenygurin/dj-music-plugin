@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from fastmcp.dependencies import CurrentContext
 from fastmcp.server.context import Context
 
 from app.server import mcp
@@ -19,7 +20,7 @@ async def ym_search(
     query: str,
     type: str = "all",
     limit: int = 10,
-    ctx: Context | None = None,
+    ctx: Context = CurrentContext(),
 ) -> dict[str, Any]:
     """Search Yandex Music for tracks, albums, artists, playlists.
 
@@ -51,7 +52,7 @@ async def ym_search(
 )
 async def ym_get_tracks(
     track_ids: list[str],
-    ctx: Context | None = None,
+    ctx: Context = CurrentContext(),
 ) -> dict[str, Any]:
     """Batch get tracks from Yandex Music by IDs (up to 100)."""
     if not track_ids:
@@ -77,7 +78,7 @@ async def ym_get_tracks(
 async def ym_get_album(
     album_id: str,
     include_tracks: bool = False,
-    ctx: Context | None = None,
+    ctx: Context = CurrentContext(),
 ) -> dict[str, Any]:
     """Get album info from Yandex Music, optionally with tracks."""
     # Stub — real implementation needs YM client from lifespan
@@ -101,7 +102,7 @@ async def ym_artist_tracks(
     artist_id: str,
     page: int = 0,
     sort_by: str = "date",
-    ctx: Context | None = None,
+    ctx: Context = CurrentContext(),
 ) -> dict[str, Any]:
     """Get paginated tracks by artist from Yandex Music.
 
@@ -135,7 +136,7 @@ async def ym_playlists(
     name: str | None = None,
     track_ids: list[str] | None = None,
     revision: int | None = None,
-    ctx: Context | None = None,
+    ctx: Context = CurrentContext(),
 ) -> dict[str, Any]:
     """Consolidated playlist operations on Yandex Music.
 
@@ -180,7 +181,7 @@ async def ym_playlists(
 async def ym_likes(
     action: str = "get_liked",
     track_ids: list[str] | None = None,
-    ctx: Context | None = None,
+    ctx: Context = CurrentContext(),
 ) -> dict[str, Any]:
     """Consolidated likes operations on Yandex Music.
 
