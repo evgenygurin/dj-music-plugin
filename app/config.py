@@ -116,6 +116,9 @@ class Settings(BaseSettings):
     delivery_icloud_stub_threshold: float = 0.9  # blocks/size ratio
 
     # ── LLM Sampling ─────────────────────────────────
+    # Optional: only needed for server-side sampling (ctx.sample() fallback).
+    # Claude Code MAX users don't need this — Claude generates queries directly
+    # and passes them to tools via search_queries parameter (client-driven mode).
     anthropic_api_key: str = ""
     sampling_model: str = "claude-sonnet-4-5"
     sampling_max_tokens: int = 512

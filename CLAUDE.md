@@ -130,6 +130,33 @@ raise ToolError("Provide either id or query")
 - **Время:** все datetime-операции через `app/utils/time.py` (`utc_now()`, `utc_timestamp_iso()`, `sa_now()`). Не используй `datetime.now()` / `func.now()` напрямую
 - **Линтер:** ruff + mypy. Pyright **игнорируй** — он выдаёт ложные ошибки (reportMissingImports, reportCallIssue на @tool). VSCode Pyright предупреждения — НЕ баги
 
+## LLM Sampling и Claude Code MAX
+
+Два режима работы LLM-assisted tools (`find_similar_tracks` strategy="llm"):
+
+### 1. Client-driven (Claude Code MAX, по умолчанию — API key не нужен)
+
+Claude Code сам является LLM — он генерирует search queries и передаёт их в tool:
+
+```python
+find_similar_tracks(
+    track_id=42,
+    strategy="llm",
+    search_queries=["Amelie Lens acid techno", "FJAAK industrial", "Kobosil dark techno"]
+)
+```
+
+Используй prompt `llm_discovery_workflow` для пошаговой инструкции.
+
+**Почему так**: Claude Code не поддерживает MCP sampling (`createMessage`) —
+ctx.sample() внутри tools не может вызвать клиента обратно. Но Claude Code
+и так является LLM, поэтому он генерирует данные сам и передаёт через параметры.
+
+### 2. Server-side (требует `DJ_ANTHROPIC_API_KEY`)
+
+ctx.sample() внутри tools вызывает Anthropic API через fallback handler.
+Для headless/автоматизированных сценариев.
+
 ## Gotchas
 
 - `Depends()`: используй `param=Depends(factory)`, НЕ `Annotated[Type, Depends(factory)]` — FastMCP не резолвит Annotated
@@ -143,6 +170,7 @@ raise ToolError("Provide either id or query")
 - Error masking: `mask_error_details=not settings.debug` в production
 - Circular imports repos→services: используй `TYPE_CHECKING` + lazy import внутри метода
 - Linter (ruff) удаляет неиспользуемые импорты при сохранении — добавляй import+использование в одной правке
+- **ctx.sample()**: Claude Code не поддерживает MCP sampling — используй client-driven режим (search_queries param)
 
 ## Версия
 

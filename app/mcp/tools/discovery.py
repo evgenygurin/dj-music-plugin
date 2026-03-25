@@ -81,6 +81,7 @@ async def find_similar_tracks(
     track_id: int,
     strategy: str = "ym",
     limit: int = 20,
+    search_queries: Any = None,
     min_duration_ms: int | None = None,
     max_duration_ms: int | None = None,
     genre_filter: Any = None,
@@ -91,16 +92,28 @@ async def find_similar_tracks(
 ) -> dict[str, Any]:
     """Find similar tracks via YM API with declarative filters.
 
-    strategy: ym (default). genre_filter: whitelist. genre_blacklist: blacklist.
+    strategy: ym (default), llm (requires search_queries or sampling support).
+    search_queries: list of search terms (client-driven mode for Claude Code MAX).
+    genre_filter: whitelist. genre_blacklist: blacklist.
     exclude_patterns: title keywords to skip (default: remix, edit, live, ...).
+
+    Client-driven mode (Claude Code MAX, no API key needed):
+      Claude generates queries and passes them via search_queries parameter.
+      Example: find_similar_tracks(track_id=42, strategy="llm",
+               search_queries=["Amelie Lens acid techno", "FJAAK industrial techno"])
+
+    Server-side mode (requires ANTHROPIC_API_KEY):
+      ctx.sample() generates queries automatically via fallback handler.
     """
     from app.core.parsing import ensure_list
 
     genre_filter = ensure_list(genre_filter) or None
     genre_blacklist = ensure_list(genre_blacklist) or None
     exclude_patterns = ensure_list(exclude_patterns) or None
-    if strategy == "llm" and ctx:
-        # LLM-assisted: use ctx.sample() to generate search queries
+    search_queries = ensure_list(search_queries) or None
+
+    if strategy == "llm":
+        # Resolve track info
         async with get_db_session() as session:
             from app.repositories.track import TrackRepository
 
@@ -108,24 +121,50 @@ async def find_similar_tracks(
             if not track:
                 raise ToolError(f"Track {track_id} not found")
 
-        try:
-            from pydantic import BaseModel
+        queries: list[str] = []
 
-            class SearchQueries(BaseModel):
-                queries: list[str]
+        # Priority 1: Client-provided search queries (Claude Code MAX — no API key needed)
+        if search_queries:
+            queries = list(search_queries)
+            if ctx:
+                await ctx.info(
+                    f"Using {len(queries)} client-provided search queries (client-driven mode)"
+                )
 
-            result = await ctx.sample(
-                f"Generate {limit} Yandex Music search queries to find techno tracks "
-                f"similar to '{track.title}'. Return ONLY track/artist names, no explanations.",
-                result_type=SearchQueries,
-            )
-            queries = result.result.queries if result.result else []
-        except Exception as e:
+        # Priority 2: Server-side LLM sampling via ctx.sample() (requires API key or sampling)
+        if not queries and ctx:
+            try:
+                from pydantic import BaseModel
+
+                class SearchQueries(BaseModel):
+                    queries: list[str]
+
+                result = await ctx.sample(
+                    f"Generate {limit} Yandex Music search queries to find techno tracks "
+                    f"similar to '{track.title}'. Return ONLY track/artist names, "
+                    "no explanations.",
+                    result_type=SearchQueries,
+                )
+                queries = result.result.queries if result.result else []
+                await ctx.info("Generated queries via server-side LLM sampling")
+            except Exception as e:
+                if ctx:
+                    await ctx.warning(f"Server-side sampling unavailable: {e}")
+
+        # Priority 3: No queries available — inform the client how to proceed
+        if not queries:
             return {
                 "track_id": track_id,
+                "track_title": track.title,
                 "strategy": "llm",
                 "similar": [],
-                "message": f"LLM sampling failed: {e}. Configure ANTHROPIC_API_KEY for fallback.",
+                "message": (
+                    "No search queries available. Two options:\n"
+                    "1. Client-driven (Claude Code MAX): pass search_queries=['query1', 'query2'] "
+                    "— generate queries yourself based on the track's style and call again.\n"
+                    "2. Server-side sampling: set DJ_ANTHROPIC_API_KEY for automatic query "
+                    "generation via ctx.sample()."
+                ),
             }
 
         # Search YM for each query
@@ -156,6 +195,7 @@ async def find_similar_tracks(
             "track_id": track_id,
             "track_title": track.title,
             "strategy": "llm",
+            "mode": "client-driven" if search_queries else "server-side",
             "queries_used": queries,
             "total_raw": len(all_results),
             "after_filter": len(deduped),
