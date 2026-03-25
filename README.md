@@ -73,6 +73,26 @@ Models → Repositories → Services → MCP Tools (@tool)
 
 Все настройки через переменные окружения с префиксом `DJ_`. См. [.env.example](.env.example).
 
+### LLM-assisted discovery (два режима)
+
+**Claude Code MAX (подписка, без API key):**
+Claude Code сам генерирует search queries и передаёт в `find_similar_tracks`:
+
+```python
+# Claude Code генерирует queries на основе характеристик трека
+find_similar_tracks(track_id=42, strategy="llm",
+    search_queries=["Amelie Lens acid techno", "FJAAK industrial"])
+```
+
+Или используй prompt `llm_discovery_workflow` для пошагового воркфлоу.
+
+**Server-side sampling (автоматика через API key):**
+```bash
+# В .env
+DJ_ANTHROPIC_API_KEY=sk-ant-...
+```
+`ctx.sample()` генерирует queries автоматически. Для headless-сценариев.
+
 ## Требования
 
 - Python 3.12+

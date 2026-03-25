@@ -120,7 +120,24 @@ async def cache_lifespan(server):  # type: ignore[no-untyped-def]
 
 # ── Server ───────────────────────────────────────────
 
-# Sampling handler for LLM-assisted tools
+# Sampling handler for LLM-assisted tools.
+#
+# Two modes of operation:
+#
+# 1. CLIENT-DRIVEN (Claude Code MAX, no API key needed):
+#    Claude Code is itself an LLM — it generates search queries, analysis, etc.
+#    and passes results directly to tools via parameters (e.g. search_queries=[...]).
+#    No sampling handler needed. Works with any Claude subscription.
+#
+# 2. SERVER-SIDE SAMPLING (requires DJ_ANTHROPIC_API_KEY):
+#    ctx.sample() inside tools calls the Anthropic API via fallback handler.
+#    Required for headless/automated scenarios without an LLM client.
+#
+# Note: Claude Code does NOT support MCP sampling (createMessage) as of 2026-03.
+# See: https://github.com/anthropics/claude-code/issues/1785
+# Therefore, sampling_handler_behavior="fallback" ensures the handler is used
+# only when the client lacks sampling support (which includes Claude Code).
+
 sampling_handler = None
 if settings.anthropic_api_key:
     try:
@@ -133,8 +150,19 @@ if settings.anthropic_api_key:
             default_model=settings.sampling_model,
             client=AsyncAnthropic(api_key=settings.anthropic_api_key),
         )
+        logger.info(
+            "Sampling handler configured (Anthropic fallback, model=%s)",
+            settings.sampling_model,
+        )
     except ImportError:
-        pass
+        logger.warning("DJ_ANTHROPIC_API_KEY set but anthropic package not installed")
+else:
+    logger.info(
+        "No DJ_ANTHROPIC_API_KEY configured. "
+        "LLM-assisted tools use client-driven mode: Claude Code generates queries "
+        "and passes them via tool parameters (e.g. search_queries=[...]). "
+        "For server-side sampling, set DJ_ANTHROPIC_API_KEY."
+    )
 
 # FileSystemProvider auto-discovers @tool, @resource, @prompt decorated functions
 # from all Python files in app/mcp/ — no manual imports needed.

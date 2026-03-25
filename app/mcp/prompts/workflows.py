@@ -292,3 +292,70 @@ This is a long-running pipeline (1-3 hours for 1000+ tracks)."""
             role="assistant",
         ),
     ]
+
+
+@prompt
+def llm_discovery_workflow(
+    track_name: str,
+    track_id: int | None = None,
+    limit: int = 20,
+) -> list[Message]:
+    """Client-driven discovery: generate search queries and find similar tracks.
+
+    For Claude Code MAX users (no API key needed). Claude generates search queries
+    based on track characteristics, then passes them to find_similar_tracks.
+
+    Args:
+        track_name: Track title or artist + title
+        track_id: Optional local DB track ID (if known)
+        limit: How many similar tracks to find
+    """
+    id_instruction = ""
+    if track_id:
+        id_instruction = (
+            f'\n   - Use track_id={track_id} with `get_track` to get audio features '
+            "(BPM, key, energy, mood)"
+        )
+
+    return [
+        Message(
+            f"""Find {limit} tracks similar to "{track_name}" using client-driven discovery.
+
+This workflow does NOT require an API key — you generate the search queries yourself.
+
+Steps:
+
+1. **Analyze the source track**:{id_instruction}
+   - Identify key characteristics: BPM range, subgenre, mood, energy level, artists
+   - Note the Camelot key for harmonic compatibility
+
+2. **Generate search queries**: Based on the track's style, create 5-10 Yandex Music
+   search queries. Mix these approaches:
+   - Similar artists in the same subgenre
+   - Subgenre + mood keywords (e.g. "dark minimal techno")
+   - Labels known for this style (e.g. "Drumcode", "Mord", "Perc Trax")
+   - BPM-adjacent styles (if source is 135 BPM, search 130-140 BPM range)
+
+3. **Call find_similar_tracks** with your generated queries:
+   ```
+   find_similar_tracks(
+       track_id={track_id or '<track_id>'},
+       strategy="llm",
+       search_queries=["query1", "query2", "query3", ...],
+       limit={limit}
+   )
+   ```
+
+4. **Review results**: Check if the similar tracks match the source track's vibe.
+   If not enough results, generate more specific queries and call again.
+
+5. **Import**: Use `import_tracks` to add the best matches to the library.
+
+This is the recommended workflow for Claude Code MAX subscribers."""
+        ),
+        Message(
+            f'I\'ll find tracks similar to "{track_name}" using client-driven discovery. '
+            "Let me start by analyzing the track characteristics...",
+            role="assistant",
+        ),
+    ]
