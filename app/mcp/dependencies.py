@@ -104,6 +104,16 @@ def get_analyzer_registry():  # type: ignore[no-untyped-def]
     return ctx.lifespan_context["analyzer_registry"]
 
 
+def get_audio_service(
+    session=Depends(get_db_session),  # noqa: B008
+    registry=Depends(get_analyzer_registry),  # noqa: B008
+):  # type: ignore[no-untyped-def]
+    """Get AudioService with DB session and analyzer registry."""
+    from app.services.audio_service import AudioService
+
+    return AudioService(session, registry)
+
+
 def get_transition_cache() -> TransitionCache:
     """Get in-memory transition cache from lifespan context."""
     ctx = get_context()
