@@ -43,6 +43,16 @@ mcp = FastMCP(
     on_duplicate="error",
 )
 
+# Add transforms for tool-only clients
+# ResourcesAsTools: exposes resources as callable tools
+# PromptsAsTools: exposes prompts as callable tools (TODO: when prompts are implemented)
+try:
+    from fastmcp.server.transforms import ResourcesAsTools
+
+    mcp.add_transform(ResourcesAsTools(mcp))
+except ImportError:
+    pass  # FastMCP version doesn't support transforms
+
 # Hide audio tools at startup
 mcp.disable(tags={"audio"})
 
@@ -73,3 +83,8 @@ import app.mcp.tools.search
 import app.mcp.tools.sets
 import app.mcp.tools.sync
 import app.mcp.tools.ym  # noqa: F401
+
+# Import resource modules to register with mcp
+import app.mcp.resources.reference
+import app.mcp.resources.status
+import app.mcp.resources.templates  # noqa: F401
