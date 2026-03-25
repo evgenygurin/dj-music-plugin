@@ -1,14 +1,16 @@
 {
-  "SessionStart": [
-    {
-      "matcher": "startup|resume|clear|compact",
-      "hooks": [
-        {
-          "type": "command",
-          "command": "cat <<'CONTEXT'\n{\"hookSpecificOutput\":{\"hookEventName\":\"SessionStart\",\"additionalContext\":\"DJ Music Plugin (dj-music MCP server) is active with 44 tools.\\n\\nCommands: /build-set, /deliver-set, /expand-playlist, /curate-library, /ym-sync\\nAgent: dj-assistant (for complex DJ tasks)\\n\\nCore tools (23): list_tracks, get_track, manage_tracks, list_playlists, get_playlist, manage_playlist, list_sets, get_set, manage_set, get_track_features, search, filter_tracks, build_set, rebuild_set, score_transitions, get_set_cheat_sheet, suggest_next_track, explain_transition, find_replacement, compare_set_versions, quick_set_review, unlock_tools, list_platforms\\n\\nExtended (18, unlock via unlock_tools): deliver_set, export_set, find_similar_tracks, import_tracks, download_tracks, classify_mood, audit_playlist, review_set_quality, distribute_to_subgenres, get_library_stats, sync_playlist, push_set_to_ym, ym_search, ym_get_tracks, ym_get_album, ym_artist_tracks, ym_playlists, ym_likes\\n\\nHidden (3, explicit unlock): analyze_track, analyze_batch, separate_stems\"}}\nCONTEXT",
-          "statusMessage": "Loading DJ Music context..."
-        }
-      ]
-    }
-  ]
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup|resume|clear|compact",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo '{\"hookSpecificOutput\":{\"hookEventName\":\"SessionStart\",\"additionalContext\":\"DJ Music Plugin active (44 MCP tools). Commands: /build-set, /deliver-set, /expand-playlist, /curate-library, /ym-sync\"}}'",
+            "statusMessage": "Loading DJ Music context..."
+          }
+        ]
+      }
+    ]
+  }
 }
