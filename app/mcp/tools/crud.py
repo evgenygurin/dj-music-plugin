@@ -4,9 +4,9 @@ from __future__ import annotations
 
 from typing import Any
 
+from fastmcp.exceptions import ToolError
 from fastmcp.server.context import Context
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.core.schemas import (
@@ -16,6 +16,7 @@ from app.core.schemas import (
     TrackBrief,
     TrackStandard,
 )
+from app.mcp.dependencies import get_db_session
 from app.models.audio import TrackAudioFeaturesComputed, TrackSection
 from app.models.playlist import Playlist
 from app.models.set import DjSet, SetConstraint, SetFeedback, SetItem, SetVersion
@@ -26,14 +27,6 @@ from app.repositories.track import TrackRepository
 from app.server import mcp
 
 # ── Helpers ──────────────────────────────────────────
-
-
-async def _get_session(ctx: Context | None) -> AsyncSession:
-    """Get async session from lifespan context."""
-    if ctx is None:
-        raise RuntimeError("Context required — tools must be called via MCP")
-    factory = ctx.lifespan_context["db_session_factory"]
-    return factory()
 
 
 def _track_brief(t: Track) -> dict[str, Any]:
@@ -110,7 +103,7 @@ async def list_tracks(
     ctx: Context | None = None,
 ) -> dict[str, Any]:
     """List tracks with optional filters and cursor pagination."""
-    async with await _get_session(ctx) as session:
+    async with get_db_session() as session:
         repo = TrackRepository(session)
 
         if bpm_min is not None or bpm_max is not None:
@@ -151,9 +144,9 @@ async def get_track(
 ) -> dict[str, Any]:
     """Get full track details by id or text query."""
     if id is None and query is None:
-        return {"error": "Provide id or query"}
+        raise ToolError("Provide id or query")
 
-    async with await _get_session(ctx) as session:
+    async with get_db_session() as session:
         repo = TrackRepository(session)
 
         track: Track | None = None
@@ -164,7 +157,7 @@ async def get_track(
             track = results[0] if results else None
 
         if track is None:
-            return {"error": "Track not found"}
+            raise ToolError("Track not found")
 
         # Try to load audio features
         stmt = select(TrackAudioFeaturesComputed).where(
@@ -187,14 +180,14 @@ async def manage_tracks(
 ) -> dict[str, Any]:
     """Create, update, archive, or unarchive a track. action: create|update|archive|unarchive."""
     if action not in ("create", "update", "archive", "unarchive"):
-        return {"error": f"Unknown action: {action}"}
+        raise ToolError(f"Unknown action: {action}")
 
-    async with await _get_session(ctx) as session:
+    async with get_db_session() as session:
         repo = TrackRepository(session)
 
         if action == "create":
             if not data or "title" not in data:
-                return {"error": "data.title required for create"}
+                raise ToolError("data.title required for create")
             track = Track(
                 title=data["title"],
                 duration_ms=data.get("duration_ms"),
@@ -207,10 +200,10 @@ async def manage_tracks(
         if action in ("update", "archive", "unarchive"):
             track_id = (data or {}).get("id")
             if track_id is None:
-                return {"error": "data.id required"}
+                raise ToolError("data.id required")
             track = await repo.get_by_id(track_id)
             if track is None:
-                return {"error": f"Track {track_id} not found"}
+                raise ToolError(f"Track {track_id} not found")
 
             if action == "archive":
                 track.status = 1
@@ -226,7 +219,7 @@ async def manage_tracks(
             await session.commit()
             return _track_standard(track)
 
-        return {"error": "Unreachable"}
+        raise ToolError("Unreachable")
 
 
 # ── 4. list_playlists ───────────────────────────────
@@ -240,7 +233,7 @@ async def list_playlists(
     ctx: Context | None = None,
 ) -> dict[str, Any]:
     """List playlists with optional source filter and cursor pagination."""
-    async with await _get_session(ctx) as session:
+    async with get_db_session() as session:
         repo = PlaylistRepository(session)
 
         stmt = select(Playlist).options(selectinload(Playlist.items))
@@ -276,9 +269,9 @@ async def get_playlist(
 ) -> dict[str, Any]:
     """Get playlist details by id or name query. Optionally include tracks."""
     if id is None and query is None:
-        return {"error": "Provide id or query"}
+        raise ToolError("Provide id or query")
 
-    async with await _get_session(ctx) as session:
+    async with get_db_session() as session:
         repo = PlaylistRepository(session)
 
         playlist: Playlist | None = None
@@ -295,7 +288,7 @@ async def get_playlist(
             playlist = result.scalar_one_or_none()
 
         if playlist is None:
-            return {"error": "Playlist not found"}
+            raise ToolError("Playlist not found")
 
         response: dict[str, Any] = _playlist_summary(playlist)
 
@@ -328,14 +321,14 @@ async def manage_playlist(
     """Manage playlists. action: create|update|delete|add_tracks|remove_tracks|reorder."""
     valid = ("create", "update", "delete", "add_tracks", "remove_tracks", "reorder")
     if action not in valid:
-        return {"error": f"Unknown action: {action}. Valid: {', '.join(valid)}"}
+        raise ToolError(f"Unknown action: {action}. Valid: {', '.join(valid)}")
 
-    async with await _get_session(ctx) as session:
+    async with get_db_session() as session:
         repo = PlaylistRepository(session)
 
         if action == "create":
             if not data or "name" not in data:
-                return {"error": "data.name required for create"}
+                raise ToolError("data.name required for create")
             playlist = Playlist(
                 name=data["name"],
                 source_of_truth=data.get("source_of_truth", "local"),
@@ -346,7 +339,7 @@ async def manage_playlist(
 
         playlist_id = (data or {}).get("id")
         if playlist_id is None:
-            return {"error": "data.id required"}
+            raise ToolError("data.id required")
 
         if action == "delete":
             deleted = await repo.delete(playlist_id)
@@ -355,7 +348,7 @@ async def manage_playlist(
 
         playlist = await repo.get_with_items(playlist_id)
         if playlist is None:
-            return {"error": f"Playlist {playlist_id} not found"}
+            raise ToolError(f"Playlist {playlist_id} not found")
 
         if action == "update":
             if data and "name" in data:
@@ -366,17 +359,19 @@ async def manage_playlist(
 
         if action == "add_tracks":
             if not track_refs:
-                return {"error": "track_refs required for add_tracks"}
+                raise ToolError("track_refs required for add_tracks")
             max_idx = max((item.sort_index for item in playlist.items), default=-1)
             for i, tid in enumerate(track_refs):
                 await repo.add_track(playlist_id, tid, max_idx + 1 + i)
             await session.commit()
             playlist = await repo.get_with_items(playlist_id)
-            return _playlist_summary(playlist) if playlist else {"error": "Playlist lost"}
+            if not playlist:
+                raise ToolError("Playlist lost after add_tracks")
+            return _playlist_summary(playlist)
 
         if action == "remove_tracks":
             if not positions:
-                return {"error": "positions required for remove_tracks"}
+                raise ToolError("positions required for remove_tracks")
             removed = 0
             for pos in positions:
                 if await repo.remove_track(playlist_id, pos):
@@ -386,7 +381,7 @@ async def manage_playlist(
 
         if action == "reorder":
             if not track_refs or not positions:
-                return {"error": "track_refs and positions required for reorder"}
+                raise ToolError("track_refs and positions required for reorder")
             # Clear existing items and re-add in new order
             for item in list(playlist.items):
                 await session.delete(item)
@@ -395,9 +390,11 @@ async def manage_playlist(
                 await repo.add_track(playlist_id, tid, pos)
             await session.commit()
             playlist = await repo.get_with_items(playlist_id)
-            return _playlist_summary(playlist) if playlist else {"error": "Playlist lost"}
+            if not playlist:
+                raise ToolError("Playlist lost after reorder")
+            return _playlist_summary(playlist)
 
-        return {"error": "Unreachable"}
+        raise ToolError("Unreachable")
 
 
 # ── 7. list_sets ────────────────────────────────────
@@ -411,7 +408,7 @@ async def list_sets(
     ctx: Context | None = None,
 ) -> dict[str, Any]:
     """List DJ sets with optional template filter and cursor pagination."""
-    async with await _get_session(ctx) as session:
+    async with get_db_session() as session:
         repo = SetRepository(session)
 
         stmt = select(DjSet)
@@ -452,9 +449,9 @@ async def get_set(
 ) -> dict[str, Any]:
     """Get set details by id or query. view: summary|tracks|transitions|full."""
     if id is None and query is None:
-        return {"error": "Provide id or query"}
+        raise ToolError("Provide id or query")
 
-    async with await _get_session(ctx) as session:
+    async with get_db_session() as session:
         repo = SetRepository(session)
 
         dj_set: DjSet | None = None
@@ -466,7 +463,7 @@ async def get_set(
             dj_set = result.scalar_one_or_none()
 
         if dj_set is None:
-            return {"error": "Set not found"}
+            raise ToolError("Set not found")
 
         latest = await repo.get_latest_version(dj_set.id)
         response = _set_summary(dj_set, latest)
@@ -512,14 +509,14 @@ async def manage_set(
     """Manage DJ sets. Actions: create, update, delete, add/remove constraint, add feedback."""
     valid = ("create", "update", "delete", "add_constraint", "remove_constraint", "add_feedback")
     if action not in valid:
-        return {"error": f"Unknown action: {action}. Valid: {', '.join(valid)}"}
+        raise ToolError(f"Unknown action: {action}. Valid: {', '.join(valid)}")
 
-    async with await _get_session(ctx) as session:
+    async with get_db_session() as session:
         repo = SetRepository(session)
 
         if action == "create":
             if not data or "name" not in data:
-                return {"error": "data.name required for create"}
+                raise ToolError("data.name required for create")
             dj_set = DjSet(
                 name=data["name"],
                 description=data.get("description"),
@@ -532,7 +529,7 @@ async def manage_set(
 
         set_id = (data or {}).get("id")
         if set_id is None:
-            return {"error": "data.id required"}
+            raise ToolError("data.id required")
 
         if action == "delete":
             deleted = await repo.delete(set_id)
@@ -541,7 +538,7 @@ async def manage_set(
 
         dj_set = await repo.get_by_id(set_id)
         if dj_set is None:
-            return {"error": f"Set {set_id} not found"}
+            raise ToolError(f"Set {set_id} not found")
 
         if action == "update":
             if data:
@@ -557,7 +554,7 @@ async def manage_set(
 
         if action == "add_constraint":
             if not data or "constraint_type" not in data or "constraint_value" not in data:
-                return {"error": "data.constraint_type and data.constraint_value required"}
+                raise ToolError("data.constraint_type and data.constraint_value required")
             constraint = SetConstraint(
                 set_id=set_id,
                 constraint_type=data["constraint_type"],
@@ -571,12 +568,12 @@ async def manage_set(
         if action == "remove_constraint":
             constraint_id = (data or {}).get("constraint_id")
             if constraint_id is None:
-                return {"error": "data.constraint_id required"}
+                raise ToolError("data.constraint_id required")
             stmt = select(SetConstraint).where(SetConstraint.id == constraint_id)
             result = await session.execute(stmt)
             constraint = result.scalar_one_or_none()
             if constraint is None:
-                return {"error": f"Constraint {constraint_id} not found"}
+                raise ToolError(f"Constraint {constraint_id} not found")
             await session.delete(constraint)
             await session.flush()
             await session.commit()
@@ -584,7 +581,7 @@ async def manage_set(
 
         if action == "add_feedback":
             if not data or "version_id" not in data or "rating" not in data:
-                return {"error": "data.version_id and data.rating required"}
+                raise ToolError("data.version_id and data.rating required")
             feedback = SetFeedback(
                 version_id=data["version_id"],
                 rating=data["rating"],
@@ -597,7 +594,7 @@ async def manage_set(
             await session.commit()
             return {"feedback_id": feedback.id, "version_id": data["version_id"]}
 
-        return {"error": "Unreachable"}
+        raise ToolError("Unreachable")
 
 
 # ── 10. get_track_features ──────────────────────────
@@ -612,9 +609,9 @@ async def get_track_features(
 ) -> dict[str, Any]:
     """Get audio features for a track by id or query. Optionally include sections."""
     if id is None and query is None:
-        return {"error": "Provide id or query"}
+        raise ToolError("Provide id or query")
 
-    async with await _get_session(ctx) as session:
+    async with get_db_session() as session:
         track_repo = TrackRepository(session)
 
         track: Track | None = None
@@ -625,7 +622,7 @@ async def get_track_features(
             track = results[0] if results else None
 
         if track is None:
-            return {"error": "Track not found"}
+            raise ToolError("Track not found")
 
         # Load features
         stmt = select(TrackAudioFeaturesComputed).where(

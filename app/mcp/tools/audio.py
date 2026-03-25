@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from fastmcp.exceptions import ToolError
 from fastmcp.server.context import Context
 
 from app.server import mcp
@@ -32,7 +33,7 @@ async def analyze_track(
     force: re-analyze even if features already exist.
     """
     if track_id is None and track_query is None:
-        return {"error": "Provide track_id or track_query"}
+        raise ToolError("Provide track_id or track_query")
 
     # Stub — real implementation needs audio files + pipeline
     return {
@@ -68,13 +69,13 @@ async def analyze_batch(
     priority: low | normal | high.
     """
     if track_ids is None and playlist_id is None:
-        return {"error": "Provide track_ids or playlist_id"}
+        raise ToolError("Provide track_ids or playlist_id")
     if track_ids is not None and playlist_id is not None:
-        return {"error": "Provide track_ids or playlist_id, not both"}
+        raise ToolError("Provide track_ids or playlist_id, not both")
 
     valid_priorities = ("low", "normal", "high")
     if priority not in valid_priorities:
-        return {"error": f"Invalid priority: {priority}. Valid: {', '.join(valid_priorities)}"}
+        raise ToolError(f"Invalid priority: {priority}. Valid: {', '.join(valid_priorities)}")
 
     total = len(track_ids) if track_ids else 0
 
@@ -110,13 +111,13 @@ async def separate_stems(
     stems: list of stems to extract (None = all). Options: vocals, drums, bass, other.
     """
     if track_id is None and track_query is None:
-        return {"error": "Provide track_id or track_query"}
+        raise ToolError("Provide track_id or track_query")
 
     valid_stems = {"vocals", "drums", "bass", "other"}
     if stems:
         invalid = set(stems) - valid_stems
         if invalid:
-            return {"error": f"Invalid stems: {sorted(invalid)}. Valid: {sorted(valid_stems)}"}
+            raise ToolError(f"Invalid stems: {sorted(invalid)}. Valid: {sorted(valid_stems)}")
 
     # Stub — real implementation needs ML model + audio files
     return {

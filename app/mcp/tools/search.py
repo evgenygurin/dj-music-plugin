@@ -2,25 +2,19 @@
 
 from __future__ import annotations
 
+from fastmcp.exceptions import ToolError
 from fastmcp.server.context import Context
 from sqlalchemy import func, select
 
 from app.core.camelot import camelot_to_key_code, is_compatible
 from app.core.constants import KEY_CODE_MAX, KEY_CODE_MIN
 from app.core.pagination import decode_cursor, encode_cursor
+from app.mcp.dependencies import get_db_session
 from app.models.audio import TrackAudioFeaturesComputed
 from app.models.playlist import Playlist
 from app.models.set import DjSet
 from app.models.track import Artist, Track
 from app.server import mcp
-
-
-async def _get_session(ctx: Context | None):  # type: ignore[no-untyped-def]
-    """Get async session from lifespan context."""
-    if ctx is None:
-        raise RuntimeError("Context required")
-    factory = ctx.lifespan_context["db_session_factory"]
-    return factory()
 
 
 @mcp.tool(tags={"core"}, annotations={"readOnlyHint": True})
@@ -32,12 +26,12 @@ async def search(
 ) -> dict:
     """Search across tracks, artists, playlists, and sets by text query."""
     if not query or not query.strip():
-        return {"error": "Query must not be empty"}
+        raise ToolError("Query must not be empty")
 
     pattern = f"%{query.strip()}%"
     results: dict[str, list[dict]] = {}
 
-    async with await _get_session(ctx) as session:
+    async with get_db_session() as session:
         entities = [entity] if entity != "all" else ["tracks", "artists", "playlists", "sets"]
 
         if "tracks" in entities:
@@ -101,7 +95,7 @@ async def filter_tracks(
     ctx: Context | None = None,
 ) -> dict:
     """Filter tracks by audio features: BPM, key, energy, mood."""
-    async with await _get_session(ctx) as session:
+    async with get_db_session() as session:
         # Base query: join tracks with audio features
         if has_features is False:
             # Tracks WITHOUT features: left join + NULL check
@@ -130,14 +124,14 @@ async def filter_tracks(
             try:
                 code = camelot_to_key_code(key.upper())
                 stmt = stmt.where(TrackAudioFeaturesComputed.key_code == code)
-            except ValueError:
-                return {"error": f"Invalid Camelot key: {key!r}"}
+            except ValueError as err:
+                raise ToolError(f"Invalid Camelot key: {key!r}") from err
 
         # Compatible key filter
         if key_compatible is not None:
             codes = _compatible_key_codes(key_compatible)
             if not codes:
-                return {"error": f"Invalid Camelot key: {key_compatible!r}"}
+                raise ToolError(f"Invalid Camelot key: {key_compatible!r}")
             stmt = stmt.where(TrackAudioFeaturesComputed.key_code.in_(codes))
 
         # Energy filters

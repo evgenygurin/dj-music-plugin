@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from fastmcp.exceptions import ToolError
 from fastmcp.server.context import Context
 
 from app.server import mcp
@@ -30,14 +31,13 @@ async def sync_playlist(
     """
     valid_directions = ("pull", "push", "bidirectional")
     if direction not in valid_directions:
-        return {"error": f"Invalid direction: {direction}. Valid: {', '.join(valid_directions)}"}
+        raise ToolError(f"Invalid direction: {direction}. Valid: {', '.join(valid_directions)}")
 
     valid_strategies = ("source_wins", "ask", "skip")
     if conflict_strategy not in valid_strategies:
-        return {
-            "error": f"Invalid conflict_strategy: {conflict_strategy}. "
-            f"Valid: {', '.join(valid_strategies)}"
-        }
+        raise ToolError(
+            f"Invalid conflict_strategy: {conflict_strategy}. Valid: {', '.join(valid_strategies)}"
+        )
 
     # Stub — real implementation needs YM client from lifespan
     return {
@@ -72,7 +72,7 @@ async def push_set_to_ym(
     """
     valid_modes = ("create", "update", "auto")
     if mode not in valid_modes:
-        return {"error": f"Invalid mode: {mode}. Valid: {', '.join(valid_modes)}"}
+        raise ToolError(f"Invalid mode: {mode}. Valid: {', '.join(valid_modes)}")
 
     # Stub — real implementation needs YM client + set data
     return {

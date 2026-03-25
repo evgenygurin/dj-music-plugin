@@ -2,21 +2,16 @@
 
 from __future__ import annotations
 
+from fastmcp.exceptions import ToolError
 from fastmcp.server.context import Context
 
 from app.core.camelot import camelot_distance, key_code_to_camelot
+from app.mcp.dependencies import get_db_session
 from app.models.set import SetItem, SetVersion
 from app.repositories.set import SetRepository
 from app.repositories.track import TrackRepository
 from app.repositories.transition import TransitionRepository
 from app.server import mcp
-
-
-async def _get_session(ctx: Context | None):  # type: ignore[no-untyped-def]
-    if ctx is None:
-        raise RuntimeError("Context required")
-    factory = ctx.lifespan_context["db_session_factory"]
-    return factory()
 
 
 @mcp.tool(tags={"sets"}, annotations={"readOnlyHint": True})
@@ -29,13 +24,13 @@ async def suggest_next_track(
     ctx: Context | None = None,
 ) -> dict:
     """Suggest best tracks for a set position, scored against both neighbors."""
-    async with await _get_session(ctx) as session:
+    async with get_db_session() as session:
         set_repo = SetRepository(session)
         track_repo = TrackRepository(session)
 
         latest = await set_repo.get_latest_version(set_id)
         if not latest:
-            return {"error": "No version found"}
+            raise ToolError("No version found")
 
         from sqlalchemy import select
 
@@ -44,7 +39,7 @@ async def suggest_next_track(
         items = list(result.scalars().all())
 
         if after_position < 0 or after_position >= len(items):
-            return {"error": f"Position {after_position} out of range (0-{len(items) - 1})"}
+            raise ToolError(f"Position {after_position} out of range (0-{len(items) - 1})")
 
         current_track = await track_repo.get_by_id(items[after_position].track_id)
         next_track = None
@@ -68,7 +63,7 @@ async def explain_transition(
     ctx: Context | None = None,
 ) -> dict:
     """Explain why a transition works or doesn't — 5-component breakdown."""
-    async with await _get_session(ctx) as session:
+    async with get_db_session() as session:
         track_repo = TrackRepository(session)
         transition_repo = TransitionRepository(session)
 
@@ -76,7 +71,7 @@ async def explain_transition(
         to_track = await track_repo.get_by_id(to_track_id)
 
         if not from_track or not to_track:
-            return {"error": "One or both tracks not found"}
+            raise ToolError("One or both tracks not found")
 
         score = await transition_repo.get_score(from_track_id, to_track_id)
 
@@ -176,7 +171,7 @@ async def compare_set_versions(
     ctx: Context | None = None,
 ) -> dict:
     """Compare two versions of a set: tracks added/removed, score changes."""
-    async with await _get_session(ctx) as session:
+    async with get_db_session() as session:
         SetRepository(session)
 
         from sqlalchemy import select
@@ -192,14 +187,14 @@ async def compare_set_versions(
             result = await session.execute(stmt)
             versions = list(result.scalars().all())
             if len(versions) < 2:
-                return {"error": "Need at least 2 versions to compare"}
+                raise ToolError("Need at least 2 versions to compare")
             ver_b, ver_a = versions[0], versions[1]
         else:
             ver_a = await session.get(SetVersion, version_a)
             ver_b = await session.get(SetVersion, version_b)
 
         if not ver_a or not ver_b:
-            return {"error": "Version not found"}
+            raise ToolError("Version not found")
 
         # Get track sets
         stmt_a = select(SetItem.track_id).where(SetItem.version_id == ver_a.id)
@@ -228,17 +223,17 @@ async def quick_set_review(
     ctx: Context | None = None,
 ) -> dict:
     """Complete set review in one call: tracks, weak transitions, problems."""
-    async with await _get_session(ctx) as session:
+    async with get_db_session() as session:
         set_repo = SetRepository(session)
         track_repo = TrackRepository(session)
 
         dj_set = await set_repo.get_by_id(set_id)
         if not dj_set:
-            return {"error": f"Set {set_id} not found"}
+            raise ToolError(f"Set {set_id} not found")
 
         latest = await set_repo.get_latest_version(set_id)
         if not latest:
-            return {"error": "No version found"}
+            raise ToolError("No version found")
 
         from sqlalchemy import select
 

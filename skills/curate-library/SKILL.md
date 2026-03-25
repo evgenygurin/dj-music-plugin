@@ -1,8 +1,6 @@
 ---
 name: curate-library
-description: "Use when the user wants to classify tracks by mood/subgenre, audit library quality, check playlist health, distribute tracks to subgenre playlists, or get library statistics. Triggers on: 'classify tracks', 'audit playlist', 'library stats', 'distribute subgenres', 'mood classification', 'review library'."
-argument-hint: "[action] [playlist_name]"
-allowed-tools: ["mcp__*dj-music*"]
+description: "This skill should be used when the user asks to \"classify tracks\", \"audit playlist\", \"library stats\", \"distribute to subgenres\", \"mood classification\", or \"review library quality\". Covers mood classification, playlist auditing, subgenre distribution, and library statistics."
 ---
 
 # Curate DJ Library Workflow

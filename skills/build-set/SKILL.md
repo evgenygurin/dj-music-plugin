@@ -1,8 +1,6 @@
 ---
 name: build-set
-description: "Use when the user wants to build a DJ set, create a set from playlist, optimize track order, or rebuild an existing set. Triggers on: 'build set', 'create set', 'make a set', 'optimize set', 'rebuild set', 'reorder tracks'."
-argument-hint: "[playlist_name] [template] [duration_min]"
-allowed-tools: ["mcp__*dj-music*"]
+description: "This skill should be used when the user asks to \"build a DJ set\", \"create a set from playlist\", \"optimize track order\", \"rebuild set\", \"reorder tracks\", or \"make a set\". Covers the full workflow from playlist audit to set optimization and review."
 ---
 
 # Build DJ Set Workflow

@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from unittest.mock import AsyncMock, MagicMock
+from contextlib import asynccontextmanager
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.audio import TrackAudioFeaturesComputed
 from app.models.playlist import Playlist
@@ -15,28 +15,53 @@ from app.models.track import Artist, Track, TrackExternalId
 # ── Helpers ──────────────────────────────────────────
 
 
-def _make_ctx(session_factory):
-    """Build a minimal mock Context with lifespan_context."""
+def _make_ctx():
+    """Build a minimal mock Context (no longer needs session factory)."""
     ctx = MagicMock()
-    ctx.lifespan_context = {"db_session_factory": session_factory}
     ctx.enable_components = AsyncMock()
     ctx.disable_components = AsyncMock()
     return ctx
 
 
-@pytest.fixture
-def ctx(db: AsyncSession, async_engine):
-    """Mock MCP Context backed by the test session."""
+@asynccontextmanager
+async def _mock_get_db_session(engine):
+    """Create a mock get_db_session that uses the test engine."""
     from sqlalchemy.ext.asyncio import async_sessionmaker
 
-    factory = async_sessionmaker(async_engine, expire_on_commit=False)
-    return _make_ctx(factory)
+    factory = async_sessionmaker(engine, expire_on_commit=False)
+    async with factory() as session:
+        yield session
+
+
+@pytest.fixture
+def ctx():
+    """Mock MCP Context."""
+    return _make_ctx()
+
+
+@pytest.fixture
+def patch_db_session(async_engine):
+    """Patch get_db_session in all tool modules to use test engine."""
+
+    @asynccontextmanager
+    async def _test_get_db_session():
+        from sqlalchemy.ext.asyncio import async_sessionmaker
+
+        factory = async_sessionmaker(async_engine, expire_on_commit=False)
+        async with factory() as session:
+            yield session
+
+    with (
+        patch("app.mcp.tools.search.get_db_session", _test_get_db_session),
+        patch("app.mcp.tools.admin.get_db_session", _test_get_db_session),
+    ):
+        yield
 
 
 # ── search tool ──────────────────────────────────────
 
 
-async def test_search_tracks(ctx, db):
+async def test_search_tracks(patch_db_session, ctx, db):
     """search() returns matching tracks grouped by entity."""
     db.add(Track(title="Amelie Lens - Exhale"))
     db.add(Track(title="999999999 - Pulse"))
@@ -50,7 +75,7 @@ async def test_search_tracks(ctx, db):
     assert any("Lens" in t["title"] for t in result["results"]["tracks"])
 
 
-async def test_search_artists(ctx, db):
+async def test_search_artists(patch_db_session, ctx, db):
     """search() returns matching artists."""
     db.add(Artist(name="Charlotte de Witte"))
     await db.flush()
@@ -63,7 +88,7 @@ async def test_search_artists(ctx, db):
     assert result["results"]["artists"][0]["name"] == "Charlotte de Witte"
 
 
-async def test_search_playlists(ctx, db):
+async def test_search_playlists(patch_db_session, ctx, db):
     """search() returns matching playlists."""
     db.add(Playlist(name="Peak Time Techno"))
     await db.flush()
@@ -75,7 +100,7 @@ async def test_search_playlists(ctx, db):
     assert len(result["results"]["playlists"]) == 1
 
 
-async def test_search_sets(ctx, db):
+async def test_search_sets(patch_db_session, ctx, db):
     """search() returns matching DJ sets."""
     db.add(DjSet(name="Friday Night Set"))
     await db.flush()
@@ -88,14 +113,16 @@ async def test_search_sets(ctx, db):
 
 
 async def test_search_empty_query(ctx):
-    """search() rejects empty queries."""
+    """search() rejects empty queries with ToolError."""
+    from fastmcp.exceptions import ToolError
+
     from app.mcp.tools.search import search
 
-    result = await search(query="", ctx=ctx)
-    assert "error" in result
+    with pytest.raises(ToolError):
+        await search(query="", ctx=ctx)
 
 
-async def test_search_all_entities(ctx, db):
+async def test_search_all_entities(patch_db_session, ctx, db):
     """search() with entity='all' queries all entity types."""
     db.add(Track(title="Test Track"))
     db.add(Artist(name="Test Artist"))
@@ -117,7 +144,7 @@ async def test_search_all_entities(ctx, db):
 # ── filter_tracks tool ──────────────────────────────
 
 
-async def test_filter_tracks_by_bpm(ctx, db):
+async def test_filter_tracks_by_bpm(patch_db_session, ctx, db):
     """filter_tracks() filters by BPM range."""
     t1 = Track(title="Slow")
     t2 = Track(title="Fast")
@@ -136,7 +163,7 @@ async def test_filter_tracks_by_bpm(ctx, db):
     assert result["items"][0]["title"] == "Fast"
 
 
-async def test_filter_tracks_by_key(ctx, db):
+async def test_filter_tracks_by_key(patch_db_session, ctx, db):
     """filter_tracks() filters by exact Camelot key."""
     t1 = Track(title="Track A minor")
     db.add(t1)
@@ -154,7 +181,7 @@ async def test_filter_tracks_by_key(ctx, db):
     assert result["items"][0]["title"] == "Track A minor"
 
 
-async def test_filter_tracks_by_key_compatible(ctx, db):
+async def test_filter_tracks_by_key_compatible(patch_db_session, ctx, db):
     """filter_tracks() with key_compatible returns harmonically compatible tracks."""
     t1 = Track(title="Track 8A")
     t2 = Track(title="Track 9A")
@@ -179,7 +206,7 @@ async def test_filter_tracks_by_key_compatible(ctx, db):
     assert "Track 3B" not in titles
 
 
-async def test_filter_tracks_by_energy(ctx, db):
+async def test_filter_tracks_by_energy(patch_db_session, ctx, db):
     """filter_tracks() filters by energy range."""
     t1 = Track(title="Chill")
     t2 = Track(title="Intense")
@@ -198,13 +225,14 @@ async def test_filter_tracks_by_energy(ctx, db):
     assert result["items"][0]["title"] == "Intense"
 
 
-async def test_filter_tracks_invalid_key(ctx, db):
-    """filter_tracks() returns error for invalid Camelot key."""
+async def test_filter_tracks_invalid_key(patch_db_session, ctx):
+    """filter_tracks() raises ToolError for invalid Camelot key."""
+    from fastmcp.exceptions import ToolError
+
     from app.mcp.tools.search import filter_tracks
 
-    result = await filter_tracks(key="ZZ", ctx=ctx)
-
-    assert "error" in result
+    with pytest.raises(ToolError):
+        await filter_tracks(key="ZZ", ctx=ctx)
 
 
 # ── unlock_tools tool ────────────────────────────────
@@ -252,18 +280,19 @@ async def test_unlock_tools_status(ctx):
 
 
 async def test_unlock_tools_invalid_category(ctx):
-    """unlock_tools() rejects unknown categories."""
+    """unlock_tools() raises ToolError for unknown categories."""
+    from fastmcp.exceptions import ToolError
+
     from app.mcp.tools.admin import unlock_tools
 
-    result = await unlock_tools(action="unlock", category="nonexistent", ctx=ctx)
-
-    assert "error" in result
+    with pytest.raises(ToolError):
+        await unlock_tools(action="unlock", category="nonexistent", ctx=ctx)
 
 
 # ── list_platforms tool ──────────────────────────────
 
 
-async def test_list_platforms(ctx, db):
+async def test_list_platforms(patch_db_session, ctx, db):
     """list_platforms() returns all providers with linked counts."""
     t1 = Track(title="Test")
     db.add(t1)
@@ -283,7 +312,7 @@ async def test_list_platforms(ctx, db):
     assert ym["available"] is True
 
 
-async def test_list_platforms_empty(ctx, db):
+async def test_list_platforms_empty(patch_db_session, ctx, db):
     """list_platforms() returns zeros when no tracks are linked."""
     from app.mcp.tools.admin import list_platforms
 

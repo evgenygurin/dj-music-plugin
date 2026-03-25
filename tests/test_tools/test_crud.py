@@ -2,53 +2,10 @@
 
 from __future__ import annotations
 
-import json
-from typing import Any
-
 import pytest
 from fastmcp import Client
 
-from app.server import mcp
-
-
-def _parse_result(result: Any) -> dict[str, Any]:
-    """Extract dict from MCP tool result (CallToolResult)."""
-    # FastMCP Client.call_tool returns CallToolResult with .data attribute
-    if hasattr(result, "data") and isinstance(result.data, dict):
-        return result.data
-    # Fallback: parse from content blocks
-    content = getattr(result, "content", result)
-    if isinstance(content, list) and len(content) > 0:
-        block = content[0]
-        text = getattr(block, "text", None) or str(block)
-        return json.loads(text)
-    if isinstance(result, dict):
-        return result
-    raise ValueError(f"Unexpected result type: {type(result)}")
-
-
-@pytest.fixture
-async def client(async_engine):
-    """FastMCP test client with in-memory DB session factory."""
-    from fastmcp.server.lifespan import Lifespan
-    from sqlalchemy.ext.asyncio import async_sessionmaker
-
-    factory = async_sessionmaker(async_engine, expire_on_commit=False)
-
-    # Patch the user-provided lifespan so tools can get a session
-    original_lifespan = mcp._lifespan
-
-    async def _test_lifespan(server):  # type: ignore[no-untyped-def]
-        yield {"db_engine": async_engine, "db_session_factory": factory}
-
-    mcp._lifespan = Lifespan(_test_lifespan)
-
-    try:
-        async with Client(mcp) as c:
-            yield c
-    finally:
-        mcp._lifespan = original_lifespan
-
+from tests.conftest import _parse_tool_result as _parse_result
 
 # ── list_tracks ──────────────────────────────────────
 
@@ -121,10 +78,11 @@ async def test_get_track_by_query(client: Client, async_engine):
 
 
 async def test_get_track_not_found(client: Client):
-    """get_track returns error when not found."""
-    result = await client.call_tool("get_track", {"id": 999})
-    data = _parse_result(result)
-    assert "error" in data
+    """get_track raises ToolError when not found."""
+    from fastmcp.exceptions import ToolError
+
+    with pytest.raises(ToolError):
+        await client.call_tool("get_track", {"id": 999})
 
 
 # ── manage_tracks ────────────────────────────────────
@@ -188,10 +146,11 @@ async def test_manage_tracks_update(client: Client, async_engine):
 
 
 async def test_manage_tracks_invalid_action(client: Client):
-    """manage_tracks rejects invalid action."""
-    result = await client.call_tool("manage_tracks", {"action": "explode"})
-    data = _parse_result(result)
-    assert "error" in data
+    """manage_tracks rejects invalid action with ToolError."""
+    from fastmcp.exceptions import ToolError
+
+    with pytest.raises(ToolError):
+        await client.call_tool("manage_tracks", {"action": "explode"})
 
 
 # ── list_playlists ───────────────────────────────────

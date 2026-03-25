@@ -2,22 +2,16 @@
 
 from __future__ import annotations
 
+from fastmcp.exceptions import ToolError
 from fastmcp.server.context import Context
 from sqlalchemy import func, select
 
 from app.core.constants import Provider
+from app.mcp.dependencies import get_db_session
 from app.models.track import TrackExternalId
 from app.server import mcp
 
 _ALL_CATEGORIES = frozenset({"delivery", "discovery", "curation", "sync", "ym", "audio"})
-
-
-async def _get_session(ctx: Context | None):  # type: ignore[no-untyped-def]
-    """Get async session from lifespan context."""
-    if ctx is None:
-        raise RuntimeError("Context required")
-    factory = ctx.lifespan_context["db_session_factory"]
-    return factory()
 
 
 @mcp.tool(tags={"admin"})
@@ -31,7 +25,7 @@ async def unlock_tools(
         tags = {category} if category != "all" else set(_ALL_CATEGORIES)
         invalid = tags - _ALL_CATEGORIES
         if invalid:
-            return {"error": f"Unknown categories: {sorted(invalid)}"}
+            raise ToolError(f"Unknown categories: {sorted(invalid)}")
         await ctx.enable_components(tags=tags)
         return {"action": "unlocked", "categories": sorted(tags)}
 
@@ -39,7 +33,7 @@ async def unlock_tools(
         tags = {category} if category != "all" else set(_ALL_CATEGORIES)
         invalid = tags - _ALL_CATEGORIES
         if invalid:
-            return {"error": f"Unknown categories: {sorted(invalid)}"}
+            raise ToolError(f"Unknown categories: {sorted(invalid)}")
         await ctx.disable_components(tags=tags)
         return {"action": "locked", "categories": sorted(tags)}
 
@@ -49,7 +43,7 @@ async def unlock_tools(
 @mcp.tool(tags={"admin"}, annotations={"readOnlyHint": True})
 async def list_platforms(ctx: Context | None = None) -> list[dict]:
     """List available music platforms and linked track counts."""
-    async with await _get_session(ctx) as session:
+    async with get_db_session() as session:
         stmt = select(
             TrackExternalId.platform,
             func.count(TrackExternalId.id).label("track_count"),

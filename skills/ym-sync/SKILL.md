@@ -1,8 +1,6 @@
 ---
 name: ym-sync
-description: "Use when the user wants to sync playlists with Yandex Music, push or pull playlists, search YM, manage YM playlists, or work with YM liked tracks. Triggers on: 'sync playlist', 'push to YM', 'pull from YM', 'yandex music', 'ym search', 'ym playlist'."
-argument-hint: "[action] [playlist_name]"
-allowed-tools: ["mcp__*dj-music*"]
+description: "This skill should be used when the user asks to \"sync playlist\", \"push to YM\", \"pull from YM\", \"yandex music search\", \"ym playlist\", or \"manage YM likes\". Covers bidirectional Yandex Music sync, playlist management, search, and likes."
 ---
 
 # Yandex Music Sync Workflow

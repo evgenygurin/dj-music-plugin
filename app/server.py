@@ -3,13 +3,45 @@
 Usage:
     uv run fastmcp dev app/server.py --reload   # development
     uv run fastmcp run app/server.py             # production
+
+OpenTelemetry (optional, requires `uv sync --extra otel`):
+    opentelemetry-instrument \
+      --service_name dj-music \
+      --exporter_otlp_endpoint http://localhost:4317 \
+      fastmcp run app/server.py
 """
+
+import logging
+import os
 
 from fastmcp import FastMCP
 from fastmcp.server.lifespan import lifespan
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from app.config import settings
+from app.core.cache import TransitionCache
+
+# ── Observability Setup ──────────────────────────────
+
+logger = logging.getLogger(__name__)
+
+if settings.sentry_dsn:
+    try:
+        import sentry_sdk
+
+        sentry_sdk.init(
+            dsn=settings.sentry_dsn,
+            traces_sample_rate=0.1 if not settings.debug else 1.0,
+            environment="development" if settings.debug else "production",
+        )
+        logger.info("Sentry error tracking enabled")
+    except ImportError:
+        logger.warning("SENTRY_DSN set but sentry-sdk not installed")
+
+# ── Background Tasks Environment ─────────────────────
+
+os.environ.setdefault("FASTMCP_DOCKET_URL", settings.docket_url)
+os.environ.setdefault("FASTMCP_DOCKET_CONCURRENCY", str(settings.docket_concurrency))
 
 # ── Lifespans ────────────────────────────────────────
 
@@ -29,7 +61,72 @@ async def db_lifespan(server):  # type: ignore[no-untyped-def]
         await engine.dispose()
 
 
+@lifespan
+async def ym_lifespan(server):  # type: ignore[no-untyped-def]
+    """Yandex Music client lifecycle with rate limiting."""
+    from app.ym.client import YandexMusicClient
+    from app.ym.rate_limiter import RateLimiter
+
+    rate_limiter = RateLimiter(
+        delay=settings.ym_rate_limit_delay,
+        max_retries=settings.ym_retry_attempts,
+        backoff_factor=settings.ym_retry_backoff_factor,
+    )
+    client = YandexMusicClient(
+        token=settings.ym_token,
+        user_id=settings.ym_user_id,
+        base_url=settings.ym_base_url,
+        rate_limiter=rate_limiter,
+    )
+    try:
+        yield {"ym_client": client}
+    finally:
+        await client.close()
+
+
+@lifespan
+async def analyzer_lifespan(server):  # type: ignore[no-untyped-def]
+    """Audio analyzer registry lifecycle."""
+    from app.audio.registry import AnalyzerRegistry
+
+    registry = AnalyzerRegistry()
+    registry.discover()
+    try:
+        yield {"analyzer_registry": registry}
+    finally:
+        pass
+
+
+@lifespan
+async def cache_lifespan(server):  # type: ignore[no-untyped-def]
+    """Cache lifecycle — transition scores + storage backends."""
+    transition_cache = TransitionCache(
+        max_size=settings.transition_cache_max_size,
+        ttl=settings.transition_cache_ttl,
+    )
+    try:
+        yield {"transition_cache": transition_cache}
+    finally:
+        transition_cache.clear()
+
+
 # ── Server ───────────────────────────────────────────
+
+# Sampling handler for LLM-assisted tools
+sampling_handler = None
+if settings.anthropic_api_key:
+    try:
+        from anthropic import AsyncAnthropic
+        from fastmcp.client.sampling.handlers.anthropic import (
+            AnthropicSamplingHandler,
+        )
+
+        sampling_handler = AnthropicSamplingHandler(
+            default_model=settings.sampling_model,
+            client=AsyncAnthropic(api_key=settings.anthropic_api_key),
+        )
+    except ImportError:
+        pass
 
 mcp = FastMCP(
     name=settings.server_name,
@@ -38,30 +135,53 @@ mcp = FastMCP(
         "and Yandex Music integration. "
         "Use unlock_tools to access hidden tool categories."
     ),
-    lifespan=db_lifespan,
+    lifespan=db_lifespan | ym_lifespan | analyzer_lifespan | cache_lifespan,
     list_page_size=settings.pagination_size,
     on_duplicate="error",
+    sampling_handler=sampling_handler,
+    sampling_handler_behavior="fallback" if sampling_handler else None,
 )
 
-# Hide audio tools at startup
+# ── Transforms ───────────────────────────────────────
+try:
+    from fastmcp.server.transforms import PromptsAsTools, ResourcesAsTools
+
+    mcp.add_transform(ResourcesAsTools(mcp))
+    mcp.add_transform(PromptsAsTools(mcp))
+except ImportError:
+    pass
+
+# ── Middleware Pipeline ──────────────────────────────
+try:
+    from app.mcp.middleware import (
+        DetailedTimingMiddleware,
+        StructuredLoggingMiddleware,
+        YMRateLimitMiddleware,
+    )
+
+    mcp.add_middleware(
+        StructuredLoggingMiddleware(
+            include_payloads=settings.payload_logging,
+            max_payload_length=500,
+        )
+    )
+    mcp.add_middleware(DetailedTimingMiddleware())
+    mcp.add_middleware(
+        YMRateLimitMiddleware(
+            delay_seconds=settings.ym_rate_limit_delay,
+        )
+    )
+except ImportError:
+    logger.warning("Custom middleware not available")
+
+# ── Component Visibility ─────────────────────────────
 mcp.disable(tags={"audio"})
 
-# ── FileSystemProvider auto-discovers tools/resources/prompts ─
-# When running via `fastmcp run app/server.py`, FastMCP auto-discovers
-# decorated functions in the same package. For explicit provider usage:
-#
-# from fastmcp.server.providers import FileSystemProvider
-# provider = FileSystemProvider(
-#     Path(__file__).parent / "mcp",
-#     reload=settings.is_dev,
-# )
-# mcp = FastMCP(..., providers=[provider])
-#
-# For now we register tools manually in the mcp/ modules
-# and import them here to trigger registration.
-
-# Import tool modules to register with mcp
-# (will be populated as tools are implemented)
+# ── Module Registration ──────────────────────────────
+import app.mcp.prompts.workflows
+import app.mcp.resources.reference
+import app.mcp.resources.status
+import app.mcp.resources.templates
 import app.mcp.tools.admin
 import app.mcp.tools.audio
 import app.mcp.tools.crud

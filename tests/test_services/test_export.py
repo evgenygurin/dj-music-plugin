@@ -100,6 +100,69 @@ def test_m3u8_cue_points(sample_data: SetExportData, tmp_path: Path) -> None:
     assert "#EXTDJ-CUE:" in content
 
 
+def test_m3u8_saved_loops(sample_data: SetExportData, tmp_path: Path) -> None:
+    """Saved loops should be exported as #EXTDJ-LOOP tags."""
+    sample_data.tracks[0].saved_loops = [{"in_ms": 64000, "out_ms": 80000, "label": "Build"}]
+    path = write_m3u8(sample_data, tmp_path / "test.m3u8")
+    content = path.read_text()
+    assert "#EXTDJ-LOOP:64000,80000,Build" in content
+
+
+def test_m3u8_section_tags(sample_data: SetExportData, tmp_path: Path) -> None:
+    """Sections should be exported as #EXTDJ-SECTION tags."""
+    path = write_m3u8(sample_data, tmp_path / "test.m3u8")
+    content = path.read_text()
+    assert "#EXTDJ-SECTION:intro,0,30000,0.3" in content
+
+
+def test_m3u8_empty_set(tmp_path: Path) -> None:
+    """Empty set should produce valid M3U8 with just header."""
+    data = SetExportData(name="Empty Set")
+    path = write_m3u8(data, tmp_path / "empty.m3u8")
+    content = path.read_text()
+    assert content.startswith("#EXTM3U")
+    assert "#PLAYLIST:Empty Set" in content
+    lines = [line for line in content.strip().split("\n") if not line.startswith("#")]
+    assert len(lines) == 0  # no file paths
+
+
+def test_m3u8_track_without_features(tmp_path: Path) -> None:
+    """Track with no audio features should still export without errors."""
+    data = SetExportData(
+        name="Minimal",
+        tracks=[
+            ExportTrack(
+                position=0,
+                title="Unknown",
+                artist="Unknown",
+                duration_ms=180000,
+                file_path="/music/unknown.mp3",
+            )
+        ],
+    )
+    path = write_m3u8(data, tmp_path / "minimal.m3u8")
+    content = path.read_text()
+    assert "/music/unknown.mp3" in content
+    assert "#EXTDJ-BPM" not in content
+    assert "#EXTDJ-KEY" not in content
+
+
+def test_m3u8_eq_tag(sample_data: SetExportData, tmp_path: Path) -> None:
+    """Planned EQ settings should be exported as #EXTDJ-EQ tag (REQUIREMENTS §9.1)."""
+    sample_data.tracks[0].eq_settings = {"low": -3, "mid": 0, "high": 2}
+    path = write_m3u8(sample_data, tmp_path / "test.m3u8")
+    content = path.read_text()
+    assert "#EXTDJ-EQ:" in content
+
+
+def test_m3u8_note_tag(sample_data: SetExportData, tmp_path: Path) -> None:
+    """DJ notes should be exported as #EXTDJ-NOTE tag."""
+    sample_data.tracks[0].notes = "Start with low EQ"
+    path = write_m3u8(sample_data, tmp_path / "test.m3u8")
+    content = path.read_text()
+    assert "#EXTDJ-NOTE:Start with low EQ" in content
+
+
 # ── Rekordbox XML ────────────────────────────────────
 
 
