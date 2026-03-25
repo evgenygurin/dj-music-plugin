@@ -2,17 +2,13 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
-
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.track_features import TrackFeatures
 from app.models.audio import TrackAudioFeaturesComputed
 from app.models.track import Track
 from app.repositories.base import BaseRepository
-
-if TYPE_CHECKING:
-    from app.services.transition import TrackFeatures
 
 
 class FeatureRepository(BaseRepository[TrackAudioFeaturesComputed]):
@@ -39,8 +35,6 @@ class FeatureRepository(BaseRepository[TrackAudioFeaturesComputed]):
 
     async def get_scoring_features(self, track_id: int) -> TrackFeatures | None:
         """Load features and convert to TrackFeatures for transition scoring."""
-        from app.services.transition import TrackFeatures
-
         row = await self.get_features(track_id)
         if row is None:
             return None
@@ -48,8 +42,6 @@ class FeatureRepository(BaseRepository[TrackAudioFeaturesComputed]):
 
     async def get_scoring_features_batch(self, track_ids: list[int]) -> dict[int, TrackFeatures]:
         """Load TrackFeatures for multiple tracks in one query (N queries → 1)."""
-        from app.services.transition import TrackFeatures
-
         stmt = select(TrackAudioFeaturesComputed).where(
             TrackAudioFeaturesComputed.track_id.in_(track_ids)
         )
