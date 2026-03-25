@@ -83,9 +83,9 @@ async def find_similar_tracks(
     limit: int = 20,
     min_duration_ms: int | None = None,
     max_duration_ms: int | None = None,
-    genre_filter: list[str] | None = None,
-    genre_blacklist: list[str] | None = None,
-    exclude_patterns: list[str] | None = None,
+    genre_filter: Any = None,
+    genre_blacklist: Any = None,
+    exclude_patterns: Any = None,
     ym: YandexMusicClient = Depends(get_ym_client),  # noqa: B008
     ctx: Context | None = None,
 ) -> dict[str, Any]:
@@ -94,6 +94,11 @@ async def find_similar_tracks(
     strategy: ym (default). genre_filter: whitelist. genre_blacklist: blacklist.
     exclude_patterns: title keywords to skip (default: remix, edit, live, ...).
     """
+    from app.core.parsing import ensure_list
+
+    genre_filter = ensure_list(genre_filter) or None
+    genre_blacklist = ensure_list(genre_blacklist) or None
+    exclude_patterns = ensure_list(exclude_patterns) or None
     if strategy == "llm" and ctx:
         # LLM-assisted: use ctx.sample() to generate search queries
         async with get_db_session() as session:
@@ -235,7 +240,7 @@ async def find_similar_tracks(
     annotations={"readOnlyHint": True, "openWorldHint": True},
 )
 async def filter_by_feedback(
-    ym_track_ids: list[str],
+    ym_track_ids: Any = None,
     ym: YandexMusicClient = Depends(get_ym_client),  # noqa: B008
     ctx: Context | None = None,
 ) -> dict[str, Any]:
@@ -244,6 +249,9 @@ async def filter_by_feedback(
     Returns categorized IDs: passed (unknown), blocked (disliked), boosted (liked).
     Claude decides what to do with each category.
     """
+    from app.core.parsing import ensure_list
+
+    ym_track_ids = ensure_list(ym_track_ids)
     if not ym_track_ids:
         raise ToolError("ym_track_ids required")
 
@@ -306,9 +314,9 @@ async def filter_by_feedback(
 async def expand_playlist_ym(
     ym_playlist_kind: int,
     target_count: int = 100,
-    genre_filter: list[str] | None = None,
-    genre_blacklist: list[str] | None = None,
-    exclude_patterns: list[str] | None = None,
+    genre_filter: Any = None,
+    genre_blacklist: Any = None,
+    exclude_patterns: Any = None,
     min_duration_ms: int | None = None,
     max_duration_ms: int | None = None,
     use_feedback: bool = True,
@@ -321,6 +329,11 @@ async def expand_playlist_ym(
     One-call orchestrator: fetches seeds → finds similar → filters → adds to playlist.
     Or use find_similar_tracks + filter_by_feedback + ym_playlists separately for full control.
     """
+    from app.core.parsing import ensure_list
+
+    genre_filter = ensure_list(genre_filter) or None
+    genre_blacklist = ensure_list(genre_blacklist) or None
+    exclude_patterns = ensure_list(exclude_patterns) or None
     import time as _time
 
     _t0 = _time.monotonic()

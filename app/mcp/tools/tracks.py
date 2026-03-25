@@ -65,10 +65,13 @@ async def get_track(
 @tool(tags={"core"}, annotations={"readOnlyHint": False})
 async def manage_tracks(
     action: str,
-    data: dict[str, Any] | None = None,
+    data: Any = None,
     svc: TrackService = Depends(get_track_service),  # noqa: B008
 ) -> TrackStandard:
     """Create, update, archive, or unarchive a track. action: create|update|archive|unarchive."""
+    from app.core.parsing import ensure_dict
+
+    data = ensure_dict(data)
     if action not in ("create", "update", "archive", "unarchive"):
         raise ToolError(f"Unknown action: {action}")
 

@@ -68,12 +68,15 @@ def _features_to_dict(f: TrackAudioFeaturesComputed) -> dict[str, Any]:
     annotations={"readOnlyHint": True},
 )
 async def classify_mood(
-    track_ids: list[int] | None = None,
+    track_ids: Any = None,
     playlist_id: int | None = None,
     reclassify: bool = False,
     ctx: Context | None = None,
 ) -> dict[str, Any]:
     """Classify tracks by 15 techno subgenres using rule-based MoodClassifier."""
+    from app.core.parsing import ensure_list
+
+    track_ids = ensure_list(track_ids) or None
     if not track_ids and playlist_id is None:
         raise ToolError("Provide track_ids or playlist_id")
 

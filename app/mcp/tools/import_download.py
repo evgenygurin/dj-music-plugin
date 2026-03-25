@@ -35,12 +35,15 @@ def _sanitize_filename(title: str, max_len: int = 80) -> str:
     annotations={"readOnlyHint": False, "idempotentHint": True},
 )
 async def import_tracks(
-    track_refs: list[str | int],
+    track_refs: Any = None,
     playlist_id: int | None = None,
     auto_analyze: bool = False,
     ctx: Context | None = None,
 ) -> dict[str, Any]:
     """Import YM track IDs into local DB. Accepts strings or ints. Idempotent — skips existing."""
+    from app.core.parsing import ensure_list
+
+    track_refs = ensure_list(track_refs)
     if not track_refs:
         raise ToolError("track_refs is required (list of YM track IDs)")
 
@@ -153,7 +156,7 @@ async def import_tracks(
     timeout=600.0,
 )
 async def download_tracks(
-    track_refs: list[str | int],
+    track_refs: Any = None,
     target_dir: str | None = None,
     skip_existing: bool = True,
     prefer_bitrate: int = 320,
@@ -166,6 +169,9 @@ async def download_tracks(
     skip_existing: skip if file already exists.
     prefer_bitrate: target bitrate in kbps (320, 192, 128).
     """
+    from app.core.parsing import ensure_list
+
+    track_refs = ensure_list(track_refs)
     if not track_refs:
         raise ToolError("track_refs is required (list of YM track IDs)")
 

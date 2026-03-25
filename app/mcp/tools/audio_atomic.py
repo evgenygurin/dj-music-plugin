@@ -31,12 +31,15 @@ from app.ym.client import YandexMusicClient
 @tool(tags={"atomic"}, annotations={"readOnlyHint": False}, timeout=180.0)
 async def analyze_one_track(
     track_id: int,
-    analyzers: list[str] | None = None,
+    analyzers: Any = None,
     force: bool = False,
     registry: AnalyzerRegistry = Depends(get_analyzer_registry),  # noqa: B008
     ctx: Context | None = None,
 ) -> dict[str, Any]:
     """Run audio analysis pipeline on ONE track. Saves features to DB."""
+    from app.core.parsing import ensure_list
+
+    analyzers = ensure_list(analyzers) or None
     async with get_db_session() as session:
         track = (
             await session.execute(select(Track).where(Track.id == track_id))

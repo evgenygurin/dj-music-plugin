@@ -26,12 +26,15 @@ from app.services.audio_service import AudioService
 async def analyze_track(
     track_id: int | None = None,
     track_query: str | None = None,
-    analyzers: list[str] | None = None,
+    analyzers: Any = None,
     force: bool = False,
     svc: AudioService = Depends(get_audio_service),  # noqa: B008
     ctx: Context | None = None,
 ) -> dict[str, Any]:
     """Run audio analysis pipeline + mood classification on a track."""
+    from app.core.parsing import ensure_list
+
+    analyzers = ensure_list(analyzers) or None
     if track_id is None and track_query is None:
         raise ToolError("Provide track_id or track_query")
 
@@ -72,14 +75,18 @@ async def analyze_track(
     task=True,
 )
 async def analyze_batch(
-    track_ids: list[int] | None = None,
+    track_ids: Any = None,
     playlist_id: int | None = None,
-    analyzers: list[str] | None = None,
+    analyzers: Any = None,
     priority: str = "normal",
     svc: AudioService = Depends(get_audio_service),  # noqa: B008
     ctx: Context | None = None,
 ) -> dict[str, Any]:
     """Batch audio analysis for multiple tracks or a playlist."""
+    from app.core.parsing import ensure_list
+
+    track_ids = ensure_list(track_ids) or None
+    analyzers = ensure_list(analyzers) or None
     if track_ids is None and playlist_id is None:
         raise ToolError("Provide track_ids or playlist_id")
     if track_ids is not None and playlist_id is not None:
@@ -147,10 +154,13 @@ async def analyze_batch(
 async def separate_stems(
     track_id: int | None = None,
     track_query: str | None = None,
-    stems: list[str] | None = None,
+    stems: Any = None,
     ctx: Context | None = None,
 ) -> dict[str, Any]:
     """ML-based stem separation (vocals, drums, bass, other). Requires [stems] extra."""
+    from app.core.parsing import ensure_list
+
+    stems = ensure_list(stems) or None
     if track_id is None and track_query is None:
         raise ToolError("Provide track_id or track_query")
 

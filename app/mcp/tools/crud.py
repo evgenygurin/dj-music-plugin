@@ -134,10 +134,13 @@ async def get_set(
 @tool(tags={"core"}, annotations={"readOnlyHint": False})
 async def manage_set(
     action: str,
-    data: dict[str, Any] | None = None,
+    data: Any = None,
     ctx: Context | None = None,
 ) -> dict[str, Any]:
     """Manage DJ sets. Actions: create, update, delete, add/remove constraint, add feedback."""
+    from app.core.parsing import ensure_dict
+
+    data = ensure_dict(data)
     valid = ("create", "update", "delete", "add_constraint", "remove_constraint", "add_feedback")
     if action not in valid:
         raise ToolError(f"Unknown action: {action}. Valid: {', '.join(valid)}")
@@ -230,4 +233,3 @@ async def manage_set(
             return {"removed": True, "constraint_id": constraint_id}
 
         raise ToolError("Unreachable")
-

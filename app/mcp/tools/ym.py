@@ -53,11 +53,14 @@ async def ym_search(
     annotations={"readOnlyHint": True, "openWorldHint": True},
 )
 async def ym_get_tracks(
-    track_ids: list[str],
+    track_ids: Any = None,
     ym: YandexMusicClient = Depends(get_ym_client),  # noqa: B008
     ctx: Context | None = None,
 ) -> dict[str, Any]:
     """Batch get tracks from Yandex Music by IDs (up to 100)."""
+    from app.core.parsing import ensure_list
+
+    track_ids = ensure_list(track_ids)
     if not track_ids:
         raise ToolError("track_ids required")
     if len(track_ids) > 100:
@@ -134,7 +137,7 @@ async def ym_playlists(
     action: str = "list",
     kind: int | None = None,
     name: str | None = None,
-    track_ids: list[str] | None = None,
+    track_ids: Any = None,
     revision: int | None = None,
     ym: YandexMusicClient = Depends(get_ym_client),  # noqa: B008
     ctx: Context | None = None,
@@ -147,6 +150,9 @@ async def ym_playlists(
     track_ids: track IDs (required for add_tracks/remove_tracks).
     revision: playlist revision (required for add_tracks/remove_tracks).
     """
+    from app.core.parsing import ensure_list
+
+    track_ids = ensure_list(track_ids) or None
     valid_actions = ("get", "list", "create", "rename", "delete", "add_tracks", "remove_tracks")
     if action not in valid_actions:
         raise ToolError(f"Invalid action: {action}. Valid: {', '.join(valid_actions)}")
@@ -213,7 +219,7 @@ async def ym_playlists(
 )
 async def ym_likes(
     action: str = "get_liked",
-    track_ids: list[str] | None = None,
+    track_ids: Any = None,
     ym: YandexMusicClient = Depends(get_ym_client),  # noqa: B008
     ctx: Context | None = None,
 ) -> dict[str, Any]:
@@ -222,6 +228,9 @@ async def ym_likes(
     action: get_liked | add | remove.
     track_ids: required for add/remove.
     """
+    from app.core.parsing import ensure_list
+
+    track_ids = ensure_list(track_ids) or None
     valid_actions = ("get_liked", "add", "remove")
     if action not in valid_actions:
         raise ToolError(f"Invalid action: {action}. Valid: {', '.join(valid_actions)}")

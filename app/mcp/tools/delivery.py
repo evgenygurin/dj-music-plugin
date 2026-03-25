@@ -137,11 +137,14 @@ async def deliver_set(
     output_dir: str | None = None,
     copy_files: bool = True,
     sync_to_ym: bool = False,
-    formats: list[str] | None = None,
+    formats: Any = None,
     dry_run: bool = False,
     ctx: Context | None = None,
 ) -> dict[str, Any]:
     """Multi-stage set delivery: score transitions, copy files, generate exports."""
+    from app.core.parsing import ensure_list
+
+    formats = ensure_list(formats) or None
     if ctx:
         await ctx.info(f"Starting delivery for set {set_id}...")
 
@@ -303,10 +306,13 @@ async def export_set(
     set_id: int,
     format: str = "m3u8",
     output_path: str | None = None,
-    rekordbox_options: dict[str, bool] | None = None,
+    rekordbox_options: Any = None,
     ctx: Context | None = None,
 ) -> dict[str, Any]:
     """Export set to format: m3u8, rekordbox, json, cheatsheet."""
+    from app.core.parsing import ensure_dict
+
+    rekordbox_options = ensure_dict(rekordbox_options)
     valid_formats = {"m3u8", "rekordbox", "json", "cheatsheet", "cheat_sheet"}
     if format not in valid_formats:
         raise ToolError(f"Unknown format: {format}. Valid: {', '.join(sorted(valid_formats))}")

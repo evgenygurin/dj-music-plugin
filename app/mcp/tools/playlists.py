@@ -84,12 +84,17 @@ async def get_playlist(
 @tool(tags={"core"}, annotations={"readOnlyHint": False})
 async def manage_playlist(
     action: str,
-    data: dict[str, Any] | None = None,
-    track_refs: list[int] | None = None,
-    positions: list[int] | None = None,
+    data: Any = None,
+    track_refs: Any = None,
+    positions: Any = None,
     svc: PlaylistService = Depends(get_playlist_service),  # noqa: B008
 ) -> dict[str, Any]:
     """Manage playlists. action: create|update|delete|add_tracks|remove_tracks|reorder."""
+    from app.core.parsing import ensure_dict, ensure_list
+
+    data = ensure_dict(data)
+    track_refs = ensure_list(track_refs) or None
+    positions = ensure_list(positions) or None
     valid = ("create", "update", "delete", "add_tracks", "remove_tracks", "reorder")
     if action not in valid:
         raise ToolError(f"Unknown action: {action}. Valid: {', '.join(valid)}")
