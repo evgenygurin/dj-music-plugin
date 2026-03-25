@@ -5,13 +5,12 @@ from __future__ import annotations
 from typing import Any
 
 from fastmcp.server.context import Context
-
-from app.server import mcp
+from fastmcp.tools import tool
 
 # ── 1. sync_playlist ───────────────────────────────
 
 
-@mcp.tool(
+@tool(
     tags={"sync"},
     annotations={"readOnlyHint": False, "openWorldHint": True},
 )
@@ -55,7 +54,7 @@ async def sync_playlist(
 # ── 2. push_set_to_ym ─────────────────────────────
 
 
-@mcp.tool(
+@tool(
     tags={"sync"},
     annotations={"readOnlyHint": False, "openWorldHint": True},
 )

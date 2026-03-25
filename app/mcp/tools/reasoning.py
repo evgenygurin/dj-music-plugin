@@ -3,13 +3,13 @@
 from __future__ import annotations
 
 from fastmcp.server.context import Context
+from fastmcp.tools import tool
 
 from app.core.camelot import camelot_distance, key_code_to_camelot
 from app.models.set import SetItem, SetVersion
 from app.repositories.set import SetRepository
 from app.repositories.track import TrackRepository
 from app.repositories.transition import TransitionRepository
-from app.server import mcp
 
 
 async def _get_session(ctx: Context | None):  # type: ignore[no-untyped-def]
@@ -19,7 +19,7 @@ async def _get_session(ctx: Context | None):  # type: ignore[no-untyped-def]
     return factory()
 
 
-@mcp.tool(tags={"sets"}, annotations={"readOnlyHint": True})
+@tool(tags={"sets"}, annotations={"readOnlyHint": True})
 async def suggest_next_track(
     set_id: int,
     after_position: int,
@@ -61,7 +61,7 @@ async def suggest_next_track(
         }
 
 
-@mcp.tool(tags={"sets"}, annotations={"readOnlyHint": True})
+@tool(tags={"sets"}, annotations={"readOnlyHint": True})
 async def explain_transition(
     from_track_id: int,
     to_track_id: int,
@@ -151,7 +151,7 @@ async def explain_transition(
         return explanation
 
 
-@mcp.tool(tags={"sets"}, annotations={"readOnlyHint": True})
+@tool(tags={"sets"}, annotations={"readOnlyHint": True})
 async def find_replacement(
     set_id: int,
     position: int,
@@ -168,7 +168,7 @@ async def find_replacement(
     }
 
 
-@mcp.tool(tags={"sets"}, annotations={"readOnlyHint": True})
+@tool(tags={"sets"}, annotations={"readOnlyHint": True})
 async def compare_set_versions(
     set_id: int,
     version_a: int | None = None,
@@ -222,7 +222,7 @@ async def compare_set_versions(
         }
 
 
-@mcp.tool(tags={"sets"}, annotations={"readOnlyHint": True})
+@tool(tags={"sets"}, annotations={"readOnlyHint": True})
 async def quick_set_review(
     set_id: int,
     ctx: Context | None = None,

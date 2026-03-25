@@ -5,12 +5,12 @@ from __future__ import annotations
 from typing import Any
 
 from fastmcp.server.context import Context
+from fastmcp.tools import tool
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.track import Track, TrackExternalId
 from app.repositories.track import TrackRepository
-from app.server import mcp
 
 # ── Helpers ──────────────────────────────────────────
 
@@ -26,7 +26,7 @@ async def _get_session(ctx: Context | None) -> AsyncSession:
 # ── 1. find_similar_tracks ──────────────────────────
 
 
-@mcp.tool(
+@tool(
     tags={"discovery"},
     annotations={"readOnlyHint": True, "openWorldHint": True},
 )
@@ -95,7 +95,7 @@ async def find_similar_tracks(
 # ── 2. import_tracks ────────────────────────────────
 
 
-@mcp.tool(
+@tool(
     tags={"discovery"},
     annotations={"readOnlyHint": False, "idempotentHint": True},
 )
@@ -181,7 +181,7 @@ async def import_tracks(
 # ── 3. download_tracks ──────────────────────────────
 
 
-@mcp.tool(
+@tool(
     tags={"discovery"},
     annotations={"readOnlyHint": False, "openWorldHint": True},
     timeout=300.0,

@@ -8,13 +8,12 @@ from __future__ import annotations
 from typing import Any
 
 from fastmcp.server.context import Context
-
-from app.server import mcp
+from fastmcp.tools import tool
 
 # ── 1. analyze_track ───────────────────────────────
 
 
-@mcp.tool(
+@tool(
     tags={"audio"},
     annotations={"idempotentHint": True},
     timeout=120.0,
@@ -50,7 +49,7 @@ async def analyze_track(
 # ── 2. analyze_batch ──────────────────────────────
 
 
-@mcp.tool(
+@tool(
     tags={"audio"},
     annotations={"idempotentHint": True},
     timeout=600.0,
@@ -95,7 +94,7 @@ async def analyze_batch(
 # ── 3. separate_stems ─────────────────────────────
 
 
-@mcp.tool(
+@tool(
     tags={"audio"},
     timeout=300.0,
 )

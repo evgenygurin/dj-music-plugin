@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from fastmcp.server.context import Context
+from fastmcp.tools import tool
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -17,7 +18,6 @@ from app.models.track import TrackArtist
 from app.repositories.set import SetRepository
 from app.repositories.track import TrackRepository
 from app.repositories.transition import TransitionRepository
-from app.server import mcp
 from app.services.export import (
     ExportTrack,
     ExportTransition,
@@ -117,7 +117,7 @@ async def _build_export_data(
 # ── 1. deliver_set ──────────────────────────────────
 
 
-@mcp.tool(
+@tool(
     tags={"delivery"},
     annotations={"destructiveHint": True, "readOnlyHint": False},
     timeout=300.0,
@@ -252,7 +252,7 @@ async def deliver_set(
 # ── 2. export_set ───────────────────────────────────
 
 
-@mcp.tool(
+@tool(
     tags={"delivery"},
     annotations={"readOnlyHint": False},
 )

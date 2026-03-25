@@ -3,11 +3,11 @@
 from __future__ import annotations
 
 from fastmcp.server.context import Context
+from fastmcp.tools import tool
 from sqlalchemy import func, select
 
 from app.core.constants import Provider
 from app.models.track import TrackExternalId
-from app.server import mcp
 
 _ALL_CATEGORIES = frozenset({"delivery", "discovery", "curation", "sync", "ym", "audio"})
 
@@ -20,7 +20,7 @@ async def _get_session(ctx: Context | None):  # type: ignore[no-untyped-def]
     return factory()
 
 
-@mcp.tool(tags={"admin"})
+@tool(tags={"admin"})
 async def unlock_tools(
     action: str = "status",
     category: str | None = None,
@@ -46,7 +46,7 @@ async def unlock_tools(
     return {"action": "status", "message": "Use unlock/lock with a category"}
 
 
-@mcp.tool(tags={"admin"}, annotations={"readOnlyHint": True})
+@tool(tags={"admin"}, annotations={"readOnlyHint": True})
 async def list_platforms(ctx: Context | None = None) -> list[dict]:
     """List available music platforms and linked track counts."""
     async with await _get_session(ctx) as session:

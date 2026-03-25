@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from fastmcp.server.context import Context
+from fastmcp.tools import tool
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -19,7 +20,6 @@ from app.models.track import Track
 from app.repositories.set import SetRepository
 from app.repositories.track import TrackRepository
 from app.repositories.transition import TransitionRepository
-from app.server import mcp
 
 # ── Helpers ──────────────────────────────────────────
 
@@ -80,7 +80,7 @@ def _features_to_dict(f: TrackAudioFeaturesComputed) -> dict[str, Any]:
 # ── 1. classify_mood ────────────────────────────────
 
 
-@mcp.tool(
+@tool(
     tags={"curation"},
     annotations={"readOnlyHint": True},
 )
@@ -158,7 +158,7 @@ async def classify_mood(
 # ── 2. audit_playlist ───────────────────────────────
 
 
-@mcp.tool(
+@tool(
     tags={"curation"},
     annotations={"readOnlyHint": True},
 )
@@ -300,7 +300,7 @@ async def audit_playlist(
 # ── 3. review_set_quality ───────────────────────────
 
 
-@mcp.tool(
+@tool(
     tags={"curation"},
     annotations={"readOnlyHint": True},
 )
@@ -420,7 +420,7 @@ async def review_set_quality(
 # ── 4. distribute_to_subgenres ──────────────────────
 
 
-@mcp.tool(
+@tool(
     tags={"curation"},
     annotations={"readOnlyHint": False},
 )
@@ -547,7 +547,7 @@ async def distribute_to_subgenres(
 # ── 5. get_library_stats ────────────────────────────
 
 
-@mcp.tool(
+@tool(
     tags={"curation"},
     annotations={"readOnlyHint": True},
 )

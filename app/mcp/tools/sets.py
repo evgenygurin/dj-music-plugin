@@ -3,12 +3,12 @@
 from __future__ import annotations
 
 from fastmcp.server.context import Context
+from fastmcp.tools import tool
 
 from app.models.set import DjSet, SetItem, SetVersion
 from app.repositories.set import SetRepository
 from app.repositories.track import TrackRepository
 from app.repositories.transition import TransitionRepository
-from app.server import mcp
 
 
 async def _get_session(ctx: Context | None):  # type: ignore[no-untyped-def]
@@ -19,7 +19,7 @@ async def _get_session(ctx: Context | None):  # type: ignore[no-untyped-def]
     return factory()
 
 
-@mcp.tool(tags={"sets"}, annotations={"readOnlyHint": False}, timeout=120.0)
+@tool(tags={"sets"}, annotations={"readOnlyHint": False}, timeout=120.0)
 async def build_set(
     playlist_id: int,
     name: str,
@@ -101,7 +101,7 @@ async def build_set(
             }
 
 
-@mcp.tool(tags={"sets"}, annotations={"readOnlyHint": False}, timeout=120.0)
+@tool(tags={"sets"}, annotations={"readOnlyHint": False}, timeout=120.0)
 async def rebuild_set(
     set_id: int,
     pin_tracks: list[int] | None = None,
@@ -166,7 +166,7 @@ async def rebuild_set(
         }
 
 
-@mcp.tool(tags={"sets"}, annotations={"readOnlyHint": True})
+@tool(tags={"sets"}, annotations={"readOnlyHint": True})
 async def score_transitions(
     mode: str = "set",
     set_id: int | None = None,
@@ -259,7 +259,7 @@ async def score_transitions(
         return {"error": "Invalid mode or missing parameters"}
 
 
-@mcp.tool(tags={"sets"}, annotations={"readOnlyHint": True})
+@tool(tags={"sets"}, annotations={"readOnlyHint": True})
 async def get_set_cheat_sheet(
     set_id: int,
     version: str | None = None,

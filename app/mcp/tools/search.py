@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from fastmcp.server.context import Context
+from fastmcp.tools import tool
 from sqlalchemy import func, select
 
 from app.core.camelot import camelot_to_key_code, is_compatible
@@ -12,7 +13,6 @@ from app.models.audio import TrackAudioFeaturesComputed
 from app.models.playlist import Playlist
 from app.models.set import DjSet
 from app.models.track import Artist, Track
-from app.server import mcp
 
 
 async def _get_session(ctx: Context | None):  # type: ignore[no-untyped-def]
@@ -23,7 +23,7 @@ async def _get_session(ctx: Context | None):  # type: ignore[no-untyped-def]
     return factory()
 
 
-@mcp.tool(tags={"core"}, annotations={"readOnlyHint": True})
+@tool(tags={"core"}, annotations={"readOnlyHint": True})
 async def search(
     query: str,
     entity: str = "all",
@@ -85,7 +85,7 @@ def _compatible_key_codes(notation: str) -> list[int]:
     ]
 
 
-@mcp.tool(tags={"core"}, annotations={"readOnlyHint": True})
+@tool(tags={"core"}, annotations={"readOnlyHint": True})
 async def filter_tracks(
     bpm_min: float | None = None,
     bpm_max: float | None = None,
