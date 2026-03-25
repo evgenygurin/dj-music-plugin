@@ -1,0 +1,18 @@
+{
+  "name": "dj-music-plugin",
+  "description": "DJ techno music library management — MCP tools for set building, audio analysis, and Yandex Music integration",
+  "owner": {
+    "name": "Evgeny Gurin"
+  },
+  "plugins": [
+    {
+      "name": "dj-music",
+      "description": "DJ techno music library management — 44 MCP tools for set building, audio analysis, and Yandex Music integration",
+      "version": "0.2.0",
+      "source": "./",
+      "author": {
+        "name": "Evgeny Gurin"
+      }
+    }
+  ]
+}
