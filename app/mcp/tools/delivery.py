@@ -66,17 +66,31 @@ async def _build_export_data(
             or "Unknown"
         )
 
+        # Resolve Camelot key notation
+        key_camelot = None
+        if features and features.key_code is not None:
+            from app.core.camelot import key_code_to_camelot
+
+            key_camelot = key_code_to_camelot(features.key_code)
+
+        # Get file path from library
+        from app.models.library import DjLibraryItem
+
+        lib_stmt = select(DjLibraryItem).where(DjLibraryItem.track_id == track.id)
+        lib_result = await session.execute(lib_stmt)
+        lib_item = lib_result.scalar_one_or_none()
+
         export_tracks.append(
             ExportTrack(
                 position=item.sort_index,
                 title=track.title,
                 artist=artist_name,
                 duration_ms=track.duration_ms or 0,
-                file_path="",  # populated during file copy
+                file_path=lib_item.file_path if lib_item else "",
                 bpm=features.bpm if features else None,
-                key_camelot=None,
+                key_camelot=key_camelot,
                 energy_lufs=features.integrated_lufs if features else None,
-                mood=None,
+                mood=features.mood if features else None,
                 notes=item.notes,
             )
         )
@@ -236,11 +250,29 @@ async def deliver_set(
             await ctx.info(f"Stage 3/4: Generated {len(generated_files)} export files")
             await ctx.report_progress(3, 4)
 
-        # Stage 4: Copy audio files (stub — needs file_path on tracks)
+        # Stage 4: Copy audio files to set directory
         copied_files = 0
         if copy_files:
-            # Future: copy actual audio files to set_dir/audio/
-            pass
+            import shutil
+
+            audio_dir = set_dir
+            for i, et in enumerate(export_data.tracks):
+                if not et.file_path:
+                    continue
+                src = Path(et.file_path)
+                if not src.exists():
+                    if ctx:
+                        await ctx.warning(f"File not found: {src.name}")
+                    continue
+                # Check iCloud stub
+                stat = src.stat()
+                if hasattr(stat, "st_blocks") and stat.st_blocks * 512 < stat.st_size * 0.9:
+                    if ctx:
+                        await ctx.warning(f"iCloud stub: {src.name}")
+                    continue
+                dest = audio_dir / f"{i + 1:02d}. {et.artist} - {et.title}.mp3"
+                shutil.copy2(str(src), str(dest))
+                copied_files += 1
 
         if ctx:
             await ctx.info("Stage 4/4: Delivery complete")
