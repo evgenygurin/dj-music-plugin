@@ -1,12 +1,12 @@
 {
-  "mcpServers": {
-    "dj-music": {
-      "command": "bash",
-      "args": [
-        "-c",
-        "set -a; source .env 2>/dev/null; set +a; exec uv run fastmcp run app/server.py"
-      ],
-      "cwd": "${CLAUDE_PLUGIN_ROOT}"
+  "dj-music": {
+    "command": "bash",
+    "args": [
+      "-c",
+      "cd \"${CLAUDE_PLUGIN_ROOT}\" && set -a && source .env 2>/dev/null && set +a && exec uv run fastmcp run app/server.py"
+    ],
+    "env": {
+      "DJ_DATABASE_URL": "sqlite+aiosqlite:///${CLAUDE_PLUGIN_ROOT}/dj_music.db"
     }
   }
 }
