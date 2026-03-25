@@ -8,10 +8,12 @@ from fastmcp.tools import tool
 
 from app.core.camelot import camelot_distance, key_code_to_camelot
 from app.mcp.dependencies import get_db_session
+from app.models.audio import TrackAudioFeaturesComputed
 from app.models.set import SetItem, SetVersion
 from app.repositories.set import SetRepository
 from app.repositories.track import TrackRepository
 from app.repositories.transition import TransitionRepository
+from app.services.transition import TrackFeatures, TransitionScorer
 
 
 @tool(tags={"sets"}, annotations={"readOnlyHint": True})
@@ -41,18 +43,102 @@ async def suggest_next_track(
         if after_position < 0 or after_position >= len(items):
             raise ToolError(f"Position {after_position} out of range (0-{len(items) - 1})")
 
-        current_track = await track_repo.get_by_id(items[after_position].track_id)
-        next_track = None
-        if after_position + 1 < len(items):
-            next_track = await track_repo.get_by_id(items[after_position + 1].track_id)
+        current_item = items[after_position]
+        current_track = await track_repo.get_by_id(current_item.track_id)
+
+        # Load current track features
+        current_feat_row = (
+            await session.execute(
+                select(TrackAudioFeaturesComputed).where(
+                    TrackAudioFeaturesComputed.track_id == current_item.track_id
+                )
+            )
+        ).scalar_one_or_none()
+
+        if not current_feat_row or current_feat_row.bpm is None:
+            return {
+                "set_id": set_id,
+                "after_position": after_position,
+                "current_track": current_track.title if current_track else None,
+                "suggestions": [],
+                "note": "Current track has no audio features — analyze first",
+            }
+
+        current_feat = TrackFeatures(
+            bpm=current_feat_row.bpm,
+            key_code=current_feat_row.key_code,
+            integrated_lufs=current_feat_row.integrated_lufs,
+            spectral_centroid_hz=current_feat_row.spectral_centroid_hz,
+            energy_mean=current_feat_row.energy_mean,
+            onset_rate=current_feat_row.onset_rate,
+            kick_prominence=current_feat_row.kick_prominence,
+            hnr_db=current_feat_row.hnr_db,
+        )
+
+        # Score ALL tracks in the set's source playlist that aren't already in the set
+        set_track_ids = {item.track_id for item in items}
+        dj_set = await set_repo.get_by_id(set_id)
+        if not dj_set:
+            raise ToolError(f"Set {set_id} not found")
+
+        # Get all tracks from source playlist
+        from app.models.playlist import PlaylistItem
+
+        pool_stmt = (
+            select(PlaylistItem.track_id).where(
+                PlaylistItem.playlist_id == dj_set.source_playlist_id
+            )
+            if dj_set.source_playlist_id
+            else select(TrackAudioFeaturesComputed.track_id)
+        )
+        pool_result = await session.execute(pool_stmt)
+        pool_ids = [r[0] for r in pool_result.all() if r[0] not in set_track_ids]
+
+        scorer = TransitionScorer()
+        candidates = []
+        for tid in pool_ids[:100]:  # limit to 100 for speed
+            feat_row = (
+                await session.execute(
+                    select(TrackAudioFeaturesComputed).where(
+                        TrackAudioFeaturesComputed.track_id == tid
+                    )
+                )
+            ).scalar_one_or_none()
+            if not feat_row or feat_row.bpm is None:
+                continue
+
+            cand_feat = TrackFeatures(
+                bpm=feat_row.bpm,
+                key_code=feat_row.key_code,
+                integrated_lufs=feat_row.integrated_lufs,
+                spectral_centroid_hz=feat_row.spectral_centroid_hz,
+                energy_mean=feat_row.energy_mean,
+                onset_rate=feat_row.onset_rate,
+                kick_prominence=feat_row.kick_prominence,
+                hnr_db=feat_row.hnr_db,
+            )
+            score = scorer.score(current_feat, cand_feat)
+            if not score.hard_reject:
+                track = await track_repo.get_by_id(tid)
+                candidates.append(
+                    {
+                        "track_id": tid,
+                        "title": track.title if track else f"#{tid}",
+                        "score": round(score.overall, 4),
+                        "bpm": feat_row.bpm,
+                        "key_code": feat_row.key_code,
+                    }
+                )
+
+        candidates.sort(key=lambda c: c["score"], reverse=True)
 
         return {
             "set_id": set_id,
             "after_position": after_position,
             "current_track": current_track.title if current_track else None,
-            "next_track": next_track.title if next_track else None,
-            "suggestions": [],
-            "note": "Full suggestion engine requires Sub-Project #5 (transition scoring)",
+            "suggestions": candidates[:count],
+            "pool_size": len(pool_ids),
+            "scored": len(candidates),
         }
 
 
