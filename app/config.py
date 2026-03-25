@@ -28,7 +28,7 @@ class Settings(BaseSettings):
 
     # ── MCP Server ────────────────────────────────────
     server_name: str = "DJ Music"
-    pagination_size: int = 20
+    pagination_size: int = 100  # Must be >= total tools (45) for Claude Code compat
     pagination_max: int = 100
     cache_dir: str = "cache/"
     mcp_retry_attempts: int = 3
