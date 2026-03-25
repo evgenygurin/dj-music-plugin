@@ -186,6 +186,35 @@ class YandexMusicClient:
         )
         return _parse_playlist(data.get("result", {}))
 
+    async def get_playlist_tracks(self, owner_id: str, kind: int) -> list[YMTrack]:
+        """Fetch all tracks from a playlist with full metadata.
+
+        YM API returns tracks as ``[{"id": N, "track": {...}, "timestamp": ...}]``.
+        We parse the inner ``track`` object.
+        """
+        data = await self._request(
+            "GET",
+            f"/users/{owner_id}/playlists/{kind}",
+        )
+        result = data.get("result", {})
+        raw_items: list[dict[str, Any]] = result.get("tracks", [])
+        return [
+            _parse_track(item["track"])
+            for item in raw_items
+            if isinstance(item, dict) and "track" in item
+        ]
+
+    async def get_disliked_ids(self) -> set[str]:
+        """Fetch user's disliked track IDs."""
+        data = await self._request(
+            "GET",
+            f"/users/{self._user_id}/dislikes/tracks",
+        )
+        result = data.get("result", {})
+        library = result.get("library", result)
+        tracks_raw: list[dict[str, Any]] = library.get("tracks", [])
+        return {str(t.get("id", "")) for t in tracks_raw if t.get("id")}
+
     async def list_user_playlists(self) -> list[YMPlaylist]:
         """List all playlists for the authenticated user."""
         data = await self._request(
@@ -246,7 +275,13 @@ class YandexMusicClient:
         """
         import json
 
-        tracks_payload = [{"id": tid, "albumId": ""} for tid in track_ids]
+        tracks_payload = []
+        for tid in track_ids:
+            if ":" in str(tid):
+                track_id, album_id = str(tid).split(":", 1)
+                tracks_payload.append({"id": track_id, "albumId": album_id})
+            else:
+                tracks_payload.append({"id": str(tid), "albumId": ""})
         diff = json.dumps(
             [{"op": "insert", "at": 0, "tracks": tracks_payload}],
         )

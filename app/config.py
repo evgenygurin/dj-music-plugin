@@ -58,6 +58,20 @@ class Settings(BaseSettings):
     response_cache_enabled: bool = True
     response_cache_ttl: int = 300  # seconds
 
+    # ── Discovery & Expansion ────────────────────────
+    discovery_min_duration_ms: int = 180_000  # 3 min
+    discovery_max_duration_ms: int = 600_000  # 10 min
+    discovery_batch_size: int = 20  # tracks per YM add_tracks batch
+    discovery_max_seeds: int = 30  # max seed tracks for playlist expansion
+    discovery_bad_genres: str = (
+        "pop,ruspop,dance,house,trance,rap,foreignrap,rnb,"
+        "dubstep,dnb,classical,jazz,country,metal,rock"
+    )
+    discovery_bad_version_words: str = (
+        "radio,edit,acoustic,instrumental,a cappella,live,"
+        "stripped,clean,remix,rework,bootleg,extended mix,continuous,dub version"
+    )
+
     # ── GA Optimizer ──────────────────────────────────
     ga_population_size: int = 100
     ga_max_generations: int = 200
