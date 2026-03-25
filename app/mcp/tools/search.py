@@ -100,7 +100,10 @@ async def filter_tracks(
     cursor: str | None = None,
     ctx: Context | None = None,
 ) -> dict:
-    """Filter tracks by audio features: BPM, key, energy, mood."""
+    """Filter tracks by audio features: BPM, key, energy, mood.
+    
+    Returns paginated results with next_cursor for fetching additional pages.
+    """
     async with await _get_session(ctx) as session:
         # Base query: join tracks with audio features
         if has_features is False:

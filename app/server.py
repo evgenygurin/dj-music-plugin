@@ -39,7 +39,7 @@ mcp = FastMCP(
         "Use unlock_tools to access hidden tool categories."
     ),
     lifespan=db_lifespan,
-    list_page_size=settings.pagination_size,
+    list_page_size=50,  # FastMCP native pagination for tools/resources/prompts list
     on_duplicate="error",
 )
 

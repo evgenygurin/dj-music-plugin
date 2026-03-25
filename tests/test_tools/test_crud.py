@@ -264,3 +264,96 @@ async def test_get_track_features_no_features(client: Client, async_engine):
     data = _parse_result(result)
     assert data["has_features"] is False
     assert data["track_id"] == track_id
+
+
+# ── Pagination integration tests ────────────────────────
+
+
+async def test_list_tracks_pagination_no_overlap(client: Client, async_engine):
+    """Verify pagination returns all items without overlap or gaps."""
+    from sqlalchemy.ext.asyncio import async_sessionmaker
+
+    from app.models.track import Track
+
+    # Seed 25 tracks
+    factory = async_sessionmaker(async_engine, expire_on_commit=False)
+    async with factory() as session:
+        for i in range(25):
+            session.add(Track(title=f"Track {i:02d}"))
+        await session.commit()
+
+    # Fetch all pages with page_size=10
+    all_ids = []
+    cursor = None
+    page_count = 0
+
+    while True:
+        result = await client.call_tool("list_tracks", {"limit": 10, "cursor": cursor})
+        data = _parse_result(result)
+        
+        page_count += 1
+        assert data["total"] == 25
+        
+        for item in data["items"]:
+            assert item["id"] not in all_ids, f"Duplicate ID {item['id']} in page {page_count}"
+            all_ids.append(item["id"])
+        
+        cursor = data["next_cursor"]
+        if cursor is None:
+            break
+        
+        assert page_count <= 3, "Should not need more than 3 pages for 25 items"
+
+    assert len(all_ids) == 25
+    assert page_count == 3  # 10 + 10 + 5
+
+
+async def test_list_tracks_pagination_cursor_stability(client: Client, async_engine):
+    """Verify cursor is stable across identical requests."""
+    from sqlalchemy.ext.asyncio import async_sessionmaker
+
+    from app.models.track import Track
+
+    factory = async_sessionmaker(async_engine, expire_on_commit=False)
+    async with factory() as session:
+        for i in range(20):
+            session.add(Track(title=f"Track {i}"))
+        await session.commit()
+
+    # Get first page twice
+    result1 = await client.call_tool("list_tracks", {"limit": 10})
+    data1 = _parse_result(result1)
+    
+    result2 = await client.call_tool("list_tracks", {"limit": 10})
+    data2 = _parse_result(result2)
+    
+    # Same items and same cursor
+    assert data1["items"] == data2["items"]
+    assert data1["next_cursor"] == data2["next_cursor"]
+
+
+async def test_list_playlists_pagination(client: Client, async_engine):
+    """Verify playlist pagination works correctly."""
+    from sqlalchemy.ext.asyncio import async_sessionmaker
+
+    from app.models.playlist import Playlist
+
+    factory = async_sessionmaker(async_engine, expire_on_commit=False)
+    async with factory() as session:
+        for i in range(15):
+            session.add(Playlist(name=f"Playlist {i}", source_of_truth="local"))
+        await session.commit()
+
+    # First page
+    result = await client.call_tool("list_playlists", {"limit": 10})
+    data = _parse_result(result)
+    assert len(data["items"]) == 10
+    assert data["total"] == 15
+    assert data["next_cursor"] is not None
+
+    # Second page
+    result = await client.call_tool("list_playlists", {"limit": 10, "cursor": data["next_cursor"]})
+    data = _parse_result(result)
+    assert len(data["items"]) == 5
+    assert data["total"] == 15
+    assert data["next_cursor"] is None

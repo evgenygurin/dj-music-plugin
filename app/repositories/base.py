@@ -65,7 +65,19 @@ class BaseRepository(Generic[T]):
     ) -> CursorPage[T]:
         """Apply cursor-based pagination to a select statement.
 
+        Uses ID-based cursor pagination optimized for database queries.
+        This is the recommended approach for DB-backed pagination (vs in-memory
+        sequences which should use fastmcp.utilities.pagination.paginate_sequence).
+
         Assumes the model has an ``id`` column used for ordering.
+        
+        Args:
+            stmt: Base SQLAlchemy select statement (filters/joins already applied)
+            limit: Maximum items per page (default from settings.pagination_size)
+            cursor: Optional cursor from previous page (encodes last_id seen)
+            
+        Returns:
+            CursorPage with items, next_cursor, and total count.
         """
         id_col = self.model_class.id  # type: ignore[attr-defined]
 

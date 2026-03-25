@@ -109,7 +109,11 @@ async def list_tracks(
     status: str = "active",
     ctx: Context | None = None,
 ) -> dict[str, Any]:
-    """List tracks with optional filters and cursor pagination."""
+    """List tracks with optional filters and cursor pagination.
+    
+    Returns paginated results with next_cursor for fetching additional pages.
+    The cursor encodes the last seen ID and is opaque to clients.
+    """
     async with await _get_session(ctx) as session:
         repo = TrackRepository(session)
 
@@ -239,7 +243,10 @@ async def list_playlists(
     cursor: str | None = None,
     ctx: Context | None = None,
 ) -> dict[str, Any]:
-    """List playlists with optional source filter and cursor pagination."""
+    """List playlists with optional source filter and cursor pagination.
+    
+    Returns paginated results with next_cursor for fetching additional pages.
+    """
     async with await _get_session(ctx) as session:
         repo = PlaylistRepository(session)
 
@@ -410,7 +417,10 @@ async def list_sets(
     cursor: str | None = None,
     ctx: Context | None = None,
 ) -> dict[str, Any]:
-    """List DJ sets with optional template filter and cursor pagination."""
+    """List DJ sets with optional template filter and cursor pagination.
+    
+    Returns paginated results with next_cursor for fetching additional pages.
+    """
     async with await _get_session(ctx) as session:
         repo = SetRepository(session)
 
