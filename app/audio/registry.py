@@ -87,10 +87,16 @@ class AnalyzerRegistry:
         self.register(EnergyAnalyzer())
         self.register(SpectralAnalyzer())
 
-        # Optional analyzers — skip if dependencies missing
-        try:
-            from app.audio.analyzers.bpm import BPMDetector
-
-            self.register(BPMDetector())
-        except ImportError:
-            pass
+        # Optional analyzers — skip if dependencies missing (librosa)
+        for cls_path in [
+            ("app.audio.analyzers.bpm", "BPMDetector"),
+            ("app.audio.analyzers.key", "KeyDetector"),
+            ("app.audio.analyzers.beat", "BeatDetector"),
+            ("app.audio.analyzers.mfcc", "MFCCExtractor"),
+        ]:
+            try:
+                module = __import__(cls_path[0], fromlist=[cls_path[1]])
+                cls = getattr(module, cls_path[1])
+                self.register(cls())
+            except (ImportError, AttributeError):
+                pass
