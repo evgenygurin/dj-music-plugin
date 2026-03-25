@@ -8,7 +8,6 @@ from fastmcp.exceptions import ToolError
 from fastmcp.server.context import Context
 from fastmcp.tools import tool
 from sqlalchemy import func, select
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.audio.mood import MoodClassifier
@@ -19,22 +18,12 @@ from app.models.audio import TrackAudioFeaturesComputed
 from app.models.playlist import Playlist, PlaylistItem
 from app.models.set import DjSet, SetItem
 from app.models.track import Track
+from app.repositories.feature import FeatureRepository
 from app.repositories.set import SetRepository
 from app.repositories.track import TrackRepository
 from app.repositories.transition import TransitionRepository
 
 # ── Helpers ──────────────────────────────────────────
-
-
-async def _load_track_features(
-    session: AsyncSession, track_id: int
-) -> TrackAudioFeaturesComputed | None:
-    """Load audio features for a track."""
-    stmt = select(TrackAudioFeaturesComputed).where(
-        TrackAudioFeaturesComputed.track_id == track_id
-    )
-    result = await session.execute(stmt)
-    return result.scalar_one_or_none()
 
 
 def _features_to_dict(f: TrackAudioFeaturesComputed) -> dict[str, Any]:
@@ -89,6 +78,7 @@ async def classify_mood(
         raise ToolError("Provide track_ids or playlist_id")
 
     async with get_db_session() as session:
+        feat_repo = FeatureRepository(session)
         # Resolve track IDs from playlist if needed
         ids_to_classify: list[int] = list(track_ids or [])
         if playlist_id is not None:
@@ -108,7 +98,7 @@ async def classify_mood(
         skipped = 0
 
         for i, tid in enumerate(ids_to_classify):
-            features = await _load_track_features(session, tid)
+            features = await feat_repo.get_features(tid)
             if features is None:
                 skipped += 1
                 continue
@@ -168,6 +158,7 @@ async def audit_playlist(
         raise ToolError("Provide playlist_id or playlist_query")
 
     async with get_db_session() as session:
+        feat_repo = FeatureRepository(session)
         # Resolve playlist
         playlist: Playlist | None = None
         if playlist_id is not None:
@@ -213,7 +204,7 @@ async def audit_playlist(
                 issues.append({"track_id": tid, "issue": "track_missing", "severity": "error"})
                 continue
 
-            features = await _load_track_features(session, tid)
+            features = await feat_repo.get_features(tid)
             if features is None:
                 stats["without_features"] += 1
                 issues.append(
@@ -305,6 +296,7 @@ async def review_set_quality(
 ) -> dict[str, Any]:
     """Detailed set quality review: transitions, energy arc, key flow."""
     async with get_db_session() as session:
+        feat_repo = FeatureRepository(session)
         set_repo = SetRepository(session)
         TrackRepository(session)
         transition_repo = TransitionRepository(session)
@@ -334,7 +326,7 @@ async def review_set_quality(
         key_flow: list[int | None] = []
 
         for item in items:
-            features = await _load_track_features(session, item.track_id)
+            features = await feat_repo.get_features(item.track_id)
             if features:
                 bpm_flow.append(features.bpm)
                 energy_flow.append(features.integrated_lufs)
@@ -431,6 +423,7 @@ async def distribute_to_subgenres(
         raise ToolError(f"Unknown mode: {mode}. Valid: {', '.join(sorted(valid_modes))}")
 
     async with get_db_session() as session:
+        feat_repo = FeatureRepository(session)
         # Get source tracks
         if source_playlist_id is not None:
             stmt = (
@@ -458,7 +451,7 @@ async def distribute_to_subgenres(
         skipped = 0
 
         for tid in track_ids:
-            features = await _load_track_features(session, tid)
+            features = await feat_repo.get_features(tid)
             if features is None:
                 skipped += 1
                 continue

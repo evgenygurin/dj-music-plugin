@@ -45,7 +45,7 @@ async def score_track_transitions(
         return {"error": f"Track {track_id} not found or has no features", "scored": 0}
 
     track, features = row
-    from_features = _features_to_dataclass(features)
+    from_features = TrackFeatures.from_db(features)
 
     # Get all other tracks with features
     stmt = (
@@ -66,7 +66,7 @@ async def score_track_transitions(
     hard_rejects = 0
 
     for idx, (_candidate_track, candidate_features) in enumerate(candidates):
-        to_features = _features_to_dataclass(candidate_features)
+        to_features = TrackFeatures.from_db(candidate_features)
         score = scorer.score(from_features, to_features)
 
         # In real implementation: persist to transitions table
@@ -102,20 +102,3 @@ async def score_track_transitions(
         "scored": scored_count,
         "hard_rejects": hard_rejects,
     }
-
-
-def _features_to_dataclass(features: TrackAudioFeaturesComputed) -> TrackFeatures:
-    """Convert DB model to service dataclass."""
-    return TrackFeatures(
-        bpm=features.bpm,
-        key_code=features.key_code,
-        integrated_lufs=features.integrated_lufs,
-        spectral_centroid_hz=features.spectral_centroid_hz,
-        spectral_flatness=features.spectral_flatness,
-        energy_mean=features.energy_mean,
-        onset_rate=features.onset_rate,
-        kick_prominence=features.kick_prominence,
-        hnr_db=features.hnr_db,
-        chroma_entropy=features.chroma_entropy,
-        # mfcc_vector and energy_bands would be loaded from timeseries
-    )

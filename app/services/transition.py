@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
+from typing import Any
 
 from app.config import settings
 from app.core.camelot import camelot_distance
@@ -45,6 +46,22 @@ class TrackFeatures:
     mfcc_vector: list[float] | None = None
     # Energy bands for balance comparison
     energy_bands: list[float] | None = None
+
+    @classmethod
+    def from_db(cls, row: Any) -> TrackFeatures:
+        """Construct from a TrackAudioFeaturesComputed DB row."""
+        return cls(
+            bpm=row.bpm,
+            key_code=row.key_code,
+            integrated_lufs=row.integrated_lufs,
+            spectral_centroid_hz=row.spectral_centroid_hz,
+            spectral_flatness=row.spectral_flatness,
+            energy_mean=row.energy_mean,
+            onset_rate=row.onset_rate,
+            kick_prominence=row.kick_prominence,
+            hnr_db=row.hnr_db,
+            chroma_entropy=row.chroma_entropy,
+        )
 
 
 class TransitionScorer:

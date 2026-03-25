@@ -8,9 +8,9 @@ from fastmcp.tools import tool
 from sqlalchemy import select
 
 from app.mcp.dependencies import get_db_session
-from app.models.audio import TrackAudioFeaturesComputed
 from app.models.set import DjSet, SetItem, SetVersion
 from app.models.transition import Transition
+from app.repositories.feature import FeatureRepository
 from app.repositories.set import SetRepository
 from app.repositories.track import TrackRepository
 from app.repositories.transition import TransitionRepository
@@ -56,35 +56,10 @@ async def build_set(
             await ctx.info(f"Found {len(track_ids)} tracks, loading features...")
             await ctx.report_progress(1, 4)
 
-        # Load audio features for optimization
-        track_features_list: list[TrackFeatures] = []
-        for tid in track_ids:
-            feat_row = (
-                await session.execute(
-                    select(TrackAudioFeaturesComputed).where(
-                        TrackAudioFeaturesComputed.track_id == tid
-                    )
-                )
-            ).scalar_one_or_none()
-
-            if feat_row:
-                track_features_list.append(
-                    TrackFeatures(
-                        bpm=feat_row.bpm,
-                        key_code=feat_row.key_code,
-                        integrated_lufs=feat_row.integrated_lufs,
-                        spectral_centroid_hz=feat_row.spectral_centroid_hz,
-                        spectral_flatness=feat_row.spectral_flatness,
-                        energy_mean=feat_row.energy_mean,
-                        onset_rate=feat_row.onset_rate,
-                        kick_prominence=feat_row.kick_prominence,
-                        hnr_db=feat_row.hnr_db,
-                        chroma_entropy=feat_row.chroma_entropy,
-                    )
-                )
-            else:
-                # No features — use defaults (optimizer handles None gracefully)
-                track_features_list.append(TrackFeatures())
+        # Load audio features for optimization (batch: 1 SQL instead of N)
+        feat_repo = FeatureRepository(session)
+        features_map = await feat_repo.get_scoring_features_batch(track_ids)
+        track_features_list = [features_map.get(tid, TrackFeatures()) for tid in track_ids]
 
         if ctx:
             await ctx.report_progress(2, 4)
@@ -246,28 +221,7 @@ async def score_transitions(
     Computes scores via TransitionScorer and SAVES to DB.
     """
 
-    async def _load_features(session, track_id: int) -> TrackFeatures | None:
-        stmt = select(TrackAudioFeaturesComputed).where(
-            TrackAudioFeaturesComputed.track_id == track_id
-        )
-        result = await session.execute(stmt)
-        f = result.scalar_one_or_none()
-        if not f:
-            return None
-        return TrackFeatures(
-            bpm=f.bpm,
-            key_code=f.key_code,
-            integrated_lufs=f.integrated_lufs,
-            spectral_centroid_hz=f.spectral_centroid_hz,
-            spectral_flatness=f.spectral_flatness,
-            energy_mean=f.energy_mean,
-            onset_rate=f.onset_rate,
-            kick_prominence=f.kick_prominence,
-            hnr_db=f.hnr_db,
-            chroma_entropy=f.chroma_entropy,
-        )
-
-    async def _compute_and_save(session, transition_repo, from_id: int, to_id: int) -> dict:
+    async def _compute_and_save(feat_repo, transition_repo, from_id: int, to_id: int) -> dict:
         """Compute transition score, save to DB, return dict."""
         # Check cached
         existing = await transition_repo.get_score(from_id, to_id)
@@ -284,8 +238,8 @@ async def score_transitions(
                 "cached": True,
             }
 
-        ft_from = await _load_features(session, from_id)
-        ft_to = await _load_features(session, to_id)
+        ft_from = await feat_repo.get_scoring_features(from_id)
+        ft_to = await feat_repo.get_scoring_features(to_id)
 
         if not ft_from or not ft_to:
             return {
@@ -327,9 +281,10 @@ async def score_transitions(
 
     async with get_db_session() as session:
         transition_repo = TransitionRepository(session)
+        feat_repo = FeatureRepository(session)
 
         if mode == "pair" and from_track_id and to_track_id:
-            return await _compute_and_save(session, transition_repo, from_track_id, to_track_id)
+            return await _compute_and_save(feat_repo, transition_repo, from_track_id, to_track_id)
 
         if mode == "track_candidates" and track_id:
             candidates = await transition_repo.get_candidates(track_id, limit=top_n)
@@ -364,7 +319,7 @@ async def score_transitions(
             transitions_data = []
             for i in range(len(items) - 1):
                 score_data = await _compute_and_save(
-                    session, transition_repo, items[i].track_id, items[i + 1].track_id
+                    feat_repo, transition_repo, items[i].track_id, items[i + 1].track_id
                 )
                 score_data["position"] = i
                 transitions_data.append(score_data)

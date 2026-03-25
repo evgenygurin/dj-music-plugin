@@ -150,3 +150,58 @@ def test_custom_weights(scorer: TransitionScorer) -> None:
 
     # BPM-heavy scorer should differ from default
     assert default_result.overall != bpm_result.overall
+
+
+# ── TrackFeatures.from_db() ──────────────────────────
+
+
+class _FakeRow:
+    """Mimics TrackAudioFeaturesComputed attributes."""
+
+    bpm = 128.0
+    key_code = 14
+    integrated_lufs = -8.0
+    spectral_centroid_hz = 3000.0
+    spectral_flatness = 0.1
+    energy_mean = 0.6
+    onset_rate = 4.0
+    kick_prominence = 0.5
+    hnr_db = 12.0
+    chroma_entropy = 2.5
+
+
+def test_from_db_maps_all_fields() -> None:
+    """from_db() should copy all 10 scalar fields from DB row."""
+    row = _FakeRow()
+    feat = TrackFeatures.from_db(row)
+    assert feat.bpm == 128.0
+    assert feat.key_code == 14
+    assert feat.integrated_lufs == -8.0
+    assert feat.spectral_centroid_hz == 3000.0
+    assert feat.spectral_flatness == 0.1
+    assert feat.energy_mean == 0.6
+    assert feat.onset_rate == 4.0
+    assert feat.kick_prominence == 0.5
+    assert feat.hnr_db == 12.0
+    assert feat.chroma_entropy == 2.5
+
+
+def test_from_db_none_fields() -> None:
+    """from_db() should handle None fields gracefully."""
+
+    class _NullRow:
+        bpm = None
+        key_code = None
+        integrated_lufs = None
+        spectral_centroid_hz = None
+        spectral_flatness = None
+        energy_mean = None
+        onset_rate = None
+        kick_prominence = None
+        hnr_db = None
+        chroma_entropy = None
+
+    feat = TrackFeatures.from_db(_NullRow())
+    assert feat.bpm is None
+    assert feat.key_code is None
+    assert feat.energy_mean is None
