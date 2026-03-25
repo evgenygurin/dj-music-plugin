@@ -82,6 +82,26 @@ def get_export_repo(
     return ExportRepository(session)
 
 
+# ── Service factories ────────────────────────────────
+
+
+def get_track_service(
+    track_repo: Annotated[TrackRepository, Depends(get_track_repo)],
+    feature_repo: Annotated[FeatureRepository, Depends(get_feature_repo)],
+) -> TrackService:  # noqa: F821
+    from app.services.track_service import TrackService
+
+    return TrackService(track_repo, feature_repo)
+
+
+def get_playlist_service(
+    repo: Annotated[PlaylistRepository, Depends(get_playlist_repo)],
+) -> PlaylistService:  # noqa: F821
+    from app.services.playlist_service import PlaylistService
+
+    return PlaylistService(repo)
+
+
 # ── Lifespan context accessors ───────────────────────
 
 
