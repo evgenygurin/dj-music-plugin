@@ -128,7 +128,7 @@ class AudioService:
         features = TrackAudioFeaturesComputed(
             track_id=track_id,
             pipeline_run_id=run.id,
-            **result.features,
+            **TrackAudioFeaturesComputed.filter_features(result.features),
         )
         self._session.add(features)
         await self._session.flush()

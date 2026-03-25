@@ -10,7 +10,7 @@ from dataclasses import asdict, dataclass
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from key_value.aio.base import KeyValueStore
+    from key_value.aio.stores.base import BaseEnumerateKeysStore as KeyValueStore
 
 
 @dataclass

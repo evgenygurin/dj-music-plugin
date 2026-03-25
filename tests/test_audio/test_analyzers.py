@@ -135,26 +135,40 @@ class TestEnergyAnalyzer:
         result = await analyzer.analyze(_make_signal(_sine_wave()))
         assert result.features["energy_std"] >= 0.0
 
-    async def test_seven_bands_present(self) -> None:
+    async def test_six_bands_present(self) -> None:
         analyzer = EnergyAnalyzer()
         result = await analyzer.analyze(_make_signal(_sine_wave()))
-        band_keys = [k for k in result.features if k.startswith("energy_band_")]
-        assert len(band_keys) == 7
+        band_keys = [
+            k
+            for k in result.features
+            if k.startswith("energy_")
+            and not k.endswith("_ratio")
+            and k not in ("energy_mean", "energy_max", "energy_std", "energy_slope")
+        ]
+        assert len(band_keys) == 6
 
     async def test_bands_sum_approximately_to_total(self) -> None:
         """Band energies should sum close to 1.0 (they're relative to total FFT energy)."""
         analyzer = EnergyAnalyzer()
         # Use white noise for broader frequency coverage
         result = await analyzer.analyze(_make_signal(_white_noise()))
-        band_sum = sum(v for k, v in result.features.items() if k.startswith("energy_band_"))
+        band_names = (
+            "energy_sub",
+            "energy_low",
+            "energy_lowmid",
+            "energy_mid",
+            "energy_highmid",
+            "energy_high",
+        )
+        band_sum = sum(result.features.get(k, 0.0) for k in band_names)
         # Allow some tolerance — very high/low frequencies may be outside bands
         assert 0.5 < band_sum <= 1.01
 
     async def test_sine_energy_concentrated_in_one_band(self) -> None:
-        """440Hz should concentrate energy in the low_mid band (250-500 Hz)."""
+        """440Hz should concentrate energy in the lowmid band (250-500 Hz)."""
         analyzer = EnergyAnalyzer()
         result = await analyzer.analyze(_make_signal(_sine_wave(freq=440.0)))
-        assert result.features["energy_band_low_mid"] > 0.5
+        assert result.features["energy_lowmid"] > 0.5
 
     async def test_click_track_has_higher_std(self) -> None:
         """Click track should have higher energy variability than sine wave."""

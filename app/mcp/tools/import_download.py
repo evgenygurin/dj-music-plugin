@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import re
 from pathlib import Path
 from typing import Any
@@ -15,6 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.mcp.dependencies import get_db_session, get_track_repo, get_ym_client
+from app.models.library import DjLibraryItem
 from app.models.track import Track, TrackExternalId
 from app.repositories.track import TrackRepository
 from app.ym.client import YandexMusicClient
@@ -151,6 +153,7 @@ async def import_tracks(
     tags={"discovery"},
     annotations={"readOnlyHint": False, "openWorldHint": True},
     timeout=600.0,
+    task=True,
 )
 async def download_tracks(
     track_refs: Any = None,
@@ -158,10 +161,12 @@ async def download_tracks(
     skip_existing: bool = True,
     prefer_bitrate: int = 320,
     ym: YandexMusicClient = Depends(get_ym_client),  # noqa: B008
+    session: AsyncSession = Depends(get_db_session),  # noqa: B008
     ctx: Context | None = None,
 ) -> dict[str, Any]:
-    """Download MP3 from YM. Accepts YM track IDs (strings or ints).
+    """Download MP3 from YM and link to library. Accepts YM track IDs.
 
+    Downloads files, creates DjLibraryItem records (so analyze_track finds them).
     target_dir: where to save (default: settings.ym_library_path).
     skip_existing: skip if file already exists.
     prefer_bitrate: target bitrate in kbps (320, 192, 128).
@@ -177,6 +182,7 @@ async def download_tracks(
 
     downloaded = 0
     skipped_count = 0
+    linked = 0
     failed = 0
     errors: list[dict[str, str]] = []
     files: list[dict[str, Any]] = []
@@ -190,11 +196,12 @@ async def download_tracks(
         if ctx:
             await ctx.report_progress(i, total)
 
+        # Resolve filename from YM metadata
         try:
-            tracks = await ym.get_tracks([ym_id])
-            if tracks:
-                t = tracks[0]
-                artists = ", ".join(a.get("name", "?") for a in (t.artists or []))
+            ym_tracks = await ym.get_tracks([ym_id])
+            if ym_tracks:
+                t = ym_tracks[0]
+                artists = ", ".join(str(a.get("name", "?")) for a in (t.artists or []))
                 filename = f"{_sanitize_filename(artists)} - {_sanitize_filename(t.title)}.mp3"
             else:
                 filename = f"ym_{ym_id}.mp3"
@@ -203,41 +210,101 @@ async def download_tracks(
 
         dest_path = dest_dir / filename
 
+        # Skip existing files (but still link to library)
         if skip_existing and dest_path.exists() and dest_path.stat().st_size > 1000:
             skipped_count += 1
-            files.append({"ym_id": ym_id, "path": str(dest_path), "status": "skipped"})
+            files.append(
+                {
+                    "ym_id": ym_id,
+                    "path": str(dest_path),
+                    "status": "skipped",
+                }
+            )
+            linked += await _link_file_to_track(session, ym_id, dest_path)
             continue
 
+        # Download
         try:
             file_size = await ym.download_track(
-                ym_id, str(dest_path), prefer_bitrate=prefer_bitrate
+                ym_id,
+                str(dest_path),
+                prefer_bitrate=prefer_bitrate,
             )
             downloaded += 1
-            files.append({
-                "ym_id": ym_id,
-                "path": str(dest_path),
-                "size_bytes": file_size,
-                "status": "downloaded",
-            })
+            files.append(
+                {
+                    "ym_id": ym_id,
+                    "path": str(dest_path),
+                    "size_bytes": file_size,
+                    "status": "downloaded",
+                }
+            )
+            linked += await _link_file_to_track(session, ym_id, dest_path)
             if ctx:
                 await ctx.info(f"Downloaded: {filename} ({file_size // 1024}KB)")
         except Exception as e:
             failed += 1
             errors.append({"ym_id": ym_id, "error": str(e)[:100]})
             if ctx:
-                await ctx.warning(f"Failed: {ym_id} — {e!s:.60}")
+                await ctx.warning(f"Failed: {ym_id} — {str(e)[:60]}")
+
+    await session.flush()
 
     if ctx:
         await ctx.report_progress(total, total)
-        await ctx.info(f"Done: {downloaded} downloaded, {skipped_count} skipped, {failed} failed")
+        await ctx.info(
+            f"Done: {downloaded} downloaded, {skipped_count} skipped, "
+            f"{linked} linked, {failed} failed"
+        )
 
     return {
         "requested": total,
         "downloaded": downloaded,
         "skipped": skipped_count,
+        "linked_to_library": linked,
         "failed": failed,
         "target_dir": str(dest_dir),
         "files": files[:20],
         "errors": errors[:10] if errors else [],
     }
 
+
+async def _link_file_to_track(
+    session: AsyncSession,
+    ym_id: str,
+    file_path: Path,
+) -> int:
+    """Find local track by YM ID, create DjLibraryItem if missing.
+
+    Returns 1 if linked, 0 if not (no track found or already linked).
+    """
+    # Find local track_id by YM external ID
+    stmt = select(TrackExternalId.track_id).where(
+        TrackExternalId.platform == "yandex_music",
+        TrackExternalId.external_id == ym_id,
+    )
+    result = await session.execute(stmt)
+    track_id = result.scalar_one_or_none()
+    if track_id is None:
+        return 0
+
+    # Check if library item already exists
+    existing = await session.execute(
+        select(DjLibraryItem.id).where(DjLibraryItem.track_id == track_id)
+    )
+    if existing.scalar_one_or_none() is not None:
+        return 0
+
+    # Compute file hash (MD5 is fine for dedup, not security)
+    file_hash = hashlib.md5(file_path.read_bytes()).hexdigest()
+
+    item = DjLibraryItem(
+        track_id=track_id,
+        file_path=str(file_path),
+        file_hash=file_hash,
+        file_size=file_path.stat().st_size,
+        mime_type="audio/mpeg",
+        source_app="ym_download",
+    )
+    session.add(item)
+    return 1

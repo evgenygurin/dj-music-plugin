@@ -93,6 +93,21 @@ DJ_ANTHROPIC_API_KEY=sk-ant-...
 ```
 `ctx.sample()` генерирует queries автоматически. Для headless-сценариев.
 
+## E2E Pipeline
+
+Полный цикл обработки трека:
+
+```text
+import_tracks → download_tracks → analyze_track → classify_mood → build_set
+     ↓              ↓                   ↓              ↓              ↓
+  Track +       MP3 файл +         47 audio       15 subgenres   DJ set с
+  YM metadata   DjLibraryItem      features       + confidence   transition
+                (автоматически)    (BPM, key,                    scoring
+                                   LUFS, ...)
+```
+
+`download_tracks` автоматически создаёт `DjLibraryItem` записи — `analyze_track` сразу находит файлы.
+
 ## Требования
 
 - Python 3.12+

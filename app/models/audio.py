@@ -127,20 +127,51 @@ class TrackAudioFeaturesComputed(Base, TimestampMixin):
     # ── Convenience methods ─────────────────────────────
 
     _CLASSIFIER_FIELDS: ClassVar[tuple[str, ...]] = (
-        "energy_mean", "energy_max", "energy_std", "energy_slope",
-        "spectral_centroid_hz", "spectral_rolloff_85", "spectral_rolloff_95",
-        "spectral_flatness", "spectral_flux_mean", "spectral_flux_std",
+        "energy_mean",
+        "energy_max",
+        "energy_std",
+        "energy_slope",
+        "spectral_centroid_hz",
+        "spectral_rolloff_85",
+        "spectral_rolloff_95",
+        "spectral_flatness",
+        "spectral_flux_mean",
+        "spectral_flux_std",
         "spectral_contrast",
-        "integrated_lufs", "short_term_lufs_mean", "momentary_max",
-        "rms_dbfs", "true_peak_db", "crest_factor_db", "loudness_range_lu",
-        "hp_ratio", "onset_rate", "pulse_clarity", "kick_prominence",
-        "bpm", "bpm_confidence", "bpm_stability",
-        "key_code", "key_confidence", "atonality", "hnr_db",
+        "integrated_lufs",
+        "short_term_lufs_mean",
+        "momentary_max",
+        "rms_dbfs",
+        "true_peak_db",
+        "crest_factor_db",
+        "loudness_range_lu",
+        "hp_ratio",
+        "onset_rate",
+        "pulse_clarity",
+        "kick_prominence",
+        "bpm",
+        "bpm_confidence",
+        "bpm_stability",
+        "key_code",
+        "key_confidence",
+        "atonality",
+        "hnr_db",
     )
 
     def to_classifier_dict(self) -> dict[str, Any]:
         """Convert features to dict suitable for MoodClassifier. Single source of truth."""
         return {field: getattr(self, field) for field in self._CLASSIFIER_FIELDS}
+
+    @classmethod
+    def filter_features(cls, features: dict[str, Any]) -> dict[str, Any]:
+        """Filter pipeline output to only columns that exist on this model.
+
+        Pipeline analyzers may produce extra keys (mfcc_mean, chroma_vector, etc.)
+        that don't have DB columns. This prevents TypeError on construction.
+        """
+        valid = {c.name for c in cls.__table__.columns}
+        valid -= {"track_id", "pipeline_run_id", "created_at", "updated_at"}
+        return {k: v for k, v in features.items() if k in valid}
 
     __table_args__ = (
         CheckConstraint("bpm IS NULL OR (bpm >= 20 AND bpm <= 300)", name="ck_tafc_bpm"),

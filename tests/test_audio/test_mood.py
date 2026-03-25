@@ -234,7 +234,7 @@ class TestConfidence:
             {
                 "energy_mean": 0.85,
                 "spectral_centroid_hz": 3500.0,
-                "energy_band_low": 0.3,
+                "energy_low": 0.3,
                 "crest_factor_db": 3.0,
                 "loudness_range_lu": 3.0,
                 "spectral_flux_mean": 12.0,
@@ -298,7 +298,7 @@ class TestGaussianScoring:
         features = {
             "energy_mean": 0.01,
             "spectral_centroid_hz": 100.0,
-            "energy_band_low": 0.001,
+            "energy_low": 0.001,
             "crest_factor_db": 30.0,
             "loudness_range_lu": 25.0,
             "spectral_flux_mean": 0.1,
@@ -394,11 +394,11 @@ class TestEdgeCases:
             "crest_factor_db": 0.0,
             "energy_std": 0.0,
             "energy_slope": 0.0,
-            "energy_band_low": 0.0,
-            "energy_band_sub": 0.0,
-            "energy_band_mid": 0.0,
-            "energy_band_high_mid": 0.0,
-            "energy_band_high": 0.0,
+            "energy_low": 0.0,
+            "energy_sub": 0.0,
+            "energy_mid": 0.0,
+            "energy_highmid": 0.0,
+            "energy_high": 0.0,
             "spectral_rolloff_85": 0.0,
         }
         result = _make_classifier().classify(features)
