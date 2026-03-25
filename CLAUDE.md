@@ -161,7 +161,7 @@ ctx.sample() внутри tools вызывает Anthropic API через fallba
 
 - `Depends()`: используй `param=Depends(factory)`, НЕ `Annotated[Type, Depends(factory)]` — FastMCP не резолвит Annotated
 - `list_page_size` в config должен быть >= числа tools (100) — Claude Code не следует nextCursor
-- YM search API: `type=track` (singular), не `type=tracks`
+- YM search API: `type=tracks` (plural), не `type=track`
 - YM playlist add_tracks: формат `"trackId:albumId"`, albumId обязателен
 - MP3 анализ: нужен `uv sync --extra audio` (librosa + soundfile)
 - `from __future__ import annotations` делает аннотации строками — runtime вызовы (TrackFeatures()) требуют реальных импортов
@@ -171,7 +171,17 @@ ctx.sample() внутри tools вызывает Anthropic API через fallba
 - Circular imports repos→services: используй `TYPE_CHECKING` + lazy import внутри метода
 - Linter (ruff) удаляет неиспользуемые импорты при сохранении — добавляй import+использование в одной правке
 - **ctx.sample()**: Claude Code не поддерживает MCP sampling — используй client-driven режим (search_queries param)
+- **Pipeline features → DB**: всегда используй `TrackAudioFeaturesComputed.filter_features(result.features)` при записи — pipeline может вернуть ключи без колонок
+- **download_tracks**: автоматически создаёт `DjLibraryItem` через `_link_file_to_track()` — не нужно вручную
+- **Hidden tools**: после `unlock_tools` Claude Code не перезагружает tool list — hidden tools (audio, atomic) доступны только через скрипт `Client(mcp)`
+- **Energy bands**: имена колонок — `energy_sub`, `energy_lowmid`, `energy_highmid` (не `energy_band_*`, не `energy_low_mid`)
 
 ## Версия
 
-Plugin v0.3.0, 50 tools (46 visible + 4 atomic hidden), 7 audio analyzers (3 core + 4 librosa), FileSystemProvider.
+Plugin v0.4.0, 50 tools (46 visible + 4 atomic hidden), 7 audio analyzers (3 core + 4 librosa), FileSystemProvider.
+
+## Known Issues (docs/reports/errors/)
+
+- BUG-001: Hidden tools not accessible in Claude Code after unlock_tools
+- BUG-002: Pipeline features mismatch DB model (fixed with filter_features)
+- BUG-003: download_tracks "Not responding" in UI (long-running, task=True added)
