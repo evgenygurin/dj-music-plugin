@@ -13,7 +13,6 @@ from __future__ import annotations
 
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from typing import Annotated
 
 from fastmcp.dependencies import Depends
 from fastmcp.server.dependencies import get_context
@@ -46,39 +45,27 @@ async def get_db_session() -> AsyncIterator[AsyncSession]:
 # ── Repository factories ─────────────────────────────
 
 
-def get_track_repo(
-    session: Annotated[AsyncSession, Depends(get_db_session)],
-) -> TrackRepository:
+def get_track_repo(session=Depends(get_db_session)) -> TrackRepository:  # noqa: B008
     return TrackRepository(session)
 
 
-def get_playlist_repo(
-    session: Annotated[AsyncSession, Depends(get_db_session)],
-) -> PlaylistRepository:
+def get_playlist_repo(session=Depends(get_db_session)) -> PlaylistRepository:  # noqa: B008
     return PlaylistRepository(session)
 
 
-def get_set_repo(
-    session: Annotated[AsyncSession, Depends(get_db_session)],
-) -> SetRepository:
+def get_set_repo(session=Depends(get_db_session)) -> SetRepository:  # noqa: B008
     return SetRepository(session)
 
 
-def get_feature_repo(
-    session: Annotated[AsyncSession, Depends(get_db_session)],
-) -> FeatureRepository:
+def get_feature_repo(session=Depends(get_db_session)) -> FeatureRepository:  # noqa: B008
     return FeatureRepository(session)
 
 
-def get_transition_repo(
-    session: Annotated[AsyncSession, Depends(get_db_session)],
-) -> TransitionRepository:
+def get_transition_repo(session=Depends(get_db_session)) -> TransitionRepository:  # noqa: B008
     return TransitionRepository(session)
 
 
-def get_export_repo(
-    session: Annotated[AsyncSession, Depends(get_db_session)],
-) -> ExportRepository:
+def get_export_repo(session=Depends(get_db_session)) -> ExportRepository:  # noqa: B008
     return ExportRepository(session)
 
 
@@ -86,17 +73,17 @@ def get_export_repo(
 
 
 def get_track_service(
-    track_repo: Annotated[TrackRepository, Depends(get_track_repo)],
-    feature_repo: Annotated[FeatureRepository, Depends(get_feature_repo)],
-) -> TrackService:  # noqa: F821
+    track_repo=Depends(get_track_repo),  # noqa: B008
+    feature_repo=Depends(get_feature_repo),  # noqa: B008
+):  # type: ignore[no-untyped-def]
     from app.services.track_service import TrackService
 
     return TrackService(track_repo, feature_repo)
 
 
 def get_playlist_service(
-    repo: Annotated[PlaylistRepository, Depends(get_playlist_repo)],
-) -> PlaylistService:  # noqa: F821
+    repo=Depends(get_playlist_repo),  # noqa: B008
+):  # type: ignore[no-untyped-def]
     from app.services.playlist_service import PlaylistService
 
     return PlaylistService(repo)
