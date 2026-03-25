@@ -146,6 +146,91 @@ class YandexMusicClient:
         similar = data.get("result", {}).get("similarTracks", [])
         return [_parse_track(t) for t in similar]
 
+    # ── Download ──────────────────────────────────────────
+
+    async def get_download_info(self, track_id: str) -> list[dict[str, Any]]:
+        """Get download URLs and codecs for a track.
+
+        Returns list of download options sorted by bitrate (highest first).
+        Each has: codec, bitrate_in_kbps, src (download URL), gain, preview.
+        """
+        data = await self._request(
+            "GET",
+            f"/tracks/{track_id}/download-info",
+        )
+        infos: list[dict[str, Any]] = data.get("result", [])
+        # Sort by bitrate descending
+        return sorted(infos, key=lambda x: x.get("bitrateInKbps", 0), reverse=True)
+
+    async def download_track(
+        self,
+        track_id: str,
+        dest_path: str,
+        prefer_bitrate: int = 320,
+    ) -> int:
+        """Download MP3 file for a track. Returns file size in bytes.
+
+        Two-step process:
+        1. GET /tracks/{id}/download-info → list of download options
+        2. Pick best bitrate → GET download URL with sign + ts params
+        """
+        import hashlib
+
+        infos = await self.get_download_info(track_id)
+        if not infos:
+            raise APIError(404, f"No download info for track {track_id}")
+
+        # Pick best matching bitrate
+        best = infos[0]  # already sorted by bitrate desc
+        for info in infos:
+            if info.get("bitrateInKbps", 0) <= prefer_bitrate and info.get("codec") == "mp3":
+                best = info
+                break
+
+        # Get direct download URL
+        download_info_url = best.get("downloadInfoUrl")
+        if not download_info_url:
+            raise APIError(404, f"No downloadInfoUrl for track {track_id}")
+
+        await self._rate_limiter.acquire()
+        client = self._client
+        resp = await client.get(
+            download_info_url, headers={"Authorization": f"OAuth {self._token}"}
+        )
+        resp.raise_for_status()
+
+        # Parse XML response for src, path, s
+        import xml.etree.ElementTree as ET
+
+        root = ET.fromstring(resp.text)
+        host = root.findtext("host")
+        path = root.findtext("path")
+        ts = root.findtext("ts")
+        s = root.findtext("s")
+
+        if not all([host, path, ts, s]):
+            raise APIError(500, f"Incomplete download info XML for track {track_id}")
+
+        # Build signed URL: "XGRlBW9FXlekgbPrRHuSiA" is the sign salt
+        sign = hashlib.md5(f"XGRlBW9FXlekgbPrRHuSiA{path[1:]}{s}".encode()).hexdigest()
+        download_url = f"https://{host}/get-mp3/{sign}/{ts}{path}"
+
+        # Download file
+        await self._rate_limiter.acquire()
+        from pathlib import Path
+
+        async with client.stream("GET", download_url) as stream:
+            stream.raise_for_status()
+            dest = Path(dest_path)
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            file_size = 0
+            with dest.open("wb") as f:
+                async for chunk in stream.aiter_bytes(chunk_size=65536):
+                    f.write(chunk)
+                    file_size += len(chunk)
+
+        return file_size
+
     # ── Albums ────────────────────────────────────────────
 
     async def get_album(
