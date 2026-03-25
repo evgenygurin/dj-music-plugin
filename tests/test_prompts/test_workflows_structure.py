@@ -82,13 +82,20 @@ def test_prompt_functions_have_mcp_decorator():
 
     for node in ast.walk(tree):
         if isinstance(node, ast.FunctionDef) and node.name in expected_prompts:
-            # Check for @mcp.prompt decorator
+            # Check for @prompt or @prompt(...) decorator
             decorator_names = []
             for dec in node.decorator_list:
                 if isinstance(dec, ast.Attribute):
                     decorator_names.append(f"{dec.value.id}.{dec.attr}")
                 elif isinstance(dec, ast.Name):
                     decorator_names.append(dec.id)
+                elif isinstance(dec, ast.Call):
+                    # @prompt(...) with arguments
+                    func = dec.func
+                    if isinstance(func, ast.Name):
+                        decorator_names.append(func.id)
+                    elif isinstance(func, ast.Attribute):
+                        decorator_names.append(f"{func.value.id}.{func.attr}")
 
             assert "prompt" in decorator_names, f"Function {node.name} missing @prompt decorator"
 
