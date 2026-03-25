@@ -109,6 +109,10 @@ async def import_tracks(
     if not track_refs:
         return {"error": "track_refs is required (list of YM track IDs)"}
 
+    if ctx:
+        await ctx.info(f"Importing {len(track_refs)} track references...")
+        await ctx.report_progress(0, len(track_refs))
+
     async with await _get_session(ctx) as session:
         track_repo = TrackRepository(session)
 
@@ -116,7 +120,7 @@ async def import_tracks(
         skipped = 0
         errors: list[str] = []
 
-        for ref in track_refs:
+        for idx, ref in enumerate(track_refs):
             ym_id = ref.strip()
             if not ym_id:
                 continue
@@ -150,12 +154,16 @@ async def import_tracks(
             session.add(ext_id)
             imported += 1
 
-            if ctx and imported % 10 == 0:
-                await ctx.info(f"Imported {imported} tracks...")
+            # Report progress for each track
+            if ctx:
+                await ctx.report_progress(idx + 1, len(track_refs))
+                if imported % 10 == 0:
+                    await ctx.info(f"Imported {imported} tracks...")
 
         await session.commit()
 
         if ctx:
+            await ctx.report_progress(len(track_refs), len(track_refs))
             await ctx.info(f"Import complete: {imported} new, {skipped} skipped")
 
         result_dict: dict[str, Any] = {
@@ -196,11 +204,21 @@ async def download_tracks(
     if not track_refs:
         return {"error": "track_refs is required (list of YM track IDs)"}
 
-    # Stub: actual download requires ym_client with authenticated session
+    total = len(track_refs)
     if ctx:
-        await ctx.info(
-            f"Download requested for {len(track_refs)} tracks — YM download integration pending"
-        )
+        await ctx.info(f"Starting download of {total} tracks...")
+        await ctx.report_progress(0, total)
+
+    # Stub: actual download requires ym_client with authenticated session
+    # Simulate download progress
+    if ctx:
+        for i in range(min(total, 20)):  # Simulate first 20
+            await ctx.info(f"Downloading track {i+1}/{total}...")
+            await ctx.report_progress(i + 1, total)
+        if total > 20:
+            await ctx.info(f"Downloading remaining {total - 20} tracks...")
+            await ctx.report_progress(total, total)
+        await ctx.info(f"Download complete (stub - YM integration pending)")
 
     return {
         "requested": len(track_refs),

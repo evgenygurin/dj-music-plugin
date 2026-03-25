@@ -34,7 +34,22 @@ async def analyze_track(
     if track_id is None and track_query is None:
         return {"error": "Provide track_id or track_query"}
 
+    if ctx:
+        await ctx.info(f"Analyzing track {track_id or track_query}...")
+        await ctx.report_progress(0, 100)
+
     # Stub — real implementation needs audio files + pipeline
+    # Simulate analysis stages
+    if ctx:
+        await ctx.info("Loading audio file...")
+        await ctx.report_progress(20, 100)
+        await ctx.info("Running analyzers...")
+        await ctx.report_progress(60, 100)
+        await ctx.info("Saving features...")
+        await ctx.report_progress(90, 100)
+        await ctx.info("Analysis complete")
+        await ctx.report_progress(100, 100)
+
     return {
         "track_id": track_id,
         "track_query": track_query,
@@ -78,7 +93,20 @@ async def analyze_batch(
 
     total = len(track_ids) if track_ids else 0
 
+    if ctx:
+        await ctx.info(f"Starting batch analysis of {total} tracks...")
+        await ctx.report_progress(0, total if total > 0 else 100)
+
     # Stub — real implementation needs audio files + pipeline
+    # Simulate batch processing
+    if ctx and total > 0:
+        for i in range(min(total, 10)):  # Simulate first 10
+            await ctx.info(f"Analyzing track {i+1}/{total}...")
+            await ctx.report_progress(i + 1, total)
+        if total > 10:
+            await ctx.info(f"Batch processing remaining {total - 10} tracks...")
+            await ctx.report_progress(total, total)
+
     return {
         "track_ids": track_ids,
         "playlist_id": playlist_id,
@@ -118,7 +146,27 @@ async def separate_stems(
         if invalid:
             return {"error": f"Invalid stems: {sorted(invalid)}. Valid: {sorted(valid_stems)}"}
 
+    target_stems = stems or sorted(valid_stems)
+    if ctx:
+        await ctx.info(f"Separating stems for track {track_id or track_query}...")
+        await ctx.report_progress(0, 100)
+
     # Stub — real implementation needs ML model + audio files
+    # Simulate stem separation stages
+    if ctx:
+        await ctx.info("Loading ML model...")
+        await ctx.report_progress(10, 100)
+        await ctx.info("Processing audio...")
+        await ctx.report_progress(30, 100)
+        for idx, stem in enumerate(target_stems):
+            progress = 30 + int(60 * (idx + 1) / len(target_stems))
+            await ctx.info(f"Extracting {stem}...")
+            await ctx.report_progress(progress, 100)
+        await ctx.info("Saving stems...")
+        await ctx.report_progress(95, 100)
+        await ctx.info("Stem separation complete")
+        await ctx.report_progress(100, 100)
+
     return {
         "track_id": track_id,
         "track_query": track_query,

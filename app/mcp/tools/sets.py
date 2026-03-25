@@ -32,6 +32,7 @@ async def build_set(
     """Build optimized DJ set from playlist. Supports greedy or GA algorithm."""
     if ctx:
         await ctx.info(f"Building set '{name}' from playlist {playlist_id}...")
+        await ctx.report_progress(0, 100)
 
     async with await _get_session(ctx) as session:
         TrackRepository(session)
@@ -55,8 +56,12 @@ async def build_set(
 
         if ctx:
             await ctx.info(f"Found {len(track_ids)} tracks, building order...")
+            await ctx.report_progress(25, 100)
 
         # For now: use playlist order as-is (GA/greedy will be in Sub-Project #6)
+        if ctx:
+            await ctx.report_progress(50, 100)
+
         # Create set and version
         if not dry_run:
             dj_set = DjSet(
@@ -83,6 +88,7 @@ async def build_set(
 
             if ctx:
                 await ctx.info(f"Set created: {dj_set.id}, version: {version.id}")
+                await ctx.report_progress(100, 100)
 
             await session.commit()
             return {
@@ -113,6 +119,7 @@ async def rebuild_set(
     """Rebuild existing set with pinned/excluded tracks. Creates new version."""
     if ctx:
         await ctx.info(f"Rebuilding set {set_id}...")
+        await ctx.report_progress(0, 100)
 
     async with await _get_session(ctx) as session:
         set_repo = SetRepository(session)
@@ -136,6 +143,8 @@ async def rebuild_set(
         current_ids = [r[0] for r in result.all()]
 
         # Apply pin/exclude
+        if ctx:
+            await ctx.report_progress(40, 100)
         exclude_set = set(exclude_tracks or [])
         filtered = [tid for tid in current_ids if tid not in exclude_set]
 
@@ -154,6 +163,8 @@ async def rebuild_set(
             )
             session.add(item)
         await session.flush()
+        if ctx:
+            await ctx.report_progress(100, 100)
         await session.commit()
 
         return {

@@ -135,6 +135,7 @@ async def deliver_set(
     """Multi-stage set delivery: score transitions, copy files, generate exports."""
     if ctx:
         await ctx.info(f"Starting delivery for set {set_id}...")
+        await ctx.report_progress(0, 100)
 
     async with await _get_session(ctx) as session:
         set_repo = SetRepository(session)
@@ -161,25 +162,30 @@ async def deliver_set(
 
         if ctx:
             await ctx.info(f"Stage 1/4: Loaded {len(items)} tracks")
-            await ctx.report_progress(1, 4)
+            await ctx.report_progress(15, 100)
 
         # Stage 2: Score transitions
         transition_repo = TransitionRepository(session)
         scored_count = 0
         conflict_count = 0
-        for i in range(len(items) - 1):
+        total_transitions = len(items) - 1
+        for i in range(total_transitions):
             score = await transition_repo.get_score(items[i].track_id, items[i + 1].track_id)
             if score:
                 scored_count += 1
                 if score.overall_quality is not None and score.overall_quality == 0.0:
                     conflict_count += 1
+            # Report progress within stage 2 (15% to 50%)
+            if ctx and total_transitions > 0:
+                stage_progress = 15 + int(35 * (i + 1) / total_transitions)
+                await ctx.report_progress(stage_progress, 100)
 
         if ctx:
             await ctx.info(
-                f"Stage 2/4: {scored_count}/{len(items) - 1} transitions scored, "
+                f"Stage 2/4: {scored_count}/{total_transitions} transitions scored, "
                 f"{conflict_count} conflicts"
             )
-            await ctx.report_progress(2, 4)
+            await ctx.report_progress(50, 100)
 
         # Build export data
         export_data = await _build_export_data(session, dj_set, target_version, items)
@@ -187,6 +193,9 @@ async def deliver_set(
         # Determine output directory
         base_dir = Path(output_dir or settings.delivery_output_dir)
         set_dir = base_dir / dj_set.name.replace(" ", "_").lower()
+
+        if ctx:
+            await ctx.report_progress(55, 100)
 
         if dry_run:
             return {
@@ -207,7 +216,7 @@ async def deliver_set(
         export_formats = formats or ["m3u8", "cheat_sheet"]
         generated_files: list[str] = []
 
-        for fmt in export_formats:
+        for idx, fmt in enumerate(export_formats):
             if fmt == ExportFormat.M3U8 or fmt == "m3u8":
                 path = write_m3u8(export_data, set_dir / f"{dj_set.name}.m3u8")
                 generated_files.append(str(path))
@@ -221,19 +230,26 @@ async def deliver_set(
                 path = write_cheat_sheet(export_data, set_dir / f"{dj_set.name}_cheat.txt")
                 generated_files.append(str(path))
 
+            # Report progress within stage 3 (55% to 80%)
+            if ctx and export_formats:
+                stage_progress = 55 + int(25 * (idx + 1) / len(export_formats))
+                await ctx.report_progress(stage_progress, 100)
+
         if ctx:
             await ctx.info(f"Stage 3/4: Generated {len(generated_files)} export files")
-            await ctx.report_progress(3, 4)
+            await ctx.report_progress(80, 100)
 
         # Stage 4: Copy audio files (stub — needs file_path on tracks)
         copied_files = 0
         if copy_files:
             # Future: copy actual audio files to set_dir/audio/
+            if ctx:
+                await ctx.report_progress(90, 100)
             pass
 
         if ctx:
             await ctx.info("Stage 4/4: Delivery complete")
-            await ctx.report_progress(4, 4)
+            await ctx.report_progress(100, 100)
 
         return {
             "set_id": set_id,
