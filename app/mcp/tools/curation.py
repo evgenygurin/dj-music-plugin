@@ -12,6 +12,7 @@ from sqlalchemy.orm import selectinload
 from app.audio.mood import MoodClassifier
 from app.config import settings
 from app.core.constants import TechnoSubgenre
+from app.core.elicitation import safe_confirm
 from app.models.audio import TrackAudioFeaturesComputed
 from app.models.playlist import Playlist, PlaylistItem
 from app.models.set import DjSet, SetItem
@@ -457,6 +458,23 @@ async def distribute_to_subgenres(
 
         if ctx:
             await ctx.info(f"Distributing {len(track_ids)} tracks to subgenre playlists...")
+
+        # ── Elicitation Point: Confirm clean_rebuild ──
+        if mode == "clean_rebuild":
+            confirmed = await safe_confirm(
+                ctx,
+                message=(
+                    f"⚠️ Mode 'clean_rebuild' will DELETE all existing tracks from subgenre playlists "
+                    f"before redistributing {len(track_ids)} tracks. Continue?"
+                ),
+                default=False,
+            )
+            if confirmed is None or not confirmed:
+                return {
+                    "cancelled": True,
+                    "reason": "User cancelled clean_rebuild operation",
+                    "total_tracks": len(track_ids),
+                }
 
         # Classify all tracks
         classifier = MoodClassifier()

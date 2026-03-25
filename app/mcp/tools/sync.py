@@ -5,7 +5,9 @@ from __future__ import annotations
 from typing import Any
 
 from fastmcp.server.context import Context
+from pydantic import BaseModel, Field
 
+from app.core.elicitation import safe_confirm
 from app.server import mcp
 
 # ── 1. sync_playlist ───────────────────────────────
@@ -40,6 +42,64 @@ async def sync_playlist(
         }
 
     # Stub — real implementation needs YM client from lifespan
+    # Simulate conflicts for demonstration
+    conflicts: list[dict[str, Any]] = []
+
+    # Future implementation will detect actual conflicts:
+    # - Track exists locally but deleted on YM
+    # - Track exists on YM but deleted locally
+    # - Track metadata differs between local and YM
+    #
+    # Example conflicts:
+    # conflicts = [
+    #     {"track_id": 123, "title": "Track A", "issue": "deleted_on_ym"},
+    #     {"track_id": 456, "title": "Track B", "issue": "deleted_locally"},
+    # ]
+
+    # ── Elicitation Point: Handle deletion conflicts ──
+    if conflicts and conflict_strategy == "ask":
+        if ctx:
+            await ctx.warning(f"Found {len(conflicts)} sync conflict(s)")
+
+        resolved_conflicts: list[dict[str, Any]] = []
+        for conflict in conflicts:
+            if conflict["issue"] == "deleted_on_ym":
+                keep_local = await safe_confirm(
+                    ctx,
+                    message=(
+                        f"Track '{conflict['title']}' was deleted on Yandex Music. "
+                        f"Keep it in local playlist?"
+                    ),
+                    default=True,
+                )
+                if keep_local is None:
+                    # User cancelled
+                    return {
+                        "cancelled": True,
+                        "reason": "User cancelled during conflict resolution",
+                    }
+                conflict["resolution"] = "keep_local" if keep_local else "delete_local"
+                resolved_conflicts.append(conflict)
+
+            elif conflict["issue"] == "deleted_locally":
+                restore_from_ym = await safe_confirm(
+                    ctx,
+                    message=(
+                        f"Track '{conflict['title']}' was deleted locally but exists on YM. "
+                        f"Restore it from Yandex Music?"
+                    ),
+                    default=False,
+                )
+                if restore_from_ym is None:
+                    return {
+                        "cancelled": True,
+                        "reason": "User cancelled during conflict resolution",
+                    }
+                conflict["resolution"] = "restore_from_ym" if restore_from_ym else "keep_deleted"
+                resolved_conflicts.append(conflict)
+
+        conflicts = resolved_conflicts
+
     return {
         "playlist_id": playlist_id,
         "direction": direction,
@@ -47,7 +107,7 @@ async def sync_playlist(
         "dry_run": dry_run,
         "added": [],
         "removed": [],
-        "conflicts": [],
+        "conflicts": conflicts,
         "note": "Stub — configure DJ_YM_TOKEN for real sync",
     }
 

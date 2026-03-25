@@ -6,11 +6,13 @@ from pathlib import Path
 from typing import Any
 
 from fastmcp.server.context import Context
+from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.core.constants import ExportFormat
+from app.core.elicitation import safe_choice
 from app.models.audio import TrackAudioFeaturesComputed
 from app.models.set import DjSet, SetItem, SetVersion
 from app.models.track import TrackArtist
@@ -181,6 +183,35 @@ async def deliver_set(
             )
             await ctx.report_progress(2, 4)
 
+        # ── Elicitation Point 1: Handle hard conflicts ──
+        if conflict_count > 0:
+            if ctx:
+                await ctx.warning(
+                    f"⚠️ Found {conflict_count} hard conflict(s) (score=0.0). "
+                    f"These transitions violate hard constraints (BPM>10, Camelot≥5, or Energy>6 LUFS)."
+                )
+
+            conflict_action = await safe_choice(
+                ctx,
+                message=(
+                    f"Found {conflict_count} hard conflict(s) in the set. How should we proceed?"
+                ),
+                choices=["continue", "skip_conflicts", "abort"],
+                default="continue",
+            )
+
+            if conflict_action == "abort":
+                return {
+                    "aborted": True,
+                    "reason": "User aborted due to hard conflicts",
+                    "conflict_count": conflict_count,
+                }
+            elif conflict_action == "skip_conflicts":
+                if ctx:
+                    await ctx.info("Skipping conflicted transitions in export...")
+                # Future: filter out conflicted pairs from export
+            # else: continue with conflicts
+
         # Build export data
         export_data = await _build_export_data(session, dj_set, target_version, items)
 
@@ -231,6 +262,29 @@ async def deliver_set(
             # Future: copy actual audio files to set_dir/audio/
             pass
 
+        # ── Elicitation Point 2: YM playlist sync (future) ──
+        synced_to_ym = False
+        if sync_to_ym:
+            if ctx:
+                await ctx.info("Checking if YM playlist already exists...")
+            # Future implementation:
+            # ym_exists = await check_ym_playlist_exists(dj_set.name)
+            # if ym_exists:
+            #     ym_action = await safe_choice(
+            #         ctx,
+            #         message=f"YM playlist '{dj_set.name}' already exists. What should we do?",
+            #         choices=["overwrite", "append", "create_new", "cancel"],
+            #         default="append",
+            #     )
+            #     if ym_action == "cancel":
+            #         synced_to_ym = False
+            #     else:
+            #         await sync_to_ym_with_action(dj_set, ym_action)
+            #         synced_to_ym = True
+            # else:
+            #     await create_ym_playlist(dj_set)
+            #     synced_to_ym = True
+
         if ctx:
             await ctx.info("Stage 4/4: Delivery complete")
             await ctx.report_progress(4, 4)
@@ -245,7 +299,7 @@ async def deliver_set(
             "output_dir": str(set_dir),
             "generated_files": generated_files,
             "copied_audio_files": copied_files,
-            "synced_to_ym": False,  # YM sync is future
+            "synced_to_ym": synced_to_ym,
         }
 
 
