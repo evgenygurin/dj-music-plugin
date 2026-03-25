@@ -57,6 +57,12 @@ async def db_lifespan(server):  # type: ignore[no-untyped-def]
         pool_pre_ping=True,
     )
     session_factory = async_sessionmaker(engine, expire_on_commit=False)
+
+    # Seed reference data (idempotent — skips if already populated)
+    from app.core.seed import seed_reference_data
+
+    await seed_reference_data(session_factory)
+
     try:
         yield {"db_engine": engine, "db_session_factory": session_factory}
     finally:

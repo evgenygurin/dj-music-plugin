@@ -15,6 +15,12 @@ class TrackRepository(BaseRepository[Track]):
     def __init__(self, session: AsyncSession) -> None:
         super().__init__(session, Track)
 
+    async def get_by_title(self, title: str) -> Track | None:
+        """Find active track by exact title match."""
+        stmt = select(Track).where(Track.title == title, Track.status == 0)
+        result = await self.session.execute(stmt)
+        return result.scalar_one_or_none()
+
     async def search_by_text(self, query: str, limit: int = 10) -> list[Track]:
         """Case-insensitive search on track title using ILIKE."""
         pattern = f"%{query}%"

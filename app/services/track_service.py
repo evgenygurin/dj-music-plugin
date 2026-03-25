@@ -75,6 +75,11 @@ class TrackService:
     async def create(self, title: str, duration_ms: int | None = None) -> Track:
         if not title:
             raise ValidationError("title is required")
+        existing = await self._tracks.get_by_title(title)
+        if existing:
+            from app.core.errors import ConflictError
+
+            raise ConflictError(f"Track with title '{title}' already exists (id={existing.id})")
         track = Track(title=title, duration_ms=duration_ms, status=0)
         return await self._tracks.create(track)
 

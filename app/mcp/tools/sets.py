@@ -106,7 +106,26 @@ async def build_set(
             session.add(dj_set)
             await session.flush()
 
-            version = SetVersion(set_id=dj_set.id, label="v1")
+            import json as _json
+
+            from app.utils.time import utc_timestamp_iso
+
+            gen_meta = _json.dumps(
+                {
+                    "algorithm": algorithm if has_features else "playlist_order",
+                    "playlist_id": playlist_id,
+                    "track_count": len(optimized_order),
+                    "has_features": has_features,
+                    "template": template,
+                    "target_duration_min": target_duration_min,
+                    "timestamp": utc_timestamp_iso(),
+                }
+            )
+            version = SetVersion(
+                set_id=dj_set.id,
+                label="v1",
+                generator_run_meta=gen_meta,
+            )
             session.add(version)
             await session.flush()
 
