@@ -7,6 +7,7 @@ Usage:
 
 from fastmcp import FastMCP
 from fastmcp.server.lifespan import lifespan
+from fastmcp.server.transforms import PromptsAsTools
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from app.config import settings
@@ -46,6 +47,9 @@ mcp = FastMCP(
 # Hide audio tools at startup
 mcp.disable(tags={"audio"})
 
+# Add PromptsAsTools transform for tool-only clients
+mcp.add_transform(PromptsAsTools(mcp))
+
 # ── FileSystemProvider auto-discovers tools/resources/prompts ─
 # When running via `fastmcp run app/server.py`, FastMCP auto-discovers
 # decorated functions in the same package. For explicit provider usage:
@@ -62,6 +66,8 @@ mcp.disable(tags={"audio"})
 
 # Import tool modules to register with mcp
 # (will be populated as tools are implemented)
+# Import prompt modules to register with mcp
+import app.mcp.prompts.workflows
 import app.mcp.tools.admin
 import app.mcp.tools.audio
 import app.mcp.tools.crud
