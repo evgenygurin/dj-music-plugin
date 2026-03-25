@@ -145,6 +145,7 @@ mcp = FastMCP(
     lifespan=db_lifespan | ym_lifespan | analyzer_lifespan | cache_lifespan,
     list_page_size=settings.pagination_size,
     on_duplicate="warn",
+    mask_error_details=not settings.debug,  # hide stack traces in production
     sampling_handler=sampling_handler,
     sampling_handler_behavior="fallback" if sampling_handler else None,
 )
@@ -180,6 +181,14 @@ try:
     )
 except ImportError:
     logger.warning("Custom middleware not available")
+
+# Built-in FastMCP middleware
+try:
+    from fastmcp.server.middleware.error_handling import RetryMiddleware
+
+    mcp.add_middleware(RetryMiddleware(max_retries=2))
+except ImportError:
+    pass
 
 # ── Component Visibility ─────────────────────────────
 mcp.disable(tags={"audio"})
