@@ -31,7 +31,16 @@ async def build_set(
 ) -> dict:
     """Build optimized DJ set from playlist. Supports greedy or GA algorithm."""
     if ctx:
-        await ctx.info(f"Building set '{name}' from playlist {playlist_id}...")
+        await ctx.info(
+            f"Building set '{name}' from playlist {playlist_id}",
+            extra={
+                "playlist_id": playlist_id,
+                "set_name": name,
+                "template": template,
+                "algorithm": algorithm,
+                "dry_run": dry_run
+            }
+        )
 
     async with await _get_session(ctx) as session:
         TrackRepository(session)
@@ -51,10 +60,15 @@ async def build_set(
         track_ids = [r[0] for r in result.all()]
 
         if not track_ids:
+            if ctx:
+                await ctx.warning(f"Playlist {playlist_id} is empty")
             return {"error": "Playlist is empty", "set_id": None}
 
         if ctx:
-            await ctx.info(f"Found {len(track_ids)} tracks, building order...")
+            await ctx.info(
+                f"Found {len(track_ids)} tracks, building order with {algorithm} algorithm",
+                extra={"track_count": len(track_ids), "algorithm": algorithm}
+            )
 
         # For now: use playlist order as-is (GA/greedy will be in Sub-Project #6)
         # Create set and version
@@ -82,7 +96,14 @@ async def build_set(
             await session.flush()
 
             if ctx:
-                await ctx.info(f"Set created: {dj_set.id}, version: {version.id}")
+                await ctx.info(
+                    f"Set created successfully: {dj_set.name}",
+                    extra={
+                        "set_id": dj_set.id,
+                        "version_id": version.id,
+                        "track_count": len(track_ids)
+                    }
+                )
 
             await session.commit()
             return {
@@ -112,7 +133,15 @@ async def rebuild_set(
 ) -> dict:
     """Rebuild existing set with pinned/excluded tracks. Creates new version."""
     if ctx:
-        await ctx.info(f"Rebuilding set {set_id}...")
+        await ctx.info(
+            f"Rebuilding set {set_id}",
+            extra={
+                "set_id": set_id,
+                "pinned_count": len(pin_tracks or []),
+                "excluded_count": len(exclude_tracks or []),
+                "algorithm": algorithm
+            }
+        )
 
     async with await _get_session(ctx) as session:
         set_repo = SetRepository(session)

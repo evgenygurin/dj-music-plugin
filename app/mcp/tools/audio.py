@@ -32,7 +32,21 @@ async def analyze_track(
     force: re-analyze even if features already exist.
     """
     if track_id is None and track_query is None:
+        if ctx:
+            await ctx.error("Missing required parameter: track_id or track_query")
         return {"error": "Provide track_id or track_query"}
+
+    if ctx:
+        await ctx.info(
+            f"Starting audio analysis for track {track_id or track_query}",
+            extra={
+                "track_id": track_id,
+                "track_query": track_query,
+                "analyzers": analyzers or "all",
+                "force": force
+            }
+        )
+        await ctx.warning("Audio analysis stub - real implementation needs audio files")
 
     # Stub — real implementation needs audio files + pipeline
     return {
@@ -68,15 +82,33 @@ async def analyze_batch(
     priority: low | normal | high.
     """
     if track_ids is None and playlist_id is None:
+        if ctx:
+            await ctx.error("Missing required parameter: track_ids or playlist_id")
         return {"error": "Provide track_ids or playlist_id"}
     if track_ids is not None and playlist_id is not None:
+        if ctx:
+            await ctx.error("Conflicting parameters: provide track_ids OR playlist_id, not both")
         return {"error": "Provide track_ids or playlist_id, not both"}
 
     valid_priorities = ("low", "normal", "high")
     if priority not in valid_priorities:
+        if ctx:
+            await ctx.warning(f"Invalid priority '{priority}', valid options: {', '.join(valid_priorities)}")
         return {"error": f"Invalid priority: {priority}. Valid: {', '.join(valid_priorities)}"}
 
     total = len(track_ids) if track_ids else 0
+    
+    if ctx:
+        await ctx.info(
+            f"Starting batch analysis for {total or 'playlist'} tracks with {priority} priority",
+            extra={
+                "track_count": total,
+                "playlist_id": playlist_id,
+                "priority": priority,
+                "analyzers": analyzers or "all"
+            }
+        )
+        await ctx.warning("Batch analysis stub - real implementation needs audio files")
 
     # Stub — real implementation needs audio files + pipeline
     return {
@@ -110,19 +142,35 @@ async def separate_stems(
     stems: list of stems to extract (None = all). Options: vocals, drums, bass, other.
     """
     if track_id is None and track_query is None:
+        if ctx:
+            await ctx.error("Missing required parameter: track_id or track_query")
         return {"error": "Provide track_id or track_query"}
 
     valid_stems = {"vocals", "drums", "bass", "other"}
     if stems:
         invalid = set(stems) - valid_stems
         if invalid:
+            if ctx:
+                await ctx.warning(f"Invalid stems requested: {sorted(invalid)}")
             return {"error": f"Invalid stems: {sorted(invalid)}. Valid: {sorted(valid_stems)}"}
+
+    requested_stems = stems or sorted(valid_stems)
+    if ctx:
+        await ctx.info(
+            f"Starting stem separation for track {track_id or track_query}",
+            extra={
+                "track_id": track_id,
+                "track_query": track_query,
+                "stems": requested_stems
+            }
+        )
+        await ctx.warning("Stem separation stub - ML model required")
 
     # Stub — real implementation needs ML model + audio files
     return {
         "track_id": track_id,
         "track_query": track_query,
-        "stems_requested": stems or sorted(valid_stems),
+        "stems_requested": requested_stems,
         "status": "stub",
         "output_files": {},
         "note": "Stub — ML stem separation model required",

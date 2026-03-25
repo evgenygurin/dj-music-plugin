@@ -5,11 +5,25 @@ Usage:
     uv run fastmcp run app/server.py             # production
 """
 
+import logging
+
 from fastmcp import FastMCP
 from fastmcp.server.lifespan import lifespan
+from fastmcp.utilities.logging import get_logger
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from app.config import settings
+
+# ── Configure Server-Side Logging ────────────────────
+
+# Get root logger for this module
+logger = get_logger(__name__)
+logger.setLevel(getattr(logging, settings.log_level.upper(), logging.INFO))
+
+# Configure client logging debug level if enabled
+if settings.log_to_client_debug:
+    to_client_logger = get_logger("fastmcp.server.context.to_client")
+    to_client_logger.setLevel(logging.DEBUG)
 
 # ── Lifespans ────────────────────────────────────────
 

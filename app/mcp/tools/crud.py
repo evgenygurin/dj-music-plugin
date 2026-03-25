@@ -110,6 +110,11 @@ async def list_tracks(
     ctx: Context | None = None,
 ) -> dict[str, Any]:
     """List tracks with optional filters and cursor pagination."""
+    if ctx:
+        await ctx.debug(
+            f"Listing tracks with filters: bpm={bpm_min}-{bpm_max}, status={status}, limit={limit}"
+        )
+    
     async with await _get_session(ctx) as session:
         repo = TrackRepository(session)
 
@@ -151,8 +156,13 @@ async def get_track(
 ) -> dict[str, Any]:
     """Get full track details by id or text query."""
     if id is None and query is None:
+        if ctx:
+            await ctx.error("Missing required parameter: id or query")
         return {"error": "Provide id or query"}
 
+    if ctx:
+        await ctx.debug(f"Fetching track by {'id=' + str(id) if id else 'query=' + query}")
+    
     async with await _get_session(ctx) as session:
         repo = TrackRepository(session)
 
@@ -164,6 +174,8 @@ async def get_track(
             track = results[0] if results else None
 
         if track is None:
+            if ctx:
+                await ctx.warning(f"Track not found: {'id=' + str(id) if id else 'query=' + query}")
             return {"error": "Track not found"}
 
         # Try to load audio features
@@ -187,13 +199,20 @@ async def manage_tracks(
 ) -> dict[str, Any]:
     """Create, update, archive, or unarchive a track. action: create|update|archive|unarchive."""
     if action not in ("create", "update", "archive", "unarchive"):
+        if ctx:
+            await ctx.error(f"Unknown action: {action}")
         return {"error": f"Unknown action: {action}"}
 
+    if ctx:
+        await ctx.info(f"Managing track: action={action}", extra={"action": action})
+    
     async with await _get_session(ctx) as session:
         repo = TrackRepository(session)
 
         if action == "create":
             if not data or "title" not in data:
+                if ctx:
+                    await ctx.error("Missing required field: data.title")
                 return {"error": "data.title required for create"}
             track = Track(
                 title=data["title"],
@@ -202,6 +221,11 @@ async def manage_tracks(
             )
             track = await repo.create(track)
             await session.commit()
+            if ctx:
+                await ctx.info(
+                    f"Created track: {track.title}",
+                    extra={"track_id": track.id, "title": track.title}
+                )
             return _track_standard(track)
 
         if action in ("update", "archive", "unarchive"):

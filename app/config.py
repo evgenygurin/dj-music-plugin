@@ -35,6 +35,11 @@ class Settings(BaseSettings):
     payload_logging: bool = False
     debug: bool = False
 
+    # ── Logging ───────────────────────────────────────
+    log_level: str = "INFO"  # DEBUG, INFO, WARNING, ERROR, CRITICAL
+    log_format: str = "json"  # json or text
+    log_to_client_debug: bool = False  # Enable DEBUG level for client logging
+
     # ── Transition Scoring ────────────────────────────
     transition_cache_ttl: int = 3600  # seconds
     transition_cache_max_size: int = 10_000

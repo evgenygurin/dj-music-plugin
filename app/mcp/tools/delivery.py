@@ -160,7 +160,14 @@ async def deliver_set(
             return {"error": "Set has no tracks"}
 
         if ctx:
-            await ctx.info(f"Stage 1/4: Loaded {len(items)} tracks")
+            await ctx.info(
+                f"Stage 1/4: Loaded {len(items)} tracks from set version",
+                extra={
+                    "set_id": set_id,
+                    "version_id": target_version.id,
+                    "track_count": len(items)
+                }
+            )
             await ctx.report_progress(1, 4)
 
         # Stage 2: Score transitions
@@ -175,10 +182,24 @@ async def deliver_set(
                     conflict_count += 1
 
         if ctx:
-            await ctx.info(
-                f"Stage 2/4: {scored_count}/{len(items) - 1} transitions scored, "
-                f"{conflict_count} conflicts"
-            )
+            if conflict_count > 0:
+                await ctx.warning(
+                    f"Stage 2/4: Found {conflict_count} hard conflicts in transitions",
+                    extra={
+                        "scored_transitions": scored_count,
+                        "total_transitions": len(items) - 1,
+                        "conflicts": conflict_count
+                    }
+                )
+            else:
+                await ctx.info(
+                    f"Stage 2/4: {scored_count}/{len(items) - 1} transitions scored successfully",
+                    extra={
+                        "scored_transitions": scored_count,
+                        "total_transitions": len(items) - 1,
+                        "conflicts": 0
+                    }
+                )
             await ctx.report_progress(2, 4)
 
         # Build export data
@@ -222,7 +243,14 @@ async def deliver_set(
                 generated_files.append(str(path))
 
         if ctx:
-            await ctx.info(f"Stage 3/4: Generated {len(generated_files)} export files")
+            await ctx.info(
+                f"Stage 3/4: Generated {len(generated_files)} export files",
+                extra={
+                    "output_dir": str(set_dir),
+                    "formats": export_formats,
+                    "file_count": len(generated_files)
+                }
+            )
             await ctx.report_progress(3, 4)
 
         # Stage 4: Copy audio files (stub — needs file_path on tracks)

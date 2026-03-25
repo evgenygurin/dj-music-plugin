@@ -31,24 +31,43 @@ async def unlock_tools(
         tags = {category} if category != "all" else set(_ALL_CATEGORIES)
         invalid = tags - _ALL_CATEGORIES
         if invalid:
+            if ctx:
+                await ctx.warning(f"Unknown categories requested: {sorted(invalid)}")
             return {"error": f"Unknown categories: {sorted(invalid)}"}
         await ctx.enable_components(tags=tags)
+        if ctx:
+            await ctx.info(
+                f"Unlocked tool categories: {', '.join(sorted(tags))}",
+                extra={"action": "unlock", "categories": sorted(tags)}
+            )
         return {"action": "unlocked", "categories": sorted(tags)}
 
     elif action == "lock" and category:
         tags = {category} if category != "all" else set(_ALL_CATEGORIES)
         invalid = tags - _ALL_CATEGORIES
         if invalid:
+            if ctx:
+                await ctx.warning(f"Unknown categories requested: {sorted(invalid)}")
             return {"error": f"Unknown categories: {sorted(invalid)}"}
         await ctx.disable_components(tags=tags)
+        if ctx:
+            await ctx.info(
+                f"Locked tool categories: {', '.join(sorted(tags))}",
+                extra={"action": "lock", "categories": sorted(tags)}
+            )
         return {"action": "locked", "categories": sorted(tags)}
 
+    if ctx:
+        await ctx.debug("Returning visibility status")
     return {"action": "status", "message": "Use unlock/lock with a category"}
 
 
 @mcp.tool(tags={"admin"}, annotations={"readOnlyHint": True})
 async def list_platforms(ctx: Context | None = None) -> list[dict]:
     """List available music platforms and linked track counts."""
+    if ctx:
+        await ctx.debug("Querying platform statistics")
+    
     async with await _get_session(ctx) as session:
         stmt = select(
             TrackExternalId.platform,
@@ -58,12 +77,22 @@ async def list_platforms(ctx: Context | None = None) -> list[dict]:
         db_platforms = {row.platform: row.track_count for row in result.all()}
 
     platforms = []
+    total_linked = 0
     for provider in Provider:
+        count = db_platforms.get(provider.value, 0)
+        total_linked += count
         platforms.append(
             {
                 "platform": provider.value,
-                "linked_tracks": db_platforms.get(provider.value, 0),
+                "linked_tracks": count,
                 "available": True,
             }
         )
+    
+    if ctx:
+        await ctx.info(
+            f"Found {len(platforms)} platforms with {total_linked} total linked tracks",
+            extra={"platform_count": len(platforms), "total_linked": total_linked}
+        )
+    
     return platforms
