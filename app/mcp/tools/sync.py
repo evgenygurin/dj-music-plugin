@@ -14,6 +14,7 @@ from sqlalchemy.orm import selectinload
 
 from app.config import settings
 from app.mcp.dependencies import get_db_session, get_ym_client
+from app.models.platform import YandexMetadata
 from app.models.playlist import Playlist, PlaylistItem
 from app.models.set import DjSet, SetVersion
 from app.models.track import Track, TrackExternalId
@@ -41,11 +42,7 @@ async def sync_playlist(
         raise ToolError(f"Invalid direction: {direction}. Valid: {', '.join(valid_directions)}")
 
     # Load local playlist
-    stmt = (
-        select(Playlist)
-        .where(Playlist.id == playlist_id)
-        .options(selectinload(Playlist.items))
-    )
+    stmt = select(Playlist).where(Playlist.id == playlist_id).options(selectinload(Playlist.items))
     result = await session.execute(stmt)
     playlist = result.scalar_one_or_none()
     if not playlist:
@@ -176,9 +173,7 @@ async def push_set_to_ym(
     if mode not in valid_modes:
         raise ToolError(f"Invalid mode: {mode}. Valid: {', '.join(valid_modes)}")
 
-    dj_set = (
-        await session.execute(select(DjSet).where(DjSet.id == set_id))
-    ).scalar_one_or_none()
+    dj_set = (await session.execute(select(DjSet).where(DjSet.id == set_id))).scalar_one_or_none()
     if not dj_set:
         raise ToolError(f"Set {set_id} not found")
 
@@ -195,7 +190,7 @@ async def push_set_to_ym(
     if not version or not version.items:
         raise ToolError(f"Set {set_id} has no versions or tracks")
 
-    # Collect YM IDs for set tracks
+    # Collect YM IDs for set tracks (format: "trackId:albumId")
     ym_track_ids: list[str] = []
     for item in sorted(version.items, key=lambda i: i.sort_index):
         ext = (
@@ -207,7 +202,17 @@ async def push_set_to_ym(
             )
         ).scalar_one_or_none()
         if ext:
-            ym_track_ids.append(ext.external_id)
+            # YM playlist diff requires "trackId:albumId" format
+            ym_meta = (
+                await session.execute(
+                    select(YandexMetadata).where(
+                        YandexMetadata.track_id == item.track_id,
+                    )
+                )
+            ).scalar_one_or_none()
+            album_id = ym_meta.album_id if ym_meta and ym_meta.album_id else ""
+            track_ref = f"{ext.external_id}:{album_id}" if album_id else ext.external_id
+            ym_track_ids.append(track_ref)
 
     if not ym_track_ids:
         raise ToolError("No tracks in this set have YM IDs")
@@ -244,4 +249,3 @@ async def push_set_to_ym(
         "tracks_with_ym_id": len(ym_track_ids),
         "mode_used": "create",
     }
-
