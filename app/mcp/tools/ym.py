@@ -4,10 +4,13 @@ from __future__ import annotations
 
 from typing import Any
 
+from fastmcp.dependencies import Depends
 from fastmcp.exceptions import ToolError
 from fastmcp.server.context import Context
 
+from app.mcp.dependencies import get_ym_client
 from app.server import mcp
+from app.ym.client import YandexMusicClient
 
 # ── 1. ym_search ───────────────────────────────────
 
@@ -20,6 +23,7 @@ async def ym_search(
     query: str,
     type: str = "all",
     limit: int = 10,
+    ym: YandexMusicClient = Depends(get_ym_client),  # noqa: B008
     ctx: Context | None = None,
 ) -> dict[str, Any]:
     """Search Yandex Music for tracks, albums, artists, playlists.
@@ -30,16 +34,14 @@ async def ym_search(
     if type not in valid_types:
         raise ToolError(f"Invalid type: {type}. Valid: {', '.join(valid_types)}")
 
-    # Stub — real implementation needs YM client from lifespan
+    result = await ym.search(query, type=type, limit=limit)
     return {
         "query": query,
         "type": type,
-        "limit": limit,
-        "tracks": [],
-        "albums": [],
-        "artists": [],
-        "playlists": [],
-        "note": "Stub — configure DJ_YM_TOKEN for real results",
+        "tracks": [t.model_dump() for t in result.tracks],
+        "albums": [a.model_dump() for a in result.albums],
+        "artists": [a.model_dump() for a in result.artists],
+        "playlists": [p.model_dump() for p in result.playlists],
     }
 
 
@@ -52,6 +54,7 @@ async def ym_search(
 )
 async def ym_get_tracks(
     track_ids: list[str],
+    ym: YandexMusicClient = Depends(get_ym_client),  # noqa: B008
     ctx: Context | None = None,
 ) -> dict[str, Any]:
     """Batch get tracks from Yandex Music by IDs (up to 100)."""
@@ -60,11 +63,10 @@ async def ym_get_tracks(
     if len(track_ids) > 100:
         raise ToolError("Maximum 100 track IDs per request")
 
-    # Stub — real implementation needs YM client from lifespan
+    tracks = await ym.get_tracks(track_ids)
     return {
         "track_ids": track_ids,
-        "tracks": [],
-        "note": "Stub — configure DJ_YM_TOKEN for real results",
+        "tracks": [t.model_dump() for t in tracks],
     }
 
 
@@ -78,16 +80,14 @@ async def ym_get_tracks(
 async def ym_get_album(
     album_id: str,
     include_tracks: bool = False,
+    ym: YandexMusicClient = Depends(get_ym_client),  # noqa: B008
     ctx: Context | None = None,
 ) -> dict[str, Any]:
     """Get album info from Yandex Music, optionally with tracks."""
-    # Stub — real implementation needs YM client from lifespan
+    album = await ym.get_album(album_id, with_tracks=include_tracks)
     return {
         "album_id": album_id,
-        "include_tracks": include_tracks,
-        "album": None,
-        "tracks": [] if include_tracks else None,
-        "note": "Stub — configure DJ_YM_TOKEN for real results",
+        "album": album.model_dump(),
     }
 
 
@@ -102,6 +102,7 @@ async def ym_artist_tracks(
     artist_id: str,
     page: int = 0,
     sort_by: str = "date",
+    ym: YandexMusicClient = Depends(get_ym_client),  # noqa: B008
     ctx: Context | None = None,
 ) -> dict[str, Any]:
     """Get paginated tracks by artist from Yandex Music.
@@ -112,14 +113,13 @@ async def ym_artist_tracks(
     if sort_by not in valid_sorts:
         raise ToolError(f"Invalid sort_by: {sort_by}. Valid: {', '.join(valid_sorts)}")
 
-    # Stub — real implementation needs YM client from lifespan
+    tracks = await ym.get_artist_tracks(artist_id, page=page)
     return {
         "artist_id": artist_id,
         "page": page,
         "sort_by": sort_by,
-        "tracks": [],
-        "has_next": False,
-        "note": "Stub — configure DJ_YM_TOKEN for real results",
+        "tracks": [t.model_dump() for t in tracks],
+        "has_next": len(tracks) >= 20,
     }
 
 
@@ -136,6 +136,7 @@ async def ym_playlists(
     name: str | None = None,
     track_ids: list[str] | None = None,
     revision: int | None = None,
+    ym: YandexMusicClient = Depends(get_ym_client),  # noqa: B008
     ctx: Context | None = None,
 ) -> dict[str, Any]:
     """Consolidated playlist operations on Yandex Music.
@@ -162,13 +163,45 @@ async def ym_playlists(
         if revision is None:
             raise ToolError(f"revision required for action '{action}'")
 
-    # Stub — real implementation needs YM client from lifespan
-    return {
-        "action": action,
-        "kind": kind,
-        "result": None,
-        "note": "Stub — configure DJ_YM_TOKEN for real results",
-    }
+    from app.config import settings
+
+    if action == "list":
+        playlists = await ym.list_user_playlists()
+        return {"action": "list", "playlists": [p.model_dump() for p in playlists]}
+
+    if action == "get":
+        pl = await ym.get_playlist(settings.ym_user_id, kind)  # type: ignore[arg-type]
+        return {"action": "get", "playlist": pl.model_dump()}
+
+    if action == "create":
+        pl = await ym.create_playlist(name)  # type: ignore[arg-type]
+        return {"action": "create", "playlist": pl.model_dump()}
+
+    if action == "rename":
+        await ym.rename_playlist(kind, name)  # type: ignore[arg-type]
+        return {"action": "rename", "kind": kind, "new_name": name}
+
+    if action == "delete":
+        await ym.delete_playlist(kind)  # type: ignore[arg-type]
+        return {"action": "delete", "kind": kind}
+
+    if action == "add_tracks":
+        result = await ym.add_tracks_to_playlist(
+            kind,
+            track_ids,
+            revision,  # type: ignore[arg-type]
+        )
+        return {"action": "add_tracks", "kind": kind, "result": result}
+
+    if action == "remove_tracks":
+        # remove_tracks expects index range, not track IDs
+        # For simplicity, treat track_ids as indices to remove (one at a time)
+        raise ToolError(
+            "remove_tracks requires from_idx/to_idx — use the YM API directly or "
+            "sync_playlist tool for managed removal"
+        )
+
+    raise ToolError("Unreachable")
 
 
 # ── 6. ym_likes ───────────────────────────────────
@@ -181,6 +214,7 @@ async def ym_playlists(
 async def ym_likes(
     action: str = "get_liked",
     track_ids: list[str] | None = None,
+    ym: YandexMusicClient = Depends(get_ym_client),  # noqa: B008
     ctx: Context | None = None,
 ) -> dict[str, Any]:
     """Consolidated likes operations on Yandex Music.
@@ -195,11 +229,16 @@ async def ym_likes(
     if action in ("add", "remove") and not track_ids:
         raise ToolError(f"track_ids required for action '{action}'")
 
-    # Stub — real implementation needs YM client from lifespan
-    return {
-        "action": action,
-        "track_ids": track_ids,
-        "liked_ids": [] if action == "get_liked" else None,
-        "success": None if action == "get_liked" else False,
-        "note": "Stub — configure DJ_YM_TOKEN for real results",
-    }
+    if action == "get_liked":
+        liked = await ym.get_liked_ids()
+        return {"action": "get_liked", "liked_ids": liked, "count": len(liked)}
+
+    if action == "add":
+        await ym.add_likes(track_ids)  # type: ignore[arg-type]
+        return {"action": "add", "track_ids": track_ids, "success": True}
+
+    if action == "remove":
+        await ym.remove_likes(track_ids)  # type: ignore[arg-type]
+        return {"action": "remove", "track_ids": track_ids, "success": True}
+
+    raise ToolError("Unreachable")

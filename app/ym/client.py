@@ -89,10 +89,18 @@ class YandexMusicClient:
         Response structure: {"result": {"tracks": {"results": [...]}, ...}}
         When `type` is specified, only that section is populated.
         """
+        # YM API uses singular type names (track, album, artist, playlist)
+        type_map = {
+            "tracks": "track",
+            "albums": "album",
+            "artists": "artist",
+            "playlists": "playlist",
+        }
+        api_type = type_map.get(type, type)
         data = await self._request(
             "GET",
             "/search",
-            params={"text": query, "type": type, "page": 0, "pageSize": limit},
+            params={"text": query, "type": api_type, "page": 0, "page-size": limit},
         )
         result = data.get("result", {})
 
