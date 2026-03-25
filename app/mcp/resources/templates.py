@@ -231,11 +231,14 @@ async def playlist_status(
     return json.dumps(data, indent=2)
 
 
-# NOTE: catalog://stats{?mood,bpm_min,bpm_max} is exposed via get_library_stats tool
-# instead of resource, because FastMCP doesn't support query params in resource URIs.
-# Keeping the function for potential future use.
-
-
+@resource(
+    uri="catalog://stats{?mood,bpm_min,bpm_max}",
+    name="Catalog Statistics",
+    description="Filtered catalog statistics with optional mood and BPM range filters",
+    mime_type="application/json",
+    tags={"core"},
+    annotations={"readOnlyHint": True},
+)
 async def catalog_stats(
     mood: Annotated[TechnoSubgenre | None, "Filter by mood/subgenre"] = None,
     bpm_min: Annotated[float | None, "Minimum BPM"] = None,

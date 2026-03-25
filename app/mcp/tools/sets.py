@@ -26,6 +26,7 @@ async def build_set(
     """Build optimized DJ set from playlist. Supports greedy or GA algorithm."""
     if ctx:
         await ctx.info(f"Building set '{name}' from playlist {playlist_id}...")
+        await ctx.report_progress(0, 3)
 
     async with get_db_session() as session:
         TrackRepository(session)
@@ -49,6 +50,7 @@ async def build_set(
 
         if ctx:
             await ctx.info(f"Found {len(track_ids)} tracks, building order...")
+            await ctx.report_progress(1, 3)
 
         # For now: use playlist order as-is (GA/greedy will be in Sub-Project #6)
         # Create set and version
@@ -77,6 +79,7 @@ async def build_set(
 
             if ctx:
                 await ctx.info(f"Set created: {dj_set.id}, version: {version.id}")
+                await ctx.report_progress(3, 3)
 
             return {
                 "set_id": dj_set.id,

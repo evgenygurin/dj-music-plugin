@@ -78,7 +78,14 @@ async def analyze_batch(
 
     total = len(track_ids) if track_ids else 0
 
+    if ctx:
+        await ctx.report_progress(0, total or 1)
+        await ctx.info(f"Batch analysis requested: {total} tracks, priority={priority}")
+
     # Stub — real implementation needs audio files + pipeline
+    if ctx:
+        await ctx.report_progress(total or 1, total or 1)
+
     return {
         "track_ids": track_ids,
         "playlist_id": playlist_id,

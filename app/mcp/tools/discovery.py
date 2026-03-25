@@ -320,6 +320,10 @@ async def expand_playlist_ym(
     One-call orchestrator: fetches seeds → finds similar → filters → adds to playlist.
     Or use find_similar_tracks + filter_by_feedback + ym_playlists separately for full control.
     """
+    import time as _time
+
+    _t0 = _time.monotonic()
+
     # 1. Fetch current playlist
     if ctx:
         await ctx.info("Fetching playlist tracks...")
@@ -447,7 +451,12 @@ async def expand_playlist_ym(
                 await ctx.warning(f"Batch failed: {e}")
             break
 
-    return {
+    elapsed_ms = int((_time.monotonic() - _t0) * 1000)
+
+    from fastmcp.tools.tool import ToolResult
+    from mcp.types import TextContent
+
+    data = {
         "playlist_kind": ym_playlist_kind,
         "before_count": len(current),
         "after_count": len(current) + added,
@@ -457,3 +466,17 @@ async def expand_playlist_ym(
         "blocked_disliked": blocked_count,
         "sample_tracks": to_add[:20],
     }
+
+    return ToolResult(
+        content=[
+            TextContent(
+                type="text", text=f"Added {added} tracks ({len(current)}→{len(current) + added})"
+            )
+        ],
+        structured_content=data,
+        meta={
+            "execution_time_ms": elapsed_ms,
+            "seeds_used": len(seeds),
+            "ym_api_calls": len(seeds) + 2,
+        },
+    )
