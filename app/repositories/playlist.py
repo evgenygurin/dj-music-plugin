@@ -35,6 +35,20 @@ class PlaylistRepository(BaseRepository[Playlist]):
         await self.session.flush()
         return item
 
+    async def get_track_ids(self, playlist_id: int) -> list[int]:
+        """Return ordered track IDs for a playlist.
+
+        Commonly used by tools to get the track pool for scoring,
+        classification, and set building.
+        """
+        stmt = (
+            select(PlaylistItem.track_id)
+            .where(PlaylistItem.playlist_id == playlist_id)
+            .order_by(PlaylistItem.sort_index)
+        )
+        result = await self.session.execute(stmt)
+        return [r[0] for r in result.all()]
+
     async def remove_track(self, playlist_id: int, position: int) -> bool:
         """Remove a playlist item by its sort_index. Returns ``True`` if found."""
         stmt = select(PlaylistItem).where(
