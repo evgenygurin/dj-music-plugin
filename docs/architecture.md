@@ -19,7 +19,7 @@
 │  ┌──────▼──────────────────────────────────────────────────┐│
 │  │              FileSystemProvider (auto-discover)          ││
 │  │  ┌──────────┐  ┌────────────┐  ┌──────────────────────┐││
-│  │  │ 44 Tools │  │ 9 Resources│  │ 5 Workflow Prompts   │││
+│  │  │ 50 Tools │  │ 9 Resources│  │ 5 Workflow Prompts   │││
 │  │  └────┬─────┘  └──────┬─────┘  └──────────────────────┘││
 │  └───────┼───────────────┼─────────────────────────────────┘│
 └──────────┼───────────────┼──────────────────────────────────┘
@@ -63,7 +63,7 @@ External:
 
 ```text
 1. Client sends tool call → FastMCP
-2. Middleware pipeline: log → timing → rate limit → response limit
+2. Middleware pipeline: log → timing → rate limit → response limit → retry → error masking
 3. FastMCP resolves tool via FileSystemProvider
 4. DI chain activates:
    get_db_session() → get_*_repo() → get_*_service()
@@ -87,3 +87,5 @@ External:
 | Pydantic models for tool returns | Automatic structuredContent, type-safe, self-documenting |
 | Settings class over raw env vars | Type-checked, documented defaults, testable overrides |
 | Visibility tiers over all-tools-visible | ~5K tokens in context vs ~9K, better Claude accuracy |
+| TrackFeatures.from_db() classmethod | Single source of truth for DB→dataclass mapping, eliminates field copy-paste |
+| FeatureRepository batch methods | N SQL queries → 1 for scoring/optimization loops |

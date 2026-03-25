@@ -109,6 +109,21 @@ Compatible transitions (distance ≤ 1):
 - ±1 on wheel: 8A → 7A, 8A → 9A (adjacent keys)
 - A↔B same number: 8A → 8B (relative major/minor)
 
+## Feature Loading
+
+`TrackFeatures.from_db(row)` classmethod constructs the dataclass from a `TrackAudioFeaturesComputed` DB row — single source of truth for field mapping.
+
+```python
+# Single track
+feat = await feat_repo.get_scoring_features(track_id)   # returns TrackFeatures | None
+
+# Batch (N SQL → 1 SQL) — use in loops
+features_map = await feat_repo.get_scoring_features_batch(track_ids)
+feat = features_map.get(tid, TrackFeatures())  # default empty if no features
+```
+
+Both methods live in `app/repositories/feature.py`.
+
 ## Transition Cache
 
 LRU cache for computed scores:

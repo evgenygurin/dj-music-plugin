@@ -1,111 +1,152 @@
 # MCP Tool Catalog
 
-Quick reference for all 44 tools. Full details in design spec §4.
+Quick reference for all 50 tools (46 visible + 4 atomic hidden).
 
-## Core Tools (always visible)
+## Core Tools (always visible — 23 tools)
 
-### CRUD (10 tools, tag: `core`)
+### CRUD — Tracks (4 tools, tag: `core`, file: `tracks.py`)
 
-| Tool | Params | Returns | RO |
-|------|--------|---------|-----|
-| `list_tracks` | playlist_id?, mood?, bpm_min/max?, key?, status?, sort_by, detail, cursor, limit | PaginatedResult[TrackBrief] | yes |
-| `get_track` | id?, query?, ym_id?, view, include_transitions? | TrackFull | yes |
-| `manage_tracks` | action(create\|update\|archive\|unarchive), data? | TrackStandard | no |
-| `list_playlists` | source?, parent_id?, cursor, limit | PaginatedResult[PlaylistSummary] | yes |
-| `get_playlist` | id?, query?, include_tracks?, view | PlaylistDetail | yes |
-| `manage_playlist` | action(create\|update\|delete\|add_tracks\|remove_tracks\|reorder), data?, track_refs?, positions? | PlaylistSummary | no |
-| `list_sets` | template?, cursor, limit | PaginatedResult[SetSummary] | yes |
-| `get_set` | id?, query?, version?, view(summary\|tracks\|transitions\|full) | SetView | yes |
-| `manage_set` | action(create\|update\|delete\|add_constraint\|remove_constraint\|add_feedback), data? | SetSummary | no |
-| `get_track_features` | id?, query?, include_sections?, include_timeseries? | AudioFeaturesSummary | yes |
+| Tool | Params | RO |
+|------|--------|-----|
+| `list_tracks` | limit, cursor, bpm_min/max? | yes |
+| `get_track` | id?, query? | yes |
+| `manage_tracks` | action(create\|update\|archive\|unarchive), data? | no |
+| `get_track_features` | id?, query?, include_sections? | yes |
 
-### Search (2 tools, tag: `core`)
+### CRUD — Playlists (3 tools, tag: `core`, file: `playlists.py`)
 
-| Tool | Params | Returns | RO |
-|------|--------|---------|-----|
-| `search` | query, entity(tracks\|artists\|playlists\|sets\|all), limit | SearchResults | yes |
-| `filter_tracks` | bpm_min/max?, key?, key_compatible?, energy_min/max?, mood?, centroid_min/max?, has_features?, exclude_set_id?, sort_by, limit, cursor | PaginatedResult[TrackStandard] | yes |
+| Tool | Params | RO |
+|------|--------|-----|
+| `list_playlists` | source?, limit, cursor | yes |
+| `get_playlist` | id?, query?, include_tracks? | yes |
+| `manage_playlist` | action(create\|update\|delete\|add_tracks\|remove_tracks\|reorder), data?, track_refs?, positions? | no |
 
-### Set Building (4 tools, tag: `sets`)
+### CRUD — Sets (3 tools, tag: `core`, file: `crud.py`)
 
-| Tool | Params | Returns | RO |
-|------|--------|---------|-----|
-| `build_set` | playlist_id?, playlist_query?, name, template?, target_duration_min?, bpm_min/max?, algorithm, pinned_tracks?, excluded_tracks?, dry_run? | SetBuildResult | no |
-| `rebuild_set` | set_id, pin_tracks?, unpin_tracks?, exclude_tracks?, include_tracks?, swap?, algorithm, version_label? | SetBuildResult | no |
-| `score_transitions` | mode(set\|pair\|track_candidates), set_id?, from_track_id?, to_track_id?, track_id?, top_n? | varies by mode | yes |
-| `get_set_cheat_sheet` | set_id, version? | str (formatted text) | yes |
+| Tool | Params | RO |
+|------|--------|-----|
+| `list_sets` | template?, limit, cursor | yes |
+| `get_set` | id?, query?, view(summary\|tracks\|transitions\|full) | yes |
+| `manage_set` | action(create\|update\|delete\|add_constraint\|remove_constraint\|add_feedback), data? | no |
 
-### Set Reasoning (5 tools, tag: `sets`)
+### Search (2 tools, tag: `core`, file: `search.py`)
 
-| Tool | Params | Returns | RO |
-|------|--------|---------|-----|
-| `suggest_next_track` | set_id, after_position, pool?, count?, prefer_mood?, energy_direction? | list[NextTrackSuggestion] | yes |
-| `explain_transition` | from_track_id, to_track_id | TransitionExplanation | yes |
-| `find_replacement` | set_id, position, pool?, count?, constraints? | list[ReplacementCandidate] | yes |
-| `compare_set_versions` | set_id, version_a?, version_b? | VersionComparison | yes |
-| `quick_set_review` | set_id, version? | QuickSetReview | yes |
+| Tool | Params | RO |
+|------|--------|-----|
+| `search` | query, entity(tracks\|artists\|playlists\|sets\|all), limit | yes |
+| `filter_tracks` | bpm_min/max?, key?, energy_min/max?, mood?, sort_by, limit, cursor | yes |
 
-### Admin (2 tools, tag: `admin`)
+### Set Building (4 tools, tag: `sets`, file: `sets.py`)
 
-| Tool | Params | Returns | RO |
-|------|--------|---------|-----|
-| `unlock_tools` | action(unlock\|lock\|status), category? | VisibilityStatus | no |
-| `list_platforms` | — | list[Platform] | yes |
+| Tool | Params | RO | Timeout |
+|------|--------|----|---------|
+| `build_set` | playlist_id, name, template?, algorithm(greedy\|ga), dry_run? | no | 120s |
+| `rebuild_set` | set_id, pin/unpin/exclude/include/swap?, algorithm, version_label? | no | 120s |
+| `score_transitions` | mode(set\|pair\|track_candidates), set_id?, from/to_track_id?, top_n? | no | — |
+| `get_set_cheat_sheet` | set_id, version? | yes | — |
 
-## Extended Tools (unlock per category)
+### Set Reasoning (5 tools, tag: `sets`, file: `reasoning.py`)
 
-### Delivery & Export (2 tools, tag: `delivery`)
+| Tool | Params | RO |
+|------|--------|-----|
+| `suggest_next_track` | set_id, after_position, count?, prefer_mood?, energy_direction? | yes |
+| `explain_transition` | from_track_id, to_track_id | yes |
+| `find_replacement` | set_id, position, count? | yes |
+| `compare_set_versions` | set_id, version_a?, version_b? | yes |
+| `quick_set_review` | set_id | yes |
 
-| Tool | Params | Returns | Timeout |
-|------|--------|---------|---------|
-| `deliver_set` | set_id, version?, output_dir?, copy_files?, sync_to_ym?, formats?, dry_run? | DeliveryResult | 300s |
-| `export_set` | set_id, format, output_path?, rekordbox_options? | ExportResult | — |
+### Admin (2 tools, tag: `admin`, file: `admin.py`)
 
-### Discovery & Download (3 tools, tag: `discovery`)
+| Tool | Params | RO |
+|------|--------|-----|
+| `unlock_tools` | action(unlock\|lock\|status), category? | no |
+| `list_platforms` | — | yes |
 
-| Tool | Params | Returns | Timeout |
-|------|--------|---------|---------|
-| `find_similar_tracks` | track_id, strategy?, limit?, bpm_tolerance?, key_compatible? | list[SimilarTrack] | — |
-| `import_tracks` | track_refs, playlist_id?, auto_analyze? | ImportResult | — |
-| `download_tracks` | track_refs, target_dir?, skip_existing? | DownloadResult | 300s |
+## Extended Tools (unlock per category — 20 tools)
 
-### Curation (5 tools, tag: `curation`)
+### Delivery & Export (2 tools, tag: `delivery`, file: `delivery.py`)
 
-| Tool | Params | Returns | RO |
-|------|--------|---------|-----|
-| `classify_mood` | track_ids?\|playlist_id?, reclassify? | ClassificationResult | yes |
-| `audit_playlist` | playlist_id?, playlist_query?, check?, template? | AuditReport | yes |
-| `review_set_quality` | set_id, version? | SetQualityReport | yes |
-| `distribute_to_subgenres` | source_playlist_id?, mode?, sync_to_ym?, dry_run? | DistributionResult | no |
-| `get_library_stats` | — | LibraryStats | yes |
+| Tool | Params | Timeout |
+|------|---------|---------|
+| `deliver_set` | set_id, version?, output_dir?, copy_files?, sync_to_ym?, formats?, dry_run? | 300s |
+| `export_set` | set_id, format, output_path?, rekordbox_options? | — |
 
-### Sync (2 tools, tag: `sync`)
+### Discovery & Download (5 tools, tag: `discovery`)
 
-| Tool | Params | Returns | RO |
-|------|--------|---------|-----|
-| `sync_playlist` | playlist_id, direction?, conflict_strategy?, dry_run? | SyncResult | no |
-| `push_set_to_ym` | set_id, ym_playlist_name?, mode? | PushResult | no |
+| Tool | File | Params | RO |
+|------|------|--------|-----|
+| `find_similar_tracks` | discovery.py | track_id, strategy?, limit?, bpm_tolerance?, key_compatible? | yes |
+| `expand_playlist_ym` | discovery.py | playlist_id, target_count?, strategy? | no |
+| `filter_by_feedback` | discovery.py | playlist_id?, liked_only? | yes |
+| `import_tracks` | import_download.py | track_refs, playlist_id?, auto_analyze? | no |
+| `download_tracks` | import_download.py | track_refs, target_dir?, skip_existing? | no |
 
-### YM API (6 tools, tag: `ym`)
+### Curation (5 tools, tag: `curation`, file: `curation.py`)
 
-| Tool | Params | Returns | RO |
-|------|--------|---------|-----|
-| `ym_search` | query, type?, limit? | YMSearchResults | yes |
-| `ym_get_tracks` | track_ids | list[YMTrack] | yes |
-| `ym_get_album` | album_id, include_tracks? | YMAlbum | yes |
-| `ym_artist_tracks` | artist_id, page?, sort_by? | YMArtistTracks | yes |
-| `ym_playlists` | action(get\|list\|create\|rename\|delete\|add_tracks\|remove_tracks), params... | varies | varies |
-| `ym_likes` | action(get_liked\|add\|remove), track_ids? | varies | varies |
+| Tool | Params | RO |
+|------|--------|-----|
+| `classify_mood` | track_ids?\|playlist_id?, reclassify? | no |
+| `audit_playlist` | playlist_id?, playlist_query?, check?, template? | yes |
+| `review_set_quality` | set_id, version? | yes |
+| `distribute_to_subgenres` | source_playlist_id?, mode?, sync_to_ym?, dry_run? | no |
+| `get_library_stats` | — | yes |
 
-## Hidden Tools (explicit unlock required)
+### Sync (2 tools, tag: `sync`, file: `sync.py`)
 
-### Audio Analysis (3 tools, tag: `audio`)
+| Tool | Params | RO |
+|------|--------|-----|
+| `sync_playlist` | playlist_id, direction?, conflict_strategy?, dry_run? | no |
+| `push_set_to_ym` | set_id, ym_playlist_name?, mode? | no |
 
-| Tool | Params | Returns | Timeout |
-|------|--------|---------|---------|
-| `analyze_track` | track_id?, track_query?, analyzers?, force? | AnalysisResult | 120s |
-| `analyze_batch` | track_ids?\|playlist_id?, analyzers?, priority? | BatchAnalysisResult | 600s |
-| `separate_stems` | track_id?, track_query?, stems? | StemResult | 300s |
+### YM API (6 tools, tag: `ym`, file: `ym.py`)
+
+| Tool | Params | RO |
+|------|--------|-----|
+| `ym_search` | query, type?, limit? | yes |
+| `ym_get_tracks` | track_ids | yes |
+| `ym_get_album` | album_id, include_tracks? | yes |
+| `ym_artist_tracks` | artist_id, page?, sort_by? | yes |
+| `ym_playlists` | action(get\|list\|create\|rename\|delete\|add_tracks\|remove_tracks) | varies |
+| `ym_likes` | action(get_liked\|add\|remove), track_ids? | varies |
+
+## Hidden Tools (explicit unlock required — 7 tools)
+
+### Audio Analysis (3 tools, tag: `audio`, file: `audio.py`)
+
+| Tool | Params | Timeout |
+|------|---------|---------|
+| `analyze_track` | track_id?, track_query?, analyzers?, force? | 120s |
+| `analyze_batch` | track_ids?\|playlist_id?, analyzers?, priority? | 600s |
+| `separate_stems` | track_id?, track_query?, stems? | 300s |
+
+### Atomic (4 tools, tag: `atomic`, file: `audio_atomic.py`)
+
+Low-level building blocks used by composite tools. Not intended for direct use.
+
+| Tool | Params | RO |
+|------|--------|-----|
+| `analyze_one_track` | track_id | no |
+| `classify_one_track` | track_id | no |
+| `gate_one_track` | track_id | yes |
+| `get_similar_one_track` | track_id, limit? | yes |
+
+## Summary
+
+| Category | Count | Tag | Visibility |
+|----------|-------|-----|-----------|
+| CRUD (tracks + playlists + sets) | 10 | `core` | Always |
+| Search | 2 | `core` | Always |
+| Set Building | 4 | `sets` | Always |
+| Set Reasoning | 5 | `sets` | Always |
+| Admin | 2 | `admin` | Always |
+| Delivery & Export | 2 | `delivery` | Extended |
+| Discovery & Download | 5 | `discovery` | Extended |
+| Curation | 5 | `curation` | Extended |
+| Sync | 2 | `sync` | Extended |
+| YM API | 6 | `ym` | Extended |
+| Audio Analysis | 3 | `audio` | Hidden |
+| Atomic | 4 | `atomic` | Hidden |
+| **Total** | **50** | | |
 
 ## Legend
 

@@ -5,13 +5,11 @@
 Plugin-based architecture: analyzers register themselves with capabilities and required dependencies.
 
 ```text
-AnalyzerRegistry
+AnalyzerRegistry (7 implemented)
 ├── core (always available, pure Python + numpy)
 │   ├── LoudnessAnalyzer    → integrated_lufs, short_term, momentary, rms, peak, crest, LRA
 │   ├── EnergyAnalyzer      → mean, max, std, slope, 7-band breakdown, ratios
-│   ├── SpectralAnalyzer    → centroid, rolloff, flatness, flux, slope, contrast, HNR
-│   ├── GrooveAnalyzer      → rhythmic complexity, swing metrics
-│   └── StructureAnalyzer   → section boundaries (intro, drop, breakdown, outro, ...)
+│   └── SpectralAnalyzer    → centroid, rolloff, flatness, flux, slope, contrast, HNR
 │
 ├── librosa (requires [audio] extra)
 │   ├── BPMDetector         → bpm, confidence, stability, variable_tempo
@@ -19,7 +17,11 @@ AnalyzerRegistry
 │   ├── BeatDetector        → beat positions, onset_rate, pulse_clarity, kick_prominence, hp_ratio
 │   └── MFCCExtractor       → 13-coefficient vector
 │
-└── ml (requires [stems] extra)
+├── NOT YET IMPLEMENTED (planned)
+│   ├── GrooveAnalyzer      → rhythmic complexity, swing metrics
+│   └── StructureAnalyzer   → section boundaries (intro, drop, breakdown, outro, ...)
+│
+└── NOT YET IMPLEMENTED (planned, requires [stems] extra)
     └── StemSeparator       → vocals, drums, bass, other (demucs/htdemucs)
 ```
 
@@ -111,8 +113,8 @@ Key discriminating features:
 
 | Extra | Packages | Enables |
 |-------|----------|---------|
-| (none) | numpy | Core analyzers (loudness, energy, spectral, groove, structure) |
-| `[audio]` | librosa, soundfile | BPM, key, beat, MFCC detection |
-| `[stems]` | demucs, torch | Stem separation (vocals, drums, bass, other) |
+| (none) | numpy | Core analyzers: loudness, energy, spectral (3 implemented) |
+| `[audio]` | librosa, soundfile | BPM, key, beat, MFCC detection (4 implemented) |
+| `[stems]` | demucs, torch | Stem separation — NOT YET IMPLEMENTED |
 
 Install: `uv sync --extra audio` or `uv sync --all-extras`
