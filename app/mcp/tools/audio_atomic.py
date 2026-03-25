@@ -291,7 +291,15 @@ async def get_similar_one_track(
     ctx: Context | None = None,
 ) -> dict[str, Any]:
     """Get similar tracks from YM for ONE track ID. Raw YM API with filters."""
-    from app.mcp.tools.discovery import _genre_ok, _is_excluded, _ym_track_dict
+    from app.core.schemas import (
+        genre_ok as _genre_ok,
+    )
+    from app.core.schemas import (
+        is_excluded_title as _is_excluded,
+    )
+    from app.core.schemas import (
+        ym_track_summary as _ym_track_dict,
+    )
 
     raw_similar = await ym.get_similar(ym_track_id)
 
