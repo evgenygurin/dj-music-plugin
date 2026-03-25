@@ -7,6 +7,7 @@ from typing import Any
 from fastmcp.dependencies import Depends
 from fastmcp.exceptions import ToolError
 from fastmcp.server.context import Context
+from fastmcp.tools import tool
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
@@ -15,13 +16,12 @@ from app.mcp.dependencies import get_db_session, get_ym_client
 from app.models.playlist import Playlist, PlaylistItem
 from app.models.set import DjSet, SetVersion
 from app.models.track import Track, TrackExternalId
-from app.server import mcp
 from app.ym.client import YandexMusicClient
 
 # ── 1. sync_playlist ───────────────────────────────
 
 
-@mcp.tool(
+@tool(
     tags={"sync"},
     annotations={"readOnlyHint": False, "openWorldHint": True},
 )
@@ -160,7 +160,7 @@ async def sync_playlist(
 # ── 2. push_set_to_ym ─────────────────────────────
 
 
-@mcp.tool(
+@tool(
     tags={"sync"},
     annotations={"readOnlyHint": False, "openWorldHint": True},
 )

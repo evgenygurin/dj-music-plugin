@@ -90,9 +90,7 @@ def test_prompt_functions_have_mcp_decorator():
                 elif isinstance(dec, ast.Name):
                     decorator_names.append(dec.id)
 
-            assert "mcp.prompt" in decorator_names, (
-                f"Function {node.name} missing @mcp.prompt decorator"
-            )
+            assert "prompt" in decorator_names, f"Function {node.name} missing @prompt decorator"
 
 
 def test_prompt_return_annotations():
@@ -208,10 +206,10 @@ def test_imports_mcp_server():
 
     has_mcp_import = False
     for node in ast.walk(tree):
-        if isinstance(node, ast.ImportFrom) and node.module == "app.server":
+        if isinstance(node, ast.ImportFrom) and node.module == "fastmcp.prompts":
             names = [alias.name for alias in node.names]
-            if "mcp" in names:
+            if "prompt" in names:
                 has_mcp_import = True
                 break
 
-    assert has_mcp_import, "Missing 'from app.server import mcp'"
+    assert has_mcp_import, "Missing 'from fastmcp.prompts import prompt'"

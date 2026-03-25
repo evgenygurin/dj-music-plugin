@@ -7,15 +7,15 @@ from typing import Any
 from fastmcp.dependencies import Depends
 from fastmcp.exceptions import ToolError
 from fastmcp.server.context import Context
+from fastmcp.tools import tool
 
 from app.mcp.dependencies import get_ym_client
-from app.server import mcp
 from app.ym.client import YandexMusicClient
 
 # ── 1. ym_search ───────────────────────────────────
 
 
-@mcp.tool(
+@tool(
     tags={"ym"},
     annotations={"readOnlyHint": True, "openWorldHint": True},
 )
@@ -48,7 +48,7 @@ async def ym_search(
 # ── 2. ym_get_tracks ──────────────────────────────
 
 
-@mcp.tool(
+@tool(
     tags={"ym"},
     annotations={"readOnlyHint": True, "openWorldHint": True},
 )
@@ -73,7 +73,7 @@ async def ym_get_tracks(
 # ── 3. ym_get_album ───────────────────────────────
 
 
-@mcp.tool(
+@tool(
     tags={"ym"},
     annotations={"readOnlyHint": True, "openWorldHint": True},
 )
@@ -94,7 +94,7 @@ async def ym_get_album(
 # ── 4. ym_artist_tracks ───────────────────────────
 
 
-@mcp.tool(
+@tool(
     tags={"ym"},
     annotations={"readOnlyHint": True, "openWorldHint": True},
 )
@@ -126,7 +126,7 @@ async def ym_artist_tracks(
 # ── 5. ym_playlists ───────────────────────────────
 
 
-@mcp.tool(
+@tool(
     tags={"ym"},
     annotations={"openWorldHint": True},
 )
@@ -207,7 +207,7 @@ async def ym_playlists(
 # ── 6. ym_likes ───────────────────────────────────
 
 
-@mcp.tool(
+@tool(
     tags={"ym"},
     annotations={"openWorldHint": True},
 )

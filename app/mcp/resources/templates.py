@@ -13,6 +13,7 @@ import json
 from typing import Annotated
 
 from fastmcp.dependencies import Depends
+from fastmcp.resources import resource
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -23,10 +24,9 @@ from app.models.audio import TrackAudioFeaturesComputed
 from app.models.playlist import Playlist
 from app.models.set import DjSet, SetVersion
 from app.models.track import Track
-from app.server import mcp
 
 
-@mcp.resource(
+@resource(
     uri="track://{track_id}/features",
     name="Track Audio Features",
     description="Audio features summary for a specific track",
@@ -112,7 +112,7 @@ async def track_features(
     return json.dumps(data, indent=2)
 
 
-@mcp.resource(
+@resource(
     uri="set://{set_id}/summary",
     name="DJ Set Summary",
     description="Latest version summary for a specific DJ set",
@@ -188,7 +188,7 @@ async def set_summary(
     return json.dumps(data, indent=2)
 
 
-@mcp.resource(
+@resource(
     uri="playlist://{playlist_id}/status",
     name="Playlist Status",
     description="Status information for a specific playlist",

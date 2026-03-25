@@ -4,12 +4,10 @@ These prompts guide Claude through complex workflows by providing
 structured conversation starters with context and instructions.
 """
 
-from fastmcp.prompts import Message
-
-from app.server import mcp
+from fastmcp.prompts import Message, prompt
 
 
-@mcp.prompt
+@prompt
 def build_set_workflow(
     playlist_name: str,
     template: str = "classic_60",
@@ -56,7 +54,7 @@ Report progress and findings after each step."""
     ]
 
 
-@mcp.prompt
+@prompt
 def expand_playlist_workflow(
     playlist_name: str,
     target_count: int = 100,
@@ -100,7 +98,7 @@ any gaps remaining) after each step."""
     ]
 
 
-@mcp.prompt
+@prompt
 def improve_set_workflow(
     set_name: str,
 ) -> list[Message]:
@@ -155,7 +153,7 @@ Report score improvements and specific transition fixes after each rebuild."""
     ]
 
 
-@mcp.prompt
+@prompt
 def deliver_set_workflow(
     set_name: str,
     sync_ym: bool = False,
@@ -218,7 +216,7 @@ Report the output directory path and any warnings."""
     ]
 
 
-@mcp.prompt
+@prompt
 def full_expansion_pipeline(
     source_playlist: str,
     target_per_subgenre: int = 50,

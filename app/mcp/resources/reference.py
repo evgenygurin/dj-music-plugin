@@ -10,11 +10,12 @@ from __future__ import annotations
 
 import json
 
+from fastmcp.resources import resource
+
 from app.core.constants import CAMELOT_KEYS, SetTemplate, TechnoSubgenre
-from app.server import mcp
 
 
-@mcp.resource(
+@resource(
     uri="reference://camelot",
     name="Camelot Wheel Reference",
     description="24 musical keys in Camelot notation with harmonic compatibility rules",
@@ -77,7 +78,7 @@ async def camelot_reference() -> str:
     return json.dumps(data, indent=2)
 
 
-@mcp.resource(
+@resource(
     uri="reference://templates",
     name="DJ Set Templates",
     description="8 pre-defined DJ set templates with energy arcs and slot definitions",
@@ -198,7 +199,7 @@ async def templates_reference() -> str:
     return json.dumps(data, indent=2)
 
 
-@mcp.resource(
+@resource(
     uri="reference://subgenres",
     name="Techno Subgenres",
     description="15 techno subgenres ordered by energy intensity with descriptions",

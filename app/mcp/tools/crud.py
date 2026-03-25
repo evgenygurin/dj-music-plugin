@@ -6,6 +6,7 @@ from typing import Any
 
 from fastmcp.exceptions import ToolError
 from fastmcp.server.context import Context
+from fastmcp.tools import tool
 from sqlalchemy import func, select
 from sqlalchemy.orm import selectinload
 
@@ -24,7 +25,6 @@ from app.models.track import Track
 from app.repositories.playlist import PlaylistRepository
 from app.repositories.set import SetRepository
 from app.repositories.track import TrackRepository
-from app.server import mcp
 
 # ── Helpers ──────────────────────────────────────────
 
@@ -92,7 +92,7 @@ def _set_summary(s: DjSet, version: SetVersion | None = None) -> dict[str, Any]:
 # ── 1. list_tracks ──────────────────────────────────
 
 
-@mcp.tool(tags={"core"}, annotations={"readOnlyHint": True})
+@tool(tags={"core"}, annotations={"readOnlyHint": True})
 async def list_tracks(
     limit: int = 20,
     cursor: str | None = None,
@@ -136,7 +136,7 @@ async def list_tracks(
 # ── 2. get_track ────────────────────────────────────
 
 
-@mcp.tool(tags={"core"}, annotations={"readOnlyHint": True})
+@tool(tags={"core"}, annotations={"readOnlyHint": True})
 async def get_track(
     id: int | None = None,
     query: str | None = None,
@@ -172,7 +172,7 @@ async def get_track(
 # ── 3. manage_tracks ────────────────────────────────
 
 
-@mcp.tool(tags={"core"}, annotations={"readOnlyHint": False})
+@tool(tags={"core"}, annotations={"readOnlyHint": False})
 async def manage_tracks(
     action: str,
     data: dict[str, Any] | None = None,
@@ -225,7 +225,7 @@ async def manage_tracks(
 # ── 4. list_playlists ───────────────────────────────
 
 
-@mcp.tool(tags={"core"}, annotations={"readOnlyHint": True})
+@tool(tags={"core"}, annotations={"readOnlyHint": True})
 async def list_playlists(
     source: str | None = None,
     limit: int = 20,
@@ -260,7 +260,7 @@ async def list_playlists(
 # ── 5. get_playlist ─────────────────────────────────
 
 
-@mcp.tool(tags={"core"}, annotations={"readOnlyHint": True})
+@tool(tags={"core"}, annotations={"readOnlyHint": True})
 async def get_playlist(
     id: int | None = None,
     query: str | None = None,
@@ -310,7 +310,7 @@ async def get_playlist(
 # ── 6. manage_playlist ──────────────────────────────
 
 
-@mcp.tool(tags={"core"}, annotations={"readOnlyHint": False})
+@tool(tags={"core"}, annotations={"readOnlyHint": False})
 async def manage_playlist(
     action: str,
     data: dict[str, Any] | None = None,
@@ -405,7 +405,7 @@ async def manage_playlist(
 # ── 7. list_sets ────────────────────────────────────
 
 
-@mcp.tool(tags={"core"}, annotations={"readOnlyHint": True})
+@tool(tags={"core"}, annotations={"readOnlyHint": True})
 async def list_sets(
     template: str | None = None,
     limit: int = 20,
@@ -445,7 +445,7 @@ async def list_sets(
 # ── 8. get_set ──────────────────────────────────────
 
 
-@mcp.tool(tags={"core"}, annotations={"readOnlyHint": True})
+@tool(tags={"core"}, annotations={"readOnlyHint": True})
 async def get_set(
     id: int | None = None,
     query: str | None = None,
@@ -505,7 +505,7 @@ async def get_set(
 # ── 9. manage_set ───────────────────────────────────
 
 
-@mcp.tool(tags={"core"}, annotations={"readOnlyHint": False})
+@tool(tags={"core"}, annotations={"readOnlyHint": False})
 async def manage_set(
     action: str,
     data: dict[str, Any] | None = None,
@@ -609,7 +609,7 @@ async def manage_set(
 # ── 10. get_track_features ──────────────────────────
 
 
-@mcp.tool(tags={"core"}, annotations={"readOnlyHint": True})
+@tool(tags={"core"}, annotations={"readOnlyHint": True})
 async def get_track_features(
     id: int | None = None,
     query: str | None = None,

@@ -16,13 +16,13 @@ from typing import Any
 from fastmcp.dependencies import Depends
 from fastmcp.exceptions import ToolError
 from fastmcp.server.context import Context
+from fastmcp.tools import tool
 from sqlalchemy import select
 
 from app.config import settings
 from app.mcp.dependencies import get_db_session, get_ym_client
 from app.models.track import Track, TrackExternalId
 from app.repositories.track import TrackRepository
-from app.server import mcp
 from app.ym.client import YandexMusicClient
 
 # ── Helpers ──────────────────────────────────────────
@@ -74,7 +74,7 @@ def _ym_track_dict(track: Any) -> dict[str, Any]:
 # ── 1. find_similar_tracks ──────────────────────────
 
 
-@mcp.tool(
+@tool(
     tags={"discovery"},
     annotations={"readOnlyHint": True, "openWorldHint": True},
 )
@@ -168,7 +168,7 @@ async def find_similar_tracks(
 # ── 2. filter_by_feedback ────────────────────────────
 
 
-@mcp.tool(
+@tool(
     tags={"discovery"},
     annotations={"readOnlyHint": True, "openWorldHint": True},
 )
@@ -222,7 +222,7 @@ async def filter_by_feedback(
 # ── 3. expand_playlist_ym ───────────────────────────
 
 
-@mcp.tool(
+@tool(
     tags={"discovery"},
     annotations={"readOnlyHint": False, "openWorldHint": True},
     timeout=600.0,
@@ -376,7 +376,7 @@ async def expand_playlist_ym(
 # ── 4. import_tracks ────────────────────────────────
 
 
-@mcp.tool(
+@tool(
     tags={"discovery"},
     annotations={"readOnlyHint": False, "idempotentHint": True},
 )
@@ -438,7 +438,7 @@ async def import_tracks(
 # ── 5. download_tracks ──────────────────────────────
 
 
-@mcp.tool(
+@tool(
     tags={"discovery"},
     annotations={"readOnlyHint": False, "openWorldHint": True},
     timeout=300.0,

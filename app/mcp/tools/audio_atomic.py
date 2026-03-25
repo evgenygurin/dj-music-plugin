@@ -12,6 +12,7 @@ from typing import Any
 from fastmcp.dependencies import Depends
 from fastmcp.exceptions import ToolError
 from fastmcp.server.context import Context
+from fastmcp.tools import tool
 from sqlalchemy import select
 
 from app.audio.mood import MoodClassifier
@@ -22,13 +23,12 @@ from app.mcp.dependencies import get_analyzer_registry, get_db_session, get_ym_c
 from app.models.audio import TrackAudioFeaturesComputed
 from app.models.library import DjLibraryItem
 from app.models.track import Track
-from app.server import mcp
 from app.ym.client import YandexMusicClient
 
 # ── 1. analyze_one_track ──────────────────────────
 
 
-@mcp.tool(tags={"atomic"}, annotations={"readOnlyHint": False}, timeout=180.0)
+@tool(tags={"atomic"}, annotations={"readOnlyHint": False}, timeout=180.0)
 async def analyze_one_track(
     track_id: int,
     analyzers: list[str] | None = None,
@@ -109,7 +109,7 @@ async def analyze_one_track(
 # ── 2. classify_one_track ─────────────────────────
 
 
-@mcp.tool(tags={"atomic"}, annotations={"readOnlyHint": False})
+@tool(tags={"atomic"}, annotations={"readOnlyHint": False})
 async def classify_one_track(
     track_id: int,
     ctx: Context | None = None,
@@ -172,7 +172,7 @@ async def classify_one_track(
 # ── 3. gate_one_track ─────────────────────────────
 
 
-@mcp.tool(tags={"atomic"}, annotations={"readOnlyHint": True})
+@tool(tags={"atomic"}, annotations={"readOnlyHint": True})
 async def gate_one_track(
     track_id: int,
     criteria: dict[str, float] | None = None,
@@ -278,7 +278,7 @@ async def gate_one_track(
 # ── 4. get_similar_one_track ──────────────────────
 
 
-@mcp.tool(tags={"atomic"}, annotations={"readOnlyHint": True, "openWorldHint": True})
+@tool(tags={"atomic"}, annotations={"readOnlyHint": True, "openWorldHint": True})
 async def get_similar_one_track(
     ym_track_id: str,
     limit: int = 20,

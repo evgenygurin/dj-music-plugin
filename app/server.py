@@ -13,18 +13,11 @@ OpenTelemetry (optional, requires `uv sync --extra otel`):
 
 import logging
 import os
-import sys
+from pathlib import Path
 
 from fastmcp import FastMCP
-
-# Ensure this module is reachable as "app.server" even when loaded by
-# fastmcp run (which registers it as "server_module").  Without this,
-# `from app.server import mcp` in tool files creates a *second* module
-# instance with its own `mcp` object, so tools register on a different
-# FastMCP instance than the one fastmcp run actually serves.
-if "app.server" not in sys.modules:
-    sys.modules["app.server"] = sys.modules[__name__]
 from fastmcp.server.lifespan import lifespan
+from fastmcp.server.providers import FileSystemProvider
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from app.config import settings
@@ -137,6 +130,10 @@ if settings.anthropic_api_key:
     except ImportError:
         pass
 
+# FileSystemProvider auto-discovers @tool, @resource, @prompt decorated functions
+# from all Python files in app/mcp/ — no manual imports needed.
+mcp_dir = Path(__file__).parent / "mcp"
+
 mcp = FastMCP(
     name=settings.server_name,
     instructions=(
@@ -144,9 +141,10 @@ mcp = FastMCP(
         "and Yandex Music integration. "
         "Use unlock_tools to access hidden tool categories."
     ),
+    providers=[FileSystemProvider(mcp_dir)],
     lifespan=db_lifespan | ym_lifespan | analyzer_lifespan | cache_lifespan,
     list_page_size=settings.pagination_size,
-    on_duplicate="error",
+    on_duplicate="warn",
     sampling_handler=sampling_handler,
     sampling_handler_behavior="fallback" if sampling_handler else None,
 )
@@ -186,21 +184,3 @@ except ImportError:
 # ── Component Visibility ─────────────────────────────
 mcp.disable(tags={"audio"})
 mcp.disable(tags={"atomic"})
-
-# ── Module Registration ──────────────────────────────
-import app.mcp.prompts.workflows
-import app.mcp.resources.reference
-import app.mcp.resources.status
-import app.mcp.resources.templates
-import app.mcp.tools.admin
-import app.mcp.tools.audio
-import app.mcp.tools.audio_atomic
-import app.mcp.tools.crud
-import app.mcp.tools.curation
-import app.mcp.tools.delivery
-import app.mcp.tools.discovery
-import app.mcp.tools.reasoning
-import app.mcp.tools.search
-import app.mcp.tools.sets
-import app.mcp.tools.sync
-import app.mcp.tools.ym  # noqa: F401
