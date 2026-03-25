@@ -6,9 +6,9 @@ import pytest
 
 from app.core.constants import Provider
 from app.mcp.resources.status import library_status, platforms_status
+from app.models.audio import TrackAudioFeaturesComputed
 from app.models.platform import YandexMetadata
 from app.models.track import Track
-from app.models.track_audio import TrackAudioFeaturesComputed
 
 
 @pytest.mark.asyncio
@@ -55,7 +55,7 @@ async def test_library_status_with_tracks(db):
         track_id=track1.id,
         bpm=128.5,
         key_code=14,  # 8A
-        energy_lufs_integrated=-12.5,
+        integrated_lufs=-12.5,
         energy_mean=0.7,
         spectral_centroid_hz=2500.0,
     )
@@ -97,7 +97,7 @@ async def test_library_status_good_health(db):
         features = TrackAudioFeaturesComputed(
             track_id=tracks[i].id,
             bpm=130.0,
-            energy_lufs_integrated=-10.0,
+            integrated_lufs=-10.0,
         )
         db.add(features)
     await db.flush()

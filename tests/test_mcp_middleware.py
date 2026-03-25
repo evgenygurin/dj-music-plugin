@@ -267,7 +267,7 @@ async def test_detailed_timing_tool(
     assert result == {"result": "success"}
     assert any("Tool timing: test_tool completed" in r.message for r in caplog.records)
     # Extract timing from log
-    timing_record = [r for r in caplog.records if "Tool timing: test_tool" in r.message][0]
+    timing_record = next(r for r in caplog.records if "Tool timing: test_tool" in r.message)
     assert "ms" in timing_record.message
     assert "completed" in timing_record.message
 
@@ -340,7 +340,7 @@ async def test_detailed_timing_tool_failure(
         await middleware.on_call_tool(mock_context, failing_call)
 
     assert any("Tool timing: failing_tool failed" in r.message for r in caplog.records)
-    timing_record = [r for r in caplog.records if "Tool timing: failing_tool" in r.message][0]
+    timing_record = next(r for r in caplog.records if "Tool timing: failing_tool" in r.message)
     assert "ms" in timing_record.message
     assert "failed" in timing_record.message
 

@@ -36,7 +36,7 @@ from app.server import mcp
 )
 async def track_features(
     track_id: Annotated[int, "Track ID"],
-    session: AsyncSession = Depends(get_db_session),
+    session: AsyncSession = Depends(get_db_session),  # noqa: B008
 ) -> str:
     """Get audio features summary for a track.
 
@@ -51,7 +51,7 @@ async def track_features(
     track_result = await session.execute(select(Track).where(Track.id == track_id))
     track = track_result.scalar_one_or_none()
     if not track:
-        raise NotFoundError(f"Track {track_id} not found")
+        raise NotFoundError("Track", track_id)
 
     # Fetch audio features
     features_result = await session.execute(
@@ -122,7 +122,7 @@ async def track_features(
 )
 async def set_summary(
     set_id: Annotated[int, "DJ Set ID"],
-    session: AsyncSession = Depends(get_db_session),
+    session: AsyncSession = Depends(get_db_session),  # noqa: B008
 ) -> str:
     """Get latest version summary for a DJ set.
 
@@ -137,7 +137,7 @@ async def set_summary(
     set_result = await session.execute(select(DjSet).where(DjSet.id == set_id))
     dj_set = set_result.scalar_one_or_none()
     if not dj_set:
-        raise NotFoundError(f"DJ Set {set_id} not found")
+        raise NotFoundError("DJ Set", set_id)
 
     # Fetch latest version
     latest_version_result = await session.execute(
@@ -176,7 +176,7 @@ async def set_summary(
         "has_versions": True,
         "latest_version": {
             "version_id": latest_version.id,
-            "version_label": latest_version.version_label,
+            "version_label": latest_version.label,
             "quality_score": latest_version.quality_score,
             "track_count": track_count,
             "total_duration_min": total_duration_min,
@@ -198,7 +198,7 @@ async def set_summary(
 )
 async def playlist_status(
     playlist_id: Annotated[int, "Playlist ID"],
-    session: AsyncSession = Depends(get_db_session),
+    session: AsyncSession = Depends(get_db_session),  # noqa: B008
 ) -> str:
     """Get status information for a playlist.
 
@@ -213,7 +213,7 @@ async def playlist_status(
     playlist_result = await session.execute(select(Playlist).where(Playlist.id == playlist_id))
     playlist = playlist_result.scalar_one_or_none()
     if not playlist:
-        raise NotFoundError(f"Playlist {playlist_id} not found")
+        raise NotFoundError("Playlist", playlist_id)
 
     # Count tracks in playlist (placeholder — needs PlaylistItem join)
     track_count = 0  # TODO: count from dj_playlist_items
@@ -236,11 +236,11 @@ async def playlist_status(
 # Keeping the function for potential future use.
 
 
-async def _catalog_stats_impl(
+async def catalog_stats(
     mood: Annotated[TechnoSubgenre | None, "Filter by mood/subgenre"] = None,
     bpm_min: Annotated[float | None, "Minimum BPM"] = None,
     bpm_max: Annotated[float | None, "Maximum BPM"] = None,
-    session: AsyncSession = Depends(get_db_session),
+    session: AsyncSession = Depends(get_db_session),  # noqa: B008
 ) -> str:
     """Get filtered catalog statistics.
 
@@ -279,9 +279,7 @@ async def _catalog_stats_impl(
     avg_bpm = avg_bpm_result.scalar()
 
     avg_energy_result = await session.execute(
-        select(func.avg(TrackAudioFeaturesComputed.integrated_lufs)).select_from(
-            query.subquery()
-        )
+        select(func.avg(TrackAudioFeaturesComputed.integrated_lufs)).select_from(query.subquery())
     )
     avg_energy = avg_energy_result.scalar()
 

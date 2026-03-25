@@ -15,10 +15,11 @@ class SetRepository(BaseRepository[DjSet]):
         super().__init__(session, DjSet)
 
     async def get_latest_version(self, set_id: int) -> SetVersion | None:
-        """Return the most recent version for a given set."""
+        """Return the most recent version for a given set, with items eager-loaded."""
         stmt = (
             select(SetVersion)
             .where(SetVersion.set_id == set_id)
+            .options(selectinload(SetVersion.items))
             .order_by(SetVersion.id.desc())
             .limit(1)
         )

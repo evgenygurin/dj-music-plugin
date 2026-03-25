@@ -36,38 +36,38 @@ class TestBuildSetWorkflow:
     def test_includes_playlist_name(self):
         """Should include the playlist name in the prompt."""
         result = build_set_workflow("My Techno Mix")
-        user_message = result[0].content
+        user_message = result[0].content.text
         assert "My Techno Mix" in user_message
 
     def test_includes_template_parameter(self):
         """Should include the template name in the prompt."""
         result = build_set_workflow("Test", template="peak_hour_60")
-        user_message = result[0].content
+        user_message = result[0].content.text
         assert "peak_hour_60" in user_message
 
     def test_includes_duration(self):
         """Should include the target duration in the prompt."""
         result = build_set_workflow("Test", duration_min=90)
-        user_message = result[0].content
+        user_message = result[0].content.text
         assert "90" in user_message
 
     def test_default_template(self):
         """Should use classic_60 as default template."""
         result = build_set_workflow("Test")
-        user_message = result[0].content
+        user_message = result[0].content.text
         assert "classic_60" in user_message
 
     def test_default_duration(self):
         """Should use 60 minutes as default duration."""
         result = build_set_workflow("Test")
-        user_message = result[0].content
+        user_message = result[0].content.text
         assert "60 minutes" in user_message
 
     def test_mentions_key_steps(self):
         """Should mention all key workflow steps."""
         result = build_set_workflow("Test")
-        user_message = result[0].content
-        
+        user_message = result[0].content.text
+
         # Key steps from design spec
         assert "Get Playlist" in user_message
         assert "Audit" in user_message
@@ -78,7 +78,7 @@ class TestBuildSetWorkflow:
     def test_assistant_acknowledgment(self):
         """Assistant message should acknowledge the task."""
         result = build_set_workflow("Test Playlist")
-        assistant_message = result[1].content
+        assistant_message = result[1].content.text
         assert "build" in assistant_message.lower()
         assert "set" in assistant_message.lower()
 
@@ -96,26 +96,26 @@ class TestExpandPlaylistWorkflow:
     def test_includes_playlist_name(self):
         """Should include the playlist name in the prompt."""
         result = expand_playlist_workflow("My Collection")
-        user_message = result[0].content
+        user_message = result[0].content.text
         assert "My Collection" in user_message
 
     def test_includes_target_count(self):
         """Should include the target count in the prompt."""
         result = expand_playlist_workflow("Test", target_count=200)
-        user_message = result[0].content
+        user_message = result[0].content.text
         assert "200" in user_message
 
     def test_default_target_count(self):
         """Should use 100 as default target count."""
         result = expand_playlist_workflow("Test")
-        user_message = result[0].content
+        user_message = result[0].content.text
         assert "100" in user_message
 
     def test_mentions_key_steps(self):
         """Should mention all key workflow steps."""
         result = expand_playlist_workflow("Test")
-        user_message = result[0].content
-        
+        user_message = result[0].content.text
+
         # Key steps from design spec
         assert "Audit" in user_message
         assert "Find Similar" in user_message or "similar" in user_message
@@ -137,14 +137,14 @@ class TestImproveSetWorkflow:
     def test_includes_set_name(self):
         """Should include the set name in the prompt."""
         result = improve_set_workflow("Peak Hour Mix")
-        user_message = result[0].content
+        user_message = result[0].content.text
         assert "Peak Hour Mix" in user_message
 
     def test_mentions_key_steps(self):
         """Should mention all key workflow steps."""
         result = improve_set_workflow("Test")
-        user_message = result[0].content
-        
+        user_message = result[0].content.text
+
         # Key steps from design spec
         assert "Review" in user_message
         assert "Explain" in user_message or "explain" in user_message
@@ -155,7 +155,7 @@ class TestImproveSetWorkflow:
     def test_mentions_transition_analysis(self):
         """Should mention transition analysis and scoring."""
         result = improve_set_workflow("Test")
-        user_message = result[0].content
+        user_message = result[0].content.text
         assert "transition" in user_message.lower()
 
 
@@ -171,34 +171,34 @@ class TestDeliverSetWorkflow:
     def test_includes_set_name(self):
         """Should include the set name in the prompt."""
         result = deliver_set_workflow("Production Mix")
-        user_message = result[0].content
+        user_message = result[0].content.text
         assert "Production Mix" in user_message
 
     def test_sync_ym_false_by_default(self):
         """Should not mention YM sync by default."""
         result = deliver_set_workflow("Test")
-        user_message = result[0].content
+        user_message = result[0].content.text
         # Should not have the YM sync step
         assert "7. **YM Sync**" not in user_message
 
     def test_sync_ym_true_adds_step(self):
         """Should include YM sync step when enabled."""
         result = deliver_set_workflow("Test", sync_ym=True)
-        user_message = result[0].content
+        user_message = result[0].content.text
         # Should have the YM sync step
         assert "YM Sync" in user_message or "Yandex Music" in user_message
 
     def test_assistant_mentions_sync_when_enabled(self):
         """Assistant should acknowledge YM sync when enabled."""
         result = deliver_set_workflow("Test", sync_ym=True)
-        assistant_message = result[1].content
+        assistant_message = result[1].content.text
         assert "Yandex Music" in assistant_message or "sync" in assistant_message.lower()
 
     def test_mentions_key_steps(self):
         """Should mention all key workflow steps."""
         result = deliver_set_workflow("Test")
-        user_message = result[0].content
-        
+        user_message = result[0].content.text
+
         # Key steps from design spec
         assert "Score" in user_message or "transition" in user_message.lower()
         assert "Conflict" in user_message or "conflict" in user_message.lower()
@@ -208,7 +208,7 @@ class TestDeliverSetWorkflow:
     def test_mentions_export_formats(self):
         """Should mention export formats (M3U8, JSON, etc.)."""
         result = deliver_set_workflow("Test")
-        user_message = result[0].content
+        user_message = result[0].content.text
         assert "m3u8" in user_message.lower() or "M3U8" in user_message
         assert "json" in user_message.lower() or "JSON" in user_message
 
@@ -225,26 +225,26 @@ class TestFullExpansionPipeline:
     def test_includes_source_playlist(self):
         """Should include the source playlist name."""
         result = full_expansion_pipeline("TECHNO FOR DJ SETS")
-        user_message = result[0].content
+        user_message = result[0].content.text
         assert "TECHNO FOR DJ SETS" in user_message
 
     def test_includes_target_per_subgenre(self):
         """Should include the target count per subgenre."""
         result = full_expansion_pipeline("Source", target_per_subgenre=75)
-        user_message = result[0].content
+        user_message = result[0].content.text
         assert "75" in user_message
 
     def test_default_target_per_subgenre(self):
         """Should use 50 as default target per subgenre."""
         result = full_expansion_pipeline("Source")
-        user_message = result[0].content
+        user_message = result[0].content.text
         assert "50" in user_message
 
     def test_mentions_key_steps(self):
         """Should mention all major pipeline steps."""
         result = full_expansion_pipeline("Source")
-        user_message = result[0].content
-        
+        user_message = result[0].content.text
+
         # Key steps from design spec (9 steps)
         assert "Audit" in user_message
         assert "Discover" in user_message or "similar" in user_message.lower()
@@ -257,20 +257,20 @@ class TestFullExpansionPipeline:
     def test_mentions_15_subgenres(self):
         """Should mention the 15 techno subgenres."""
         result = full_expansion_pipeline("Source")
-        user_message = result[0].content
+        user_message = result[0].content.text
         assert "15" in user_message
         assert "subgenre" in user_message.lower()
 
     def test_warns_about_long_duration(self):
         """Should warn that this is a long-running pipeline."""
         result = full_expansion_pipeline("Source")
-        user_message = result[0].content
+        user_message = result[0].content.text
         assert "hour" in user_message.lower() or "time" in user_message.lower()
 
     def test_assistant_acknowledges_long_duration(self):
         """Assistant should acknowledge the long duration."""
         result = full_expansion_pipeline("Source")
-        assistant_message = result[1].content
+        assistant_message = result[1].content.text
         assert "time" in assistant_message.lower() or "pipeline" in assistant_message.lower()
 
 
@@ -323,7 +323,7 @@ class TestMessageStructure:
         result = prompt_func(*args)
         for msg in result:
             assert msg.content
-            assert len(msg.content) > 0
+            assert len(msg.content.text) > 0
 
 
 class TestPromptMetadata:
@@ -351,9 +351,9 @@ class TestPromptMetadata:
         assert "Args:" in build_set_workflow.__doc__
         assert "playlist_name" in build_set_workflow.__doc__
         assert "template" in build_set_workflow.__doc__
-        
+
         assert "Args:" in expand_playlist_workflow.__doc__
         assert "target_count" in expand_playlist_workflow.__doc__
-        
+
         assert "Args:" in deliver_set_workflow.__doc__
         assert "sync_ym" in deliver_set_workflow.__doc__

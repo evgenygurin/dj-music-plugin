@@ -10,7 +10,6 @@ from __future__ import annotations
 import json
 
 from fastmcp.dependencies import Depends
-from app.server import mcp
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -24,6 +23,7 @@ from app.models.platform import (
     YandexMetadata,
 )
 from app.models.track import Track
+from app.server import mcp
 
 
 @mcp.resource(
@@ -35,7 +35,7 @@ from app.models.track import Track
     annotations={"readOnlyHint": True},
 )
 async def library_status(
-    session: AsyncSession = Depends(get_db_session),
+    session: AsyncSession = Depends(get_db_session),  # noqa: B008
 ) -> str:
     """Get library health statistics.
 
@@ -122,7 +122,7 @@ async def library_status(
     annotations={"readOnlyHint": True},
 )
 async def platforms_status(
-    session: AsyncSession = Depends(get_db_session),
+    session: AsyncSession = Depends(get_db_session),  # noqa: B008
 ) -> str:
     """Get platform connectivity status.
 

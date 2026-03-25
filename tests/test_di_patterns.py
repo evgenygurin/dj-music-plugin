@@ -10,8 +10,8 @@ Key verifications:
 from __future__ import annotations
 
 import pytest
-from fastmcp.server.context import Context
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import async_sessionmaker
 
 from app.mcp.dependencies import (
     get_db_session,
@@ -28,33 +28,19 @@ from app.repositories.track import TrackRepository
 @pytest.mark.asyncio
 async def test_get_db_session_context_manager(seeded_db):
     """Verify get_db_session is an async context manager."""
-    # get_db_session should be usable with async with
-    from app.mcp.dependencies import get_db_session
-    from fastmcp.server.dependencies import get_context
-
-    # In actual use, get_context() returns the request context with lifespan_context
-    # For testing, we need to mock it or use a real MCP client
-    # This test verifies the signature is correct
-    import inspect
-
-    assert inspect.isasyncgenfunction(get_db_session)
+    # get_db_session is decorated with @asynccontextmanager, making it
+    # a callable that returns an async context manager (not an async generator).
+    assert callable(get_db_session)
 
 
 @pytest.mark.asyncio
-async def test_repo_factory_returns_repo_instance(seeded_db):
+async def test_repo_factory_returns_repo_instance(async_engine):
     """Verify repo factories return repository instances."""
-    # These factories are synchronous functions that return repos
-    # The session parameter is injected via Depends(get_db_session)
-    # For unit testing, we manually create a session
+    session_factory = async_sessionmaker(async_engine, expire_on_commit=False)
 
-    from app.mcp.dependencies import get_db_session
-    from fastmcp.server.dependencies import get_context
-
-    # Mock context with db_session_factory
     class MockContext:
-        lifespan_context = {"db_session_factory": seeded_db["session_factory"]}
+        lifespan_context = {"db_session_factory": session_factory}
 
-    # Patch get_context to return our mock
     import app.mcp.dependencies
 
     original_get_context = app.mcp.dependencies.get_context
@@ -62,7 +48,6 @@ async def test_repo_factory_returns_repo_instance(seeded_db):
 
     try:
         async with get_db_session() as session:
-            # Manually call repo factories with session
             track_repo = get_track_repo(session)
             playlist_repo = get_playlist_repo(session)
             set_repo = get_set_repo(session)
@@ -80,13 +65,12 @@ async def test_repo_factory_returns_repo_instance(seeded_db):
 
 
 @pytest.mark.asyncio
-async def test_session_commits_on_success(seeded_db):
+async def test_session_commits_on_success(async_engine):
     """Verify session auto-commits on successful operation."""
-    from app.mcp.dependencies import get_db_session
+    session_factory = async_sessionmaker(async_engine, expire_on_commit=False)
 
-    # Mock context
     class MockContext:
-        lifespan_context = {"db_session_factory": seeded_db["session_factory"]}
+        lifespan_context = {"db_session_factory": session_factory}
 
     import app.mcp.dependencies
 
@@ -95,16 +79,13 @@ async def test_session_commits_on_success(seeded_db):
 
     try:
         async with get_db_session() as session:
-            # Create a track
             track = Track(title="Test Track", status=0, duration_ms=180000)
             session.add(track)
             await session.flush()
             track_id = track.id
 
         # After context exit, verify track was committed
-        async with seeded_db["session_factory"]() as verification_session:
-            from sqlalchemy import select
-
+        async with session_factory() as verification_session:
             stmt = select(Track).where(Track.id == track_id)
             result = await verification_session.execute(stmt)
             persisted = result.scalar_one_or_none()
@@ -115,13 +96,12 @@ async def test_session_commits_on_success(seeded_db):
 
 
 @pytest.mark.asyncio
-async def test_session_rolls_back_on_error(seeded_db):
+async def test_session_rolls_back_on_error(async_engine):
     """Verify session auto-rolls back on error."""
-    from app.mcp.dependencies import get_db_session
+    session_factory = async_sessionmaker(async_engine, expire_on_commit=False)
 
-    # Mock context
     class MockContext:
-        lifespan_context = {"db_session_factory": seeded_db["session_factory"]}
+        lifespan_context = {"db_session_factory": session_factory}
 
     import app.mcp.dependencies
 
@@ -132,20 +112,15 @@ async def test_session_rolls_back_on_error(seeded_db):
         track_id = None
         with pytest.raises(ValueError, match="Intentional error"):
             async with get_db_session() as session:
-                # Create a track
                 track = Track(title="Rollback Test", status=0, duration_ms=180000)
                 session.add(track)
                 await session.flush()
                 track_id = track.id
-
-                # Raise error before context exit
                 raise ValueError("Intentional error")
 
         # After rollback, track should NOT exist
         if track_id:
-            async with seeded_db["session_factory"]() as verification_session:
-                from sqlalchemy import select
-
+            async with session_factory() as verification_session:
                 stmt = select(Track).where(Track.id == track_id)
                 result = await verification_session.execute(stmt)
                 persisted = result.scalar_one_or_none()
@@ -163,22 +138,6 @@ async def test_multiple_repos_share_session():
     - All repos get the SAME session
     - Single transaction per tool call
     """
-    # This will be verified via integration test with real MCP client
-    # For now, we document the expected behavior:
-
-    # Given a tool like:
-    # @mcp.tool()
-    # async def my_tool(
-    #     track_repo: Annotated[TrackRepository, Depends(get_track_repo)],
-    #     playlist_repo: Annotated[PlaylistRepository, Depends(get_playlist_repo)],
-    # ):
-    #     # Both repos share the same session
-    #     assert track_repo.session is playlist_repo.session
-    #     # Changes from both repos are in one transaction
-    #     await track_repo.create(...)
-    #     await playlist_repo.add_track(...)
-    #     # Commit happens automatically after tool returns
-
     pass  # Placeholder for MCP client integration test
 
 
@@ -189,9 +148,7 @@ async def test_repo_never_commits():
     This is enforced by code review and the .claude/rules/repositories.md rule.
     Commit must ONLY happen in get_db_session context manager.
     """
-    # Check that no repository has a commit() call
     import ast
-    import inspect
     from pathlib import Path
 
     repo_dir = Path(__file__).parent.parent / "app" / "repositories"
@@ -202,12 +159,13 @@ async def test_repo_never_commits():
         source = repo_file.read_text()
         tree = ast.parse(source)
 
-        # Find all method calls
         for node in ast.walk(tree):
-            if isinstance(node, ast.Call):
-                if isinstance(node.func, ast.Attribute):
-                    if node.func.attr == "commit":
-                        pytest.fail(
-                            f"Repository {repo_file.name} contains session.commit() call. "
-                            f"Repositories must only flush(), not commit()."
-                        )
+            if (
+                isinstance(node, ast.Call)
+                and isinstance(node.func, ast.Attribute)
+                and node.func.attr == "commit"
+            ):
+                pytest.fail(
+                    f"Repository {repo_file.name} contains session.commit() call. "
+                    f"Repositories must only flush(), not commit()."
+                )

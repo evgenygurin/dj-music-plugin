@@ -6,7 +6,7 @@ from typing import Any
 
 from fastmcp.exceptions import ToolError
 from fastmcp.server.context import Context
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import selectinload
 
 from app.core.schemas import (
@@ -18,7 +18,7 @@ from app.core.schemas import (
 )
 from app.mcp.dependencies import get_db_session
 from app.models.audio import TrackAudioFeaturesComputed, TrackSection
-from app.models.playlist import Playlist
+from app.models.playlist import Playlist, PlaylistItem
 from app.models.set import DjSet, SetConstraint, SetFeedback, SetItem, SetVersion
 from app.models.track import Track
 from app.repositories.playlist import PlaylistRepository
@@ -364,10 +364,15 @@ async def manage_playlist(
             for i, tid in enumerate(track_refs):
                 await repo.add_track(playlist_id, tid, max_idx + 1 + i)
             await session.commit()
-            playlist = await repo.get_with_items(playlist_id)
-            if not playlist:
-                raise ToolError("Playlist lost after add_tracks")
-            return _playlist_summary(playlist)
+            # Count items directly instead of relying on relationship reload
+            count_stmt = (
+                select(func.count())
+                .select_from(PlaylistItem)
+                .where(PlaylistItem.playlist_id == playlist_id)
+            )
+            count_result = await session.execute(count_stmt)
+            new_count = count_result.scalar() or 0
+            return _playlist_summary(playlist, track_count=new_count)
 
         if action == "remove_tracks":
             if not positions:

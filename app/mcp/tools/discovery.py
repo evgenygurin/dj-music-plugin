@@ -90,12 +90,12 @@ async def find_similar_tracks(
     annotations={"readOnlyHint": False, "idempotentHint": True},
 )
 async def import_tracks(
-    track_refs: list[str],
+    track_refs: list[str | int],
     playlist_id: int | None = None,
     auto_analyze: bool = False,
     ctx: Context | None = None,
 ) -> dict[str, Any]:
-    """Import YM track IDs into local DB. Idempotent — skips existing."""
+    """Import YM track IDs into local DB. Accepts strings or ints. Idempotent — skips existing."""
     if not track_refs:
         raise ToolError("track_refs is required (list of YM track IDs)")
 
@@ -107,7 +107,7 @@ async def import_tracks(
         errors: list[str] = []
 
         for ref in track_refs:
-            ym_id = ref.strip()
+            ym_id = str(ref).strip()
             if not ym_id:
                 continue
 
@@ -175,12 +175,12 @@ async def import_tracks(
     timeout=300.0,
 )
 async def download_tracks(
-    track_refs: list[str],
+    track_refs: list[str | int],
     target_dir: str | None = None,
     skip_existing: bool = True,
     ctx: Context | None = None,
 ) -> dict[str, Any]:
-    """Download MP3 from YM for given track refs."""
+    """Download MP3 from YM for given track refs. Accepts strings or ints."""
     if not track_refs:
         raise ToolError("track_refs is required (list of YM track IDs)")
 

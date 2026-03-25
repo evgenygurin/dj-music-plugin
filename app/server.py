@@ -13,8 +13,17 @@ OpenTelemetry (optional, requires `uv sync --extra otel`):
 
 import logging
 import os
+import sys
 
 from fastmcp import FastMCP
+
+# Ensure this module is reachable as "app.server" even when loaded by
+# fastmcp run (which registers it as "server_module").  Without this,
+# `from app.server import mcp` in tool files creates a *second* module
+# instance with its own `mcp` object, so tools register on a different
+# FastMCP instance than the one fastmcp run actually serves.
+if "app.server" not in sys.modules:
+    sys.modules["app.server"] = sys.modules[__name__]
 from fastmcp.server.lifespan import lifespan
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 

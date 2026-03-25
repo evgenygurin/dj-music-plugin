@@ -2,15 +2,11 @@
 
 from __future__ import annotations
 
-from typing import TypeVar
-
 from fastmcp.server.context import Context
 from pydantic import BaseModel
 
-T = TypeVar("T", bound=BaseModel)
 
-
-async def safe_elicit(
+async def safe_elicit[T: BaseModel](
     ctx: Context | None,
     message: str,
     response_type: type[T],
@@ -133,7 +129,7 @@ async def safe_choice(
     from enum import Enum
 
     # Dynamically create Enum for choices
-    ChoiceEnum = Enum("ChoiceEnum", {c.upper().replace(" ", "_"): c for c in choices})  # type: ignore
+    ChoiceEnum = Enum("ChoiceEnum", {c.upper().replace(" ", "_"): c for c in choices})  # type: ignore  # noqa: N806
 
     class ChoiceSchema(BaseModel):
         choice: ChoiceEnum  # type: ignore

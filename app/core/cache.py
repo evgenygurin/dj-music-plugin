@@ -98,10 +98,9 @@ class TransitionCache:
         key = (track_id_a, track_id_b) if track_id_a < track_id_b else (track_id_b, track_id_a)
 
         # Evict oldest if at capacity
-        if len(self._cache) >= self._max_size and key not in self._cache:
-            if self._access_order:
-                oldest = self._access_order.pop(0)
-                del self._cache[oldest]
+        if len(self._cache) >= self._max_size and key not in self._cache and self._access_order:
+            oldest = self._access_order.pop(0)
+            del self._cache[oldest]
 
         # Store
         self._cache[key] = TransitionScore(

@@ -1,10 +1,16 @@
 """Tests for OpenTelemetry instrumentation and custom spans."""
 
 import pytest
+
+otel_trace = pytest.importorskip("opentelemetry.trace", reason="opentelemetry SDK not installed")
+otel_sdk = pytest.importorskip("opentelemetry.sdk.trace", reason="opentelemetry SDK not installed")
+
 from opentelemetry import trace
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor
-from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
+from opentelemetry.sdk.trace.export.in_memory_span_exporter import (
+    InMemorySpanExporter,
+)
 
 from app.telemetry import (
     add_span_event,

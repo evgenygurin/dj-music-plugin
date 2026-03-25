@@ -6,7 +6,6 @@ These tests validate that:
 3. OTEL integration works end-to-end
 """
 
-import pytest
 
 from app.config import settings
 
@@ -38,7 +37,7 @@ class TestTelemetryModules:
     def test_telemetry_module_imports(self):
         """Telemetry module imports successfully."""
         from app import telemetry
-        
+
         assert hasattr(telemetry, "instrument_heavy_operation")
         assert hasattr(telemetry, "add_span_event")
         assert hasattr(telemetry, "set_span_attributes")
@@ -47,11 +46,11 @@ class TestTelemetryModules:
     def test_instrument_decorator_exists(self):
         """instrument_heavy_operation decorator exists."""
         from app.telemetry import instrument_heavy_operation
-        
+
         @instrument_heavy_operation("test_op")
         async def test_func():
             return "test"
-        
+
         # Decorator applied successfully
         assert test_func.__name__ == "test_func"
 
@@ -63,7 +62,7 @@ class TestServerConfiguration:
         """Server.py includes observability setup."""
         with open("app/server.py") as f:
             content = f.read()
-        
+
         assert "OpenTelemetry" in content
         assert "Sentry" in content
         assert "opentelemetry-instrument" in content
@@ -72,7 +71,7 @@ class TestServerConfiguration:
         """Server registers timing and logging middleware."""
         with open("app/server.py") as f:
             content = f.read()
-        
+
         assert "DetailedTimingMiddleware" in content
         assert "StructuredLoggingMiddleware" in content
         assert "add_middleware" in content

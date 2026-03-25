@@ -10,9 +10,8 @@ from __future__ import annotations
 
 import json
 
-from app.server import mcp
-
 from app.core.constants import CAMELOT_KEYS, SetTemplate, TechnoSubgenre
+from app.server import mcp
 
 
 @mcp.resource(

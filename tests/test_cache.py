@@ -4,9 +4,7 @@ from __future__ import annotations
 
 import time
 
-import pytest
-
-from app.core.cache import TransitionCache, TransitionScore
+from app.core.cache import TransitionCache
 
 
 def test_cache_stores_and_retrieves_score() -> None:
