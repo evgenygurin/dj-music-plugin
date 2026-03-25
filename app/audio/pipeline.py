@@ -76,11 +76,9 @@ class AnalysisPipeline:
     async def _load_audio(self, file_path: str) -> AudioSignal:
         """Load audio file as mono float32 numpy array.
 
-        Supports WAV files via numpy. For other formats, soundfile/librosa
-        would be needed (optional dependency).
+        Supports MP3, WAV, FLAC, OGG via soundfile/librosa (preferred)
+        or WAV-only via wave module (fallback).
         """
-        import wave
-
         path = Path(file_path)
         if not path.exists():
             msg = f"Audio file not found: {file_path}"
@@ -88,44 +86,59 @@ class AnalysisPipeline:
 
         sr = settings.audio_sample_rate
 
-        with wave.open(str(path), "rb") as wf:
-            n_channels = wf.getnchannels()
-            sampwidth = wf.getsampwidth()
-            framerate = wf.getframerate()
-            n_frames = wf.getnframes()
-            raw_data = wf.readframes(n_frames)
+        # Try soundfile first (handles WAV, FLAC, OGG natively)
+        try:
+            import soundfile as sf
 
-        # Convert raw bytes to numpy array
-        if sampwidth == 2:
-            dtype = np.int16
-        elif sampwidth == 4:
-            dtype = np.int32
-        elif sampwidth == 1:
-            dtype = np.uint8
-        else:
-            msg = f"Unsupported sample width: {sampwidth}"
-            raise ValueError(msg)
+            samples, file_sr = sf.read(str(path), dtype="float32", always_2d=True)
+            # Mix to mono
+            samples = samples.mean(axis=1)
+        except Exception:
+            # Try librosa (handles MP3 via audioread/ffmpeg)
+            try:
+                import librosa
 
-        samples = np.frombuffer(raw_data, dtype=dtype).astype(np.float32)
+                samples, file_sr = librosa.load(str(path), sr=None, mono=True)
+            except Exception:
+                # Final fallback: wave module (WAV only)
+                import wave
 
-        # Normalize to [-1.0, 1.0]
-        if sampwidth == 1:
-            samples = (samples - 128.0) / 128.0
-        elif sampwidth == 2:
-            samples /= 32768.0
-        elif sampwidth == 4:
-            samples /= 2147483648.0
+                with wave.open(str(path), "rb") as wf:
+                    n_channels = wf.getnchannels()
+                    sampwidth = wf.getsampwidth()
+                    file_sr = wf.getframerate()
+                    raw_data = wf.readframes(wf.getnframes())
 
-        # Mix to mono if stereo
-        if n_channels > 1:
-            samples = samples.reshape(-1, n_channels).mean(axis=1)
+                if sampwidth == 2:
+                    dtype = np.int16
+                elif sampwidth == 4:
+                    dtype = np.int32
+                else:
+                    dtype = np.uint8
 
-        # Resample if needed (simple decimation — adequate for analysis)
-        if framerate != sr:
-            ratio = sr / framerate
-            new_length = int(len(samples) * ratio)
-            indices = np.linspace(0, len(samples) - 1, new_length)
-            samples = np.interp(indices, np.arange(len(samples)), samples).astype(np.float32)
+                samples = np.frombuffer(raw_data, dtype=dtype).astype(np.float32)
+                if sampwidth == 1:
+                    samples = (samples - 128.0) / 128.0
+                elif sampwidth == 2:
+                    samples /= 32768.0
+                elif sampwidth == 4:
+                    samples /= 2147483648.0
+
+                if n_channels > 1:
+                    samples = samples.reshape(-1, n_channels).mean(axis=1)
+
+        # Resample if needed
+        if file_sr != sr:
+            try:
+                import librosa
+
+                samples = librosa.resample(samples, orig_sr=file_sr, target_sr=sr)
+            except ImportError:
+                # Simple linear interpolation fallback
+                ratio = sr / file_sr
+                new_length = int(len(samples) * ratio)
+                indices = np.linspace(0, len(samples) - 1, new_length)
+                samples = np.interp(indices, np.arange(len(samples)), samples).astype(np.float32)
 
         duration = len(samples) / sr
 
