@@ -53,11 +53,74 @@ async def build_set(
             raise ToolError("Playlist is empty")
 
         if ctx:
-            await ctx.info(f"Found {len(track_ids)} tracks, building order...")
-            await ctx.report_progress(1, 3)
+            await ctx.info(f"Found {len(track_ids)} tracks, loading features...")
+            await ctx.report_progress(1, 4)
 
-        # For now: use playlist order as-is (GA/greedy will be in Sub-Project #6)
-        # Create set and version
+        # Load audio features for optimization
+        track_features_list: list[TrackFeatures] = []
+        for tid in track_ids:
+            feat_row = (
+                await session.execute(
+                    select(TrackAudioFeaturesComputed).where(
+                        TrackAudioFeaturesComputed.track_id == tid
+                    )
+                )
+            ).scalar_one_or_none()
+
+            if feat_row:
+                track_features_list.append(
+                    TrackFeatures(
+                        bpm=feat_row.bpm,
+                        key_code=feat_row.key_code,
+                        integrated_lufs=feat_row.integrated_lufs,
+                        spectral_centroid_hz=feat_row.spectral_centroid_hz,
+                        spectral_flatness=feat_row.spectral_flatness,
+                        energy_mean=feat_row.energy_mean,
+                        onset_rate=feat_row.onset_rate,
+                        kick_prominence=feat_row.kick_prominence,
+                        hnr_db=feat_row.hnr_db,
+                        chroma_entropy=feat_row.chroma_entropy,
+                    )
+                )
+            else:
+                # No features — use defaults (optimizer handles None gracefully)
+                track_features_list.append(TrackFeatures())
+
+        if ctx:
+            await ctx.report_progress(2, 4)
+
+        # Optimize track order
+        from app.services.optimizer import GeneticAlgorithm, GreedyChainBuilder
+
+        scorer = TransitionScorer()
+        has_features = any(f.bpm is not None for f in track_features_list)
+
+        if has_features and algorithm == "greedy":
+            if ctx:
+                await ctx.info("Optimizing with greedy chain builder...")
+            builder = GreedyChainBuilder(scorer)
+            opt_result = builder.build(track_features_list, track_ids)
+            optimized_order = opt_result.track_order
+            quality = opt_result.quality_score
+        elif has_features and algorithm in ("ga", "genetic"):
+            if ctx:
+                await ctx.info("Optimizing with genetic algorithm...")
+            ga = GeneticAlgorithm(scorer)
+            opt_result = ga.optimize(track_features_list, track_ids)
+            optimized_order = opt_result.track_order
+            quality = opt_result.quality_score
+        else:
+            # No features — use playlist order as fallback
+            if ctx and not has_features:
+                await ctx.info(
+                    "No audio features — using playlist order (analyze tracks for optimization)"
+                )
+            optimized_order = track_ids
+            quality = None
+
+        if ctx:
+            await ctx.report_progress(3, 4)
+
         if not dry_run:
             dj_set = DjSet(
                 name=name,
@@ -72,7 +135,7 @@ async def build_set(
             session.add(version)
             await session.flush()
 
-            for idx, tid in enumerate(track_ids):
+            for idx, tid in enumerate(optimized_order):
                 item = SetItem(
                     version_id=version.id,
                     track_id=tid,
@@ -83,20 +146,23 @@ async def build_set(
 
             if ctx:
                 await ctx.info(f"Set created: {dj_set.id}, version: {version.id}")
-                await ctx.report_progress(3, 3)
+                await ctx.report_progress(4, 4)
 
             return {
                 "set_id": dj_set.id,
                 "version_id": version.id,
-                "track_count": len(track_ids),
-                "algorithm": algorithm,
-                "quality_score": None,  # scoring in Sub-Project #5
+                "track_count": len(optimized_order),
+                "algorithm": algorithm if has_features else "playlist_order",
+                "quality_score": round(quality, 4) if quality else None,
+                "has_features": has_features,
             }
         else:
             return {
                 "dry_run": True,
-                "track_count": len(track_ids),
-                "algorithm": algorithm,
+                "track_count": len(optimized_order),
+                "algorithm": algorithm if has_features else "playlist_order",
+                "quality_score": round(quality, 4) if quality else None,
+                "has_features": has_features,
                 "template": template,
             }
 
