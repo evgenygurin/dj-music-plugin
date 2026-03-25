@@ -1,8 +1,6 @@
 ---
 name: expand-playlist
-description: "Use when the user wants to expand a playlist with similar tracks, find new tracks, discover music, import tracks from Yandex Music, or fill gaps in a playlist. Triggers on: 'expand playlist', 'find similar', 'add more tracks', 'discover tracks', 'import from YM'."
-argument-hint: "[playlist_name] [target_count]"
-allowed-tools: ["mcp__*dj-music*"]
+description: "This skill should be used when the user asks to \"expand playlist\", \"find similar tracks\", \"add more tracks\", \"discover new tracks\", \"import from Yandex Music\", or \"fill gaps in playlist\". Covers discovery, import, download, and analysis of new tracks."
 ---
 
 # Expand Playlist Workflow

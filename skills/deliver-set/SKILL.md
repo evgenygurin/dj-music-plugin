@@ -1,8 +1,6 @@
 ---
 name: deliver-set
-description: "Use when the user wants to deliver, export, or finalize a DJ set — generate M3U8 playlist, Rekordbox XML, JSON guide, cheat sheet, or sync to Yandex Music. Triggers on: 'deliver set', 'export set', 'finalize set', 'rekordbox export', 'sync set to YM', 'generate cheat sheet'."
-argument-hint: "[set_name] [format]"
-allowed-tools: ["mcp__*dj-music*"]
+description: "This skill should be used when the user asks to \"deliver set\", \"export set\", \"finalize set\", \"rekordbox export\", \"sync set to YM\", or \"generate cheat sheet\". Covers M3U8, Rekordbox XML, JSON guide, cheat sheet export and YM sync."
 ---
 
 # Deliver DJ Set Workflow
