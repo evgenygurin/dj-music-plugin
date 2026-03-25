@@ -127,7 +127,7 @@ async def _build_export_data(
 
 @tool(
     tags={"delivery"},
-    annotations={"destructiveHint": True, "readOnlyHint": False},
+    annotations={"readOnlyHint": False, "idempotentHint": True},
     timeout=300.0,
     task=True,
 )
