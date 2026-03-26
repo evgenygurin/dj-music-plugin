@@ -1,321 +1,308 @@
-"""Tests for search and admin MCP tools."""
+"""Tests for search and admin MCP tools via FastMCP Client."""
 
 from __future__ import annotations
 
-from contextlib import asynccontextmanager
-from unittest.mock import AsyncMock, MagicMock, patch
-
 import pytest
+from fastmcp import Client
 
-from app.models.audio import TrackAudioFeaturesComputed
-from app.models.playlist import Playlist
-from app.models.set import DjSet
-from app.models.track import Artist, Track, TrackExternalId
-
-# ── Helpers ──────────────────────────────────────────
-
-
-def _make_ctx():
-    """Build a minimal mock Context (no longer needs session factory)."""
-    ctx = MagicMock()
-    ctx.enable_components = AsyncMock()
-    ctx.disable_components = AsyncMock()
-    return ctx
-
-
-@asynccontextmanager
-async def _mock_get_db_session(engine):
-    """Create a mock get_db_session that uses the test engine."""
-    from sqlalchemy.ext.asyncio import async_sessionmaker
-
-    factory = async_sessionmaker(engine, expire_on_commit=False)
-    async with factory() as session:
-        yield session
-
-
-@pytest.fixture
-def ctx():
-    """Mock MCP Context."""
-    return _make_ctx()
-
-
-@pytest.fixture
-def patch_db_session(async_engine):
-    """Patch get_db_session in all tool modules to use test engine."""
-
-    @asynccontextmanager
-    async def _test_get_db_session():
-        from sqlalchemy.ext.asyncio import async_sessionmaker
-
-        factory = async_sessionmaker(async_engine, expire_on_commit=False)
-        async with factory() as session:
-            yield session
-
-    with (
-        patch("app.mcp.tools.search.get_db_session", _test_get_db_session),
-        patch("app.mcp.tools.admin.get_db_session", _test_get_db_session),
-    ):
-        yield
-
+from tests.conftest import _parse_tool_result as _parse_result
 
 # ── search tool ──────────────────────────────────────
 
 
-async def test_search_tracks(patch_db_session, ctx, db):
+async def test_search_tracks(client: Client, async_engine):
     """search() returns matching tracks grouped by entity."""
-    db.add(Track(title="Amelie Lens - Exhale"))
-    db.add(Track(title="999999999 - Pulse"))
-    await db.flush()
+    from sqlalchemy.ext.asyncio import async_sessionmaker
 
-    from app.mcp.tools.search import search
+    from app.models.track import Track
 
-    result = await search(query="Lens", ctx=ctx)
+    factory = async_sessionmaker(async_engine, expire_on_commit=False)
+    async with factory() as session:
+        session.add(Track(title="Amelie Lens - Exhale"))
+        session.add(Track(title="999999999 - Pulse"))
+        await session.commit()
 
-    assert result["total"] >= 1
-    assert any("Lens" in t["title"] for t in result["results"]["tracks"])
+    result = await client.call_tool("search", {"query": "Lens"})
+    data = _parse_result(result)
+
+    assert data["total"] >= 1
+    assert any("Lens" in t["title"] for t in data["results"]["tracks"])
 
 
-async def test_search_artists(patch_db_session, ctx, db):
+async def test_search_artists(client: Client, async_engine):
     """search() returns matching artists."""
-    db.add(Artist(name="Charlotte de Witte"))
-    await db.flush()
+    from sqlalchemy.ext.asyncio import async_sessionmaker
 
-    from app.mcp.tools.search import search
+    from app.models.track import Artist
 
-    result = await search(query="Charlotte", entity="artists", ctx=ctx)
+    factory = async_sessionmaker(async_engine, expire_on_commit=False)
+    async with factory() as session:
+        session.add(Artist(name="Charlotte de Witte"))
+        await session.commit()
 
-    assert len(result["results"]["artists"]) == 1
-    assert result["results"]["artists"][0]["name"] == "Charlotte de Witte"
+    result = await client.call_tool("search", {"query": "Charlotte", "entity": "artists"})
+    data = _parse_result(result)
+
+    assert len(data["results"]["artists"]) == 1
+    assert data["results"]["artists"][0]["name"] == "Charlotte de Witte"
 
 
-async def test_search_playlists(patch_db_session, ctx, db):
+async def test_search_playlists(client: Client, async_engine):
     """search() returns matching playlists."""
-    db.add(Playlist(name="Peak Time Techno"))
-    await db.flush()
+    from sqlalchemy.ext.asyncio import async_sessionmaker
 
-    from app.mcp.tools.search import search
+    from app.models.playlist import Playlist
 
-    result = await search(query="Peak", entity="playlists", ctx=ctx)
+    factory = async_sessionmaker(async_engine, expire_on_commit=False)
+    async with factory() as session:
+        session.add(Playlist(name="Peak Time Techno"))
+        await session.commit()
 
-    assert len(result["results"]["playlists"]) == 1
+    result = await client.call_tool("search", {"query": "Peak", "entity": "playlists"})
+    data = _parse_result(result)
+
+    assert len(data["results"]["playlists"]) == 1
 
 
-async def test_search_sets(patch_db_session, ctx, db):
+async def test_search_sets(client: Client, async_engine):
     """search() returns matching DJ sets."""
-    db.add(DjSet(name="Friday Night Set"))
-    await db.flush()
+    from sqlalchemy.ext.asyncio import async_sessionmaker
 
-    from app.mcp.tools.search import search
+    from app.models.set import DjSet
 
-    result = await search(query="Friday", entity="sets", ctx=ctx)
+    factory = async_sessionmaker(async_engine, expire_on_commit=False)
+    async with factory() as session:
+        session.add(DjSet(name="Friday Night Set"))
+        await session.commit()
 
-    assert len(result["results"]["sets"]) == 1
+    result = await client.call_tool("search", {"query": "Friday", "entity": "sets"})
+    data = _parse_result(result)
+
+    assert len(data["results"]["sets"]) == 1
 
 
-async def test_search_empty_query(ctx):
+async def test_search_empty_query(client: Client):
     """search() rejects empty queries with ToolError."""
     from fastmcp.exceptions import ToolError
 
-    from app.mcp.tools.search import search
-
     with pytest.raises(ToolError):
-        await search(query="", ctx=ctx)
+        await client.call_tool("search", {"query": ""})
 
 
-async def test_search_all_entities(patch_db_session, ctx, db):
+async def test_search_all_entities(client: Client, async_engine):
     """search() with entity='all' queries all entity types."""
-    db.add(Track(title="Test Track"))
-    db.add(Artist(name="Test Artist"))
-    db.add(Playlist(name="Test Playlist"))
-    db.add(DjSet(name="Test Set"))
-    await db.flush()
+    from sqlalchemy.ext.asyncio import async_sessionmaker
 
-    from app.mcp.tools.search import search
+    from app.models.playlist import Playlist
+    from app.models.set import DjSet
+    from app.models.track import Artist, Track
 
-    result = await search(query="Test", entity="all", ctx=ctx)
+    factory = async_sessionmaker(async_engine, expire_on_commit=False)
+    async with factory() as session:
+        session.add(Track(title="Test Track"))
+        session.add(Artist(name="Test Artist"))
+        session.add(Playlist(name="Test Playlist"))
+        session.add(DjSet(name="Test Set"))
+        await session.commit()
 
-    assert "tracks" in result["results"]
-    assert "artists" in result["results"]
-    assert "playlists" in result["results"]
-    assert "sets" in result["results"]
-    assert result["total"] == 4
+    result = await client.call_tool("search", {"query": "Test", "entity": "all"})
+    data = _parse_result(result)
+
+    assert "tracks" in data["results"]
+    assert "artists" in data["results"]
+    assert "playlists" in data["results"]
+    assert "sets" in data["results"]
+    assert data["total"] == 4
 
 
 # ── filter_tracks tool ──────────────────────────────
 
 
-async def test_filter_tracks_by_bpm(patch_db_session, ctx, db):
+async def test_filter_tracks_by_bpm(client: Client, async_engine):
     """filter_tracks() filters by BPM range."""
-    t1 = Track(title="Slow")
-    t2 = Track(title="Fast")
-    db.add_all([t1, t2])
-    await db.flush()
+    from sqlalchemy.ext.asyncio import async_sessionmaker
 
-    db.add(TrackAudioFeaturesComputed(track_id=t1.id, bpm=120.0))
-    db.add(TrackAudioFeaturesComputed(track_id=t2.id, bpm=145.0))
-    await db.flush()
+    from app.models.audio import TrackAudioFeaturesComputed
+    from app.models.track import Track
 
-    from app.mcp.tools.search import filter_tracks
+    factory = async_sessionmaker(async_engine, expire_on_commit=False)
+    async with factory() as session:
+        t1 = Track(title="Slow")
+        t2 = Track(title="Fast")
+        session.add_all([t1, t2])
+        await session.flush()
+        session.add(TrackAudioFeaturesComputed(track_id=t1.id, bpm=120.0))
+        session.add(TrackAudioFeaturesComputed(track_id=t2.id, bpm=145.0))
+        await session.commit()
 
-    result = await filter_tracks(bpm_min=130.0, bpm_max=150.0, ctx=ctx)
+    result = await client.call_tool("filter_tracks", {"bpm_min": 130.0, "bpm_max": 150.0})
+    data = _parse_result(result)
 
-    assert result["total"] == 1
-    assert result["items"][0]["title"] == "Fast"
+    assert data["total"] == 1
+    assert data["items"][0]["title"] == "Fast"
 
 
-async def test_filter_tracks_by_key(patch_db_session, ctx, db):
+async def test_filter_tracks_by_key(client: Client, async_engine):
     """filter_tracks() filters by exact Camelot key."""
-    t1 = Track(title="Track A minor")
-    db.add(t1)
-    await db.flush()
+    from sqlalchemy.ext.asyncio import async_sessionmaker
 
-    # 8A = key_code 14 (A minor)
-    db.add(TrackAudioFeaturesComputed(track_id=t1.id, bpm=130.0, key_code=14))
-    await db.flush()
+    from app.models.audio import TrackAudioFeaturesComputed
+    from app.models.track import Track
 
-    from app.mcp.tools.search import filter_tracks
+    factory = async_sessionmaker(async_engine, expire_on_commit=False)
+    async with factory() as session:
+        t1 = Track(title="Track A minor")
+        session.add(t1)
+        await session.flush()
+        # 8A = key_code 14 (A minor)
+        session.add(TrackAudioFeaturesComputed(track_id=t1.id, bpm=130.0, key_code=14))
+        await session.commit()
 
-    result = await filter_tracks(key="8A", ctx=ctx)
+    result = await client.call_tool("filter_tracks", {"key": "8A"})
+    data = _parse_result(result)
 
-    assert result["total"] == 1
-    assert result["items"][0]["title"] == "Track A minor"
+    assert data["total"] == 1
+    assert data["items"][0]["title"] == "Track A minor"
 
 
-async def test_filter_tracks_by_key_compatible(patch_db_session, ctx, db):
+async def test_filter_tracks_by_key_compatible(client: Client, async_engine):
     """filter_tracks() with key_compatible returns harmonically compatible tracks."""
-    t1 = Track(title="Track 8A")
-    t2 = Track(title="Track 9A")
-    t3 = Track(title="Track 3B")
-    db.add_all([t1, t2, t3])
-    await db.flush()
+    from sqlalchemy.ext.asyncio import async_sessionmaker
 
-    # 8A=14, 9A=16, 3B=5
-    db.add(TrackAudioFeaturesComputed(track_id=t1.id, bpm=130.0, key_code=14))
-    db.add(TrackAudioFeaturesComputed(track_id=t2.id, bpm=132.0, key_code=16))
-    db.add(TrackAudioFeaturesComputed(track_id=t3.id, bpm=128.0, key_code=5))
-    await db.flush()
+    from app.models.audio import TrackAudioFeaturesComputed
+    from app.models.track import Track
 
-    from app.mcp.tools.search import filter_tracks
+    factory = async_sessionmaker(async_engine, expire_on_commit=False)
+    async with factory() as session:
+        t1 = Track(title="Track 8A")
+        t2 = Track(title="Track 9A")
+        t3 = Track(title="Track 3B")
+        session.add_all([t1, t2, t3])
+        await session.flush()
+        # 8A=14, 9A=16, 3B=5
+        session.add(TrackAudioFeaturesComputed(track_id=t1.id, bpm=130.0, key_code=14))
+        session.add(TrackAudioFeaturesComputed(track_id=t2.id, bpm=132.0, key_code=16))
+        session.add(TrackAudioFeaturesComputed(track_id=t3.id, bpm=128.0, key_code=5))
+        await session.commit()
 
     # Compatible with 8A (14): 7A(12), 8A(14), 9A(16), 8B(15) -> distance <= 1
-    result = await filter_tracks(key_compatible="8A", ctx=ctx)
+    result = await client.call_tool("filter_tracks", {"key_compatible": "8A"})
+    data = _parse_result(result)
 
-    titles = {item["title"] for item in result["items"]}
+    titles = {item["title"] for item in data["items"]}
     assert "Track 8A" in titles
     assert "Track 9A" in titles
     assert "Track 3B" not in titles
 
 
-async def test_filter_tracks_by_energy(patch_db_session, ctx, db):
+async def test_filter_tracks_by_energy(client: Client, async_engine):
     """filter_tracks() filters by energy range."""
-    t1 = Track(title="Chill")
-    t2 = Track(title="Intense")
-    db.add_all([t1, t2])
-    await db.flush()
+    from sqlalchemy.ext.asyncio import async_sessionmaker
 
-    db.add(TrackAudioFeaturesComputed(track_id=t1.id, bpm=120.0, energy_mean=0.3))
-    db.add(TrackAudioFeaturesComputed(track_id=t2.id, bpm=140.0, energy_mean=0.9))
-    await db.flush()
+    from app.models.audio import TrackAudioFeaturesComputed
+    from app.models.track import Track
 
-    from app.mcp.tools.search import filter_tracks
+    factory = async_sessionmaker(async_engine, expire_on_commit=False)
+    async with factory() as session:
+        t1 = Track(title="Chill")
+        t2 = Track(title="Intense")
+        session.add_all([t1, t2])
+        await session.flush()
+        session.add(TrackAudioFeaturesComputed(track_id=t1.id, bpm=120.0, energy_mean=0.3))
+        session.add(TrackAudioFeaturesComputed(track_id=t2.id, bpm=140.0, energy_mean=0.9))
+        await session.commit()
 
-    result = await filter_tracks(energy_min=0.7, ctx=ctx)
+    result = await client.call_tool("filter_tracks", {"energy_min": 0.7})
+    data = _parse_result(result)
 
-    assert result["total"] == 1
-    assert result["items"][0]["title"] == "Intense"
+    assert data["total"] == 1
+    assert data["items"][0]["title"] == "Intense"
 
 
-async def test_filter_tracks_invalid_key(patch_db_session, ctx):
+async def test_filter_tracks_invalid_key(client: Client):
     """filter_tracks() raises ToolError for invalid Camelot key."""
     from fastmcp.exceptions import ToolError
 
-    from app.mcp.tools.search import filter_tracks
-
     with pytest.raises(ToolError):
-        await filter_tracks(key="ZZ", ctx=ctx)
+        await client.call_tool("filter_tracks", {"key": "ZZ"})
 
 
 # ── unlock_tools tool ────────────────────────────────
 
 
-async def test_unlock_tools_unlock(ctx):
-    """unlock_tools() calls enable_components with correct tags."""
-    from app.mcp.tools.admin import unlock_tools
+async def test_unlock_tools_unlock(client: Client):
+    """unlock_tools() unlocks the given category."""
+    result = await client.call_tool("unlock_tools", {"action": "unlock", "category": "audio"})
+    data = _parse_result(result)
 
-    result = await unlock_tools(action="unlock", category="audio", ctx=ctx)
-
-    assert result["action"] == "unlocked"
-    assert "audio" in result["categories"]
-    ctx.enable_components.assert_awaited_once_with(tags={"audio"})
+    assert data["action"] == "unlocked"
+    assert "audio" in data["categories"]
 
 
-async def test_unlock_tools_lock(ctx):
-    """unlock_tools() calls disable_components with correct tags."""
-    from app.mcp.tools.admin import unlock_tools
+async def test_unlock_tools_lock(client: Client):
+    """unlock_tools() locks the given category."""
+    result = await client.call_tool("unlock_tools", {"action": "lock", "category": "discovery"})
+    data = _parse_result(result)
 
-    result = await unlock_tools(action="lock", category="discovery", ctx=ctx)
-
-    assert result["action"] == "locked"
-    assert "discovery" in result["categories"]
-    ctx.disable_components.assert_awaited_once_with(tags={"discovery"})
+    assert data["action"] == "locked"
+    assert "discovery" in data["categories"]
 
 
-async def test_unlock_tools_unlock_all(ctx):
+async def test_unlock_tools_unlock_all(client: Client):
     """unlock_tools() with category='all' unlocks all extended categories."""
-    from app.mcp.tools.admin import unlock_tools
+    result = await client.call_tool("unlock_tools", {"action": "unlock", "category": "all"})
+    data = _parse_result(result)
 
-    result = await unlock_tools(action="unlock", category="all", ctx=ctx)
-
-    assert result["action"] == "unlocked"
-    assert len(result["categories"]) == 7  # +atomic
+    assert data["action"] == "unlocked"
+    assert len(data["categories"]) == 7  # +atomic
 
 
-async def test_unlock_tools_status(ctx):
+async def test_unlock_tools_status(client: Client):
     """unlock_tools() with action='status' returns status message."""
-    from app.mcp.tools.admin import unlock_tools
+    result = await client.call_tool("unlock_tools", {"action": "status"})
+    data = _parse_result(result)
 
-    result = await unlock_tools(action="status", ctx=ctx)
-
-    assert result["action"] == "status"
+    assert data["action"] == "status"
 
 
-async def test_unlock_tools_invalid_category(ctx):
+async def test_unlock_tools_invalid_category(client: Client):
     """unlock_tools() raises ToolError for unknown categories."""
     from fastmcp.exceptions import ToolError
 
-    from app.mcp.tools.admin import unlock_tools
-
     with pytest.raises(ToolError):
-        await unlock_tools(action="unlock", category="nonexistent", ctx=ctx)
+        await client.call_tool("unlock_tools", {"action": "unlock", "category": "nonexistent"})
 
 
 # ── list_platforms tool ──────────────────────────────
 
 
-async def test_list_platforms(patch_db_session, ctx, db):
+async def test_list_platforms(client: Client, async_engine):
     """list_platforms() returns all providers with linked counts."""
-    t1 = Track(title="Test")
-    db.add(t1)
-    await db.flush()
+    from sqlalchemy.ext.asyncio import async_sessionmaker
 
-    db.add(TrackExternalId(track_id=t1.id, platform="yandex_music", external_id="123"))
-    await db.flush()
+    from app.models.track import Track, TrackExternalId
 
-    from app.mcp.tools.admin import list_platforms
+    factory = async_sessionmaker(async_engine, expire_on_commit=False)
+    async with factory() as session:
+        t1 = Track(title="Test")
+        session.add(t1)
+        await session.flush()
+        session.add(TrackExternalId(track_id=t1.id, platform="yandex_music", external_id="123"))
+        await session.commit()
 
-    result = await list_platforms(ctx=ctx)
+    result = await client.call_tool("list_platforms", {})
+    data = _parse_result(result)
 
-    assert isinstance(result, list)
-    assert len(result) == 4  # 4 providers in Provider enum
-    ym = next(p for p in result if p["platform"] == "yandex_music")
+    assert isinstance(data, list)
+    assert len(data) == 4  # 4 providers in Provider enum
+    ym = next(p for p in data if p["platform"] == "yandex_music")
     assert ym["linked_tracks"] == 1
     assert ym["available"] is True
 
 
-async def test_list_platforms_empty(patch_db_session, ctx, db):
+async def test_list_platforms_empty(client: Client):
     """list_platforms() returns zeros when no tracks are linked."""
-    from app.mcp.tools.admin import list_platforms
+    result = await client.call_tool("list_platforms", {})
+    data = _parse_result(result)
 
-    result = await list_platforms(ctx=ctx)
-
-    assert all(p["linked_tracks"] == 0 for p in result)
+    assert all(p["linked_tracks"] == 0 for p in data)

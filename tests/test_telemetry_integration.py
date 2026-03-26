@@ -6,7 +6,6 @@ These tests validate that:
 3. OTEL integration works end-to-end
 """
 
-
 from app.config import settings
 
 

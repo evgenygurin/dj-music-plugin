@@ -6,7 +6,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.track_features import TrackFeatures
-from app.models.audio import TrackAudioFeaturesComputed
+from app.models.audio import TrackAudioFeaturesComputed, TrackSection
 from app.models.track import Track
 from app.repositories.base import BaseRepository
 
@@ -54,3 +54,21 @@ class FeatureRepository(BaseRepository[TrackAudioFeaturesComputed]):
         stmt = select(Track).where(~Track.id.in_(subq)).order_by(Track.id).limit(limit)
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
+
+    async def get_sections(self, track_id: int) -> list[TrackSection]:
+        """Return track sections ordered by start time."""
+        stmt = (
+            select(TrackSection)
+            .where(TrackSection.track_id == track_id)
+            .order_by(TrackSection.start_ms)
+        )
+        result = await self.session.execute(stmt)
+        return list(result.scalars().all())
+
+    async def get_all_track_ids_with_features(self) -> list[int]:
+        """Return all track IDs that have computed audio features."""
+        stmt = select(TrackAudioFeaturesComputed.track_id).order_by(
+            TrackAudioFeaturesComputed.track_id
+        )
+        result = await self.session.execute(stmt)
+        return [r[0] for r in result.all()]

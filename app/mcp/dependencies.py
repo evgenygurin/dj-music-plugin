@@ -69,6 +69,27 @@ def get_export_repo(session=Depends(get_db_session)) -> ExportRepository:  # noq
     return ExportRepository(session)
 
 
+# ── Lifespan context accessors ───────────────────────
+
+
+def get_ym_client() -> YandexMusicClient:
+    """Get YM client from lifespan context."""
+    ctx = get_context()
+    return ctx.lifespan_context["ym_client"]  # type: ignore[return-value]
+
+
+def get_analyzer_registry():  # type: ignore[no-untyped-def]
+    """Get analyzer registry from lifespan context."""
+    ctx = get_context()
+    return ctx.lifespan_context["analyzer_registry"]
+
+
+def get_transition_cache() -> TransitionCache:
+    """Get in-memory transition cache from lifespan context."""
+    ctx = get_context()
+    return ctx.lifespan_context["transition_cache"]  # type: ignore[return-value]
+
+
 # ── Service factories ────────────────────────────────
 
 
@@ -89,19 +110,91 @@ def get_playlist_service(
     return PlaylistService(repo)
 
 
-# ── Lifespan context accessors ───────────────────────
+def get_set_service(
+    set_repo=Depends(get_set_repo),  # noqa: B008
+    track_repo=Depends(get_track_repo),  # noqa: B008
+    playlist_repo=Depends(get_playlist_repo),  # noqa: B008
+    feature_repo=Depends(get_feature_repo),  # noqa: B008
+    transition_repo=Depends(get_transition_repo),  # noqa: B008
+):  # type: ignore[no-untyped-def]
+    from app.services.set_service import SetService
+
+    return SetService(set_repo, track_repo, playlist_repo, feature_repo, transition_repo)
 
 
-def get_ym_client() -> YandexMusicClient:
-    """Get YM client from lifespan context."""
-    ctx = get_context()
-    return ctx.lifespan_context["ym_client"]  # type: ignore[return-value]
+def get_search_service(
+    track_repo=Depends(get_track_repo),  # noqa: B008
+    playlist_repo=Depends(get_playlist_repo),  # noqa: B008
+    set_repo=Depends(get_set_repo),  # noqa: B008
+    feature_repo=Depends(get_feature_repo),  # noqa: B008
+):  # type: ignore[no-untyped-def]
+    from app.services.search_service import SearchService
+
+    return SearchService(track_repo, playlist_repo, set_repo, feature_repo)
 
 
-def get_analyzer_registry():  # type: ignore[no-untyped-def]
-    """Get analyzer registry from lifespan context."""
-    ctx = get_context()
-    return ctx.lifespan_context["analyzer_registry"]
+def get_curation_service(
+    track_repo=Depends(get_track_repo),  # noqa: B008
+    playlist_repo=Depends(get_playlist_repo),  # noqa: B008
+    set_repo=Depends(get_set_repo),  # noqa: B008
+    feature_repo=Depends(get_feature_repo),  # noqa: B008
+    transition_repo=Depends(get_transition_repo),  # noqa: B008
+):  # type: ignore[no-untyped-def]
+    from app.services.curation_service import CurationService
+
+    return CurationService(track_repo, playlist_repo, set_repo, feature_repo, transition_repo)
+
+
+def get_reasoning_service(
+    set_repo=Depends(get_set_repo),  # noqa: B008
+    track_repo=Depends(get_track_repo),  # noqa: B008
+    playlist_repo=Depends(get_playlist_repo),  # noqa: B008
+    feature_repo=Depends(get_feature_repo),  # noqa: B008
+    transition_repo=Depends(get_transition_repo),  # noqa: B008
+):  # type: ignore[no-untyped-def]
+    from app.services.reasoning_service import ReasoningService
+
+    return ReasoningService(set_repo, track_repo, playlist_repo, feature_repo, transition_repo)
+
+
+def get_delivery_service(
+    set_repo=Depends(get_set_repo),  # noqa: B008
+    track_repo=Depends(get_track_repo),  # noqa: B008
+    feature_repo=Depends(get_feature_repo),  # noqa: B008
+    transition_repo=Depends(get_transition_repo),  # noqa: B008
+):  # type: ignore[no-untyped-def]
+    from app.services.delivery_service import DeliveryService
+
+    return DeliveryService(set_repo, track_repo, feature_repo, transition_repo)
+
+
+def get_sync_service(
+    track_repo=Depends(get_track_repo),  # noqa: B008
+    playlist_repo=Depends(get_playlist_repo),  # noqa: B008
+    set_repo=Depends(get_set_repo),  # noqa: B008
+    ym=Depends(get_ym_client),  # noqa: B008
+):  # type: ignore[no-untyped-def]
+    from app.services.sync_service import SyncService
+
+    return SyncService(track_repo, playlist_repo, set_repo, ym)
+
+
+def get_discovery_service(
+    track_repo=Depends(get_track_repo),  # noqa: B008
+    ym=Depends(get_ym_client),  # noqa: B008
+):  # type: ignore[no-untyped-def]
+    from app.services.discovery_service import DiscoveryService
+
+    return DiscoveryService(track_repo, ym)
+
+
+def get_import_service(
+    track_repo=Depends(get_track_repo),  # noqa: B008
+    ym=Depends(get_ym_client),  # noqa: B008
+):  # type: ignore[no-untyped-def]
+    from app.services.import_service import ImportService
+
+    return ImportService(track_repo, ym)
 
 
 def get_audio_service(
@@ -112,10 +205,3 @@ def get_audio_service(
     from app.services.audio_service import AudioService
 
     return AudioService(session, registry)
-
-
-def get_transition_cache() -> TransitionCache:
-    """Get in-memory transition cache from lifespan context."""
-    ctx = get_context()
-    return ctx.lifespan_context["transition_cache"]  # type: ignore[return-value]
-

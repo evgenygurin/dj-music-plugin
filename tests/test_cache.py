@@ -62,20 +62,44 @@ def test_cache_evicts_lru_when_full() -> None:
     cache = TransitionCache(max_size=2, ttl=60)
 
     # Fill cache
-    cache.put(1, 2, bpm_score=0.9, harmonic_score=0.8, energy_score=0.85,
-              spectral_score=0.7, groove_score=0.75, overall_score=0.8)
-    cache.put(3, 4, bpm_score=0.9, harmonic_score=0.8, energy_score=0.85,
-              spectral_score=0.7, groove_score=0.75, overall_score=0.8)
+    cache.put(
+        1,
+        2,
+        bpm_score=0.9,
+        harmonic_score=0.8,
+        energy_score=0.85,
+        spectral_score=0.7,
+        groove_score=0.75,
+        overall_score=0.8,
+    )
+    cache.put(
+        3,
+        4,
+        bpm_score=0.9,
+        harmonic_score=0.8,
+        energy_score=0.85,
+        spectral_score=0.7,
+        groove_score=0.75,
+        overall_score=0.8,
+    )
 
     # Access first entry to make it recent
     cache.get(1, 2)
 
     # Add third entry — should evict (3,4) since it's LRU
-    cache.put(5, 6, bpm_score=0.9, harmonic_score=0.8, energy_score=0.85,
-              spectral_score=0.7, groove_score=0.75, overall_score=0.8)
+    cache.put(
+        5,
+        6,
+        bpm_score=0.9,
+        harmonic_score=0.8,
+        energy_score=0.85,
+        spectral_score=0.7,
+        groove_score=0.75,
+        overall_score=0.8,
+    )
 
     assert cache.get(1, 2) is not None  # still present
-    assert cache.get(3, 4) is None      # evicted
+    assert cache.get(3, 4) is None  # evicted
     assert cache.get(5, 6) is not None  # newly added
 
 
@@ -83,8 +107,16 @@ def test_cache_expires_old_entries() -> None:
     """Cache returns None for entries older than TTL."""
     cache = TransitionCache(max_size=100, ttl=0.1)  # 100ms TTL
 
-    cache.put(1, 2, bpm_score=0.9, harmonic_score=0.8, energy_score=0.85,
-              spectral_score=0.7, groove_score=0.75, overall_score=0.8)
+    cache.put(
+        1,
+        2,
+        bpm_score=0.9,
+        harmonic_score=0.8,
+        energy_score=0.85,
+        spectral_score=0.7,
+        groove_score=0.75,
+        overall_score=0.8,
+    )
 
     # Immediate retrieval works
     assert cache.get(1, 2) is not None
@@ -100,12 +132,36 @@ def test_cache_invalidate_track() -> None:
     """Cache invalidates all transitions involving a track."""
     cache = TransitionCache()
 
-    cache.put(1, 2, bpm_score=0.9, harmonic_score=0.8, energy_score=0.85,
-              spectral_score=0.7, groove_score=0.75, overall_score=0.8)
-    cache.put(1, 3, bpm_score=0.9, harmonic_score=0.8, energy_score=0.85,
-              spectral_score=0.7, groove_score=0.75, overall_score=0.8)
-    cache.put(4, 5, bpm_score=0.9, harmonic_score=0.8, energy_score=0.85,
-              spectral_score=0.7, groove_score=0.75, overall_score=0.8)
+    cache.put(
+        1,
+        2,
+        bpm_score=0.9,
+        harmonic_score=0.8,
+        energy_score=0.85,
+        spectral_score=0.7,
+        groove_score=0.75,
+        overall_score=0.8,
+    )
+    cache.put(
+        1,
+        3,
+        bpm_score=0.9,
+        harmonic_score=0.8,
+        energy_score=0.85,
+        spectral_score=0.7,
+        groove_score=0.75,
+        overall_score=0.8,
+    )
+    cache.put(
+        4,
+        5,
+        bpm_score=0.9,
+        harmonic_score=0.8,
+        energy_score=0.85,
+        spectral_score=0.7,
+        groove_score=0.75,
+        overall_score=0.8,
+    )
 
     # Invalidate all transitions involving track 1
     count = cache.invalidate_track(1)
@@ -120,10 +176,26 @@ def test_cache_clear() -> None:
     """Cache clear removes all entries."""
     cache = TransitionCache()
 
-    cache.put(1, 2, bpm_score=0.9, harmonic_score=0.8, energy_score=0.85,
-              spectral_score=0.7, groove_score=0.75, overall_score=0.8)
-    cache.put(3, 4, bpm_score=0.9, harmonic_score=0.8, energy_score=0.85,
-              spectral_score=0.7, groove_score=0.75, overall_score=0.8)
+    cache.put(
+        1,
+        2,
+        bpm_score=0.9,
+        harmonic_score=0.8,
+        energy_score=0.85,
+        spectral_score=0.7,
+        groove_score=0.75,
+        overall_score=0.8,
+    )
+    cache.put(
+        3,
+        4,
+        bpm_score=0.9,
+        harmonic_score=0.8,
+        energy_score=0.85,
+        spectral_score=0.7,
+        groove_score=0.75,
+        overall_score=0.8,
+    )
 
     cache.clear()
 
@@ -142,8 +214,16 @@ def test_cache_stats() -> None:
     assert stats["ttl"] == 3600
     assert stats["oldest_age_seconds"] is None
 
-    cache.put(1, 2, bpm_score=0.9, harmonic_score=0.8, energy_score=0.85,
-              spectral_score=0.7, groove_score=0.75, overall_score=0.8)
+    cache.put(
+        1,
+        2,
+        bpm_score=0.9,
+        harmonic_score=0.8,
+        energy_score=0.85,
+        spectral_score=0.7,
+        groove_score=0.75,
+        overall_score=0.8,
+    )
 
     stats = cache.stats()
     assert stats["size"] == 1

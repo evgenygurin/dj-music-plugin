@@ -8,10 +8,7 @@ from __future__ import annotations
 import json
 from typing import Any
 
-import pytest
 from fastmcp import Client
-
-from app.server import mcp
 
 
 def _parse_result(result: Any) -> dict[str, Any]:
@@ -28,26 +25,7 @@ def _parse_result(result: Any) -> dict[str, Any]:
     raise ValueError(f"Unexpected result type: {type(result)}")
 
 
-@pytest.fixture
-async def client(async_engine):
-    """FastMCP test client with in-memory DB session factory."""
-    from fastmcp.server.lifespan import Lifespan
-    from sqlalchemy.ext.asyncio import async_sessionmaker
-
-    factory = async_sessionmaker(async_engine, expire_on_commit=False)
-
-    original_lifespan = mcp._lifespan
-
-    async def _test_lifespan(server):  # type: ignore[no-untyped-def]
-        yield {"db_engine": async_engine, "db_session_factory": factory}
-
-    mcp._lifespan = Lifespan(_test_lifespan)
-
-    try:
-        async with Client(mcp) as c:
-            yield c
-    finally:
-        mcp._lifespan = original_lifespan
+# Uses 'client' fixture from conftest.py (full lifespan context)
 
 
 # ── Context access tests ─────────────────────────────
