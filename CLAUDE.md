@@ -183,4 +183,3 @@ Plugin v0.4.0, 50 tools (46 visible + 4 atomic hidden), 7 audio analyzers (3 cor
 ## Known Issues (docs/reports/errors/)
 
 - BUG-006: Artist-track association not created during import (OPEN)
-- BUG-011: push_set_to_ym fails when albumId missing (OPEN)

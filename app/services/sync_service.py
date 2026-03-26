@@ -234,13 +234,79 @@ class SyncService:
         return added
 
     async def _collect_ym_track_ids(self, version: Any) -> list[str]:
-        """Collect YM track IDs for set version tracks in trackId:albumId format."""
-        ym_track_ids: list[str] = []
-        for item in sorted(version.items, key=lambda i: i.sort_index):
+        """Collect YM track IDs for set version tracks in trackId:albumId format.
+
+        If albumId is missing from local metadata, batch-fetches from YM API
+        and updates stored metadata. YM playlist add_tracks requires
+        "trackId:albumId" format — omitting albumId causes a 400 error.
+        """
+        # Phase 1: collect external IDs and identify tracks missing album_id
+        items_sorted = sorted(version.items, key=lambda i: i.sort_index)
+        ext_map: dict[int, str] = {}  # track_id → ym_external_id
+        album_map: dict[str, str] = {}  # ym_external_id → album_id
+        missing_album_ym_ids: list[str] = []  # ym IDs needing album lookup
+
+        for item in items_sorted:
             ext = await self._tracks.get_external_id(item.track_id, "yandex_music")
-            if ext:
-                ym_meta = await self._tracks.get_ym_metadata(item.track_id)
-                album_id = ym_meta.album_id if ym_meta and ym_meta.album_id else ""
-                track_ref = f"{ext.external_id}:{album_id}" if album_id else ext.external_id
-                ym_track_ids.append(track_ref)
+            if not ext:
+                continue
+            ext_map[item.track_id] = ext.external_id
+            ym_meta = await self._tracks.get_ym_metadata(item.track_id)
+            if ym_meta and ym_meta.album_id:
+                album_map[ext.external_id] = ym_meta.album_id
+            else:
+                missing_album_ym_ids.append(ext.external_id)
+
+        # Phase 2: batch-fetch missing album IDs from YM API
+        if missing_album_ym_ids:
+            fetched = await self._enrich_missing_album_ids(missing_album_ym_ids)
+            album_map.update(fetched)
+
+        # Phase 3: build trackId:albumId pairs in set order
+        ym_track_ids: list[str] = []
+        for item in items_sorted:
+            ym_id = ext_map.get(item.track_id)
+            if not ym_id:
+                continue
+            album_id = album_map.get(ym_id, "")
+            track_ref = f"{ym_id}:{album_id}" if album_id else ym_id
+            ym_track_ids.append(track_ref)
         return ym_track_ids
+
+    async def _enrich_missing_album_ids(
+        self,
+        ym_ids: list[str],
+    ) -> dict[str, str]:
+        """Batch-fetch album IDs from YM API for tracks that lack them.
+
+        Also updates stored YandexMetadata so future calls don't need re-fetch.
+        Processes in batches of 100 (YM API limit).
+        """
+        result: dict[str, str] = {}
+        batch_size = 100
+        for start in range(0, len(ym_ids), batch_size):
+            batch = ym_ids[start : start + batch_size]
+            ym_tracks = await self._ym.get_tracks(batch)
+            for yt in ym_tracks:
+                albums = yt.albums or []
+                if albums:
+                    album_id = str(albums[0].get("id", ""))
+                    if album_id:
+                        result[yt.id] = album_id
+                        # Update stored metadata so we don't re-fetch next time
+                        await self._update_ym_album_id(yt.id, album_id)
+        return result
+
+    async def _update_ym_album_id(self, ym_track_id: str, album_id: str) -> None:
+        """Update album_id in stored YandexMetadata for a given YM track ID."""
+        from sqlalchemy import update
+
+        from app.models.platform import YandexMetadata
+
+        stmt = (
+            update(YandexMetadata)
+            .where(YandexMetadata.yandex_track_id == ym_track_id)
+            .values(album_id=album_id)
+        )
+        await self._tracks.session.execute(stmt)
+        await self._tracks.session.flush()
