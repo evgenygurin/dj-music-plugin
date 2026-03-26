@@ -16,6 +16,8 @@ from app.models.audio import (  # noqa: F401
     TrackSection,
 )
 from app.models.base import Base
+from app.models.export import AppExport  # noqa: F401
+from app.models.ingestion import ProviderModel, ProviderTrackId, RawProviderResponse  # noqa: F401
 from app.models.key import Key, KeyEdge  # noqa: F401
 from app.models.library import (  # noqa: F401
     DjBeatgrid,

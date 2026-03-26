@@ -162,10 +162,11 @@ def get_delivery_service(
     track_repo=Depends(get_track_repo),  # noqa: B008
     feature_repo=Depends(get_feature_repo),  # noqa: B008
     transition_repo=Depends(get_transition_repo),  # noqa: B008
+    export_repo=Depends(get_export_repo),  # noqa: B008
 ):  # type: ignore[no-untyped-def]
     from app.services.delivery_service import DeliveryService
 
-    return DeliveryService(set_repo, track_repo, feature_repo, transition_repo)
+    return DeliveryService(set_repo, track_repo, feature_repo, transition_repo, export_repo)
 
 
 def get_sync_service(
