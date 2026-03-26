@@ -11,7 +11,6 @@ from app.models.base import Base, TimestampMixin  # noqa: F401
 from app.models.export import AppExport  # noqa: F401
 from app.models.ingestion import (  # noqa: F401
     ProviderModel,
-    ProviderTrackId,
     RawProviderResponse,
 )
 from app.models.key import Key, KeyEdge  # noqa: F401

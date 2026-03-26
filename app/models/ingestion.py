@@ -1,13 +1,15 @@
 """Ingestion models (Task 15).
 
-3 tables: providers, provider_track_ids, raw_provider_responses.
+2 tables: providers, raw_provider_responses.
+
+Note: provider_track_ids was removed — duplicated by track_external_ids.
 """
 
 from __future__ import annotations
 
 import datetime
 
-from sqlalchemy import ForeignKey, String, Text, UniqueConstraint
+from sqlalchemy import ForeignKey, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import Base, TimestampMixin
@@ -20,24 +22,6 @@ class ProviderModel(Base, TimestampMixin):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(String(100), unique=True)
-
-
-class ProviderTrackId(Base, TimestampMixin):
-    """Mapping between local track and external provider track ID."""
-
-    __tablename__ = "provider_track_ids"
-    __table_args__ = (
-        UniqueConstraint("track_id", "provider_id", name="uq_provider_track_ids_track_provider"),
-    )
-
-    id: Mapped[int] = mapped_column(primary_key=True)
-    track_id: Mapped[int] = mapped_column(
-        ForeignKey("tracks.id", ondelete="CASCADE"),
-    )
-    provider_id: Mapped[int] = mapped_column(
-        ForeignKey("providers.id", ondelete="CASCADE"),
-    )
-    provider_track_id: Mapped[str] = mapped_column(String(500))
 
 
 class RawProviderResponse(Base, TimestampMixin):
