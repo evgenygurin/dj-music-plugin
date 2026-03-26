@@ -21,6 +21,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.cache import TransitionCache
 from app.repositories.export import ExportRepository
 from app.repositories.feature import FeatureRepository
+from app.repositories.ingestion import IngestionRepository
 from app.repositories.playlist import PlaylistRepository
 from app.repositories.set import SetRepository
 from app.repositories.track import TrackRepository
@@ -67,6 +68,10 @@ def get_transition_repo(session=Depends(get_db_session)) -> TransitionRepository
 
 def get_export_repo(session=Depends(get_db_session)) -> ExportRepository:  # noqa: B008
     return ExportRepository(session)
+
+
+def get_ingestion_repo(session=Depends(get_db_session)) -> IngestionRepository:  # noqa: B008
+    return IngestionRepository(session)
 
 
 # ── Lifespan context accessors ───────────────────────
@@ -201,10 +206,11 @@ def get_import_service(
     track_repo=Depends(get_track_repo),  # noqa: B008
     ym=Depends(get_ym_client),  # noqa: B008
     metadata=Depends(get_metadata_service),  # noqa: B008
+    ingestion_repo=Depends(get_ingestion_repo),  # noqa: B008
 ):  # type: ignore[no-untyped-def]
     from app.services.import_service import ImportService
 
-    return ImportService(track_repo, ym, metadata)
+    return ImportService(track_repo, ym, metadata, ingestion_repo)
 
 
 def get_audio_service(
