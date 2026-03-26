@@ -51,7 +51,7 @@ async def test_build_set_saves_quality_score(db: AsyncSession) -> None:
     playlist_id = await _seed_playlist_with_tracks(db, count=3)
     svc = _make_set_service(db)
 
-    dj_set, version, quality, algo = await svc.build_set(
+    dj_set, version, quality, _algo = await svc.build_set(
         playlist_id=playlist_id,
         name="Quality Test Set",
         algorithm="greedy",

@@ -11,7 +11,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.ingestion import RawProviderResponse
 from app.repositories.ingestion import IngestionRepository
 
-
 # ── IngestionRepository unit tests ──────────────────
 
 
