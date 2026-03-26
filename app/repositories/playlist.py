@@ -1,6 +1,6 @@
 """Playlist repository with item management."""
 
-from sqlalchemy import select
+from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -62,3 +62,53 @@ class PlaylistRepository(BaseRepository[Playlist]):
         await self.session.delete(item)
         await self.session.flush()
         return True
+
+    async def search_by_name(self, query: str, limit: int = 10) -> list[Playlist]:
+        """Search playlists by name (case-insensitive)."""
+        stmt = (
+            select(Playlist)
+            .where(Playlist.name.ilike(f"%{query}%"))
+            .order_by(Playlist.id)
+            .limit(limit)
+        )
+        result = await self.session.execute(stmt)
+        return list(result.scalars().all())
+
+    async def search_with_items(self, query: str) -> Playlist | None:
+        """Find first playlist matching name query, with items eager-loaded."""
+        stmt = (
+            select(Playlist)
+            .where(Playlist.name.ilike(f"%{query}%"))
+            .options(selectinload(Playlist.items))
+            .limit(1)
+        )
+        result = await self.session.execute(stmt)
+        return result.scalar_one_or_none()
+
+    async def get_or_create_by_name(self, name: str) -> Playlist:
+        """Return existing playlist by exact name, or create a new one."""
+        stmt = select(Playlist).where(Playlist.name == name).limit(1)
+        result = await self.session.execute(stmt)
+        playlist = result.scalar_one_or_none()
+        if playlist is not None:
+            return playlist
+        playlist = Playlist(name=name)
+        self.session.add(playlist)
+        await self.session.flush()
+        return playlist
+
+    async def clear_items(self, playlist_id: int) -> int:
+        """Remove all items from a playlist. Returns count deleted."""
+        stmt = delete(PlaylistItem).where(PlaylistItem.playlist_id == playlist_id)
+        result = await self.session.execute(stmt)
+        await self.session.flush()
+        return result.rowcount  # type: ignore[return-value]
+
+    async def get_max_sort_index(self, playlist_id: int) -> int:
+        """Return the highest sort_index in a playlist, or -1 if empty."""
+        stmt = select(func.max(PlaylistItem.sort_index)).where(
+            PlaylistItem.playlist_id == playlist_id
+        )
+        result = await self.session.execute(stmt)
+        val = result.scalar_one_or_none()
+        return val if val is not None else -1

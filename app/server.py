@@ -225,5 +225,8 @@ except ImportError:
     pass
 
 # ── Component Visibility ─────────────────────────────
-mcp.disable(tags={"audio"})
+# NOTE: audio tools are always visible (BUG-001 workaround).
+# Claude Code doesn't re-fetch tools/list after ToolListChangedNotification,
+# so mcp.disable() + unlock_tools() was ineffective. Audio tools are now
+# always available. Atomic tools remain hidden (internal building blocks).
 mcp.disable(tags={"atomic"})

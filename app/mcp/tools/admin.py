@@ -6,14 +6,12 @@ from fastmcp.dependencies import Depends
 from fastmcp.exceptions import ToolError
 from fastmcp.server.context import Context
 from fastmcp.tools import tool
-from sqlalchemy import func, select
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.constants import Provider
-from app.mcp.dependencies import get_db_session
-from app.models.track import TrackExternalId
+from app.mcp.dependencies import get_track_service
+from app.services.track_service import TrackService
 
-_ALL_CATEGORIES = frozenset({"delivery", "discovery", "curation", "sync", "ym", "audio", "atomic"})
+_ALL_CATEGORIES = frozenset({"delivery", "discovery", "curation", "sync", "ym", "atomic"})
 
 
 @tool(tags={"admin"})
@@ -44,15 +42,10 @@ async def unlock_tools(
 
 @tool(tags={"admin"}, annotations={"readOnlyHint": True})
 async def list_platforms(
-    session: AsyncSession = Depends(get_db_session),  # noqa: B008
+    svc: TrackService = Depends(get_track_service),  # noqa: B008
 ) -> list[dict]:
     """List available music platforms and linked track counts."""
-    stmt = select(
-        TrackExternalId.platform,
-        func.count(TrackExternalId.id).label("track_count"),
-    ).group_by(TrackExternalId.platform)
-    result = await session.execute(stmt)
-    db_platforms = {row.platform: row.track_count for row in result.all()}
+    db_platforms = await svc.get_platform_counts()
 
     return [
         {
@@ -62,4 +55,3 @@ async def list_platforms(
         }
         for provider in Provider
     ]
-

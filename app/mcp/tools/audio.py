@@ -176,4 +176,3 @@ async def separate_stems(
         "output_files": {},
         "note": "Requires [stems] extra: uv sync --extra stems",
     }
-

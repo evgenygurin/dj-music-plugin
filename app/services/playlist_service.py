@@ -28,6 +28,23 @@ class PlaylistService:
             raise NotFoundError("Playlist", playlist_id)
         return playlist
 
+    async def search_by_name(self, query: str) -> Playlist | None:
+        """Find first playlist by name (case-insensitive ILIKE), with items."""
+        return await self._repo.search_with_items(query)
+
+    async def reorder_tracks(
+        self,
+        playlist_id: int,
+        track_ids: list[int],
+        positions: list[int],
+    ) -> Playlist:
+        """Replace all playlist items with a new ordering."""
+        await self.get_by_id(playlist_id)  # validate playlist exists
+        await self._repo.clear_items(playlist_id)
+        for tid, pos in zip(track_ids, positions, strict=False):
+            await self._repo.add_track(playlist_id, tid, pos)
+        return await self.get_by_id(playlist_id)
+
     async def list_all(
         self, *, limit: int = 20, cursor: str | None = None, source: str | None = None
     ) -> CursorPage[Playlist]:

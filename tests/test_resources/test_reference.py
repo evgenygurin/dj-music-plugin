@@ -154,9 +154,7 @@ async def test_subgenres_reference_details():
         assert len(subgenre["key_features"]) >= 3  # At least 3 key features
 
     # Verify specific subgenre: peak_time
-    peak_time = next(
-        s for s in data["subgenres"] if s["name"] == TechnoSubgenre.PEAK_TIME.value
-    )
+    peak_time = next(s for s in data["subgenres"] if s["name"] == TechnoSubgenre.PEAK_TIME.value)
     assert "high" in peak_time["description"].lower()
     assert "main floor" in peak_time["description"].lower()
     # BPM range should be string like "130-138"

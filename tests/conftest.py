@@ -6,6 +6,7 @@ All fixtures use async SQLAlchemy with in-memory SQLite.
 import pytest
 from sqlalchemy import event
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.pool import StaticPool
 
 from app.models.audio import (  # noqa: F401
     Embedding,
@@ -38,8 +39,16 @@ def _set_sqlite_pragma(dbapi_conn, _connection_record):
 
 @pytest.fixture
 async def async_engine():
-    """In-memory async SQLite engine with all tables created."""
-    engine = create_async_engine("sqlite+aiosqlite:///:memory:")
+    """In-memory async SQLite engine with all tables created.
+
+    Uses StaticPool to keep the single in-memory connection alive
+    across multiple sessions within one test.
+    """
+    engine = create_async_engine(
+        "sqlite+aiosqlite:///:memory:",
+        poolclass=StaticPool,
+        connect_args={"check_same_thread": False},
+    )
     event.listen(engine.sync_engine, "connect", _set_sqlite_pragma)
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
@@ -148,4 +157,7 @@ async def client(async_engine):  # type: ignore[no-untyped-def]
         async with Client(mcp) as c:
             yield c
     finally:
+        # Reset cached lifespan result so next test gets a fresh lifespan
+        mcp._lifespan_result = None
+        mcp._lifespan_result_set = False
         mcp._lifespan = original_lifespan

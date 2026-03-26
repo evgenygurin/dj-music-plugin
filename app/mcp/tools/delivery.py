@@ -1,4 +1,7 @@
-"""Delivery & export tools (2 tools, tag: delivery)."""
+"""Delivery & export tools (2 tools, tag: delivery).
+
+Thin wrappers calling DeliveryService via Depends().
+"""
 
 from __future__ import annotations
 
@@ -9,118 +12,18 @@ from fastmcp.dependencies import Depends
 from fastmcp.exceptions import ToolError
 from fastmcp.server.context import Context
 from fastmcp.tools import tool
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.core.constants import ExportFormat
-from app.mcp.dependencies import get_db_session, get_set_repo, get_track_repo, get_transition_repo
-from app.models.audio import TrackAudioFeaturesComputed
-from app.models.set import DjSet, SetItem, SetVersion
-from app.models.track import TrackArtist
-from app.repositories.set import SetRepository
-from app.repositories.track import TrackRepository
-from app.repositories.transition import TransitionRepository
+from app.mcp.dependencies import get_delivery_service
+from app.services.delivery_service import DeliveryService
 from app.services.export import (
-    ExportTrack,
-    ExportTransition,
     RekordboxOptions,
-    SetExportData,
     write_cheat_sheet,
     write_json_guide,
     write_m3u8,
     write_rekordbox_xml,
 )
-
-# ── Helpers ──────────────────────────────────────────
-
-
-async def _build_export_data(
-    session: AsyncSession,
-    dj_set: DjSet,
-    version: SetVersion,
-    items: list[SetItem],
-    track_repo: TrackRepository,
-    transition_repo: TransitionRepository,
-) -> SetExportData:
-    """Build SetExportData from DB models."""
-    export_tracks: list[ExportTrack] = []
-    for item in items:
-        track = await track_repo.get_by_id(item.track_id)
-        if not track:
-            continue
-
-        # Load features
-        stmt = select(TrackAudioFeaturesComputed).where(
-            TrackAudioFeaturesComputed.track_id == track.id
-        )
-        result = await session.execute(stmt)
-        features = result.scalar_one_or_none()
-
-        # Load artist names
-        stmt_artists = select(TrackArtist).where(TrackArtist.track_id == track.id)
-        result_artists = await session.execute(stmt_artists)
-        artists = list(result_artists.scalars().all())
-        artist_name = (
-            ", ".join(a.artist.name for a in artists if hasattr(a, "artist") and a.artist)
-            or "Unknown"
-        )
-
-        # Resolve Camelot key notation
-        key_camelot = None
-        if features and features.key_code is not None:
-            from app.core.camelot import key_code_to_camelot
-
-            key_camelot = key_code_to_camelot(features.key_code)
-
-        # Get file path from library
-        from app.models.library import DjLibraryItem
-
-        lib_stmt = select(DjLibraryItem).where(DjLibraryItem.track_id == track.id)
-        lib_result = await session.execute(lib_stmt)
-        lib_item = lib_result.scalar_one_or_none()
-
-        export_tracks.append(
-            ExportTrack(
-                position=item.sort_index,
-                title=track.title,
-                artist=artist_name,
-                duration_ms=track.duration_ms or 0,
-                file_path=lib_item.file_path if lib_item else "",
-                bpm=features.bpm if features else None,
-                key_camelot=key_camelot,
-                energy_lufs=features.integrated_lufs if features else None,
-                mood=features.mood if features else None,
-                notes=item.notes,
-            )
-        )
-
-    # Build transitions
-    export_transitions: list[ExportTransition] = []
-    for i in range(len(items) - 1):
-        score = await transition_repo.get_score(items[i].track_id, items[i + 1].track_id)
-        export_transitions.append(
-            ExportTransition(
-                from_position=items[i].sort_index,
-                to_position=items[i + 1].sort_index,
-                score=score.overall_quality if score else None,
-                bpm_delta=score.bpm_distance if score and hasattr(score, "bpm_distance") else None,
-                key_distance=score.key_distance
-                if score and hasattr(score, "key_distance")
-                else None,
-                energy_delta=None,
-                transition_type=None,
-            )
-        )
-
-    return SetExportData(
-        name=dj_set.name,
-        version_label=version.label,
-        quality_score=version.quality_score,
-        tracks=export_tracks,
-        transitions=export_transitions,
-    )
-
 
 # ── 1. deliver_set ──────────────────────────────────
 
@@ -139,10 +42,7 @@ async def deliver_set(
     sync_to_ym: bool = False,
     formats: Any = None,
     dry_run: bool = False,
-    session: AsyncSession = Depends(get_db_session),  # noqa: B008
-    set_repo: SetRepository = Depends(get_set_repo),  # noqa: B008
-    track_repo: TrackRepository = Depends(get_track_repo),  # noqa: B008
-    transition_repo: TransitionRepository = Depends(get_transition_repo),  # noqa: B008
+    svc: DeliveryService = Depends(get_delivery_service),  # noqa: B008
     ctx: Context | None = None,
 ) -> dict[str, Any]:
     """Multi-stage set delivery: score transitions, copy files, generate exports."""
@@ -152,39 +52,20 @@ async def deliver_set(
     if ctx:
         await ctx.info(f"Starting delivery for set {set_id}...")
 
-    # Stage 1: Load set
-    dj_set = await set_repo.get_by_id(set_id)
-    if dj_set is None:
-        raise ToolError(f"Set {set_id} not found")
-
-    target_version = await set_repo.get_latest_version(set_id)
-    if target_version is None:
-        raise ToolError("No version found for this set")
-
-    stmt = (
-        select(SetItem)
-        .where(SetItem.version_id == target_version.id)
-        .order_by(SetItem.sort_index)
-    )
-    result = await session.execute(stmt)
-    items = list(result.scalars().all())
-
-    if not items:
-        raise ToolError("Set has no tracks")
+    # Stage 1: Load set data via service
+    set_data = await svc.load_set_for_delivery(set_id)
+    dj_set = set_data["dj_set"]
+    target_version = set_data["version"]
+    items = set_data["items"]
 
     if ctx:
         await ctx.info(f"Stage 1/4: Loaded {len(items)} tracks")
         await ctx.report_progress(1, 4)
 
     # Stage 2: Score transitions
-    scored_count = 0
-    conflict_count = 0
-    for i in range(len(items) - 1):
-        score = await transition_repo.get_score(items[i].track_id, items[i + 1].track_id)
-        if score:
-            scored_count += 1
-            if score.overall_quality is not None and score.overall_quality == 0.0:
-                conflict_count += 1
+    score_summary = await svc.score_delivery_transitions(items)
+    scored_count = score_summary["scored"]
+    conflict_count = score_summary["conflicts"]
 
     if ctx:
         await ctx.info(
@@ -209,10 +90,8 @@ async def deliver_set(
         except Exception:
             pass  # Client doesn't support elicitation — continue
 
-    # Build export data
-    export_data = await _build_export_data(
-        session, dj_set, target_version, items, track_repo, transition_repo,
-    )
+    # Build export data via service
+    export_data = await svc.build_export_data(dj_set, target_version, items)
 
     # Determine output directory
     base_dir = Path(output_dir or settings.delivery_output_dir)
@@ -304,10 +183,7 @@ async def export_set(
     format: str = "m3u8",
     output_path: str | None = None,
     rekordbox_options: Any = None,
-    session: AsyncSession = Depends(get_db_session),  # noqa: B008
-    set_repo: SetRepository = Depends(get_set_repo),  # noqa: B008
-    track_repo: TrackRepository = Depends(get_track_repo),  # noqa: B008
-    transition_repo: TransitionRepository = Depends(get_transition_repo),  # noqa: B008
+    svc: DeliveryService = Depends(get_delivery_service),  # noqa: B008
     ctx: Context | None = None,
 ) -> dict[str, Any]:
     """Export set to format: m3u8, rekordbox, json, cheatsheet."""
@@ -318,28 +194,13 @@ async def export_set(
     if format not in valid_formats:
         raise ToolError(f"Unknown format: {format}. Valid: {', '.join(sorted(valid_formats))}")
 
-    dj_set = await set_repo.get_by_id(set_id)
-    if dj_set is None:
-        raise ToolError(f"Set {set_id} not found")
+    # Load set data via service
+    set_data = await svc.load_set_for_delivery(set_id)
+    dj_set = set_data["dj_set"]
+    target_version = set_data["version"]
+    items = set_data["items"]
 
-    target_version = await set_repo.get_latest_version(set_id)
-    if target_version is None:
-        raise ToolError("No version found for this set")
-
-    stmt = (
-        select(SetItem)
-        .where(SetItem.version_id == target_version.id)
-        .order_by(SetItem.sort_index)
-    )
-    result = await session.execute(stmt)
-    items = list(result.scalars().all())
-
-    if not items:
-        raise ToolError("Set has no tracks")
-
-    export_data = await _build_export_data(
-        session, dj_set, target_version, items, track_repo, transition_repo,
-    )
+    export_data = await svc.build_export_data(dj_set, target_version, items)
 
     # Determine output path
     base_dir = Path(output_path or settings.delivery_output_dir)
@@ -371,4 +232,3 @@ async def export_set(
         "track_count": len(items),
         "version": target_version.label,
     }
-

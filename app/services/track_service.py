@@ -70,6 +70,13 @@ class TrackService:
             cursor=cursor,
         )
 
+    async def get_track_sections(self, track_id: int) -> list[dict[str, Any]]:
+        """Return sections for a track as dicts."""
+        sections = await self._features.get_sections(track_id)
+        return [
+            {"type": s.section_type, "start_ms": s.start_ms, "end_ms": s.end_ms} for s in sections
+        ]
+
     # ── Write ────────────────────────────────────────
 
     async def create(self, title: str, duration_ms: int | None = None) -> Track:
@@ -99,6 +106,10 @@ class TrackService:
         track = await self.get_by_id(track_id)
         track.status = 0
         return await self._tracks.update(track)
+
+    async def get_platform_counts(self) -> dict[str, int]:
+        """Return count of linked tracks per platform."""
+        return await self._tracks.get_platform_counts()
 
     # ── Converters ───────────────────────────────────
 

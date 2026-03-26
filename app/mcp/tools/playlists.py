@@ -14,11 +14,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.mcp.dependencies import (
     get_db_session,
-    get_playlist_repo,
     get_playlist_service,
     get_track_service,
 )
-from app.repositories.playlist import PlaylistRepository
 from app.services.playlist_service import PlaylistService
 from app.services.track_service import TrackService
 
@@ -46,7 +44,6 @@ async def get_playlist(
     include_tracks: bool = False,
     svc: PlaylistService = Depends(get_playlist_service),  # noqa: B008
     track_svc: TrackService = Depends(get_track_service),  # noqa: B008
-    session: AsyncSession = Depends(get_db_session),  # noqa: B008
 ) -> dict[str, Any]:
     """Get playlist details by id or name query. Optionally include tracks."""
     if id is None and query is None:
@@ -55,19 +52,7 @@ async def get_playlist(
     if id is not None:
         playlist = await svc.get_by_id(id)
     else:
-        from sqlalchemy import select
-        from sqlalchemy.orm import selectinload
-
-        from app.models.playlist import Playlist
-
-        stmt = (
-            select(Playlist)
-            .where(Playlist.name.ilike(f"%{query}%"))
-            .options(selectinload(Playlist.items))
-            .limit(1)
-        )
-        result = await session.execute(stmt)
-        playlist = result.scalar_one_or_none()
+        playlist = await svc.search_by_name(query)  # type: ignore[arg-type]
         if playlist is None:
             raise ToolError("Playlist not found")
 
@@ -96,7 +81,6 @@ async def manage_playlist(
     track_refs: Any = None,
     positions: Any = None,
     svc: PlaylistService = Depends(get_playlist_service),  # noqa: B008
-    playlist_repo: PlaylistRepository = Depends(get_playlist_repo),  # noqa: B008
     session: AsyncSession = Depends(get_db_session),  # noqa: B008
 ) -> dict[str, Any]:
     """Manage playlists. action: create|update|delete|add_tracks|remove_tracks|reorder."""
@@ -152,13 +136,7 @@ async def manage_playlist(
     if action == "reorder":
         if not track_refs or not positions:
             raise ToolError("track_refs and positions required for reorder")
-        playlist = await svc.get_by_id(playlist_id)
-        for item in list(playlist.items):
-            await session.delete(item)
-        await session.flush()
-        for tid, pos in zip(track_refs, positions, strict=False):
-            await playlist_repo.add_track(playlist_id, tid, pos)
-        playlist = await svc.get_by_id(playlist_id)
+        playlist = await svc.reorder_tracks(playlist_id, track_refs, positions)
         return svc.to_summary(playlist).model_dump()
 
     raise ToolError("Unreachable")

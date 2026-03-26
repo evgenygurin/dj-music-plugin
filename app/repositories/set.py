@@ -1,11 +1,19 @@
 """DJ Set repository with version management."""
 
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.models.set import DjSet, SetItem, SetVersion
 from app.repositories.base import BaseRepository
+
+if TYPE_CHECKING:
+    from app.core.pagination import CursorPage
+    from app.models.set import SetConstraint, SetFeedback
 
 
 class SetRepository(BaseRepository[DjSet]):
@@ -57,11 +65,7 @@ class SetRepository(BaseRepository[DjSet]):
         Commonly used by tools to iterate over tracks in a set version
         for scoring, delivery, and quality review.
         """
-        stmt = (
-            select(SetItem)
-            .where(SetItem.version_id == version_id)
-            .order_by(SetItem.sort_index)
-        )
+        stmt = select(SetItem).where(SetItem.version_id == version_id).order_by(SetItem.sort_index)
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
 
@@ -74,3 +78,123 @@ class SetRepository(BaseRepository[DjSet]):
         )
         result = await self.session.execute(stmt)
         return result.scalar_one_or_none()
+
+    async def search_by_name(self, query: str) -> DjSet | None:
+        """Find set by case-insensitive name search."""
+        stmt = select(DjSet).where(DjSet.name.ilike(f"%{query}%")).limit(1)
+        result = await self.session.execute(stmt)
+        return result.scalar_one_or_none()
+
+    async def search_by_name_list(self, query: str, limit: int = 10) -> list[DjSet]:
+        """Search sets by name, return list."""
+        stmt = select(DjSet).where(DjSet.name.ilike(f"%{query}%")).order_by(DjSet.id).limit(limit)
+        result = await self.session.execute(stmt)
+        return list(result.scalars().all())
+
+    async def list_filtered(
+        self,
+        *,
+        template: str | None = None,
+        limit: int = 20,
+        cursor: str | None = None,
+    ) -> CursorPage[DjSet]:
+        """List sets with optional template filter."""
+
+        stmt = select(DjSet)
+        if template is not None:
+            stmt = stmt.where(DjSet.template_name == template)
+        return await self._paginate(stmt, limit=limit, cursor=cursor)
+
+    async def get_latest_versions(self, set_id: int, count: int = 2) -> list[SetVersion]:
+        """Return N most recent versions for a set."""
+        stmt = (
+            select(SetVersion)
+            .where(SetVersion.set_id == set_id)
+            .order_by(SetVersion.id.desc())
+            .limit(count)
+        )
+        result = await self.session.execute(stmt)
+        return list(result.scalars().all())
+
+    async def get_version_by_label(
+        self,
+        set_id: int,
+        label: str,
+    ) -> SetVersion | None:
+        """Find a version by its label."""
+        stmt = select(SetVersion).where(
+            SetVersion.set_id == set_id,
+            SetVersion.label == label,
+        )
+        result = await self.session.execute(stmt)
+        return result.scalar_one_or_none()
+
+    async def create_version_with_meta(
+        self,
+        set_id: int,
+        track_order: list[int],
+        label: str = "v1",
+        gen_meta: str | None = None,
+    ) -> SetVersion:
+        """Create a version with ordered tracks and generator metadata."""
+        version = SetVersion(
+            set_id=set_id,
+            label=label,
+            generator_run_meta=gen_meta,
+        )
+        self.session.add(version)
+        await self.session.flush()
+
+        for idx, tid in enumerate(track_order):
+            self.session.add(SetItem(version_id=version.id, track_id=tid, sort_index=idx))
+        await self.session.flush()
+
+        return version
+
+    async def create_version_with_items(
+        self,
+        set_id: int,
+        items: list[dict],
+        label: str | None = None,
+    ) -> SetVersion:
+        """Create version with items that may include pinned flag."""
+        version = SetVersion(set_id=set_id, label=label)
+        self.session.add(version)
+        await self.session.flush()
+
+        for item_data in items:
+            self.session.add(
+                SetItem(
+                    version_id=version.id,
+                    track_id=item_data["track_id"],
+                    sort_index=item_data["sort_index"],
+                    pinned=item_data.get("pinned", False),
+                )
+            )
+        await self.session.flush()
+        return version
+
+    async def add_constraint(self, constraint: SetConstraint) -> SetConstraint:
+        """Persist a set constraint."""
+        self.session.add(constraint)
+        await self.session.flush()
+        return constraint
+
+    async def remove_constraint(self, constraint_id: int) -> bool:
+        """Remove a constraint by ID."""
+        from app.models.set import SetConstraint
+
+        stmt = select(SetConstraint).where(SetConstraint.id == constraint_id)
+        result = await self.session.execute(stmt)
+        constraint = result.scalar_one_or_none()
+        if constraint is None:
+            return False
+        await self.session.delete(constraint)
+        await self.session.flush()
+        return True
+
+    async def add_feedback(self, feedback: SetFeedback) -> SetFeedback:
+        """Persist set feedback."""
+        self.session.add(feedback)
+        await self.session.flush()
+        return feedback

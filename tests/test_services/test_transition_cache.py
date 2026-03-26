@@ -68,15 +68,9 @@ async def test_cache_key_ordering(
 async def test_invalidate_by_track_id(cache: TransitionScoreCache) -> None:
     """Test invalidating all scores involving a specific track."""
     # Cache 3 pairs: (1,2), (1,3), (4,5)
-    await cache.set(
-        CachedTransitionEntry(1, 2, 0.9, 0.8, 0.7, 0.6, 0.5, 0.7)
-    )
-    await cache.set(
-        CachedTransitionEntry(1, 3, 0.9, 0.8, 0.7, 0.6, 0.5, 0.7)
-    )
-    await cache.set(
-        CachedTransitionEntry(4, 5, 0.9, 0.8, 0.7, 0.6, 0.5, 0.7)
-    )
+    await cache.set(CachedTransitionEntry(1, 2, 0.9, 0.8, 0.7, 0.6, 0.5, 0.7))
+    await cache.set(CachedTransitionEntry(1, 3, 0.9, 0.8, 0.7, 0.6, 0.5, 0.7))
+    await cache.set(CachedTransitionEntry(4, 5, 0.9, 0.8, 0.7, 0.6, 0.5, 0.7))
 
     # Invalidate track 1
     await cache.invalidate(track_id=1)
