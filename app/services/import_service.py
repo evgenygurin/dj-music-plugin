@@ -5,6 +5,7 @@ Framework-agnostic: no MCP/FastMCP imports.
 
 from __future__ import annotations
 
+import contextlib
 import hashlib
 import re
 from pathlib import Path
@@ -33,9 +34,11 @@ class ImportService:
         self,
         track_repo: TrackRepository,
         ym: YandexMusicClient,
+        metadata_service: Any | None = None,
     ) -> None:
         self._tracks = track_repo
         self._ym = ym
+        self._metadata = metadata_service
 
     async def import_tracks(
         self,
@@ -191,6 +194,14 @@ class ImportService:
                     ym_id=ym_id_str,
                     ym_track=ym_track,
                 )
+
+                # Normalize metadata into Artist/Genre/Label/Release entities
+                if self._metadata is not None:
+                    with contextlib.suppress(Exception):
+                        await self._metadata.normalize_track_metadata(
+                            local_track_id, ym_track=ym_track
+                        )
+
                 enriched += 1
         except Exception:
             pass  # YM metadata enrichment is best-effort
