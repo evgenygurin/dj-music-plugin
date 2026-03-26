@@ -5,6 +5,7 @@ Framework-agnostic: no MCP/FastMCP imports.
 
 from __future__ import annotations
 
+import re
 from typing import Any
 
 from app.core.errors import NotFoundError, ValidationError
@@ -14,6 +15,18 @@ from app.models.audio import TrackAudioFeaturesComputed
 from app.models.track import Track
 from app.repositories.feature import FeatureRepository
 from app.repositories.track import TrackRepository
+
+
+_LEADING_ARTICLES = re.compile(r"^(the|a|an)\s+", re.IGNORECASE)
+_NON_ALNUM_PREFIX = re.compile(r"^[^a-z0-9\u00C0-\u024F]+")
+
+
+def generate_sort_title(title: str) -> str:
+    """Generate a sort-friendly title: lowercase, strip articles and non-alnum prefix."""
+    result = title.lower().strip()
+    result = _LEADING_ARTICLES.sub("", result)
+    result = _NON_ALNUM_PREFIX.sub("", result)
+    return result or title.lower().strip()
 
 
 class TrackService:
@@ -87,7 +100,12 @@ class TrackService:
             from app.core.errors import ConflictError
 
             raise ConflictError(f"Track with title '{title}' already exists (id={existing.id})")
-        track = Track(title=title, duration_ms=duration_ms, status=0)
+        track = Track(
+            title=title,
+            sort_title=generate_sort_title(title),
+            duration_ms=duration_ms,
+            status=0,
+        )
         return await self._tracks.create(track)
 
     async def update(self, track_id: int, **fields: Any) -> Track:
@@ -95,6 +113,9 @@ class TrackService:
         for key, value in fields.items():
             if hasattr(track, key):
                 setattr(track, key, value)
+        # Re-generate sort_title when title changes
+        if "title" in fields:
+            track.sort_title = generate_sort_title(track.title)
         return await self._tracks.update(track)
 
     async def archive(self, track_id: int) -> Track:
