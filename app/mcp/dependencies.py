@@ -19,6 +19,9 @@ from fastmcp.server.dependencies import get_context
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.cache import TransitionCache
+from app.repositories.audio import AudioRepository
+from app.repositories.candidate import CandidateRepository
+from app.repositories.embedding import EmbeddingRepository
 from app.repositories.export import ExportRepository
 from app.repositories.feature import FeatureRepository
 from app.repositories.ingestion import IngestionRepository
@@ -72,6 +75,18 @@ def get_export_repo(session=Depends(get_db_session)) -> ExportRepository:  # noq
 
 def get_ingestion_repo(session=Depends(get_db_session)) -> IngestionRepository:  # noqa: B008
     return IngestionRepository(session)
+
+
+def get_audio_repo(session=Depends(get_db_session)) -> AudioRepository:  # noqa: B008
+    return AudioRepository(session)
+
+
+def get_embedding_repo(session=Depends(get_db_session)) -> EmbeddingRepository:  # noqa: B008
+    return EmbeddingRepository(session)
+
+
+def get_candidate_repo(session=Depends(get_db_session)) -> CandidateRepository:  # noqa: B008
+    return CandidateRepository(session)
 
 
 # ── Lifespan context accessors ───────────────────────
@@ -214,28 +229,28 @@ def get_import_service(
 
 
 def get_audio_service(
-    session=Depends(get_db_session),  # noqa: B008
+    repo=Depends(get_audio_repo),  # noqa: B008
     registry=Depends(get_analyzer_registry),  # noqa: B008
 ):  # type: ignore[no-untyped-def]
-    """Get AudioService with DB session and analyzer registry."""
+    """Get AudioService with repository and analyzer registry."""
     from app.services.audio_service import AudioService
 
-    return AudioService(session, registry)
+    return AudioService(repo, registry)
 
 
 def get_candidate_service(
-    session=Depends(get_db_session),  # noqa: B008
+    repo=Depends(get_candidate_repo),  # noqa: B008
 ):  # type: ignore[no-untyped-def]
     """Get CandidateService for transition candidate pruning."""
     from app.services.candidate_service import CandidateService
 
-    return CandidateService(session)
+    return CandidateService(repo)
 
 
 def get_embedding_service(
-    session=Depends(get_db_session),  # noqa: B008
+    repo=Depends(get_embedding_repo),  # noqa: B008
 ):  # type: ignore[no-untyped-def]
     """Get EmbeddingService for vector embedding storage."""
     from app.services.embedding_service import EmbeddingService
 
-    return EmbeddingService(session)
+    return EmbeddingService(repo)

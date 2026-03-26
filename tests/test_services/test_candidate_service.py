@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.audio import TrackAudioFeaturesComputed
 from app.models.track import Track
+from app.repositories.candidate import CandidateRepository
 from app.services.candidate_service import CandidateService
 
 # ── Fixtures ────────────────────────────────────────────
@@ -12,7 +13,7 @@ from app.services.candidate_service import CandidateService
 
 @pytest.fixture
 async def svc(db: AsyncSession) -> CandidateService:
-    return CandidateService(db)
+    return CandidateService(CandidateRepository(db))
 
 
 async def _create_track(db: AsyncSession, track_id: int, title: str) -> Track:

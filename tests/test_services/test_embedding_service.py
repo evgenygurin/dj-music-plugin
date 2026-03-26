@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import NotFoundError, ValidationError
 from app.models.track import Track
+from app.repositories.embedding import EmbeddingRepository
 from app.services.embedding_service import (
     EmbeddingService,
     _deserialize_vector,
@@ -16,7 +17,7 @@ from app.services.embedding_service import (
 
 @pytest.fixture
 async def svc(db: AsyncSession) -> EmbeddingService:
-    return EmbeddingService(db)
+    return EmbeddingService(EmbeddingRepository(db))
 
 
 async def _create_track(db: AsyncSession, track_id: int, title: str) -> Track:

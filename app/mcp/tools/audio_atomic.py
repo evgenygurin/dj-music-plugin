@@ -6,25 +6,17 @@ Composites (analyze_batch, classify_mood, gate_by_audio) call these internally.
 
 from __future__ import annotations
 
-from pathlib import Path
 from typing import Any
 
 from fastmcp.dependencies import Depends
 from fastmcp.exceptions import ToolError
 from fastmcp.server.context import Context
 from fastmcp.tools import tool
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.audio.mood import MoodClassifier
-from app.audio.pipeline import AnalysisPipeline
-from app.audio.registry import AnalyzerRegistry
 from app.config import settings
 from app.core.schemas import genre_ok, is_excluded_title, ym_track_summary
-from app.mcp.dependencies import get_analyzer_registry, get_db_session, get_ym_client
-from app.models.audio import TrackAudioFeaturesComputed
-from app.models.library import DjLibraryItem
-from app.models.track import Track
+from app.mcp.dependencies import get_audio_service, get_ym_client
+from app.services.audio_service import AudioService
 from app.ym.client import YandexMusicClient
 
 # ── 1. analyze_one_track ─────────────────────────────
@@ -35,79 +27,25 @@ async def analyze_one_track(
     track_id: int,
     analyzers: Any = None,
     force: bool = False,
-    registry: AnalyzerRegistry = Depends(get_analyzer_registry),  # noqa: B008
-    session: AsyncSession = Depends(get_db_session),  # noqa: B008
+    svc: AudioService = Depends(get_audio_service),  # noqa: B008
     ctx: Context | None = None,
 ) -> dict[str, Any]:
     """Run audio analysis pipeline on ONE track. Saves features to DB."""
     from app.core.parsing import ensure_list
 
-    analyzers = ensure_list(analyzers) or None
+    analyzers_list = ensure_list(analyzers) or None
+    result = await svc.analyze_track(track_id, analyzers=analyzers_list, force=force)
 
-    track = (await session.execute(select(Track).where(Track.id == track_id))).scalar_one_or_none()
-    if not track:
+    if result.get("status") == "error" and result.get("error") == "Track not found":
         raise ToolError(f"Track {track_id} not found")
-
-    # Check cached
-    if not force:
-        existing = (
-            await session.execute(
-                select(TrackAudioFeaturesComputed).where(
-                    TrackAudioFeaturesComputed.track_id == track_id
-                )
-            )
-        ).scalar_one_or_none()
-        if existing:
-            return {"track_id": track_id, "status": "cached", "has_features": True}
-
-    # Find audio file
-    lib_item = (
-        await session.execute(select(DjLibraryItem).where(DjLibraryItem.track_id == track_id))
-    ).scalar_one_or_none()
-
-    if not lib_item or not lib_item.file_path:
+    if result.get("status") == "error" and "No audio file" in result.get("error", ""):
         raise ToolError(f"No audio file for track {track_id}")
+    if result.get("status") == "error" and "not found" in result.get("error", "").lower():
+        raise ToolError(result["error"])
+    if result.get("status") == "error" and "iCloud stub" in result.get("error", ""):
+        raise ToolError(result["error"])
 
-    file_path = Path(lib_item.file_path)
-    if not file_path.exists():
-        raise ToolError(f"Audio file not found: {file_path}")
-
-    from app.utils.files import is_icloud_stub
-
-    if is_icloud_stub(file_path):
-        raise ToolError(f"iCloud stub (not downloaded): {file_path.name}")
-
-    # Run pipeline
-    pipeline = AnalysisPipeline(registry)
-    result = await pipeline.analyze(str(file_path), analyzers=analyzers)
-
-    # Save to DB
-    from app.models.audio import FeatureExtractionRun
-
-    run = FeatureExtractionRun(
-        track_id=track_id,
-        pipeline_name="mcp_analyze",
-        pipeline_version="1.0",
-        status="completed",
-    )
-    session.add(run)
-    await session.flush()
-
-    features = TrackAudioFeaturesComputed(
-        track_id=track_id,
-        pipeline_run_id=run.id,
-        **TrackAudioFeaturesComputed.filter_features(result.features),
-    )
-    session.add(features)
-    await session.flush()
-
-    return {
-        "track_id": track_id,
-        "status": "analyzed",
-        "analyzers_run": result.analyzers_run if hasattr(result, "analyzers_run") else [],
-        "errors": result.errors if hasattr(result, "errors") else [],
-        "feature_count": len(result.features) if hasattr(result, "features") else 0,
-    }
+    return result
 
 
 # ── 2. classify_one_track ────────────────────────────
@@ -116,41 +54,16 @@ async def analyze_one_track(
 @tool(tags={"atomic"}, annotations={"readOnlyHint": False})
 async def classify_one_track(
     track_id: int,
-    session: AsyncSession = Depends(get_db_session),  # noqa: B008
+    svc: AudioService = Depends(get_audio_service),  # noqa: B008
     ctx: Context | None = None,
 ) -> dict[str, Any]:
     """Classify ONE track mood/subgenre and SAVE to DB."""
-    features = (
-        await session.execute(
-            select(TrackAudioFeaturesComputed).where(
-                TrackAudioFeaturesComputed.track_id == track_id
-            )
-        )
-    ).scalar_one_or_none()
+    result = await svc.classify_track(track_id)
 
-    if not features:
+    if result.get("status") == "error" and result.get("error") == "No features":
         raise ToolError(f"No audio features for track {track_id}. Run analyze_one_track first.")
 
-    # DRY: use model method instead of manual field mapping
-    feat_dict = features.to_classifier_dict()
-    classifier = MoodClassifier()
-    result = classifier.classify(feat_dict)
-
-    # Persist mood
-    features.mood = result.mood.value
-    features.mood_confidence = result.confidence
-    await session.flush()
-
-    return {
-        "track_id": track_id,
-        "mood": result.mood.value,
-        "confidence": round(result.confidence, 3),
-        "reasoning": result.reasoning,
-        "top_3": [
-            {"subgenre": sg.value, "score": round(sc, 3)}
-            for sg, sc in sorted(result.scores.items(), key=lambda x: x[1], reverse=True)[:3]
-        ],
-    }
+    return result
 
 
 # ── 3. gate_one_track ───────────────────────────────
@@ -160,102 +73,11 @@ async def classify_one_track(
 async def gate_one_track(
     track_id: int,
     criteria: dict[str, float] | None = None,
-    session: AsyncSession = Depends(get_db_session),  # noqa: B008
+    svc: AudioService = Depends(get_audio_service),  # noqa: B008
     ctx: Context | None = None,
 ) -> dict[str, Any]:
     """Check ONE track against audio quality criteria. Returns pass/fail + reasons."""
-    features = (
-        await session.execute(
-            select(TrackAudioFeaturesComputed).where(
-                TrackAudioFeaturesComputed.track_id == track_id
-            )
-        )
-    ).scalar_one_or_none()
-
-    if not features:
-        return {"track_id": track_id, "passed": None, "reasons": ["no_features"]}
-
-    reasons: list[str] = []
-
-    def _check(name: str, value: float | None, op: str, threshold: float) -> None:
-        if value is None:
-            return
-        if op == ">=" and value < threshold:
-            reasons.append(f"{name}={value:.2f} (<{threshold})")
-        elif op == "<=" and value > threshold:
-            reasons.append(f"{name}={value:.2f} (>{threshold})")
-
-    c = criteria or {}
-    _check("bpm", features.bpm, ">=", c.get("bpm_min", settings.techno_bpm_min))
-    _check("bpm", features.bpm, "<=", c.get("bpm_max", settings.techno_bpm_max))
-    _check("lufs", features.integrated_lufs, ">=", c.get("lufs_min", settings.techno_lufs_min))
-    _check("lufs", features.integrated_lufs, "<=", c.get("lufs_max", settings.techno_lufs_max))
-    _check("energy", features.energy_mean, ">=", c.get("energy_min", settings.techno_energy_min))
-    _check(
-        "onset_rate",
-        features.onset_rate,
-        ">=",
-        c.get("onset_rate_min", settings.techno_onset_rate_min),
-    )
-    _check(
-        "kick",
-        features.kick_prominence,
-        ">=",
-        c.get("kick_min", settings.techno_kick_prominence_min),
-    )
-    _check(
-        "centroid",
-        features.spectral_centroid_hz,
-        ">=",
-        c.get("centroid_min", settings.techno_centroid_min),
-    )
-    _check(
-        "centroid",
-        features.spectral_centroid_hz,
-        "<=",
-        c.get("centroid_max", settings.techno_centroid_max),
-    )
-    _check(
-        "flatness",
-        features.spectral_flatness,
-        "<=",
-        c.get("flatness_max", settings.techno_flatness_max),
-    )
-    _check(
-        "hp_ratio", features.hp_ratio, "<=", c.get("hp_ratio_max", settings.techno_hp_ratio_max)
-    )
-    _check(
-        "crest",
-        features.crest_factor_db,
-        "<=",
-        c.get("crest_max", settings.techno_crest_factor_max),
-    )
-    _check("lra", features.loudness_range_lu, "<=", c.get("lra_max", settings.techno_lra_max))
-    _check("hnr", features.hnr_db, ">=", c.get("hnr_min", settings.techno_hnr_min))
-    _check(
-        "tempo_conf",
-        features.bpm_confidence,
-        ">=",
-        c.get("tempo_conf_min", settings.techno_tempo_confidence_min),
-    )
-    _check(
-        "bpm_stab",
-        features.bpm_stability,
-        ">=",
-        c.get("bpm_stab_min", settings.techno_bpm_stability_min),
-    )
-    _check(
-        "pulse",
-        features.pulse_clarity,
-        ">=",
-        c.get("pulse_min", settings.techno_pulse_clarity_min),
-    )
-
-    return {
-        "track_id": track_id,
-        "passed": len(reasons) == 0,
-        "reasons": reasons,
-    }
+    return await svc.gate_track(track_id, criteria=criteria)
 
 
 # ── 4. get_similar_one_track ────────────────────────

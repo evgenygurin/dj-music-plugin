@@ -9,20 +9,22 @@ Framework-agnostic: no MCP/FastMCP imports.
 from __future__ import annotations
 
 import struct
+from typing import TYPE_CHECKING
 
 import numpy as np
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import NotFoundError, ValidationError
-from app.models.audio import Embedding
+
+if TYPE_CHECKING:
+    from app.models.audio import Embedding
+    from app.repositories.embedding import EmbeddingRepository
 
 
 class EmbeddingService:
     """Store and retrieve vector embeddings for tracks."""
 
-    def __init__(self, session: AsyncSession) -> None:
-        self._session = session
+    def __init__(self, repo: EmbeddingRepository) -> None:
+        self._repo = repo
 
     async def store_embedding(
         self,
@@ -51,23 +53,12 @@ class EmbeddingService:
         vector_bytes = _serialize_vector(vector)
         dimensions = len(vector)
 
-        # Check for existing embedding of same type
-        existing = await self._get_embedding_record(track_id, embedding_type)
-        if existing is not None:
-            existing.vector_data = vector_bytes
-            existing.dimensions = dimensions
-            await self._session.flush()
-            return existing
-
-        embedding = Embedding(
+        return await self._repo.upsert_embedding(
             track_id=track_id,
             embedding_type=embedding_type,
-            dimensions=dimensions,
             vector_data=vector_bytes,
+            dimensions=dimensions,
         )
-        self._session.add(embedding)
-        await self._session.flush()
-        return embedding
 
     async def get_embedding(
         self,
@@ -75,7 +66,7 @@ class EmbeddingService:
         embedding_type: str,
     ) -> list[float] | None:
         """Retrieve embedding vector for a track, or None if not stored."""
-        record = await self._get_embedding_record(track_id, embedding_type)
+        record = await self._repo.get_embedding_record(track_id, embedding_type)
         if record is None:
             return None
         return _deserialize_vector(record.vector_data, record.dimensions)
@@ -104,12 +95,9 @@ class EmbeddingService:
             raise NotFoundError("Embedding", f"track_id={track_id}, type={embedding_type}")
 
         # Load all embeddings of this type in one query
-        stmt = select(Embedding).where(
-            Embedding.embedding_type == embedding_type,
-            Embedding.track_id != track_id,
+        all_embeddings = await self._repo.get_all_by_type(
+            embedding_type, exclude_track_id=track_id
         )
-        result = await self._session.execute(stmt)
-        all_embeddings = result.scalars().all()
 
         if not all_embeddings:
             return []
@@ -154,21 +142,6 @@ class EmbeddingService:
                 await self.store_embedding(track_id, "mfcc", vector)
                 count += 1
         return count
-
-    # ── Internal helpers ─────────────────────────────────
-
-    async def _get_embedding_record(
-        self,
-        track_id: int,
-        embedding_type: str,
-    ) -> Embedding | None:
-        """Fetch a single Embedding record."""
-        stmt = select(Embedding).where(
-            Embedding.track_id == track_id,
-            Embedding.embedding_type == embedding_type,
-        )
-        result = await self._session.execute(stmt)
-        return result.scalar_one_or_none()
 
 
 def _serialize_vector(vector: list[float]) -> bytes:

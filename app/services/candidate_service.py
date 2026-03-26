@@ -10,16 +10,15 @@ from __future__ import annotations
 
 import itertools
 from dataclasses import dataclass
-
-from sqlalchemy import delete, select
-from sqlalchemy.ext.asyncio import AsyncSession
+from typing import TYPE_CHECKING
 
 from app.config import settings
 from app.core.camelot import camelot_distance
-from app.core.track_features import TrackFeatures
-from app.models.audio import TrackAudioFeaturesComputed
 from app.models.transition import TransitionCandidate
 from app.services.transition import TransitionScorer
+
+if TYPE_CHECKING:
+    from app.repositories.candidate import CandidateRepository
 
 
 @dataclass
@@ -45,8 +44,8 @@ class CandidateService:
     - Energy gap within ±settings.transition_hard_reject_energy_gap LUFS
     """
 
-    def __init__(self, session: AsyncSession) -> None:
-        self._session = session
+    def __init__(self, repo: CandidateRepository) -> None:
+        self._repo = repo
         self._scorer = TransitionScorer()
 
     async def generate_candidates(
@@ -67,7 +66,7 @@ class CandidateService:
             Statistics about the generation run.
         """
         # 1. Load features in one batch query
-        features_map = await self._load_features(track_ids)
+        features_map = await self._repo.load_features(track_ids)
 
         valid_ids = sorted(features_map.keys())
         skipped = (len(track_ids) - len(valid_ids)) if track_ids else 0
@@ -81,7 +80,7 @@ class CandidateService:
             )
 
         # 2. Delete existing candidates for these tracks to regenerate
-        await self._delete_existing_candidates(valid_ids)
+        await self._repo.delete_candidates_for_tracks(valid_ids)
 
         # 3. Check all pairs and collect candidates
         bpm_threshold = settings.transition_hard_reject_bpm_diff
@@ -133,9 +132,7 @@ class CandidateService:
             )
 
         # 4. Bulk insert candidates
-        if candidates:
-            self._session.add_all(candidates)
-            await self._session.flush()
+        await self._repo.bulk_insert(candidates)
 
         return CandidateStats(
             total_tracks=len(valid_ids),
@@ -150,14 +147,7 @@ class CandidateService:
         limit: int = 20,
     ) -> list[TransitionCandidate]:
         """Get pre-filtered candidates for a specific track, ordered by BPM distance."""
-        stmt = (
-            select(TransitionCandidate)
-            .where(TransitionCandidate.from_track_id == track_id)
-            .order_by(TransitionCandidate.bpm_distance)
-            .limit(limit)
-        )
-        result = await self._session.execute(stmt)
-        return list(result.scalars().all())
+        return await self._repo.get_candidates_for_track(track_id, limit)
 
     async def get_candidate_pair(
         self,
@@ -165,40 +155,13 @@ class CandidateService:
         to_track_id: int,
     ) -> TransitionCandidate | None:
         """Get a specific candidate pair, or None if it doesn't exist."""
-        stmt = select(TransitionCandidate).where(
-            TransitionCandidate.from_track_id == from_track_id,
-            TransitionCandidate.to_track_id == to_track_id,
-        )
-        result = await self._session.execute(stmt)
-        return result.scalar_one_or_none()
+        return await self._repo.get_candidate_pair(from_track_id, to_track_id)
 
     async def count_candidates(self, track_id: int | None = None) -> int:
         """Count total candidates, optionally for a specific track."""
-        from sqlalchemy import func
-
-        stmt = select(func.count()).select_from(TransitionCandidate)
-        if track_id is not None:
-            stmt = stmt.where(TransitionCandidate.from_track_id == track_id)
-        result = await self._session.execute(stmt)
-        return result.scalar_one()
+        return await self._repo.count_candidates(track_id)
 
     # ── Internal helpers ─────────────────────────────────
-
-    async def _load_features(
-        self,
-        track_ids: list[int] | None,
-    ) -> dict[int, TrackFeatures]:
-        """Load features for tracks in a single batch query."""
-        stmt = select(TrackAudioFeaturesComputed)
-        if track_ids is not None:
-            stmt = stmt.where(TrackAudioFeaturesComputed.track_id.in_(track_ids))
-        result = await self._session.execute(stmt)
-        return {row.track_id: TrackFeatures.from_db(row) for row in result.scalars().all()}
-
-    async def _delete_existing_candidates(self, track_ids: list[int]) -> None:
-        """Remove existing candidates for the given tracks."""
-        stmt = delete(TransitionCandidate).where(TransitionCandidate.from_track_id.in_(track_ids))
-        await self._session.execute(stmt)
 
     @staticmethod
     def _bpm_distance(bpm_a: float | None, bpm_b: float | None) -> float | None:
