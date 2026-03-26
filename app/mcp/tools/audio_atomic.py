@@ -72,8 +72,9 @@ async def analyze_one_track(
     if not file_path.exists():
         raise ToolError(f"Audio file not found: {file_path}")
 
-    stat = file_path.stat()
-    if hasattr(stat, "st_blocks") and stat.st_blocks * 512 < stat.st_size * 0.9:
+    from app.utils.files import is_icloud_stub
+
+    if is_icloud_stub(file_path):
         raise ToolError(f"iCloud stub (not downloaded): {file_path.name}")
 
     # Run pipeline

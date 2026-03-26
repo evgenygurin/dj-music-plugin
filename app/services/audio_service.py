@@ -16,7 +16,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.audio.mood import MoodClassifier
 from app.audio.pipeline import AnalysisPipeline
 from app.audio.registry import AnalyzerRegistry
-from app.config import settings
 from app.models.audio import FeatureExtractionRun, TrackAudioFeaturesComputed
 from app.models.library import DjLibraryItem
 from app.models.track import Track
@@ -87,11 +86,9 @@ class AudioService:
             }
 
         # 4. Check iCloud stub
-        stat = file_path.stat()
-        if (
-            hasattr(stat, "st_blocks")
-            and stat.st_blocks * 512 < stat.st_size * settings.delivery_icloud_stub_threshold
-        ):
+        from app.utils.files import is_icloud_stub
+
+        if is_icloud_stub(file_path):
             return {
                 "track_id": track_id,
                 "status": "error",
@@ -170,25 +167,8 @@ class AudioService:
         self, features: TrackAudioFeaturesComputed
     ) -> dict[str, Any] | None:
         """Run MoodClassifier on existing features and persist mood."""
-        feat_dict = {
-            "bpm": features.bpm,
-            "integrated_lufs": features.integrated_lufs,
-            "energy_mean": features.energy_mean,
-            "energy_max": features.energy_max,
-            "energy_std": features.energy_std,
-            "energy_slope": features.energy_slope,
-            "spectral_centroid_hz": features.spectral_centroid_hz,
-            "spectral_flatness": features.spectral_flatness,
-            "spectral_flux_mean": features.spectral_flux_mean,
-            "spectral_flux_std": features.spectral_flux_std,
-            "loudness_range_lu": features.loudness_range_lu,
-            "crest_factor_db": features.crest_factor_db,
-            "hp_ratio": features.hp_ratio,
-            "onset_rate": features.onset_rate,
-            "pulse_clarity": features.pulse_clarity,
-            "kick_prominence": features.kick_prominence,
-            "hnr_db": features.hnr_db,
-        }
+        # DRY: use model method instead of manual field mapping
+        feat_dict = features.to_classifier_dict()
 
         classifier = MoodClassifier()
         result = classifier.classify(feat_dict)

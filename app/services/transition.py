@@ -42,49 +42,11 @@ class TransitionScorer:
 
     def score(self, from_t: TrackFeatures, to_t: TrackFeatures) -> TransitionScore:
         """Compute full 5-component score."""
-        result = TransitionScore()
+        rejection = self._check_hard_constraints(from_t, to_t)
+        if rejection is not None:
+            return rejection
 
-        # ── Hard constraints ─────────────────────────
-        if from_t.bpm is not None and to_t.bpm is not None:
-            bpm_diff = self._bpm_distance(from_t.bpm, to_t.bpm)
-            if bpm_diff > settings.transition_hard_reject_bpm_diff:
-                result.hard_reject = True
-                result.reject_reason = (
-                    f"BPM diff {bpm_diff:.1f} > {settings.transition_hard_reject_bpm_diff}"
-                )
-                return result
-
-        if from_t.key_code is not None and to_t.key_code is not None:
-            key_dist = camelot_distance(from_t.key_code, to_t.key_code)
-            if key_dist >= settings.transition_hard_reject_camelot_dist:
-                result.hard_reject = True
-                result.reject_reason = f"Camelot distance {key_dist} >= {settings.transition_hard_reject_camelot_dist}"
-                return result
-
-        if from_t.integrated_lufs is not None and to_t.integrated_lufs is not None:
-            energy_gap = abs(from_t.integrated_lufs - to_t.integrated_lufs)
-            if energy_gap > settings.transition_hard_reject_energy_gap:
-                result.hard_reject = True
-                result.reject_reason = f"Energy gap {energy_gap:.1f} LUFS > {settings.transition_hard_reject_energy_gap}"
-                return result
-
-        # ── Component scores ─────────────────────────
-        result.bpm = self._score_bpm(from_t, to_t)
-        result.harmonic = self._score_harmonic(from_t, to_t)
-        result.energy = self._score_energy(from_t, to_t)
-        result.spectral = self._score_spectral(from_t, to_t)
-        result.groove = self._score_groove(from_t, to_t)
-
-        # ── Weighted overall ─────────────────────────
-        result.overall = (
-            self.weights["bpm"] * result.bpm
-            + self.weights["harmonic"] * result.harmonic
-            + self.weights["energy"] * result.energy
-            + self.weights["spectral"] * result.spectral
-            + self.weights["groove"] * result.groove
-        )
-
-        return result
+        return self._compute_score(from_t, to_t)
 
     def score_with_candidates(
         self,
@@ -102,79 +64,109 @@ class TransitionScorer:
 
         Falls back to full score() if no candidate data provided.
         """
-        result = TransitionScore()
+        rejection = self._check_hard_constraints(
+            from_t,
+            to_t,
+            pre_bpm_dist=candidate_bpm_distance,
+            pre_key_dist=candidate_key_distance,
+            pre_energy_delta=candidate_energy_delta,
+        )
+        if rejection is not None:
+            return rejection
 
-        # ── Hard constraints from pre-computed distances ──
-        if candidate_bpm_distance is not None:
-            if candidate_bpm_distance > settings.transition_hard_reject_bpm_diff:
-                result.hard_reject = True
-                result.reject_reason = (
-                    f"BPM diff {candidate_bpm_distance:.1f} "
-                    f"> {settings.transition_hard_reject_bpm_diff}"
-                )
-                return result
+        return self._compute_score(from_t, to_t)
+
+    # ── Shared internals ───────────────────────────
+
+    def _check_hard_constraints(
+        self,
+        from_t: TrackFeatures,
+        to_t: TrackFeatures,
+        *,
+        pre_bpm_dist: float | None = None,
+        pre_key_dist: int | None = None,
+        pre_energy_delta: float | None = None,
+    ) -> TransitionScore | None:
+        """Check hard constraints; return a zero-score rejection or None if all pass.
+
+        Uses pre-computed distances when provided, otherwise computes from features.
+        """
+        # ── BPM constraint ──
+        if pre_bpm_dist is not None:
+            bpm_diff: float | None = pre_bpm_dist
         elif from_t.bpm is not None and to_t.bpm is not None:
             bpm_diff = self._bpm_distance(from_t.bpm, to_t.bpm)
-            if bpm_diff > settings.transition_hard_reject_bpm_diff:
-                result.hard_reject = True
-                result.reject_reason = (
-                    f"BPM diff {bpm_diff:.1f} > {settings.transition_hard_reject_bpm_diff}"
-                )
-                return result
+        else:
+            bpm_diff = None
 
-        if candidate_key_distance is not None:
-            if candidate_key_distance >= settings.transition_hard_reject_camelot_dist:
-                result.hard_reject = True
-                result.reject_reason = (
-                    f"Camelot distance {candidate_key_distance} "
-                    f">= {settings.transition_hard_reject_camelot_dist}"
-                )
-                return result
+        if bpm_diff is not None and bpm_diff > settings.transition_hard_reject_bpm_diff:
+            return TransitionScore(
+                hard_reject=True,
+                reject_reason=(
+                    f"BPM diff {bpm_diff:.1f} > {settings.transition_hard_reject_bpm_diff}"
+                ),
+            )
+
+        # ── Key constraint ──
+        if pre_key_dist is not None:
+            key_dist: int | None = pre_key_dist
         elif from_t.key_code is not None and to_t.key_code is not None:
             key_dist = camelot_distance(from_t.key_code, to_t.key_code)
-            if key_dist >= settings.transition_hard_reject_camelot_dist:
-                result.hard_reject = True
-                result.reject_reason = (
+        else:
+            key_dist = None
+
+        if key_dist is not None and key_dist >= settings.transition_hard_reject_camelot_dist:
+            return TransitionScore(
+                hard_reject=True,
+                reject_reason=(
                     f"Camelot distance {key_dist} "
                     f">= {settings.transition_hard_reject_camelot_dist}"
-                )
-                return result
+                ),
+            )
 
-        if candidate_energy_delta is not None:
-            if candidate_energy_delta > settings.transition_hard_reject_energy_gap:
-                result.hard_reject = True
-                result.reject_reason = (
-                    f"Energy gap {candidate_energy_delta:.1f} LUFS "
-                    f"> {settings.transition_hard_reject_energy_gap}"
-                )
-                return result
+        # ── Energy constraint ──
+        if pre_energy_delta is not None:
+            energy_gap: float | None = pre_energy_delta
         elif from_t.integrated_lufs is not None and to_t.integrated_lufs is not None:
             energy_gap = abs(from_t.integrated_lufs - to_t.integrated_lufs)
-            if energy_gap > settings.transition_hard_reject_energy_gap:
-                result.hard_reject = True
-                result.reject_reason = (
+        else:
+            energy_gap = None
+
+        if energy_gap is not None and energy_gap > settings.transition_hard_reject_energy_gap:
+            return TransitionScore(
+                hard_reject=True,
+                reject_reason=(
                     f"Energy gap {energy_gap:.1f} LUFS "
                     f"> {settings.transition_hard_reject_energy_gap}"
-                )
-                return result
+                ),
+            )
 
-        # ── Component scores (same as score()) ────────
-        result.bpm = self._score_bpm(from_t, to_t)
-        result.harmonic = self._score_harmonic(from_t, to_t)
-        result.energy = self._score_energy(from_t, to_t)
-        result.spectral = self._score_spectral(from_t, to_t)
-        result.groove = self._score_groove(from_t, to_t)
+        return None
 
-        # ── Weighted overall ──────────────────────────
-        result.overall = (
-            self.weights["bpm"] * result.bpm
-            + self.weights["harmonic"] * result.harmonic
-            + self.weights["energy"] * result.energy
-            + self.weights["spectral"] * result.spectral
-            + self.weights["groove"] * result.groove
+    def _compute_score(self, from_t: TrackFeatures, to_t: TrackFeatures) -> TransitionScore:
+        """Compute all 5 component scores and weighted overall."""
+        bpm = self._score_bpm(from_t, to_t)
+        harmonic = self._score_harmonic(from_t, to_t)
+        energy = self._score_energy(from_t, to_t)
+        spectral = self._score_spectral(from_t, to_t)
+        groove = self._score_groove(from_t, to_t)
+
+        overall = (
+            self.weights["bpm"] * bpm
+            + self.weights["harmonic"] * harmonic
+            + self.weights["energy"] * energy
+            + self.weights["spectral"] * spectral
+            + self.weights["groove"] * groove
         )
 
-        return result
+        return TransitionScore(
+            bpm=bpm,
+            harmonic=harmonic,
+            energy=energy,
+            spectral=spectral,
+            groove=groove,
+            overall=overall,
+        )
 
     # ── BPM ──────────────────────────────────────────
 

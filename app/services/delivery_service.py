@@ -230,8 +230,9 @@ class DeliveryService:
             src = Path(et.file_path)
             if not src.exists():
                 continue
-            stat = src.stat()
-            if hasattr(stat, "st_blocks") and stat.st_blocks * 512 < stat.st_size * 0.9:
+            from app.utils.files import is_icloud_stub
+
+            if is_icloud_stub(src):
                 continue
             dest = set_dir / f"{i + 1:02d}. {et.artist} - {et.title}.mp3"
             shutil.copy2(str(src), str(dest))

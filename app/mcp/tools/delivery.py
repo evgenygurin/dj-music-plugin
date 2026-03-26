@@ -147,8 +147,9 @@ async def deliver_set(
                 if ctx:
                     await ctx.warning(f"File not found: {src.name}")
                 continue
-            stat = src.stat()
-            if hasattr(stat, "st_blocks") and stat.st_blocks * 512 < stat.st_size * 0.9:
+            from app.utils.files import is_icloud_stub
+
+            if is_icloud_stub(src):
                 if ctx:
                     await ctx.warning(f"iCloud stub: {src.name}")
                 continue
