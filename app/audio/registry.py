@@ -82,10 +82,12 @@ class AnalyzerRegistry:
         from app.audio.analyzers.energy import EnergyAnalyzer
         from app.audio.analyzers.loudness import LoudnessAnalyzer
         from app.audio.analyzers.spectral import SpectralAnalyzer
+        from app.audio.analyzers.structure import StructureAnalyzer
 
         self.register(LoudnessAnalyzer())
         self.register(EnergyAnalyzer())
         self.register(SpectralAnalyzer())
+        self.register(StructureAnalyzer())
 
         # Optional analyzers — skip if dependencies missing (librosa)
         for cls_path in [
