@@ -188,13 +188,22 @@ def get_discovery_service(
     return DiscoveryService(track_repo, ym)
 
 
+def get_metadata_service(
+    session=Depends(get_db_session),  # noqa: B008
+):  # type: ignore[no-untyped-def]
+    from app.services.metadata_service import MetadataService
+
+    return MetadataService(session)
+
+
 def get_import_service(
     track_repo=Depends(get_track_repo),  # noqa: B008
     ym=Depends(get_ym_client),  # noqa: B008
+    metadata=Depends(get_metadata_service),  # noqa: B008
 ):  # type: ignore[no-untyped-def]
     from app.services.import_service import ImportService
 
-    return ImportService(track_repo, ym)
+    return ImportService(track_repo, ym, metadata)
 
 
 def get_audio_service(
