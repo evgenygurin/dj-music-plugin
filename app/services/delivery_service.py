@@ -10,6 +10,8 @@ from typing import Any
 
 from app.core.camelot import key_code_to_camelot
 from app.core.errors import NotFoundError, ValidationError
+from app.models.export import AppExport
+from app.repositories.export import ExportRepository
 from app.repositories.feature import FeatureRepository
 from app.repositories.set import SetRepository
 from app.repositories.track import TrackRepository
@@ -35,11 +37,13 @@ class DeliveryService:
         track_repo: TrackRepository,
         feature_repo: FeatureRepository,
         transition_repo: TransitionRepository,
+        export_repo: ExportRepository | None = None,
     ) -> None:
         self._sets = set_repo
         self._tracks = track_repo
         self._features = feature_repo
         self._transitions = transition_repo
+        self._exports = export_repo
 
     async def load_set_for_delivery(self, set_id: int) -> dict[str, Any]:
         """Load set, version, and items. Returns dict with loaded data."""
@@ -137,7 +141,7 @@ class DeliveryService:
             transitions=export_transitions,
         )
 
-    def generate_exports(
+    async def generate_exports(
         self,
         export_data: SetExportData,
         set_dir: Path,
@@ -163,7 +167,56 @@ class DeliveryService:
                 path = write_cheat_sheet(export_data, set_dir / f"{set_name}_cheat.txt")
                 generated_files.append(str(path))
 
+        # Log exports to DB
+        await self.log_generated_exports(generated_files)
+
         return generated_files
+
+    async def log_export(
+        self,
+        target_app: str,
+        export_format: str,
+        file_path: str,
+        file_size: int | None = None,
+    ) -> AppExport | None:
+        """Log a completed export to the app_exports table.
+
+        Returns the created AppExport or None if export_repo is not available.
+        """
+        if self._exports is None:
+            return None
+        record = AppExport(
+            target_app=target_app,
+            export_format=export_format,
+            file_path=file_path,
+            file_size=file_size,
+        )
+        return await self._exports.create(record)
+
+    async def log_generated_exports(self, generated_files: list[str]) -> int:
+        """Log all generated export files to DB. Returns count logged."""
+        if self._exports is None:
+            return 0
+        logged = 0
+        for file_path_str in generated_files:
+            file_path = Path(file_path_str)
+            suffix = file_path.suffix.lower()
+            fmt_map = {
+                ".m3u8": "m3u8",
+                ".xml": "rekordbox_xml",
+                ".json": "json_guide",
+                ".txt": "cheat_sheet",
+            }
+            export_format = fmt_map.get(suffix, suffix.lstrip("."))
+            file_size = file_path.stat().st_size if file_path.exists() else None
+            await self.log_export(
+                target_app="dj_music_plugin",
+                export_format=export_format,
+                file_path=file_path_str,
+                file_size=file_size,
+            )
+            logged += 1
+        return logged
 
     @staticmethod
     def copy_audio_files(export_data: SetExportData, set_dir: Path) -> int:
@@ -185,7 +238,7 @@ class DeliveryService:
             copied += 1
         return copied
 
-    def export_single(
+    async def export_single(
         self,
         export_data: SetExportData,
         fmt: str,
@@ -194,13 +247,18 @@ class DeliveryService:
     ) -> Path:
         """Export set to a single format. Returns output path."""
         if fmt == "m3u8":
-            return write_m3u8(export_data, output_path)
+            result = write_m3u8(export_data, output_path)
         elif fmt == "rekordbox":
             opts = RekordboxOptions(**rekordbox_options) if rekordbox_options else None
-            return write_rekordbox_xml(export_data, output_path, options=opts)
+            result = write_rekordbox_xml(export_data, output_path, options=opts)
         elif fmt == "json":
-            return write_json_guide(export_data, output_path)
+            result = write_json_guide(export_data, output_path)
         elif fmt in ("cheatsheet", "cheat_sheet"):
-            return write_cheat_sheet(export_data, output_path)
+            result = write_cheat_sheet(export_data, output_path)
         else:
             raise ValidationError(f"Unsupported format: {fmt}")
+
+        # Log export to DB
+        await self.log_generated_exports([str(result)])
+
+        return result

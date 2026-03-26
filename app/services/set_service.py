@@ -202,6 +202,11 @@ class SetService:
             gen_meta=gen_meta,
         )
 
+        # Persist quality score to the version
+        if quality is not None:
+            version.quality_score = quality
+            await self._sets.session.flush()
+
         return dj_set, version, quality, used_algorithm
 
     async def build_set_dry_run(

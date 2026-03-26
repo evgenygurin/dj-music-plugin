@@ -15,6 +15,7 @@ from app.config import settings
 from app.core.errors import ValidationError
 from app.models.library import DjLibraryItem
 from app.models.track import Track
+from app.repositories.ingestion import IngestionRepository
 from app.repositories.track import TrackRepository
 from app.ym.client import YandexMusicClient
 
@@ -35,10 +36,12 @@ class ImportService:
         track_repo: TrackRepository,
         ym: YandexMusicClient,
         metadata_service: Any | None = None,
+        ingestion_repo: IngestionRepository | None = None,
     ) -> None:
         self._tracks = track_repo
         self._ym = ym
         self._metadata = metadata_service
+        self._ingestion = ingestion_repo
 
     async def import_tracks(
         self,
@@ -179,6 +182,9 @@ class ImportService:
                 if not ym_track:
                     continue
 
+                # Cache raw provider response
+                await self._cache_ym_response(local_track_id, ym_track)
+
                 local_track = await self._tracks.get_by_id(local_track_id)
                 if local_track and local_track.title.startswith("YM:"):
                     artists = ", ".join(a.get("name", "?") for a in (ym_track.artists or []))
@@ -207,6 +213,36 @@ class ImportService:
             pass  # YM metadata enrichment is best-effort
 
         return enriched
+
+    async def _cache_ym_response(
+        self,
+        track_id: int,
+        ym_track: Any,
+    ) -> None:
+        """Cache YM track metadata as raw provider response."""
+        if self._ingestion is None:
+            return
+        try:
+            raw_data = (
+                ym_track.model_dump()
+                if hasattr(ym_track, "model_dump")
+                else {
+                    "id": ym_track.id,
+                    "title": ym_track.title,
+                    "duration_ms": ym_track.duration_ms,
+                    "artists": ym_track.artists,
+                    "albums": ym_track.albums,
+                    "cover_uri": ym_track.cover_uri,
+                    "explicit": ym_track.explicit,
+                }
+            )
+            await self._ingestion.cache_response(
+                track_id=track_id,
+                provider_name="yandex_music",
+                raw_data=raw_data,
+            )
+        except Exception:
+            pass  # Caching is best-effort
 
     async def _link_file_to_track(
         self,
