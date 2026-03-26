@@ -205,3 +205,21 @@ def get_audio_service(
     from app.services.audio_service import AudioService
 
     return AudioService(session, registry)
+
+
+def get_candidate_service(
+    session=Depends(get_db_session),  # noqa: B008
+):  # type: ignore[no-untyped-def]
+    """Get CandidateService for transition candidate pruning."""
+    from app.services.candidate_service import CandidateService
+
+    return CandidateService(session)
+
+
+def get_embedding_service(
+    session=Depends(get_db_session),  # noqa: B008
+):  # type: ignore[no-untyped-def]
+    """Get EmbeddingService for vector embedding storage."""
+    from app.services.embedding_service import EmbeddingService
+
+    return EmbeddingService(session)
