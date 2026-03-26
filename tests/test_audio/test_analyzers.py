@@ -107,12 +107,53 @@ class TestLoudnessAnalyzer:
         result = await analyzer.analyze(_make_signal(_sine_wave()))
         expected = {
             "integrated_lufs",
+            "short_term_lufs_mean",
+            "momentary_max",
             "rms_dbfs",
             "true_peak_db",
             "crest_factor_db",
             "loudness_range_lu",
         }
         assert set(result.features.keys()) == expected
+
+    async def test_short_term_lufs_mean_reasonable(self) -> None:
+        """Short-term LUFS mean should be close to integrated LUFS for steady signal."""
+        analyzer = LoudnessAnalyzer()
+        result = await analyzer.analyze(_make_signal(_sine_wave()))
+        integrated = result.features["integrated_lufs"]
+        short_term = result.features["short_term_lufs_mean"]
+        # For a steady sine wave, short-term mean ≈ integrated (within 2 dB)
+        assert abs(short_term - integrated) < 2.0
+
+    async def test_momentary_max_gte_integrated(self) -> None:
+        """Momentary max should be >= integrated LUFS."""
+        analyzer = LoudnessAnalyzer()
+        result = await analyzer.analyze(_make_signal(_sine_wave()))
+        assert result.features["momentary_max"] >= result.features["integrated_lufs"] - 0.1
+
+    async def test_momentary_max_higher_for_dynamic_signal(self) -> None:
+        """A signal with loud bursts should have higher momentary max than steady signal."""
+        analyzer = LoudnessAnalyzer()
+        # Create a signal with loud burst at the start
+        steady = _sine_wave(amplitude=0.2)
+        burst = _sine_wave(amplitude=0.9)
+        dynamic = np.copy(steady)
+        burst_len = min(len(burst), int(SAMPLE_RATE * 0.5))
+        dynamic[:burst_len] = burst[:burst_len]
+
+        steady_result = await analyzer.analyze(_make_signal(steady))
+        dynamic_result = await analyzer.analyze(_make_signal(dynamic))
+        assert dynamic_result.features["momentary_max"] > steady_result.features["momentary_max"]
+
+    async def test_short_signal_fallback(self) -> None:
+        """Signal shorter than 3s should still produce short_term and momentary values."""
+        analyzer = LoudnessAnalyzer()
+        # 0.5 second signal
+        short_samples = _sine_wave()[: int(SAMPLE_RATE * 0.5)]
+        result = await analyzer.analyze(_make_signal(short_samples))
+        assert result.success is True
+        assert "short_term_lufs_mean" in result.features
+        assert "momentary_max" in result.features
 
 
 # ── Energy Analyzer ──────────────────────────────────────────────────
@@ -239,8 +280,40 @@ class TestSpectralAnalyzer:
             "spectral_flatness",
             "spectral_flux_mean",
             "spectral_flux_std",
+            "spectral_slope",
+            "spectral_contrast",
         }
         assert set(result.features.keys()) == expected
+
+    async def test_spectral_slope_is_finite(self) -> None:
+        """Spectral slope should be a finite number."""
+        analyzer = SpectralAnalyzer()
+        result = await analyzer.analyze(_make_signal(_sine_wave()))
+        slope = result.features["spectral_slope"]
+        assert np.isfinite(slope)
+
+    async def test_spectral_slope_negative_for_sine(self) -> None:
+        """Sine wave concentrates energy at one frequency, so slope should be negative
+        (magnitude drops off from that peak across the spectrum)."""
+        analyzer = SpectralAnalyzer()
+        result = await analyzer.analyze(_make_signal(_sine_wave()))
+        # Sine wave has a very steep slope (energy concentrated at fundamental)
+        assert result.features["spectral_slope"] < 0.0
+
+    async def test_spectral_contrast_positive_for_sine(self) -> None:
+        """Sine wave should have high contrast (peak at fundamental vs noise floor)."""
+        analyzer = SpectralAnalyzer()
+        result = await analyzer.analyze(_make_signal(_sine_wave()))
+        assert result.features["spectral_contrast"] > 0.0
+
+    async def test_spectral_contrast_lower_for_noise(self) -> None:
+        """White noise should have lower contrast than sine (more uniform spectrum)."""
+        analyzer = SpectralAnalyzer()
+        sine_result = await analyzer.analyze(_make_signal(_sine_wave()))
+        noise_result = await analyzer.analyze(_make_signal(_white_noise()))
+        assert (
+            noise_result.features["spectral_contrast"] < sine_result.features["spectral_contrast"]
+        )
 
     async def test_empty_signal_fails(self) -> None:
         analyzer = SpectralAnalyzer()

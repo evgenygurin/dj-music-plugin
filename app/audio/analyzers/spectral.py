@@ -1,7 +1,8 @@
 """Spectral analyzer — pure numpy implementation.
 
 Computes: spectral_centroid_hz, spectral_rolloff_85, spectral_rolloff_95,
-spectral_flatness, spectral_flux_mean, spectral_flux_std.
+spectral_flatness, spectral_flux_mean, spectral_flux_std,
+spectral_slope, spectral_contrast.
 """
 
 from __future__ import annotations
@@ -9,6 +10,69 @@ from __future__ import annotations
 import numpy as np
 
 from app.audio.registry import AnalyzerResult, AudioSignal, BaseAnalyzer
+
+# Frequency band edges for spectral contrast (6 octave bands, Hz)
+# Similar to librosa defaults: 6 bands from ~200Hz to ~sr/2
+_CONTRAST_BANDS_HZ: list[tuple[float, float]] = [
+    (200.0, 400.0),
+    (400.0, 800.0),
+    (800.0, 1600.0),
+    (1600.0, 3200.0),
+    (3200.0, 6400.0),
+    (6400.0, 11025.0),
+]
+
+
+def _compute_spectral_slope(magnitude: np.ndarray, freqs: np.ndarray) -> float:
+    """Compute spectral slope via linear regression on log-frequency axis.
+
+    Fits a line to the log-magnitude spectrum vs. log-frequency.
+    Result is in dB/octave: how fast the spectrum rolls off.
+    """
+    # Skip DC (freq=0) and zero magnitudes
+    valid = (freqs > 0) & (magnitude > 0)
+    if np.sum(valid) < 2:
+        return 0.0
+
+    log_freqs = np.log2(freqs[valid])
+    log_mags = 20.0 * np.log10(magnitude[valid] + 1e-10)  # dB
+
+    # Linear regression: slope in dB per octave (log2 frequency)
+    coeffs = np.polyfit(log_freqs, log_mags, 1)
+    return float(coeffs[0])
+
+
+def _compute_spectral_contrast_frame(
+    magnitude: np.ndarray, freqs: np.ndarray, alpha: float = 0.2
+) -> float:
+    """Compute spectral contrast for one frame: mean peak-valley difference across bands.
+
+    For each frequency band, contrast = peak_dB - valley_dB, where peak/valley
+    are computed from the top/bottom alpha fraction of magnitudes in the band.
+    Returns the mean contrast across all bands (dB).
+    """
+    contrasts: list[float] = []
+
+    for low_hz, high_hz in _CONTRAST_BANDS_HZ:
+        mask = (freqs >= low_hz) & (freqs < high_hz)
+        band_mags = magnitude[mask]
+
+        if len(band_mags) < 2:
+            continue
+
+        sorted_mags = np.sort(band_mags)
+        n_alpha = max(1, int(len(sorted_mags) * alpha))
+
+        # Peak: mean of top alpha fraction (in dB)
+        peak = float(np.mean(sorted_mags[-n_alpha:]))
+        # Valley: mean of bottom alpha fraction (in dB)
+        valley = float(np.mean(sorted_mags[:n_alpha]))
+
+        peak_db = 20.0 * np.log10(peak + 1e-10)
+        valley_db = 20.0 * np.log10(valley + 1e-10)
+        contrasts.append(peak_db - valley_db)
+
+    return float(np.mean(contrasts)) if contrasts else 0.0
 
 
 class SpectralAnalyzer(BaseAnalyzer):
@@ -38,6 +102,8 @@ class SpectralAnalyzer(BaseAnalyzer):
         rolloff_85_list: list[float] = []
         rolloff_95_list: list[float] = []
         flatness_list: list[float] = []
+        slope_list: list[float] = []
+        contrast_list: list[float] = []
         prev_magnitude: np.ndarray | None = None
         flux_list: list[float] = []
 
@@ -60,7 +126,7 @@ class SpectralAnalyzer(BaseAnalyzer):
             freqs = np.fft.rfftfreq(frame_length, d=1.0 / sr)
 
             # Spectral centroid
-            total_mag = np.sum(magnitude)
+            total_mag = float(np.sum(magnitude))
             centroid = float(np.sum(freqs * magnitude) / total_mag) if total_mag > 0 else 0.0
             centroids.append(centroid)
 
@@ -86,6 +152,12 @@ class SpectralAnalyzer(BaseAnalyzer):
                 flatness = 0.0
             flatness_list.append(flatness)
 
+            # Spectral slope (dB/octave via log-frequency regression)
+            slope_list.append(_compute_spectral_slope(magnitude, freqs))
+
+            # Spectral contrast (mean peak-valley difference across bands)
+            contrast_list.append(_compute_spectral_contrast_frame(magnitude, freqs))
+
             # Spectral flux
             if prev_magnitude is not None:
                 diff = magnitude - prev_magnitude
@@ -97,6 +169,8 @@ class SpectralAnalyzer(BaseAnalyzer):
         spectral_rolloff_85 = float(np.mean(rolloff_85_list)) if rolloff_85_list else 0.0
         spectral_rolloff_95 = float(np.mean(rolloff_95_list)) if rolloff_95_list else 0.0
         spectral_flatness = float(np.mean(flatness_list)) if flatness_list else 0.0
+        spectral_slope = float(np.mean(slope_list)) if slope_list else 0.0
+        spectral_contrast = float(np.mean(contrast_list)) if contrast_list else 0.0
 
         if flux_list:
             spectral_flux_mean = float(np.mean(flux_list))
@@ -114,5 +188,7 @@ class SpectralAnalyzer(BaseAnalyzer):
                 "spectral_flatness": spectral_flatness,
                 "spectral_flux_mean": spectral_flux_mean,
                 "spectral_flux_std": spectral_flux_std,
+                "spectral_slope": spectral_slope,
+                "spectral_contrast": spectral_contrast,
             },
         )
