@@ -131,7 +131,7 @@ async def ym_artist_tracks(
 
 @tool(
     tags={"ym"},
-    annotations={"openWorldHint": True},
+    annotations={"readOnlyHint": False, "openWorldHint": True},
 )
 async def ym_playlists(
     action: str = "list",
@@ -215,7 +215,7 @@ async def ym_playlists(
 
 @tool(
     tags={"ym"},
-    annotations={"openWorldHint": True},
+    annotations={"readOnlyHint": False, "openWorldHint": True},
 )
 async def ym_likes(
     action: str = "get_liked",

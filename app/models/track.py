@@ -25,7 +25,7 @@ class Track(Base, TimestampMixin):
     title: Mapped[str] = mapped_column(String(500))
     sort_title: Mapped[str | None] = mapped_column(String(500), nullable=True)
     duration_ms: Mapped[int | None] = mapped_column(nullable=True)
-    status: Mapped[int] = mapped_column(default=0, server_default="0")
+    status: Mapped[int] = mapped_column(default=0, server_default="0", index=True)
 
     # Relationships
     track_artists: Mapped[list[TrackArtist]] = relationship(

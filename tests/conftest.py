@@ -118,7 +118,6 @@ def _parse_tool_result(result):  # type: ignore[no-untyped-def]
 async def client(async_engine):  # type: ignore[no-untyped-def]
     """FastMCP test client with in-memory DB session factory."""
     from fastmcp import Client
-    from fastmcp.server.lifespan import Lifespan
     from sqlalchemy.ext.asyncio import async_sessionmaker
 
     from app.server import mcp
@@ -144,6 +143,9 @@ async def client(async_engine):  # type: ignore[no-untyped-def]
     ym_mock.get_liked_ids = AsyncMock(return_value=[])
     ym_mock.get_disliked_ids = AsyncMock(return_value=set())
 
+    from fastmcp.server.lifespan import lifespan
+
+    @lifespan
     async def _test_lifespan(server):  # type: ignore[no-untyped-def]
         yield {
             "db_engine": async_engine,
@@ -153,7 +155,7 @@ async def client(async_engine):  # type: ignore[no-untyped-def]
             "transition_cache": cache,
         }
 
-    mcp._lifespan = Lifespan(_test_lifespan)
+    mcp._lifespan = _test_lifespan
 
     try:
         async with Client(mcp) as c:

@@ -321,7 +321,6 @@ class TrackRepository(BaseRepository[Track]):
             "id": Track.id,
         }
         order_col = sort_map.get(sort_by, TrackAudioFeaturesComputed.bpm)
-        stmt = stmt.order_by(order_col)
 
         count_stmt = select(sa_func.count()).select_from(stmt.subquery())
         total = (await self.session.execute(count_stmt)).scalar_one()
@@ -330,7 +329,11 @@ class TrackRepository(BaseRepository[Track]):
             last_id = decode_cursor(cursor)
             stmt = stmt.where(Track.id > last_id)
 
-        stmt = stmt.order_by(Track.id).limit(limit)
+        # Combined order_by: primary sort + Track.id for stable pagination.
+        # TODO: cursor pagination uses Track.id > last_id which only works correctly
+        # when primary sort is by Track.id. For non-ID sorts, keyset pagination
+        # would be needed for fully correct cursor behavior.
+        stmt = stmt.order_by(order_col, Track.id).limit(limit)
         result = await self.session.execute(stmt)
         tracks = list(result.scalars().all())
 

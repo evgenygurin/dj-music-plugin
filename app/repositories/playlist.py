@@ -85,17 +85,22 @@ class PlaylistRepository(BaseRepository[Playlist]):
         result = await self.session.execute(stmt)
         return result.scalar_one_or_none()
 
-    async def get_or_create_by_name(self, name: str) -> Playlist:
-        """Return existing playlist by exact name, or create a new one."""
+    async def get_or_create_by_name(self, name: str) -> tuple[Playlist, bool]:
+        """Return existing playlist by exact name, or create a new one.
+
+        Returns:
+            Tuple of (playlist, created) where created is True if a new
+            playlist was created.
+        """
         stmt = select(Playlist).where(Playlist.name == name).limit(1)
         result = await self.session.execute(stmt)
         playlist = result.scalar_one_or_none()
         if playlist is not None:
-            return playlist
+            return playlist, False
         playlist = Playlist(name=name)
         self.session.add(playlist)
         await self.session.flush()
-        return playlist
+        return playlist, True
 
     async def clear_items(self, playlist_id: int) -> int:
         """Remove all items from a playlist. Returns count deleted."""

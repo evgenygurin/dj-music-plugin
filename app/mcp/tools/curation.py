@@ -24,7 +24,7 @@ from app.services.curation_service import CurationService
 # ── 1. classify_mood ─────────────────────────────────
 
 
-@tool(tags={"curation"}, annotations={"readOnlyHint": True})
+@tool(tags={"curation"}, annotations={"readOnlyHint": False})
 async def classify_mood(
     track_ids: Any = None,
     playlist_id: int | None = None,

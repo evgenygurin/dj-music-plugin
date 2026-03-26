@@ -41,6 +41,7 @@ class CurationService:
         self,
         track_ids: list[int] | None = None,
         playlist_id: int | None = None,
+        reclassify: bool = False,
     ) -> dict[str, Any]:
         """Classify tracks by 15 techno subgenres."""
         ids_to_classify: list[int] = list(track_ids or [])
@@ -58,6 +59,10 @@ class CurationService:
         for tid in ids_to_classify:
             features = await self._features.get_features(tid)
             if features is None:
+                skipped += 1
+                continue
+
+            if not reclassify and features.mood is not None:
                 skipped += 1
                 continue
 
@@ -352,8 +357,8 @@ class CurationService:
                 continue
 
             playlist_name = f"Subgenre: {subgenre.value}"
-            playlist = await self._playlists.get_or_create_by_name(playlist_name)
-            if playlist._just_created:  # type: ignore[attr-defined]
+            playlist, is_new = await self._playlists.get_or_create_by_name(playlist_name)
+            if is_new:
                 created_playlists += 1
 
             if mode == "clean_rebuild":

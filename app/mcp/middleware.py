@@ -30,6 +30,7 @@ class YMRateLimitMiddleware(Middleware):
         self.delay_seconds = delay_seconds
         self.last_call_time: float | None = None
         self._ym_tool_prefix = "ym_"
+        self._lock = asyncio.Lock()
 
     def _is_ym_tool(self, tool_name: str) -> bool:
         return tool_name.startswith(self._ym_tool_prefix)
@@ -40,17 +41,18 @@ class YMRateLimitMiddleware(Middleware):
         if not self._is_ym_tool(tool_name):
             return await call_next(context)
 
-        now = time.monotonic()
-        if self.last_call_time is not None:
-            elapsed = now - self.last_call_time
-            if elapsed < self.delay_seconds:
-                sleep_time = self.delay_seconds - elapsed
-                logger.debug("YM rate limit: sleeping %.2fs before %s", sleep_time, tool_name)
-                await asyncio.sleep(sleep_time)
+        async with self._lock:
+            now = time.monotonic()
+            if self.last_call_time is not None:
+                elapsed = now - self.last_call_time
+                if elapsed < self.delay_seconds:
+                    sleep_time = self.delay_seconds - elapsed
+                    logger.debug("YM rate limit: sleeping %.2fs before %s", sleep_time, tool_name)
+                    await asyncio.sleep(sleep_time)
 
-        result = await call_next(context)
-        self.last_call_time = time.monotonic()
-        return result
+            result = await call_next(context)
+            self.last_call_time = time.monotonic()
+            return result
 
 
 class StructuredLoggingMiddleware(Middleware):

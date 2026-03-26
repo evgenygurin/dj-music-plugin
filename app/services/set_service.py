@@ -244,6 +244,7 @@ class SetService:
         pin_tracks: list[int] | None = None,
         exclude_tracks: list[int] | None = None,
         version_label: str | None = None,
+        algorithm: str = "greedy",
     ) -> SetVersion:
         """Rebuild existing set with pin/exclude. Creates new version."""
         await self.get_by_id(set_id)  # validate set exists
@@ -362,7 +363,7 @@ class SetService:
             "transitions": transitions_data,
         }
 
-    async def get_cheat_sheet(self, set_id: int) -> str:
+    async def get_cheat_sheet(self, set_id: int, version: str | None = None) -> str:
         """Generate human-readable cheat sheet."""
         dj_set = await self.get_by_id(set_id)
         latest = await self._sets.get_latest_version(set_id)

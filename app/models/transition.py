@@ -43,8 +43,12 @@ class Transition(Base, TimestampMixin):
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    from_track_id: Mapped[int] = mapped_column(ForeignKey("tracks.id", ondelete="CASCADE"))
-    to_track_id: Mapped[int] = mapped_column(ForeignKey("tracks.id", ondelete="CASCADE"))
+    from_track_id: Mapped[int] = mapped_column(
+        ForeignKey("tracks.id", ondelete="CASCADE"), index=True
+    )
+    to_track_id: Mapped[int] = mapped_column(
+        ForeignKey("tracks.id", ondelete="CASCADE"), index=True
+    )
     from_section_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
     to_section_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
     overlap_ms: Mapped[int | None] = mapped_column(Integer, nullable=True)
@@ -69,8 +73,12 @@ class TransitionCandidate(Base, TimestampMixin):
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    from_track_id: Mapped[int] = mapped_column(ForeignKey("tracks.id", ondelete="CASCADE"))
-    to_track_id: Mapped[int] = mapped_column(ForeignKey("tracks.id", ondelete="CASCADE"))
+    from_track_id: Mapped[int] = mapped_column(
+        ForeignKey("tracks.id", ondelete="CASCADE"), index=True
+    )
+    to_track_id: Mapped[int] = mapped_column(
+        ForeignKey("tracks.id", ondelete="CASCADE"), index=True
+    )
     bpm_distance: Mapped[float | None] = mapped_column(Float, nullable=True)
     key_distance: Mapped[int | None] = mapped_column(Integer, nullable=True)
     embedding_similarity: Mapped[float | None] = mapped_column(Float, nullable=True)

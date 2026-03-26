@@ -274,7 +274,7 @@ async def catalog_stats(
     query = select(TrackAudioFeaturesComputed)
 
     if mood:
-        query = query.where(TrackAudioFeaturesComputed.bpm == mood.value)
+        query = query.where(TrackAudioFeaturesComputed.mood == mood.value)
 
     if bpm_min is not None:
         query = query.where(TrackAudioFeaturesComputed.bpm >= bpm_min)
@@ -315,7 +315,7 @@ async def catalog_stats(
         for subgenre in TechnoSubgenre:
             mood_count_result = await session.execute(
                 select(func.count(TrackAudioFeaturesComputed.track_id)).where(
-                    TrackAudioFeaturesComputed.bpm == subgenre.value
+                    TrackAudioFeaturesComputed.mood == subgenre.value
                 )
             )
             count = mood_count_result.scalar() or 0

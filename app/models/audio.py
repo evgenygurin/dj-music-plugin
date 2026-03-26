@@ -60,13 +60,13 @@ class TrackAudioFeaturesComputed(Base, TimestampMixin):
     )
 
     # --- Tempo (4 fields) ---
-    bpm: Mapped[float | None] = mapped_column(nullable=True)
+    bpm: Mapped[float | None] = mapped_column(nullable=True, index=True)
     bpm_confidence: Mapped[float | None] = mapped_column(nullable=True)
     bpm_stability: Mapped[float | None] = mapped_column(nullable=True)
     variable_tempo: Mapped[bool | None] = mapped_column(nullable=True)
 
     # --- Loudness (7 fields) ---
-    integrated_lufs: Mapped[float | None] = mapped_column(nullable=True)
+    integrated_lufs: Mapped[float | None] = mapped_column(nullable=True, index=True)
     short_term_lufs_mean: Mapped[float | None] = mapped_column(nullable=True)
     momentary_max: Mapped[float | None] = mapped_column(nullable=True)
     rms_dbfs: Mapped[float | None] = mapped_column(nullable=True)
@@ -103,7 +103,7 @@ class TrackAudioFeaturesComputed(Base, TimestampMixin):
     spectral_contrast: Mapped[float | None] = mapped_column(nullable=True)
 
     # --- Key (5 fields) ---
-    key_code: Mapped[int | None] = mapped_column(nullable=True)
+    key_code: Mapped[int | None] = mapped_column(nullable=True, index=True)
     key_confidence: Mapped[float | None] = mapped_column(nullable=True)
     atonality: Mapped[bool | None] = mapped_column(nullable=True)
     hnr_db: Mapped[float | None] = mapped_column(nullable=True)
@@ -117,7 +117,7 @@ class TrackAudioFeaturesComputed(Base, TimestampMixin):
     kick_prominence: Mapped[float | None] = mapped_column(nullable=True)
 
     # --- Classification ---
-    mood: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    mood: Mapped[str | None] = mapped_column(String(30), nullable=True, index=True)
     mood_confidence: Mapped[float | None] = mapped_column(nullable=True)
 
     # relationships
@@ -220,7 +220,7 @@ class TrackSection(Base, TimestampMixin):
     __tablename__ = "track_sections"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    track_id: Mapped[int] = mapped_column(ForeignKey("tracks.id", ondelete="CASCADE"))
+    track_id: Mapped[int] = mapped_column(ForeignKey("tracks.id", ondelete="CASCADE"), index=True)
     section_type: Mapped[int] = mapped_column()
     start_ms: Mapped[int] = mapped_column()
     end_ms: Mapped[int] = mapped_column()

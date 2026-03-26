@@ -8,6 +8,7 @@ Invalidation: when audio features of either track change.
 from __future__ import annotations
 
 import time
+from collections import OrderedDict
 from dataclasses import dataclass
 from typing import Any
 
@@ -28,7 +29,10 @@ class CachedTransitionScore:
 
 
 class TransitionCache:
-    """LRU cache for transition scores with TTL and size limits."""
+    """LRU cache for transition scores with TTL and size limits.
+
+    Uses OrderedDict for O(1) get/put/eviction instead of O(n) list operations.
+    """
 
     def __init__(self, max_size: int = 10_000, ttl: int = 3600) -> None:
         """Initialize cache.
@@ -39,8 +43,7 @@ class TransitionCache:
         """
         self._max_size = max_size
         self._ttl = ttl
-        self._cache: dict[tuple[int, int], CachedTransitionScore] = {}
-        self._access_order: list[tuple[int, int]] = []
+        self._cache: OrderedDict[tuple[int, int], CachedTransitionScore] = OrderedDict()
 
     def get(self, track_id_a: int, track_id_b: int) -> CachedTransitionScore | None:
         """Get cached score for a track pair.
@@ -59,14 +62,10 @@ class TransitionCache:
         age = time.monotonic() - score.cached_at
         if age > self._ttl:
             del self._cache[key]
-            if key in self._access_order:
-                self._access_order.remove(key)
             return None
 
-        # Update LRU order
-        if key in self._access_order:
-            self._access_order.remove(key)
-        self._access_order.append(key)
+        # Update LRU order — move to end (most recently used)
+        self._cache.move_to_end(key)
 
         return score
 
@@ -97,10 +96,12 @@ class TransitionCache:
         # Normalize key
         key = (track_id_a, track_id_b) if track_id_a < track_id_b else (track_id_b, track_id_a)
 
-        # Evict oldest if at capacity
-        if len(self._cache) >= self._max_size and key not in self._cache and self._access_order:
-            oldest = self._access_order.pop(0)
-            del self._cache[oldest]
+        if key in self._cache:
+            # Update existing — move to end
+            self._cache.move_to_end(key)
+        elif len(self._cache) >= self._max_size:
+            # Evict oldest (first item) — O(1)
+            self._cache.popitem(last=False)
 
         # Store
         self._cache[key] = CachedTransitionScore(
@@ -114,11 +115,6 @@ class TransitionCache:
             overall_score=overall_score,
             cached_at=time.monotonic(),
         )
-
-        # Update access order
-        if key in self._access_order:
-            self._access_order.remove(key)
-        self._access_order.append(key)
 
     def invalidate_track(self, track_id: int) -> int:
         """Invalidate all cached transitions involving a track.
@@ -135,15 +131,12 @@ class TransitionCache:
 
         for key in keys_to_remove:
             del self._cache[key]
-            if key in self._access_order:
-                self._access_order.remove(key)
 
         return len(keys_to_remove)
 
     def clear(self) -> None:
         """Clear all cached entries."""
         self._cache.clear()
-        self._access_order.clear()
 
     def stats(self) -> dict[str, Any]:
         """Get cache statistics.

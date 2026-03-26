@@ -81,6 +81,7 @@ async def rebuild_set(
         pin_tracks=pin_tracks,
         exclude_tracks=exclude_tracks,
         version_label=version_label,
+        algorithm=algorithm,
     )
 
     return {
@@ -90,7 +91,7 @@ async def rebuild_set(
     }
 
 
-@tool(tags={"sets"}, annotations={"readOnlyHint": True})
+@tool(tags={"sets"}, annotations={"readOnlyHint": False})
 async def score_transitions(
     mode: str = "set",
     set_id: int | None = None,
@@ -125,4 +126,4 @@ async def get_set_cheat_sheet(
     ctx: Context | None = None,
 ) -> str:
     """Human-readable cheat sheet: BPM flow, key changes, energy arc."""
-    return await svc.get_cheat_sheet(set_id)
+    return await svc.get_cheat_sheet(set_id, version=version)

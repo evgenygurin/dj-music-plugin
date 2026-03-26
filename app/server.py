@@ -99,10 +99,7 @@ async def analyzer_lifespan(server):  # type: ignore[no-untyped-def]
 
     registry = AnalyzerRegistry()
     registry.discover()
-    try:
-        yield {"analyzer_registry": registry}
-    finally:
-        pass
+    yield {"analyzer_registry": registry}
 
 
 @lifespan
