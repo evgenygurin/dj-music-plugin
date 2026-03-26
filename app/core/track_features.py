@@ -31,6 +31,26 @@ class TrackFeatures:
     @classmethod
     def from_db(cls, row: Any) -> TrackFeatures:
         """Construct from a TrackAudioFeaturesComputed DB row."""
+        import json
+
+        # Parse mfcc_vector from JSON string if stored
+        mfcc = None
+        raw_mfcc = getattr(row, "mfcc_vector", None)
+        if raw_mfcc:
+            mfcc = json.loads(raw_mfcc) if isinstance(raw_mfcc, str) else raw_mfcc
+
+        # Build energy_bands list from individual band columns
+        band_fields = (
+            "energy_sub",
+            "energy_low",
+            "energy_lowmid",
+            "energy_mid",
+            "energy_highmid",
+            "energy_high",
+        )
+        bands_raw = [getattr(row, f, None) for f in band_fields]
+        energy_bands = bands_raw if all(b is not None for b in bands_raw) else None
+
         return cls(
             bpm=row.bpm,
             key_code=row.key_code,
@@ -42,4 +62,6 @@ class TrackFeatures:
             kick_prominence=row.kick_prominence,
             hnr_db=row.hnr_db,
             chroma_entropy=row.chroma_entropy,
+            mfcc_vector=mfcc,
+            energy_bands=energy_bands,
         )

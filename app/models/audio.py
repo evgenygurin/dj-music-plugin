@@ -109,7 +109,8 @@ class TrackAudioFeaturesComputed(Base, TimestampMixin):
     hnr_db: Mapped[float | None] = mapped_column(nullable=True)
     chroma_entropy: Mapped[float | None] = mapped_column(nullable=True)
 
-    # --- Rhythm (4 fields) ---
+    # --- Rhythm (5 fields) ---
+    mfcc_vector: Mapped[str | None] = mapped_column(String(500), nullable=True)
     hp_ratio: Mapped[float | None] = mapped_column(nullable=True)
     onset_rate: Mapped[float | None] = mapped_column(nullable=True)
     pulse_clarity: Mapped[float | None] = mapped_column(nullable=True)
@@ -166,12 +167,24 @@ class TrackAudioFeaturesComputed(Base, TimestampMixin):
     def filter_features(cls, features: dict[str, Any]) -> dict[str, Any]:
         """Filter pipeline output to only columns that exist on this model.
 
-        Pipeline analyzers may produce extra keys (mfcc_mean, chroma_vector, etc.)
-        that don't have DB columns. This prevents TypeError on construction.
+        Pipeline analyzers may produce extra keys that don't have DB columns.
+        Also maps pipeline output names to DB column names where they differ.
         """
+        import json
+
         valid = {c.name for c in cls.__table__.columns}
         valid -= {"track_id", "pipeline_run_id", "created_at", "updated_at"}
-        return {k: v for k, v in features.items() if k in valid}
+
+        # Map pipeline keys → DB column names
+        result: dict[str, Any] = {}
+        for k, v in features.items():
+            if k == "mfcc_mean" and "mfcc_vector" in valid:
+                # Serialize MFCC list to JSON string for VARCHAR column
+                result["mfcc_vector"] = json.dumps(v) if isinstance(v, list) else v
+            elif k in valid:
+                result[k] = v
+
+        return result
 
     __table_args__ = (
         CheckConstraint("bpm IS NULL OR (bpm >= 20 AND bpm <= 300)", name="ck_tafc_bpm"),

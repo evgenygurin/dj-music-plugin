@@ -11,7 +11,7 @@ from app.core.constants import Provider
 from app.mcp.dependencies import get_track_service
 from app.services.track_service import TrackService
 
-_ALL_CATEGORIES = frozenset({"delivery", "discovery", "curation", "sync", "ym", "audio", "atomic"})
+_ALL_CATEGORIES = frozenset({"delivery", "discovery", "curation", "sync", "ym", "atomic"})
 
 
 @tool(tags={"admin"})
