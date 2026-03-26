@@ -13,7 +13,8 @@ from fastmcp.server.context import Context
 from fastmcp.tools import tool
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.mcp.dependencies import get_audio_service, get_db_session
+from app.mcp.dependencies import get_audio_service, get_db_session, get_track_service
+from app.mcp.tools._helpers import resolve_track_id
 from app.services.audio_service import AudioService
 
 # ── 1. analyze_track ─────────────────────────────────
@@ -30,6 +31,7 @@ async def analyze_track(
     analyzers: Any = None,
     force: bool = False,
     svc: AudioService = Depends(get_audio_service),  # noqa: B008
+    track_svc: Any = Depends(get_track_service),  # noqa: B008
     session: AsyncSession = Depends(get_db_session),  # noqa: B008
     ctx: Context | None = None,
 ) -> dict[str, Any]:
@@ -37,21 +39,7 @@ async def analyze_track(
     from app.core.parsing import ensure_list
 
     analyzers = ensure_list(analyzers) or None
-    if track_id is None and track_query is None:
-        raise ToolError("Provide track_id or track_query")
-
-    # Resolve track_id from query if needed
-    if track_id is None and track_query is not None:
-        from sqlalchemy import select
-
-        from app.models.track import Track
-
-        stmt = select(Track).where(Track.title.ilike(f"%{track_query}%")).limit(1)
-        result = await session.execute(stmt)
-        track = result.scalar_one_or_none()
-        if not track:
-            raise ToolError(f"Track not found: {track_query}")
-        track_id = track.id
+    track_id = await resolve_track_id(id=track_id, query=track_query, svc=track_svc)
 
     if ctx:
         await ctx.info(f"Analyzing track {track_id}...")
@@ -157,10 +145,10 @@ async def separate_stems(
 ) -> dict[str, Any]:
     """ML-based stem separation (vocals, drums, bass, other). Requires [stems] extra."""
     from app.core.parsing import ensure_list
+    from app.mcp.tools._helpers import validate_id_or_query
 
     stems = ensure_list(stems) or None
-    if track_id is None and track_query is None:
-        raise ToolError("Provide track_id or track_query")
+    validate_id_or_query(track_id, track_query, "track")
 
     valid_stems = {"vocals", "drums", "bass", "other"}
     if stems:

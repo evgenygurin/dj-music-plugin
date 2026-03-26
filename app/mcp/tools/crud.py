@@ -40,7 +40,7 @@ async def get_set(
 ) -> dict[str, Any]:
     """Get set details by id or query. view: summary|tracks|transitions|full."""
     if id is None and query is None:
-        raise ToolError("Provide id or query")
+        raise ToolError("Provide set id or query")
     return await svc.get_set(id=id, query=query, view=view)
 
 

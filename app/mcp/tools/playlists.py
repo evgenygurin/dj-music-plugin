@@ -12,11 +12,13 @@ from fastmcp.exceptions import ToolError
 from fastmcp.tools import tool
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.schemas import PaginatedResponse, PlaylistSummary
 from app.mcp.dependencies import (
     get_db_session,
     get_playlist_service,
     get_track_service,
 )
+from app.mcp.tools._helpers import resolve_entity
 from app.services.playlist_service import PlaylistService
 from app.services.track_service import TrackService
 
@@ -27,14 +29,14 @@ async def list_playlists(
     limit: int = 20,
     cursor: str | None = None,
     svc: PlaylistService = Depends(get_playlist_service),  # noqa: B008
-) -> dict[str, Any]:
+) -> PaginatedResponse[PlaylistSummary]:
     """List playlists with optional source filter and cursor pagination."""
     page = await svc.list_all(limit=limit, cursor=cursor, source=source)
-    return {
-        "items": [svc.to_summary(p).model_dump() for p in page.items],
-        "next_cursor": page.next_cursor,
-        "total": page.total,
-    }
+    return PaginatedResponse[PlaylistSummary](
+        items=[svc.to_summary(p) for p in page.items],
+        next_cursor=page.next_cursor,
+        total=page.total,
+    )
 
 
 @tool(tags={"core"}, annotations={"readOnlyHint": True})
@@ -46,15 +48,13 @@ async def get_playlist(
     track_svc: TrackService = Depends(get_track_service),  # noqa: B008
 ) -> dict[str, Any]:
     """Get playlist details by id or name query. Optionally include tracks."""
-    if id is None and query is None:
-        raise ToolError("Provide id or query")
-
-    if id is not None:
-        playlist = await svc.get_by_id(id)
-    else:
-        playlist = await svc.search_by_name(query)  # type: ignore[arg-type]
-        if playlist is None:
-            raise ToolError("Playlist not found")
+    playlist = await resolve_entity(
+        id=id,
+        query=query,
+        entity_name="Playlist",
+        get_by_id=svc.get_by_id,
+        search_by_query=svc.search_by_name,
+    )
 
     response = svc.to_summary(playlist).model_dump()
     response["tracks"] = []

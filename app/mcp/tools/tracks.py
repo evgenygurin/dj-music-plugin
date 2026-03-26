@@ -13,6 +13,7 @@ from fastmcp.tools import tool
 
 from app.core.schemas import PaginatedResponse, TrackBrief, TrackStandard
 from app.mcp.dependencies import get_track_service
+from app.mcp.tools._helpers import resolve_track_id
 from app.services.track_service import TrackService
 
 
@@ -46,17 +47,8 @@ async def get_track(
     svc: TrackService = Depends(get_track_service),  # noqa: B008
 ) -> TrackStandard:
     """Get full track details by id or text query."""
-    if id is None and query is None:
-        raise ToolError("Provide id or query")
-
-    if id is not None:
-        track, features = await svc.get_with_features(id)
-    else:
-        results = await svc.search(query, limit=1)  # type: ignore[arg-type]
-        if not results:
-            raise ToolError("Track not found")
-        track, features = await svc.get_with_features(results[0].id)
-
+    track_id = await resolve_track_id(id=id, query=query, svc=svc)
+    track, features = await svc.get_with_features(track_id)
     return svc.to_standard(track, features)
 
 
@@ -104,16 +96,8 @@ async def get_track_features(
     svc: TrackService = Depends(get_track_service),  # noqa: B008
 ) -> dict[str, Any]:
     """Get audio features for a track by id or query. Optionally include sections."""
-    if id is None and query is None:
-        raise ToolError("Provide id or query")
-
-    if id is not None:
-        track, features = await svc.get_with_features(id)
-    else:
-        results = await svc.search(query, limit=1)  # type: ignore[arg-type]
-        if not results:
-            raise ToolError("Track not found")
-        track, features = await svc.get_with_features(results[0].id)
+    track_id = await resolve_track_id(id=id, query=query, svc=svc)
+    track, features = await svc.get_with_features(track_id)
 
     if features is None:
         return {"track_id": track.id, "title": track.title, "has_features": False}

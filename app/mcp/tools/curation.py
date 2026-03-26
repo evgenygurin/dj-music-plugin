@@ -58,8 +58,9 @@ async def audit_playlist(
     ctx: Context | None = None,
 ) -> dict[str, Any]:
     """Audit playlist for techno quality criteria and library gaps."""
-    if playlist_id is None and playlist_query is None:
-        raise ToolError("Provide playlist_id or playlist_query")
+    from app.mcp.tools._helpers import validate_id_or_query
+
+    validate_id_or_query(playlist_id, playlist_query, "playlist")
     return await svc.audit_playlist(
         playlist_id=playlist_id,
         playlist_query=playlist_query,
