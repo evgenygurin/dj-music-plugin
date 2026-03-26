@@ -57,7 +57,7 @@ class ImportService:
         id_mapping: dict[str, int] = {}
 
         for ref in track_refs:
-            ym_id = str(ref).strip()
+            ym_id = str(ref).strip().removeprefix("ym:").removeprefix("YM:")
             if not ym_id:
                 continue
 
@@ -104,7 +104,7 @@ class ImportService:
         files: list[dict[str, Any]] = []
 
         for ref in track_refs:
-            ym_id = str(ref).strip()
+            ym_id = str(ref).strip().removeprefix("ym:").removeprefix("YM:")
             if not ym_id:
                 continue
 

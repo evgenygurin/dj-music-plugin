@@ -134,13 +134,27 @@ class TrackService:
     # ── Converters ───────────────────────────────────
 
     @staticmethod
-    def to_brief(track: Track) -> TrackBrief:
+    def _features_to_camelot(
+        features: TrackAudioFeaturesComputed | None,
+    ) -> str | None:
+        """Convert key_code from features to Camelot notation."""
+        if features and features.key_code is not None:
+            from app.core.camelot import key_code_to_camelot
+
+            return key_code_to_camelot(features.key_code)
+        return None
+
+    @staticmethod
+    def to_brief(
+        track: Track,
+        features: TrackAudioFeaturesComputed | None = None,
+    ) -> TrackBrief:
         return TrackBrief(
             id=track.id,
             title=track.title,
             artist_names=[],
-            bpm=None,
-            key_camelot=None,
+            bpm=features.bpm if features else None,
+            key_camelot=TrackService._features_to_camelot(features),
             duration_ms=track.duration_ms,
         )
 
@@ -154,7 +168,7 @@ class TrackService:
             title=track.title,
             artist_names=[],
             bpm=features.bpm if features else None,
-            key_camelot=None,
+            key_camelot=TrackService._features_to_camelot(features),
             duration_ms=track.duration_ms,
             energy_lufs=features.integrated_lufs if features else None,
             mood=features.mood if features else None,

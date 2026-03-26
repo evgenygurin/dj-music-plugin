@@ -63,8 +63,8 @@ async def get_playlist(
         track_ids = [item.track_id for item in sorted(playlist.items, key=lambda i: i.sort_index)]
         for tid in track_ids:
             try:
-                t, _ = await track_svc.get_with_features(tid)
-                tracks_entry = track_svc.to_brief(t).model_dump()
+                t, feat = await track_svc.get_with_features(tid)
+                tracks_entry = track_svc.to_brief(t, feat).model_dump()
                 response["tracks"].append(tracks_entry)
             except Exception:
                 response["tracks"].append(
