@@ -220,16 +220,11 @@ class CurationService:
         if dj_set is None:
             raise NotFoundError("Set", set_id)
 
-        target_version = None
-        if version_label:
-            target_version = await self._sets.get_version_by_label(set_id, version_label)
-        else:
-            target_version = await self._sets.get_latest_version(set_id)
-
-        if target_version is None:
+        result = await self._sets.load_version_with_items(set_id, version_label)
+        if result is None:
             raise NotFoundError("SetVersion", f"set_id={set_id}")
+        target_version, items = result
 
-        items = await self._sets.get_version_items(target_version.id)
         if not items:
             raise ValidationError("Set is empty")
 

@@ -333,11 +333,10 @@ class SetService:
 
     async def score_set_transitions(self, set_id: int) -> dict[str, Any]:
         """Score all sequential transitions in a set."""
-        latest = await self._sets.get_latest_version(set_id)
-        if not latest:
+        result = await self._sets.load_version_with_items(set_id)
+        if result is None:
             raise NotFoundError("SetVersion", f"set_id={set_id}")
-
-        items = await self._sets.get_version_items(latest.id)
+        latest, items = result
 
         transitions_data = []
         for i in range(len(items) - 1):
@@ -366,11 +365,10 @@ class SetService:
     async def get_cheat_sheet(self, set_id: int, version: str | None = None) -> str:
         """Generate human-readable cheat sheet."""
         dj_set = await self.get_by_id(set_id)
-        latest = await self._sets.get_latest_version(set_id)
-        if not latest:
+        result = await self._sets.load_version_with_items(set_id)
+        if result is None:
             raise NotFoundError("SetVersion", f"set_id={set_id}")
-
-        items = await self._sets.get_version_items(latest.id)
+        latest, items = result
 
         lines = [
             f"=== {dj_set.name} ===",
@@ -434,11 +432,12 @@ class SetService:
         else:
             raise ValidationError("Provide id or query")
 
-        latest = await self._sets.get_latest_version(dj_set.id)
+        result = await self._sets.load_version_with_items(dj_set.id)
+        latest = result[0] if result else None
         response = self.to_summary_sync(dj_set, latest).model_dump()
 
-        if view in ("tracks", "full") and latest:
-            items = await self._sets.get_version_items(latest.id)
+        if view in ("tracks", "full") and result:
+            _, items = result
             tracks = []
             for item in items:
                 t = await self._tracks.get_by_id(item.track_id)

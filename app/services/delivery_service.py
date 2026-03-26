@@ -51,11 +51,11 @@ class DeliveryService:
         if dj_set is None:
             raise NotFoundError("Set", set_id)
 
-        version = await self._sets.get_latest_version(set_id)
-        if version is None:
+        result = await self._sets.load_version_with_items(set_id)
+        if result is None:
             raise NotFoundError("SetVersion", f"set_id={set_id}")
+        version, items = result
 
-        items = await self._sets.get_version_items(version.id)
         if not items:
             raise ValidationError("Set has no tracks")
 
@@ -230,9 +230,8 @@ class DeliveryService:
             src = Path(et.file_path)
             if not src.exists():
                 continue
-            from app.utils.files import is_icloud_stub
-
-            if is_icloud_stub(src):
+            stat = src.stat()
+            if hasattr(stat, "st_blocks") and stat.st_blocks * 512 < stat.st_size * 0.9:
                 continue
             dest = set_dir / f"{i + 1:02d}. {et.artist} - {et.title}.mp3"
             shutil.copy2(str(src), str(dest))

@@ -41,11 +41,10 @@ class ReasoningService:
         count: int = 5,
     ) -> dict[str, Any]:
         """Suggest best tracks for a set position, scored against both neighbors."""
-        latest = await self._sets.get_latest_version(set_id)
-        if not latest:
+        result = await self._sets.load_version_with_items(set_id)
+        if result is None:
             raise NotFoundError("SetVersion", f"set_id={set_id}")
-
-        items = await self._sets.get_version_items(latest.id)
+        latest, items = result
 
         if after_position < 0 or after_position >= len(items):
             raise ValidationError(f"Position {after_position} out of range (0-{len(items) - 1})")
@@ -230,11 +229,10 @@ class ReasoningService:
         if not dj_set:
             raise NotFoundError("Set", set_id)
 
-        latest = await self._sets.get_latest_version(set_id)
-        if not latest:
+        result = await self._sets.load_version_with_items(set_id)
+        if result is None:
             raise NotFoundError("SetVersion", f"set_id={set_id}")
-
-        items = await self._sets.get_version_items(latest.id)
+        latest, items = result
 
         tracks_summary = []
         for item in items:

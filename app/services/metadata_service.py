@@ -15,15 +15,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.platform import YandexMetadata
 from app.models.track import (
-    Artist,
-    Genre,
+    Artist,  # used at runtime in _get_or_create()
+    Genre,  # used at runtime in _get_or_create()
     Label,
     Release,
     Track,
-    TrackArtist,
-    TrackGenre,
-    TrackLabel,
-    TrackRelease,
+    TrackArtist,  # used at runtime in _link_if_not_exists()
+    TrackGenre,  # used at runtime in _link_if_not_exists()
+    TrackLabel,  # used at runtime in _link_if_not_exists()
+    TrackRelease,  # used at runtime in _link_if_not_exists()
 )
 
 logger = logging.getLogger(__name__)
@@ -74,31 +74,37 @@ class MetadataService:
             name = artist_info.get("name", "").strip()
             if not name:
                 continue
-            artist = await self._get_or_create_artist(name)
+            artist = await self._get_or_create(Artist, name=name)
             role = artist_info.get("role", "primary")
-            if await self._link_track_artist(track_id, artist.id, role):
+            if await self._link_if_not_exists(
+                TrackArtist, track_id=track_id, artist_id=artist.id, role=role
+            ):
                 artists_linked += 1
 
         # 2. Genre
         genre_name = raw.get("genre")
         if genre_name and genre_name.strip():
-            genre = await self._get_or_create_genre(genre_name.strip())
-            if await self._link_track_genre(track_id, genre.id):
+            genre = await self._get_or_create(Genre, name=genre_name.strip())
+            if await self._link_if_not_exists(TrackGenre, track_id=track_id, genre_id=genre.id):
                 genres_linked += 1
 
         # 3. Label
         label_name = raw.get("label")
         label_obj: Label | None = None
         if label_name and label_name.strip():
-            label_obj = await self._get_or_create_label(label_name.strip())
-            if await self._link_track_label(track_id, label_obj.id):
+            label_obj = await self._get_or_create(Label, name=label_name.strip())
+            if await self._link_if_not_exists(
+                TrackLabel, track_id=track_id, label_id=label_obj.id
+            ):
                 labels_linked += 1
 
         # 4. Release (album)
         album = raw.get("album")
         if album and album.get("title"):
             release = await self._get_or_create_release(album, label_obj)
-            if await self._link_track_release(track_id, release.id):
+            if await self._link_if_not_exists(
+                TrackRelease, track_id=track_id, release_id=release.id
+            ):
                 releases_linked += 1
 
         # 5. Clean up track title (remove "Artist1, Artist2 - " prefix)
@@ -255,46 +261,33 @@ class MetadataService:
         names = [n.strip() for n in artist_part.split(",")]
         return [{"name": n, "role": "primary"} for n in names if n]
 
-    # ── Get-or-create helpers ────────────────────────────
+    # ── Generic helpers ─────────────────────────────────
 
-    async def _get_or_create_artist(self, name: str) -> Artist:
-        """Find existing artist by name or create a new one."""
-        stmt = select(Artist).where(Artist.name == name)
-        result = await self._session.execute(stmt)
-        artist = result.scalar_one_or_none()
-        if artist is not None:
-            return artist
-
-        artist = Artist(name=name)
-        self._session.add(artist)
+    async def _get_or_create(self, model_class: type, **match_fields: Any) -> Any:
+        """Get existing entity by fields, or create new one."""
+        stmt = select(model_class)
+        for col, val in match_fields.items():
+            stmt = stmt.where(getattr(model_class, col) == val)
+        result = await self._session.execute(stmt.limit(1))
+        existing = result.scalar_one_or_none()
+        if existing is not None:
+            return existing
+        instance = model_class(**match_fields)
+        self._session.add(instance)
         await self._session.flush()
-        return artist
+        return instance
 
-    async def _get_or_create_genre(self, name: str) -> Genre:
-        """Find existing genre by name or create a new one."""
-        stmt = select(Genre).where(Genre.name == name).limit(1)
-        result = await self._session.execute(stmt)
-        genre = result.scalar_one_or_none()
-        if genre is not None:
-            return genre
-
-        genre = Genre(name=name)
-        self._session.add(genre)
+    async def _link_if_not_exists(self, junction_model: type, **fields: Any) -> bool:
+        """Create junction row if it doesn't exist. Returns True if created."""
+        stmt = select(junction_model)
+        for col, val in fields.items():
+            stmt = stmt.where(getattr(junction_model, col) == val)
+        result = await self._session.execute(stmt.limit(1))
+        if result.scalar_one_or_none() is not None:
+            return False
+        self._session.add(junction_model(**fields))
         await self._session.flush()
-        return genre
-
-    async def _get_or_create_label(self, name: str) -> Label:
-        """Find existing label by name or create a new one."""
-        stmt = select(Label).where(Label.name == name)
-        result = await self._session.execute(stmt)
-        label = result.scalar_one_or_none()
-        if label is not None:
-            return label
-
-        label = Label(name=name)
-        self._session.add(label)
-        await self._session.flush()
-        return label
+        return True
 
     async def _get_or_create_release(
         self,
@@ -335,65 +328,6 @@ class MetadataService:
         self._session.add(release)
         await self._session.flush()
         return release
-
-    # ── Junction linking helpers ──────────────────────────
-
-    async def _link_track_artist(self, track_id: int, artist_id: int, role: str) -> bool:
-        """Link track to artist if not already linked. Returns True if new link created."""
-        stmt = select(TrackArtist).where(
-            TrackArtist.track_id == track_id,
-            TrackArtist.artist_id == artist_id,
-            TrackArtist.role == role,
-        )
-        result = await self._session.execute(stmt)
-        if result.scalar_one_or_none() is not None:
-            return False
-
-        self._session.add(TrackArtist(track_id=track_id, artist_id=artist_id, role=role))
-        await self._session.flush()
-        return True
-
-    async def _link_track_genre(self, track_id: int, genre_id: int) -> bool:
-        """Link track to genre if not already linked."""
-        stmt = select(TrackGenre).where(
-            TrackGenre.track_id == track_id,
-            TrackGenre.genre_id == genre_id,
-        )
-        result = await self._session.execute(stmt)
-        if result.scalar_one_or_none() is not None:
-            return False
-
-        self._session.add(TrackGenre(track_id=track_id, genre_id=genre_id))
-        await self._session.flush()
-        return True
-
-    async def _link_track_label(self, track_id: int, label_id: int) -> bool:
-        """Link track to label if not already linked."""
-        stmt = select(TrackLabel).where(
-            TrackLabel.track_id == track_id,
-            TrackLabel.label_id == label_id,
-        )
-        result = await self._session.execute(stmt)
-        if result.scalar_one_or_none() is not None:
-            return False
-
-        self._session.add(TrackLabel(track_id=track_id, label_id=label_id))
-        await self._session.flush()
-        return True
-
-    async def _link_track_release(self, track_id: int, release_id: int) -> bool:
-        """Link track to release if not already linked."""
-        stmt = select(TrackRelease).where(
-            TrackRelease.track_id == track_id,
-            TrackRelease.release_id == release_id,
-        )
-        result = await self._session.execute(stmt)
-        if result.scalar_one_or_none() is not None:
-            return False
-
-        self._session.add(TrackRelease(track_id=track_id, release_id=release_id))
-        await self._session.flush()
-        return True
 
     # ── Title cleanup ────────────────────────────────────
 

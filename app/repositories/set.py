@@ -79,6 +79,26 @@ class SetRepository(BaseRepository[DjSet]):
         result = await self.session.execute(stmt)
         return result.scalar_one_or_none()
 
+    async def load_version_with_items(
+        self,
+        set_id: int,
+        version_label: str | None = None,
+    ) -> tuple[SetVersion, list[SetItem]] | None:
+        """Load a set version and its ordered items in one call.
+
+        If *version_label* is given, look up that specific version;
+        otherwise return the latest version.  Returns ``None`` when no
+        matching version exists.
+        """
+        if version_label:
+            version = await self.get_version_by_label(set_id, version_label)
+        else:
+            version = await self.get_latest_version(set_id)
+        if version is None:
+            return None
+        items = await self.get_version_items(version.id)
+        return version, items
+
     async def search_by_name(self, query: str) -> DjSet | None:
         """Find set by case-insensitive name search."""
         stmt = select(DjSet).where(DjSet.name.ilike(f"%{query}%")).limit(1)
