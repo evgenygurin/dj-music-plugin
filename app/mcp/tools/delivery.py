@@ -73,9 +73,7 @@ async def deliver_set(
         await ctx.report_progress(1, 4)
 
     # Stage 2: Score transitions
-    score_summary = await svc.score_delivery_transitions(items)
-    scored_count = score_summary["scored"]
-    conflict_count = score_summary["conflicts"]
+    scored_count, conflict_count = await svc.score_delivery_transitions(items)
 
     if ctx:
         await ctx.info(
