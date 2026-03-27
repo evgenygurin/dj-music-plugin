@@ -7,24 +7,30 @@ description: Use when expanding a techno subgenre playlist (minimal, acid, dub, 
 
 ## Core Idea
 
-Each track in the playlist is a seed. For every seed we fetch K YM recommendations,
-run L1+L2 analysis on candidates, and add only tracks that match the target subgenre.
-Newly added tracks become seeds for the next round — the playlist grows like a snowball.
+Process tracks **one at a time**. For each seed: get K recommendations → immediately
+classify each candidate → immediately add passing ones to playlist and sync to YM →
+move to next track. Newly added tracks become seeds for the next round.
+
+**Do NOT batch recommendations from all tracks first.** Process and commit after each seed.
 
 ```text
-Round 1: [seed1, seed2, ..., seedN]
-          ↓ recs_per_track=3
-         [cand1..cand3N]
-          ↓ classify_mood (L1+L2)
-          ↓ mood == target AND confidence >= min_confidence
-         [new1, new2, ...]  ← added to playlist
-
-Round 2: [seed1..seedN, new1, new2, ...]
-          ↓ same process
-         [more new tracks]
-
-Repeat until target_count reached or rounds exhausted.
+for seed in playlist:
+    recs = find_similar_tracks(seed, limit=K)          # 3 candidates
+    for each rec:
+        import_tracks([rec])                            # metadata only
+        classify_mood([rec])                            # L1+L2 ~5s
+        if mood == target AND confidence >= threshold:
+            manage_playlist(add_tracks, [rec])          # add locally
+            sync_playlist(direction="push")             # sync to YM now
+    # move on to next seed (including just-added tracks)
 ```
+
+### Why immediate add + sync (not batching)?
+
+- Playlist stays consistent in YM throughout the process — stops are clean
+- Newly added tracks are visible in YM immediately, useful during long runs
+- Avoids large batch syncs that can hit YM rate limits
+- If the process is interrupted, progress is not lost
 
 ### Why per-track (not per-playlist) recommendations?
 
@@ -102,57 +108,71 @@ Remove seeds with `mood_confidence < 0.3` or wrong subgenre — bad seeds pollut
 
 ## Step 3 — Snowball Expansion (main loop)
 
-Run this loop `rounds` times or until `target_count` is reached.
+**Process one seed at a time.** For each track in the playlist (including newly added ones),
+run the sequence below before moving to the next track.
 
-### 3a — Get recommendations per track
+Stop when `target_count` is reached or all seeds in the current round are exhausted.
+
+### 3a — Get recommendations for this track
 
 ```text
-# For each track_id in playlist:
 find_similar_tracks(
-  track_id=<track_id>,
+  track_id=<current_seed_id>,
   strategy="ym_recommendations",
   limit=<recs_per_track>   # default 3
 )
 ```
 
-Collect unique candidate YM IDs not already in the playlist.
+Skip any returned IDs already present in the playlist.
 
-### 3b — Import candidates (metadata only)
+### 3b — Import this candidate (metadata only)
 
 ```text
+# Do this for each candidate individually, not all at once
 import_tracks(
-  track_refs=["ym:<id1>", "ym:<id2>", ...],
+  track_refs=["ym:<candidate_id>"],
   auto_analyze=false
 )
 ```
 
-No audio downloaded yet — we only need metadata + L1+L2 features.
-
-### 3c — Run L1+L2 quality gate
+### 3c — L1+L2 quality gate for this candidate
 
 ```text
-classify_mood(track_ids=[<candidate_id1>, <candidate_id2>, ...], reclassify=false)
+classify_mood(track_ids=[<candidate_local_id>], reclassify=false)
 ```
 
-### 3d — Filter and add passing tracks
+~5 seconds. Downloads a 30s clip, analyzes, deletes the clip.
 
-Keep candidates where:
+### 3d — Add immediately if it passes
+
+Check:
 - `mood == target_mood`
 - `mood_confidence >= min_confidence`
 
+If passes:
 ```text
+# Add to local playlist
 manage_playlist(
   action="add_tracks",
   data={id: <playlist_id>},
-  track_refs=["local:<passing_id1>", ...]
+  track_refs=["local:<candidate_id>"]
 )
+
+# Sync to YM right now (not at the end)
+sync_playlist(playlist_id=<playlist_id>, direction="push")
 ```
 
-Discard (or archive) candidates that failed the quality gate.
+If fails: discard (or archive the local track).
 
-### 3e — Repeat
+### 3e — Move to next seed
 
-The just-added tracks are now seeds for the next round. Go to 3a.
+After processing all K recommendations for the current seed, move to the next track.
+Tracks added in this round will be processed as seeds in the next round.
+
+### 3f — Repeat rounds
+
+Run `rounds` iterations total. Each round processes the full playlist (including
+tracks added in the previous round). Stop early if `target_count` is reached.
 
 ---
 
