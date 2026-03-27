@@ -44,11 +44,15 @@ Iterating track-by-track gives richer, more relevant candidates.
 
 | Parameter | Default | Purpose |
 |---|---|---|
-| `recs_per_track` | 3 | YM recommendations to fetch per track per round |
+| `recs_per_track` | 5 | YM recommendations to fetch per track per round |
 | `rounds` | 3 | Snowball iterations |
-| `min_confidence` | 0.3 | Minimum `mood_confidence` to accept a candidate |
 | `target_mood` | (playlist subgenre) | Subgenre to match (e.g., `minimal`, `acid`) |
 | `target_count` | 50 | Stop early when playlist reaches this size |
+
+**Note on `min_confidence`**: the rule-based classifier gives low absolute confidence for `minimal`
+(typical range 0.02–0.15) because scores for adjacent subgenres are close.
+Do NOT use a strict confidence threshold — checking `mood == target_mood` is sufficient.
+Seeds themselves pass with confidence as low as 0.017.
 
 ---
 
@@ -134,6 +138,20 @@ import_tracks(
   auto_analyze=false
 )
 ```
+
+**Resolving the local ID after import:**
+
+`import_tracks` does not return local IDs. Two reliable ways to find them:
+
+1. **By sequential ID**: the DB assigns IDs in order — after import, `get_track(id=<total_before+N>)`
+   where total_before is the track count before this import batch. Fastest.
+
+2. **By title only** (fallback): `search(query="<title>", entity="tracks")`.
+   If multiple results, match by `duration_ms`. Do NOT search by `title + artist` —
+   artist names often have encoding differences (accents, special chars) that break matching.
+
+If `import_tracks` returns `skipped:1`, the track was already in the DB.
+Search for it and check if `mood` is already set — if yes, skip `classify_mood` for it.
 
 ### 3c — L1+L2 quality gate for this candidate
 
@@ -230,10 +248,14 @@ Dub tends to have wider `loudness_range_lu` and lower `spectral_flux_std`.
 | Phase | Tracks | Time (parallel) |
 |---|---|---|
 | import_tracks (metadata only) | any | < 1s |
-| classify_mood L1+L2 | 50 candidates | ~1.5 min |
-| find_similar_tracks per track | 20 seeds × 3 recs | ~30 sec (YM rate limit) |
-| 1 full round (20 seeds) | 60 candidates | ~2 min |
-| 3 rounds | ~180 candidates checked | ~6 min |
+| classify_mood L1+L2 | per candidate | ~5 sec |
+| find_similar_tracks per track | 1 seed × 5 recs | ~2 sec (YM rate limit) |
+| 1 full round (9 seeds × 5 recs) | 45 candidates | ~10 min |
+
+**Expected hit rate**: ~7–15% of candidates pass the `minimal` filter.
+With 9 seeds × 5 recs = 45 candidates → ~3–7 new tracks per round.
+Use `recs_per_track=5` (not 3) for meaningful snowball growth.
+Round 2 will have ~12–16 seeds and yield more new tracks.
 
 ---
 
