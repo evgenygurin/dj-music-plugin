@@ -289,6 +289,39 @@ class YandexMusicClient:
             if isinstance(item, dict) and "track" in item
         ]
 
+    async def resolve_track_ids_with_albums(self, track_ids: list[str]) -> list[str]:
+        """Resolve bare track IDs to ``"trackId:albumId"`` format required by YM API.
+
+        IDs that already contain ``:`` are returned as-is.
+        IDs without album info are batch-fetched from YM API.
+        """
+        bare = [tid for tid in track_ids if ":" not in tid]
+
+        album_map: dict[str, str] = {}
+        batch_size = 100
+        for start in range(0, len(bare), batch_size):
+            batch = bare[start : start + batch_size]
+            tracks = await self.get_tracks(batch)
+            for t in tracks:
+                albums = t.albums or []
+                if albums:
+                    album_id = (
+                        str(albums[0].get("id", ""))
+                        if isinstance(albums[0], dict)
+                        else str(getattr(albums[0], "id", ""))
+                    )
+                    if album_id:
+                        album_map[t.id] = album_id
+
+        result: list[str] = []
+        for tid in track_ids:
+            if ":" in tid:
+                result.append(tid)
+            else:
+                album_id = album_map.get(tid, "")
+                result.append(f"{tid}:{album_id}" if album_id else tid)
+        return result
+
     async def get_disliked_ids(self) -> set[str]:
         """Fetch user's disliked track IDs."""
         data = await self._request(

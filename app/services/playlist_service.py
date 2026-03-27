@@ -64,9 +64,14 @@ class PlaylistService:
         return await self._repo.create(playlist)
 
     async def update(self, playlist_id: int, **fields) -> Playlist:  # type: ignore[no-untyped-def]
+        import json
+
         playlist = await self.get_by_id(playlist_id)
         for key, value in fields.items():
             if hasattr(playlist, key):
+                # Serialize dict/list to JSON for Text columns (e.g. platform_ids)
+                if isinstance(value, dict | list):
+                    value = json.dumps(value)
                 setattr(playlist, key, value)
         return await self._repo.update(playlist)
 

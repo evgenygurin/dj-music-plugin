@@ -161,8 +161,8 @@ async def ym_playlists(
 ) -> dict[str, Any]:
     """Consolidated playlist operations on Yandex Music.
 
-    action: get | list | create | rename | delete | add_tracks | remove_tracks.
-    kind: playlist kind (required for get/rename/delete/add_tracks/remove_tracks).
+    action: get | get_tracks | list | create | rename | delete | add_tracks | remove_tracks.
+    kind: playlist kind (required for get/get_tracks/rename/delete/add_tracks/remove_tracks).
     name: playlist name (required for create/rename).
     track_ids: track IDs (required for add_tracks/remove_tracks).
     revision: playlist revision (required for add_tracks/remove_tracks).
@@ -170,11 +170,23 @@ async def ym_playlists(
     from app.core.parsing import ensure_list
 
     track_ids = ensure_list(track_ids) or None
-    valid_actions = ("get", "list", "create", "rename", "delete", "add_tracks", "remove_tracks")
+    valid_actions = (
+        "get",
+        "get_tracks",
+        "list",
+        "create",
+        "rename",
+        "delete",
+        "add_tracks",
+        "remove_tracks",
+    )
     if action not in valid_actions:
         raise ToolError(f"Invalid action: {action}. Valid: {', '.join(valid_actions)}")
 
-    if action in ("get", "rename", "delete", "add_tracks", "remove_tracks") and kind is None:
+    if (
+        action in ("get", "get_tracks", "rename", "delete", "add_tracks", "remove_tracks")
+        and kind is None
+    ):
         raise ToolError(f"kind required for action '{action}'")
 
     if action in ("create", "rename") and not name:
@@ -196,6 +208,26 @@ async def ym_playlists(
         pl = await ym.get_playlist(settings.ym_user_id, kind)  # type: ignore[arg-type]
         return {"action": "get", "playlist": pl.model_dump()}
 
+    if action == "get_tracks":
+        tracks = await ym.get_playlist_tracks(settings.ym_user_id, kind)  # type: ignore[arg-type]
+        return {
+            "action": "get_tracks",
+            "kind": kind,
+            "count": len(tracks),
+            "track_ids": [t.id for t in tracks],
+            "tracks": [
+                {
+                    "id": t.id,
+                    "title": t.title,
+                    "artists": [
+                        a.get("name", "") if isinstance(a, dict) else a.name
+                        for a in (t.artists or [])
+                    ],
+                }
+                for t in tracks
+            ],
+        }
+
     if action == "create":
         pl = await ym.create_playlist(name)  # type: ignore[arg-type]
         return {"action": "create", "playlist": pl.model_dump()}
@@ -209,20 +241,49 @@ async def ym_playlists(
         return {"action": "delete", "kind": kind}
 
     if action == "add_tracks":
+        # Auto-resolve bare track IDs to "trackId:albumId" format required by YM API
+        resolved_ids = await ym.resolve_track_ids_with_albums(track_ids)  # type: ignore[arg-type]
         result = await ym.add_tracks_to_playlist(
             kind,
-            track_ids,
+            resolved_ids,
             revision,  # type: ignore[arg-type]
         )
         return {"action": "add_tracks", "kind": kind, "result": result}
 
     if action == "remove_tracks":
-        # remove_tracks expects index range, not track IDs
-        # For simplicity, treat track_ids as indices to remove (one at a time)
-        raise ToolError(
-            "remove_tracks requires from_idx/to_idx — use the YM API directly or "
-            "sync_playlist tool for managed removal"
+        # YM API removes by index range, not track IDs.
+        # Look up current playlist to find indices of given track_ids, then remove.
+        pl = await ym.get_playlist(settings.ym_user_id, kind)  # type: ignore[arg-type]
+        pl_tracks = await ym.get_playlist_tracks(settings.ym_user_id, kind)  # type: ignore[arg-type]
+        rev = revision  # type: ignore[assignment]
+
+        # Build track_id → index mapping
+        id_to_indices: dict[str, list[int]] = {}
+        for idx, t in enumerate(pl_tracks):
+            if t.id in track_ids:
+                id_to_indices.setdefault(t.id, []).append(idx)
+
+        not_found = [tid for tid in track_ids if tid not in id_to_indices]
+
+        # Collect all indices to remove, sort descending to avoid index shift
+        indices_to_remove = sorted(
+            [idx for indices in id_to_indices.values() for idx in indices],
+            reverse=True,
         )
+
+        removed = 0
+        for idx in indices_to_remove:
+            result_data = await ym.remove_tracks_from_playlist(kind, idx, idx + 1, rev)  # type: ignore[arg-type]
+            rev = result_data.get("revision", rev + 1)
+            removed += 1
+
+        return {
+            "action": "remove_tracks",
+            "kind": kind,
+            "removed": removed,
+            "not_found": not_found,
+            "revision": rev,
+        }
 
     raise ToolError("Unreachable")
 

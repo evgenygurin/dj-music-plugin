@@ -69,6 +69,10 @@ class CurationService:
             feat_dict = features.to_classifier_dict()
             mood_result = classifier.classify(feat_dict)
 
+            # Persist mood to DB so it's queryable via SQL
+            features.mood = mood_result.mood.value
+            features.mood_confidence = mood_result.confidence
+
             classifications.append(
                 {
                     "track_id": tid,
@@ -331,6 +335,9 @@ class CurationService:
                 continue
             feat_dict = features.to_classifier_dict()
             mood_result = classifier.classify(feat_dict)
+            # Persist mood to DB
+            features.mood = mood_result.mood.value
+            features.mood_confidence = mood_result.confidence
             distribution[mood_result.mood.value].append(tid)
 
         if dry_run:

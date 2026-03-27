@@ -221,13 +221,19 @@ class SyncService:
         ym_kind: int,
         on_local_only: set[str],
     ) -> int:
-        """Push local tracks to YM playlist."""
+        """Push local tracks to YM playlist.
+
+        Formats track IDs as ``"trackId:albumId"`` — YM API requires
+        albumId, omitting it causes a 400 error.
+        """
         pl_info = await self._ym.get_playlist(settings.ym_user_id, ym_kind)
         rev = pl_info.revision or 1
+
+        formatted_ids = await self._ym.resolve_track_ids_with_albums(list(on_local_only))
+
         added = 0
-        ids_to_push = list(on_local_only)
-        for batch_start in range(0, len(ids_to_push), 20):
-            batch = ids_to_push[batch_start : batch_start + 20]
+        for batch_start in range(0, len(formatted_ids), 20):
+            batch = formatted_ids[batch_start : batch_start + 20]
             result_data = await self._ym.add_tracks_to_playlist(ym_kind, batch, rev)
             rev = result_data.get("revision", rev + 1)
             added += len(batch)
