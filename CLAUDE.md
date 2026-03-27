@@ -180,7 +180,9 @@ ctx.sample() внутри tools вызывает Anthropic API через fallba
 - `Depends()`: используй `param=Depends(factory)`, НЕ `Annotated[Type, Depends(factory)]` — FastMCP не резолвит Annotated
 - `list_page_size` в config должен быть >= числа tools (100) — Claude Code не следует nextCursor
 - YM search API: `type=tracks` (plural), не `type=track`
-- YM playlist add_tracks: формат `"trackId:albumId"`, albumId обязателен
+- YM playlist add_tracks: albumId резолвится автоматически через `ym.resolve_track_ids_with_albums()` — передавай голые track IDs, форматирование `"trackId:albumId"` происходит под капотом
+- `ym_playlists` поддерживает `action=get_tracks` (возвращает треки с id/title/artists) и рабочий `action=remove_tracks` (удаляет по track_id, не по индексу)
+- `classify_mood` и `distribute_to_subgenres` теперь персистируют `mood` и `mood_confidence` в `track_audio_features_computed`
 - MP3 анализ: нужен `uv sync --extra audio` (librosa + soundfile)
 - `from __future__ import annotations` делает аннотации строками — runtime вызовы (TrackFeatures()) требуют реальных импортов
 - `AsyncSession.delete()` IS async в SQLAlchemy 2.0 — `await` корректен

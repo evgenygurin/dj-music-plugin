@@ -106,7 +106,7 @@ Quick reference for all 50 tools (46 visible + 4 atomic hidden).
 | `ym_get_tracks` | track_ids | yes |
 | `ym_get_album` | album_id, include_tracks? | yes |
 | `ym_artist_tracks` | artist_id, page?, sort_by? | yes |
-| `ym_playlists` | action(get\|list\|create\|rename\|delete\|add_tracks\|remove_tracks) | varies |
+| `ym_playlists` | action(get\|get_tracks\|list\|create\|rename\|delete\|add_tracks\|remove_tracks) | varies |
 | `ym_likes` | action(get_liked\|add\|remove), track_ids? | varies |
 
 ## Hidden Tools (explicit unlock required — 7 tools)
