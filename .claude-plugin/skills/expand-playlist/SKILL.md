@@ -1,34 +1,67 @@
 ---
 name: expand-playlist
-description: Use when expanding a techno subgenre playlist (minimal, acid, dub, etc.) with new tracks from Yandex Music. Covers the full pipeline from seed import to classification and YM sync.
+description: Use when expanding a techno subgenre playlist (minimal, acid, dub, etc.) using the snowball method — per-track YM recommendations + L1+L2 quality gate.
 ---
 
-# Expanding a Techno Subgenre Playlist
+# Expanding a Techno Subgenre Playlist (Snowball Method)
 
-Full pipeline for growing a subgenre playlist (e.g. Minimal Techno) with properly classified tracks.
+## Core Idea
 
-## CRITICAL: Start with Seed Tracks
+Each track in the playlist is a seed. For every seed we fetch K YM recommendations,
+run L1+L2 analysis on candidates, and add only tracks that match the target subgenre.
+Newly added tracks become seeds for the next round — the playlist grows like a snowball.
 
-**Before calling `expand_playlist_ym`, the playlist MUST contain seed tracks.**
+```text
+Round 1: [seed1, seed2, ..., seedN]
+          ↓ recs_per_track=3
+         [cand1..cand3N]
+          ↓ classify_mood (L1+L2)
+          ↓ mood == target AND confidence >= min_confidence
+         [new1, new2, ...]  ← added to playlist
 
-`expand_playlist_ym` uses existing tracks as reference points for LLM/YM search.
-An empty playlist produces generic or off-genre results.
+Round 2: [seed1..seedN, new1, new2, ...]
+          ↓ same process
+         [more new tracks]
 
-**Minimum seeds: 5–10 representative tracks** of the target subgenre.
+Repeat until target_count reached or rounds exhausted.
+```
+
+### Why per-track (not per-playlist) recommendations?
+
+YM recommendations for a playlist are generic. Recommendations for a specific
+minimal techno track are tightly focused — YM's model knows that track's context.
+Iterating track-by-track gives richer, more relevant candidates.
+
+---
+
+## Parameters
+
+| Parameter | Default | Purpose |
+|---|---|---|
+| `recs_per_track` | 3 | YM recommendations to fetch per track per round |
+| `rounds` | 3 | Snowball iterations |
+| `min_confidence` | 0.3 | Minimum `mood_confidence` to accept a candidate |
+| `target_mood` | (playlist subgenre) | Subgenre to match (e.g., `minimal`, `acid`) |
+| `target_count` | 50 | Stop early when playlist reaches this size |
 
 ---
 
 ## Step 1 — Seed the Playlist
 
-### Option A: Import from YM search (no local files needed)
+The playlist **must have seed tracks before starting**. Seeds define the sound.
+With no seeds the YM recommendations have no context and return generic results.
+
+**Minimum: 5–10 representative tracks of the target subgenre.**
+
+### Option A: Import from YM search
 
 ```text
-# 1. Find seed tracks by known artist
+# Find known artists of the subgenre
 ym_search(query="Richie Hawtin minimal techno", type="tracks", limit=5)
 ym_search(query="Magda techno minimal", type="tracks", limit=5)
 ym_search(query="Ricardo Villalobos minimal", type="tracks", limit=5)
 
-# 2. Import seeds (metadata only, no audio download)
+# Import metadata only (no audio yet)
 import_tracks(
   track_refs=["ym:111", "ym:222", ...],
   playlist_id=<target_playlist_id>,
@@ -36,7 +69,7 @@ import_tracks(
 )
 ```
 
-### Option B: Use existing library tracks
+### Option B: Use tracks already in library
 
 ```text
 filter_tracks(mood="minimal", limit=10)
@@ -45,64 +78,106 @@ manage_playlist(action="add_tracks", data={id: <playlist_id>}, track_refs=[...])
 
 ---
 
-## Step 2 — Classify Seeds (L1+L2 Analysis)
+## Step 2 — Classify Seeds (L1+L2)
 
-Triggers auto-download of 30s clips → analysis → clip deleted:
+Seeds need features so their recommendations are meaningful and so they act as
+a quality baseline. Skip if seeds already have `mood` classified.
 
 ```text
 classify_mood(playlist_id=<playlist_id>, reclassify=false)
 ```
 
-- Runtime: ~5 sec/track, 6 parallel threads
+- ~5 sec/track, 6 parallel threads
 - Persists `mood` and `mood_confidence` to DB
-- Required before `expand_playlist_ym` so seeds have features
 
-**Check results:**
+Check results:
 
 ```text
 audit_playlist(playlist_id=<playlist_id>, check="techno_quality")
 ```
 
-Remove tracks with `mood_confidence < 0.3` or wrong subgenre.
+Remove seeds with `mood_confidence < 0.3` or wrong subgenre — bad seeds pollute recommendations.
 
 ---
 
-## Step 3 — Expand
+## Step 3 — Snowball Expansion (main loop)
+
+Run this loop `rounds` times or until `target_count` is reached.
+
+### 3a — Get recommendations per track
 
 ```text
-expand_playlist_ym(
-  playlist_id=<playlist_id>,
-  target_count=50,
-  strategy="llm"
+# For each track_id in playlist:
+find_similar_tracks(
+  track_id=<track_id>,
+  strategy="ym_recommendations",
+  limit=<recs_per_track>   # default 3
 )
 ```
 
-Claude Code generates search queries like:
-- `"Surgeon minimal techno dark"`, `"Speedy J abstract techno"`, `"Basic Channel dub"`
+Collect unique candidate YM IDs not already in the playlist.
 
-Results are auto-imported and analyzed (L1+L2).
+### 3b — Import candidates (metadata only)
 
-**Alternative strategy:** `strategy="ym_recommendations"` — slower, less control.
+```text
+import_tracks(
+  track_refs=["ym:<id1>", "ym:<id2>", ...],
+  auto_analyze=false
+)
+```
+
+No audio downloaded yet — we only need metadata + L1+L2 features.
+
+### 3c — Run L1+L2 quality gate
+
+```text
+classify_mood(track_ids=[<candidate_id1>, <candidate_id2>, ...], reclassify=false)
+```
+
+### 3d — Filter and add passing tracks
+
+Keep candidates where:
+- `mood == target_mood`
+- `mood_confidence >= min_confidence`
+
+```text
+manage_playlist(
+  action="add_tracks",
+  data={id: <playlist_id>},
+  track_refs=["local:<passing_id1>", ...]
+)
+```
+
+Discard (or archive) candidates that failed the quality gate.
+
+### 3e — Repeat
+
+The just-added tracks are now seeds for the next round. Go to 3a.
 
 ---
 
-## Step 4 — Re-classify and Distribute
+## Step 4 — Final Audit
 
 ```text
-# Re-classify new additions
-classify_mood(playlist_id=<playlist_id>, reclassify=false)
-
-# Check distribution
 audit_playlist(playlist_id=<playlist_id>)
+```
 
-# Distribute across subgenre playlists
+Check distribution of moods and remove outliers if needed.
+
+---
+
+## Step 5 — Distribute to Subgenre Playlists (optional)
+
+If you want to split results across 15 subgenre playlists:
+
+```text
 distribute_to_subgenres(source_playlist_id=<playlist_id>, dry_run=true)
 distribute_to_subgenres(source_playlist_id=<playlist_id>, sync_to_ym=true)
 ```
 
 ---
 
-## Step 5 — Sync to YM (optional)
+## Step 6 — Sync to YM (optional)
 
 ```text
 sync_playlist(playlist_id=<playlist_id>, direction="push", dry_run=true)
@@ -115,7 +190,7 @@ albumId is resolved automatically — pass bare YM track IDs.
 
 ## Minimal Subgenre Discriminators
 
-Classifier features that define `minimal` (from `MoodClassifier`):
+Features used by `classify_mood` to identify `minimal`:
 
 | Feature | Minimal range | Notes |
 |---|---|---|
@@ -135,15 +210,19 @@ Dub tends to have wider `loudness_range_lu` and lower `spectral_flux_std`.
 | Phase | Tracks | Time (parallel) |
 |---|---|---|
 | import_tracks (metadata only) | any | < 1s |
-| classify_mood L1+L2 | 50 | ~1.5 min |
-| expand_playlist_ym | +30 new | ~3 min total |
-| distribute_to_subgenres | 80 | ~30 sec |
+| classify_mood L1+L2 | 50 candidates | ~1.5 min |
+| find_similar_tracks per track | 20 seeds × 3 recs | ~30 sec (YM rate limit) |
+| 1 full round (20 seeds) | 60 candidates | ~2 min |
+| 3 rounds | ~180 candidates checked | ~6 min |
 
 ---
 
 ## Gotchas
 
-- `import_tracks` without `auto_analyze=true` skips audio — do `classify_mood` explicitly after
-- `expand_playlist_ym` strategy `"llm"` requires Claude to generate `search_queries` param (client-driven mode) — see `llm_discovery_workflow` prompt
-- `distribute_to_subgenres` creates YM playlists if they don't exist yet — confirm with `dry_run=true` first
+- `find_similar_tracks` with `strategy="ym_recommendations"` uses YM API — subject to rate limiting
+- Candidates already in the playlist are skipped automatically by `import_tracks` (dedup by YM ID)
+- `import_tracks` without `auto_analyze=true` skips audio — run `classify_mood` explicitly after
+- `classify_mood` L1+L2 downloads a 30s clip, analyzes, deletes — no permanent MP3 stored
+- `distribute_to_subgenres` creates YM playlists if they don't exist — confirm with `dry_run=true` first
 - After `sync_playlist`, always re-fetch to get fresh revision before next modification
+- Bad seeds (wrong mood/confidence) will generate off-genre recommendations — clean seeds before expanding
