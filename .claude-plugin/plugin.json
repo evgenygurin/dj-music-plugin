@@ -8,5 +8,24 @@
   },
   "repository": "https://github.com/evgenygurin/dj-music-plugin",
   "license": "MIT",
-  "keywords": ["dj", "techno", "music", "mcp", "yandex-music", "set-building", "audio-analysis"]
+  "keywords": ["dj", "techno", "music", "mcp", "yandex-music", "set-building", "audio-analysis"],
+  "skills": [
+    {
+      "name": "expand-playlist",
+      "path": "skills/expand-playlist/SKILL.md"
+    }
+  ],
+  "mcpServers": {
+    "dj-music": {
+      "command": "bash",
+      "args": [
+        "-c",
+        "cd \"${CLAUDE_PLUGIN_ROOT}\" && set -a && source .env 2>/dev/null && set +a && exec uv run fastmcp run app/server.py"
+      ],
+      "env": {
+        "DJ_DATABASE_URL": "sqlite+aiosqlite:///${CLAUDE_PLUGIN_ROOT}/dj_music.db",
+        "DJ_DEBUG": "true"
+      }
+    }
+  }
 }
