@@ -1,0 +1,37 @@
+"""Analysis level configuration — which analyzers run at which level."""
+
+from __future__ import annotations
+
+from enum import IntEnum
+
+from app.config import settings
+
+
+class AnalysisLevel(IntEnum):
+    NONE = 0
+    TRIAGE = 2  # L1+L2 combined: bpm, loudness, energy, spectral, key, mfcc
+    SCORING = 3  # L3: + beat analyzer (onset, kick, hp_ratio, pulse)
+    TRANSITION = 4  # L4: + structure (sections), permanent file
+
+
+_LEVEL_ANALYZERS: dict[int, list[str]] = {
+    AnalysisLevel.TRIAGE: ["loudness", "energy", "spectral", "bpm", "key", "mfcc"],
+    AnalysisLevel.SCORING: ["beat"],
+    AnalysisLevel.TRANSITION: ["structure"],
+}
+
+
+def get_analyzers_for_level(target: AnalysisLevel) -> list[str]:
+    """Return all analyzer names needed up to and including target level."""
+    names: list[str] = []
+    for level in sorted(_LEVEL_ANALYZERS):
+        if level <= target:
+            names.extend(_LEVEL_ANALYZERS[level])
+    return names
+
+
+def get_clip_duration(level: AnalysisLevel) -> float:
+    """Return audio clip duration in seconds for analysis level."""
+    if level <= AnalysisLevel.TRIAGE:
+        return settings.audio_triage_clip_duration
+    return settings.audio_beat_analysis_duration  # 60s default

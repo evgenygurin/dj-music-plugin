@@ -254,3 +254,17 @@ def get_embedding_service(
     from app.services.embedding_service import EmbeddingService
 
     return EmbeddingService(repo)
+
+
+def get_tiered_pipeline(
+    audio_repo=Depends(get_audio_repo),  # noqa: B008
+    track_repo=Depends(get_track_repo),  # noqa: B008
+    registry=Depends(get_analyzer_registry),  # noqa: B008
+    ym=Depends(get_ym_client),  # noqa: B008
+):  # type: ignore[no-untyped-def]
+    """Get TieredPipeline for level-aware audio analysis."""
+    from app.audio.pipeline import AnalysisPipeline
+    from app.services.tiered_pipeline import TieredPipeline
+
+    pipeline = AnalysisPipeline(registry)
+    return TieredPipeline(audio_repo, track_repo, pipeline, ym)

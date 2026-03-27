@@ -13,9 +13,15 @@ from fastmcp.server.context import Context
 from fastmcp.tools import tool
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.mcp.dependencies import get_audio_service, get_db_session, get_track_service
+from app.mcp.dependencies import (
+    get_audio_service,
+    get_db_session,
+    get_tiered_pipeline,
+    get_track_service,
+)
 from app.mcp.tools._helpers import resolve_track_id
 from app.services.audio_service import AudioService
+from app.services.tiered_pipeline import TieredPipeline
 
 # ── 1. analyze_track ─────────────────────────────────
 
@@ -30,16 +36,35 @@ async def analyze_track(
     track_query: str | None = None,
     analyzers: Any = None,
     force: bool = False,
+    level: int | None = None,
     svc: AudioService = Depends(get_audio_service),  # noqa: B008
     track_svc: Any = Depends(get_track_service),  # noqa: B008
+    tiered: TieredPipeline = Depends(get_tiered_pipeline),  # noqa: B008
     session: AsyncSession = Depends(get_db_session),  # noqa: B008
     ctx: Context | None = None,
 ) -> dict[str, Any]:
-    """Run audio analysis pipeline + mood classification on a track."""
+    """Run audio analysis pipeline + mood classification on a track.
+
+    If level is set (2/3/4), uses TieredPipeline (downloads from YM, no local file needed).
+    """
+    from app.audio.level_config import AnalysisLevel
     from app.core.parsing import ensure_list
 
     analyzers = ensure_list(analyzers) or None
     track_id = await resolve_track_id(id=track_id, query=track_query, svc=track_svc)
+
+    # Level-based tiered analysis (downloads from YM, no local file needed)
+    if level is not None:
+        target = AnalysisLevel(level)
+        if ctx:
+            await ctx.info(f"Tiered analysis L{level} for track {track_id}...")
+        analysis = await tiered.ensure_level([track_id], target)
+        return {
+            "track_id": track_id,
+            "level": level,
+            "status": "analyzed" if analysis["analyzed"] > 0 else "skipped",
+            **analysis,
+        }
 
     if ctx:
         await ctx.info(f"Analyzing track {track_id}...")
@@ -68,11 +93,17 @@ async def analyze_batch(
     playlist_id: int | None = None,
     analyzers: Any = None,
     priority: str = "normal",
+    level: int | None = None,
     svc: AudioService = Depends(get_audio_service),  # noqa: B008
+    tiered: TieredPipeline = Depends(get_tiered_pipeline),  # noqa: B008
     session: AsyncSession = Depends(get_db_session),  # noqa: B008
     ctx: Context | None = None,
 ) -> dict[str, Any]:
-    """Batch audio analysis for multiple tracks or a playlist."""
+    """Batch audio analysis for multiple tracks or a playlist.
+
+    If level is set (2/3/4), uses TieredPipeline (downloads from YM, no local file needed).
+    """
+    from app.audio.level_config import AnalysisLevel
     from app.core.parsing import ensure_list
 
     track_ids = ensure_list(track_ids) or None
@@ -98,6 +129,25 @@ async def analyze_batch(
 
     if not track_ids:
         raise ToolError("No tracks to analyze")
+
+    # Level-based tiered analysis (downloads from YM, no local file needed)
+    if level is not None:
+        target = AnalysisLevel(level)
+        if ctx:
+            await ctx.info(f"Tiered batch analysis L{level}: {len(track_ids)} tracks")
+        analysis = await tiered.ensure_level(track_ids, target)
+        if ctx:
+            await ctx.info(
+                f"Batch complete: {analysis['analyzed']} analyzed, "
+                f"{analysis['skipped']} skipped, {analysis['failed']} failed"
+            )
+        return {
+            "total_tracks": len(track_ids),
+            "completed": analysis["analyzed"],
+            "failed": analysis["failed"],
+            "skipped": analysis["skipped"],
+            "level": level,
+        }
 
     total = len(track_ids)
     completed = 0

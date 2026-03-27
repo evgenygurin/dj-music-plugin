@@ -91,6 +91,12 @@ class Settings(BaseSettings):
         60.0  # seconds — analyze only first N seconds for beat features
     )
 
+    # ── Tiered Analysis ───────────────────────────────
+    audio_triage_clip_duration: float = 30.0  # seconds, for L1+L2
+    audio_triage_workers: int = 6  # parallel workers for L1+L2
+    audio_scoring_workers: int = 4  # parallel workers for L3
+    audio_download_workers: int = 8  # parallel download threads for L4
+
     # ── Techno Quality Criteria ───────────────────────
     techno_bpm_min: float = 120.0
     techno_bpm_max: float = 155.0

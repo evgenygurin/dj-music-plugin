@@ -83,6 +83,44 @@ class AudioRepository(BaseRepository[TrackAudioFeaturesComputed]):
         await self.session.flush()
         return run
 
+    async def get_tracks_below_level(self, track_ids: list[int], target_level: int) -> list[int]:
+        """Return track IDs that need analysis at target level.
+
+        Includes IDs with analysis_level < target_level AND IDs with no features row.
+        """
+        if not track_ids:
+            return []
+        stmt = select(TrackAudioFeaturesComputed.track_id).where(
+            TrackAudioFeaturesComputed.track_id.in_(track_ids),
+            TrackAudioFeaturesComputed.analysis_level >= target_level,
+        )
+        result = await self.session.execute(stmt)
+        already_done = {row[0] for row in result.all()}
+        return [tid for tid in track_ids if tid not in already_done]
+
+    async def save_or_update_features(
+        self,
+        track_id: int,
+        features_dict: dict[str, Any],
+        level: int,
+    ) -> TrackAudioFeaturesComputed:
+        """Create or update features row, merging new features and setting analysis_level."""
+        existing = await self.get_features_by_track_id(track_id)
+        filtered = TrackAudioFeaturesComputed.filter_features(features_dict)
+
+        if existing:
+            for key, value in filtered.items():
+                if value is not None:
+                    setattr(existing, key, value)
+            existing.analysis_level = max(existing.analysis_level, level)
+            await self.session.flush()
+            return existing
+
+        row = TrackAudioFeaturesComputed(track_id=track_id, analysis_level=level, **filtered)
+        self.session.add(row)
+        await self.session.flush()
+        return row
+
     async def update_mood(
         self,
         features: TrackAudioFeaturesComputed,

@@ -15,7 +15,7 @@ from fastmcp.tools import tool
 
 from app.config import settings
 from app.core.constants import ExportFormat
-from app.mcp.dependencies import get_delivery_service
+from app.mcp.dependencies import get_delivery_service, get_tiered_pipeline
 from app.services.delivery_service import DeliveryService
 from app.services.export import (
     RekordboxOptions,
@@ -24,6 +24,7 @@ from app.services.export import (
     write_m3u8,
     write_rekordbox_xml,
 )
+from app.services.tiered_pipeline import TieredPipeline
 
 # ── 1. deliver_set ──────────────────────────────────
 
@@ -43,9 +44,11 @@ async def deliver_set(
     formats: Any = None,
     dry_run: bool = False,
     svc: DeliveryService = Depends(get_delivery_service),  # noqa: B008
+    tiered: TieredPipeline = Depends(get_tiered_pipeline),  # noqa: B008
     ctx: Context | None = None,
 ) -> dict[str, Any]:
     """Multi-stage set delivery: score transitions, copy files, generate exports."""
+    from app.audio.level_config import AnalysisLevel
     from app.core.parsing import ensure_list
 
     formats = ensure_list(formats) or None
@@ -57,6 +60,13 @@ async def deliver_set(
     dj_set = set_data["dj_set"]
     target_version = set_data["version"]
     items = set_data["items"]
+
+    # Auto-analyze set tracks to L3 (scoring features)
+    set_track_ids = [item.track_id for item in items]
+    if set_track_ids:
+        analysis = await tiered.ensure_level(set_track_ids, AnalysisLevel.SCORING)
+        if ctx and analysis["analyzed"] > 0:
+            await ctx.info(f"Auto-analyzed {analysis['analyzed']} tracks (L3 scoring)")
 
     if ctx:
         await ctx.info(f"Stage 1/4: Loaded {len(items)} tracks")

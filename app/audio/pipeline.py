@@ -47,9 +47,23 @@ class AnalysisPipeline:
         self,
         file_path: str,
         analyzers: list[str] | None = None,
+        max_duration: float | None = None,
     ) -> PipelineResult:
-        """Run analyzers on audio file. Returns combined features."""
+        """Run analyzers on audio file. Returns combined features.
+
+        If max_duration is set (seconds), truncate audio before analysis.
+        """
         signal = await self._load_audio(file_path)
+
+        # Clip audio to max_duration if specified
+        if max_duration and signal.duration_seconds > max_duration:
+            max_samples = int(max_duration * signal.sample_rate)
+            signal = AudioSignal(
+                samples=signal.samples[:max_samples],
+                sample_rate=signal.sample_rate,
+                duration_seconds=max_duration,
+                file_path=signal.file_path,
+            )
         results: list[AnalyzerResult] = []
 
         analyzer_names = analyzers or self.registry.list_available()

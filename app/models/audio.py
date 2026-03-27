@@ -58,6 +58,9 @@ class TrackAudioFeaturesComputed(Base, TimestampMixin):
     pipeline_run_id: Mapped[int | None] = mapped_column(
         ForeignKey("feature_extraction_runs.id"), nullable=True
     )
+    analysis_level: Mapped[int] = mapped_column(
+        default=0, server_default="0", doc="0=none, 2=L1+L2, 3=L3"
+    )
 
     # --- Tempo (4 fields) ---
     bpm: Mapped[float | None] = mapped_column(nullable=True, index=True)
