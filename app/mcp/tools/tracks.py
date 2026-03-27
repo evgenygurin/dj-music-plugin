@@ -33,8 +33,12 @@ async def list_tracks(
     else:
         page = await svc.list_all(limit=limit, cursor=cursor)
 
+    # Batch-fetch artist names for all tracks in the page
+    track_ids = [t.id for t in page.items]
+    artist_map = await svc.get_artist_names_batch(track_ids)
+
     return PaginatedResponse[TrackBrief](
-        items=[svc.to_brief(t) for t in page.items],
+        items=[svc.to_brief(t, artist_names=artist_map.get(t.id)) for t in page.items],
         next_cursor=page.next_cursor,
         total=page.total,
     )
@@ -49,7 +53,8 @@ async def get_track(
     """Get full track details by id or text query."""
     track_id = await resolve_track_id(id=id, query=query, svc=svc)
     track, features = await svc.get_with_features(track_id)
-    return svc.to_standard(track, features)
+    artist_map = await svc.get_artist_names_batch([track_id])
+    return svc.to_standard(track, features, artist_names=artist_map.get(track_id))
 
 
 @tool(tags={"core"}, annotations={"readOnlyHint": False})
@@ -85,7 +90,8 @@ async def manage_tracks(
     else:
         raise ToolError("Unreachable")
 
-    return svc.to_standard(track)
+    artist_map = await svc.get_artist_names_batch([track_id])
+    return svc.to_standard(track, artist_names=artist_map.get(track_id))
 
 
 @tool(tags={"core"}, annotations={"readOnlyHint": True})

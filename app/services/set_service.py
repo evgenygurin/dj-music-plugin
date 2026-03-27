@@ -480,9 +480,12 @@ class SetService:
 
         if view in ("tracks", "full") and result:
             _, items = result
+            track_ids = [item.track_id for item in items]
+            artist_map = await self._tracks.get_artist_names_batch(track_ids)
+            tracks_map = await self._tracks.get_by_ids(track_ids)
             tracks = []
             for item in items:
-                t = await self._tracks.get_by_id(item.track_id)
+                t = tracks_map.get(item.track_id)
                 if t:
                     tracks.append(
                         {
@@ -490,6 +493,7 @@ class SetService:
                             "pinned": item.pinned,
                             "id": t.id,
                             "title": t.title,
+                            "artist_names": artist_map.get(t.id, []),
                             "duration_ms": t.duration_ms,
                         }
                     )

@@ -68,8 +68,10 @@ async def download_tracks(
     svc: ImportService = Depends(get_import_service),  # noqa: B008
     ctx: Context | None = None,
 ) -> dict[str, Any]:
-    """Download MP3 from YM and link to library. Accepts YM track IDs.
+    """Download MP3 from YM and link to library. Accepts local or YM track IDs.
 
+    track_refs: local track IDs (e.g. "1", "42") or YM IDs (e.g. "12345678", "ym:12345678").
+    Local IDs are resolved to YM IDs automatically via track_external_ids.
     Downloads files, creates DjLibraryItem records (so analyze_track finds them).
     target_dir: where to save (default: settings.ym_library_path).
     skip_existing: skip if file already exists.

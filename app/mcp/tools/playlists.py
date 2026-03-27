@@ -61,10 +61,14 @@ async def get_playlist(
 
     if include_tracks and playlist.items:
         track_ids = [item.track_id for item in sorted(playlist.items, key=lambda i: i.sort_index)]
+        # Batch-fetch artist names for all tracks in the playlist
+        artist_map = await track_svc.get_artist_names_batch(track_ids)
         for tid in track_ids:
             try:
                 t, feat = await track_svc.get_with_features(tid)
-                tracks_entry = track_svc.to_brief(t, feat).model_dump()
+                tracks_entry = track_svc.to_brief(
+                    t, feat, artist_names=artist_map.get(tid)
+                ).model_dump()
                 response["tracks"].append(tracks_entry)
             except Exception:
                 response["tracks"].append(

@@ -162,18 +162,52 @@ class TrackRepository(BaseRepository[Track]):
         await self.session.flush()
         return meta
 
+    async def get_by_ids(self, ids: list[int]) -> dict[int, Track]:
+        """Fetch multiple tracks by IDs in a single query.
+
+        Returns mapping of track_id → Track.
+        """
+        if not ids:
+            return {}
+        stmt = select(Track).where(Track.id.in_(ids))
+        result = await self.session.execute(stmt)
+        return {t.id: t for t in result.scalars().all()}
+
     async def get_artist_names(self, track_id: int) -> str | None:
         """Get comma-separated artist names for a track."""
         from app.models.track import TrackArtist
 
-        stmt = select(TrackArtist).where(TrackArtist.track_id == track_id)
-        result = await self.session.execute(stmt)
-        artists = list(result.scalars().all())
-        if not artists:
-            return None
-        return (
-            ", ".join(a.artist.name for a in artists if hasattr(a, "artist") and a.artist) or None
+        stmt = (
+            select(Artist.name)
+            .join(TrackArtist, TrackArtist.artist_id == Artist.id)
+            .where(TrackArtist.track_id == track_id)
         )
+        result = await self.session.execute(stmt)
+        names = [row[0] for row in result.all()]
+        return ", ".join(names) if names else None
+
+    async def get_artist_names_batch(self, track_ids: list[int]) -> dict[int, list[str]]:
+        """Get artist names for multiple tracks in a single query.
+
+        Returns mapping of track_id → list of artist names.
+        """
+        if not track_ids:
+            return {}
+
+        from app.models.track import TrackArtist
+
+        stmt = (
+            select(TrackArtist.track_id, Artist.name)
+            .join(Artist, TrackArtist.artist_id == Artist.id)
+            .where(TrackArtist.track_id.in_(track_ids))
+            .order_by(TrackArtist.track_id)
+        )
+        result = await self.session.execute(stmt)
+
+        names_map: dict[int, list[str]] = {}
+        for track_id, name in result.all():
+            names_map.setdefault(track_id, []).append(name)
+        return names_map
 
     async def get_library_file_path(self, track_id: int) -> str | None:
         """Get the file path from DjLibraryItem for a track."""
@@ -342,6 +376,24 @@ class TrackRepository(BaseRepository[Track]):
             next_cursor_val = encode_cursor(tracks[-1].id)
 
         return CursorPage(items=tracks, next_cursor=next_cursor_val, total=total)
+
+    async def resolve_local_ids_to_ym(
+        self,
+        local_ids: list[int],
+    ) -> dict[int, str]:
+        """Resolve local track IDs to YM external IDs.
+
+        Returns mapping of local_track_id -> ym_track_id string.
+        """
+        if not local_ids:
+            return {}
+
+        stmt = select(TrackExternalId.track_id, TrackExternalId.external_id).where(
+            TrackExternalId.track_id.in_(local_ids),
+            TrackExternalId.platform == "yandex_music",
+        )
+        result = await self.session.execute(stmt)
+        return {row.track_id: row.external_id for row in result.all()}
 
     async def get_platform_counts(self) -> dict[str, int]:
         """Return count of tracks linked per platform."""

@@ -89,9 +89,20 @@ class ImportService:
         skip_existing: bool = True,
         prefer_bitrate: int = 320,
     ) -> dict[str, Any]:
-        """Download MP3 from YM and link to library."""
+        """Download MP3 from YM and link to library.
+
+        track_refs can be:
+        - Local track IDs (small ints like "1", "42")
+        - YM track IDs (large ints like "12345678")
+        - Prefixed YM IDs ("ym:12345678")
+
+        Local IDs are resolved to YM IDs via track_external_ids table.
+        """
         if not track_refs:
-            raise ValidationError("track_refs is required (list of YM track IDs)")
+            raise ValidationError("track_refs is required (list of track IDs)")
+
+        # Resolve local track IDs to YM track IDs
+        resolved_refs = await self._resolve_track_refs_to_ym(track_refs)
 
         dest_dir = Path(target_dir or settings.ym_library_path or "~/Music/DJ/").expanduser()
         dest_dir.mkdir(parents=True, exist_ok=True)
@@ -103,8 +114,7 @@ class ImportService:
         errors: list[dict[str, str]] = []
         files: list[dict[str, Any]] = []
 
-        for ref in track_refs:
-            ym_id = str(ref).strip().removeprefix("ym:").removeprefix("YM:")
+        for ym_id in resolved_refs:
             if not ym_id:
                 continue
 
@@ -150,6 +160,61 @@ class ImportService:
         }
 
     # ── Private ──────────────────────────────────────
+
+    async def _resolve_track_refs_to_ym(self, track_refs: list[str]) -> list[str]:
+        """Resolve track refs to YM track IDs.
+
+        Handles three ref formats:
+        - "ym:12345" / "YM:12345" -> strip prefix, use as YM ID
+        - Small int (local track ID) -> look up YM ID via track_external_ids
+        - Large int (YM track ID) -> use as-is
+
+        Returns list of YM track ID strings ready for download.
+        """
+        # Separate refs into local IDs (need resolution) and YM IDs (pass-through)
+        local_ids: list[int] = []
+        local_id_positions: dict[int, list[int]] = {}  # local_id -> positions in result
+        result_refs: list[str] = [""] * len(track_refs)
+
+        for i, ref in enumerate(track_refs):
+            cleaned = str(ref).strip().removeprefix("ym:").removeprefix("YM:")
+            if not cleaned:
+                continue
+
+            # If original ref had ym: prefix, it's definitely a YM ID
+            raw = str(ref).strip()
+            if raw.startswith("ym:") or raw.startswith("YM:"):
+                result_refs[i] = cleaned
+                continue
+
+            # Try to detect: local IDs are small (track table has ~3000 rows),
+            # YM IDs are large (7+ digits). Use a threshold.
+            try:
+                numeric_val = int(cleaned)
+                if numeric_val <= 0:
+                    continue
+                # Heuristic: IDs below 100_000 are likely local track IDs,
+                # above are YM track IDs. Local DB has ~3000 tracks.
+                if numeric_val < 100_000:
+                    local_ids.append(numeric_val)
+                    local_id_positions.setdefault(numeric_val, []).append(i)
+                else:
+                    result_refs[i] = cleaned
+            except ValueError:
+                # Non-numeric ref — skip
+                continue
+
+        # Batch-resolve local IDs to YM IDs
+        if local_ids:
+            id_to_ym = await self._tracks.resolve_local_ids_to_ym(local_ids)
+            for local_id, positions in local_id_positions.items():
+                ym_id = id_to_ym.get(local_id)
+                if ym_id:
+                    for pos in positions:
+                        result_refs[pos] = ym_id
+
+        # Filter out unresolved empty strings
+        return [r for r in result_refs if r]
 
     async def _resolve_filename(self, ym_id: str) -> str:
         """Resolve a human-readable filename from YM metadata."""

@@ -82,6 +82,10 @@ class TrackService:
             cursor=cursor,
         )
 
+    async def get_artist_names_batch(self, track_ids: list[int]) -> dict[int, list[str]]:
+        """Get artist names for multiple tracks. Returns {track_id: [name, ...]}."""
+        return await self._tracks.get_artist_names_batch(track_ids)
+
     async def get_track_sections(self, track_id: int) -> list[dict[str, Any]]:
         """Return sections for a track as dicts."""
         sections = await self._features.get_sections(track_id)
@@ -148,11 +152,12 @@ class TrackService:
     def to_brief(
         track: Track,
         features: TrackAudioFeaturesComputed | None = None,
+        artist_names: list[str] | None = None,
     ) -> TrackBrief:
         return TrackBrief(
             id=track.id,
             title=track.title,
-            artist_names=[],
+            artist_names=artist_names or [],
             bpm=features.bpm if features else None,
             key_camelot=TrackService._features_to_camelot(features),
             duration_ms=track.duration_ms,
@@ -162,11 +167,12 @@ class TrackService:
     def to_standard(
         track: Track,
         features: TrackAudioFeaturesComputed | None = None,
+        artist_names: list[str] | None = None,
     ) -> TrackStandard:
         return TrackStandard(
             id=track.id,
             title=track.title,
-            artist_names=[],
+            artist_names=artist_names or [],
             bpm=features.bpm if features else None,
             key_camelot=TrackService._features_to_camelot(features),
             duration_ms=track.duration_ms,

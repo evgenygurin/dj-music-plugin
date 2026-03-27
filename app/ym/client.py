@@ -450,8 +450,18 @@ def _parse_track(raw: dict[str, Any]) -> YMTrack:
         id=str(raw.get("id", "")),
         title=raw.get("title", ""),
         duration_ms=raw.get("durationMs"),
-        artists=raw.get("artists", []),
-        albums=raw.get("albums", []),
+        artists=[
+            {"id": str(a.get("id", "")), "name": a.get("name", "")} for a in raw.get("artists", [])
+        ],
+        albums=[
+            {
+                "id": str(a.get("id", "")),
+                "title": a.get("title", ""),
+                "year": a.get("year"),
+                "genre": a.get("genre"),
+            }
+            for a in raw.get("albums", [])
+        ],
         cover_uri=raw.get("coverUri"),
         explicit=raw.get("explicit", False),
     )
@@ -463,7 +473,9 @@ def _parse_album(raw: dict[str, Any]) -> YMAlbum:
         id=str(raw.get("id", "")),
         title=raw.get("title", ""),
         track_count=raw.get("trackCount"),
-        artists=raw.get("artists", []),
+        artists=[
+            {"id": str(a.get("id", "")), "name": a.get("name", "")} for a in raw.get("artists", [])
+        ],
         year=raw.get("year"),
         genre=raw.get("genre"),
     )

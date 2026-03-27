@@ -1,6 +1,10 @@
 """Beat detector — librosa-based rhythm analysis.
 
 Computes: onset_rate, pulse_clarity, kick_prominence, hp_ratio.
+
+Performance: analyzes only the first N seconds (settings.audio_beat_analysis_duration)
+to avoid processing full 5-7 min tracks. For techno music with stable BPM,
+the first 60s gives equivalent results with ~5x speedup.
 """
 
 from __future__ import annotations
@@ -8,6 +12,7 @@ from __future__ import annotations
 import numpy as np
 
 from app.audio.registry import AnalyzerResult, AudioSignal, BaseAnalyzer
+from app.config import settings
 
 
 class BeatDetector(BaseAnalyzer):
@@ -18,7 +23,11 @@ class BeatDetector(BaseAnalyzer):
     required_packages = ["librosa"]
 
     async def analyze(self, signal: AudioSignal) -> AnalyzerResult:
-        """Analyze rhythmic features."""
+        """Analyze rhythmic features.
+
+        Truncates audio to settings.audio_beat_analysis_duration seconds
+        before processing — sufficient for stable-tempo techno tracks.
+        """
         import librosa
 
         samples = signal.samples
@@ -27,12 +36,16 @@ class BeatDetector(BaseAnalyzer):
         if len(samples) == 0:
             return AnalyzerResult(analyzer_name=self.name, success=False, error="Empty signal")
 
+        # Truncate to first N seconds for performance
+        max_samples = int(settings.audio_beat_analysis_duration * sr)
+        if len(samples) > max_samples:
+            samples = samples[:max_samples]
+        analysis_duration = len(samples) / sr
+
         # Onset detection
         onset_env = librosa.onset.onset_strength(y=samples, sr=sr)
         onsets = librosa.onset.onset_detect(y=samples, sr=sr, units="time")
-        onset_rate = (
-            float(len(onsets) / signal.duration_seconds) if signal.duration_seconds > 0 else 0.0
-        )
+        onset_rate = float(len(onsets) / analysis_duration) if analysis_duration > 0 else 0.0
 
         # Pulse clarity (tempogram autocorrelation peak)
         tempogram = librosa.feature.tempogram(onset_envelope=onset_env, sr=sr)

@@ -34,6 +34,9 @@ async def ym_search(
     if type not in valid_types:
         raise ToolError(f"Invalid type: {type}. Valid: {', '.join(valid_types)}")
 
+    if limit > 20:
+        limit = 20
+
     result = await ym.search(query, type=type, limit=limit)
     return {
         "query": query,
@@ -54,10 +57,15 @@ async def ym_search(
 )
 async def ym_get_tracks(
     track_ids: Any = None,
+    fields: str = "id,title,artists,albums,duration_ms",
     ym: YandexMusicClient = Depends(get_ym_client),  # noqa: B008
     ctx: Context | None = None,
 ) -> dict[str, Any]:
-    """Batch get tracks from Yandex Music by IDs (up to 100)."""
+    """Batch get tracks from Yandex Music by IDs (up to 100).
+
+    fields: comma-separated fields to return (default: id,title,artists,albums,duration_ms).
+    Use "all" for all fields.
+    """
     from app.core.parsing import ensure_list
 
     track_ids = ensure_list(track_ids)
@@ -67,9 +75,14 @@ async def ym_get_tracks(
         raise ToolError("Maximum 100 track IDs per request")
 
     tracks = await ym.get_tracks(track_ids)
+    if fields == "all":
+        tracks_data = [t.model_dump() for t in tracks]
+    else:
+        wanted = {f.strip() for f in fields.split(",")}
+        tracks_data = [{k: v for k, v in t.model_dump().items() if k in wanted} for t in tracks]
     return {
-        "track_ids": track_ids,
-        "tracks": [t.model_dump() for t in tracks],
+        "count": len(tracks_data),
+        "tracks": tracks_data,
     }
 
 
@@ -121,7 +134,11 @@ async def ym_artist_tracks(
         "artist_id": artist_id,
         "page": page,
         "sort_by": sort_by,
-        "tracks": [t.model_dump() for t in tracks],
+        "count": len(tracks),
+        "tracks": [
+            {"id": t.id, "title": t.title, "duration_ms": t.duration_ms, "albums": t.albums}
+            for t in tracks
+        ],
         "has_next": len(tracks) >= 20,
     }
 
@@ -240,14 +257,19 @@ async def ym_likes(
 
     if action == "get_liked":
         liked = await ym.get_liked_ids()
-        return {"action": "get_liked", "liked_ids": liked, "count": len(liked)}
+        return {
+            "action": "get_liked",
+            "count": len(liked),
+            "liked_ids": liked[:200],
+            "truncated": len(liked) > 200,
+        }
 
     if action == "add":
-        await ym.add_likes(track_ids)  # type: ignore[arg-type]
+        await ym.add_likes(track_ids)
         return {"action": "add", "track_ids": track_ids, "success": True}
 
     if action == "remove":
-        await ym.remove_likes(track_ids)  # type: ignore[arg-type]
+        await ym.remove_likes(track_ids)
         return {"action": "remove", "track_ids": track_ids, "success": True}
 
     raise ToolError("Unreachable")
