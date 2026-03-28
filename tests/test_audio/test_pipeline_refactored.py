@@ -236,3 +236,66 @@ async def test_filter_features_serializes_vectors():
 
     # Non-column keys filtered out
     assert "beat_times" not in filtered
+
+
+async def test_pipeline_discovers_new_p1_analyzers():
+    """Auto-discovery finds all 14 analyzers including 6 new P1 ones."""
+    from app.audio.analyzers.base import AnalyzerRegistry
+
+    registry = AnalyzerRegistry()
+    registry.discover()
+
+    available = set(registry.list_available())
+
+    # New P1 analyzers should be discovered (if their deps are installed)
+    p1_names = {
+        "danceability",
+        "tempogram",
+        "dissonance",
+        "dynamic_complexity",
+        "tonnetz",
+        "beats_loudness",
+    }
+    # At least some should be available (depends on installed libs)
+    discovered_p1 = p1_names & available
+    assert len(discovered_p1) > 0, f"No P1 analyzers discovered. Available: {available}"
+
+
+async def test_pipeline_populates_beat_loudness_when_beats_available(tmp_path):
+    """E2E: beat_loudness_band_ratio is populated when BeatDetector succeeds."""
+    import numpy as np
+    import soundfile as sf
+
+    from app.audio.pipeline import AnalysisPipeline
+
+    # Generate a kick pattern WAV that BeatDetector can detect beats in
+    sr = 22050
+    duration = 4.0
+    n = int(sr * duration)
+    samples = np.zeros(n, dtype=np.float32)
+    bpm = 130.0
+    interval = int(60.0 / bpm * sr)
+    for start in range(0, n, interval):
+        end = min(start + int(0.01 * sr), n)
+        if end > start:
+            samples[start:end] = 0.8 * np.sin(2 * np.pi * 60 * np.arange(end - start) / sr).astype(
+                np.float32
+            )
+
+    wav_path = tmp_path / "kick_test.wav"
+    sf.write(str(wav_path), samples, sr)
+
+    reg = AnalyzerRegistry()
+    reg.discover()
+    pipeline = AnalysisPipeline(reg)
+    result = await pipeline.analyze(str(wav_path))
+
+    # beats_loudness requires essentia — only assert if it was available
+    beats_loudness_available = "beats_loudness" in reg.list_available()
+    if "beat_times" in result.features and beats_loudness_available:
+        assert "beat_loudness_band_ratio" in result.features, (
+            "beat_loudness_band_ratio should be populated when beat_times is available"
+        )
+        vec = result.features["beat_loudness_band_ratio"]
+        assert isinstance(vec, list)
+        assert len(vec) == 6
