@@ -22,7 +22,7 @@ from app.ym.client import YandexMusicClient
 # ── 1. analyze_one_track ─────────────────────────────
 
 
-@tool(tags={"atomic"}, annotations={"readOnlyHint": False}, timeout=180.0)
+@tool(tags={"atomic"}, annotations={"readOnlyHint": False}, timeout=600.0)
 async def analyze_one_track(
     track_id: int,
     analyzers: Any = None,

@@ -32,7 +32,7 @@ from app.services.tiered_pipeline import TieredPipeline
 @tool(
     tags={"delivery"},
     annotations={"readOnlyHint": False, "idempotentHint": True},
-    timeout=300.0,
+    timeout=600.0,
     task=True,
 )
 async def deliver_set(

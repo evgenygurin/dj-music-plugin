@@ -29,7 +29,7 @@ from app.services.tiered_pipeline import TieredPipeline
 @tool(
     tags={"audio"},
     annotations={"idempotentHint": True},
-    timeout=120.0,
+    timeout=600.0,
 )
 async def analyze_track(
     track_id: int | None = None,
@@ -186,7 +186,7 @@ async def analyze_batch(
 # ── 3. separate_stems ────────────────────────────────
 
 
-@tool(tags={"audio"}, timeout=300.0)
+@tool(tags={"audio"}, timeout=600.0)
 async def separate_stems(
     track_id: int | None = None,
     track_query: str | None = None,
