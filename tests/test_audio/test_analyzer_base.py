@@ -19,11 +19,16 @@ from app.audio.core.types import AudioSignal
 
 @pytest.fixture(autouse=True)
 def _clean_registry():
-    """Save/restore global registry to prevent test pollution."""
-    snapshot = dict(_ANALYZER_REGISTRY)
+    """Remove test-only entries from global registry after each test.
+
+    Real analyzers (added by @register_analyzer during module import) must survive,
+    because importlib won't re-trigger the decorator for already-imported modules.
+    Test analyzers use names starting with '_test_' by convention.
+    """
     yield
-    _ANALYZER_REGISTRY.clear()
-    _ANALYZER_REGISTRY.update(snapshot)
+    test_keys = [k for k in _ANALYZER_REGISTRY if k.startswith("_test_")]
+    for k in test_keys:
+        del _ANALYZER_REGISTRY[k]
 
 
 def _make_ctx(n_samples: int = 22050) -> AnalysisContext:
