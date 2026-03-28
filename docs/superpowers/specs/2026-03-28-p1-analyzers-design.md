@@ -42,7 +42,7 @@ The refactored audio module extracts 47 features via 8 analyzers. Research ident
 | File | Class | `name` | Library | `required_packages` | Output keys |
 |------|-------|--------|---------|---------------------|-------------|
 | `danceability.py` | `DanceabilityAnalyzer` | `"danceability"` | essentia | `["essentia"]` | `danceability: float` (0.0-3.0, DFA algorithm) |
-| `tempogram.py` | `TempogramAnalyzer` | `"tempogram"` | librosa | `["librosa"]` | `tempogram_ratio: list[float]` (~10 dims) |
+| `tempogram.py` | `TempogramAnalyzer` | `"tempogram"` | librosa | `["librosa"]` | `tempogram_ratio_vector: list[float]` (~10 dims) |
 | `dissonance.py` | `DissonanceAnalyzer` | `"dissonance"` | essentia | `["essentia"]` | `dissonance_mean: float` (0.0-1.0) |
 | `dynamic_complexity.py` | `DynamicComplexityAnalyzer` | `"dynamic_complexity"` | essentia | `["essentia"]` | `dynamic_complexity: float` (unbounded, typically 0-10) |
 | `tonnetz.py` | `TonnetzAnalyzer` | `"tonnetz"` | librosa | `["librosa"]` | `tonnetz_vector: list[float]` (6 dims) |
@@ -74,8 +74,8 @@ class DanceabilityAnalyzer(BaseAnalyzer):
 
 | Key | Type | Range | Notes |
 |-----|------|-------|-------|
-| `danceability` | `float` | 0.0 - 3.0 | Essentia DFA algorithm. Techno avg ~1.5-2.5 |
-| `tempogram_ratio` | `list[float]` | Each 0.0-1.0 | Normalized autocorrelation at BPM ratios |
+| `danceability` | `float` | 0.0 - 3.0 | Essentia DFA algorithm. Techno avg ~1.5-2.5. Will need normalization when used in classifier/scorer |
+| `tempogram_ratio_vector` | `list[float]` | Each 0.0-1.0 | Normalized autocorrelation at BPM ratios |
 | `dissonance_mean` | `float` | 0.0 - 1.0 | Mean spectral dissonance across frames |
 | `dynamic_complexity` | `float` | 0.0 - ~10.0 | Loudness variance descriptor. Flat=low, builds=high |
 | `tonnetz_vector` | `list[float]` | Each -1.0 to 1.0 | 6 tonal centroid features from chroma |
@@ -102,36 +102,55 @@ class BaseAnalyzer(ABC):
         if len(ctx.samples) == 0:
             return AnalyzerResult(analyzer_name=self.name, success=False, error="Empty signal")
         try:
-            features = self._extract(ctx, prior_results=prior_results or {})
+            # Conditional dispatch: only pass prior_results to dependent analyzers
+            # This preserves backward compatibility — existing analyzers' _extract(ctx)
+            # signatures remain unchanged
+            if self.depends_on:
+                features = self._extract(ctx, prior_results=prior_results or {})
+            else:
+                features = self._extract(ctx)
             return AnalyzerResult(analyzer_name=self.name, features=features)
         except Exception as e:
             logger.warning("Analyzer %s failed: %s", self.name, e)
             return AnalyzerResult(analyzer_name=self.name, success=False, error=str(e))
 
     @abstractmethod
-    def _extract(self, ctx: AnalysisContext, *, prior_results: dict[str, Any] | None = None) -> dict[str, Any]:
+    def _extract(self, ctx: AnalysisContext) -> dict[str, Any]:
         ...
 ```
 
+**Dependent analyzers** override `_extract` with the extended signature:
+
+```python
+# In dependent analyzers (e.g., beats_loudness.py):
+def _extract(self, ctx: AnalysisContext, *, prior_results: dict[str, Any] | None = None) -> dict[str, Any]:
+    ...
+```
+
+This is valid Python — a subclass method can add keyword-only parameters to an overridden method. The base class abstract signature stays `_extract(self, ctx)`, and `run()` uses conditional dispatch based on `self.depends_on`.
+
 **Key design decisions:**
-- `prior_results` is `dict[str, Any] | None` (keyword-only, defaults to `None`)
-- Existing 8 analyzers don't use `prior_results` — signature change is backward-compatible via `**kwargs` or default
+- `prior_results` is a regular optional parameter in `run()` (not keyword-only) — allows positional passing from `asyncio.to_thread(a.run, ctx, prior)`
+- Existing 8 analyzers' `_extract(self, ctx)` signature remains **unchanged** — no modifications needed
 - `depends_on` references analyzer `name` strings, not classes — loose coupling
-- If dependency didn't run or failed, dependent analyzer handles gracefully (returns `AnalyzerResult(success=False)`)
+- If dependency didn't run or failed, dependent analyzer receives `None` for that key; it should return `AnalyzerResult(success=False)` explicitly (not raise)
 
 ### 5.3 BeatDetector Enhancement
 
 `BeatDetector._extract()` must export `beat_times` in its output dict (currently it may not include raw beat positions):
 
 ```python
-# In beat.py _extract():
+# In beat.py _extract() — add beat_times to existing return dict:
 return {
-    "onset_rate_mean": float(onset_rate),
-    "kick_prominence": float(kick_prom),
-    # ... existing fields ...
-    "beat_times": beat_times.tolist(),  # NEW — numpy array -> list for JSON compat
+    "onset_rate": round(onset_rate, 4),         # existing
+    "pulse_clarity": round(pulse_clarity, 4),   # existing
+    "kick_prominence": round(kick_prominence, 4), # existing
+    "hp_ratio": round(hp_ratio, 4),             # existing
+    "beat_times": onsets.tolist(),  # NEW — onset times array for dependent analyzers
 }
 ```
+
+**Note**: `beat_times` is consumed only by dependent analyzers via `prior_results`. It will NOT be persisted to DB because `filter_features()` filters to known columns only — `beat_times` is not a DB column.
 
 ### 5.4 BeatsLoudnessAnalyzer Dependency
 
@@ -146,7 +165,10 @@ class BeatsLoudnessAnalyzer(BaseAnalyzer):
     def _extract(self, ctx: AnalysisContext, *, prior_results: dict[str, Any] | None = None) -> dict[str, Any]:
         beat_times = (prior_results or {}).get("beat_times")
         if not beat_times:
-            raise ValueError("beat_times not available from BeatDetector")
+            # Explicit graceful failure — don't raise, return empty dict
+            # run() will wrap this as AnalyzerResult(success=True, features={})
+            # which is a no-op for DB persistence
+            return {}
 
         import essentia.standard as es
         bl = es.BeatsLoudness(beats=beat_times, sampleRate=ctx.signal.sample_rate)
@@ -197,8 +219,9 @@ async def analyze(self, file_path, analyzers=None, max_duration=None) -> Pipelin
 **Key properties:**
 - Phase 1 behavior is identical to current — no regression
 - Phase 2 is additive — only executes when dependent analyzers exist
-- `prior_results` passed as positional arg to `run()` (signature: `run(ctx, prior_results=None)`)
-- If Phase 1 dependency failed, Phase 2 analyzer gets `None` for that key and handles gracefully
+- `prior_results` passed as positional arg to `run()` (regular optional parameter, not keyword-only)
+- If Phase 1 dependency failed, Phase 2 analyzer gets `None` for that key and returns empty dict gracefully
+- **Key conflict policy**: Phase 2 results can override Phase 1 keys in the merged output (via `dict.update()`). In practice, Phase 2 analyzers produce unique keys (`beat_loudness_band_ratio`) that don't conflict with Phase 1 output
 
 ## 7. Database Schema
 
@@ -249,7 +272,7 @@ def downgrade():
 
 ### 7.4 ORM Model Update
 
-Add 6 new `mapped_column()` entries to `TrackAudioFeaturesComputed` in `app/models/features.py`:
+Add 6 new `mapped_column()` entries to `TrackAudioFeaturesComputed` in `app/models/audio.py`:
 
 ```python
 danceability: Mapped[float | None] = mapped_column(Float, nullable=True)
@@ -260,11 +283,45 @@ tempogram_ratio_vector: Mapped[str | None] = mapped_column(String(500), nullable
 beat_loudness_band_ratio: Mapped[str | None] = mapped_column(String(500), nullable=True)
 ```
 
+Update docstring from "47 numerical audio feature descriptors" to "53 numerical audio feature descriptors".
+
+### 7.5 `filter_features()` Update (CRITICAL)
+
+The existing `filter_features()` in `TrackAudioFeaturesComputed` must be updated to JSON-serialize vector outputs. Currently it only handles the `mfcc_mean -> mfcc_vector` mapping. Add generic list-to-JSON serialization:
+
+```python
+@classmethod
+def filter_features(cls, features: dict[str, Any]) -> dict[str, Any]:
+    import json
+    valid = {c.name for c in cls.__table__.columns}
+    valid -= {"track_id", "pipeline_run_id", "created_at", "updated_at"}
+
+    # Columns that store JSON-encoded lists
+    _VECTOR_COLUMNS = {"mfcc_vector", "tonnetz_vector", "tempogram_ratio_vector",
+                       "beat_loudness_band_ratio", "chroma"}
+
+    result: dict[str, Any] = {}
+    for k, v in features.items():
+        if k == "mfcc_mean" and "mfcc_vector" in valid:
+            result["mfcc_vector"] = json.dumps(v) if isinstance(v, list) else v
+        elif k in valid:
+            # Auto-serialize lists for VARCHAR vector columns
+            if k in _VECTOR_COLUMNS and isinstance(v, list):
+                result[k] = json.dumps(v)
+            else:
+                result[k] = v
+    return result
+```
+
+**Why this is critical**: Without this, `list[float]` values from analyzers will be passed to SQLAlchemy as Python lists, causing `TypeError` when inserting into `VARCHAR(500)` columns.
+
+**Analyzer output keys match DB column names exactly** — no additional name mapping needed (unlike `mfcc_mean -> mfcc_vector`). The vector outputs use the DB column name directly: `tonnetz_vector`, `tempogram_ratio_vector`, `beat_loudness_band_ratio`.
+
 ## 8. Testing Strategy
 
 ### 8.1 Unit Tests (per analyzer)
 
-6 new test files in `tests/utils/`:
+6 new test files in `tests/test_audio/`:
 
 | File | Tests | Synthetic signal |
 |------|-------|------------------|
@@ -297,14 +354,15 @@ beat_loudness_band_ratio: Mapped[str | None] = mapped_column(String(500), nullab
 
 ## 9. Implementation Order
 
-1. **BaseAnalyzer**: add `depends_on` ClassVar + `prior_results` parameter
+1. **BaseAnalyzer**: add `depends_on` ClassVar + conditional dispatch in `run()`
 2. **BeatDetector**: export `beat_times` in output dict
 3. **5 independent analyzers**: danceability, tempogram, dissonance, dynamic_complexity, tonnetz
 4. **1 dependent analyzer**: beats_loudness
 5. **Pipeline**: two-phase execution
-6. **Tests**: 6 test files + pipeline integration
-7. **ORM model**: add 6 columns to `TrackAudioFeaturesComputed`
-8. **Alembic migration**: single migration file
+6. **Tests**: 6 test files in `tests/test_audio/` + pipeline integration
+7. **ORM model**: add 6 columns to `TrackAudioFeaturesComputed` + update docstring
+8. **`filter_features()`**: add vector column JSON serialization
+9. **Alembic migration**: single migration file
 
 ## 10. Future Cycles (Out of Scope)
 
