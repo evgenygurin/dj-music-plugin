@@ -79,4 +79,5 @@ class BeatDetector(BaseAnalyzer):
             "pulse_clarity": round(pulse_clarity, 4),
             "kick_prominence": round(kick_prominence, 4),
             "hp_ratio": round(hp_ratio, 4),
+            "beat_times": onsets.tolist(),
         }
