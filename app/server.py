@@ -165,6 +165,25 @@ else:
 # from all Python files in app/mcp/ — no manual imports needed.
 mcp_dir = Path(__file__).parent / "mcp"
 
+# ── Pre-constructor Transforms ───────────────────────
+# BM25SearchTransform goes into the constructor via transforms= kwarg.
+# ResourcesAsTools / PromptsAsTools need the mcp instance, so they are
+# added post-construction to avoid circular dependency.
+server_transforms = []
+try:
+    from fastmcp.server.transforms.search import BM25SearchTransform
+
+    server_transforms.append(
+        BM25SearchTransform(
+            max_results=10,
+            always_visible=["unlock_tools", "get_library_stats"],
+            search_tool_name="search_tools",
+            call_tool_name="run_tool",
+        )
+    )
+except ImportError:
+    logger.warning("BM25SearchTransform not available — install fastmcp[search]")
+
 mcp = FastMCP(
     name=settings.server_name,
     instructions=(
@@ -173,6 +192,7 @@ mcp = FastMCP(
         "Use unlock_tools to access hidden tool categories."
     ),
     providers=[FileSystemProvider(mcp_dir)],
+    transforms=server_transforms,
     lifespan=db_lifespan | ym_lifespan | analyzer_lifespan | cache_lifespan,
     list_page_size=settings.pagination_size,
     on_duplicate="warn",
@@ -181,7 +201,8 @@ mcp = FastMCP(
     sampling_handler_behavior="fallback" if sampling_handler else None,
 )
 
-# ── Transforms ───────────────────────────────────────
+# ── Post-constructor Transforms ──────────────────────
+# These transforms require the mcp instance and cannot go into the constructor.
 try:
     from fastmcp.server.transforms import PromptsAsTools, ResourcesAsTools
 

@@ -16,7 +16,7 @@ from app.services.set_service import SetService
 from app.services.tiered_pipeline import TieredPipeline
 
 
-@tool(tags={"sets"}, annotations={"readOnlyHint": False}, timeout=120.0)
+@tool(tags={"sets"}, annotations={"readOnlyHint": False}, timeout=120.0, task=True)
 async def build_set(
     playlist_id: int,
     name: str,
@@ -75,7 +75,7 @@ async def build_set(
     }
 
 
-@tool(tags={"sets"}, annotations={"readOnlyHint": False}, timeout=120.0)
+@tool(tags={"sets"}, annotations={"readOnlyHint": False}, timeout=120.0, task=True)
 async def rebuild_set(
     set_id: int,
     pin_tracks: list[int] | None = None,

@@ -26,7 +26,7 @@ from app.services.tiered_pipeline import TieredPipeline
 # ── 1. classify_mood ─────────────────────────────────
 
 
-@tool(tags={"curation"}, annotations={"readOnlyHint": False})
+@tool(tags={"curation"}, annotations={"readOnlyHint": False}, task=True)
 async def classify_mood(
     track_ids: Any = None,
     playlist_id: int | None = None,
@@ -64,7 +64,7 @@ async def classify_mood(
 # ── 2. audit_playlist ───────────────────────────────
 
 
-@tool(tags={"curation"}, annotations={"readOnlyHint": True})
+@tool(tags={"curation"}, annotations={"readOnlyHint": True}, task=True)
 async def audit_playlist(
     playlist_id: int | None = None,
     playlist_query: str | None = None,
