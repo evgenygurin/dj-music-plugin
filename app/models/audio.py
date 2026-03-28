@@ -6,6 +6,7 @@ from sqlalchemy import (
     CheckConstraint,
     ForeignKey,
     LargeBinary,
+    SmallInteger,
     String,
     Text,
     UniqueConstraint,
@@ -127,6 +128,15 @@ class TrackAudioFeaturesComputed(Base, TimestampMixin):
     tempogram_ratio_vector: Mapped[str | None] = mapped_column(String(500), nullable=True)
     beat_loudness_band_ratio: Mapped[str | None] = mapped_column(String(500), nullable=True)
 
+    # --- P2 New Features (7 fields) ---
+    spectral_complexity_mean: Mapped[float | None] = mapped_column(nullable=True)
+    pitch_salience_mean: Mapped[float | None] = mapped_column(nullable=True)
+    bpm_histogram_first_peak_weight: Mapped[float | None] = mapped_column(nullable=True)
+    bpm_histogram_second_peak_bpm: Mapped[float | None] = mapped_column(nullable=True)
+    bpm_histogram_second_peak_weight: Mapped[float | None] = mapped_column(nullable=True)
+    phrase_boundaries_ms: Mapped[str | None] = mapped_column(String(2000), nullable=True)
+    dominant_phrase_bars: Mapped[int | None] = mapped_column(SmallInteger, nullable=True)
+
     # --- Classification ---
     mood: Mapped[str | None] = mapped_column(String(30), nullable=True, index=True)
     mood_confidence: Mapped[float | None] = mapped_column(nullable=True)
@@ -168,6 +178,13 @@ class TrackAudioFeaturesComputed(Base, TimestampMixin):
         "key_confidence",
         "atonality",
         "hnr_db",
+        "danceability",
+        "dissonance_mean",
+        "dynamic_complexity",
+        "pitch_salience_mean",
+        "spectral_complexity_mean",
+        "bpm_histogram_first_peak_weight",
+        "spectral_slope",
     )
 
     def to_classifier_dict(self) -> dict[str, Any]:
@@ -193,6 +210,7 @@ class TrackAudioFeaturesComputed(Base, TimestampMixin):
             "tonnetz_vector",
             "tempogram_ratio_vector",
             "beat_loudness_band_ratio",
+            "phrase_boundaries_ms",
         }
 
         # Map pipeline keys → DB column names

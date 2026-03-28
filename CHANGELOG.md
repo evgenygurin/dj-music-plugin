@@ -6,6 +6,11 @@ Format based on [Keep a Changelog](https://keepachangelog.com/).
 ## [Unreleased]
 
 ### Added
+- 4 new P2 analyzers: SpectralComplexityAnalyzer, PitchSalienceAnalyzer, BpmHistogramAnalyzer, PhraseAnalyzer
+- Context-aware `TransitionIntent` enum with weight modifiers (maintain/ramp_up/cool_down/contrast)
+- New `score_timbral` component in TransitionScorer (spectral contrast + pitch salience proximity)
+- 10 new FeatureTargets integrated into 15 MoodClassifier profiles (danceability, dissonance, pitch salience, etc.)
+- Alembic migration for 7 P2 analyzer columns
 - 6 new P1 analyzers (essentia/librosa, optional deps with graceful skip):
   - `DanceabilityAnalyzer` — essentia Danceability (DFA), scalar
   - `TempogramAnalyzer` — librosa tempogram ratio, ~10D vector
@@ -31,6 +36,11 @@ Format based on [Keep a Changelog](https://keepachangelog.com/).
 - `scripts/verify_audio_pipeline.py` — E2E verification script with per-stage timing, parallel speedup measurement, and sanity checks
 
 ### Changed
+- TransitionScorer enriched: tonnetz cosine in harmonic, dissonance/complexity penalties in spectral, beat_loudness in groove, bpm_stability factor in BPM
+- TransitionScorer weights rebalanced: bpm 0.22, harmonic 0.20, energy 0.23, spectral 0.15, groove 0.10, timbral 0.10 (new)
+- TrackFeatures extended with 8 new fields (P1 + P2 + unused existing)
+- GA optimizer uses context-aware intent for position-dependent transition scoring
+- BeatDetector exports beats_intervals for BpmHistogramAnalyzer dependency
 - `TrackFeatures.from_db(row)` classmethod replaces 5 copies of manual field mapping
 - `FeatureRepository.get_scoring_features()` + `get_scoring_features_batch()` — batch loading (N SQL → 1)
 - Tools (`sets.py`, `reasoning.py`, `curation.py`) use shared helpers instead of inline queries

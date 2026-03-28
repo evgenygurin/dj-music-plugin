@@ -42,3 +42,20 @@ def test_beat_detector_exports_beat_times():
     assert isinstance(bt, list)
     assert len(bt) > 0
     assert all(isinstance(t, float) for t in bt)
+
+
+def test_beat_export_includes_intervals():
+    """BeatDetector must export beats_intervals with length == len(beat_times) - 1."""
+    signal = _make_kick_signal(bpm=130.0, duration=4.0)
+    detector = BeatDetector()
+    result = detector.run(AnalysisContext(signal))
+
+    assert result.success
+    assert "beats_intervals" in result.features, "beats_intervals missing from BeatDetector output"
+
+    bt = result.features["beat_times"]
+    bi = result.features["beats_intervals"]
+
+    assert isinstance(bi, list)
+    assert len(bi) == len(bt) - 1, f"Expected {len(bt) - 1} intervals, got {len(bi)}"
+    assert all(isinstance(v, float) and v > 0 for v in bi), "All intervals must be positive floats"
