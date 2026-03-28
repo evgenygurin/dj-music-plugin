@@ -5,27 +5,28 @@ Computes: bpm, bpm_confidence, bpm_stability, variable_tempo.
 
 from __future__ import annotations
 
+from typing import Any, ClassVar
+
 import numpy as np
 
-from app.audio.registry import AnalyzerResult, AudioSignal, BaseAnalyzer
+from app.audio.analyzers.base import BaseAnalyzer, register_analyzer
+from app.audio.core.context import AnalysisContext
 
 
+@register_analyzer
 class BPMDetector(BaseAnalyzer):
     """Tempo detection using librosa beat tracking."""
 
-    name = "bpm"
-    capabilities = {"tempo", "rhythm"}
-    required_packages = ["librosa"]
+    name: ClassVar[str] = "bpm"
+    capabilities: ClassVar[frozenset[str]] = frozenset({"tempo", "rhythm"})
+    required_packages: ClassVar[list[str]] = ["librosa"]
 
-    async def analyze(self, signal: AudioSignal) -> AnalyzerResult:
+    def _extract(self, ctx: AnalysisContext) -> dict[str, Any]:
         """Detect BPM, confidence, and stability."""
         import librosa
 
-        samples = signal.samples
-        sr = signal.sample_rate
-
-        if len(samples) == 0:
-            return AnalyzerResult(analyzer_name=self.name, success=False, error="Empty signal")
+        samples = ctx.samples
+        sr = ctx.sr
 
         # Primary tempo detection
         tempo, beat_frames = librosa.beat.beat_track(y=samples, sr=sr, units="frames")
@@ -49,12 +50,9 @@ class BPMDetector(BaseAnalyzer):
                 stability = max(0.0, min(1.0, 1.0 - cv * 2))
                 variable_tempo = cv > 0.15
 
-        return AnalyzerResult(
-            analyzer_name=self.name,
-            features={
-                "bpm": round(bpm, 2),
-                "bpm_confidence": round(min(1.0, confidence), 4),
-                "bpm_stability": round(stability, 4),
-                "variable_tempo": variable_tempo,
-            },
-        )
+        return {
+            "bpm": round(bpm, 2),
+            "bpm_confidence": round(min(1.0, confidence), 4),
+            "bpm_stability": round(stability, 4),
+            "variable_tempo": variable_tempo,
+        }

@@ -2,31 +2,33 @@
 
 from __future__ import annotations
 
+from typing import Any, ClassVar
+
 import pytest
 
-from app.audio.registry import AnalyzerRegistry, AnalyzerResult, AudioSignal, BaseAnalyzer
+from app.audio.registry import AnalyzerRegistry, AudioSignal, BaseAnalyzer
 
 
 class DummyAnalyzer(BaseAnalyzer):
     """Analyzer that always succeeds."""
 
-    name = "dummy"
-    capabilities = {"test"}
-    required_packages: list[str] = []
+    name: ClassVar[str] = "dummy"
+    capabilities: ClassVar[frozenset[str]] = frozenset({"test"})
+    required_packages: ClassVar[list[str]] = []
 
-    async def analyze(self, signal: AudioSignal) -> AnalyzerResult:
-        return AnalyzerResult(analyzer_name=self.name, features={"value": 42})
+    def _extract(self, ctx: Any) -> dict[str, Any]:
+        return {"value": 42}
 
 
 class UnavailableAnalyzer(BaseAnalyzer):
     """Analyzer whose dependency is never installed."""
 
-    name = "unavailable"
-    capabilities = {"test"}
-    required_packages = ["nonexistent_package_xyz_999"]
+    name: ClassVar[str] = "unavailable"
+    capabilities: ClassVar[frozenset[str]] = frozenset({"test"})
+    required_packages: ClassVar[list[str]] = ["nonexistent_package_xyz_999"]
 
-    async def analyze(self, signal: AudioSignal) -> AnalyzerResult:
-        return AnalyzerResult(analyzer_name=self.name)
+    def _extract(self, ctx: Any) -> dict[str, Any]:
+        return {}
 
 
 class TestBaseAnalyzer:

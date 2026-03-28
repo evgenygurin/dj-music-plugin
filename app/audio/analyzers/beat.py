@@ -9,20 +9,24 @@ the first 60s gives equivalent results with ~5x speedup.
 
 from __future__ import annotations
 
+from typing import Any, ClassVar
+
 import numpy as np
 
-from app.audio.registry import AnalyzerResult, AudioSignal, BaseAnalyzer
+from app.audio.analyzers.base import BaseAnalyzer, register_analyzer
+from app.audio.core.context import AnalysisContext
 from app.config import settings
 
 
+@register_analyzer
 class BeatDetector(BaseAnalyzer):
     """Rhythm analysis: onset detection, pulse clarity, kick prominence."""
 
-    name = "beat"
-    capabilities = {"rhythm", "beat"}
-    required_packages = ["librosa"]
+    name: ClassVar[str] = "beat"
+    capabilities: ClassVar[frozenset[str]] = frozenset({"rhythm", "beat"})
+    required_packages: ClassVar[list[str]] = ["librosa"]
 
-    async def analyze(self, signal: AudioSignal) -> AnalyzerResult:
+    def _extract(self, ctx: AnalysisContext) -> dict[str, Any]:
         """Analyze rhythmic features.
 
         Truncates audio to settings.audio_beat_analysis_duration seconds
@@ -30,11 +34,8 @@ class BeatDetector(BaseAnalyzer):
         """
         import librosa
 
-        samples = signal.samples
-        sr = signal.sample_rate
-
-        if len(samples) == 0:
-            return AnalyzerResult(analyzer_name=self.name, success=False, error="Empty signal")
+        samples = ctx.samples
+        sr = ctx.sr
 
         # Truncate to first N seconds for performance
         max_samples = int(settings.audio_beat_analysis_duration * sr)
@@ -73,12 +74,9 @@ class BeatDetector(BaseAnalyzer):
         low_perc_energy = float(np.sum(s_perc[low_mask, :] ** 2))
         kick_prominence = low_perc_energy / (total_perc_energy + 1e-10)
 
-        return AnalyzerResult(
-            analyzer_name=self.name,
-            features={
-                "onset_rate": round(onset_rate, 4),
-                "pulse_clarity": round(pulse_clarity, 4),
-                "kick_prominence": round(kick_prominence, 4),
-                "hp_ratio": round(hp_ratio, 4),
-            },
-        )
+        return {
+            "onset_rate": round(onset_rate, 4),
+            "pulse_clarity": round(pulse_clarity, 4),
+            "kick_prominence": round(kick_prominence, 4),
+            "hp_ratio": round(hp_ratio, 4),
+        }

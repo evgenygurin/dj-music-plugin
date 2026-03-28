@@ -7,9 +7,12 @@ spectral_slope, spectral_contrast.
 
 from __future__ import annotations
 
+from typing import Any, ClassVar
+
 import numpy as np
 
-from app.audio.registry import AnalyzerResult, AudioSignal, BaseAnalyzer
+from app.audio.analyzers.base import BaseAnalyzer, register_analyzer
+from app.audio.core.context import AnalysisContext
 
 # Frequency band edges for spectral contrast (6 octave bands, Hz)
 # Similar to librosa defaults: 6 bands from ~200Hz to ~sr/2
@@ -75,24 +78,18 @@ def _compute_spectral_contrast_frame(
     return float(np.mean(contrasts)) if contrasts else 0.0
 
 
+@register_analyzer
 class SpectralAnalyzer(BaseAnalyzer):
     """Spectral analysis using pure numpy FFT."""
 
-    name = "spectral"
-    capabilities = {"spectral"}
-    required_packages: list[str] = []
+    name: ClassVar[str] = "spectral"
+    capabilities: ClassVar[frozenset[str]] = frozenset({"spectral"})
+    required_packages: ClassVar[list[str]] = []
 
-    async def analyze(self, signal: AudioSignal) -> AnalyzerResult:
+    def _extract(self, ctx: AnalysisContext) -> dict[str, Any]:
         """Compute spectral features from audio signal."""
-        samples = signal.samples
-        sr = signal.sample_rate
-
-        if len(samples) == 0:
-            return AnalyzerResult(
-                analyzer_name=self.name,
-                success=False,
-                error="Empty audio signal",
-            )
+        samples = ctx.samples
+        sr = ctx.sr
 
         frame_length = 2048
         hop_length = 512
@@ -179,16 +176,13 @@ class SpectralAnalyzer(BaseAnalyzer):
             spectral_flux_mean = 0.0
             spectral_flux_std = 0.0
 
-        return AnalyzerResult(
-            analyzer_name=self.name,
-            features={
-                "spectral_centroid_hz": spectral_centroid_hz,
-                "spectral_rolloff_85": spectral_rolloff_85,
-                "spectral_rolloff_95": spectral_rolloff_95,
-                "spectral_flatness": spectral_flatness,
-                "spectral_flux_mean": spectral_flux_mean,
-                "spectral_flux_std": spectral_flux_std,
-                "spectral_slope": spectral_slope,
-                "spectral_contrast": spectral_contrast,
-            },
-        )
+        return {
+            "spectral_centroid_hz": spectral_centroid_hz,
+            "spectral_rolloff_85": spectral_rolloff_85,
+            "spectral_rolloff_95": spectral_rolloff_95,
+            "spectral_flatness": spectral_flatness,
+            "spectral_flux_mean": spectral_flux_mean,
+            "spectral_flux_std": spectral_flux_std,
+            "spectral_slope": spectral_slope,
+            "spectral_contrast": spectral_contrast,
+        }

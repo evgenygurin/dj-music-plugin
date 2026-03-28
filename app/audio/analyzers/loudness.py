@@ -9,9 +9,12 @@ Falls back to simplified approximation if scipy is not available.
 
 from __future__ import annotations
 
+from typing import Any, ClassVar
+
 import numpy as np
 
-from app.audio.registry import AnalyzerResult, AudioSignal, BaseAnalyzer
+from app.audio.analyzers.base import BaseAnalyzer, register_analyzer
+from app.audio.core.context import AnalysisContext
 
 # ── K-weighting filter coefficients (ITU-R BS.1770-4) ──────────────────
 # Two cascaded biquad filters:
@@ -155,6 +158,7 @@ def _gated_lufs(
     return float(10.0 * np.log10(gated_mean + 1e-10))
 
 
+@register_analyzer
 class LoudnessAnalyzer(BaseAnalyzer):
     """EBU R128 loudness measurement.
 
@@ -166,21 +170,14 @@ class LoudnessAnalyzer(BaseAnalyzer):
     - Loudness Range (LRA) from short-term blocks (10th-95th percentile)
     """
 
-    name = "loudness"
-    capabilities = {"loudness"}
-    required_packages: list[str] = []
+    name: ClassVar[str] = "loudness"
+    capabilities: ClassVar[frozenset[str]] = frozenset({"loudness"})
+    required_packages: ClassVar[list[str]] = []
 
-    async def analyze(self, signal: AudioSignal) -> AnalyzerResult:
+    def _extract(self, ctx: AnalysisContext) -> dict[str, Any]:
         """Compute loudness metrics from audio signal."""
-        samples = signal.samples
-        sr = signal.sample_rate
-
-        if len(samples) == 0:
-            return AnalyzerResult(
-                analyzer_name=self.name,
-                success=False,
-                error="Empty audio signal",
-            )
+        samples = ctx.samples
+        sr = ctx.sr
 
         # ── K-weighting ──────────────────────────────────────
         try:
@@ -241,15 +238,12 @@ class LoudnessAnalyzer(BaseAnalyzer):
         else:
             loudness_range_lu = 0.0
 
-        return AnalyzerResult(
-            analyzer_name=self.name,
-            features={
-                "integrated_lufs": integrated_lufs,
-                "short_term_lufs_mean": short_term_lufs_mean,
-                "momentary_max": momentary_max,
-                "rms_dbfs": rms_dbfs,
-                "true_peak_db": true_peak_db,
-                "crest_factor_db": crest_factor_db,
-                "loudness_range_lu": loudness_range_lu,
-            },
-        )
+        return {
+            "integrated_lufs": integrated_lufs,
+            "short_term_lufs_mean": short_term_lufs_mean,
+            "momentary_max": momentary_max,
+            "rms_dbfs": rms_dbfs,
+            "true_peak_db": true_peak_db,
+            "crest_factor_db": crest_factor_db,
+            "loudness_range_lu": loudness_range_lu,
+        }

@@ -114,3 +114,30 @@ class TestAnalyzerRegistry:
         registry.register(ManualTestAnalyzer())
         assert registry.get("_test_manual") is not None
         assert registry.list_all() == ["_test_manual"]
+
+
+class TestAnalyzerRegistryDiscover:
+    """These tests require @register_analyzer on real analyzers (Task 7)."""
+
+    def test_discover_finds_core_analyzers(self) -> None:
+        registry = AnalyzerRegistry()
+        registry.discover()
+        available = registry.list_available()
+        assert "loudness" in available
+        assert "energy" in available
+        assert "spectral" in available
+        assert "structure" in available
+
+    def test_get_returns_instance(self) -> None:
+        registry = AnalyzerRegistry()
+        registry.discover()
+        analyzer = registry.get("loudness")
+        assert analyzer is not None
+        assert analyzer.name == "loudness"
+
+    def test_list_all_includes_optional(self) -> None:
+        """If librosa is installed, optional analyzers should be listed."""
+        registry = AnalyzerRegistry()
+        registry.discover()
+        all_names = registry.list_all()
+        assert len(all_names) >= 4
