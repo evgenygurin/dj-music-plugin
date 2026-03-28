@@ -299,3 +299,51 @@ async def test_pipeline_populates_beat_loudness_when_beats_available(tmp_path):
         vec = result.features["beat_loudness_band_ratio"]
         assert isinstance(vec, list)
         assert len(vec) == 6
+
+
+async def test_pipeline_discovers_p2_analyzers():
+    """Auto-discovery finds P2 analyzers."""
+    from app.audio.analyzers.base import AnalyzerRegistry
+
+    registry = AnalyzerRegistry()
+    registry.discover()
+    available = set(registry.list_available())
+
+    p2_names = {"spectral_complexity", "pitch_salience", "bpm_histogram", "phrase"}
+    discovered = p2_names & available
+    assert len(discovered) > 0, f"No P2 analyzers discovered. Available: {available}"
+
+
+def test_scoring_parity_without_p2():
+    """Tracks without P2 features produce valid scores (no crash, no NaN)."""
+    from app.core.track_features import TrackFeatures
+    from app.services.transition import TransitionScorer
+
+    scorer = TransitionScorer()
+    a = TrackFeatures(
+        bpm=130.0,
+        key_code=0,
+        integrated_lufs=-8.0,
+        spectral_centroid_hz=2000.0,
+        spectral_flatness=0.2,
+        energy_mean=0.5,
+        onset_rate=4.0,
+        kick_prominence=0.5,
+        hnr_db=5.0,
+        chroma_entropy=3.0,
+    )
+    b = TrackFeatures(
+        bpm=132.0,
+        key_code=1,
+        integrated_lufs=-9.0,
+        spectral_centroid_hz=2200.0,
+        spectral_flatness=0.25,
+        energy_mean=0.55,
+        onset_rate=4.2,
+        kick_prominence=0.6,
+        hnr_db=6.0,
+        chroma_entropy=3.5,
+    )
+    score = scorer.score(a, b)
+    assert 0.0 <= score.overall <= 1.0
+    assert not score.hard_reject
