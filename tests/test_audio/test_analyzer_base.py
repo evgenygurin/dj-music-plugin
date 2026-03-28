@@ -116,6 +116,70 @@ class TestAnalyzerRegistry:
         assert registry.list_all() == ["_test_manual"]
 
 
+@pytest.fixture
+def sine_signal() -> AudioSignal:
+    t = np.linspace(0, 2.0, int(22050 * 2.0), endpoint=False)
+    samples = (0.5 * np.sin(2 * np.pi * 440 * t)).astype(np.float32)
+    return AudioSignal(samples=samples, sample_rate=22050, duration_seconds=2.0)
+
+
+def test_depends_on_default_is_empty():
+    """BaseAnalyzer.depends_on defaults to empty frozenset."""
+
+    @register_analyzer
+    class NoDepsAnalyzer(BaseAnalyzer):
+        name: ClassVar[str] = "_test_no_deps"
+        capabilities: ClassVar[frozenset[str]] = frozenset()
+        required_packages: ClassVar[list[str]] = []
+
+        def _extract(self, ctx: AnalysisContext) -> dict[str, Any]:
+            return {"val": 1}
+
+    assert NoDepsAnalyzer.depends_on == frozenset()
+
+
+def test_run_passes_prior_results_to_dependent_analyzer(sine_signal: AudioSignal):
+    """run() passes prior_results to _extract when depends_on is set."""
+
+    @register_analyzer
+    class _DepAnalyzer(BaseAnalyzer):
+        name: ClassVar[str] = "_test_dep"
+        capabilities: ClassVar[frozenset[str]] = frozenset()
+        required_packages: ClassVar[list[str]] = []
+        depends_on: ClassVar[frozenset[str]] = frozenset({"beat"})
+
+        def _extract(
+            self, ctx: AnalysisContext, *, prior_results: dict[str, Any] | None = None
+        ) -> dict[str, Any]:
+            val = (prior_results or {}).get("beat_times", [])
+            return {"got_beats": len(val) > 0}
+
+    analyzer = _DepAnalyzer()
+    ctx = AnalysisContext(sine_signal)
+    result = analyzer.run(ctx, {"beat_times": [0.5, 1.0, 1.5]})
+    assert result.success
+    assert result.features["got_beats"] is True
+
+
+def test_run_does_not_pass_prior_results_to_independent_analyzer(sine_signal: AudioSignal):
+    """run() calls _extract(ctx) without prior_results for independent analyzers."""
+
+    @register_analyzer
+    class _IndepAnalyzer(BaseAnalyzer):
+        name: ClassVar[str] = "_test_indep"
+        capabilities: ClassVar[frozenset[str]] = frozenset()
+        required_packages: ClassVar[list[str]] = []
+
+        def _extract(self, ctx: AnalysisContext) -> dict[str, Any]:
+            return {"independent": True}
+
+    analyzer = _IndepAnalyzer()
+    ctx = AnalysisContext(sine_signal)
+    result = analyzer.run(ctx, {"beat_times": [0.5, 1.0]})  # prior_results ignored
+    assert result.success
+    assert result.features["independent"] is True
+
+
 class TestAnalyzerRegistryDiscover:
     """These tests require @register_analyzer on real analyzers (Task 7)."""
 

@@ -44,16 +44,23 @@ class BaseAnalyzer(ABC):
     name: ClassVar[str] = ""
     capabilities: ClassVar[frozenset[str]] = frozenset()
     required_packages: ClassVar[list[str]] = []
+    depends_on: ClassVar[frozenset[str]] = frozenset()
 
-    def run(self, ctx: AnalysisContext) -> AnalyzerResult:
+    def run(
+        self, ctx: AnalysisContext, prior_results: dict[str, Any] | None = None
+    ) -> AnalyzerResult:
         """Template Method — guard + delegate. Synchronous (CPU-bound).
 
         Called via asyncio.to_thread() by pipeline for parallelism.
+        Dependent analyzers (with depends_on) receive prior_results from Phase 1.
         """
         if len(ctx.samples) == 0:
             return AnalyzerResult(analyzer_name=self.name, success=False, error="Empty signal")
         try:
-            features = self._extract(ctx)
+            if self.depends_on:
+                features = self._extract(ctx, prior_results=prior_results or {})  # type: ignore[call-arg]
+            else:
+                features = self._extract(ctx)
             return AnalyzerResult(analyzer_name=self.name, features=features)
         except Exception as e:
             logger.warning("Analyzer %s failed: %s", self.name, e)
