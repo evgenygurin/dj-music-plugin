@@ -40,6 +40,61 @@ KEY_NAMES = [
 ]
 
 
+def _compute_hnr_autocorrelation(samples: np.ndarray, sr: int) -> float:
+    """Compute Harmonic-to-Noise Ratio via autocorrelation (Boersma 1993).
+
+    Standard method used in Praat and essentia:
+    1. Compute autocorrelation of windowed signal
+    2. Find peak in valid pitch range (50-500 Hz for music)
+    3. HNR = 10 * log10(peak / (1 - peak))
+
+    Returns HNR in dB. Typical range: -10 to +30 dB.
+    Techno tracks: usually 0-15 dB.
+    """
+    # Use ~50ms frames for autocorrelation
+    frame_len = int(0.05 * sr)
+    if len(samples) < frame_len:
+        return 0.0
+
+    # Analyze multiple frames and average
+    hop = frame_len // 2
+    n_frames = min(50, max(1, (len(samples) - frame_len) // hop))
+    hnr_values: list[float] = []
+
+    # Pitch range for music: 50-500 Hz → lag range
+    min_lag = max(1, sr // 500)  # 500 Hz
+    max_lag = min(frame_len - 1, sr // 50)  # 50 Hz
+
+    for i in range(n_frames):
+        start = i * hop
+        frame = samples[start : start + frame_len]
+
+        # Apply Hann window
+        window = np.hanning(len(frame))
+        windowed = frame * window
+
+        # Normalized autocorrelation
+        acf = np.correlate(windowed, windowed, mode="full")
+        acf = acf[len(acf) // 2 :]  # positive lags only
+        if acf[0] == 0:
+            continue
+        acf = acf / acf[0]  # normalize
+
+        # Find peak in pitch range
+        if max_lag > min_lag and max_lag < len(acf):
+            search_region = acf[min_lag:max_lag]
+            if len(search_region) > 0:
+                peak = float(np.max(search_region))
+                peak = max(0.0, min(0.9999, peak))  # clamp
+                hnr = 10.0 * np.log10(peak / (1.0 - peak + 1e-10))
+                hnr_values.append(float(hnr))
+
+    if not hnr_values:
+        return 0.0
+
+    return round(float(np.mean(hnr_values)), 2)
+
+
 class KeyDetector(BaseAnalyzer):
     """Musical key detection using chroma features."""
 
@@ -92,17 +147,16 @@ class KeyDetector(BaseAnalyzer):
 
         confidence = max(0.0, min(1.0, (best_corr + 1.0) / 2.0))
 
-        # Chroma entropy (measure of atonality)
+        # Chroma entropy (measure of atonality), normalized to 0-1
+        # Max entropy for 12 bins (uniform distribution) = log2(12) ≈ 3.585
         chroma_norm = chroma_mean / (np.sum(chroma_mean) + 1e-10)
-        chroma_entropy = float(-np.sum(chroma_norm * np.log2(chroma_norm + 1e-10)))
-        atonality = chroma_entropy > 3.3  # high entropy = atonal
+        raw_entropy = float(-np.sum(chroma_norm * np.log2(chroma_norm + 1e-10)))
+        chroma_entropy = raw_entropy / float(np.log2(12))  # 0-1 normalized
+        atonality = chroma_entropy > 0.92  # ~3.3/3.585 on original scale
 
-        # HNR (harmonic-to-noise ratio) approximation
-        # Using spectral flatness as proxy
-        s_mag = np.abs(librosa.stft(samples))
-        flatness = librosa.feature.spectral_flatness(S=s_mag)
-        avg_flatness = float(np.mean(flatness))
-        hnr_db = float(-10.0 * np.log10(avg_flatness + 1e-10))
+        # HNR (harmonic-to-noise ratio) via autocorrelation (Boersma 1993)
+        # Standard method: find peak in autocorrelation, compute ratio
+        hnr_db = _compute_hnr_autocorrelation(samples, sr)
 
         return AnalyzerResult(
             analyzer_name=self.name,

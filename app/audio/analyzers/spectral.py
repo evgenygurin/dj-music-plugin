@@ -158,10 +158,10 @@ class SpectralAnalyzer(BaseAnalyzer):
             # Spectral contrast (mean peak-valley difference across bands)
             contrast_list.append(_compute_spectral_contrast_frame(magnitude, freqs))
 
-            # Spectral flux
+            # Spectral flux (L2-norm, normalized by bin count — matches essentia Flux)
             if prev_magnitude is not None:
                 diff = magnitude - prev_magnitude
-                flux = float(np.sum(diff**2))
+                flux = float(np.linalg.norm(diff) / (len(diff) + 1e-10))
                 flux_list.append(flux)
             prev_magnitude = magnitude.copy()
 
