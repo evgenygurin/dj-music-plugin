@@ -145,22 +145,32 @@ class AnalyzerResult:
 
 ### 5.2 Analysis Context (`core/context.py`)
 
-Lazy-computed shared intermediates. Pattern from SigFeat/librosa.
+Eagerly-computed shared intermediates. Pattern from SigFeat/librosa.
 
-Each property computes on first access, caches for subsequent analyzers.
-All analyzers in a pipeline run share the same context instance.
+All shared intermediates are computed upfront in `__init__`, then shared
+read-only across all analyzers in a pipeline run.
 
-**Lazy properties:**
+**Computed properties:**
 - `stft` — windowed STFT matrix (used by spectral, energy band decomposition, key)
 - `magnitude` — `|STFT|` (used by spectral features, band energy)
 - `freqs` — FFT frequency bins (used by spectral, energy)
 - `frame_energies` — normalized short-time energy array (used by energy, structure)
 
-**Thread safety:** Context is created per-track, used within one async task.
-No concurrent mutation concerns since lazy properties are computed once.
+**Why eager, not lazy:** Analyzers run in parallel via thread pool (see 5.8).
+Lazy properties would create check-then-act race conditions under concurrent
+access. Since all analyzers need STFT/magnitude anyway, eager computation
+eliminates the race without meaningful overhead.
+
+**Thread safety:** All properties are computed once in `__init__`, then
+read-only. Multiple threads can safely read the same `AnalysisContext`.
 
 **Memory:** For a 60s track at 22050 Hz: STFT ~4 MB, frame_energies ~10 KB.
 Acceptable for offline analysis.
+
+**Sample rate assumption:** Context assumes `AudioLoader` has already
+resampled to the target sample rate (default 22050 Hz). STFT with
+`frame_length=2048` at 22050 Hz gives Nyquist of 11025 Hz — sufficient
+for all analyzers including spectral contrast bands up to 11025 Hz.
 
 ### 5.3 Audio Loader (`core/loader.py`)
 
@@ -180,6 +190,9 @@ class AudioLoader:
 ```
 
 Injected into `AnalysisPipeline` constructor (Dependency Inversion).
+
+`target_sr` is passed as constructor parameter, NOT read from `settings` —
+keeps `core/` free of `app/` dependencies. Callers pass `settings.audio_sample_rate`.
 
 ### 5.4 DSP Primitives (`core/framing.py`, `core/spectral.py`)
 
@@ -215,31 +228,47 @@ class BaseAnalyzer(ABC):
     capabilities: ClassVar[frozenset[str]] = frozenset()  # immutable (was mutable set)
     required_packages: ClassVar[list[str]] = []
 
-    async def analyze(self, ctx: AnalysisContext) -> AnalyzerResult:
-        """Template Method — guard + delegate."""
+    def run(self, ctx: AnalysisContext) -> AnalyzerResult:
+        """Template Method — guard + delegate. Synchronous (CPU-bound).
+
+        Called via asyncio.to_thread() by pipeline for parallelism.
+        """
         if len(ctx.samples) == 0:
             return AnalyzerResult(analyzer_name=self.name, success=False, error="Empty signal")
         try:
-            features = await self._extract(ctx)
+            features = self._extract(ctx)
             return AnalyzerResult(analyzer_name=self.name, features=features)
         except Exception as e:
             return AnalyzerResult(analyzer_name=self.name, success=False, error=str(e))
 
     @abstractmethod
-    async def _extract(self, ctx: AnalysisContext) -> dict[str, Any]: ...
+    def _extract(self, ctx: AnalysisContext) -> dict[str, Any]:
+        """Subclass implements. Synchronous — pure computation, no I/O."""
+        ...
 
 class AnalyzerRegistry:
     def discover(self) -> None:
-        """Auto-scan analyzers/ package. No hardcoded imports."""
+        """Auto-scan analyzers/ package. No hardcoded imports.
+
+        Wraps each import in try/except to handle optional dependencies
+        (librosa-based analyzers: bpm, key, beat, mfcc).
+        """
         import importlib, pkgutil
         import app.audio.analyzers as pkg
         for info in pkgutil.iter_modules(pkg.__path__):
-            if info.name != "base":
+            if info.name in ("base", "__init__"):
+                continue
+            try:
                 importlib.import_module(f"app.audio.analyzers.{info.name}")
+            except ImportError:
+                pass  # Optional dependency (librosa, scipy) not installed
         for name, cls in _ANALYZER_REGISTRY.items():
-            instance = cls()
-            if instance.is_available():
-                self._analyzers[name] = instance
+            try:
+                instance = cls()
+                if instance.is_available():
+                    self._analyzers[name] = instance
+            except ImportError:
+                pass  # Optional dependency not installed — skip silently
 ```
 
 ### 5.6 Analyzer Migration
@@ -259,7 +288,18 @@ Each analyzer changes from `analyze(signal: AudioSignal)` to `_extract(ctx: Anal
 | `beat.py` | librosa HPSS + onset detection | Uses `ctx.samples`, `ctx.sr` |
 | `mfcc.py` | librosa MFCC | Uses `ctx.samples`, `ctx.sr` |
 
-All analyzers: remove empty signal guard (handled by `BaseAnalyzer.analyze()`), add `@register_analyzer` decorator, change signature to `_extract(self, ctx) -> dict`.
+All analyzers: remove empty signal guard (handled by `BaseAnalyzer.run()`),
+add `@register_analyzer` decorator, change from `async def analyze(signal) -> AnalyzerResult`
+to synchronous `def _extract(ctx) -> dict` (CPU-bound, no I/O).
+
+**Note on `settings` in analyzers:** Analyzers that use `settings` (e.g.,
+`beat.py` uses `settings.audio_beat_analysis_duration`, `mfcc.py` uses
+`settings.audio_mfcc_n_coeffs`) keep those imports. Only `core/` is
+app-dependency-free. Analyzers are Layer 2 and may depend on `app.config`.
+
+**Note on `FrameParams` scope:** `FrameParams` applies to STFT-based analyzers
+(energy, spectral, structure). `LoudnessAnalyzer` uses its own windowing
+(400ms/3s EBU R128 windows) and is unaffected by `FrameParams`.
 
 ### 5.7 Classification (`classification/`)
 
@@ -300,10 +340,21 @@ class MoodClassifier:
 
 ### 5.8 Pipeline Refactoring
 
-**Three changes:**
+**Four changes:**
 1. `AudioLoader` injected (was inline `_load_audio`)
-2. `AnalysisContext` created once per track
-3. `asyncio.gather()` for parallel execution (was sequential `for` loop)
+2. `AnalysisContext` created once per track (eager computation)
+3. `asyncio.to_thread()` for true parallel execution of CPU-bound analyzers
+4. `PipelineResult` stays in `pipeline.py` (not moved to `core/types.py`)
+
+**Why `asyncio.to_thread`, not `asyncio.gather`:** All 8 analyzers are CPU-bound
+(numpy FFT, matrix ops, librosa calls). None contain `await` in their computation.
+Plain `asyncio.gather` would execute them sequentially — identical to the current
+`for` loop. `asyncio.to_thread()` offloads each analyzer to the default thread pool,
+achieving true parallelism for numpy/C-extension work that releases the GIL.
+
+Analyzers expose synchronous `_extract(ctx) -> dict` (no async needed for pure
+computation). `BaseAnalyzer.run(ctx)` wraps it synchronously. Pipeline dispatches
+via `asyncio.to_thread(a.run, ctx)`.
 
 ```python
 class AnalysisPipeline:
@@ -314,9 +365,12 @@ class AnalysisPipeline:
     async def analyze(self, file_path, analyzers=None, max_duration=None) -> PipelineResult:
         signal = await self._loader.load(file_path)
         # clip if needed ...
-        ctx = AnalysisContext(signal)
+        ctx = AnalysisContext(signal)  # eager: STFT, magnitude, freqs computed here
         instances = [self._registry.get(n) for n in names if ...]
-        results = await asyncio.gather(*(a.analyze(ctx) for a in instances))
+        # True parallelism — CPU-bound work offloaded to thread pool
+        results = await asyncio.gather(
+            *(asyncio.to_thread(a.run, ctx) for a in instances)
+        )
         # collect + merge ...
 ```
 
@@ -350,8 +404,8 @@ class AnalysisPipeline:
 | Duplicated lines (FFT/windowing) | 18 | 0 |
 | Duplicated guard checks | 8 | 1 (BaseAnalyzer) |
 | Hardcoded `2048/512` | 3 files | 1 (`FrameParams`) |
-| Files in `app/audio/` | 10 flat | 16 structured (3 subdirs) |
-| Pipeline execution | Sequential | Parallel (`asyncio.gather`) |
+| Files in `app/audio/` | 16 flat (+ 2 dirs) | 18 structured (3 subdirs) |
+| Pipeline execution | Sequential | Parallel (`asyncio.to_thread`) |
 | Steps to add new analyzer | Edit `discover()` + new file | New file + `@register_analyzer` |
 | Data lines in classifier | 122 (inline dict) | 0 (separate `profiles.py`) |
 | Mutable class attrs | `set()`, `list` | `frozenset()`, `ClassVar` |
@@ -360,24 +414,42 @@ class AnalysisPipeline:
 
 Refactoring order to keep tests green at each step:
 
-1. **Create `core/`** — extract types, framing, spectral, loader. Old code still works.
-2. **Create `analyzers/base.py`** — BaseAnalyzer + registry + decorator. Old analyzers untouched.
-3. **Migrate analyzers one by one** — each gets `@register_analyzer`, `_extract(ctx)`, uses `core/`. Run tests after each.
-4. **Create `classification/`** — extract profiles, classifier. Old import paths still work.
-5. **Refactor `pipeline.py`** — inject loader, create context, parallel execution.
-6. **Update services** — change import paths, add `AudioLoader()`.
-7. **Delete old files** — `registry.py`, `mood.py`.
-8. **Update tests** — new import paths, test context sharing.
+1. **Create `core/`** — extract types, framing, spectral, loader. Add re-export
+   aliases in old `registry.py` so existing imports still work. Tests green.
+2. **Create `analyzers/base.py`** — new BaseAnalyzer + registry + decorator.
+   Old `registry.py` re-exports new classes for backward compat. Tests green.
+3. **Migrate ALL 8 analyzers in one step** — they are small (40-250 lines each)
+   and share the same API change (`async analyze(signal)` -> `def _extract(ctx)`).
+   Migrating one-by-one is impractical: old and new analyzers have incompatible
+   base classes. Run full test suite after. Tests may need import path updates.
+4. **Create `classification/`** — extract profiles + classifier. Add re-export
+   alias in old `mood.py` for backward compat. Update `test_mood.py` assertions
+   to handle new `MoodResult.top_matches` field. Tests green.
+5. **Refactor `pipeline.py`** — inject loader, create eager context,
+   `asyncio.to_thread()` dispatch. `PipelineResult` stays in `pipeline.py`.
+6. **Update services** — change import paths, add `AudioLoader(settings.audio_sample_rate)`.
+7. **Update tests** (~15 import statements across 7+ test files):
+   - `from app.audio.registry import AudioSignal` -> `from app.audio.core import AudioSignal`
+   - `from app.audio.mood import MoodClassifier` -> `from app.audio.classification import MoodClassifier`
+   - `from app.audio.registry import AnalyzerRegistry` -> `from app.audio.analyzers import AnalyzerRegistry`
+   - Add tests for `AnalysisContext` eager computation.
+   - Add tests for `@register_analyzer` auto-discovery.
+   - Verify `MoodResult.top_matches` in mood tests.
+8. **Delete old files** — `registry.py`, `mood.py` (after all imports updated).
+9. **Clean up** — remove re-export aliases, update `CLAUDE.md` files in `app/audio/`.
 
 ## 9. Risks
 
 | Risk | Mitigation |
 |------|------------|
-| `asyncio.gather` changes error behavior | Each analyzer wrapped in try/except by Template Method |
-| Lazy context thread safety | Context is per-track, single async task — no concurrency issue |
-| `pkgutil.iter_modules` misses files | Fallback: explicit import list as safety net |
+| `asyncio.to_thread` + shared context | Context is eager (computed in `__init__`), read-only during analysis — no race |
+| `pkgutil.iter_modules` + optional deps | Each import wrapped in `try/except ImportError` |
+| `pkgutil.iter_modules` misses files | Fallback: explicit import list as safety net in `discover()` |
 | Breaking service imports | Step 6 updates all 4 consumers; grep verifies completeness |
 | STFT parameters differ between analyzers | Currently identical (2048/512) — `FrameParams` centralizes |
+| `core/spectral.py` naming clash with `analyzers/spectral.py` | Both use absolute imports — no ambiguity. Consider renaming to `core/spectral_ops.py` if confusing |
+| Test migration scope | ~15 import changes across 7+ files, step 7 details all paths |
+| `FrameParams` applied to LoudnessAnalyzer | Documented: `FrameParams` is for STFT-based analyzers only, loudness uses own EBU R128 windows |
 
 ## 10. Research References
 
