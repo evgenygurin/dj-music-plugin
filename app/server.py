@@ -95,7 +95,7 @@ async def ym_lifespan(server):  # type: ignore[no-untyped-def]
 @lifespan
 async def analyzer_lifespan(server):  # type: ignore[no-untyped-def]
     """Audio analyzer registry lifecycle."""
-    from app.audio.registry import AnalyzerRegistry
+    from app.audio.analyzers import AnalyzerRegistry
 
     registry = AnalyzerRegistry()
     registry.discover()

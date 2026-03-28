@@ -15,10 +15,12 @@ energy (0-1 normalized), confidence.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Any, ClassVar
 
 import numpy as np
 
-from app.audio.registry import AnalyzerResult, AudioSignal, BaseAnalyzer
+from app.audio.analyzers.base import BaseAnalyzer, register_analyzer
+from app.audio.core.context import AnalysisContext
 from app.core.constants import SectionType
 
 # Minimum segment duration in seconds — prevents tiny fragments
@@ -46,62 +48,44 @@ class _Segment:
     energy: float  # mean energy for this segment (0-1 normalized)
 
 
+@register_analyzer
 class StructureAnalyzer(BaseAnalyzer):
     """Track structure segmentation using energy-based novelty detection.
 
     Core analyzer (numpy only, no librosa required).
     """
 
-    name = "structure"
-    capabilities = {"structure"}
-    required_packages: list[str] = []
+    name: ClassVar[str] = "structure"
+    capabilities: ClassVar[frozenset[str]] = frozenset({"structure"})
+    required_packages: ClassVar[list[str]] = []
 
-    async def analyze(self, signal: AudioSignal) -> AnalyzerResult:
+    def _extract(self, ctx: AnalysisContext) -> dict[str, Any]:
         """Detect structural sections from audio signal."""
-        samples = signal.samples
-        sr = signal.sample_rate
+        sr = ctx.sr
 
-        if len(samples) == 0:
-            return AnalyzerResult(
-                analyzer_name=self.name,
-                success=False,
-                error="Empty audio signal",
-            )
+        hop_length = ctx.params.hop_length
 
-        frame_length = 2048
-        hop_length = 512
-        n_frames = max(1, (len(samples) - frame_length) // hop_length + 1)
+        # ── Step 1: Use pre-computed normalized frame energies ──
+        norm_energies = ctx.frame_energies
+        n_frames = len(norm_energies)
 
-        # ── Step 1: Compute frame-level energy ──
-        frame_energies = np.zeros(n_frames, dtype=np.float64)
-        for i in range(n_frames):
-            start = i * hop_length
-            end = min(start + frame_length, len(samples))
-            frame = samples[start:end]
-            frame_energies[i] = float(np.mean(frame**2))
-
-        # Normalize to [0, 1]
-        max_energy = float(np.max(frame_energies))
-        if max_energy > 0:
-            norm_energies = frame_energies / max_energy
-        else:
+        # Check for silent signal (all zeros)
+        max_energy = float(np.max(norm_energies))
+        if max_energy == 0:
             # Silent signal — return single ambient section
-            duration_ms = int(signal.duration_seconds * 1000)
-            return AnalyzerResult(
-                analyzer_name=self.name,
-                features={
-                    "sections": [
-                        {
-                            "section_type": SectionType.AMBIENT,
-                            "start_ms": 0,
-                            "end_ms": duration_ms,
-                            "energy": 0.0,
-                            "confidence": 1.0,
-                        }
-                    ],
-                    "section_count": 1,
-                },
-            )
+            duration_ms = int(ctx.duration * 1000)
+            return {
+                "sections": [
+                    {
+                        "section_type": SectionType.AMBIENT,
+                        "start_ms": 0,
+                        "end_ms": duration_ms,
+                        "energy": 0.0,
+                        "confidence": 1.0,
+                    }
+                ],
+                "section_count": 1,
+            }
 
         # ── Step 2: Smooth energy curve (moving average) ──
         smooth_window = max(1, int(2.0 * sr / hop_length))  # ~2 seconds
@@ -144,22 +128,19 @@ class StructureAnalyzer(BaseAnalyzer):
             segments.append(_Segment(start_frame=seg_start, end_frame=seg_end, energy=seg_energy))
 
         if not segments:
-            duration_ms = int(signal.duration_seconds * 1000)
-            return AnalyzerResult(
-                analyzer_name=self.name,
-                features={
-                    "sections": [
-                        {
-                            "section_type": SectionType.SUSTAIN,
-                            "start_ms": 0,
-                            "end_ms": duration_ms,
-                            "energy": float(np.mean(smoothed)),
-                            "confidence": 0.5,
-                        }
-                    ],
-                    "section_count": 1,
-                },
-            )
+            duration_ms = int(ctx.duration * 1000)
+            return {
+                "sections": [
+                    {
+                        "section_type": SectionType.SUSTAIN,
+                        "start_ms": 0,
+                        "end_ms": duration_ms,
+                        "energy": float(np.mean(smoothed)),
+                        "confidence": 0.5,
+                    }
+                ],
+                "section_count": 1,
+            }
 
         # ── Step 6: Classify each segment by energy + position ──
         mean_energy = float(np.mean(smoothed))
@@ -176,7 +157,7 @@ class StructureAnalyzer(BaseAnalyzer):
             start_ms = int(seg.start_frame * hop_length / sr * 1000)
             end_ms = int(seg.end_frame * hop_length / sr * 1000)
             # Clamp end_ms to actual duration
-            end_ms = min(end_ms, int(signal.duration_seconds * 1000))
+            end_ms = min(end_ms, int(ctx.duration * 1000))
 
             sections.append(
                 {
@@ -188,13 +169,10 @@ class StructureAnalyzer(BaseAnalyzer):
                 }
             )
 
-        return AnalyzerResult(
-            analyzer_name=self.name,
-            features={
-                "sections": sections,
-                "section_count": len(sections),
-            },
-        )
+        return {
+            "sections": sections,
+            "section_count": len(sections),
+        }
 
     @staticmethod
     def _classify_segment(

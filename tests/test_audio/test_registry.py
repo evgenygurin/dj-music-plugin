@@ -2,31 +2,33 @@
 
 from __future__ import annotations
 
-import pytest
+from typing import Any, ClassVar
 
-from app.audio.registry import AnalyzerRegistry, AnalyzerResult, AudioSignal, BaseAnalyzer
+from app.audio.analyzers import AnalyzerRegistry, BaseAnalyzer
+from app.audio.core import AudioSignal
+from app.audio.core.context import AnalysisContext
 
 
 class DummyAnalyzer(BaseAnalyzer):
     """Analyzer that always succeeds."""
 
-    name = "dummy"
-    capabilities = {"test"}
-    required_packages: list[str] = []
+    name: ClassVar[str] = "dummy"
+    capabilities: ClassVar[frozenset[str]] = frozenset({"test"})
+    required_packages: ClassVar[list[str]] = []
 
-    async def analyze(self, signal: AudioSignal) -> AnalyzerResult:
-        return AnalyzerResult(analyzer_name=self.name, features={"value": 42})
+    def _extract(self, ctx: Any) -> dict[str, Any]:
+        return {"value": 42}
 
 
 class UnavailableAnalyzer(BaseAnalyzer):
     """Analyzer whose dependency is never installed."""
 
-    name = "unavailable"
-    capabilities = {"test"}
-    required_packages = ["nonexistent_package_xyz_999"]
+    name: ClassVar[str] = "unavailable"
+    capabilities: ClassVar[frozenset[str]] = frozenset({"test"})
+    required_packages: ClassVar[list[str]] = ["nonexistent_package_xyz_999"]
 
-    async def analyze(self, signal: AudioSignal) -> AnalyzerResult:
-        return AnalyzerResult(analyzer_name=self.name)
+    def _extract(self, ctx: Any) -> dict[str, Any]:
+        return {}
 
 
 class TestBaseAnalyzer:
@@ -80,9 +82,8 @@ class TestAnalyzerRegistry:
         assert "spectral" in available
 
 
-@pytest.mark.asyncio
 class TestDummyAnalyzer:
-    async def test_analyze(self) -> None:
+    def test_run(self) -> None:
         import numpy as np
 
         analyzer = DummyAnalyzer()
@@ -91,6 +92,6 @@ class TestDummyAnalyzer:
             sample_rate=22050,
             duration_seconds=1000 / 22050,
         )
-        result = await analyzer.analyze(signal)
+        result = analyzer.run(AnalysisContext(signal))
         assert result.success is True
         assert result.features["value"] == 42

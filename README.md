@@ -5,13 +5,13 @@ MCP-сервер для управления личной DJ techno библио
 ## Возможности
 
 - **50 MCP tools** в 12 категориях (46 visible + 4 hidden atomic)
-- **Audio analysis pipeline** — 7 анализаторов: BPM, тональность, энергия, спектр, beat, MFCC (3 numpy + 4 librosa)
+- **Audio analysis pipeline** — 8 анализаторов в layered architecture с параллельным выполнением через `asyncio.to_thread`
 - **DJ set generation** — генетический алгоритм + greedy builder с transition scoring
 - **Transition scoring** — 5-компонентная оценка с persist в DB (BPM, гармония, энергия, спектр, грув)
 - **Yandex Music интеграция** — поиск, импорт, скачивание MP3, синхронизация, расширение плейлистов
 - **Экспорт** — M3U8, Rekordbox XML, JSON guide, cheat sheet + копирование файлов
 - **Background tasks** — длинные операции через FastMCP Docket (expand, analyze, deliver)
-- **Mood classification** — 15 techno subgenres, правила сохраняются в DB
+- **Mood classification** — 15 techno subgenres с injectable Strategy profiles, Gaussian scoring
 
 ## Быстрый старт
 
@@ -40,11 +40,14 @@ uv run fastmcp run app/server.py
 ## Разработка
 
 ```bash
-uv run pytest -v                           # Тесты (630+)
+uv run pytest -v                           # Тесты (850+)
 uv run ruff check && uv run ruff format --check  # Линтер
 uv run mypy app/                           # Типы
 uv run alembic upgrade head                # Миграции
 make check                                 # Всё вместе
+
+# Верификация audio pipeline на реальном MP3
+uv run python scripts/verify_audio_pipeline.py [path/to/track.mp3]
 ```
 
 ## Архитектура
@@ -62,8 +65,36 @@ Models → Repositories → Services → MCP Tools (@tool)
 - `app/repositories/` — data access (flush only, never commit)
 - `app/services/` — business logic (TrackService, PlaylistService, TransitionScorer + `TrackFeatures.from_db()`, GA/Greedy optimizer)
 - `app/mcp/tools/` — thin MCP wrappers with Depends() DI
-- `app/audio/` — 7 analyzers (3 numpy core + 4 librosa optional)
+- `app/audio/` — layered audio analysis (see below)
 - `app/ym/` — async Yandex Music client (httpx, rate limiting)
+
+### Audio module (`app/audio/`)
+
+Layered architecture with GoF patterns:
+
+```text
+core/             ← L1: DSP primitives (0 app deps)
+  types.py           FrameParams, AudioSignal, AnalyzerResult
+  framing.py         frame energies, energy slope
+  spectral.py        STFT, band energies, centroid, rolloff
+  loader.py          AudioLoader (soundfile → librosa → wave)
+  context.py         AnalysisContext (eager STFT, thread-safe)
+
+analyzers/        ← L2: feature extractors
+  base.py            BaseAnalyzer (Template Method), @register_analyzer, Registry
+  beat, bpm, energy, key, loudness, mfcc, spectral, structure
+
+classification/   ← L2b: mood/subgenre
+  profiles.py        15 SubgenreProfile frozen dataclasses
+  classifier.py      MoodClassifier (Strategy pattern)
+
+pipeline.py       ← L3: orchestrator (asyncio.to_thread parallelism)
+```
+
+- **Template Method**: `BaseAnalyzer.run()` handles guard + error wrapping; subclass implements `_extract(ctx)`
+- **Registry**: `@register_analyzer` + `pkgutil.iter_modules()` auto-discovery — new analyzer = one file
+- **Strategy**: `MoodClassifier` accepts injectable `SubgenreProfile` sequence
+- **Eager context**: STFT/magnitude/freqs computed once, shared read-only — thread-safe by design
 
 **Middleware:** structured logging, timing, YM rate limiting, retry, error masking.
 
@@ -98,12 +129,12 @@ DJ_ANTHROPIC_API_KEY=sk-ant-...
 Полный цикл обработки трека:
 
 ```text
-import_tracks → download_tracks → analyze_track → classify_mood → build_set
-     ↓              ↓                   ↓              ↓              ↓
-  Track +       MP3 файл +         47 audio       15 subgenres   DJ set с
-  YM metadata   DjLibraryItem      features       + confidence   transition
-                (автоматически)    (BPM, key,                    scoring
-                                   LUFS, ...)
+import_tracks → download_tracks → analyze_track    → classify_mood → build_set
+     ↓              ↓                  ↓                   ↓              ↓
+  Track +       MP3 файл +      AudioLoader            15 subgenres   DJ set с
+  YM metadata   DjLibraryItem    → AnalysisContext      + confidence   transition
+                                 → 8 analyzers ∥                       scoring
+                                 → 47 features
 ```
 
 `download_tracks` автоматически создаёт `DjLibraryItem` записи — `analyze_track` сразу находит файлы.

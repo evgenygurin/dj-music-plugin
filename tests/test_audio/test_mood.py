@@ -15,11 +15,11 @@ from unittest.mock import patch
 
 import pytest
 
-from app.audio.mood import (
-    _CATCH_ALL_SUBGENRES,
-    SUBGENRE_PROFILES,
-    MoodClassifier,
-    MoodResult,
+from app.audio.classification import MoodClassifier, MoodResult
+from app.audio.classification.profiles import (
+    ALL_PROFILES,
+    CATCH_ALL_SUBGENRES,
+    SubgenreProfile,
 )
 from app.config import settings
 from app.core.constants import TechnoSubgenre
@@ -29,10 +29,15 @@ from app.core.constants import TechnoSubgenre
 # ---------------------------------------------------------------------------
 
 
+def _get_profile(subgenre: TechnoSubgenre) -> SubgenreProfile:
+    """Find a SubgenreProfile by subgenre enum value."""
+    return next(p for p in ALL_PROFILES if p.subgenre == subgenre)
+
+
 def _ideal_features_for(subgenre: TechnoSubgenre) -> dict[str, float]:
     """Build a feature dict with ideal values for a given subgenre profile."""
-    profile = SUBGENRE_PROFILES[subgenre]
-    return {name: ideal for name, (_weight, ideal, _tol) in profile.items()}
+    profile = _get_profile(subgenre)
+    return {name: target.ideal for name, target in profile.features.items()}
 
 
 def _make_classifier() -> MoodClassifier:
@@ -95,7 +100,9 @@ class TestSubgenreIdealProfiles:
         ids=[s.value for s in TechnoSubgenre],
     )
     def test_each_subgenre_has_profile(self, subgenre: TechnoSubgenre) -> None:
-        assert subgenre in SUBGENRE_PROFILES, f"Missing profile for {subgenre.value}"
+        assert subgenre in {p.subgenre for p in ALL_PROFILES}, (
+            f"Missing profile for {subgenre.value}"
+        )
 
     # Progressive shares ideal centroid/flux/energy with detroit, causing a tie
     # where sort order determines winner. Tested separately below.
@@ -106,12 +113,12 @@ class TestSubgenreIdealProfiles:
         [
             s
             for s in TechnoSubgenre
-            if s not in _CATCH_ALL_SUBGENRES and s != TechnoSubgenre.PROGRESSIVE
+            if s not in CATCH_ALL_SUBGENRES and s != TechnoSubgenre.PROGRESSIVE
         ],
         ids=[
             s.value
             for s in TechnoSubgenre
-            if s not in _CATCH_ALL_SUBGENRES and s != TechnoSubgenre.PROGRESSIVE
+            if s not in CATCH_ALL_SUBGENRES and s != TechnoSubgenre.PROGRESSIVE
         ],
     )
     def test_ideal_features_win_for_non_catchall(self, subgenre: TechnoSubgenre) -> None:
@@ -130,7 +137,8 @@ class TestSubgenreIdealProfiles:
         ideal features. We verify progressive scores perfectly at 1.0."""
         features = _ideal_features_for(TechnoSubgenre.PROGRESSIVE)
         classifier = _make_classifier()
-        raw = classifier._score_subgenre(TechnoSubgenre.PROGRESSIVE, features)
+        profile = _get_profile(TechnoSubgenre.PROGRESSIVE)
+        raw = classifier._score_profile(profile, features)
         assert raw == pytest.approx(1.0, abs=1e-6)
         # And it should be in top-2 at minimum after classify
         result = classifier.classify(features)
@@ -140,8 +148,8 @@ class TestSubgenreIdealProfiles:
 
     @pytest.mark.parametrize(
         "subgenre",
-        list(_CATCH_ALL_SUBGENRES),
-        ids=[s.value for s in _CATCH_ALL_SUBGENRES],
+        list(CATCH_ALL_SUBGENRES),
+        ids=[s.value for s in CATCH_ALL_SUBGENRES],
     )
     def test_ideal_features_top3_for_catchall(self, subgenre: TechnoSubgenre) -> None:
         """Catch-all subgenres with ideal features should be at least top-3
@@ -167,7 +175,7 @@ class TestCatchAllPenalty:
         assert {
             TechnoSubgenre.DRIVING,
             TechnoSubgenre.HYPNOTIC,
-        } == _CATCH_ALL_SUBGENRES
+        } == CATCH_ALL_SUBGENRES
 
     def test_penalty_reduces_driving_score(self) -> None:
         """Driving score after penalty should be penalty * raw_score."""
@@ -175,7 +183,8 @@ class TestCatchAllPenalty:
         features = _ideal_features_for(TechnoSubgenre.DRIVING)
 
         # Compute raw score manually for driving
-        raw_score = classifier._score_subgenre(TechnoSubgenre.DRIVING, features)
+        profile = _get_profile(TechnoSubgenre.DRIVING)
+        raw_score = classifier._score_profile(profile, features)
         result = classifier.classify(features)
         penalized_score = result.scores[TechnoSubgenre.DRIVING]
 
@@ -189,7 +198,8 @@ class TestCatchAllPenalty:
         classifier = _make_classifier()
         features = _ideal_features_for(TechnoSubgenre.HYPNOTIC)
 
-        raw_score = classifier._score_subgenre(TechnoSubgenre.HYPNOTIC, features)
+        profile = _get_profile(TechnoSubgenre.HYPNOTIC)
+        raw_score = classifier._score_profile(profile, features)
         result = classifier.classify(features)
         penalized_score = result.scores[TechnoSubgenre.HYPNOTIC]
 
@@ -202,7 +212,8 @@ class TestCatchAllPenalty:
         subgenre = TechnoSubgenre.HARD_TECHNO
         features = _ideal_features_for(subgenre)
 
-        raw_score = classifier._score_subgenre(subgenre, features)
+        profile = _get_profile(subgenre)
+        raw_score = classifier._score_profile(profile, features)
         result = classifier.classify(features)
         final_score = result.scores[subgenre]
 
@@ -216,7 +227,8 @@ class TestCatchAllPenalty:
         with patch.object(settings, "mood_catch_all_penalty", 0.5):
             result = classifier.classify(features)
 
-        raw_score = classifier._score_subgenre(TechnoSubgenre.DRIVING, features)
+        profile = _get_profile(TechnoSubgenre.DRIVING)
+        raw_score = classifier._score_profile(profile, features)
         assert result.scores[TechnoSubgenre.DRIVING] == pytest.approx(raw_score * 0.5, rel=1e-6)
 
 
@@ -280,14 +292,15 @@ class TestConfidence:
 
 
 class TestGaussianScoring:
-    """Test the _score_subgenre Gaussian similarity logic."""
+    """Test the _score_profile Gaussian similarity logic."""
 
     def test_ideal_value_gives_max_similarity(self) -> None:
         """When feature equals ideal, similarity = 1.0 (Gaussian peak)."""
         classifier = _make_classifier()
         subgenre = TechnoSubgenre.HARD_TECHNO
         features = _ideal_features_for(subgenre)
-        score = classifier._score_subgenre(subgenre, features)
+        profile = _get_profile(subgenre)
+        score = classifier._score_profile(profile, features)
         # All features at ideal -> each similarity = 1.0 -> score = 1.0
         assert score == pytest.approx(1.0, abs=1e-6)
 
@@ -303,7 +316,8 @@ class TestGaussianScoring:
             "loudness_range_lu": 25.0,
             "spectral_flux_mean": 0.1,
         }
-        score = classifier._score_subgenre(TechnoSubgenre.HARD_TECHNO, features)
+        profile = _get_profile(TechnoSubgenre.HARD_TECHNO)
+        score = classifier._score_profile(profile, features)
         assert score < 0.1
 
     def test_missing_features_ignored(self) -> None:
@@ -311,22 +325,24 @@ class TestGaussianScoring:
         classifier = _make_classifier()
         # Only provide one of many features for hard_techno
         features = {"energy_mean": 0.85}
-        score = classifier._score_subgenre(TechnoSubgenre.HARD_TECHNO, features)
+        profile = _get_profile(TechnoSubgenre.HARD_TECHNO)
+        score = classifier._score_profile(profile, features)
         # Should still compute a score from the one matching feature
         assert score > 0.0
 
     def test_score_symmetry_around_ideal(self) -> None:
         """Same distance above and below ideal should give same score."""
         classifier = _make_classifier()
-        profile = SUBGENRE_PROFILES[TechnoSubgenre.HARD_TECHNO]
-        _weight, ideal, tolerance = profile["energy_mean"]
+        profile = _get_profile(TechnoSubgenre.HARD_TECHNO)
+        target = profile.features["energy_mean"]
+        ideal, tolerance = target.ideal, target.tolerance
 
         offset = tolerance * 0.5  # half-tolerance offset
         features_above = {"energy_mean": ideal + offset}
         features_below = {"energy_mean": ideal - offset}
 
-        score_above = classifier._score_subgenre(TechnoSubgenre.HARD_TECHNO, features_above)
-        score_below = classifier._score_subgenre(TechnoSubgenre.HARD_TECHNO, features_below)
+        score_above = classifier._score_profile(profile, features_above)
+        score_below = classifier._score_profile(profile, features_below)
         # Gaussian is symmetric, but we have other features missing.
         # The score from energy_mean alone should be the same.
         assert score_above == pytest.approx(score_below, abs=1e-6)
@@ -334,13 +350,14 @@ class TestGaussianScoring:
     def test_score_decreases_with_distance(self) -> None:
         """Score should decrease as feature moves away from ideal."""
         classifier = _make_classifier()
-        profile = SUBGENRE_PROFILES[TechnoSubgenre.HARD_TECHNO]
-        _weight, ideal, _tolerance = profile["energy_mean"]
+        profile = _get_profile(TechnoSubgenre.HARD_TECHNO)
+        target = profile.features["energy_mean"]
+        ideal = target.ideal
 
         scores = []
         for offset in [0.0, 0.1, 0.2, 0.5]:
             features = {"energy_mean": ideal + offset}
-            s = classifier._score_subgenre(TechnoSubgenre.HARD_TECHNO, features)
+            s = classifier._score_profile(profile, features)
             scores.append(s)
 
         # Each successive score should be <= previous
@@ -351,10 +368,12 @@ class TestGaussianScoring:
 
     def test_no_profile_returns_zero(self) -> None:
         """A subgenre with empty profile (hypothetical) returns 0."""
-        classifier = _make_classifier()
-        # Temporarily patch an empty profile
-        with patch.dict(SUBGENRE_PROFILES, {TechnoSubgenre.HARD_TECHNO: {}}):
-            score = classifier._score_subgenre(TechnoSubgenre.HARD_TECHNO, {"energy_mean": 0.85})
+        empty_profile = SubgenreProfile(
+            subgenre=TechnoSubgenre.HARD_TECHNO,
+            features={},
+        )
+        classifier = MoodClassifier(profiles=[empty_profile])
+        score = classifier._score_profile(empty_profile, {"energy_mean": 0.85})
         assert score == 0.0
 
     def test_zero_weight_total_returns_zero(self) -> None:
@@ -362,7 +381,8 @@ class TestGaussianScoring:
         classifier = _make_classifier()
         # Provide features that don't match any hard_techno profile keys
         features = {"nonexistent_feature": 999.0}
-        score = classifier._score_subgenre(TechnoSubgenre.HARD_TECHNO, features)
+        profile = _get_profile(TechnoSubgenre.HARD_TECHNO)
+        score = classifier._score_profile(profile, features)
         assert score == 0.0
 
 
@@ -516,22 +536,26 @@ class TestSubgenreDiscrimination:
         _make_classifier().classify(features)
         # Compare raw scores before penalty
         classifier = _make_classifier()
-        raw_hypnotic = classifier._score_subgenre(TechnoSubgenre.HYPNOTIC, features)
-        raw_breakbeat = classifier._score_subgenre(TechnoSubgenre.BREAKBEAT, features)
+        profile_hypnotic = _get_profile(TechnoSubgenre.HYPNOTIC)
+        profile_breakbeat = _get_profile(TechnoSubgenre.BREAKBEAT)
+        raw_hypnotic = classifier._score_profile(profile_hypnotic, features)
+        raw_breakbeat = classifier._score_profile(profile_breakbeat, features)
         assert raw_hypnotic > raw_breakbeat
 
     def test_high_energy_slope_favors_progressive(self) -> None:
         """Progressive has high weight on energy_slope."""
         features = _ideal_features_for(TechnoSubgenre.PROGRESSIVE)
         classifier = _make_classifier()
-        score = classifier._score_subgenre(TechnoSubgenre.PROGRESSIVE, features)
+        profile = _get_profile(TechnoSubgenre.PROGRESSIVE)
+        score = classifier._score_profile(profile, features)
         assert score == pytest.approx(1.0, abs=1e-6)
 
     def test_wide_loudness_range_favors_dub_techno(self) -> None:
         """Dub techno has high weight on loudness_range_lu."""
         features = _ideal_features_for(TechnoSubgenre.DUB_TECHNO)
         classifier = _make_classifier()
-        score = classifier._score_subgenre(TechnoSubgenre.DUB_TECHNO, features)
+        profile = _get_profile(TechnoSubgenre.DUB_TECHNO)
+        score = classifier._score_profile(profile, features)
         assert score == pytest.approx(1.0, abs=1e-6)
 
 
@@ -550,8 +574,10 @@ class TestProfileSanity:
     )
     def test_profile_has_at_least_4_features(self, subgenre: TechnoSubgenre) -> None:
         """Each profile should have at least 4 features for discrimination."""
-        profile = SUBGENRE_PROFILES[subgenre]
-        assert len(profile) >= 4, f"{subgenre.value} has only {len(profile)} features in profile"
+        profile = _get_profile(subgenre)
+        assert len(profile.features) >= 4, (
+            f"{subgenre.value} has only {len(profile.features)} features in profile"
+        )
 
     @pytest.mark.parametrize(
         "subgenre",
@@ -560,9 +586,11 @@ class TestProfileSanity:
     )
     def test_all_weights_positive(self, subgenre: TechnoSubgenre) -> None:
         """All weights in profiles must be positive."""
-        profile = SUBGENRE_PROFILES[subgenre]
-        for feature_name, (weight, _ideal, _tol) in profile.items():
-            assert weight > 0, f"{subgenre.value}.{feature_name}: weight={weight} must be > 0"
+        profile = _get_profile(subgenre)
+        for feature_name, target in profile.features.items():
+            assert target.weight > 0, (
+                f"{subgenre.value}.{feature_name}: weight={target.weight} must be > 0"
+            )
 
     @pytest.mark.parametrize(
         "subgenre",
@@ -571,10 +599,10 @@ class TestProfileSanity:
     )
     def test_all_tolerances_positive(self, subgenre: TechnoSubgenre) -> None:
         """All tolerances must be positive (prevents division by zero)."""
-        profile = SUBGENRE_PROFILES[subgenre]
-        for feature_name, (_weight, _ideal, tolerance) in profile.items():
-            assert tolerance > 0, (
-                f"{subgenre.value}.{feature_name}: tolerance={tolerance} must be > 0"
+        profile = _get_profile(subgenre)
+        for feature_name, target in profile.features.items():
+            assert target.tolerance > 0, (
+                f"{subgenre.value}.{feature_name}: tolerance={target.tolerance} must be > 0"
             )
 
     def test_catch_all_penalty_setting_between_0_and_1(self) -> None:

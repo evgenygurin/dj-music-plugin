@@ -5,9 +5,12 @@ Computes: key_code (0-23), key_confidence, atonality, chroma_entropy, hnr_db.
 
 from __future__ import annotations
 
+from typing import Any, ClassVar
+
 import numpy as np
 
-from app.audio.registry import AnalyzerResult, AudioSignal, BaseAnalyzer
+from app.audio.analyzers.base import BaseAnalyzer, register_analyzer
+from app.audio.core.context import AnalysisContext
 
 # Key mapping: index → (pitch_class, mode)
 # 0-11: minor keys (A♭m, E♭m, B♭m, Fm, Cm, Gm, Dm, Am, Em, Bm, F♯m, D♭m)
@@ -95,22 +98,20 @@ def _compute_hnr_autocorrelation(samples: np.ndarray, sr: int) -> float:
     return round(float(np.mean(hnr_values)), 2)
 
 
+@register_analyzer
 class KeyDetector(BaseAnalyzer):
     """Musical key detection using chroma features."""
 
-    name = "key"
-    capabilities = {"key", "harmony"}
-    required_packages = ["librosa"]
+    name: ClassVar[str] = "key"
+    capabilities: ClassVar[frozenset[str]] = frozenset({"key", "harmony"})
+    required_packages: ClassVar[list[str]] = ["librosa"]
 
-    async def analyze(self, signal: AudioSignal) -> AnalyzerResult:
+    def _extract(self, ctx: AnalysisContext) -> dict[str, Any]:
         """Detect musical key using CQT chroma."""
         import librosa
 
-        samples = signal.samples
-        sr = signal.sample_rate
-
-        if len(samples) == 0:
-            return AnalyzerResult(analyzer_name=self.name, success=False, error="Empty signal")
+        samples = ctx.samples
+        sr = ctx.sr
 
         # Compute chroma CQT
         chroma = librosa.feature.chroma_cqt(y=samples, sr=sr)
@@ -158,13 +159,10 @@ class KeyDetector(BaseAnalyzer):
         # Standard method: find peak in autocorrelation, compute ratio
         hnr_db = _compute_hnr_autocorrelation(samples, sr)
 
-        return AnalyzerResult(
-            analyzer_name=self.name,
-            features={
-                "key_code": best_key,
-                "key_confidence": round(confidence, 4),
-                "atonality": atonality,
-                "chroma_entropy": round(chroma_entropy, 4),
-                "hnr_db": round(hnr_db, 2),
-            },
-        )
+        return {
+            "key_code": best_key,
+            "key_confidence": round(confidence, 4),
+            "atonality": atonality,
+            "chroma_entropy": round(chroma_entropy, 4),
+            "hnr_db": round(hnr_db, 2),
+        }

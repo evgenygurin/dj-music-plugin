@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from app.audio.mood import MoodClassifier
+from app.audio.classification import MoodClassifier
 from app.config import settings
 from app.core.constants import TechnoSubgenre
 from app.core.errors import NotFoundError, ValidationError
