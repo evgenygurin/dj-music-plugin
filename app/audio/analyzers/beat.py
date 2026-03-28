@@ -74,9 +74,13 @@ class BeatDetector(BaseAnalyzer):
         low_perc_energy = float(np.sum(s_perc[low_mask, :] ** 2))
         kick_prominence = low_perc_energy / (total_perc_energy + 1e-10)
 
+        beats_intervals = np.diff(onsets).tolist() if len(onsets) > 1 else []
+
         return {
             "onset_rate": round(onset_rate, 4),
             "pulse_clarity": round(pulse_clarity, 4),
             "kick_prominence": round(kick_prominence, 4),
             "hp_ratio": round(hp_ratio, 4),
+            "beat_times": onsets.tolist(),
+            "beats_intervals": beats_intervals,
         }

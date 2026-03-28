@@ -185,6 +185,12 @@ ctx.sample() внутри tools вызывает Anthropic API через fallba
 - `classify_mood` и `distribute_to_subgenres` теперь персистируют `mood` и `mood_confidence` в `track_audio_features_computed`
 - MP3 анализ: нужен `uv sync --extra audio` (librosa + soundfile)
 - `from __future__ import annotations` делает аннотации строками — runtime вызовы (TrackFeatures()) требуют реальных импортов
+- **P1 analyzers**: essentia DFA danceability is unbounded (не 0-1), dissonance 0-1, dynamic_complexity 0-~10
+- **P2 analyzers**: SpectralComplexityAnalyzer, PitchSalienceAnalyzer зависят от essentia; BpmHistogramAnalyzer зависит от `beat` (depends_on); PhraseAnalyzer зависит от `beat` + `bpm`
+- **TransitionIntent**: context-aware enum (maintain/ramp_up/cool_down/contrast) влияет на веса GA-оптимизатора по позиции трека в сете
+- **score_timbral**: 6-й компонент TransitionScorer (вес 0.10), суммарные веса = 1.0 (bpm 0.22 + harmonic 0.20 + energy 0.23 + spectral 0.15 + groove 0.10 + timbral 0.10)
+- **`depends_on`**: `ClassVar[frozenset[str]]` — pipeline Phase 2 передаёт `prior_results` зависимым анализаторам
+- **`_ANALYZER_REGISTRY`**: global dict, `importlib` не перерегистрирует декоратор при повторном импорте — в тестах удалять только `_test_*` ключи, не `clear()`
 - `AsyncSession.delete()` IS async в SQLAlchemy 2.0 — `await` корректен
 - Background tasks: `task=True` требует `pip install 'fastmcp[tasks]'`
 - Error masking: `mask_error_details=not settings.debug` в production
@@ -204,7 +210,7 @@ ctx.sample() внутри tools вызывает Anthropic API через fallba
 
 ## Версия
 
-Plugin v0.5.0, 50 tools (46 visible + 4 atomic hidden), 7 audio analyzers (3 core + 4 librosa), tiered analysis (L1-L4), FileSystemProvider.
+Plugin v0.5.0, 50 tools (46 visible + 4 atomic hidden), 18 audio analyzers (8 core + 6 P1 + 4 P2 essentia/librosa), two-phase pipeline, context-aware scoring, tiered analysis (L1-L4), FileSystemProvider.
 
 ## Known Issues (docs/reports/errors/)
 

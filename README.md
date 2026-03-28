@@ -5,9 +5,9 @@ MCP-сервер для управления личной DJ techno библио
 ## Возможности
 
 - **50 MCP tools** в 12 категориях (46 visible + 4 hidden atomic)
-- **Audio analysis pipeline** — 8 анализаторов в layered architecture с параллельным выполнением через `asyncio.to_thread`
+- **Audio analysis pipeline** — 18 анализаторов в layered architecture с двухфазным параллельным выполнением через `asyncio.to_thread`
 - **DJ set generation** — генетический алгоритм + greedy builder с transition scoring
-- **Transition scoring** — 5-компонентная оценка с persist в DB (BPM, гармония, энергия, спектр, грув)
+- **Transition scoring** — 6-компонентная оценка с persist в DB (BPM, гармония, энергия, спектр, грув, тембр) и context-aware весами
 - **Yandex Music интеграция** — поиск, импорт, скачивание MP3, синхронизация, расширение плейлистов
 - **Экспорт** — M3U8, Rekordbox XML, JSON guide, cheat sheet + копирование файлов
 - **Background tasks** — длинные операции через FastMCP Docket (expand, analyze, deliver)
@@ -40,7 +40,7 @@ uv run fastmcp run app/server.py
 ## Разработка
 
 ```bash
-uv run pytest -v                           # Тесты (850+)
+uv run pytest -v                           # Тесты (923+)
 uv run ruff check && uv run ruff format --check  # Линтер
 uv run mypy app/                           # Типы
 uv run alembic upgrade head                # Миграции
@@ -80,9 +80,12 @@ core/             ← L1: DSP primitives (0 app deps)
   loader.py          AudioLoader (soundfile → librosa → wave)
   context.py         AnalysisContext (eager STFT, thread-safe)
 
-analyzers/        ← L2: feature extractors
+analyzers/        ← L2: feature extractors (18 total)
   base.py            BaseAnalyzer (Template Method), @register_analyzer, Registry
-  beat, bpm, energy, key, loudness, mfcc, spectral, structure
+  beat, bpm, energy, key, loudness, mfcc, spectral, structure  (8 core)
+  danceability, tempogram, dissonance, dynamic_complexity,     (6 P1, optional essentia/librosa)
+  tonnetz, beats_loudness
+  spectral_complexity, pitch_salience, bpm_histogram, phrase   (4 P2, optional essentia/librosa)
 
 classification/   ← L2b: mood/subgenre
   profiles.py        15 SubgenreProfile frozen dataclasses
@@ -92,6 +95,7 @@ pipeline.py       ← L3: orchestrator (asyncio.to_thread parallelism)
 ```
 
 - **Template Method**: `BaseAnalyzer.run()` handles guard + error wrapping; subclass implements `_extract(ctx)`
+- **Two-phase pipeline**: independent analyzers run in parallel (Phase 1), dependent analyzers receive merged results (Phase 2)
 - **Registry**: `@register_analyzer` + `pkgutil.iter_modules()` auto-discovery — new analyzer = one file
 - **Strategy**: `MoodClassifier` accepts injectable `SubgenreProfile` sequence
 - **Eager context**: STFT/magnitude/freqs computed once, shared read-only — thread-safe by design
@@ -133,8 +137,8 @@ import_tracks → download_tracks → analyze_track    → classify_mood → bui
      ↓              ↓                  ↓                   ↓              ↓
   Track +       MP3 файл +      AudioLoader            15 subgenres   DJ set с
   YM metadata   DjLibraryItem    → AnalysisContext      + confidence   transition
-                                 → 8 analyzers ∥                       scoring
-                                 → 47 features
+                                 → 18 analyzers ∥                      scoring
+                                 → 60 features
 ```
 
 `download_tracks` автоматически создаёт `DjLibraryItem` записи — `analyze_track` сразу находит файлы.

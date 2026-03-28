@@ -13,6 +13,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 
 from app.config import settings
+from app.core.transition_intent import infer_intent
 from app.services.templates import SetTemplateDefinition
 from app.services.transition import TrackFeatures, TransitionScorer
 
@@ -36,16 +37,20 @@ def _transition_quality(
     order: list[int],
     idx_map: dict[int, int],
 ) -> float:
-    """Average transition score across consecutive pairs."""
+    """Average transition score across consecutive pairs, using intent-aware weights."""
     if len(order) < 2:
         return 1.0
     total = 0.0
-    for i in range(len(order) - 1):
+    n = len(order)
+    for i in range(n - 1):
         a = tracks[idx_map[order[i]]]
         b = tracks[idx_map[order[i + 1]]]
-        score = scorer.score(a, b)
+        position = i / max(1, n - 2)  # 0.0 to 1.0
+        energy_delta = (b.integrated_lufs or -8.0) - (a.integrated_lufs or -8.0)
+        intent = infer_intent(position, energy_delta)
+        score = scorer.score(a, b, intent=intent)
         total += 0.0 if score.hard_reject else score.overall
-    return total / (len(order) - 1)
+    return total / (n - 1)
 
 
 def _bpm_smoothness(
