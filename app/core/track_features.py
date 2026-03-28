@@ -28,6 +28,20 @@ class TrackFeatures:
     # Energy bands for balance comparison
     energy_bands: list[float] | None = None
 
+    # P1 features (for scoring integration)
+    dissonance_mean: float | None = None
+    danceability: float | None = None
+    tonnetz_vector: list[float] | None = None
+    beat_loudness_band_ratio: list[float] | None = None
+
+    # P2 features
+    spectral_complexity_mean: float | None = None
+    pitch_salience_mean: float | None = None
+
+    # Existing but previously unused in scoring
+    bpm_stability: float | None = None
+    spectral_contrast: float | None = None
+
     @classmethod
     def from_db(cls, row: Any) -> TrackFeatures:
         """Construct from a TrackAudioFeaturesComputed DB row."""
@@ -51,6 +65,20 @@ class TrackFeatures:
         bands_raw = [getattr(row, f, None) for f in band_fields]
         energy_bands = bands_raw if all(b is not None for b in bands_raw) else None
 
+        # Parse tonnetz_vector from JSON
+        tonnetz = None
+        raw_tonnetz = getattr(row, "tonnetz_vector", None)
+        if raw_tonnetz:
+            tonnetz = json.loads(raw_tonnetz) if isinstance(raw_tonnetz, str) else raw_tonnetz
+
+        # Parse beat_loudness_band_ratio from JSON
+        beat_loud = None
+        raw_beat_loud = getattr(row, "beat_loudness_band_ratio", None)
+        if raw_beat_loud:
+            beat_loud = (
+                json.loads(raw_beat_loud) if isinstance(raw_beat_loud, str) else raw_beat_loud
+            )
+
         return cls(
             bpm=row.bpm,
             key_code=row.key_code,
@@ -64,4 +92,12 @@ class TrackFeatures:
             chroma_entropy=row.chroma_entropy,
             mfcc_vector=mfcc,
             energy_bands=energy_bands,
+            dissonance_mean=getattr(row, "dissonance_mean", None),
+            danceability=getattr(row, "danceability", None),
+            tonnetz_vector=tonnetz,
+            beat_loudness_band_ratio=beat_loud,
+            spectral_complexity_mean=getattr(row, "spectral_complexity_mean", None),
+            pitch_salience_mean=getattr(row, "pitch_salience_mean", None),
+            bpm_stability=getattr(row, "bpm_stability", None),
+            spectral_contrast=getattr(row, "spectral_contrast", None),
         )
