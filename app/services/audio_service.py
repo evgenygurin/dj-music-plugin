@@ -10,11 +10,11 @@ import logging
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from app.audio.mood import MoodClassifier
+from app.audio.classification import MoodClassifier
 from app.audio.pipeline import AnalysisPipeline
 
 if TYPE_CHECKING:
-    from app.audio.registry import AnalyzerRegistry
+    from app.audio.analyzers import AnalyzerRegistry
     from app.models.audio import TrackAudioFeaturesComputed
     from app.repositories.audio import AudioRepository
 
