@@ -1,4 +1,4 @@
-"""Transition scoring engine — 5-component weighted formula.
+"""Transition scoring engine — 6-component weighted formula.
 
 See docs/transition-scoring.md for full algorithm description.
 """
@@ -12,17 +12,19 @@ from app.config import settings
 from app.core.camelot import camelot_distance
 from app.core.constants import DEFAULT_TRANSITION_WEIGHTS
 from app.core.track_features import TrackFeatures as TrackFeatures  # re-export
+from app.core.transition_intent import INTENT_WEIGHT_MODIFIERS, TransitionIntent
 
 
 @dataclass
 class TransitionScore:
-    """5-component transition score between two tracks."""
+    """6-component transition score between two tracks."""
 
     bpm: float = 0.0
     harmonic: float = 0.0
     energy: float = 0.0
     spectral: float = 0.0
     groove: float = 0.0
+    timbral: float = 0.0
     overall: float = 0.0
     hard_reject: bool = False
     reject_reason: str | None = None
@@ -40,13 +42,27 @@ class TransitionScorer:
     ) -> None:
         self.weights = weights or dict(DEFAULT_TRANSITION_WEIGHTS)
 
-    def score(self, from_t: TrackFeatures, to_t: TrackFeatures) -> TransitionScore:
-        """Compute full 5-component score."""
+    def score(
+        self,
+        from_t: TrackFeatures,
+        to_t: TrackFeatures,
+        *,
+        intent: TransitionIntent | None = None,
+    ) -> TransitionScore:
+        """Compute full 6-component score.
+
+        Args:
+            from_t: Features of the outgoing track.
+            to_t: Features of the incoming track.
+            intent: Optional context-aware intent for weight modifiers.
+                When provided, per-intent weights override instance defaults.
+        """
         rejection = self._check_hard_constraints(from_t, to_t)
         if rejection is not None:
             return rejection
 
-        return self._compute_score(from_t, to_t)
+        weights = INTENT_WEIGHT_MODIFIERS[intent] if intent is not None else None
+        return self._compute_score(from_t, to_t, weights=weights)
 
     def score_with_candidates(
         self,
@@ -143,20 +159,28 @@ class TransitionScorer:
 
         return None
 
-    def _compute_score(self, from_t: TrackFeatures, to_t: TrackFeatures) -> TransitionScore:
-        """Compute all 5 component scores and weighted overall."""
+    def _compute_score(
+        self,
+        from_t: TrackFeatures,
+        to_t: TrackFeatures,
+        weights: dict[str, float] | None = None,
+    ) -> TransitionScore:
+        """Compute all 6 component scores and weighted overall."""
+        w = weights or self.weights
         bpm = self._score_bpm(from_t, to_t)
         harmonic = self._score_harmonic(from_t, to_t)
         energy = self._score_energy(from_t, to_t)
         spectral = self._score_spectral(from_t, to_t)
         groove = self._score_groove(from_t, to_t)
+        timbral = self._score_timbral(from_t, to_t)
 
         overall = (
-            self.weights["bpm"] * bpm
-            + self.weights["harmonic"] * harmonic
-            + self.weights["energy"] * energy
-            + self.weights["spectral"] * spectral
-            + self.weights["groove"] * groove
+            w.get("bpm", 0) * bpm
+            + w.get("harmonic", 0) * harmonic
+            + w.get("energy", 0) * energy
+            + w.get("spectral", 0) * spectral
+            + w.get("groove", 0) * groove
+            + w.get("timbral", 0) * timbral
         )
 
         return TransitionScore(
@@ -165,6 +189,7 @@ class TransitionScorer:
             energy=energy,
             spectral=spectral,
             groove=groove,
+            timbral=timbral,
             overall=overall,
         )
 
@@ -183,7 +208,14 @@ class TransitionScorer:
             return 0.5  # unknown = neutral
         delta = self._bpm_distance(from_t.bpm, to_t.bpm)
         sigma = 3.0  # ~3 BPM tolerance
-        return math.exp(-(delta**2) / (2 * sigma**2))
+        score = math.exp(-(delta**2) / (2 * sigma**2))
+
+        # BPM stability factor: unstable tempo makes mixing harder
+        if from_t.bpm_stability is not None and to_t.bpm_stability is not None:
+            stability = min(from_t.bpm_stability, to_t.bpm_stability)
+            score *= max(0.7, stability)  # up to 30% penalty for unstable BPM
+
+        return score
 
     # ── Harmonic ─────────────────────────────────────
 
@@ -200,7 +232,14 @@ class TransitionScorer:
             avg_hnr = (from_t.hnr_db + to_t.hnr_db) / 2
             hnr_factor = max(0.5, min(1.0, (avg_hnr + 30) / 30))  # normalize -30..0 → 0.5..1.0
 
-        return base * hnr_factor
+        score = base * hnr_factor
+
+        # Tonnetz cosine similarity (30% weight when available)
+        if from_t.tonnetz_vector and to_t.tonnetz_vector:
+            tonnetz_cos = self._cosine_similarity(from_t.tonnetz_vector, to_t.tonnetz_vector)
+            score = 0.70 * score + 0.30 * tonnetz_cos
+
+        return score
 
     # ── Energy ───────────────────────────────────────
 
@@ -234,23 +273,76 @@ class TransitionScorer:
             correlation = self._correlation(from_t.energy_bands, to_t.energy_bands)
             scores.append(max(0.0, correlation))
 
-        return sum(scores) / len(scores) if scores else 0.5
+        score = sum(scores) / len(scores) if scores else 0.5
+
+        # Dissonance penalty: two harsh tracks together = muddy mix
+        if (
+            from_t.dissonance_mean is not None
+            and to_t.dissonance_mean is not None
+            and from_t.dissonance_mean > 0.4
+            and to_t.dissonance_mean > 0.4
+        ):
+            score = max(0.0, score - 0.15)
+
+        # Spectral complexity penalty: two complex tracks = clutter
+        if (
+            from_t.spectral_complexity_mean is not None
+            and to_t.spectral_complexity_mean is not None
+        ) and abs(from_t.spectral_complexity_mean - to_t.spectral_complexity_mean) > 10:
+            score = max(0.0, score - 0.10)
+
+        return score
 
     # ── Groove ───────────────────────────────────────
 
     def _score_groove(self, from_t: TrackFeatures, to_t: TrackFeatures) -> float:
-        scores = []
+        onset_match: float | None = None
+        kick_match: float | None = None
 
         if from_t.onset_rate is not None and to_t.onset_rate is not None:
             max_rate = max(from_t.onset_rate, to_t.onset_rate, 1.0)
-            onset_match = 1.0 - abs(from_t.onset_rate - to_t.onset_rate) / max_rate
-            scores.append(max(0.0, onset_match))
+            onset_match = max(0.0, 1.0 - abs(from_t.onset_rate - to_t.onset_rate) / max_rate)
 
         if from_t.kick_prominence is not None and to_t.kick_prominence is not None:
-            kick_match = 1.0 - abs(from_t.kick_prominence - to_t.kick_prominence)
-            scores.append(max(0.0, kick_match))
+            kick_match = max(0.0, 1.0 - abs(from_t.kick_prominence - to_t.kick_prominence))
 
-        return sum(scores) / len(scores) if scores else 0.5
+        if onset_match is None and kick_match is None:
+            return 0.5
+
+        # Use defaults for missing components
+        om = onset_match if onset_match is not None else 0.5
+        km = kick_match if kick_match is not None else 0.5
+
+        # Beat loudness band ratio enrichment: 35/35/30 split when available
+        if from_t.beat_loudness_band_ratio and to_t.beat_loudness_band_ratio:
+            beat_cos = self._cosine_similarity(
+                from_t.beat_loudness_band_ratio, to_t.beat_loudness_band_ratio
+            )
+            return 0.35 * om + 0.35 * km + 0.30 * beat_cos
+
+        return 0.50 * om + 0.50 * km
+
+    # ── Timbral ──────────────────────────────────────
+
+    def _score_timbral(self, from_t: TrackFeatures, to_t: TrackFeatures) -> float:
+        """Timbral similarity: spectral contrast + pitch salience proximity."""
+        signals: list[float] = []
+        weights: list[float] = []
+
+        if from_t.spectral_contrast is not None and to_t.spectral_contrast is not None:
+            diff = abs(from_t.spectral_contrast - to_t.spectral_contrast)
+            signals.append(max(0.0, 1.0 - diff / 15.0))  # 15 dB = full penalty
+            weights.append(0.5)
+
+        if from_t.pitch_salience_mean is not None and to_t.pitch_salience_mean is not None:
+            diff = abs(from_t.pitch_salience_mean - to_t.pitch_salience_mean)
+            signals.append(max(0.0, 1.0 - diff / 0.5))  # 0.5 = full penalty
+            weights.append(0.5)
+
+        if not signals:
+            return 0.5  # neutral when unavailable
+
+        return sum(s * w for s, w in zip(signals, weights, strict=False)) / sum(weights)
 
     # ── Math helpers ─────────────────────────────────
 
