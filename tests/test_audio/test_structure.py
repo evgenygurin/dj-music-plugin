@@ -9,9 +9,9 @@ Uses synthetic audio signals with known energy patterns:
 from __future__ import annotations
 
 import numpy as np
-import pytest
 
 from app.audio.analyzers.structure import StructureAnalyzer
+from app.audio.core.context import AnalysisContext
 from app.audio.registry import AudioSignal
 from app.core.constants import SectionType
 
@@ -26,6 +26,11 @@ def _make_signal(samples: np.ndarray) -> AudioSignal:
         sample_rate=SAMPLE_RATE,
         duration_seconds=len(samples) / SAMPLE_RATE,
     )
+
+
+def _run(analyzer: StructureAnalyzer, signal: AudioSignal) -> object:  # type: ignore[type-arg]
+    """Run analyzer synchronously via new API."""
+    return analyzer.run(AnalysisContext(signal))
 
 
 def _sine_wave(
@@ -59,34 +64,33 @@ def _fade_in_signal(duration: float = 10.0) -> np.ndarray:
     return (0.5 * envelope * np.sin(2 * np.pi * 440 * t)).astype(np.float32)
 
 
-@pytest.mark.asyncio
 class TestStructureAnalyzer:
-    async def test_success_on_valid_signal(self) -> None:
+    def test_success_on_valid_signal(self) -> None:
         analyzer = StructureAnalyzer()
-        result = await analyzer.analyze(_make_signal(_sine_wave()))
+        result = _run(analyzer, _make_signal(_sine_wave()))
         assert result.success is True
 
-    async def test_empty_signal_fails(self) -> None:
+    def test_empty_signal_fails(self) -> None:
         analyzer = StructureAnalyzer()
         signal = _make_signal(np.array([], dtype=np.float32))
-        result = await analyzer.analyze(signal)
+        result = _run(analyzer, signal)
         assert result.success is False
 
-    async def test_returns_sections_list(self) -> None:
+    def test_returns_sections_list(self) -> None:
         analyzer = StructureAnalyzer()
-        result = await analyzer.analyze(_make_signal(_sine_wave()))
+        result = _run(analyzer, _make_signal(_sine_wave()))
         assert "sections" in result.features
         assert isinstance(result.features["sections"], list)
         assert len(result.features["sections"]) >= 1
 
-    async def test_returns_section_count(self) -> None:
+    def test_returns_section_count(self) -> None:
         analyzer = StructureAnalyzer()
-        result = await analyzer.analyze(_make_signal(_sine_wave()))
+        result = _run(analyzer, _make_signal(_sine_wave()))
         assert result.features["section_count"] == len(result.features["sections"])
 
-    async def test_section_has_required_fields(self) -> None:
+    def test_section_has_required_fields(self) -> None:
         analyzer = StructureAnalyzer()
-        result = await analyzer.analyze(_make_signal(_sine_wave()))
+        result = _run(analyzer, _make_signal(_sine_wave()))
         section = result.features["sections"][0]
         assert "section_type" in section
         assert "start_ms" in section
@@ -94,69 +98,69 @@ class TestStructureAnalyzer:
         assert "energy" in section
         assert "confidence" in section
 
-    async def test_section_type_valid_enum(self) -> None:
+    def test_section_type_valid_enum(self) -> None:
         """All section types should be valid SectionType values."""
         analyzer = StructureAnalyzer()
-        result = await analyzer.analyze(_make_signal(_multi_section_signal()))
+        result = _run(analyzer, _make_signal(_multi_section_signal()))
         valid_types = {e.value for e in SectionType}
         for section in result.features["sections"]:
             assert section["section_type"] in valid_types
 
-    async def test_sections_cover_full_duration(self) -> None:
+    def test_sections_cover_full_duration(self) -> None:
         """First section should start at 0, last should end near signal duration."""
         analyzer = StructureAnalyzer()
         signal = _make_signal(_sine_wave(duration=10.0))
-        result = await analyzer.analyze(signal)
+        result = _run(analyzer, signal)
         sections = result.features["sections"]
         assert sections[0]["start_ms"] == 0
         # Last section end should be close to duration (within 1 second tolerance)
         expected_end_ms = int(10.0 * 1000)
         assert abs(sections[-1]["end_ms"] - expected_end_ms) < 1000
 
-    async def test_sections_non_overlapping(self) -> None:
+    def test_sections_non_overlapping(self) -> None:
         """Sections should not overlap — each start >= previous end."""
         analyzer = StructureAnalyzer()
-        result = await analyzer.analyze(_make_signal(_multi_section_signal()))
+        result = _run(analyzer, _make_signal(_multi_section_signal()))
         sections = result.features["sections"]
         for i in range(1, len(sections)):
             assert sections[i]["start_ms"] >= sections[i - 1]["end_ms"]
 
-    async def test_energy_between_0_and_1(self) -> None:
+    def test_energy_between_0_and_1(self) -> None:
         """Section energy values should be in [0, 1] range."""
         analyzer = StructureAnalyzer()
-        result = await analyzer.analyze(_make_signal(_multi_section_signal()))
+        result = _run(analyzer, _make_signal(_multi_section_signal()))
         for section in result.features["sections"]:
             assert 0.0 <= section["energy"] <= 1.0
 
-    async def test_confidence_between_0_and_1(self) -> None:
+    def test_confidence_between_0_and_1(self) -> None:
         """Section confidence values should be in [0, 1] range."""
         analyzer = StructureAnalyzer()
-        result = await analyzer.analyze(_make_signal(_multi_section_signal()))
+        result = _run(analyzer, _make_signal(_multi_section_signal()))
         for section in result.features["sections"]:
             assert 0.0 <= section["confidence"] <= 1.0
 
-    async def test_multi_section_detects_multiple(self) -> None:
+    def test_multi_section_detects_multiple(self) -> None:
         """Signal with distinct energy changes should produce multiple sections."""
         analyzer = StructureAnalyzer()
-        result = await analyzer.analyze(_make_signal(_multi_section_signal()))
+        result = _run(analyzer, _make_signal(_multi_section_signal()))
         # Should detect at least 2 sections (quiet→loud transitions)
         assert len(result.features["sections"]) >= 2
 
-    async def test_silent_signal_returns_ambient(self) -> None:
+    def test_silent_signal_returns_ambient(self) -> None:
         """Silent signal should be classified as ambient."""
         analyzer = StructureAnalyzer()
         silent = np.zeros(int(SAMPLE_RATE * 5), dtype=np.float32)
-        result = await analyzer.analyze(_make_signal(silent))
+        result = _run(analyzer, _make_signal(silent))
         assert result.success is True
         sections = result.features["sections"]
         assert len(sections) == 1
         assert sections[0]["section_type"] == SectionType.AMBIENT
 
-    async def test_constant_signal_few_sections(self) -> None:
+    def test_constant_signal_few_sections(self) -> None:
         """A constant-amplitude sine wave should produce fewer sections than dynamic signal."""
         analyzer = StructureAnalyzer()
-        constant_result = await analyzer.analyze(_make_signal(_sine_wave(duration=10.0)))
-        dynamic_result = await analyzer.analyze(_make_signal(_multi_section_signal()))
+        constant_result = _run(analyzer, _make_signal(_sine_wave(duration=10.0)))
+        dynamic_result = _run(analyzer, _make_signal(_multi_section_signal()))
         assert (
             constant_result.features["section_count"] <= dynamic_result.features["section_count"]
         )

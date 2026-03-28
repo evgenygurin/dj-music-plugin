@@ -4,8 +4,7 @@ from __future__ import annotations
 
 from typing import Any, ClassVar
 
-import pytest
-
+from app.audio.core.context import AnalysisContext
 from app.audio.registry import AnalyzerRegistry, AudioSignal, BaseAnalyzer
 
 
@@ -82,9 +81,8 @@ class TestAnalyzerRegistry:
         assert "spectral" in available
 
 
-@pytest.mark.asyncio
 class TestDummyAnalyzer:
-    async def test_analyze(self) -> None:
+    def test_run(self) -> None:
         import numpy as np
 
         analyzer = DummyAnalyzer()
@@ -93,6 +91,6 @@ class TestDummyAnalyzer:
             sample_rate=22050,
             duration_seconds=1000 / 22050,
         )
-        result = await analyzer.analyze(signal)
+        result = analyzer.run(AnalysisContext(signal))
         assert result.success is True
         assert result.features["value"] == 42

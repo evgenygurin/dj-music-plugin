@@ -15,7 +15,7 @@ from abc import ABC, abstractmethod
 from typing import Any, ClassVar
 
 from app.audio.core.context import AnalysisContext
-from app.audio.core.types import AnalyzerResult, AudioSignal
+from app.audio.core.types import AnalyzerResult
 
 logger = logging.getLogger(__name__)
 
@@ -63,16 +63,6 @@ class BaseAnalyzer(ABC):
     def _extract(self, ctx: AnalysisContext) -> dict[str, Any]:
         """Subclass implements. Synchronous — pure computation, no I/O."""
         ...
-
-    async def analyze(self, signal: AudioSignal) -> AnalyzerResult:
-        """DEPRECATED shim — keeps pipeline.py working until Task 9.
-
-        Bridges old async API (pipeline calls `await analyzer.analyze(signal)`)
-        to new sync API (`self.run(ctx)`). Removed in Task 9 when pipeline
-        switches to `asyncio.to_thread(a.run, ctx)`.
-        """
-        ctx = AnalysisContext(signal)
-        return self.run(ctx)
 
     def is_available(self) -> bool:
         """Check if required packages are installed."""
