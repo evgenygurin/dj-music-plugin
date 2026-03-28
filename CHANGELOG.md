@@ -5,15 +5,28 @@ Format based on [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+### Added
+- `app/audio/core/` — Layer 1: DSP primitives with zero app dependencies
+  - `types.py` — `FrameParams`, `AudioSignal`, `AnalyzerResult` frozen dataclasses
+  - `framing.py` — `compute_frame_energies()`, `compute_energy_slope()` (single source of truth)
+  - `spectral.py` — `compute_stft()`, `band_energies()`, `spectral_centroid()`, etc.
+  - `loader.py` — `AudioLoader` with fallback chain (soundfile → librosa → wave)
+  - `context.py` — `AnalysisContext` with eager STFT/magnitude precompute (thread-safe)
+- `app/audio/analyzers/base.py` — `BaseAnalyzer` ABC (Template Method), `@register_analyzer` decorator, `AnalyzerRegistry` with `pkgutil` auto-discovery
+- `app/audio/classification/` — Layer 2b: mood/subgenre classification
+  - `profiles.py` — 15 frozen `SubgenreProfile` dataclasses with `FeatureTarget`
+  - `classifier.py` — `MoodClassifier` with Strategy pattern, injectable profiles, `MoodResult.top_matches`
+- `scripts/verify_audio_pipeline.py` — E2E verification script with per-stage timing, parallel speedup measurement, and sanity checks
+
 ### Changed
 - `TrackFeatures.from_db(row)` classmethod replaces 5 copies of manual field mapping
 - `FeatureRepository.get_scoring_features()` + `get_scoring_features_batch()` — batch loading (N SQL → 1)
 - Tools (`sets.py`, `reasoning.py`, `curation.py`) use shared helpers instead of inline queries
-- Refactored `app/audio/` into layered architecture: `core/` → `analyzers/` → `pipeline.py`
-- Analyzers use Template Method pattern (sync `_extract(ctx)` instead of `async analyze(signal)`)
-- Pipeline uses `asyncio.to_thread()` for parallel CPU-bound analyzer execution
-- MoodClassifier uses Strategy pattern with injectable SubgenreProfile dataclasses
-- Shared STFT/magnitude/frame_energies via eager AnalysisContext (thread-safe)
+- Refactored `app/audio/` into layered architecture: `core/` → `analyzers/` → `classification/` → `pipeline.py`
+- 8 analyzers migrated to sync `_extract(ctx)` Template Method (was async `analyze(signal)`)
+- Pipeline rewritten: `AudioLoader` DI + eager `AnalysisContext` + `asyncio.to_thread()` parallelism (~1.5x speedup)
+- `MoodClassifier` refactored to Strategy pattern with injectable `SubgenreProfile` dataclasses
+- `scripts/benchmark_audio.py` updated to use new `AnalysisContext` + `analyzer.run(ctx)` API
 
 ### Removed
 - `_features_to_dataclass()` from `background_tasks.py` (replaced by `TrackFeatures.from_db()`)
@@ -23,8 +36,8 @@ Format based on [Keep a Changelog](https://keepachangelog.com/).
 - `app/audio/mood.py` (split into `classification/classifier.py` + `classification/profiles.py`)
 - Duplicated frame energy computation (was in energy.py + structure.py)
 - Duplicated FFT/windowing (was in spectral.py, energy.py, key.py)
-- 8 copies of empty signal guard (now single check in BaseAnalyzer.run())
-- Hardcoded frame_length/hop_length (now FrameParams dataclass)
+- 8 copies of empty signal guard (now single check in `BaseAnalyzer.run()`)
+- Hardcoded frame_length/hop_length (now `FrameParams` dataclass)
 
 ### Fixed
 - `reasoning.py` `suggest_next_track` was missing `spectral_flatness` and `chroma_entropy` fields when constructing `TrackFeatures` — now uses `from_db()` with all 10 fields

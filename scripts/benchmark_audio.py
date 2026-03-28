@@ -83,8 +83,13 @@ async def main() -> None:
 
         # Individual analyzer breakdown
         print("\n  Analyzer breakdown (re-running individually):")
-        # Use pipeline's internal loader to get AudioSignal
-        audio = await pipeline._load_audio(str(lib_item.file_path))
+        # Load audio and create shared AnalysisContext
+        from app.audio.core.context import AnalysisContext
+        from app.audio.core.loader import AudioLoader
+
+        loader = AudioLoader()
+        signal = await loader.load(str(lib_item.file_path))
+        ctx = AnalysisContext(signal)
 
         for analyzer_name in registry.list_available():
             analyzer = registry.get(analyzer_name)
@@ -92,9 +97,10 @@ async def main() -> None:
                 continue
             t0 = time.perf_counter()
             try:
-                await analyzer.analyze(audio)
+                result = analyzer.run(ctx)
                 t1 = time.perf_counter()
-                record(f"  {analyzer.name}", (t1 - t0) * 1000, "OK")
+                status = "OK" if result.success else f"FAIL: {result.error}"
+                record(f"  {analyzer.name}", (t1 - t0) * 1000, status)
             except Exception as e:
                 t1 = time.perf_counter()
                 record(f"  {analyzer.name}", (t1 - t0) * 1000, f"ERROR: {e}")
@@ -219,9 +225,8 @@ async def main() -> None:
     batch_results = [ms for name, ms, _ in results if "batch" in name and "pipeline" in name]
     if batch_results:
         per_track = batch_results[0] / 4
-        print(
-            f"  Audio analysis: {per_track:.0f}ms/track × 3000 = {per_track * 3000 / 1000 / 60:.1f} minutes"
-        )
+        total_min = per_track * 3000 / 1000 / 60
+        print(f"  Audio analysis: {per_track:.0f}ms/track x 3000 = {total_min:.1f} min")
 
 
 if __name__ == "__main__":
