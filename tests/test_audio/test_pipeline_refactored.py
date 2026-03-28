@@ -122,3 +122,82 @@ class TestPipelineCreatesContext:
             "/fake/path.wav", analyzers=["loudness", "nonexistent_xyz"]
         )
         assert result.success_count == 1
+
+
+from typing import ClassVar
+
+
+async def test_pipeline_two_phase_dependent_receives_prior(tmp_path, monkeypatch):
+    """Dependent analyzers in Phase 2 receive Phase 1 results via prior_results."""
+    import soundfile as sf
+
+    from app.audio.analyzers.base import AnalyzerRegistry, BaseAnalyzer
+
+    # Create a simple WAV file
+    sr = 22050
+    duration = 2.0
+    samples = (
+        np.random.default_rng(42).standard_normal(int(sr * duration)).astype(np.float32) * 0.3
+    )
+    wav_path = str(tmp_path / "test.wav")
+    sf.write(wav_path, samples, sr)
+
+    # Register test analyzers in a clean registry
+    registry = AnalyzerRegistry()
+
+    class _Phase1Analyzer(BaseAnalyzer):
+        name: ClassVar[str] = "_test_p1"
+        capabilities: ClassVar[frozenset[str]] = frozenset()
+        required_packages: ClassVar[list[str]] = []
+
+        def _extract(self, ctx):
+            return {"shared_value": 42}
+
+    class _Phase2Analyzer(BaseAnalyzer):
+        name: ClassVar[str] = "_test_p2"
+        capabilities: ClassVar[frozenset[str]] = frozenset()
+        required_packages: ClassVar[list[str]] = []
+        depends_on: ClassVar[frozenset[str]] = frozenset({"_test_p1"})
+
+        def _extract(self, ctx, *, prior_results=None):
+            val = (prior_results or {}).get("shared_value", 0)
+            return {"doubled": val * 2}
+
+    registry.register(_Phase1Analyzer())
+    registry.register(_Phase2Analyzer())
+
+    pipeline = AnalysisPipeline(registry)
+    result = await pipeline.analyze(wav_path)
+
+    assert result.features.get("shared_value") == 42
+    assert result.features.get("doubled") == 84
+
+
+async def test_pipeline_phase1_runs_without_dependent(tmp_path):
+    """When no dependent analyzers exist, pipeline runs identically to before."""
+    import soundfile as sf
+
+    from app.audio.analyzers.base import AnalyzerRegistry, BaseAnalyzer
+
+    sr = 22050
+    samples = np.random.default_rng(42).standard_normal(int(sr * 2)).astype(np.float32) * 0.3
+    wav_path = str(tmp_path / "test.wav")
+    sf.write(wav_path, samples, sr)
+
+    registry = AnalyzerRegistry()
+
+    class _IndepOnly(BaseAnalyzer):
+        name: ClassVar[str] = "_test_indep_only"
+        capabilities: ClassVar[frozenset[str]] = frozenset()
+        required_packages: ClassVar[list[str]] = []
+
+        def _extract(self, ctx):
+            return {"val": 1}
+
+    registry.register(_IndepOnly())
+
+    pipeline = AnalysisPipeline(registry)
+    result = await pipeline.analyze(wav_path)
+
+    assert result.features.get("val") == 1
+    assert result.success_count == 1

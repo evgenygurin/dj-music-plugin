@@ -75,14 +75,27 @@ class AnalysisPipeline:
             if analyzer and analyzer.is_available():
                 instances.append(analyzer)
 
-        # True parallelism — CPU-bound work offloaded to thread pool
-        results: list[AnalyzerResult] = list(
-            await asyncio.gather(*(asyncio.to_thread(a.run, ctx) for a in instances))
+        # Partition: independent vs dependent
+        independent = [a for a in instances if not a.depends_on]
+        dependent = [a for a in instances if a.depends_on]
+
+        # Phase 1: independent — full parallelism (unchanged behavior)
+        phase1_results: list[AnalyzerResult] = list(
+            await asyncio.gather(*(asyncio.to_thread(a.run, ctx) for a in independent))
         )
 
+        # Phase 2: dependent — receive merged Phase 1 results
+        all_results = list(phase1_results)
+        if dependent:
+            prior = self._merge_features(phase1_results)
+            phase2_results: list[AnalyzerResult] = list(
+                await asyncio.gather(*(asyncio.to_thread(a.run, ctx, prior) for a in dependent))
+            )
+            all_results.extend(phase2_results)
+
         return PipelineResult(
-            results=results,
-            features=self._merge_features(results),
+            results=all_results,
+            features=self._merge_features(all_results),
         )
 
     @staticmethod
