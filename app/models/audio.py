@@ -193,7 +193,6 @@ class TrackAudioFeaturesComputed(Base, TimestampMixin):
             "tonnetz_vector",
             "tempogram_ratio_vector",
             "beat_loudness_band_ratio",
-            "chroma",
         }
 
         # Map pipeline keys → DB column names
