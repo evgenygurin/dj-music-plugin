@@ -137,8 +137,8 @@ def _extract(self, ctx, *, prior_results=None):
     n_bars = len(bar_times)
 
     # Compute chroma at bar resolution
-    chroma = librosa.feature.chroma_cqt(y=ctx.samples, sr=ctx.sample_rate)
-    bar_frames = librosa.time_to_frames(bar_times, sr=ctx.sample_rate)
+    chroma = librosa.feature.chroma_cqt(y=ctx.samples, sr=ctx.sr)
+    bar_frames = librosa.time_to_frames(bar_times, sr=ctx.sr)
     chroma_bars = np.array([
         chroma[:, max(0, f):f+hop].mean(axis=1)
         for f, hop in zip(bar_frames[:-1], np.diff(bar_frames))
@@ -208,10 +208,8 @@ Add to `_CLASSIFIER_FIELDS` set in `app/models/audio.py`:
 "pitch_salience_mean", "spectral_complexity_mean",
 "bpm_histogram_first_peak_weight",
 "hp_ratio", "pulse_clarity", "bpm_stability",
-"spectral_slope",  # mapped to slope_db_per_oct in DB
+"spectral_slope",
 ```
-
-Note: `spectral_slope` needs a key mapping since DB column is `slope_db_per_oct`.
 
 ### B3. Calibration Note
 
@@ -247,7 +245,7 @@ class TrackFeatures:
 
     # Existing but previously unused
     bpm_stability: float | None = None
-    spectral_contrast: float | None = None          # DB: contrast_mean_db
+    spectral_contrast: float | None = None          # DB: spectral_contrast
 ```
 
 Update `from_db()` classmethod to populate new fields from ORM row.
