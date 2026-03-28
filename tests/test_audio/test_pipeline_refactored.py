@@ -201,3 +201,38 @@ async def test_pipeline_phase1_runs_without_dependent(tmp_path):
 
     assert result.features.get("val") == 1
     assert result.success_count == 1
+
+
+async def test_filter_features_serializes_vectors():
+    """filter_features() JSON-serializes vector column values."""
+    import json
+
+    from app.models.audio import TrackAudioFeaturesComputed
+
+    features = {
+        "bpm": 130.0,
+        "tonnetz_vector": [0.1, 0.2, 0.3, 0.4, 0.5, 0.6],
+        "tempogram_ratio_vector": [0.5, 1.0, 0.3],
+        "beat_loudness_band_ratio": [0.2, 0.3, 0.4, 0.5, 0.6, 0.7],
+        "beat_times": [0.5, 1.0, 1.5],  # should be filtered OUT (not a column)
+        "danceability": 1.8,
+        "dynamic_complexity": 3.5,
+        "dissonance_mean": 0.42,
+    }
+
+    filtered = TrackAudioFeaturesComputed.filter_features(features)
+
+    # Vector columns serialized to JSON strings
+    assert isinstance(filtered["tonnetz_vector"], str)
+    assert json.loads(filtered["tonnetz_vector"]) == [0.1, 0.2, 0.3, 0.4, 0.5, 0.6]
+    assert isinstance(filtered["tempogram_ratio_vector"], str)
+    assert isinstance(filtered["beat_loudness_band_ratio"], str)
+
+    # Float columns preserved as-is
+    assert filtered["bpm"] == 130.0
+    assert filtered["danceability"] == 1.8
+    assert filtered["dynamic_complexity"] == 3.5
+    assert filtered["dissonance_mean"] == 0.42
+
+    # Non-column keys filtered out
+    assert "beat_times" not in filtered

@@ -48,7 +48,7 @@ class FeatureExtractionRun(Base, TimestampMixin):
 
 
 class TrackAudioFeaturesComputed(Base, TimestampMixin):
-    """47 numerical audio feature descriptors extracted from analysis."""
+    """53 numerical audio feature descriptors extracted from analysis."""
 
     __tablename__ = "track_audio_features_computed"
 
@@ -119,6 +119,14 @@ class TrackAudioFeaturesComputed(Base, TimestampMixin):
     pulse_clarity: Mapped[float | None] = mapped_column(nullable=True)
     kick_prominence: Mapped[float | None] = mapped_column(nullable=True)
 
+    # --- P1 New Features (6 fields) ---
+    danceability: Mapped[float | None] = mapped_column(nullable=True)
+    dynamic_complexity: Mapped[float | None] = mapped_column(nullable=True)
+    dissonance_mean: Mapped[float | None] = mapped_column(nullable=True)
+    tonnetz_vector: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    tempogram_ratio_vector: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    beat_loudness_band_ratio: Mapped[str | None] = mapped_column(String(500), nullable=True)
+
     # --- Classification ---
     mood: Mapped[str | None] = mapped_column(String(30), nullable=True, index=True)
     mood_confidence: Mapped[float | None] = mapped_column(nullable=True)
@@ -172,11 +180,21 @@ class TrackAudioFeaturesComputed(Base, TimestampMixin):
 
         Pipeline analyzers may produce extra keys that don't have DB columns.
         Also maps pipeline output names to DB column names where they differ.
+        Serializes list values for VARCHAR vector columns to JSON strings.
         """
         import json
 
         valid = {c.name for c in cls.__table__.columns}
         valid -= {"track_id", "pipeline_run_id", "created_at", "updated_at"}
+
+        # Columns that store JSON-encoded lists in VARCHAR
+        vector_columns = {
+            "mfcc_vector",
+            "tonnetz_vector",
+            "tempogram_ratio_vector",
+            "beat_loudness_band_ratio",
+            "chroma",
+        }
 
         # Map pipeline keys → DB column names
         result: dict[str, Any] = {}
@@ -185,7 +203,11 @@ class TrackAudioFeaturesComputed(Base, TimestampMixin):
                 # Serialize MFCC list to JSON string for VARCHAR column
                 result["mfcc_vector"] = json.dumps(v) if isinstance(v, list) else v
             elif k in valid:
-                result[k] = v
+                # Auto-serialize lists for VARCHAR vector columns
+                if k in vector_columns and isinstance(v, list):
+                    result[k] = json.dumps(v)
+                else:
+                    result[k] = v
 
         return result
 
