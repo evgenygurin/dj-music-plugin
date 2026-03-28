@@ -6,6 +6,18 @@ Format based on [Keep a Changelog](https://keepachangelog.com/).
 ## [Unreleased]
 
 ### Added
+- 6 new P1 analyzers (essentia/librosa, optional deps with graceful skip):
+  - `DanceabilityAnalyzer` — essentia Danceability (DFA), scalar
+  - `TempogramAnalyzer` — librosa tempogram ratio, ~10D vector
+  - `DissonanceAnalyzer` — essentia Dissonance, 0-1 scalar
+  - `DynamicComplexityAnalyzer` — essentia DynamicComplexity, 0-~10 scalar
+  - `TonnetzAnalyzer` — librosa tonnetz, 6D vector
+  - `BeatsLoudnessAnalyzer` — essentia BeatsLoudness, 6D vector (depends on `beat` analyzer)
+- `BaseAnalyzer.depends_on: ClassVar[frozenset[str]]` — inter-analyzer dependency declaration
+- Two-phase pipeline execution: Phase 1 (independent, parallel) → Phase 2 (dependent, receive prior_results)
+- 6 new ORM columns in `TrackAudioFeaturesComputed`: `danceability`, `dynamic_complexity`, `dissonance_mean`, `tonnetz_vector`, `tempogram_ratio_vector`, `beat_loudness_band_ratio`
+- `filter_features()` auto-serializes list values to JSON strings for VARCHAR vector columns
+- Alembic migration `a46fe524044f` for P1 analyzer columns (batch_alter_table for SQLite compat)
 - `app/audio/core/` — Layer 1: DSP primitives with zero app dependencies
   - `types.py` — `FrameParams`, `AudioSignal`, `AnalyzerResult` frozen dataclasses
   - `framing.py` — `compute_frame_energies()`, `compute_energy_slope()` (single source of truth)
@@ -23,7 +35,8 @@ Format based on [Keep a Changelog](https://keepachangelog.com/).
 - `FeatureRepository.get_scoring_features()` + `get_scoring_features_batch()` — batch loading (N SQL → 1)
 - Tools (`sets.py`, `reasoning.py`, `curation.py`) use shared helpers instead of inline queries
 - Refactored `app/audio/` into layered architecture: `core/` → `analyzers/` → `classification/` → `pipeline.py`
-- 8 analyzers migrated to sync `_extract(ctx)` Template Method (was async `analyze(signal)`)
+- 8 core analyzers migrated to sync `_extract(ctx)` Template Method (was async `analyze(signal)`)
+- Pipeline now runs in two phases: independent analyzers in parallel, then dependent analyzers with merged results
 - Pipeline rewritten: `AudioLoader` DI + eager `AnalysisContext` + `asyncio.to_thread()` parallelism (~1.5x speedup)
 - `MoodClassifier` refactored to Strategy pattern with injectable `SubgenreProfile` dataclasses
 - `scripts/benchmark_audio.py` updated to use new `AnalysisContext` + `analyzer.run(ctx)` API
