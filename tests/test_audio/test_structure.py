@@ -11,8 +11,8 @@ from __future__ import annotations
 import numpy as np
 
 from app.audio.analyzers.structure import StructureAnalyzer
+from app.audio.core import AudioSignal
 from app.audio.core.context import AnalysisContext
-from app.audio.registry import AudioSignal
 from app.core.constants import SectionType
 
 SAMPLE_RATE = 22050

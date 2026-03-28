@@ -54,8 +54,8 @@ async def main() -> None:
     # ── 1. Single track analysis (force re-analyze track 1) ──
     print("\n--- Audio Analysis (single track) ---")
 
+    from app.audio.analyzers import AnalyzerRegistry
     from app.audio.pipeline import AnalysisPipeline
-    from app.audio.registry import AnalyzerRegistry
 
     registry = AnalyzerRegistry()
     registry.discover()
@@ -128,7 +128,7 @@ async def main() -> None:
 
     # ── 3. Mood classification ──
     print("\n--- Mood Classification ---")
-    from app.audio.mood import MoodClassifier
+    from app.audio.classification import MoodClassifier
 
     classifier = MoodClassifier()
     track_ids = [1, 2, 3, 4, 5]

@@ -13,8 +13,8 @@ import numpy as np
 from app.audio.analyzers.energy import EnergyAnalyzer
 from app.audio.analyzers.loudness import LoudnessAnalyzer
 from app.audio.analyzers.spectral import SpectralAnalyzer
+from app.audio.core import AudioSignal
 from app.audio.core.context import AnalysisContext
-from app.audio.registry import AudioSignal
 
 SAMPLE_RATE = 22050
 DURATION = 2.0  # seconds
