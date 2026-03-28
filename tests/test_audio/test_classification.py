@@ -55,3 +55,12 @@ class TestMoodClassifierWithProfiles:
         classifier = MoodClassifier()
         result = classifier.classify({"energy_mean": 0.5})
         assert len(result.scores) == 15
+
+
+def test_all_profiles_include_p2_features() -> None:
+    """All 15 profiles should include at least danceability and dissonance targets."""
+    from app.audio.classification.profiles import ALL_PROFILES
+
+    for profile in ALL_PROFILES:
+        assert "danceability" in profile.features, f"{profile.subgenre} missing danceability"
+        assert "dissonance_mean" in profile.features, f"{profile.subgenre} missing dissonance_mean"
