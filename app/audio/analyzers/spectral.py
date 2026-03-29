@@ -87,102 +87,61 @@ class SpectralAnalyzer(BaseAnalyzer):
     required_packages: ClassVar[list[str]] = []
 
     def _extract(self, ctx: AnalysisContext) -> dict[str, Any]:
-        """Compute spectral features from audio signal."""
-        samples = ctx.samples
-        sr = ctx.sr
+        """Compute spectral features reusing pre-computed ctx.magnitude/freqs.
 
-        frame_length = 2048
-        hop_length = 512
-        n_frames = max(1, (len(samples) - frame_length) // hop_length + 1)
+        Vectorized where possible — avoids per-frame Python loops for
+        centroid, rolloff, flatness, and flux. Slope and contrast still
+        need per-frame computation but benefit from shared magnitude.
+        """
+        mag = ctx.magnitude  # shape: (n_bins, n_frames)
+        freqs = ctx.freqs  # shape: (n_bins,)
+        n_frames = mag.shape[1]
 
-        centroids: list[float] = []
-        rolloff_85_list: list[float] = []
-        rolloff_95_list: list[float] = []
-        flatness_list: list[float] = []
+        # ── Vectorized: centroid, rolloff, flatness, flux ──
+
+        total_mag = mag.sum(axis=0)  # (n_frames,)
+        safe_total = np.where(total_mag > 0, total_mag, 1.0)
+
+        # Centroid: weighted mean frequency per frame
+        centroids = (freqs[:, None] * mag).sum(axis=0) / safe_total
+
+        # Rolloff 85 / 95: cumulative sum along frequency axis
+        cumsum = np.cumsum(mag, axis=0)  # (n_bins, n_frames)
+        rolloff_85 = np.zeros(n_frames)
+        rolloff_95 = np.zeros(n_frames)
+        for i in range(n_frames):
+            if total_mag[i] > 0:
+                idx_85 = np.searchsorted(cumsum[:, i], 0.85 * total_mag[i])
+                idx_95 = np.searchsorted(cumsum[:, i], 0.95 * total_mag[i])
+                rolloff_85[i] = freqs[min(idx_85, len(freqs) - 1)]
+                rolloff_95[i] = freqs[min(idx_95, len(freqs) - 1)]
+
+        # Flatness: geometric / arithmetic mean per frame
+        log_mag = np.log(mag + 1e-10)
+        geo_mean = np.exp(log_mag.mean(axis=0))
+        arith_mean = mag.mean(axis=0) + 1e-10
+        flatness = geo_mean / arith_mean
+
+        # Flux: L2 norm of frame differences, normalized
+        diff = np.diff(mag, axis=1)  # (n_bins, n_frames-1)
+        n_bins = mag.shape[0]
+        flux = np.linalg.norm(diff, axis=0) / (n_bins + 1e-10)
+
+        # ── Per-frame: slope and contrast (use shared magnitude) ──
         slope_list: list[float] = []
         contrast_list: list[float] = []
-        prev_magnitude: np.ndarray | None = None
-        flux_list: list[float] = []
-
         for i in range(n_frames):
-            start = i * hop_length
-            end = min(start + frame_length, len(samples))
-            frame = samples[start:end]
-
-            # Zero-pad if needed
-            if len(frame) < frame_length:
-                frame = np.pad(frame, (0, frame_length - len(frame)))
-
-            # Apply Hann window
-            window = np.hanning(len(frame))
-            windowed = frame * window
-
-            # FFT
-            fft_vals = np.fft.rfft(windowed)
-            magnitude = np.abs(fft_vals)
-            freqs = np.fft.rfftfreq(frame_length, d=1.0 / sr)
-
-            # Spectral centroid
-            total_mag = float(np.sum(magnitude))
-            centroid = float(np.sum(freqs * magnitude) / total_mag) if total_mag > 0 else 0.0
-            centroids.append(centroid)
-
-            # Spectral rolloff
-            cumsum = np.cumsum(magnitude)
-            if total_mag > 0:
-                rolloff_85 = float(freqs[np.searchsorted(cumsum, 0.85 * total_mag)])
-                rolloff_95 = float(freqs[np.searchsorted(cumsum, 0.95 * total_mag)])
-            else:
-                rolloff_85 = 0.0
-                rolloff_95 = 0.0
-            rolloff_85_list.append(rolloff_85)
-            rolloff_95_list.append(rolloff_95)
-
-            # Spectral flatness (geometric mean / arithmetic mean)
-            mag_positive = magnitude[magnitude > 0]
-            if len(mag_positive) > 0 and total_mag > 0:
-                log_mean = float(np.mean(np.log(mag_positive + 1e-10)))
-                geometric_mean = np.exp(log_mean)
-                arithmetic_mean = float(np.mean(magnitude))
-                flatness = float(geometric_mean / (arithmetic_mean + 1e-10))
-            else:
-                flatness = 0.0
-            flatness_list.append(flatness)
-
-            # Spectral slope (dB/octave via log-frequency regression)
-            slope_list.append(_compute_spectral_slope(magnitude, freqs))
-
-            # Spectral contrast (mean peak-valley difference across bands)
-            contrast_list.append(_compute_spectral_contrast_frame(magnitude, freqs))
-
-            # Spectral flux (L2-norm, normalized by bin count — matches essentia Flux)
-            if prev_magnitude is not None:
-                diff = magnitude - prev_magnitude
-                flux = float(np.linalg.norm(diff) / (len(diff) + 1e-10))
-                flux_list.append(flux)
-            prev_magnitude = magnitude.copy()
-
-        spectral_centroid_hz = float(np.mean(centroids)) if centroids else 0.0
-        spectral_rolloff_85 = float(np.mean(rolloff_85_list)) if rolloff_85_list else 0.0
-        spectral_rolloff_95 = float(np.mean(rolloff_95_list)) if rolloff_95_list else 0.0
-        spectral_flatness = float(np.mean(flatness_list)) if flatness_list else 0.0
-        spectral_slope = float(np.mean(slope_list)) if slope_list else 0.0
-        spectral_contrast = float(np.mean(contrast_list)) if contrast_list else 0.0
-
-        if flux_list:
-            spectral_flux_mean = float(np.mean(flux_list))
-            spectral_flux_std = float(np.std(flux_list))
-        else:
-            spectral_flux_mean = 0.0
-            spectral_flux_std = 0.0
+            frame_mag = mag[:, i]
+            slope_list.append(_compute_spectral_slope(frame_mag, freqs))
+            contrast_list.append(_compute_spectral_contrast_frame(frame_mag, freqs))
 
         return {
-            "spectral_centroid_hz": spectral_centroid_hz,
-            "spectral_rolloff_85": spectral_rolloff_85,
-            "spectral_rolloff_95": spectral_rolloff_95,
-            "spectral_flatness": spectral_flatness,
-            "spectral_flux_mean": spectral_flux_mean,
-            "spectral_flux_std": spectral_flux_std,
-            "spectral_slope": spectral_slope,
-            "spectral_contrast": spectral_contrast,
+            "spectral_centroid_hz": float(np.mean(centroids)),
+            "spectral_rolloff_85": float(np.mean(rolloff_85)),
+            "spectral_rolloff_95": float(np.mean(rolloff_95)),
+            "spectral_flatness": float(np.mean(flatness)),
+            "spectral_flux_mean": float(np.mean(flux)) if len(flux) > 0 else 0.0,
+            "spectral_flux_std": float(np.std(flux)) if len(flux) > 0 else 0.0,
+            "spectral_slope": float(np.mean(slope_list)),
+            "spectral_contrast": float(np.mean(contrast_list)),
         }
