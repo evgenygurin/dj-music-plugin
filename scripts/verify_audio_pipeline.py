@@ -143,13 +143,21 @@ async def run_verification(track_path: str) -> bool:
 
     all_analyzers = sorted(registry.list_all())
     print(f"[3/7] Analyzers (sequential, {len(all_analyzers)} registered):")
+    # Run independent analyzers first, then dependent ones with accumulated results
+    independent = [n for n in all_analyzers if not registry.get(n).depends_on]
+    dependent = [n for n in all_analyzers if registry.get(n).depends_on]
+
     seq_features: dict = {}
     seq_total = 0.0
-    for name in all_analyzers:
+    for name in independent + dependent:
         analyzer = registry.get(name)
         assert analyzer is not None
         with Timer() as t:
-            result = analyzer.run(ctx)
+            # Dependent analyzers need prior_results from independent phase
+            if analyzer.depends_on:
+                result = analyzer.run(ctx, prior_results=seq_features)
+            else:
+                result = analyzer.run(ctx)
         seq_total += t.elapsed
         n = len(result.features) if result.features else 0
         status = "OK" if result.success else f"FAIL: {result.error}"
