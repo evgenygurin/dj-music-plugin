@@ -259,7 +259,7 @@ async def run_verification(track_path: str) -> bool:
             else:
                 print(f"    {k:32s} {v}")
 
-    p3_vector_keys = ["tonnetz_mean", "tempogram_ratios", "beats_loudness_band_ratios"]
+    p3_vector_keys = ["tonnetz_vector", "tempogram_ratio_vector", "beat_loudness_band_ratio"]
     for vk in p3_vector_keys:
         val = f.get(vk)
         if val is not None and isinstance(val, (list, tuple)):

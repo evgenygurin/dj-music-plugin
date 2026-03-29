@@ -38,11 +38,11 @@ P3_EXPECTED_FEATURES: dict[str, list[str]] = {
     "dynamic_complexity": ["dynamic_complexity"],
     "spectral_complexity": ["spectral_complexity_mean"],
     "pitch_salience": ["pitch_salience_mean"],
-    "tonnetz": ["tonnetz_mean"],
-    "tempogram": ["tempogram_ratios"],
-    "beats_loudness": ["beats_loudness_band_ratios"],
+    "tonnetz": ["tonnetz_vector"],
+    "tempogram": ["tempogram_ratio_vector"],
+    "beats_loudness": ["beat_loudness_band_ratio"],
     "bpm_histogram": ["bpm_histogram_first_peak_weight", "bpm_histogram_second_peak_bpm"],
-    "phrase": ["phrase_boundaries"],
+    "phrase": ["phrase_boundaries_ms", "dominant_phrase_bars"],
 }
 
 # Feature range checks: (key, min, max) — None means no bound
@@ -112,8 +112,22 @@ async def main(track_path: str) -> bool:
     if missing:
         print(f"MISSING P3:   {missing}")
 
+    # Run beat analyzer first — P3 dependent analyzers need beat_times
+    prior: dict = {}
+    beat_analyzer = registry.get("beat")
+    if beat_analyzer and beat_analyzer.is_available():
+        print("Pre-running 'beat' analyzer for dependent P3 analyzers...")
+        beat_result = beat_analyzer.run(ctx)
+        if beat_result.success and beat_result.features:
+            prior = beat_result.features
+            print(f"  beat -> OK ({len(prior)} features)\n")
+        else:
+            print(
+                f"  beat -> FAIL ({beat_result.error}) — dependent analyzers will get empty data\n"
+            )
+
     # Run each P3 analyzer
-    print(f"\n{'Analyzer':20s} {'Status':8s} {'Time':>8s} {'Features':>8s}  Details")
+    print(f"{'Analyzer':20s} {'Status':8s} {'Time':>8s} {'Features':>8s}  Details")
     print("-" * 80)
 
     errors: list[str] = []
@@ -131,7 +145,11 @@ async def main(track_path: str) -> bool:
 
         t0 = time.perf_counter()
         try:
-            result = analyzer.run(ctx)
+            # Pass prior_results for dependent analyzers (beats_loudness, bpm_histogram, phrase)
+            if analyzer.depends_on:
+                result = analyzer.run(ctx, prior_results=prior)
+            else:
+                result = analyzer.run(ctx)
             elapsed = time.perf_counter() - t0
             total_time += elapsed
 

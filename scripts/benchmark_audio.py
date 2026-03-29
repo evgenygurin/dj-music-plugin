@@ -147,6 +147,14 @@ async def main() -> None:
             "bpm_histogram",
             "phrase",
         ]
+        # Beat analyzer provides prior_results for dependent P3 analyzers
+        beat_prior: dict = {}
+        beat_a = registry.get("beat")
+        if beat_a and beat_a.is_available():
+            br = beat_a.run(ctx)
+            if br.success and br.features:
+                beat_prior = br.features
+
         p3_total = 0.0
         p3_ok = 0
         for analyzer_name in p3_names:
@@ -156,7 +164,10 @@ async def main() -> None:
                 continue
             t0 = time.perf_counter()
             try:
-                result = analyzer.run(ctx)
+                if analyzer.depends_on:
+                    result = analyzer.run(ctx, prior_results=beat_prior)
+                else:
+                    result = analyzer.run(ctx)
                 t1 = time.perf_counter()
                 ms = (t1 - t0) * 1000
                 p3_total += ms

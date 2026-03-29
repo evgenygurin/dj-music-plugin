@@ -6,6 +6,7 @@ def test_level_enum():
     assert AnalysisLevel.TRIAGE == 2
     assert AnalysisLevel.SCORING == 3
     assert AnalysisLevel.TRANSITION == 4
+    assert AnalysisLevel.ADVANCED == 5
 
 
 def test_triage_analyzers():
@@ -36,4 +37,34 @@ def test_clip_duration_triage():
 
 def test_clip_duration_scoring():
     dur = get_clip_duration(AnalysisLevel.SCORING)
+    assert dur == 60.0
+
+
+def test_advanced_includes_p3_plus_lower():
+    """ADVANCED level must include all lower-level + 10 P3 analyzers."""
+    names = get_analyzers_for_level(AnalysisLevel.ADVANCED)
+    # All lower levels included
+    assert "loudness" in names  # TRIAGE
+    assert "beat" in names  # SCORING
+    assert "structure" in names  # TRANSITION
+    # All 10 P3 analyzers
+    p3 = {
+        "danceability",
+        "dissonance",
+        "dynamic_complexity",
+        "spectral_complexity",
+        "pitch_salience",
+        "tonnetz",
+        "tempogram",
+        "beats_loudness",
+        "bpm_histogram",
+        "phrase",
+    }
+    assert p3.issubset(set(names))
+    assert len(names) == 18  # 6 triage + 1 scoring + 1 transition + 10 advanced
+
+
+def test_clip_duration_advanced():
+    """ADVANCED uses same clip duration as SCORING (60s)."""
+    dur = get_clip_duration(AnalysisLevel.ADVANCED)
     assert dur == 60.0
