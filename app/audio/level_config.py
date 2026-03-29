@@ -12,12 +12,25 @@ class AnalysisLevel(IntEnum):
     TRIAGE = 2  # L1+L2 combined: bpm, loudness, energy, spectral, key, mfcc
     SCORING = 3  # L3: + beat analyzer (onset, kick, hp_ratio, pulse)
     TRANSITION = 4  # L4: + structure (sections), permanent file
+    ADVANCED = 5  # L5: + P3 DSP (danceability, dissonance, tonnetz, etc.)
 
 
 _LEVEL_ANALYZERS: dict[int, list[str]] = {
     AnalysisLevel.TRIAGE: ["loudness", "energy", "spectral", "bpm", "key", "mfcc"],
     AnalysisLevel.SCORING: ["beat"],
     AnalysisLevel.TRANSITION: ["structure"],
+    AnalysisLevel.ADVANCED: [
+        "danceability",
+        "dissonance",
+        "dynamic_complexity",
+        "spectral_complexity",
+        "pitch_salience",
+        "tonnetz",
+        "tempogram",
+        "beats_loudness",
+        "bpm_histogram",
+        "phrase",
+    ],
 }
 
 

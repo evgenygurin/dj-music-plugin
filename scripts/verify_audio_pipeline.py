@@ -141,10 +141,11 @@ async def run_verification(track_path: str) -> bool:
     registry = AnalyzerRegistry()
     registry.discover()
 
-    print(f"[3/7] Analyzers (sequential, {len(registry.list_all())} registered):")
+    all_analyzers = sorted(registry.list_all())
+    print(f"[3/7] Analyzers (sequential, {len(all_analyzers)} registered):")
     seq_features: dict = {}
     seq_total = 0.0
-    for name in sorted(registry.list_all()):
+    for name in all_analyzers:
         analyzer = registry.get(name)
         assert analyzer is not None
         with Timer() as t:
@@ -231,6 +232,31 @@ async def run_verification(track_path: str) -> bool:
 
     print(f"  Structure: {f['section_count']} sections")
 
+    # ── Phase 3 advanced features ──
+    p3_keys = [
+        "danceability",
+        "dissonance_mean",
+        "dynamic_complexity",
+        "spectral_complexity_mean",
+        "pitch_salience_mean",
+        "bpm_histogram_first_peak_weight",
+        "bpm_histogram_second_peak_bpm",
+    ]
+    p3_present = {k: f.get(k) for k in p3_keys if f.get(k) is not None}
+    if p3_present:
+        print("\n  Phase 3 Advanced:")
+        for k, v in p3_present.items():
+            if isinstance(v, float):
+                print(f"    {k:32s} {v:.4f}")
+            else:
+                print(f"    {k:32s} {v}")
+
+    p3_vector_keys = ["tonnetz_mean", "tempogram_ratios", "beats_loudness_band_ratios"]
+    for vk in p3_vector_keys:
+        val = f.get(vk)
+        if val is not None and isinstance(val, (list, tuple)):
+            print(f"    {vk:32s} [{', '.join(f'{x:.3f}' for x in val[:6])}]")
+
     print(f"\n  Mood: {mood.mood} (confidence: {mood.confidence:.3f})")
     print("  Top 5:")
     for name, score in mood.top_matches[:5]:
@@ -245,13 +271,16 @@ async def run_verification(track_path: str) -> bool:
         errors.append(f"None values: {none_keys}")
     print(f"  None values:    {len(none_keys)}/{len(f)}")
 
-    if pipe_result.success_count != 8:
-        errors.append(f"Analyzers: {pipe_result.success_count}/8")
-    print(f"  Analyzers:      {pipe_result.success_count}/8 OK")
+    total_analyzers = len(registry.list_all())
+    if pipe_result.success_count < 8:
+        errors.append(f"Core analyzers: {pipe_result.success_count}/8")
+    print(f"  Core analyzers: {pipe_result.success_count}/8 OK")
+    print(f"  All analyzers:  {pipe_result.success_count}/{total_analyzers} OK")
 
-    if len(f) != 47:
-        errors.append(f"Features: {len(f)}/47")
-    print(f"  Features:       {len(f)}/47")
+    min_features = 47  # core features
+    if len(f) < min_features:
+        errors.append(f"Features: {len(f)}/{min_features}")
+    print(f"  Features:       {len(f)} (min {min_features})")
 
     if not (60 <= f["bpm"] <= 200):
         errors.append(f"BPM {f['bpm']} outside range")

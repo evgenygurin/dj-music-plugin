@@ -132,6 +132,44 @@ async def main() -> None:
             f"avg={per_track:.0f}ms/track",
         )
 
+    # ── 2b. Phase 3 analyzers (individual timing) ──
+    if lib_item:
+        print("\n  Phase 3 analyzer breakdown:")
+        p3_names = [
+            "danceability",
+            "dissonance",
+            "dynamic_complexity",
+            "spectral_complexity",
+            "pitch_salience",
+            "tonnetz",
+            "tempogram",
+            "beats_loudness",
+            "bpm_histogram",
+            "phrase",
+        ]
+        p3_total = 0.0
+        p3_ok = 0
+        for analyzer_name in p3_names:
+            analyzer = registry.get(analyzer_name)
+            if analyzer is None:
+                print(f"      {analyzer_name:20s} -> NOT REGISTERED")
+                continue
+            t0 = time.perf_counter()
+            try:
+                result = analyzer.run(ctx)
+                t1 = time.perf_counter()
+                ms = (t1 - t0) * 1000
+                p3_total += ms
+                status = "OK" if result.success else f"FAIL: {result.error}"
+                if result.success:
+                    p3_ok += 1
+                n = len(result.features) if result.features else 0
+                record(f"  p3/{analyzer_name}", ms, f"{status}, {n} feat")
+            except Exception as e:
+                t1 = time.perf_counter()
+                record(f"  p3/{analyzer_name}", (t1 - t0) * 1000, f"ERROR: {e}")
+        record("Phase 3 total", p3_total, f"{p3_ok}/{len(p3_names)} OK")
+
     # ── 3. Mood classification ──
     print("\n--- Mood Classification ---")
     from app.audio.classification import MoodClassifier

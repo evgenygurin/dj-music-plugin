@@ -141,9 +141,10 @@ KEY_CODE_MAX: int = 23
 
 # Transition scoring weights (default, overridable per-template)
 DEFAULT_TRANSITION_WEIGHTS: dict[str, float] = {
-    "bpm": 0.25,
+    "bpm": 0.22,
     "harmonic": 0.20,
-    "energy": 0.25,
+    "energy": 0.23,
     "spectral": 0.15,
-    "groove": 0.15,
+    "groove": 0.10,
+    "timbral": 0.10,
 }

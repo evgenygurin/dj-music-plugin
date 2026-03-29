@@ -109,4 +109,5 @@ def test_transition_weights_sum_and_keys() -> None:
         "energy",
         "spectral",
         "groove",
+        "timbral",
     }
