@@ -1,6 +1,6 @@
 """Audio analysis models (REQUIREMENTS §2.2, §2.8)."""
 
-from typing import Any, ClassVar, Optional
+from typing import Any, ClassVar
 
 from sqlalchemy import (
     CheckConstraint,
@@ -22,7 +22,7 @@ class FeatureExtractionRun(Base, TimestampMixin):
     __tablename__ = "feature_extraction_runs"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    track_id: Mapped[int] = mapped_column(ForeignKey("tracks.id", ondelete="CASCADE"))
+    track_id: Mapped[int] = mapped_column(ForeignKey("tracks.id", ondelete="CASCADE"), index=True)
     pipeline_name: Mapped[str] = mapped_column(String(100))
     pipeline_version: Mapped[str] = mapped_column(String(50))
     parameters: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -30,7 +30,7 @@ class FeatureExtractionRun(Base, TimestampMixin):
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     # relationships
-    computed_features: Mapped[Optional["TrackAudioFeaturesComputed"]] = relationship(
+    computed_features: Mapped["TrackAudioFeaturesComputed | None"] = relationship(
         back_populates="pipeline_run",
     )
 
@@ -57,7 +57,7 @@ class TrackAudioFeaturesComputed(Base, TimestampMixin):
         ForeignKey("tracks.id", ondelete="CASCADE"), primary_key=True, unique=True
     )
     pipeline_run_id: Mapped[int | None] = mapped_column(
-        ForeignKey("feature_extraction_runs.id"), nullable=True
+        ForeignKey("feature_extraction_runs.id"), nullable=True, index=True
     )
     analysis_level: Mapped[int] = mapped_column(
         default=0, server_default="0", doc="0=none, 2=L1+L2, 3=L3"
@@ -142,7 +142,7 @@ class TrackAudioFeaturesComputed(Base, TimestampMixin):
     mood_confidence: Mapped[float | None] = mapped_column(nullable=True)
 
     # relationships
-    pipeline_run: Mapped[Optional["FeatureExtractionRun"]] = relationship(
+    pipeline_run: Mapped["FeatureExtractionRun | None"] = relationship(
         back_populates="computed_features",
     )
 
@@ -291,7 +291,7 @@ class Embedding(Base, TimestampMixin):
     __tablename__ = "embeddings"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    track_id: Mapped[int] = mapped_column(ForeignKey("tracks.id", ondelete="CASCADE"))
+    track_id: Mapped[int] = mapped_column(ForeignKey("tracks.id", ondelete="CASCADE"), index=True)
     embedding_type: Mapped[str] = mapped_column(String(50))
     dimensions: Mapped[int] = mapped_column()
     vector_data: Mapped[bytes] = mapped_column(LargeBinary)
@@ -313,7 +313,7 @@ class TimeseriesReference(Base, TimestampMixin):
     __tablename__ = "timeseries_references"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    track_id: Mapped[int] = mapped_column(ForeignKey("tracks.id", ondelete="CASCADE"))
+    track_id: Mapped[int] = mapped_column(ForeignKey("tracks.id", ondelete="CASCADE"), index=True)
     feature_set_name: Mapped[str] = mapped_column(String(100))
     storage_uri: Mapped[str] = mapped_column(String(1000))
     frame_count: Mapped[int] = mapped_column()

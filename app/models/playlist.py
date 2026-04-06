@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import datetime
 
-from sqlalchemy import DateTime, ForeignKey, Integer, String, Text, UniqueConstraint
+from sqlalchemy import DateTime, ForeignKey, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, TimestampMixin
@@ -22,7 +22,7 @@ class Playlist(Base, TimestampMixin):
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(String(500))
     parent_id: Mapped[int | None] = mapped_column(
-        ForeignKey("dj_playlists.id", ondelete="SET NULL"), nullable=True
+        ForeignKey("dj_playlists.id", ondelete="SET NULL"), nullable=True, index=True
     )
     source_app: Mapped[str | None] = mapped_column(String(200), nullable=True)
     source_of_truth: Mapped[str] = mapped_column(
@@ -48,9 +48,11 @@ class PlaylistItem(Base):
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    playlist_id: Mapped[int] = mapped_column(ForeignKey("dj_playlists.id", ondelete="CASCADE"))
-    track_id: Mapped[int] = mapped_column(ForeignKey("tracks.id", ondelete="CASCADE"))
-    sort_index: Mapped[int] = mapped_column(Integer)
+    playlist_id: Mapped[int] = mapped_column(
+        ForeignKey("dj_playlists.id", ondelete="CASCADE"), index=True
+    )
+    track_id: Mapped[int] = mapped_column(ForeignKey("tracks.id", ondelete="CASCADE"), index=True)
+    sort_index: Mapped[int] = mapped_column()
     added_at: Mapped[datetime.datetime | None] = mapped_column(
         DateTime(timezone=True),
         nullable=True,

@@ -32,9 +32,11 @@ class RawProviderResponse(Base, TimestampMixin):
     id: Mapped[int] = mapped_column(primary_key=True)
     track_id: Mapped[int] = mapped_column(
         ForeignKey("tracks.id", ondelete="CASCADE"),
+        index=True,
     )
     provider_id: Mapped[int] = mapped_column(
         ForeignKey("providers.id", ondelete="CASCADE"),
+        index=True,
     )
     raw_data: Mapped[str | None] = mapped_column(Text, nullable=True)
     fetched_at: Mapped[datetime.datetime | None] = mapped_column(

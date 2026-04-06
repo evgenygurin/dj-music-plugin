@@ -396,10 +396,10 @@ Structured JSON with set metadata, per-track details, per-transition recommendat
 
 ## 10. Database Requirements
 
-### 10.1 Dual Database Support
+### 10.1 Database
 
-- Development: SQLite (via async driver)
-- Production: PostgreSQL 16+ (with async driver, pgvector extension for embeddings)
+- Production & Development: Supabase PostgreSQL 16+ (with async driver via asyncpg, pgvector extension for embeddings)
+- Tests only: in-memory SQLite (via aiosqlite)
 
 ### 10.2 Schema
 
@@ -498,7 +498,7 @@ All configuration via environment variables with sensible defaults:
 
 | Category | Variables |
 |----------|----------|
-| Database | Connection URL (SQLite default) |
+| Database | Connection URL (PostgreSQL via Supabase) |
 | Yandex Music | OAuth token, user ID, base URL, library path |
 | Observability | Sentry DSN, OTEL endpoint, trace sampling |
 | MCP | Cache dir/TTL, retry config, pagination size, payload logging |

@@ -6,7 +6,7 @@ globs: tests/**/*.py
 # Tests
 
 - Use `pytest` with `pytest-asyncio` (asyncio_mode = "auto")
-- **Never mock the database** — use in-memory SQLite via `seeded_db` fixture
+- **Never mock the database** — use in-memory SQLite via `seeded_db` fixture (SQLite used only for tests; production uses Supabase PostgreSQL)
 - MCP tool tests use `FastMCP Client` fixture — in-memory, no network
 - Assert on `result.structured_content` for tool return values
 - Assert on `result.meta` for warnings and alternatives

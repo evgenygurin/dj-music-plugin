@@ -14,8 +14,8 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
-    # ── Database ──────────────────────────────────────
-    database_url: str = "sqlite+aiosqlite:///dj_music.db"
+    # ── Database ─────��────────────────────────────────
+    database_url: str = "postgresql+asyncpg://localhost:5432/dj_music"
 
     # ── Yandex Music ──────────────────────────────────
     ym_token: str = ""
