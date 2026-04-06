@@ -419,7 +419,7 @@ class TransitionScorer:
     # ── Timbral ──────────────────────────────────────
 
     def _score_timbral(self, from_t: TrackFeatures, to_t: TrackFeatures) -> float:
-        """Timbral similarity: spectral contrast + pitch salience + danceability + dynamic complexity."""
+        """Timbral similarity: spectral contrast, pitch salience, danceability."""
         signals: list[float] = []
         weights: list[float] = []
 

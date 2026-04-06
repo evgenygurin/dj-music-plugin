@@ -76,3 +76,17 @@ class ExternalIdMixin:
         )
         result = await self.session.execute(stmt)
         return {row.track_id: row.external_id for row in result.all()}
+
+    async def update_ym_album_id(self, ym_track_id: str, album_id: str) -> None:
+        """Update album_id in YandexMetadata for a given YM track ID."""
+        from sqlalchemy import update as sa_update
+
+        from app.models.platform import YandexMetadata
+
+        stmt = (
+            sa_update(YandexMetadata)
+            .where(YandexMetadata.yandex_track_id == ym_track_id)
+            .values(album_id=album_id)
+        )
+        await self.session.execute(stmt)
+        await self.session.flush()
