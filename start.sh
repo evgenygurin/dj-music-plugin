@@ -1,6 +1,8 @@
 #!/bin/bash
 set -e
 
+cd "$(dirname "$0")"
+
 cleanup() {
   echo "Shutting down..."
   kill $BACKEND_PID $PANEL_PID 2>/dev/null
