@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import numpy as np
+import pytest
 
 from app.audio.analyzers.beat import BeatDetector
 from app.audio.core.context import AnalysisContext
@@ -32,6 +33,7 @@ def _make_kick_signal(bpm: float = 130.0, duration: float = 4.0) -> AudioSignal:
 
 def test_beat_detector_exports_beat_times():
     """BeatDetector output must include beat_times as list of floats."""
+    pytest.importorskip("librosa")
     signal = _make_kick_signal(bpm=130.0, duration=4.0)
     detector = BeatDetector()
     result = detector.run(AnalysisContext(signal))
@@ -46,6 +48,7 @@ def test_beat_detector_exports_beat_times():
 
 def test_beat_export_includes_intervals():
     """BeatDetector must export beats_intervals with length == len(beat_times) - 1."""
+    pytest.importorskip("librosa")
     signal = _make_kick_signal(bpm=130.0, duration=4.0)
     detector = BeatDetector()
     result = detector.run(AnalysisContext(signal))

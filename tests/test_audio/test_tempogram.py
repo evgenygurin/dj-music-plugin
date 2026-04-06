@@ -5,6 +5,7 @@ from __future__ import annotations
 from unittest.mock import patch
 
 import numpy as np
+import pytest
 
 from app.audio.core.context import AnalysisContext
 from app.audio.core.types import AudioSignal
@@ -34,6 +35,7 @@ def _click_track(bpm: float = 130.0) -> np.ndarray:
 
 def test_tempogram_happy_path():
     """TempogramAnalyzer produces vector of floats."""
+    pytest.importorskip("librosa")
     from app.audio.analyzers.tempogram import TempogramAnalyzer
 
     signal = _make_signal(_click_track())

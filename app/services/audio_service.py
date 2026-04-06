@@ -100,11 +100,11 @@ class AudioService:
         if force:
             await self._repo.delete_features(track_id)
 
-        from app.models.audio import TrackAudioFeaturesComputed as TAFC
+        from app.models.audio import TrackAudioFeaturesComputed
 
         features = await self._repo.save_features(
             track_id=track_id,
-            features_dict=TAFC.filter_features(result.features),
+            features_dict=TrackAudioFeaturesComputed.filter_features(result.features),
             pipeline_run_id=run.id,
         )
 

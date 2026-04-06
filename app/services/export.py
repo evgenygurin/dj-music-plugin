@@ -299,8 +299,7 @@ def write_cheat_sheet(data: SetExportData, output_path: Path) -> Path:
         # Section summary
         if track.sections:
             section_parts = [
-                f"{s.get('type', '?')}@{s.get('start_ms', 0) // 1000}s"
-                for s in track.sections
+                f"{s.get('type', '?')}@{s.get('start_ms', 0) // 1000}s" for s in track.sections
             ]
             lines.append(f"    Sections: {' | '.join(section_parts)}")
 

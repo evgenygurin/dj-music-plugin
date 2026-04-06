@@ -44,7 +44,7 @@ class ReasoningService:
         result = await self._sets.load_version_with_items(set_id)
         if result is None:
             raise NotFoundError("SetVersion", f"set_id={set_id}")
-        latest, items = result
+        _latest, items = result
 
         if after_position < 0 or after_position >= len(items):
             raise ValidationError(f"Position {after_position} out of range (0-{len(items) - 1})")

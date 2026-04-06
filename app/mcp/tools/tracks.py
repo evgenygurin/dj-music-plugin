@@ -164,9 +164,7 @@ async def get_track_features(
             "second_peak_bpm": features.bpm_histogram_second_peak_bpm,
             "second_peak_weight": features.bpm_histogram_second_peak_weight,
         },
-        "tonnetz": (
-            _parse_json(features.tonnetz_vector) if features.tonnetz_vector else None
-        ),
+        "tonnetz": (_parse_json(features.tonnetz_vector) if features.tonnetz_vector else None),
     }
 
     if include_sections:
