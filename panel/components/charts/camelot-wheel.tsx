@@ -18,22 +18,31 @@ import type { KeyCount } from '@/lib/queries/dashboard'
 const chartConfig = {
   count: {
     label: 'Tracks',
-    color: 'hsl(var(--chart-1))',
+    color: 'var(--chart-4)',
   },
 } satisfies ChartConfig
 
 export function CamelotWheelChart({ data }: { data: KeyCount[] }) {
   return (
-    <ChartContainer config={chartConfig} className="h-[280px] w-full">
-      <RadarChart data={data} margin={{ top: 8, right: 16, left: 16, bottom: 8 }}>
-        <PolarGrid />
-        <PolarAngleAxis dataKey="camelot" tick={{ fontSize: 10 }} />
+    <ChartContainer config={chartConfig} className="h-[300px] w-full">
+      <RadarChart data={data} margin={{ top: 8, right: 24, left: 24, bottom: 8 }}>
+        <defs>
+          <linearGradient id="camelotGradient" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stopColor="var(--chart-4)" stopOpacity={0.35} />
+            <stop offset="100%" stopColor="var(--chart-1)" stopOpacity={0.15} />
+          </linearGradient>
+        </defs>
+        <PolarGrid stroke="var(--border)" />
+        <PolarAngleAxis
+          dataKey="camelot"
+          tick={{ fontSize: 10, fill: 'var(--muted-foreground)' }}
+        />
         <ChartTooltip content={<ChartTooltipContent />} />
         <Radar
           dataKey="count"
-          fill="var(--color-count)"
-          fillOpacity={0.3}
-          stroke="var(--color-count)"
+          fill="url(#camelotGradient)"
+          stroke="var(--chart-4)"
+          strokeWidth={2}
         />
       </RadarChart>
     </ChartContainer>

@@ -4,7 +4,7 @@ import { BpmDistributionChart } from '@/components/charts/bpm-distribution'
 import { MoodDistributionChart } from '@/components/charts/mood-distribution'
 import { CamelotWheelChart } from '@/components/charts/camelot-wheel'
 import { LufsRangeChart } from '@/components/charts/lufs-range'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
 import {
   getLibraryStats,
@@ -33,40 +33,44 @@ export default async function DashboardPage() {
   return (
     <>
       <SiteHeader title="Dashboard" />
-      <div className="flex flex-1 flex-col gap-6 p-4">
+      <div className="flex flex-1 flex-col gap-6 p-4 md:p-6">
         <SectionCards stats={stats} />
 
         <div className="grid gap-4 md:grid-cols-2">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-sm font-medium">BPM Distribution</CardTitle>
+          <Card className="border-border/50">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base font-semibold">BPM Distribution</CardTitle>
+              <CardDescription>Tempo spread across your library</CardDescription>
             </CardHeader>
             <CardContent>
               <BpmDistributionChart data={bpmData} />
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-sm font-medium">LUFS Distribution</CardTitle>
+          <Card className="border-border/50">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base font-semibold">LUFS Distribution</CardTitle>
+              <CardDescription>Loudness levels of analyzed tracks</CardDescription>
             </CardHeader>
             <CardContent>
               <LufsRangeChart data={lufsData} />
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-sm font-medium">Mood Distribution</CardTitle>
+          <Card className="border-border/50">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base font-semibold">Mood Distribution</CardTitle>
+              <CardDescription>Subgenre classification breakdown</CardDescription>
             </CardHeader>
             <CardContent>
               <MoodDistributionChart data={moodData} />
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-sm font-medium">Key Distribution (Camelot)</CardTitle>
+          <Card className="border-border/50">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base font-semibold">Camelot Wheel</CardTitle>
+              <CardDescription>Key distribution for harmonic mixing</CardDescription>
             </CardHeader>
             <CardContent>
               <CamelotWheelChart data={keyData} />
@@ -74,21 +78,29 @@ export default async function DashboardPage() {
           </Card>
         </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm font-medium">Analysis Coverage</CardTitle>
+        <Card className="border-border/50">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base font-semibold">Analysis Coverage</CardTitle>
+            <CardDescription>
+              {totalCoverage > 0
+                ? `${totalCoverage} tracks analyzed across ${coverageData.length} levels`
+                : 'No tracks analyzed yet'}
+            </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             {coverageData.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No analysis data yet.</p>
+              <p className="text-sm text-muted-foreground">
+                Run <code className="rounded bg-muted px-1 py-0.5 text-xs">classify_mood</code> to
+                start analyzing your library.
+              </p>
             ) : (
               coverageData.map((item) => {
                 const pct = totalCoverage > 0 ? Math.round((item.count / totalCoverage) * 100) : 0
                 const label = ANALYSIS_LEVELS[item.level] ?? `Level ${item.level}`
                 return (
-                  <div key={item.level} className="space-y-1">
+                  <div key={item.level} className="space-y-1.5">
                     <div className="flex justify-between text-sm">
-                      <span>{label}</span>
+                      <span className="font-medium">{label}</span>
                       <span className="text-muted-foreground">
                         {item.count.toLocaleString()} ({pct}%)
                       </span>
