@@ -17,6 +17,7 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog'
 import { ToolForm } from '@/components/tool-form'
+import type { JsonSchema } from '@/components/tool-form'
 import { ToolResult } from '@/components/tool-result'
 import { executeToolAction } from '@/actions/tool-actions'
 import { toast } from 'sonner'
@@ -25,7 +26,7 @@ import type { ToolCallResult } from '@/lib/mcp-client'
 interface ActionButtonProps {
   toolName: string
   label: string
-  schema: Record<string, unknown>
+  schema: JsonSchema
 }
 
 function ActionButton({ toolName, label, schema }: ActionButtonProps) {
@@ -59,7 +60,7 @@ function ActionButton({ toolName, label, schema }: ActionButtonProps) {
           <DialogTitle className="font-mono text-sm">{toolName}</DialogTitle>
         </DialogHeader>
         <ToolForm
-          schema={schema as { type?: string; properties?: Record<string, unknown>; required?: string[] }}
+          schema={schema}
           onSubmit={handleSubmit}
           loading={loading}
         />
@@ -70,10 +71,10 @@ function ActionButton({ toolName, label, schema }: ActionButtonProps) {
 }
 
 interface DiscoverActionsProps {
-  importSchema: Record<string, unknown>
-  downloadSchema: Record<string, unknown>
-  similarSchema: Record<string, unknown>
-  expandSchema: Record<string, unknown>
+  importSchema: JsonSchema
+  downloadSchema: JsonSchema
+  similarSchema: JsonSchema
+  expandSchema: JsonSchema
 }
 
 export function DiscoverActions({

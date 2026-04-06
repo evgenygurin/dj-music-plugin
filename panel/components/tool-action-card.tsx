@@ -17,6 +17,7 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog'
 import { ToolForm } from '@/components/tool-form'
+import type { JsonSchema } from '@/components/tool-form'
 import { ToolResult } from '@/components/tool-result'
 import { executeToolAction } from '@/actions/tool-actions'
 import { toast } from 'sonner'
@@ -27,7 +28,7 @@ interface ToolActionCardProps {
   title: string
   description: string
   toolName: string
-  schema: Record<string, unknown>
+  schema: JsonSchema
   buttonLabel?: string
 }
 
@@ -83,7 +84,7 @@ export function ToolActionCard({
               <DialogTitle className="font-mono text-sm">{toolName}</DialogTitle>
             </DialogHeader>
             <ToolForm
-              schema={schema as { type?: string; properties?: Record<string, unknown>; required?: string[] }}
+              schema={schema}
               onSubmit={handleSubmit}
               loading={loading}
             />

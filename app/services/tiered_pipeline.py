@@ -45,6 +45,7 @@ class TieredPipeline:
         track_ids: list[int],
         target_level: AnalysisLevel,
         *,
+        force: bool = False,
         progress_callback: Any = None,
     ) -> dict[str, int]:
         """Ensure all tracks have at least target analysis level.
@@ -54,7 +55,10 @@ class TieredPipeline:
 
         Returns: {"analyzed": N, "skipped": N, "failed": N}
         """
-        need_analysis = await self._audio.get_tracks_below_level(track_ids, target_level)
+        if force:
+            need_analysis = list(track_ids)
+        else:
+            need_analysis = await self._audio.get_tracks_below_level(track_ids, target_level)
         if not need_analysis:
             return {"analyzed": 0, "skipped": len(track_ids), "failed": 0}
 
@@ -114,10 +118,19 @@ class TieredPipeline:
                     sections = result.features.pop("sections", None)
                     result.features.pop("section_count", None)
 
+                    # Create pipeline run record for traceability
+                    run = await self._audio.create_pipeline_run(
+                        track_id=track_id,
+                        name=f"tiered_L{int(level)}",
+                        version="0.5.0",
+                        status="completed",
+                    )
+
                     await self._audio.save_or_update_features(
                         track_id=track_id,
                         features_dict=result.features,
                         level=level,
+                        pipeline_run_id=run.id,
                     )
 
                     # Run mood classifier (rule-based, <1ms)

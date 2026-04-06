@@ -35,7 +35,7 @@ def _discover_tools_static() -> list[dict[str, Any]]:
     functions without starting the full MCP server (no DB connection needed).
     """
     from fastmcp.server.providers.filesystem_discovery import discover_and_import
-    from fastmcp.tools.base import Tool
+    from fastmcp.tools import Tool
 
     mcp_dir = Path(__file__).parent / "app" / "mcp"
     result = discover_and_import(mcp_dir)

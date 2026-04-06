@@ -107,7 +107,7 @@ export function YmSearch() {
             onKeyDown={handleKeyDown}
             className="flex-1"
           />
-          <Select value={searchType} onValueChange={setSearchType}>
+          <Select value={searchType} onValueChange={(v) => v !== null && setSearchType(v)}>
             <SelectTrigger className="w-32">
               <SelectValue />
             </SelectTrigger>

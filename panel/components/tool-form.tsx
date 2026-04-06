@@ -20,14 +20,14 @@ import {
 } from '@/components/ui/collapsible'
 import { IconChevronDown } from '@tabler/icons-react'
 
-interface JsonSchema {
+export interface JsonSchema {
   type?: string
   properties?: Record<string, JsonSchemaProperty>
   required?: string[]
   [key: string]: unknown
 }
 
-interface JsonSchemaProperty {
+export interface JsonSchemaProperty {
   type?: string | string[]
   anyOf?: Array<{ type: string; [key: string]: unknown }>
   default?: unknown

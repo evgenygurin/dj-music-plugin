@@ -108,6 +108,7 @@ class AudioRepository(BaseRepository[TrackAudioFeaturesComputed]):
         track_id: int,
         features_dict: dict[str, Any],
         level: int,
+        pipeline_run_id: int | None = None,
     ) -> TrackAudioFeaturesComputed:
         """Create or update features row, merging new features and setting analysis_level."""
         existing = await self.get_features_by_track_id(track_id)
@@ -118,10 +119,17 @@ class AudioRepository(BaseRepository[TrackAudioFeaturesComputed]):
                 if value is not None:
                     setattr(existing, key, value)
             existing.analysis_level = max(existing.analysis_level, level)
+            if pipeline_run_id is not None:
+                existing.pipeline_run_id = pipeline_run_id
             await self.session.flush()
             return existing
 
-        row = TrackAudioFeaturesComputed(track_id=track_id, analysis_level=level, **filtered)
+        row = TrackAudioFeaturesComputed(
+            track_id=track_id,
+            analysis_level=level,
+            pipeline_run_id=pipeline_run_id,
+            **filtered,
+        )
         self.session.add(row)
         await self.session.flush()
         return row

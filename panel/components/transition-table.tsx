@@ -164,10 +164,10 @@ export function TransitionTable({ tracks }: TransitionTableProps) {
                       <span className="text-muted-foreground text-xs">—</span>
                     ) : hasComponents ? (
                       <Tooltip>
-                        <TooltipTrigger asChild>
-                          <button type="button" className="cursor-default">
-                            <ScoreBar score={tr?.overall_quality ?? null} />
-                          </button>
+                        <TooltipTrigger
+                          render={<button type="button" className="cursor-default" />}
+                        >
+                          <ScoreBar score={tr?.overall_quality ?? null} />
                         </TooltipTrigger>
                         <TooltipContent side="left" className="min-w-[140px]">
                           <div className="flex flex-col gap-1 py-0.5">
