@@ -1,6 +1,6 @@
 # Architecture
 
-## Layer Diagram
+## System Overview
 
 ```text
 ┌─────────────────────────────────────────────────────────────┐
@@ -44,7 +44,8 @@
                    │
     ┌──────────────▼───────────────┐
     │    SQLAlchemy 2.0 Async       │
-    │  SQLite (dev) / PostgreSQL    │
+    │  Supabase PostgreSQL (prod)   │
+    │  SQLite (test, in-memory)     │
     │  44 tables, Alembic migrations│
     └──────────────────────────────┘
 
@@ -55,8 +56,40 @@ External:
     └──────────────────────────────┘
     ┌──────────────────────────────┐
     │  Audio Files (filesystem)    │
-    │  librosa, demucs (optional)  │
+    │  librosa, essentia (optional)│
     └──────────────────────────────┘
+```
+
+## Panel & REST API Layer
+
+```text
+┌──────────────────────────────────────────┐
+│  Panel (Next.js 16, Bun)                 │
+│  http://localhost:3000                   │
+│  ┌──────────┐  ┌───────────────────────┐│
+│  │ Pages    │  │ Server Actions        ││
+│  │ (SSR)    │  │ (analysis, discovery, ││
+│  │          │  │  sets, sync)          ││
+│  └────┬─────┘  └──────────┬────────────┘│
+│       │ reads              │ mutations   │
+└───────┼────────────────────┼─────────────┘
+        │                    │
+        ▼                    ▼
+┌───────────────┐  ┌─────────────────────────┐
+│ Supabase      │  │ REST API (FastAPI)       │
+│ PostgreSQL    │  │ serve_http.py            │
+│ (direct SQL)  │  │ http://localhost:8000    │
+└───────────────┘  │ ┌─────────────────────┐ │
+                   │ │ /api/tools — list    │ │
+                   │ │ /api/tools/N/call    │ │
+                   │ │ /mcp — native MCP    │ │
+                   │ └────────┬────────────┘ │
+                   └──────────┼──────────────┘
+                              │ mcp.call_tool()
+                   ┌──────────▼──────────────┐
+                   │  FastMCP Server          │
+                   │  (same as above)         │
+                   └──────────────────────────┘
 ```
 
 ## Data Flow: Tool Call Lifecycle
@@ -76,6 +109,16 @@ External:
 10. Back to client
 ```
 
+## Startup Flow
+
+```text
+./start.sh
+├── Backend: uv run uvicorn serve_http:api --port 8000
+│   └── MCP lifespan: DB connection, YM client, analyzer registry
+└── Panel: cd panel && bun dev --port 3000
+    └── Connects to Supabase + MCP_HTTP_URL
+```
+
 ## Key Architectural Decisions
 
 | Decision | Rationale |
@@ -89,3 +132,6 @@ External:
 | Visibility tiers over all-tools-visible | ~5K tokens in context vs ~9K, better Claude accuracy |
 | TrackFeatures.from_db() classmethod | Single source of truth for DB→dataclass mapping, eliminates field copy-paste |
 | FeatureRepository batch methods | N SQL queries → 1 for scoring/optimization loops |
+| Panel reads Supabase directly | Avoids MCP overhead for read-only dashboard data |
+| REST API wrapper over direct MCP | Panel needs HTTP transport; Swagger docs for debugging |
+| Supabase PostgreSQL over SQLite | Production-grade, panel reads directly, RLS available |
