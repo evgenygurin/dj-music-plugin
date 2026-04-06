@@ -1,163 +1,36 @@
-'use client'
-
-import { useState, useTransition } from 'react'
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent } from '@/components/ui/card'
-import { Input } from '@/components/ui/input'
 import { SiteHeader } from '@/components/site-header'
-import { ymSearch, importTracks } from '@/actions/discovery-actions'
+import { fetchToolSchema } from '@/lib/mcp-client'
+import { YmSearch } from './ym-search'
+import { DiscoverActions } from './discover-actions'
 
-interface YmTrack {
-  id: string | number
-  title: string
-  artists?: Array<{ name: string }>
-  durationMs?: number
-  albums?: Array<{ title?: string }>
-}
-
-function formatMs(ms: number): string {
-  const s = Math.round(ms / 1000)
-  const m = Math.floor(s / 60)
-  const sec = s % 60
-  return `${m}:${sec.toString().padStart(2, '0')}`
-}
-
-export default function DiscoverPage() {
-  const [query, setQuery] = useState('')
-  const [results, setResults] = useState<YmTrack[]>([])
-  const [error, setError] = useState<string | null>(null)
-  const [importing, setImporting] = useState<Set<string>>(new Set())
-  const [imported, setImported] = useState<Set<string>>(new Set())
-  const [isSearching, startSearch] = useTransition()
-
-  const handleSearch = () => {
-    if (!query.trim()) return
-    setError(null)
-    startSearch(async () => {
-      try {
-        const data = await ymSearch(query.trim())
-        const tracks = extractTracks(data)
-        setResults(tracks)
-      } catch (e) {
-        setError(e instanceof Error ? e.message : 'Search failed')
-        setResults([])
-      }
-    })
-  }
-
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') handleSearch()
-  }
-
-  const handleImport = async (track: YmTrack) => {
-    const id = String(track.id)
-    setImporting((prev) => new Set([...prev, id]))
-    try {
-      await importTracks([id])
-      setImported((prev) => new Set([...prev, id]))
-    } catch (e) {
-      console.error('Import failed', e)
-    } finally {
-      setImporting((prev) => {
-        const next = new Set(prev)
-        next.delete(id)
-        return next
-      })
-    }
-  }
+export default async function DiscoverPage() {
+  const [importSchema, downloadSchema, similarSchema, expandSchema] = await Promise.all([
+    fetchToolSchema('import_tracks'),
+    fetchToolSchema('download_tracks'),
+    fetchToolSchema('find_similar_tracks'),
+    fetchToolSchema('expand_playlist_ym'),
+  ])
 
   return (
     <>
       <SiteHeader title="Discover" />
-      <div className="flex flex-1 flex-col gap-4 p-4">
-        <div className="flex items-center gap-2">
-          <Input
-            placeholder="Search Yandex Music..."
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            onKeyDown={handleKeyDown}
-            className="max-w-md"
-          />
-          <Button onClick={handleSearch} disabled={isSearching || !query.trim()}>
-            {isSearching ? 'Searching...' : 'Search'}
-          </Button>
+      <div className="flex flex-1 flex-col gap-6 py-6 px-4 lg:px-6">
+        <div>
+          <h1 className="text-lg font-semibold">Discover</h1>
+          <p className="text-sm text-muted-foreground">
+            Search Yandex Music, import tracks, find similar artists, and expand playlists.
+          </p>
         </div>
 
-        {error && (
-          <div className="text-sm text-destructive">{error}</div>
-        )}
+        <YmSearch />
 
-        {results.length > 0 && (
-          <div className="space-y-2">
-            <p className="text-sm text-muted-foreground">{results.length} results</p>
-            {results.map((track) => {
-              const id = String(track.id)
-              const artistNames = track.artists?.map((a) => a.name).join(', ') ?? ''
-              const albumTitle = track.albums?.[0]?.title ?? ''
-              const isImporting = importing.has(id)
-              const isImported = imported.has(id)
-
-              return (
-                <Card key={id}>
-                  <CardContent className="flex items-center justify-between py-3 px-4">
-                    <div className="flex-1 min-w-0 mr-4">
-                      <div className="font-medium text-sm truncate">{track.title}</div>
-                      <div className="text-xs text-muted-foreground truncate">
-                        {[artistNames, albumTitle].filter(Boolean).join(' · ')}
-                        {track.durationMs ? (
-                          <span className="ml-2 font-mono">{formatMs(track.durationMs)}</span>
-                        ) : null}
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2 flex-shrink-0">
-                      <Badge variant="outline" className="text-xs font-mono">{id}</Badge>
-                      {isImported ? (
-                        <Badge variant="secondary" className="text-xs">Imported</Badge>
-                      ) : (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleImport(track)}
-                          disabled={isImporting}
-                        >
-                          {isImporting ? 'Importing...' : 'Import'}
-                        </Button>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
-              )
-            })}
-          </div>
-        )}
-
-        {!isSearching && results.length === 0 && query && !error && (
-          <p className="text-sm text-muted-foreground">No results found.</p>
-        )}
+        <DiscoverActions
+          importSchema={importSchema ?? {}}
+          downloadSchema={downloadSchema ?? {}}
+          similarSchema={similarSchema ?? {}}
+          expandSchema={expandSchema ?? {}}
+        />
       </div>
     </>
   )
-}
-
-function extractTracks(data: unknown): YmTrack[] {
-  if (!data || typeof data !== 'object') return []
-  const d = data as Record<string, unknown>
-
-  // Structured MCP response might have tracks in various shapes
-  if (Array.isArray(d)) {
-    return d as YmTrack[]
-  }
-
-  const result = d.result as Record<string, unknown> | undefined
-  if (result) {
-    const tracks = result.tracks as { results?: YmTrack[] } | undefined
-    if (tracks?.results) return tracks.results
-    if (Array.isArray(result)) return result as YmTrack[]
-  }
-
-  // Top-level tracks array
-  if (Array.isArray(d.tracks)) return d.tracks as YmTrack[]
-
-  return []
 }

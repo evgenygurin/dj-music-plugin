@@ -48,3 +48,14 @@ export async function scoreTransitions(setId: number) {
   revalidateTag('sets', 'default')
   return result
 }
+
+export async function getCheatSheet(setId: number) {
+  return mcpCall('get_set_cheat_sheet', { set_id: setId })
+}
+
+export async function exportSet(
+  setId: number,
+  format: 'json' | 'm3u8' | 'rekordbox' = 'json'
+) {
+  return mcpCall('export_set', { set_id: setId, format })
+}
