@@ -240,3 +240,106 @@ def test_cheat_sheet_transition(sample_data: SetExportData, tmp_path: Path) -> N
     path = write_cheat_sheet(sample_data, tmp_path / "cheat.txt")
     content = path.read_text()
     assert "score=0.85" in content
+
+
+# ── P3 Enrichment ────────────────────────────────────
+
+
+def test_m3u8_includes_p3_tags(sample_data: SetExportData, tmp_path: Path) -> None:
+    """M3U8 should include new P3 EXTDJ tags."""
+    sample_data.tracks[0].mood_confidence = 0.85
+    sample_data.tracks[0].rms_dbfs = -12.5
+    sample_data.tracks[0].true_peak_db = -0.8
+    sample_data.tracks[0].crest_factor_db = 11.0
+    sample_data.tracks[0].danceability = 1.5
+    sample_data.tracks[0].hp_ratio = 2.3
+    sample_data.tracks[0].dominant_phrase_bars = 8
+
+    path = write_m3u8(sample_data, tmp_path / "test.m3u8")
+    content = path.read_text()
+
+    assert "#EXTDJ-MOOD-CONFIDENCE:0.85" in content
+    assert "#EXTDJ-RMS:-12.5" in content
+    assert "#EXTDJ-PEAK:-0.8" in content
+    assert "#EXTDJ-CREST:11.0" in content
+    assert "#EXTDJ-DANCEABILITY:1.50" in content
+    assert "#EXTDJ-HP-RATIO:2.30" in content
+    assert "#EXTDJ-PHRASE:8 bars" in content
+
+
+def test_m3u8_p3_tags_absent_when_none(sample_data: SetExportData, tmp_path: Path) -> None:
+    """P3 tags should not appear when fields are None."""
+    path = write_m3u8(sample_data, tmp_path / "test.m3u8")
+    content = path.read_text()
+
+    assert "#EXTDJ-MOOD-CONFIDENCE" not in content
+    assert "#EXTDJ-RMS" not in content
+    assert "#EXTDJ-PHRASE" not in content
+
+
+def test_json_guide_includes_audio_features(sample_data: SetExportData, tmp_path: Path) -> None:
+    """JSON guide should include audio_features dict when present."""
+    sample_data.tracks[0].audio_features = {"bpm": 128.0, "hp_ratio": 2.3, "onset_rate": 4.5}
+
+    path = write_json_guide(sample_data, tmp_path / "guide.json")
+    data = json.loads(path.read_text())
+
+    track0 = data["tracks"][0]
+    assert "audio_features" in track0
+    assert track0["audio_features"]["hp_ratio"] == 2.3
+
+
+def test_json_guide_no_audio_features_key_when_none(
+    sample_data: SetExportData, tmp_path: Path
+) -> None:
+    """JSON guide should not include audio_features key when None."""
+    path = write_json_guide(sample_data, tmp_path / "guide.json")
+    data = json.loads(path.read_text())
+
+    assert "audio_features" not in data["tracks"][0]
+
+
+def test_cheat_sheet_includes_flags(sample_data: SetExportData, tmp_path: Path) -> None:
+    """Cheat sheet should show warning flags."""
+    sample_data.tracks[0].variable_tempo = True
+    sample_data.tracks[0].dominant_phrase_bars = 8
+
+    path = write_cheat_sheet(sample_data, tmp_path / "cheat.txt")
+    content = path.read_text()
+
+    assert "VarTempo" in content
+    assert "8 bars" in content
+
+
+def test_cheat_sheet_low_conf_flag(sample_data: SetExportData, tmp_path: Path) -> None:
+    """LowConf flag should appear for mood_confidence < 0.5."""
+    sample_data.tracks[0].mood_confidence = 0.3
+
+    path = write_cheat_sheet(sample_data, tmp_path / "cheat.txt")
+    content = path.read_text()
+
+    assert "LowConf" in content
+
+
+def test_cheat_sheet_peak_flag(sample_data: SetExportData, tmp_path: Path) -> None:
+    """Peak flag should appear when true_peak_db > -0.5."""
+    sample_data.tracks[0].true_peak_db = -0.1
+
+    path = write_cheat_sheet(sample_data, tmp_path / "cheat.txt")
+    content = path.read_text()
+
+    assert "Peak>" in content
+
+
+def test_cheat_sheet_no_flags_when_clean(sample_data: SetExportData, tmp_path: Path) -> None:
+    """No flags should appear when all features are within normal range."""
+    sample_data.tracks[0].mood_confidence = 0.9
+    sample_data.tracks[0].true_peak_db = -3.0
+    sample_data.tracks[0].variable_tempo = False
+
+    path = write_cheat_sheet(sample_data, tmp_path / "cheat.txt")
+    content = path.read_text()
+
+    assert "VarTempo" not in content
+    assert "LowConf" not in content
+    assert "Peak>" not in content

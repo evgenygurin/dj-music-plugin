@@ -27,6 +27,16 @@ class ExportTrack:
     mood: str | None = None
     notes: str | None = None
     eq_settings: dict[str, Any] | None = None
+    # P3 enrichment fields
+    mood_confidence: float | None = None
+    rms_dbfs: float | None = None
+    true_peak_db: float | None = None
+    crest_factor_db: float | None = None
+    danceability: float | None = None
+    hp_ratio: float | None = None
+    dominant_phrase_bars: int | None = None
+    variable_tempo: bool | None = None
+    audio_features: dict[str, Any] | None = None  # full features for JSON guide
 
 
 @dataclass
@@ -102,6 +112,21 @@ def write_m3u8(data: SetExportData, output_path: Path) -> Path:
                 f"{trans.score or 0:.2f},{trans.bpm_delta or 0:.1f},"
                 f"{trans.key_distance or 0},{trans.energy_delta or 0:.1f}"
             )
+
+        if track.mood_confidence is not None:
+            lines.append(f"#EXTDJ-MOOD-CONFIDENCE:{track.mood_confidence:.2f}")
+        if track.rms_dbfs is not None:
+            lines.append(f"#EXTDJ-RMS:{track.rms_dbfs:.1f}")
+        if track.true_peak_db is not None:
+            lines.append(f"#EXTDJ-PEAK:{track.true_peak_db:.1f}")
+        if track.crest_factor_db is not None:
+            lines.append(f"#EXTDJ-CREST:{track.crest_factor_db:.1f}")
+        if track.danceability is not None:
+            lines.append(f"#EXTDJ-DANCEABILITY:{track.danceability:.2f}")
+        if track.hp_ratio is not None:
+            lines.append(f"#EXTDJ-HP-RATIO:{track.hp_ratio:.2f}")
+        if track.dominant_phrase_bars is not None:
+            lines.append(f"#EXTDJ-PHRASE:{track.dominant_phrase_bars} bars")
 
         if track.eq_settings:
             eq_parts = ",".join(f"{k}={v}" for k, v in track.eq_settings.items())
@@ -229,6 +254,7 @@ def write_json_guide(data: SetExportData, output_path: Path) -> Path:
                 "duration_ms": t.duration_ms,
                 "cue_points": t.cue_points,
                 "sections": t.sections,
+                **({"audio_features": t.audio_features} if t.audio_features else {}),
             }
             for t in data.tracks
         ],
@@ -290,11 +316,21 @@ def write_cheat_sheet(data: SetExportData, output_path: Path) -> Path:
         key_str = track.key_camelot or "?"
         energy_str = f"{track.energy_lufs:.1f}" if track.energy_lufs is not None else "?"
 
+        flags = []
+        if track.variable_tempo:
+            flags.append("VarTempo")
+        if track.true_peak_db is not None and track.true_peak_db > -0.5:
+            flags.append(f"Peak>{track.true_peak_db:.1f}")
+        if track.mood_confidence is not None and track.mood_confidence < 0.5:
+            flags.append("LowConf")
+
         lines.append(f"{track.position + 1:2d}. {track.artist} - {track.title}")
         lines.append(
             f"    BPM: {bpm_str}  Key: {key_str}  Energy: {energy_str} LUFS"
-            f"  Mood: {track.mood or '?'}"
+            f"  Mood: {track.mood or '?'}" + (f"  [{', '.join(flags)}]" if flags else "")
         )
+        if track.dominant_phrase_bars is not None:
+            lines.append(f"    Phrase: {track.dominant_phrase_bars} bars")
 
         # Section summary
         if track.sections:

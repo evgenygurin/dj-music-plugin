@@ -124,6 +124,14 @@ class DeliveryService:
                     sections=section_dicts,
                     mood=features.mood if features else None,
                     notes=item.notes,
+                    mood_confidence=getattr(features, "mood_confidence", None),
+                    rms_dbfs=getattr(features, "rms_dbfs", None),
+                    true_peak_db=getattr(features, "true_peak_db", None),
+                    crest_factor_db=getattr(features, "crest_factor_db", None),
+                    danceability=getattr(features, "danceability", None),
+                    hp_ratio=getattr(features, "hp_ratio", None),
+                    dominant_phrase_bars=getattr(features, "dominant_phrase_bars", None),
+                    variable_tempo=getattr(features, "variable_tempo", None),
                 )
             )
 
