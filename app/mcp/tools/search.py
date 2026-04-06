@@ -5,6 +5,8 @@ Thin wrappers calling SearchService via Depends().
 
 from __future__ import annotations
 
+from typing import Any
+
 from fastmcp.dependencies import Depends
 from fastmcp.exceptions import ToolError
 from fastmcp.server.context import Context
@@ -21,7 +23,7 @@ async def search(
     limit: int = 10,
     svc: SearchService = Depends(get_search_service),  # noqa: B008
     ctx: Context | None = None,
-) -> dict:
+) -> dict[str, Any]:
     """Search across tracks, artists, playlists, and sets by text query."""
     if not query or not query.strip():
         raise ToolError("Query must not be empty")
@@ -43,7 +45,7 @@ async def filter_tracks(
     cursor: str | None = None,
     svc: SearchService = Depends(get_search_service),  # noqa: B008
     ctx: Context | None = None,
-) -> dict:
+) -> dict[str, Any]:
     """Filter tracks by audio features: BPM, key, energy, mood."""
     page = await svc.filter_tracks(
         bpm_min=bpm_min,

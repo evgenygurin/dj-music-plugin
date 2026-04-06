@@ -66,7 +66,9 @@ class SyncService:
             {
                 "ym_id": yid,
                 "title": ym_by_id[yid].title,
-                "artists": ", ".join(a.get("name", "?") for a in (ym_by_id[yid].artists or [])),
+                "artists": ", ".join(
+                    str(a.get("name", "?")) for a in (ym_by_id[yid].artists or [])
+                ),
             }
             for yid in list(on_ym_only)[:50]
         ]

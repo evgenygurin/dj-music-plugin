@@ -5,6 +5,8 @@ Thin wrappers calling SetService via Depends().
 
 from __future__ import annotations
 
+from typing import Any
+
 from fastmcp.dependencies import Depends
 from fastmcp.exceptions import ToolError
 from fastmcp.server.context import Context
@@ -28,7 +30,7 @@ async def build_set(
     tiered: TieredPipeline = Depends(get_tiered_pipeline),  # noqa: B008
     playlist_repo: PlaylistRepository = Depends(get_playlist_repo),  # noqa: B008
     ctx: Context | None = None,
-) -> dict:
+) -> dict[str, Any]:
     """Build optimized DJ set from playlist. Supports greedy or GA algorithm."""
     from app.audio.level_config import AnalysisLevel
 
@@ -84,7 +86,7 @@ async def rebuild_set(
     version_label: str | None = None,
     svc: SetService = Depends(get_set_service),  # noqa: B008
     ctx: Context | None = None,
-) -> dict:
+) -> dict[str, Any]:
     """Rebuild existing set with pinned/excluded tracks. Creates new version."""
     if ctx:
         await ctx.info(f"Rebuilding set {set_id}...")
@@ -115,7 +117,7 @@ async def score_transitions(
     svc: SetService = Depends(get_set_service),  # noqa: B008
     tiered: TieredPipeline = Depends(get_tiered_pipeline),  # noqa: B008
     ctx: Context | None = None,
-) -> dict:
+) -> dict[str, Any]:
     """Score transitions: mode=set (all pairs), pair (two tracks), track_candidates (best next).
 
     Computes scores via TransitionScorer and SAVES to DB.

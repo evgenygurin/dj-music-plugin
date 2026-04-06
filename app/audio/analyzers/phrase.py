@@ -73,7 +73,8 @@ class PhraseAnalyzer(BaseAnalyzer):
         segment_lengths = np.diff(boundaries)
         if len(segment_lengths) > 0:
             quantized = [
-                min([8, 16, 32], key=lambda x, sl=sl: abs(x - sl)) for sl in segment_lengths
+                min([8, 16, 32], key=lambda x, sl=int(sl): abs(x - sl))  # type: ignore[misc]
+                for sl in segment_lengths
             ]
             dominant = max(set(quantized), key=quantized.count)
         else:

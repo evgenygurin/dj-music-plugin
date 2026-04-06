@@ -44,17 +44,17 @@ class AnalysisContext:
         self._signal = signal
         self._params = params or FrameParams()
 
-        self._stft = compute_stft(
+        self._stft: np.ndarray = compute_stft(
             signal.samples,
             self._params.frame_length,
             self._params.hop_length,
         )
-        self._magnitude = np.abs(self._stft)
-        self._freqs = np.fft.rfftfreq(
+        self._magnitude: np.ndarray = np.abs(self._stft)
+        self._freqs: np.ndarray = np.fft.rfftfreq(
             self._params.frame_length,
             d=1.0 / signal.sample_rate,
         )
-        self._frame_energies = compute_frame_energies(
+        self._frame_energies: np.ndarray = compute_frame_energies(
             signal.samples,
             self._params.frame_length,
             self._params.hop_length,

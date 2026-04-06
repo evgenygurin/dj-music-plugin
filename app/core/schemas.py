@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Generic, TypeVar
+from typing import Any, Generic, TypeVar
 
 from pydantic import BaseModel
 
@@ -58,7 +58,7 @@ class YMTrackSummary(BaseModel):
 # ── Shared helpers (used by multiple tools) ──────────
 
 
-def ym_track_summary(track: object) -> dict:
+def ym_track_summary(track: object) -> dict[str, Any]:
     """Convert a YM track (client model) to compact dict. Shared across tools."""
     artists = (
         ", ".join(a.get("name", "?") for a in (getattr(track, "artists", None) or [])) or "Unknown"
@@ -84,7 +84,7 @@ def is_excluded_title(title: str, patterns: list[str] | None = None) -> bool:
 
 
 def genre_ok(
-    albums: list[dict],
+    albums: list[dict[str, Any]],
     whitelist: list[str] | None = None,
     blacklist: list[str] | None = None,
 ) -> bool:

@@ -265,7 +265,7 @@ class MetadataService:
 
     async def _get_or_create(self, model_class: type, **match_fields: Any) -> Any:
         """Get existing entity by fields, or create new one."""
-        stmt = select(model_class)
+        stmt: Any = select(model_class)
         for col, val in match_fields.items():
             stmt = stmt.where(getattr(model_class, col) == val)
         result = await self._session.execute(stmt.limit(1))
@@ -279,7 +279,7 @@ class MetadataService:
 
     async def _link_if_not_exists(self, junction_model: type, **fields: Any) -> bool:
         """Create junction row if it doesn't exist. Returns True if created."""
-        stmt = select(junction_model)
+        stmt: Any = select(junction_model)
         for col, val in fields.items():
             stmt = stmt.where(getattr(junction_model, col) == val)
         result = await self._session.execute(stmt.limit(1))

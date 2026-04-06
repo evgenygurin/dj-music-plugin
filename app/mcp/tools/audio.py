@@ -124,8 +124,8 @@ async def analyze_batch(
             .where(PlaylistItem.playlist_id == playlist_id)
             .order_by(PlaylistItem.sort_index)
         )
-        result = await session.execute(stmt)
-        track_ids = [r[0] for r in result.all()]
+        db_result = await session.execute(stmt)
+        track_ids = [r[0] for r in db_result.all()]
 
     if not track_ids:
         raise ToolError("No tracks to analyze")

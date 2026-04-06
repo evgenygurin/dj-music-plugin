@@ -45,9 +45,9 @@ def instrument_heavy_operation(
             ...
     """
 
-    def decorator(func: Callable[..., T]) -> Callable[..., T]:
+    def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
         @functools.wraps(func)
-        async def async_wrapper(*args: Any, **kwargs: Any) -> T:
+        async def async_wrapper(*args: Any, **kwargs: Any) -> Any:
             tracer = _get_tracer()
             with tracer.start_as_current_span(
                 f"dj.{operation_name}",
@@ -79,7 +79,7 @@ def instrument_heavy_operation(
                     raise
 
         @functools.wraps(func)
-        def sync_wrapper(*args: Any, **kwargs: Any) -> T:
+        def sync_wrapper(*args: Any, **kwargs: Any) -> Any:
             tracer = _get_tracer()
             with tracer.start_as_current_span(
                 f"dj.{operation_name}",
@@ -111,9 +111,9 @@ def instrument_heavy_operation(
         import inspect
 
         if inspect.iscoroutinefunction(func):
-            return async_wrapper  # type: ignore[return-value]
+            return async_wrapper
         else:
-            return sync_wrapper  # type: ignore[return-value]
+            return sync_wrapper
 
     return decorator
 

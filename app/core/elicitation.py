@@ -49,10 +49,10 @@ async def safe_elicit[T: BaseModel](
         return (default_action, default_data)
 
     try:
-        result = await ctx.elicit(message, response_type=response_type)
+        result = await ctx.elicit(message, response_type=response_type)  # type: ignore[arg-type]
 
         if result.action == "accept":
-            return ("accept", result.data)
+            return ("accept", result.data)  # type: ignore[return-value]
         elif result.action == "decline":
             return ("decline", None)
         else:  # cancel
@@ -129,17 +129,19 @@ async def safe_choice(
     from enum import Enum
 
     # Dynamically create Enum for choices
-    ChoiceEnum = Enum("ChoiceEnum", {c.upper().replace(" ", "_"): c for c in choices})  # type: ignore  # noqa: N806
+    choice_members = {c.upper().replace(" ", "_"): c for c in choices}
+    ChoiceEnum = Enum("ChoiceEnum", choice_members)  # type: ignore[misc]  # noqa: N806
 
     class ChoiceSchema(BaseModel):
-        choice: ChoiceEnum  # type: ignore
+        choice: ChoiceEnum
 
     default_data = None
     if default:
         # Find matching enum member
-        for member in ChoiceEnum:  # type: ignore
-            if member.value == default:  # type: ignore
-                default_data = ChoiceSchema(choice=member)  # type: ignore
+        for member in ChoiceEnum:
+            if member.value == default:
+                default_data = ChoiceSchema(choice=member)
+                break
                 break
 
     action, data = await safe_elicit(

@@ -106,7 +106,7 @@ async def quick_set_review(
     ctx: Context | None = None,
 ) -> dict[str, Any]:
     """Review set quality: transition scores, BPM flow, energy arc, quality rating."""
-    return await svc.review_set_quality(set_id=set_id, version=version)
+    return await svc.review_set_quality(set_id=set_id, version_label=version)
 
 
 # ── 4. distribute_to_subgenres ──────────────────────

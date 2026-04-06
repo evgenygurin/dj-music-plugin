@@ -42,7 +42,7 @@ async def camelot_reference() -> str:
         )
 
     # Sort by Camelot notation (1A, 1B, 2A, 2B, ...)
-    keys.sort(key=lambda k: (int(k["camelot"][:-1]), k["camelot"][-1]))
+    keys.sort(key=lambda k: (int(str(k["camelot"])[:-1]), str(k["camelot"])[-1]))
 
     compatibility_rules = {
         "perfect_match": "Same Camelot code (e.g., 8A → 8A) — distance = 0",

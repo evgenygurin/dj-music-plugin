@@ -80,6 +80,7 @@ class AudioLoader:
             file_sr = wf.getframerate()
             raw_data = wf.readframes(wf.getnframes())
 
+        dtype: type[np.generic] = np.int16
         if sampwidth == 2:
             dtype = np.int16
         elif sampwidth == 4:
@@ -106,9 +107,12 @@ class AudioLoader:
         try:
             import librosa
 
-            return librosa.resample(samples, orig_sr=orig_sr, target_sr=target_sr)
+            result: np.ndarray = librosa.resample(samples, orig_sr=orig_sr, target_sr=target_sr)
+            return result
         except ImportError:
             ratio = target_sr / orig_sr
             new_length = int(len(samples) * ratio)
             indices = np.linspace(0, len(samples) - 1, new_length)
-            return np.interp(indices, np.arange(len(samples)), samples).astype(np.float32)
+            interp = np.interp(indices, np.arange(len(samples)), samples)
+            result_arr: np.ndarray = interp.astype(np.float32)
+            return result_arr

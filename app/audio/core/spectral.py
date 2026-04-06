@@ -107,8 +107,7 @@ def spectral_rolloff(magnitude: np.ndarray, freqs: np.ndarray, pct: float = 0.85
             total = float(np.sum(frame_mag))
             if total > 0:
                 cumsum = np.cumsum(frame_mag)
-                idx = np.searchsorted(cumsum, pct * total)
-                idx = min(idx, len(freqs) - 1)
+                idx = min(int(np.searchsorted(cumsum, pct * total)), len(freqs) - 1)
                 rolloffs.append(float(freqs[idx]))
             else:
                 rolloffs.append(0.0)
@@ -118,8 +117,7 @@ def spectral_rolloff(magnitude: np.ndarray, freqs: np.ndarray, pct: float = 0.85
     if total <= 0:
         return 0.0
     cumsum = np.cumsum(magnitude)
-    idx = np.searchsorted(cumsum, pct * total)
-    idx = min(idx, len(freqs) - 1)
+    idx = min(int(np.searchsorted(cumsum, pct * total)), len(freqs) - 1)
     return float(freqs[idx])
 
 

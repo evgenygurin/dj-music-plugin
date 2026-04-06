@@ -62,7 +62,7 @@ warn_return_any = true
 warn_unused_configs = true
 
 [[tool.mypy.overrides]]
-module = ["librosa.*", "soundfile.*", "demucs.*", "essentia.*"]
+module = ["librosa.*", "soundfile.*", "demucs.*", "essentia.*", "key_value.*", "sentry_sdk.*", "anthropic.*", "scipy.*"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]

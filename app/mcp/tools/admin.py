@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from fastmcp.dependencies import Depends
 from fastmcp.exceptions import ToolError
 from fastmcp.server.context import Context
@@ -19,13 +21,15 @@ async def unlock_tools(
     action: str = "status",
     category: str | None = None,
     ctx: Context | None = None,
-) -> dict:
+) -> dict[str, Any]:
     """Control which tool categories are visible in this session."""
     if action == "unlock" and category:
         tags = {category} if category != "all" else set(_ALL_CATEGORIES)
         invalid = tags - _ALL_CATEGORIES
         if invalid:
             raise ToolError(f"Unknown categories: {sorted(invalid)}")
+        if ctx is None:
+            raise ToolError("Context required for unlock")
         await ctx.enable_components(tags=tags)
         return {"action": "unlocked", "categories": sorted(tags)}
 
@@ -34,6 +38,8 @@ async def unlock_tools(
         invalid = tags - _ALL_CATEGORIES
         if invalid:
             raise ToolError(f"Unknown categories: {sorted(invalid)}")
+        if ctx is None:
+            raise ToolError("Context required for lock")
         await ctx.disable_components(tags=tags)
         return {"action": "locked", "categories": sorted(tags)}
 
@@ -43,7 +49,7 @@ async def unlock_tools(
 @tool(tags={"admin"}, annotations={"readOnlyHint": True})
 async def list_platforms(
     svc: TrackService = Depends(get_track_service),  # noqa: B008
-) -> list[dict]:
+) -> list[dict[str, Any]]:
     """List available music platforms and linked track counts."""
     db_platforms = await svc.get_platform_counts()
 

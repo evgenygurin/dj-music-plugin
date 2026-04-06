@@ -87,7 +87,7 @@ async def deliver_set(
         try:
             result = await ctx.elicit(
                 f"Found {conflict_count} hard conflict(s) (score=0.0). Continue delivery?",
-                response_type=str,
+                response_type=None,
             )
             if result.action != "accept":
                 return {

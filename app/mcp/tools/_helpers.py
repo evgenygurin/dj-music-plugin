@@ -70,7 +70,7 @@ async def resolve_track_id(
     results = await svc.search(query, limit=1)
     if not results:
         raise ToolError(f"Track not found: {query}")
-    return results[0].id
+    return int(results[0].id)
 
 
 def validate_id_or_query(

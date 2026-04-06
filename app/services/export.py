@@ -154,7 +154,7 @@ def write_rekordbox_xml(
         if track.key_camelot:
             attrs["Tonality"] = track.key_camelot
 
-        track_el = ET.SubElement(collection, "TRACK", **attrs)
+        track_el = ET.SubElement(collection, "TRACK", attrib=attrs)
 
         if opts.include_beatgrid and track.bpm:
             ET.SubElement(
