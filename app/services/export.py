@@ -296,6 +296,14 @@ def write_cheat_sheet(data: SetExportData, output_path: Path) -> Path:
             f"  Mood: {track.mood or '?'}"
         )
 
+        # Section summary
+        if track.sections:
+            section_parts = [
+                f"{s.get('type', '?')}@{s.get('start_ms', 0) // 1000}s"
+                for s in track.sections
+            ]
+            lines.append(f"    Sections: {' | '.join(section_parts)}")
+
         # Transition info
         trans = next(
             (t for t in data.transitions if t.from_position == track.position),

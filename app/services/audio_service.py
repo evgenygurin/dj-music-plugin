@@ -92,7 +92,11 @@ class AudioService:
             version="1.0",
         )
 
-        # 7. Save features (upsert: delete old if force)
+        # 7. Extract sections before saving features (not a DB column)
+        sections = result.features.pop("sections", None)
+        result.features.pop("section_count", None)
+
+        # 8. Save features (upsert: delete old if force)
         if force:
             await self._repo.delete_features(track_id)
 
@@ -104,7 +108,11 @@ class AudioService:
             pipeline_run_id=run.id,
         )
 
-        # 8. Auto-classify mood
+        # 9. Persist sections to track_sections table
+        if sections:
+            await self._repo.save_sections(track_id, sections)
+
+        # 10. Auto-classify mood
         mood_result = await self._classify_existing(features)
 
         return {

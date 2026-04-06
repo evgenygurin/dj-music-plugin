@@ -61,12 +61,12 @@ async def deliver_set(
     target_version = set_data["version"]
     items = set_data["items"]
 
-    # Auto-analyze set tracks to L3 (scoring features)
+    # Auto-analyze set tracks to L4 (structure + scoring features)
     set_track_ids = [item.track_id for item in items]
     if set_track_ids:
-        analysis = await tiered.ensure_level(set_track_ids, AnalysisLevel.SCORING)
+        analysis = await tiered.ensure_level(set_track_ids, AnalysisLevel.TRANSITION)
         if ctx and analysis["analyzed"] > 0:
-            await ctx.info(f"Auto-analyzed {analysis['analyzed']} tracks (L3 scoring)")
+            await ctx.info(f"Auto-analyzed {analysis['analyzed']} tracks (L4 transition)")
 
     if ctx:
         await ctx.info(f"Stage 1/4: Loaded {len(items)} tracks")

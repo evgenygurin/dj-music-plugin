@@ -7,7 +7,12 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.audio import FeatureExtractionRun, TrackAudioFeaturesComputed
+from app.models.audio import (
+    FeatureExtractionRun,
+    TimeseriesReference,
+    TrackAudioFeaturesComputed,
+    TrackSection,
+)
 from app.models.library import DjLibraryItem
 from app.models.track import Track
 from app.repositories.base import BaseRepository
@@ -131,3 +136,49 @@ class AudioRepository(BaseRepository[TrackAudioFeaturesComputed]):
         features.mood = mood
         features.mood_confidence = confidence
         await self.session.flush()
+
+    async def save_sections(self, track_id: int, sections: list[dict[str, Any]]) -> None:
+        """Persist track sections (idempotent: deletes existing first)."""
+        # Delete existing sections for this track
+        stmt = select(TrackSection).where(TrackSection.track_id == track_id)
+        result = await self.session.execute(stmt)
+        for existing in result.scalars().all():
+            await self.session.delete(existing)
+        await self.session.flush()
+
+        # Create new sections
+        for s in sections:
+            section = TrackSection(
+                track_id=track_id,
+                section_type=s.get("section_type", 0),
+                start_ms=s.get("start_ms", 0),
+                end_ms=s.get("end_ms", 0),
+                energy=s.get("energy"),
+                confidence=s.get("confidence"),
+            )
+            self.session.add(section)
+        await self.session.flush()
+
+    async def save_timeseries_reference(
+        self, track_id: int, metadata: dict[str, Any]
+    ) -> TimeseriesReference:
+        """Create a TimeseriesReference row from storage metadata."""
+        ref = TimeseriesReference(
+            track_id=track_id,
+            feature_set_name=metadata["feature_set_name"],
+            storage_uri=metadata["storage_uri"],
+            frame_count=metadata["frame_count"],
+            hop_length=metadata["hop_length"],
+            sample_rate=metadata["sample_rate"],
+            data_type=metadata.get("data_type", "float32"),
+            shape=metadata.get("shape", "[]"),
+        )
+        self.session.add(ref)
+        await self.session.flush()
+        return ref
+
+    async def get_timeseries_references(self, track_id: int) -> list[TimeseriesReference]:
+        """Return all timeseries references for a track."""
+        stmt = select(TimeseriesReference).where(TimeseriesReference.track_id == track_id)
+        result = await self.session.execute(stmt)
+        return list(result.scalars().all())

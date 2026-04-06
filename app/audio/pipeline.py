@@ -23,6 +23,7 @@ class PipelineResult:
 
     results: list[AnalyzerResult] = field(default_factory=list)
     features: dict[str, Any] = field(default_factory=dict)
+    context: AnalysisContext | None = None
 
     @property
     def errors(self) -> list[dict[str, str]]:
@@ -50,6 +51,7 @@ class AnalysisPipeline:
         file_path: str,
         analyzers: list[str] | None = None,
         max_duration: float | None = None,
+        return_context: bool = False,
     ) -> PipelineResult:
         """Run analyzers on audio file. Returns combined features."""
         signal = await self._loader.load(file_path)
@@ -96,6 +98,7 @@ class AnalysisPipeline:
         return PipelineResult(
             results=all_results,
             features=self._merge_features(all_results),
+            context=ctx if return_context else None,
         )
 
     @staticmethod

@@ -5,6 +5,7 @@ Thin wrappers calling TrackService via Depends().
 
 from __future__ import annotations
 
+import json
 from typing import Any
 
 from fastmcp.dependencies import Depends
@@ -15,6 +16,16 @@ from app.core.schemas import PaginatedResponse, TrackBrief, TrackStandard
 from app.mcp.dependencies import get_track_service
 from app.mcp.tools._helpers import resolve_track_id
 from app.services.track_service import TrackService
+
+
+def _parse_json(value: str | None) -> Any:
+    """Parse a JSON string, returning None on failure."""
+    if not value:
+        return None
+    try:
+        return json.loads(value)
+    except (json.JSONDecodeError, TypeError):
+        return None
 
 
 @tool(tags={"core"}, annotations={"readOnlyHint": True})
@@ -112,16 +123,50 @@ async def get_track_features(
         "track_id": track.id,
         "title": track.title,
         "has_features": True,
-        "tempo": {"bpm": features.bpm, "confidence": features.bpm_confidence},
+        "analysis_level": features.analysis_level,
+        "tempo": {
+            "bpm": features.bpm,
+            "confidence": features.bpm_confidence,
+            "stability": features.bpm_stability,
+        },
         "loudness": {"integrated_lufs": features.integrated_lufs},
         "energy": {"mean": features.energy_mean, "max": features.energy_max},
         "spectral": {
             "centroid_hz": features.spectral_centroid_hz,
             "flatness": features.spectral_flatness,
+            "contrast": features.spectral_contrast,
         },
         "key": {"key_code": features.key_code, "confidence": features.key_confidence},
-        "rhythm": {"kick_prominence": features.kick_prominence, "onset_rate": features.onset_rate},
+        "rhythm": {
+            "kick_prominence": features.kick_prominence,
+            "onset_rate": features.onset_rate,
+            "pulse_clarity": features.pulse_clarity,
+            "hp_ratio": features.hp_ratio,
+        },
         "mood": features.mood,
+        "advanced": {
+            "danceability": features.danceability,
+            "dissonance_mean": features.dissonance_mean,
+            "dynamic_complexity": features.dynamic_complexity,
+            "spectral_complexity_mean": features.spectral_complexity_mean,
+            "pitch_salience_mean": features.pitch_salience_mean,
+        },
+        "phrase": {
+            "boundaries_ms": (
+                _parse_json(features.phrase_boundaries_ms)
+                if features.phrase_boundaries_ms
+                else None
+            ),
+            "dominant_phrase_bars": getattr(features, "dominant_phrase_bars", None),
+        },
+        "bpm_histogram": {
+            "first_peak_weight": features.bpm_histogram_first_peak_weight,
+            "second_peak_bpm": features.bpm_histogram_second_peak_bpm,
+            "second_peak_weight": features.bpm_histogram_second_peak_weight,
+        },
+        "tonnetz": (
+            _parse_json(features.tonnetz_vector) if features.tonnetz_vector else None
+        ),
     }
 
     if include_sections:

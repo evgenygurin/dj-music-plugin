@@ -10,6 +10,7 @@ from app.config import settings
 
 if TYPE_CHECKING:
     from app.audio.pipeline import AnalysisPipeline
+    from app.audio.timeseries import TimeseriesStorage
     from app.repositories.audio import AudioRepository
     from app.repositories.track import TrackRepository
     from app.ym.client import YandexMusicClient
@@ -28,11 +29,13 @@ class TieredPipeline:
         track_repo: TrackRepository,
         pipeline: AnalysisPipeline,
         ym_client: YandexMusicClient,
+        timeseries: TimeseriesStorage | None = None,
     ) -> None:
         self._audio = audio_repo
         self._tracks = track_repo
         self._pipeline = pipeline
         self._ym = ym_client
+        self._timeseries = timeseries
 
     async def ensure_level(
         self,
@@ -98,18 +101,50 @@ class TieredPipeline:
 
         try:
             async with temp_download_track(self._ym, ym_track_id) as tmp_path:
+                save_ts = self._timeseries is not None and level >= AnalysisLevel.SCORING
                 result = await self._pipeline.analyze(
                     str(tmp_path),
                     analyzers=analyzers,
                     max_duration=clip_duration,
+                    return_context=save_ts,
                 )
                 if result.features:
+                    # Extract sections before saving features (not a DB column)
+                    sections = result.features.pop("sections", None)
+                    result.features.pop("section_count", None)
+
                     await self._audio.save_or_update_features(
                         track_id=track_id,
                         features_dict=result.features,
                         level=level,
                     )
+
+                    # Persist sections to track_sections table
+                    if sections:
+                        await self._audio.save_sections(track_id, sections)
+
+                    # Save frame-level timeseries data
+                    if save_ts and result.context is not None and self._timeseries is not None:
+                        await self._save_timeseries(track_id, result.context)
+
                     return True
         except Exception:
             return False
         return False
+
+    async def _save_timeseries(self, track_id: int, ctx: Any) -> None:
+        """Save frame-level data from AnalysisContext to disk + DB reference."""
+        import numpy as np
+
+        assert self._timeseries is not None
+
+        # Save energy timeseries
+        if ctx.frame_energies is not None and len(ctx.frame_energies) > 0:
+            metadata = self._timeseries.save(
+                track_id=track_id,
+                feature_set_name="energy",
+                data={"energy": np.asarray(ctx.frame_energies)},
+                hop_length=ctx.params.hop_length,
+                sample_rate=ctx.sr,
+            )
+            await self._audio.save_timeseries_reference(track_id, metadata)
