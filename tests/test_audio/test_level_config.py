@@ -64,7 +64,13 @@ def test_advanced_includes_p3_plus_lower():
     assert len(names) == 18  # 6 triage + 1 scoring + 1 transition + 10 advanced
 
 
+def test_clip_duration_transition():
+    """TRANSITION returns None — full track needed for structure segmentation."""
+    dur = get_clip_duration(AnalysisLevel.TRANSITION)
+    assert dur is None
+
+
 def test_clip_duration_advanced():
-    """ADVANCED uses same clip duration as SCORING (60s)."""
+    """ADVANCED returns None — full track, no clip."""
     dur = get_clip_duration(AnalysisLevel.ADVANCED)
-    assert dur == 60.0
+    assert dur is None

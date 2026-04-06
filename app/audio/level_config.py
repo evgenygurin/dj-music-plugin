@@ -43,8 +43,14 @@ def get_analyzers_for_level(target: AnalysisLevel) -> list[str]:
     return names
 
 
-def get_clip_duration(level: AnalysisLevel) -> float:
-    """Return audio clip duration in seconds for analysis level."""
+def get_clip_duration(level: AnalysisLevel) -> float | None:
+    """Return audio clip duration in seconds for analysis level.
+
+    Returns None for TRANSITION and above — full track needed for
+    structure segmentation and section detection.
+    """
     if level <= AnalysisLevel.TRIAGE:
         return settings.audio_triage_clip_duration
-    return settings.audio_beat_analysis_duration  # 60s default
+    if level <= AnalysisLevel.SCORING:
+        return settings.audio_beat_analysis_duration
+    return None  # TRANSITION+ — full track, no clip
