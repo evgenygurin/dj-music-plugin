@@ -102,7 +102,7 @@ class AudioService:
 
         from app.models.audio import TrackAudioFeaturesComputed
 
-        features = await self._repo.save_features(
+        features = await self._repo.create_features_from_pipeline(
             track_id=track_id,
             features_dict=TrackAudioFeaturesComputed.filter_features(result.features),
             pipeline_run_id=run.id,

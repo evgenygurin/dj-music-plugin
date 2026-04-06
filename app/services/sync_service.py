@@ -307,14 +307,4 @@ class SyncService:
 
     async def _update_ym_album_id(self, ym_track_id: str, album_id: str) -> None:
         """Update album_id in stored YandexMetadata for a given YM track ID."""
-        from sqlalchemy import update
-
-        from app.models.platform import YandexMetadata
-
-        stmt = (
-            update(YandexMetadata)
-            .where(YandexMetadata.yandex_track_id == ym_track_id)
-            .values(album_id=album_id)
-        )
-        await self._tracks.session.execute(stmt)
-        await self._tracks.session.flush()
+        await self._tracks.update_ym_album_id(ym_track_id, album_id)

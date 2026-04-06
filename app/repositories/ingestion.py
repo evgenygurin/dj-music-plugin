@@ -9,14 +9,15 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.ingestion import RawProviderResponse
+from app.repositories.base import BaseRepository
 from app.utils.time import utc_now
 
 
-class IngestionRepository:
+class IngestionRepository(BaseRepository[RawProviderResponse]):
     """Data access for raw provider response caching."""
 
     def __init__(self, session: AsyncSession) -> None:
-        self.session = session
+        super().__init__(session, RawProviderResponse)
 
     async def get_cached_response(
         self,

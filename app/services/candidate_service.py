@@ -14,8 +14,8 @@ from typing import TYPE_CHECKING
 
 from app.config import settings
 from app.core.camelot import camelot_distance
+from app.domain.transition import TransitionScorer
 from app.models.transition import TransitionCandidate
-from app.services.transition import TransitionScorer
 
 if TYPE_CHECKING:
     from app.repositories.candidate import CandidateRepository
@@ -166,9 +166,11 @@ class CandidateService:
     @staticmethod
     def _bpm_distance(bpm_a: float | None, bpm_b: float | None) -> float | None:
         """BPM distance with double/half-time awareness, or None if data missing."""
+        from app.domain.transition.math_helpers import bpm_distance
+
         if bpm_a is None or bpm_b is None:
             return None
-        return TransitionScorer._bpm_distance(bpm_a, bpm_b)
+        return bpm_distance(bpm_a, bpm_b)
 
     @staticmethod
     def _key_distance(key_a: int | None, key_b: int | None) -> int | None:

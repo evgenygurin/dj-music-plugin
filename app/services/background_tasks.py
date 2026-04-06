@@ -11,9 +11,9 @@ from docket import Progress as DocketProgress
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.domain.transition import TrackFeatures, TransitionScorer
 from app.models.audio import TrackAudioFeaturesComputed
 from app.models.track import Track
-from app.services.transition import TrackFeatures, TransitionScorer
 
 
 async def score_track_transitions(

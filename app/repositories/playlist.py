@@ -1,11 +1,18 @@
 """Playlist repository with item management."""
 
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.models.playlist import Playlist, PlaylistItem
 from app.repositories.base import BaseRepository
+
+if TYPE_CHECKING:
+    from app.core.pagination import CursorPage
 
 
 class PlaylistRepository(BaseRepository[Playlist]):
@@ -108,6 +115,30 @@ class PlaylistRepository(BaseRepository[Playlist]):
         result = await self.session.execute(stmt)
         await self.session.flush()
         return result.rowcount  # type: ignore[attr-defined, no-any-return]
+
+    async def list_with_items(
+        self,
+        *,
+        source: str | None = None,
+        limit: int = 20,
+        cursor: str | None = None,
+    ) -> CursorPage[Playlist]:  # type: ignore[type-arg]
+        """List playlists with items eager-loaded, optionally filtered by source."""
+
+        stmt = select(Playlist).options(selectinload(Playlist.items))
+        if source is not None:
+            stmt = stmt.where(Playlist.source_of_truth == source)
+        return await self._paginate(stmt, limit=limit, cursor=cursor)
+
+    async def count_items(self, playlist_id: int) -> int:
+        """Count the number of items in a playlist."""
+        stmt = (
+            select(func.count())
+            .select_from(PlaylistItem)
+            .where(PlaylistItem.playlist_id == playlist_id)
+        )
+        result = await self.session.execute(stmt)
+        return result.scalar() or 0
 
     async def get_max_sort_index(self, playlist_id: int) -> int:
         """Return the highest sort_index in a playlist, or -1 if empty."""
