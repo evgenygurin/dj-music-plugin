@@ -5,6 +5,7 @@ import { Analytics } from '@vercel/analytics/next'
 import { Toaster } from '@/components/ui/sonner'
 import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar'
 import { AppSidebar } from '@/components/app-sidebar'
+import { CommandPalette } from '@/components/command-palette'
 import './globals.css'
 
 const geistSans = localFont({
@@ -69,9 +70,17 @@ export default function RootLayout({
           enableSystem={false}
           disableTransitionOnChange
         >
-          <SidebarProvider>
-            <AppSidebar />
+          <SidebarProvider
+            style={
+              {
+                '--sidebar-width': 'calc(var(--spacing) * 72)',
+                '--header-height': 'calc(var(--spacing) * 12)',
+              } as React.CSSProperties
+            }
+          >
+            <AppSidebar variant="inset" />
             <SidebarInset>{children}</SidebarInset>
+            <CommandPalette />
           </SidebarProvider>
           <Toaster />
         </ThemeProvider>
