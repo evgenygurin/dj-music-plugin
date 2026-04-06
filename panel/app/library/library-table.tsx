@@ -102,6 +102,35 @@ const columns: ColumnDef<TrackRow>[] = [
     },
     enableSorting: false,
   },
+  {
+    accessorKey: 'hp_ratio',
+    header: 'HP Ratio',
+    cell: ({ row }) => (
+      <span className="tabular-nums text-sm">
+        {row.original.hp_ratio !== null ? row.original.hp_ratio.toFixed(2) : '—'}
+      </span>
+    ),
+  },
+  {
+    accessorKey: 'danceability',
+    header: 'Dance',
+    cell: ({ row }) => (
+      <span className="tabular-nums text-sm">
+        {row.original.danceability !== null ? row.original.danceability.toFixed(2) : '—'}
+      </span>
+    ),
+  },
+  {
+    accessorKey: 'mood_confidence',
+    header: 'Mood Conf',
+    cell: ({ row }) => (
+      <span className="tabular-nums text-sm">
+        {row.original.mood_confidence !== null
+          ? `${(row.original.mood_confidence * 100).toFixed(0)}%`
+          : '—'}
+      </span>
+    ),
+  },
 ]
 
 const PAGE_SIZE = 50

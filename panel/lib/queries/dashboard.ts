@@ -194,3 +194,114 @@ export async function getAnalysisCoverage(): Promise<AnalysisLevelCount[]> {
     .map(([level, count]) => ({ level, count }))
     .sort((a, b) => a.level - b.level)
 }
+
+export interface DanceabilityBin {
+  bin: number
+  count: number
+}
+
+export async function getDanceabilityDistribution(): Promise<DanceabilityBin[]> {
+  const supabase = await createClient()
+
+  const { data } = await supabase
+    .from('track_audio_features_computed')
+    .select('danceability')
+    .not('danceability', 'is', null)
+
+  if (!data || data.length === 0) return []
+
+  const binMap = new Map<number, number>()
+
+  for (const row of data) {
+    if (row.danceability === null || row.danceability === undefined) continue
+    const bin = Math.round((row.danceability as number) * 2) / 2
+    binMap.set(bin, (binMap.get(bin) ?? 0) + 1)
+  }
+
+  return Array.from(binMap.entries())
+    .map(([bin, count]) => ({ bin, count }))
+    .sort((a, b) => a.bin - b.bin)
+}
+
+export interface HpRatioBin {
+  bin: number
+  count: number
+}
+
+export async function getHpRatioDistribution(): Promise<HpRatioBin[]> {
+  const supabase = await createClient()
+
+  const { data } = await supabase
+    .from('track_audio_features_computed')
+    .select('hp_ratio')
+    .not('hp_ratio', 'is', null)
+
+  if (!data || data.length === 0) return []
+
+  const binMap = new Map<number, number>()
+
+  for (const row of data) {
+    if (row.hp_ratio === null || row.hp_ratio === undefined) continue
+    const bin = Math.round(row.hp_ratio as number)
+    binMap.set(bin, (binMap.get(bin) ?? 0) + 1)
+  }
+
+  return Array.from(binMap.entries())
+    .map(([bin, count]) => ({ bin, count }))
+    .sort((a, b) => a.bin - b.bin)
+}
+
+export interface PhraseCount {
+  bars: number
+  count: number
+}
+
+export async function getPhraseDistribution(): Promise<PhraseCount[]> {
+  const supabase = await createClient()
+
+  const { data } = await supabase
+    .from('track_audio_features_computed')
+    .select('dominant_phrase_bars')
+    .not('dominant_phrase_bars', 'is', null)
+
+  if (!data || data.length === 0) return []
+
+  const groups = new Map<number, number>()
+
+  for (const row of data) {
+    if (row.dominant_phrase_bars === null || row.dominant_phrase_bars === undefined) continue
+    const bars = row.dominant_phrase_bars as number
+    groups.set(bars, (groups.get(bars) ?? 0) + 1)
+  }
+
+  return Array.from(groups.entries())
+    .map(([bars, count]) => ({ bars, count }))
+    .sort((a, b) => a.bars - b.bars)
+}
+
+export interface QualityFlags {
+  variable_tempo_count: number
+  atonality_count: number
+  avg_bpm_confidence: number
+}
+
+export async function getQualityFlags(): Promise<QualityFlags> {
+  const supabase = await createClient()
+
+  const { data } = await supabase
+    .from('track_audio_features_computed')
+    .select('variable_tempo, atonality, bpm_confidence')
+
+  if (!data || data.length === 0) {
+    return { variable_tempo_count: 0, atonality_count: 0, avg_bpm_confidence: 0 }
+  }
+
+  const vt = data.filter((r) => r.variable_tempo === true).length
+  const at = data.filter((r) => r.atonality === true).length
+  const confs = data
+    .filter((r) => r.bpm_confidence != null)
+    .map((r) => r.bpm_confidence as number)
+  const avgConf = confs.length > 0 ? confs.reduce((a, b) => a + b, 0) / confs.length : 0
+
+  return { variable_tempo_count: vt, atonality_count: at, avg_bpm_confidence: avgConf }
+}

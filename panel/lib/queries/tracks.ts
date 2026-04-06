@@ -13,6 +13,9 @@ export interface TrackRow {
   integrated_lufs: number | null
   energy_mean: number | null
   analysis_level: number | null
+  hp_ratio: number | null
+  danceability: number | null
+  mood_confidence: number | null
 }
 
 export interface TrackListParams {
@@ -65,7 +68,10 @@ export async function getTrackList(params: TrackListParams = {}): Promise<TrackL
         mood,
         integrated_lufs,
         energy_mean,
-        analysis_level
+        analysis_level,
+        hp_ratio,
+        danceability,
+        mood_confidence
       )
     `,
       { count: 'exact' },
@@ -162,6 +168,9 @@ export async function getTrackList(params: TrackListParams = {}): Promise<TrackL
       integrated_lufs: features?.integrated_lufs ?? null,
       energy_mean: features?.energy_mean ?? null,
       analysis_level: features?.analysis_level ?? null,
+      hp_ratio: features?.hp_ratio ?? null,
+      danceability: features?.danceability ?? null,
+      mood_confidence: features?.mood_confidence ?? null,
     }
   })
 

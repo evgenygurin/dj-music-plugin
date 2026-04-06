@@ -4,6 +4,9 @@ import { BpmDistributionChart } from '@/components/charts/bpm-distribution'
 import { MoodDistributionChart } from '@/components/charts/mood-distribution'
 import { CamelotWheelChart } from '@/components/charts/camelot-wheel'
 import { LufsRangeChart } from '@/components/charts/lufs-range'
+import { DanceabilityDistributionChart } from '@/components/charts/danceability-distribution'
+import { HpRatioDistributionChart } from '@/components/charts/hp-ratio-distribution'
+import { PhraseDistributionChart } from '@/components/charts/phrase-distribution'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
 import {
@@ -13,19 +16,27 @@ import {
   getKeyDistribution,
   getLufsDistribution,
   getAnalysisCoverage,
+  getDanceabilityDistribution,
+  getHpRatioDistribution,
+  getPhraseDistribution,
+  getQualityFlags,
 } from '@/lib/queries/dashboard'
 import { ANALYSIS_LEVELS } from '@/lib/constants'
 
 export const revalidate = 30
 
 export default async function DashboardPage() {
-  const [stats, bpmData, moodData, keyData, lufsData, coverageData] = await Promise.all([
+  const [stats, bpmData, moodData, keyData, lufsData, coverageData, danceabilityData, hpRatioData, phraseData, qualityFlags] = await Promise.all([
     getLibraryStats(),
     getBpmDistribution(),
     getMoodDistribution(),
     getKeyDistribution(),
     getLufsDistribution(),
     getAnalysisCoverage(),
+    getDanceabilityDistribution(),
+    getHpRatioDistribution(),
+    getPhraseDistribution(),
+    getQualityFlags(),
   ])
 
   const totalCoverage = coverageData.reduce((sum, d) => sum + d.count, 0)
@@ -77,6 +88,67 @@ export default async function DashboardPage() {
             </CardContent>
           </Card>
         </div>
+
+        <div className="grid gap-4 md:grid-cols-3">
+          <Card className="border-border/50">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base font-semibold">Danceability</CardTitle>
+              <CardDescription>Rhythmic danceability distribution</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <DanceabilityDistributionChart data={danceabilityData} />
+            </CardContent>
+          </Card>
+
+          <Card className="border-border/50">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base font-semibold">HP Ratio</CardTitle>
+              <CardDescription>Harmonic-to-percussive ratio spread</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <HpRatioDistributionChart data={hpRatioData} />
+            </CardContent>
+          </Card>
+
+          <Card className="border-border/50">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base font-semibold">Phrase Length</CardTitle>
+              <CardDescription>Dominant phrase length in bars</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <PhraseDistributionChart data={phraseData} />
+            </CardContent>
+          </Card>
+        </div>
+
+        <Card className="border-border/50">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base font-semibold">Quality Flags</CardTitle>
+            <CardDescription>Tracks with notable audio characteristics</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-4 sm:grid-cols-3">
+              <div className="space-y-1">
+                <p className="text-sm text-muted-foreground">Variable Tempo</p>
+                <p className="text-2xl font-semibold tabular-nums">
+                  {qualityFlags.variable_tempo_count.toLocaleString()}
+                </p>
+              </div>
+              <div className="space-y-1">
+                <p className="text-sm text-muted-foreground">Atonal</p>
+                <p className="text-2xl font-semibold tabular-nums">
+                  {qualityFlags.atonality_count.toLocaleString()}
+                </p>
+              </div>
+              <div className="space-y-1">
+                <p className="text-sm text-muted-foreground">Avg BPM Confidence</p>
+                <p className="text-2xl font-semibold tabular-nums">
+                  {(qualityFlags.avg_bpm_confidence * 100).toFixed(1)}%
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
         <Card className="border-border/50">
           <CardHeader className="pb-2">
