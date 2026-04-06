@@ -40,7 +40,7 @@ export function MoodDistributionChart({ data }: { data: MoodCount[] }) {
         <ChartTooltip
           content={
             <ChartTooltipContent
-              labelFormatter={(label: string) => SUBGENRE_LABELS[label] ?? label}
+              labelFormatter={(label) => SUBGENRE_LABELS[String(label)] ?? String(label)}
             />
           }
         />
