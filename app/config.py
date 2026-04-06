@@ -125,6 +125,14 @@ class Settings(BaseSettings):
     techno_lra_max: float = 25.0  # LU
     techno_hnr_min: float = -30.0  # dB
 
+    # ── Audit Thresholds ──────────────────────────────
+    audit_true_peak_max: float = -0.3  # dB
+    audit_bpm_confidence_min: float = 0.5
+    audit_key_confidence_min: float = 0.4
+    audit_hp_ratio_max: float = 8.0
+    audit_crest_factor_max: float = 30.0  # dB
+    audit_spectral_flatness_max: float = 0.5
+
     # ── Mood Classifier ───────────────────────────────
     mood_catch_all_penalty: float = 0.85
     mood_confidence_threshold: float = 0.3

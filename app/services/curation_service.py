@@ -193,6 +193,117 @@ class CurationService:
                         }
                     )
 
+            # P3 quality checks
+            if (
+                features.true_peak_db is not None
+                and features.true_peak_db > settings.audit_true_peak_max
+            ):
+                issues.append(
+                    {
+                        "track_id": tid,
+                        "title": track.title,
+                        "issue": "clipping_risk",
+                        "severity": "warning",
+                        "detail": (
+                            f"True peak {features.true_peak_db:.1f} dB"
+                            f" > {settings.audit_true_peak_max} dB"
+                        ),
+                    }
+                )
+
+            if (
+                features.bpm_confidence is not None
+                and features.bpm_confidence < settings.audit_bpm_confidence_min
+            ):
+                issues.append(
+                    {
+                        "track_id": tid,
+                        "title": track.title,
+                        "issue": "unreliable_bpm",
+                        "severity": "warning",
+                        "detail": (
+                            f"BPM confidence {features.bpm_confidence:.2f}"
+                            f" < {settings.audit_bpm_confidence_min}"
+                        ),
+                    }
+                )
+
+            if (
+                features.key_confidence is not None
+                and features.key_confidence < settings.audit_key_confidence_min
+            ):
+                issues.append(
+                    {
+                        "track_id": tid,
+                        "title": track.title,
+                        "issue": "unreliable_key",
+                        "severity": "warning",
+                        "detail": (
+                            f"Key confidence {features.key_confidence:.2f}"
+                            f" < {settings.audit_key_confidence_min}"
+                        ),
+                    }
+                )
+
+            if features.variable_tempo is True:
+                issues.append(
+                    {
+                        "track_id": tid,
+                        "title": track.title,
+                        "issue": "variable_tempo",
+                        "severity": "info",
+                        "detail": "Variable tempo - harder to beatmatch",
+                    }
+                )
+
+            if features.hp_ratio is not None and features.hp_ratio > settings.audit_hp_ratio_max:
+                issues.append(
+                    {
+                        "track_id": tid,
+                        "title": track.title,
+                        "issue": "too_harmonic",
+                        "severity": "warning",
+                        "detail": (
+                            f"HP ratio {features.hp_ratio:.1f}"
+                            f" > {settings.audit_hp_ratio_max} (too harmonic for techno)"
+                        ),
+                    }
+                )
+
+            if (
+                features.crest_factor_db is not None
+                and features.crest_factor_db > settings.audit_crest_factor_max
+            ):
+                issues.append(
+                    {
+                        "track_id": tid,
+                        "title": track.title,
+                        "issue": "excessive_dynamics",
+                        "severity": "warning",
+                        "detail": (
+                            f"Crest factor {features.crest_factor_db:.1f} dB"
+                            f" > {settings.audit_crest_factor_max} dB"
+                        ),
+                    }
+                )
+
+            if (
+                features.spectral_flatness is not None
+                and features.spectral_flatness > settings.audit_spectral_flatness_max
+            ):
+                issues.append(
+                    {
+                        "track_id": tid,
+                        "title": track.title,
+                        "issue": "noise_spectrum",
+                        "severity": "warning",
+                        "detail": (
+                            f"Spectral flatness {features.spectral_flatness:.2f}"
+                            f" > {settings.audit_spectral_flatness_max}"
+                        ),
+                    }
+                )
+
         if bpm_values:
             stats["bpm_range"] = [round(min(bpm_values), 1), round(max(bpm_values), 1)]
             stats["bpm_mean"] = round(sum(bpm_values) / len(bpm_values), 1)
