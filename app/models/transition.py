@@ -6,11 +6,8 @@
 from __future__ import annotations
 
 from sqlalchemy import (
-    Boolean,
     CheckConstraint,
-    Float,
     ForeignKey,
-    Integer,
     UniqueConstraint,
 )
 from sqlalchemy.orm import Mapped, mapped_column
@@ -49,19 +46,19 @@ class Transition(Base, TimestampMixin):
     to_track_id: Mapped[int] = mapped_column(
         ForeignKey("tracks.id", ondelete="CASCADE"), index=True
     )
-    from_section_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    to_section_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    overlap_ms: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    from_section_id: Mapped[int | None] = mapped_column(nullable=True)
+    to_section_id: Mapped[int | None] = mapped_column(nullable=True)
+    overlap_ms: Mapped[int | None] = mapped_column(nullable=True)
 
     # Score fields (all 0-1, nullable)
-    bpm_score: Mapped[float | None] = mapped_column(Float, nullable=True)
-    energy_score: Mapped[float | None] = mapped_column(Float, nullable=True)
-    harmonic_score: Mapped[float | None] = mapped_column(Float, nullable=True)
-    spectral_score: Mapped[float | None] = mapped_column(Float, nullable=True)
-    groove_score: Mapped[float | None] = mapped_column(Float, nullable=True)
-    key_distance_weighted: Mapped[float | None] = mapped_column(Float, nullable=True)
-    low_conflict_score: Mapped[float | None] = mapped_column(Float, nullable=True)
-    overall_quality: Mapped[float | None] = mapped_column(Float, nullable=True)
+    bpm_score: Mapped[float | None] = mapped_column(nullable=True)
+    energy_score: Mapped[float | None] = mapped_column(nullable=True)
+    harmonic_score: Mapped[float | None] = mapped_column(nullable=True)
+    spectral_score: Mapped[float | None] = mapped_column(nullable=True)
+    groove_score: Mapped[float | None] = mapped_column(nullable=True)
+    key_distance_weighted: Mapped[float | None] = mapped_column(nullable=True)
+    low_conflict_score: Mapped[float | None] = mapped_column(nullable=True)
+    overall_quality: Mapped[float | None] = mapped_column(nullable=True)
 
 
 class TransitionCandidate(Base, TimestampMixin):
@@ -79,8 +76,8 @@ class TransitionCandidate(Base, TimestampMixin):
     to_track_id: Mapped[int] = mapped_column(
         ForeignKey("tracks.id", ondelete="CASCADE"), index=True
     )
-    bpm_distance: Mapped[float | None] = mapped_column(Float, nullable=True)
-    key_distance: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    embedding_similarity: Mapped[float | None] = mapped_column(Float, nullable=True)
-    energy_delta: Mapped[float | None] = mapped_column(Float, nullable=True)
-    fully_scored: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
+    bpm_distance: Mapped[float | None] = mapped_column(nullable=True)
+    key_distance: Mapped[int | None] = mapped_column(nullable=True)
+    embedding_similarity: Mapped[float | None] = mapped_column(nullable=True)
+    energy_delta: Mapped[float | None] = mapped_column(nullable=True)
+    fully_scored: Mapped[bool] = mapped_column(default=False, server_default="false")

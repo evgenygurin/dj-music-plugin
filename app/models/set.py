@@ -6,11 +6,8 @@
 from __future__ import annotations
 
 from sqlalchemy import (
-    Boolean,
     CheckConstraint,
-    Float,
     ForeignKey,
-    Integer,
     String,
     Text,
 )
@@ -27,13 +24,13 @@ class DjSet(Base, TimestampMixin):
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(String(500))
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
-    target_duration_ms: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    target_bpm_min: Mapped[float | None] = mapped_column(Float, nullable=True)
-    target_bpm_max: Mapped[float | None] = mapped_column(Float, nullable=True)
+    target_duration_ms: Mapped[int | None] = mapped_column(nullable=True)
+    target_bpm_min: Mapped[float | None] = mapped_column(nullable=True)
+    target_bpm_max: Mapped[float | None] = mapped_column(nullable=True)
     target_energy_arc: Mapped[str | None] = mapped_column(Text, nullable=True)
     template_name: Mapped[str | None] = mapped_column(String(200), nullable=True)
     source_playlist_id: Mapped[int | None] = mapped_column(
-        ForeignKey("dj_playlists.id", ondelete="SET NULL"), nullable=True
+        ForeignKey("dj_playlists.id", ondelete="SET NULL"), nullable=True, index=True
     )
     ym_playlist_id: Mapped[str | None] = mapped_column(String(200), nullable=True)
 
@@ -57,10 +54,10 @@ class SetVersion(Base, TimestampMixin):
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    set_id: Mapped[int] = mapped_column(ForeignKey("dj_sets.id", ondelete="CASCADE"))
+    set_id: Mapped[int] = mapped_column(ForeignKey("dj_sets.id", ondelete="CASCADE"), index=True)
     label: Mapped[str | None] = mapped_column(String(200), nullable=True)
     generator_run_meta: Mapped[str | None] = mapped_column(Text, nullable=True)
-    quality_score: Mapped[float | None] = mapped_column(Float, nullable=True)
+    quality_score: Mapped[float | None] = mapped_column(nullable=True)
 
     dj_set: Mapped[DjSet] = relationship(back_populates="versions")
     items: Mapped[list[SetItem]] = relationship(
@@ -77,19 +74,21 @@ class SetItem(Base, TimestampMixin):
     __tablename__ = "dj_set_items"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    version_id: Mapped[int] = mapped_column(ForeignKey("dj_set_versions.id", ondelete="CASCADE"))
-    track_id: Mapped[int] = mapped_column(ForeignKey("tracks.id", ondelete="CASCADE"))
-    sort_index: Mapped[int] = mapped_column(Integer)
+    version_id: Mapped[int] = mapped_column(
+        ForeignKey("dj_set_versions.id", ondelete="CASCADE"), index=True
+    )
+    track_id: Mapped[int] = mapped_column(ForeignKey("tracks.id", ondelete="CASCADE"), index=True)
+    sort_index: Mapped[int] = mapped_column()
     transition_id: Mapped[int | None] = mapped_column(
         ForeignKey("transitions.id", ondelete="SET NULL"), nullable=True
     )
-    in_section_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    out_section_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    mix_in_point_ms: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    mix_out_point_ms: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    in_section_id: Mapped[int | None] = mapped_column(nullable=True)
+    out_section_id: Mapped[int | None] = mapped_column(nullable=True)
+    mix_in_point_ms: Mapped[int | None] = mapped_column(nullable=True)
+    mix_out_point_ms: Mapped[int | None] = mapped_column(nullable=True)
     planned_eq: Mapped[str | None] = mapped_column(Text, nullable=True)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
-    pinned: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
+    pinned: Mapped[bool] = mapped_column(default=False, server_default="false")
 
     version: Mapped[SetVersion] = relationship(back_populates="items")
 
@@ -100,7 +99,7 @@ class SetConstraint(Base, TimestampMixin):
     __tablename__ = "dj_set_constraints"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    set_id: Mapped[int] = mapped_column(ForeignKey("dj_sets.id", ondelete="CASCADE"))
+    set_id: Mapped[int] = mapped_column(ForeignKey("dj_sets.id", ondelete="CASCADE"), index=True)
     constraint_type: Mapped[str] = mapped_column(String(200))
     constraint_value: Mapped[str] = mapped_column(Text)
 
@@ -119,9 +118,11 @@ class SetFeedback(Base, TimestampMixin):
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    version_id: Mapped[int] = mapped_column(ForeignKey("dj_set_versions.id", ondelete="CASCADE"))
-    set_item_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    rating: Mapped[int] = mapped_column(Integer)
+    version_id: Mapped[int] = mapped_column(
+        ForeignKey("dj_set_versions.id", ondelete="CASCADE"), index=True
+    )
+    set_item_id: Mapped[int | None] = mapped_column(nullable=True)
+    rating: Mapped[int] = mapped_column()
     feedback_type: Mapped[str] = mapped_column(String(100))
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
 

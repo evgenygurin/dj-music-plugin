@@ -44,8 +44,8 @@
                    │
     ┌──────────────▼───────────────┐
     │    SQLAlchemy 2.0 Async       │
-    │  Supabase PostgreSQL (prod)   │
-    │  SQLite (test, in-memory)     │
+    │  Supabase PostgreSQL          │
+    │  SQLite (tests only, in-mem)  │
     │  44 tables, Alembic migrations│
     └──────────────────────────────┘
 
@@ -134,4 +134,4 @@ External:
 | FeatureRepository batch methods | N SQL queries → 1 for scoring/optimization loops |
 | Panel reads Supabase directly | Avoids MCP overhead for read-only dashboard data |
 | REST API wrapper over direct MCP | Panel needs HTTP transport; Swagger docs for debugging |
-| Supabase PostgreSQL over SQLite | Production-grade, panel reads directly, RLS available |
+| Supabase PostgreSQL (only DB) | Production-grade, panel reads directly, RLS available; SQLite only for tests |

@@ -12,7 +12,7 @@ class DjLibraryItem(Base, TimestampMixin):
     __tablename__ = "dj_library_items"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    track_id: Mapped[int] = mapped_column(ForeignKey("tracks.id", ondelete="CASCADE"))
+    track_id: Mapped[int] = mapped_column(ForeignKey("tracks.id", ondelete="CASCADE"), index=True)
     file_path: Mapped[str] = mapped_column(String(1000))
     file_uri: Mapped[str | None] = mapped_column(String(1000), nullable=True)
     file_hash: Mapped[str] = mapped_column(String(128))
@@ -45,7 +45,7 @@ class DjBeatgrid(Base, TimestampMixin):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     library_item_id: Mapped[int] = mapped_column(
-        ForeignKey("dj_library_items.id", ondelete="CASCADE")
+        ForeignKey("dj_library_items.id", ondelete="CASCADE"), index=True
     )
     bpm: Mapped[float] = mapped_column()
     first_downbeat_ms: Mapped[float | None] = mapped_column(nullable=True)
@@ -78,7 +78,9 @@ class DjBeatgridChangePoint(Base):
     __tablename__ = "dj_beatgrid_change_points"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    beatgrid_id: Mapped[int] = mapped_column(ForeignKey("dj_beatgrids.id", ondelete="CASCADE"))
+    beatgrid_id: Mapped[int] = mapped_column(
+        ForeignKey("dj_beatgrids.id", ondelete="CASCADE"), index=True
+    )
     position_ms: Mapped[float] = mapped_column()
     bpm: Mapped[float] = mapped_column()
 
@@ -98,7 +100,7 @@ class DjCuePoint(Base, TimestampMixin):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     library_item_id: Mapped[int] = mapped_column(
-        ForeignKey("dj_library_items.id", ondelete="CASCADE")
+        ForeignKey("dj_library_items.id", ondelete="CASCADE"), index=True
     )
     position_ms: Mapped[float] = mapped_column()
     kind: Mapped[int] = mapped_column()
@@ -130,7 +132,7 @@ class DjSavedLoop(Base, TimestampMixin):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     library_item_id: Mapped[int] = mapped_column(
-        ForeignKey("dj_library_items.id", ondelete="CASCADE")
+        ForeignKey("dj_library_items.id", ondelete="CASCADE"), index=True
     )
     in_position_ms: Mapped[float] = mapped_column()
     out_position_ms: Mapped[float] = mapped_column()
