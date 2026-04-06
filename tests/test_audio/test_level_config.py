@@ -1,4 +1,4 @@
-from app.audio.level_config import AnalysisLevel, get_analyzers_for_level, get_clip_duration
+from app.audio.level_config import AnalysisLevel, get_analyzers_for_level
 
 
 def test_level_enum():
@@ -30,16 +30,6 @@ def test_transition_includes_all():
     assert len(names) == 8
 
 
-def test_clip_duration_triage():
-    dur = get_clip_duration(AnalysisLevel.TRIAGE)
-    assert dur == 30.0
-
-
-def test_clip_duration_scoring():
-    dur = get_clip_duration(AnalysisLevel.SCORING)
-    assert dur == 60.0
-
-
 def test_advanced_includes_p3_plus_lower():
     """ADVANCED level must include all lower-level + 10 P3 analyzers."""
     names = get_analyzers_for_level(AnalysisLevel.ADVANCED)
@@ -62,9 +52,3 @@ def test_advanced_includes_p3_plus_lower():
     }
     assert p3.issubset(set(names))
     assert len(names) == 18  # 6 triage + 1 scoring + 1 transition + 10 advanced
-
-
-def test_clip_duration_advanced():
-    """ADVANCED uses same clip duration as SCORING (60s)."""
-    dur = get_clip_duration(AnalysisLevel.ADVANCED)
-    assert dur == 60.0

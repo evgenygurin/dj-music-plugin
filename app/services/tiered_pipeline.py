@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 from typing import TYPE_CHECKING, Any
 
-from app.audio.level_config import AnalysisLevel, get_analyzers_for_level, get_clip_duration
+from app.audio.level_config import AnalysisLevel, get_analyzers_for_level
 from app.config import settings
 
 if TYPE_CHECKING:
@@ -97,7 +97,6 @@ class TieredPipeline:
         from app.audio.temp_download import temp_download_track
 
         analyzers = get_analyzers_for_level(level)
-        clip_duration = get_clip_duration(level)
 
         try:
             async with temp_download_track(self._ym, ym_track_id) as tmp_path:
@@ -105,7 +104,6 @@ class TieredPipeline:
                 result = await self._pipeline.analyze(
                     str(tmp_path),
                     analyzers=analyzers,
-                    max_duration=clip_duration,
                     return_context=save_ts,
                 )
                 if result.features:
