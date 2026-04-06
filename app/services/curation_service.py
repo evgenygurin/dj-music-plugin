@@ -109,6 +109,8 @@ class CurationService:
         playlist_query: str | None = None,
     ) -> dict[str, Any]:
         """Audit playlist for techno quality criteria and gaps."""
+        from app.domain.audit.rules import DEFAULT_AUDIT_RULES, run_audit_rules
+
         if playlist_id is None and playlist_query is None:
             raise ValidationError("Provide playlist_id or playlist_query")
 
@@ -157,152 +159,21 @@ class CurationService:
 
             if features.bpm is not None:
                 bpm_values.append(features.bpm)
-                if (
-                    features.bpm < settings.techno_bpm_min
-                    or features.bpm > settings.techno_bpm_max
-                ):
-                    issues.append(
-                        {
-                            "track_id": tid,
-                            "title": track.title,
-                            "issue": "bpm_out_of_range",
-                            "severity": "warning",
-                            "detail": (
-                                f"BPM {features.bpm:.1f} outside "
-                                f"[{settings.techno_bpm_min}-{settings.techno_bpm_max}]"
-                            ),
-                        }
-                    )
-
             if features.integrated_lufs is not None:
                 energy_values.append(features.integrated_lufs)
-                if (
-                    features.integrated_lufs < settings.techno_lufs_min
-                    or features.integrated_lufs > settings.techno_lufs_max
-                ):
-                    issues.append(
-                        {
-                            "track_id": tid,
-                            "title": track.title,
-                            "issue": "lufs_out_of_range",
-                            "severity": "warning",
-                            "detail": (
-                                f"LUFS {features.integrated_lufs:.1f} outside "
-                                f"[{settings.techno_lufs_min}-{settings.techno_lufs_max}]"
-                            ),
-                        }
-                    )
 
-            # P3 quality checks
-            if (
-                features.true_peak_db is not None
-                and features.true_peak_db > settings.audit_true_peak_max
-            ):
-                issues.append(
-                    {
-                        "track_id": tid,
-                        "title": track.title,
-                        "issue": "clipping_risk",
-                        "severity": "warning",
-                        "detail": (
-                            f"True peak {features.true_peak_db:.1f} dB"
-                            f" > {settings.audit_true_peak_max} dB"
-                        ),
-                    }
-                )
-
-            if (
-                features.bpm_confidence is not None
-                and features.bpm_confidence < settings.audit_bpm_confidence_min
-            ):
-                issues.append(
-                    {
-                        "track_id": tid,
-                        "title": track.title,
-                        "issue": "unreliable_bpm",
-                        "severity": "warning",
-                        "detail": (
-                            f"BPM confidence {features.bpm_confidence:.2f}"
-                            f" < {settings.audit_bpm_confidence_min}"
-                        ),
-                    }
-                )
-
-            if (
-                features.key_confidence is not None
-                and features.key_confidence < settings.audit_key_confidence_min
-            ):
-                issues.append(
-                    {
-                        "track_id": tid,
-                        "title": track.title,
-                        "issue": "unreliable_key",
-                        "severity": "warning",
-                        "detail": (
-                            f"Key confidence {features.key_confidence:.2f}"
-                            f" < {settings.audit_key_confidence_min}"
-                        ),
-                    }
-                )
-
-            if features.variable_tempo is True:
-                issues.append(
-                    {
-                        "track_id": tid,
-                        "title": track.title,
-                        "issue": "variable_tempo",
-                        "severity": "info",
-                        "detail": "Variable tempo - harder to beatmatch",
-                    }
-                )
-
-            if features.hp_ratio is not None and features.hp_ratio > settings.audit_hp_ratio_max:
-                issues.append(
-                    {
-                        "track_id": tid,
-                        "title": track.title,
-                        "issue": "too_harmonic",
-                        "severity": "warning",
-                        "detail": (
-                            f"HP ratio {features.hp_ratio:.1f}"
-                            f" > {settings.audit_hp_ratio_max} (too harmonic for techno)"
-                        ),
-                    }
-                )
-
-            if (
-                features.crest_factor_db is not None
-                and features.crest_factor_db > settings.audit_crest_factor_max
-            ):
-                issues.append(
-                    {
-                        "track_id": tid,
-                        "title": track.title,
-                        "issue": "excessive_dynamics",
-                        "severity": "warning",
-                        "detail": (
-                            f"Crest factor {features.crest_factor_db:.1f} dB"
-                            f" > {settings.audit_crest_factor_max} dB"
-                        ),
-                    }
-                )
-
-            if (
-                features.spectral_flatness is not None
-                and features.spectral_flatness > settings.audit_spectral_flatness_max
-            ):
-                issues.append(
-                    {
-                        "track_id": tid,
-                        "title": track.title,
-                        "issue": "noise_spectrum",
-                        "severity": "warning",
-                        "detail": (
-                            f"Spectral flatness {features.spectral_flatness:.2f}"
-                            f" > {settings.audit_spectral_flatness_max}"
-                        ),
-                    }
-                )
+            # Run all audit rules via Chain of Responsibility
+            audit_issues = run_audit_rules(DEFAULT_AUDIT_RULES, tid, track.title, features)
+            for ai in audit_issues:
+                issue_dict: dict[str, Any] = {
+                    "track_id": ai.track_id,
+                    "title": ai.title,
+                    "issue": ai.issue,
+                    "severity": ai.severity,
+                }
+                if ai.detail is not None:
+                    issue_dict["detail"] = ai.detail
+                issues.append(issue_dict)
 
         if bpm_values:
             stats["bpm_range"] = [round(min(bpm_values), 1), round(max(bpm_values), 1)]

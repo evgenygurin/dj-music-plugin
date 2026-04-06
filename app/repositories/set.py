@@ -37,24 +37,37 @@ class SetRepository(BaseRepository[DjSet]):
     async def create_version(
         self,
         set_id: int,
-        items: list[dict[str, Any]],
+        items: list[dict[str, Any]] | list[int],
         label: str | None = None,
+        gen_meta: str | None = None,
     ) -> SetVersion:
         """Create a new version with ordered items.
 
-        Each dict in *items* must contain at least ``track_id`` and ``sort_index``.
+        *items* can be:
+        - list[int]: track IDs (sort_index assigned automatically)
+        - list[dict]: dicts with ``track_id``, ``sort_index``, optional ``pinned``
+
+        *gen_meta*: optional JSON string with generator run metadata.
         """
-        version = SetVersion(set_id=set_id, label=label)
+        version = SetVersion(set_id=set_id, label=label, generator_run_meta=gen_meta)
         self.session.add(version)
         await self.session.flush()
 
-        for item_data in items:
-            set_item = SetItem(
-                version_id=version.id,
-                track_id=item_data["track_id"],
-                sort_index=item_data["sort_index"],
-            )
-            self.session.add(set_item)
+        if items and isinstance(items[0], int):
+            for idx, tid in enumerate(items):
+                self.session.add(
+                    SetItem(version_id=version.id, track_id=tid, sort_index=idx)  # type: ignore[arg-type]
+                )
+        else:
+            for item_data in items:
+                self.session.add(
+                    SetItem(
+                        version_id=version.id,
+                        track_id=item_data["track_id"],  # type: ignore[index]
+                        sort_index=item_data["sort_index"],  # type: ignore[index]
+                        pinned=item_data.get("pinned", False),  # type: ignore[union-attr]
+                    )
+                )
         await self.session.flush()
 
         return version
@@ -156,20 +169,8 @@ class SetRepository(BaseRepository[DjSet]):
         label: str = "v1",
         gen_meta: str | None = None,
     ) -> SetVersion:
-        """Create a version with ordered tracks and generator metadata."""
-        version = SetVersion(
-            set_id=set_id,
-            label=label,
-            generator_run_meta=gen_meta,
-        )
-        self.session.add(version)
-        await self.session.flush()
-
-        for idx, tid in enumerate(track_order):
-            self.session.add(SetItem(version_id=version.id, track_id=tid, sort_index=idx))
-        await self.session.flush()
-
-        return version
+        """Backward-compat alias — use create_version() instead."""
+        return await self.create_version(set_id, track_order, label=label, gen_meta=gen_meta)
 
     async def create_version_with_items(
         self,
@@ -177,22 +178,8 @@ class SetRepository(BaseRepository[DjSet]):
         items: list[dict[str, Any]],
         label: str | None = None,
     ) -> SetVersion:
-        """Create version with items that may include pinned flag."""
-        version = SetVersion(set_id=set_id, label=label)
-        self.session.add(version)
-        await self.session.flush()
-
-        for item_data in items:
-            self.session.add(
-                SetItem(
-                    version_id=version.id,
-                    track_id=item_data["track_id"],
-                    sort_index=item_data["sort_index"],
-                    pinned=item_data.get("pinned", False),
-                )
-            )
-        await self.session.flush()
-        return version
+        """Backward-compat alias — use create_version() instead."""
+        return await self.create_version(set_id, items, label=label)
 
     async def add_constraint(self, constraint: SetConstraint) -> SetConstraint:
         """Persist a set constraint."""
