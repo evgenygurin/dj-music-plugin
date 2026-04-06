@@ -1,8 +1,9 @@
 'use client'
 
 import { type ColumnDef } from '@tanstack/react-table'
+import { Search } from 'lucide-react'
 import { useRouter, usePathname, useSearchParams } from 'next/navigation'
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { DataTable } from '@/components/data-table'
 import { MoodBadge } from '@/components/mood-badge'
@@ -103,28 +104,10 @@ const columns: ColumnDef<TrackRow>[] = [
     enableSorting: false,
   },
   {
-    accessorKey: 'hp_ratio',
-    header: 'HP Ratio',
-    cell: ({ row }) => (
-      <span className="tabular-nums text-sm">
-        {row.original.hp_ratio !== null ? row.original.hp_ratio.toFixed(2) : '—'}
-      </span>
-    ),
-  },
-  {
-    accessorKey: 'danceability',
-    header: 'Dance',
-    cell: ({ row }) => (
-      <span className="tabular-nums text-sm">
-        {row.original.danceability !== null ? row.original.danceability.toFixed(2) : '—'}
-      </span>
-    ),
-  },
-  {
     accessorKey: 'mood_confidence',
-    header: 'Mood Conf',
+    header: 'Conf',
     cell: ({ row }) => (
-      <span className="tabular-nums text-sm">
+      <span className="tabular-nums text-sm text-muted-foreground">
         {row.original.mood_confidence !== null
           ? `${(row.original.mood_confidence * 100).toFixed(0)}%`
           : '—'}
@@ -145,6 +128,7 @@ export function LibraryTable({
   const pathname = usePathname()
   const searchParams = useSearchParams()
   const [searchInput, setSearchInput] = useState(currentSearch)
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const createQueryString = useCallback(
     (updates: Record<string, string | undefined>) => {
@@ -161,15 +145,20 @@ export function LibraryTable({
     [searchParams]
   )
 
-  const handleSearch = () => {
-    router.push(`${pathname}?${createQueryString({ search: searchInput, page: '1' })}`)
-  }
-
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') handleSearch()
-  }
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+    debounceRef.current = setTimeout(() => {
+      router.push(`${pathname}?${createQueryString({ search: searchInput, page: '1' })}`)
+    }, 300)
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchInput])
 
   const totalPages = Math.ceil(total / PAGE_SIZE)
+  const pageStart = (currentPage - 1) * PAGE_SIZE + 1
+  const pageEnd = Math.min(currentPage * PAGE_SIZE, total)
 
   const handlePrev = () => {
     if (currentPage > 1) {
@@ -190,28 +179,29 @@ export function LibraryTable({
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-4">
-        <div className="flex items-center gap-2">
+        <div className="relative flex-1 max-w-sm">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
           <Input
             placeholder="Search tracks..."
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
-            onKeyDown={handleKeyDown}
-            className="w-64"
+            className="pl-9"
           />
-          <Button variant="outline" size="sm" onClick={handleSearch}>
-            Search
-          </Button>
         </div>
-        <span className="text-sm text-muted-foreground">
+        <span className="text-sm text-muted-foreground shrink-0">
           {total.toLocaleString()} tracks
         </span>
       </div>
 
-      <DataTable columns={columns} data={initialTracks} onRowClick={handleRowClick} />
+      <DataTable
+        columns={columns}
+        data={initialTracks}
+        onRowClick={handleRowClick}
+      />
 
       <div className="flex items-center justify-between">
         <span className="text-sm text-muted-foreground">
-          Page {currentPage} of {totalPages}
+          {total > 0 ? `${pageStart}–${pageEnd} of ${total.toLocaleString()}` : '0 tracks'}
         </span>
         <div className="flex gap-2">
           <Button variant="outline" size="sm" onClick={handlePrev} disabled={currentPage <= 1}>
