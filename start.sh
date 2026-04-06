@@ -12,7 +12,7 @@ cd "$PROJECT_DIR"
 uv sync --extra http --extra dev
 
 # ── Install panel dependencies ──
-(cd panel && bun install --frozen-lockfile)
+(cd panel && bun install)
 
 # ── Ensure panel .env exists ──
 if [ ! -f panel/.env ]; then
