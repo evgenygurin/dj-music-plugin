@@ -1,10 +1,6 @@
 """Beat detector — librosa-based rhythm analysis.
 
 Computes: onset_rate, pulse_clarity, kick_prominence, hp_ratio.
-
-Performance: analyzes only the first N seconds (settings.audio_beat_analysis_duration)
-to avoid processing full 5-7 min tracks. For techno music with stable BPM,
-the first 60s gives equivalent results with ~5x speedup.
 """
 
 from __future__ import annotations
@@ -15,7 +11,6 @@ import numpy as np
 
 from app.audio.analyzers.base import BaseAnalyzer, register_analyzer
 from app.audio.core.context import AnalysisContext
-from app.config import settings
 
 
 @register_analyzer
@@ -27,20 +22,11 @@ class BeatDetector(BaseAnalyzer):
     required_packages: ClassVar[list[str]] = ["librosa"]
 
     def _extract(self, ctx: AnalysisContext) -> dict[str, Any]:
-        """Analyze rhythmic features.
-
-        Truncates audio to settings.audio_beat_analysis_duration seconds
-        before processing — sufficient for stable-tempo techno tracks.
-        """
+        """Analyze rhythmic features from full audio signal."""
         import librosa
 
         samples = ctx.samples
         sr = ctx.sr
-
-        # Truncate to first N seconds for performance
-        max_samples = int(settings.audio_beat_analysis_duration * sr)
-        if len(samples) > max_samples:
-            samples = samples[:max_samples]
         analysis_duration = len(samples) / sr
 
         # Onset detection
