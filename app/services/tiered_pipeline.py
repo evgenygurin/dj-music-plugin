@@ -3,10 +3,13 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from typing import TYPE_CHECKING, Any
 
 from app.audio.level_config import AnalysisLevel, get_analyzers_for_level
 from app.config import settings
+
+logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from app.audio.pipeline import AnalysisPipeline
@@ -117,6 +120,9 @@ class TieredPipeline:
                         level=level,
                     )
 
+                    # Run mood classifier (rule-based, <1ms)
+                    await self._classify_mood(track_id)
+
                     # Persist sections to track_sections table
                     if sections:
                         await self._audio.save_sections(track_id, sections)
@@ -127,8 +133,26 @@ class TieredPipeline:
 
                     return True
         except Exception:
+            logger.exception(
+                "Tiered analysis failed for track %s (ym=%s, level=%s)",
+                track_id,
+                ym_track_id,
+                level,
+            )
             return False
         return False
+
+    async def _classify_mood(self, track_id: int) -> None:
+        """Run rule-based mood classifier on saved features."""
+        from app.audio.classification import MoodClassifier
+
+        row = await self._audio.get_features_by_track_id(track_id)
+        if row is None:
+            return
+        feat_dict = row.to_classifier_dict()
+        classifier = MoodClassifier()
+        result = classifier.classify(feat_dict)
+        await self._audio.update_mood(row, result.mood.value, result.confidence)
 
     async def _save_timeseries(self, track_id: int, ctx: Any) -> None:
         """Save frame-level data from AnalysisContext to disk + DB reference."""

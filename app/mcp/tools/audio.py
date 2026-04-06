@@ -7,7 +7,10 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastmcp.dependencies import Depends
+from fastmcp.dependencies import (
+    Depends,
+    Progress,
+)
 from fastmcp.exceptions import ToolError
 from fastmcp.server.context import Context
 from fastmcp.tools import tool
@@ -55,6 +58,12 @@ async def analyze_track(
 
     # Level-based tiered analysis (downloads from YM, no local file needed)
     if level is not None:
+        valid_levels = [lv.value for lv in AnalysisLevel if lv != AnalysisLevel.NONE]
+        if level not in valid_levels:
+            raise ToolError(
+                f"Invalid level: {level}. Valid levels: {valid_levels} "
+                f"(TRIAGE=2, SCORING=3, TRANSITION=4, ADVANCED=5)"
+            )
         target = AnalysisLevel(level)
         if ctx:
             await ctx.info(f"Tiered analysis L{level} for track {track_id}...")
@@ -70,6 +79,21 @@ async def analyze_track(
         await ctx.info(f"Analyzing track {track_id}...")
 
     result = await svc.analyze_track(track_id, analyzers=analyzers, force=force)
+
+    # Fallback to tiered pipeline if no local audio file
+    if result.get("error") == "No audio file linked":
+        if ctx:
+            await ctx.info(
+                "No local file — falling back to tiered pipeline (temp download from YM)..."
+            )
+        fallback_level = AnalysisLevel.SCORING
+        analysis = await tiered.ensure_level([track_id], fallback_level)
+        return {
+            "track_id": track_id,
+            "level": int(fallback_level),
+            "status": "analyzed" if analysis["analyzed"] > 0 else "error",
+            **analysis,
+        }
 
     if ctx and result.get("status") == "analyzed":
         await ctx.info(
@@ -97,11 +121,14 @@ async def analyze_batch(
     svc: AudioService = Depends(get_audio_service),  # noqa: B008
     tiered: TieredPipeline = Depends(get_tiered_pipeline),  # noqa: B008
     session: AsyncSession = Depends(get_db_session),  # noqa: B008
+    progress: Progress = Progress(),  # noqa: B008
     ctx: Context | None = None,
 ) -> dict[str, Any]:
     """Batch audio analysis for multiple tracks or a playlist.
 
-    If level is set (2/3/4/5), uses TieredPipeline (downloads from YM, no local file needed).
+    Runs as background task with progress tracking.
+    Falls back to tiered pipeline (temp download from YM) when no local file.
+    If level is set (2/3/4/5), uses TieredPipeline directly.
     """
     from app.audio.level_config import AnalysisLevel
     from app.core.parsing import ensure_list
@@ -130,36 +157,49 @@ async def analyze_batch(
     if not track_ids:
         raise ToolError("No tracks to analyze")
 
+    total = len(track_ids)
+    await progress.set_total(total)
+
     # Level-based tiered analysis (downloads from YM, no local file needed)
     if level is not None:
-        target = AnalysisLevel(level)
-        if ctx:
-            await ctx.info(f"Tiered batch analysis L{level}: {len(track_ids)} tracks")
-        analysis = await tiered.ensure_level(track_ids, target)
-        if ctx:
-            await ctx.info(
-                f"Batch complete: {analysis['analyzed']} analyzed, "
-                f"{analysis['skipped']} skipped, {analysis['failed']} failed"
+        valid_levels = [lv.value for lv in AnalysisLevel if lv != AnalysisLevel.NONE]
+        if level not in valid_levels:
+            raise ToolError(
+                f"Invalid level: {level}. Valid levels: {valid_levels} "
+                f"(TRIAGE=2, SCORING=3, TRANSITION=4, ADVANCED=5)"
             )
+        target = AnalysisLevel(level)
+        await progress.set_message(f"Tiered batch L{level}: {total} tracks")
+        analysis = await tiered.ensure_level(track_ids, target)
+        await progress.increment(total)
         return {
-            "total_tracks": len(track_ids),
+            "total_tracks": total,
             "completed": analysis["analyzed"],
             "failed": analysis["failed"],
             "skipped": analysis["skipped"],
             "level": level,
         }
 
-    total = len(track_ids)
+    # Per-track analysis with fallback to tiered pipeline
     completed = 0
     failed = 0
     skipped = 0
 
-    if ctx:
-        await ctx.info(f"Batch analysis: {total} tracks, priority={priority}")
-        await ctx.report_progress(0, total)
+    await progress.set_message(f"Analyzing {total} tracks...")
 
     for i, tid in enumerate(track_ids):
+        await progress.set_message(f"Track {i + 1}/{total} (id={tid})")
+
         result = await svc.analyze_track(tid, analyzers=analyzers)
+
+        # Fallback to tiered pipeline if no local audio file
+        if result.get("error") == "No audio file linked":
+            tiered_result = await tiered.ensure_level([tid], AnalysisLevel.SCORING)
+            if tiered_result["analyzed"] > 0:
+                result = {"status": "analyzed"}
+            else:
+                result = {"status": "error"}
+
         status = result.get("status", "error")
         if status == "analyzed":
             completed += 1
@@ -168,12 +208,9 @@ async def analyze_batch(
         else:
             failed += 1
 
-        if ctx and (i + 1) % 5 == 0:
-            await ctx.report_progress(i + 1, total)
+        await progress.increment()
 
-    if ctx:
-        await ctx.report_progress(total, total)
-        await ctx.info(f"Batch complete: {completed} analyzed, {skipped} cached, {failed} failed")
+    await progress.set_message(f"Done: {completed} analyzed, {skipped} cached, {failed} failed")
 
     return {
         "total_tracks": total,
