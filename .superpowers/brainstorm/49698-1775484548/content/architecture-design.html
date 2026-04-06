@@ -1,0 +1,100 @@
+<h2>Секция 1: Архитектура</h2>
+<p class="subtitle">Next.js App Router + shadcn/ui v4 + Supabase + MCP HTTP</p>
+
+<div class="mockup">
+  <div class="mockup-header">Архитектура приложения</div>
+  <div class="mockup-body" style="padding: 1.5rem; font-family: monospace; font-size: 0.8rem; line-height: 1.6;">
+    <pre style="margin: 0; white-space: pre-wrap;">
+┌─────────────────────────────────────────────────┐
+│              Vercel (Production)                 │
+│  ┌───────────────────────────────────────────┐  │
+│  │         Next.js 15 App Router              │  │
+│  │  ┌─────────────┐  ┌────────────────────┐  │  │
+│  │  │ Server       │  │ Server Actions     │  │  │
+│  │  │ Components   │  │ (mutations)        │  │  │
+│  │  │ (read data)  │  │                    │  │  │
+│  │  └──────┬───────┘  └────────┬───────────┘  │  │
+│  │         │                   │              │  │
+│  │         ▼                   ▼              │  │
+│  │  ┌──────────────┐  ┌───────────────────┐  │  │
+│  │  │ Supabase JS  │  │ MCP HTTP Client   │  │  │
+│  │  │ (PostgreSQL) │  │ (streamable-http) │  │  │
+│  │  └──────┬───────┘  └────────┬──────────┘  │  │
+│  └─────────┼───────────────────┼──────────────┘  │
+└────────────┼───────────────────┼─────────────────┘
+             │                   │
+             ▼                   ▼
+  ┌──────────────────┐  ┌───────────────────────┐
+  │ Supabase         │  │ MCP Server (локально) │
+  │ PostgreSQL       │  │ FastMCP streamable-http│
+  │ (облако)         │  │ + все 50 tools        │
+  └──────────────────┘  └───────────────────────┘
+    </pre>
+  </div>
+</div>
+
+<h3 style="margin-top: 1.5rem;">Ключевые решения</h3>
+
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 1rem;">
+  <div style="background: var(--bg-secondary); border-radius: 8px; padding: 1rem;">
+    <strong style="color: #3b82f6;">Read Path</strong>
+    <ul style="font-size: 0.85rem; margin-top: 0.5rem; padding-left: 1.2rem; color: var(--text-secondary);">
+      <li>Server Components → Supabase PostgreSQL</li>
+      <li>Прямой SQL через <code>@supabase/supabase-js</code></li>
+      <li>ISR с revalidate для кэширования</li>
+      <li>Работает на Vercel без MCP сервера</li>
+    </ul>
+  </div>
+  <div style="background: var(--bg-secondary); border-radius: 8px; padding: 1rem;">
+    <strong style="color: #8b5cf6;">Write Path</strong>
+    <ul style="font-size: 0.85rem; margin-top: 0.5rem; padding-left: 1.2rem; color: var(--text-secondary);">
+      <li>Server Actions → MCP HTTP endpoint</li>
+      <li>Вызывает существующие MCP tools</li>
+      <li>Бизнес-логика не дублируется</li>
+      <li>Требует запущенный MCP сервер</li>
+    </ul>
+  </div>
+</div>
+
+<h3 style="margin-top: 1.5rem;">shadcn/ui v4 компоненты</h3>
+<div style="background: var(--bg-secondary); border-radius: 8px; padding: 1rem; margin-top: 0.5rem;">
+  <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.75rem; font-size: 0.85rem;">
+    <div><strong>Layout:</strong> Sidebar, SidebarProvider, SidebarInset, Breadcrumb</div>
+    <div><strong>Charts:</strong> ChartContainer (Recharts), BarChart, AreaChart, RadarChart</div>
+    <div><strong>Data:</strong> Table, DataTable, Card, Badge, Tabs</div>
+    <div><strong>Forms:</strong> Select, Combobox, Slider, Button, Dialog</div>
+    <div><strong>Feedback:</strong> Sonner (toasts), Progress, Skeleton</div>
+    <div><strong>Block:</strong> dashboard-01 (базовый layout)</div>
+  </div>
+</div>
+
+<h3 style="margin-top: 1.5rem;">Структура проекта</h3>
+<div style="background: var(--bg-secondary); border-radius: 8px; padding: 1rem; margin-top: 0.5rem; font-family: monospace; font-size: 0.8rem;">
+<pre style="margin: 0;">
+panel/                          ← Next.js app (отдельная директория)
+├── app/
+│   ├── layout.tsx              ← SidebarProvider + dark theme
+│   ├── page.tsx                ← Dashboard (overview)
+│   ├── library/
+│   │   ├── page.tsx            ← Track table + filters
+│   │   └── [id]/page.tsx       ← Track detail + features
+│   ├── playlists/
+│   │   ├── page.tsx            ← Playlist list
+│   │   └── [id]/page.tsx       ← Playlist detail
+│   ├── sets/
+│   │   ├── page.tsx            ← Sets list
+│   │   └── [id]/page.tsx       ← Set detail + transitions
+│   └── discover/page.tsx       ← YM search + import
+├── components/
+│   ├── ui/                     ← shadcn/ui components
+│   ├── charts/                 ← BPM, Key, Energy charts
+│   ├── sidebar.tsx             ← App navigation
+│   └── data-table.tsx          ← Reusable data table
+├── lib/
+│   ├── supabase.ts             ← Supabase client (read)
+│   ├── mcp-client.ts           ← MCP HTTP client (write)
+│   └── queries.ts              ← SQL queries for dashboard
+├── actions/                    ← Server Actions (MCP calls)
+└── package.json
+</pre>
+</div>

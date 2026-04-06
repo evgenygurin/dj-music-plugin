@@ -1,0 +1,65 @@
+<h2>Dashboard Layout</h2>
+<p class="subtitle">Общая структура приложения — 5 основных страниц</p>
+
+<div class="options">
+  <div class="option" data-choice="sidebar" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>Sidebar Navigation</h3>
+      <p>Фиксированная боковая панель слева (как Vercel/Linear). Компактная, иконки + текст. Основной контент справа.</p>
+    </div>
+  </div>
+  <div class="option" data-choice="topnav" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>Top Navigation</h3>
+      <p>Горизонтальная навигация сверху (как GitHub). Больше пространства для контента. Tabs для подразделов.</p>
+    </div>
+  </div>
+</div>
+
+<h3 style="margin-top: 2rem;">Страницы приложения</h3>
+
+<div class="mockup">
+  <div class="mockup-header">5 основных разделов</div>
+  <div class="mockup-body" style="padding: 1.5rem;">
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+
+      <div style="background: var(--bg-secondary); border-radius: 8px; padding: 1rem; border-left: 3px solid #3b82f6;">
+        <strong style="color: #3b82f6;">📊 Dashboard</strong>
+        <p style="font-size: 0.85rem; margin-top: 0.5rem; color: var(--text-secondary);">
+          Library health, BPM/key/mood распределения, последние сеты, покрытие features
+        </p>
+      </div>
+
+      <div style="background: var(--bg-secondary); border-radius: 8px; padding: 1rem; border-left: 3px solid #8b5cf6;">
+        <strong style="color: #8b5cf6;">🎵 Library</strong>
+        <p style="font-size: 0.85rem; margin-top: 0.5rem; color: var(--text-secondary);">
+          Таблица треков с фильтрами (BPM, key, mood, energy). Детали трека. Actions: analyze, classify, download
+        </p>
+      </div>
+
+      <div style="background: var(--bg-secondary); border-radius: 8px; padding: 1rem; border-left: 3px solid #10b981;">
+        <strong style="color: #10b981;">📋 Playlists</strong>
+        <p style="font-size: 0.85rem; margin-top: 0.5rem; color: var(--text-secondary);">
+          Список плейлистов, субжанровые плейлисты, YM sync статус. Actions: create, sync, distribute
+        </p>
+      </div>
+
+      <div style="background: var(--bg-secondary); border-radius: 8px; padding: 1rem; border-left: 3px solid #f59e0b;">
+        <strong style="color: #f59e0b;">🎛️ Sets</strong>
+        <p style="font-size: 0.85rem; margin-top: 0.5rem; color: var(--text-secondary);">
+          DJ сеты, versions, transition map, energy arc, cheat sheet. Actions: build, rebuild, deliver
+        </p>
+      </div>
+
+      <div style="background: var(--bg-secondary); border-radius: 8px; padding: 1rem; border-left: 3px solid #ef4444; grid-column: span 2;">
+        <strong style="color: #ef4444;">🔍 Discovery</strong>
+        <p style="font-size: 0.85rem; margin-top: 0.5rem; color: var(--text-secondary);">
+          YM поиск, импорт треков, find similar, expand playlist. Интеграция с Яндекс Музыкой.
+        </p>
+      </div>
+
+    </div>
+  </div>
+</div>
