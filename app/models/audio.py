@@ -185,6 +185,7 @@ class TrackAudioFeaturesComputed(Base, TimestampMixin):
         "spectral_complexity_mean",
         "bpm_histogram_first_peak_weight",
         "spectral_slope",
+        "dominant_phrase_bars",
     )
 
     def to_classifier_dict(self) -> dict[str, Any]:

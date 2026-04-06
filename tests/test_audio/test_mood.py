@@ -635,3 +635,139 @@ class TestClassifierStateless:
         r1 = classifier.classify(ambient)
         r2 = classifier.classify(hard)
         assert r1.mood != r2.mood
+
+
+# ---------------------------------------------------------------------------
+# New profile features
+# ---------------------------------------------------------------------------
+
+
+class TestNewProfileFeatures:
+    """Verify that newly-added features discriminate the target subgenres."""
+
+    def test_onset_rate_separates_breakbeat_from_minimal(self) -> None:
+        """High onset_rate should score breakbeat higher than minimal."""
+        classifier = _make_classifier()
+        features = {"onset_rate": 6.0}  # breakbeat ideal
+        profile_breakbeat = _get_profile(TechnoSubgenre.BREAKBEAT)
+        profile_minimal = _get_profile(TechnoSubgenre.MINIMAL)
+        score_breakbeat = classifier._score_profile(profile_breakbeat, features)
+        score_minimal = classifier._score_profile(profile_minimal, features)
+        assert score_breakbeat > score_minimal, (
+            f"Expected breakbeat ({score_breakbeat:.4f}) > minimal ({score_minimal:.4f}) "
+            "for high onset_rate"
+        )
+
+    def test_low_onset_rate_favors_minimal_over_breakbeat(self) -> None:
+        """Low onset_rate should score minimal higher than breakbeat."""
+        classifier = _make_classifier()
+        features = {"onset_rate": 2.5}  # minimal ideal
+        profile_breakbeat = _get_profile(TechnoSubgenre.BREAKBEAT)
+        profile_minimal = _get_profile(TechnoSubgenre.MINIMAL)
+        score_breakbeat = classifier._score_profile(profile_breakbeat, features)
+        score_minimal = classifier._score_profile(profile_minimal, features)
+        assert score_minimal > score_breakbeat, (
+            f"Expected minimal ({score_minimal:.4f}) > breakbeat ({score_breakbeat:.4f}) "
+            "for low onset_rate"
+        )
+
+    def test_kick_prominence_separates_peak_time_from_ambient_dub(self) -> None:
+        """High kick_prominence should score peak_time higher than ambient_dub."""
+        classifier = _make_classifier()
+        features = {"kick_prominence": 0.85}  # peak_time ideal
+        profile_peak = _get_profile(TechnoSubgenre.PEAK_TIME)
+        profile_ambient = _get_profile(TechnoSubgenre.AMBIENT_DUB)
+        score_peak = classifier._score_profile(profile_peak, features)
+        score_ambient = classifier._score_profile(profile_ambient, features)
+        assert score_peak > score_ambient, (
+            f"Expected peak_time ({score_peak:.4f}) > ambient_dub ({score_ambient:.4f}) "
+            "for high kick_prominence"
+        )
+
+    def test_low_kick_prominence_favors_ambient_dub_over_peak_time(self) -> None:
+        """Low kick_prominence should score ambient_dub higher than peak_time."""
+        classifier = _make_classifier()
+        features = {"kick_prominence": 0.1}  # ambient_dub ideal
+        profile_peak = _get_profile(TechnoSubgenre.PEAK_TIME)
+        profile_ambient = _get_profile(TechnoSubgenre.AMBIENT_DUB)
+        score_peak = classifier._score_profile(profile_peak, features)
+        score_ambient = classifier._score_profile(profile_ambient, features)
+        assert score_ambient > score_peak, (
+            f"Expected ambient_dub ({score_ambient:.4f}) > peak_time ({score_peak:.4f}) "
+            "for low kick_prominence"
+        )
+
+    def test_integrated_lufs_separates_hard_techno_from_ambient_dub(self) -> None:
+        """Loud integrated_lufs (close to 0 dB) should favor hard_techno over ambient_dub."""
+        classifier = _make_classifier()
+        features = {"integrated_lufs": -6.0}  # hard_techno ideal
+        profile_hard = _get_profile(TechnoSubgenre.HARD_TECHNO)
+        profile_ambient = _get_profile(TechnoSubgenre.AMBIENT_DUB)
+        score_hard = classifier._score_profile(profile_hard, features)
+        score_ambient = classifier._score_profile(profile_ambient, features)
+        assert score_hard > score_ambient, (
+            f"Expected hard_techno ({score_hard:.4f}) > ambient_dub ({score_ambient:.4f}) "
+            "for loud integrated_lufs (-6.0)"
+        )
+
+    def test_quiet_integrated_lufs_favors_ambient_dub_over_hard_techno(self) -> None:
+        """Quiet integrated_lufs should favor ambient_dub over hard_techno."""
+        classifier = _make_classifier()
+        features = {"integrated_lufs": -16.0}  # ambient_dub ideal
+        profile_hard = _get_profile(TechnoSubgenre.HARD_TECHNO)
+        profile_ambient = _get_profile(TechnoSubgenre.AMBIENT_DUB)
+        score_hard = classifier._score_profile(profile_hard, features)
+        score_ambient = classifier._score_profile(profile_ambient, features)
+        assert score_ambient > score_hard, (
+            f"Expected ambient_dub ({score_ambient:.4f}) > hard_techno ({score_hard:.4f}) "
+            "for quiet integrated_lufs (-16.0)"
+        )
+
+    def test_spectral_contrast_separates_acid_from_dub_techno(self) -> None:
+        """High spectral_contrast should score acid higher than dub_techno."""
+        classifier = _make_classifier()
+        features = {"spectral_contrast": 22.0}  # acid ideal
+        profile_acid = _get_profile(TechnoSubgenre.ACID)
+        profile_dub = _get_profile(TechnoSubgenre.DUB_TECHNO)
+        score_acid = classifier._score_profile(profile_acid, features)
+        score_dub = classifier._score_profile(profile_dub, features)
+        assert score_acid > score_dub, (
+            f"Expected acid ({score_acid:.4f}) > dub_techno ({score_dub:.4f}) "
+            "for high spectral_contrast"
+        )
+
+    def test_low_spectral_contrast_favors_dub_techno_over_acid(self) -> None:
+        """Low spectral_contrast should score dub_techno higher than acid."""
+        classifier = _make_classifier()
+        features = {"spectral_contrast": 10.0}  # dub_techno ideal
+        profile_acid = _get_profile(TechnoSubgenre.ACID)
+        profile_dub = _get_profile(TechnoSubgenre.DUB_TECHNO)
+        score_acid = classifier._score_profile(profile_acid, features)
+        score_dub = classifier._score_profile(profile_dub, features)
+        assert score_dub > score_acid, (
+            f"Expected dub_techno ({score_dub:.4f}) > acid ({score_acid:.4f}) "
+            "for low spectral_contrast"
+        )
+
+    def test_classifier_fields_includes_dominant_phrase_bars(self) -> None:
+        """_CLASSIFIER_FIELDS must include dominant_phrase_bars."""
+        from app.models.audio import TrackAudioFeaturesComputed
+
+        assert "dominant_phrase_bars" in TrackAudioFeaturesComputed._CLASSIFIER_FIELDS
+
+    def test_classifier_fields_includes_all_new_features(self) -> None:
+        """_CLASSIFIER_FIELDS must include all features used in profiles."""
+        from app.models.audio import TrackAudioFeaturesComputed
+
+        fields = set(TrackAudioFeaturesComputed._CLASSIFIER_FIELDS)
+        required = {
+            "onset_rate",
+            "kick_prominence",
+            "integrated_lufs",
+            "spectral_contrast",
+            "bpm",
+            "bpm_histogram_first_peak_weight",
+            "dominant_phrase_bars",
+        }
+        missing = required - fields
+        assert not missing, f"Missing fields in _CLASSIFIER_FIELDS: {missing}"

@@ -47,6 +47,8 @@ AMBIENT_DUB = SubgenreProfile(
         "spectral_complexity_mean": FeatureTarget(1.0, 8.0, 4.0),
         "hp_ratio": FeatureTarget(1.5, 4.0, 1.5),
         "pulse_clarity": FeatureTarget(1.0, 0.15, 0.1),
+        "kick_prominence": FeatureTarget(1.0, 0.1, 0.1),
+        "integrated_lufs": FeatureTarget(1.5, -16.0, 3.0),
     },
 )
 
@@ -66,6 +68,8 @@ DUB_TECHNO = SubgenreProfile(
         "spectral_complexity_mean": FeatureTarget(1.0, 8.0, 3.0),
         "hp_ratio": FeatureTarget(1.5, 3.5, 1.0),
         "pulse_clarity": FeatureTarget(1.0, 0.3, 0.15),
+        "spectral_contrast": FeatureTarget(1.0, 10.0, 4.0),
+        "integrated_lufs": FeatureTarget(1.0, -14.0, 3.0),
     },
 )
 
@@ -85,6 +89,8 @@ MINIMAL = SubgenreProfile(
         "spectral_complexity_mean": FeatureTarget(1.5, 5.0, 2.0),
         "bpm_stability": FeatureTarget(1.0, 0.9, 0.1),
         "pulse_clarity": FeatureTarget(1.0, 0.5, 0.2),
+        "onset_rate": FeatureTarget(1.5, 2.5, 1.0),
+        "kick_prominence": FeatureTarget(1.0, 0.3, 0.15),
     },
 )
 
@@ -200,6 +206,8 @@ TRIBAL = SubgenreProfile(
         "spectral_complexity_mean": FeatureTarget(1.0, 10.0, 4.0),
         "bpm_stability": FeatureTarget(1.5, 0.8, 0.1),
         "pulse_clarity": FeatureTarget(1.5, 0.6, 0.15),
+        "onset_rate": FeatureTarget(1.5, 5.0, 1.5),
+        "bpm_histogram_first_peak_weight": FeatureTarget(1.5, 0.5, 0.15),
     },
 )
 
@@ -219,6 +227,9 @@ BREAKBEAT = SubgenreProfile(
         "spectral_complexity_mean": FeatureTarget(1.0, 12.0, 5.0),
         "bpm_stability": FeatureTarget(2.0, 0.7, 0.1),
         "pulse_clarity": FeatureTarget(1.0, 0.5, 0.2),
+        "onset_rate": FeatureTarget(2.0, 6.0, 2.0),
+        "kick_prominence": FeatureTarget(1.0, 0.6, 0.2),
+        "bpm": FeatureTarget(1.5, 128.0, 8.0),
     },
 )
 
@@ -239,6 +250,8 @@ PEAK_TIME = SubgenreProfile(
         "bpm_stability": FeatureTarget(1.5, 0.9, 0.05),
         "hp_ratio": FeatureTarget(1.0, 1.2, 0.3),
         "pulse_clarity": FeatureTarget(1.5, 0.7, 0.15),
+        "kick_prominence": FeatureTarget(2.0, 0.85, 0.1),
+        "onset_rate": FeatureTarget(1.0, 4.5, 1.5),
     },
 )
 
@@ -256,6 +269,7 @@ ACID = SubgenreProfile(
         "dynamic_complexity": FeatureTarget(1.0, 0.4, 0.2),
         "pitch_salience_mean": FeatureTarget(1.5, 0.35, 0.15),
         "spectral_complexity_mean": FeatureTarget(1.5, 18.0, 5.0),
+        "spectral_contrast": FeatureTarget(1.5, 22.0, 5.0),
     },
 )
 
@@ -292,6 +306,8 @@ INDUSTRIAL = SubgenreProfile(
         "pitch_salience_mean": FeatureTarget(1.0, 0.1, 0.08),
         "spectral_complexity_mean": FeatureTarget(2.0, 22.0, 5.0),
         "hp_ratio": FeatureTarget(1.0, 1.0, 0.3),
+        "kick_prominence": FeatureTarget(1.5, 0.7, 0.2),
+        "onset_rate": FeatureTarget(1.0, 5.0, 2.0),
     },
 )
 
@@ -312,6 +328,9 @@ HARD_TECHNO = SubgenreProfile(
         "bpm_stability": FeatureTarget(1.0, 0.9, 0.05),
         "hp_ratio": FeatureTarget(1.0, 1.1, 0.3),
         "pulse_clarity": FeatureTarget(1.5, 0.7, 0.15),
+        "kick_prominence": FeatureTarget(1.5, 0.8, 0.15),
+        "integrated_lufs": FeatureTarget(1.5, -6.0, 2.0),
+        "bpm": FeatureTarget(1.5, 145.0, 5.0),
     },
 )
 
