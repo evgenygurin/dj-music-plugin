@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-cd "$(dirname "$0")"
+cd /home/user/dj-music-plugin
 
 cleanup() {
   echo "Shutting down..."
