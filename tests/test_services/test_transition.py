@@ -205,3 +205,100 @@ def test_from_db_none_fields() -> None:
     assert feat.bpm is None
     assert feat.key_code is None
     assert feat.energy_mean is None
+
+
+class _FullRow:
+    """Mimics TrackAudioFeaturesComputed with ALL fields including P3 enrichment."""
+
+    # Core fields
+    bpm = 128.0
+    key_code = 14
+    integrated_lufs = -8.0
+    spectral_centroid_hz = 3000.0
+    spectral_flatness = 0.1
+    energy_mean = 0.6
+    onset_rate = 4.0
+    kick_prominence = 0.5
+    hnr_db = 12.0
+    chroma_entropy = 2.5
+    mfcc_vector = None
+    energy_sub = None
+    energy_low = None
+    energy_lowmid = None
+    energy_mid = None
+    energy_highmid = None
+    energy_high = None
+    tonnetz_vector = None
+    beat_loudness_band_ratio = None
+    dissonance_mean = None
+    danceability = None
+    spectral_complexity_mean = None
+    pitch_salience_mean = None
+    bpm_stability = 0.92
+    spectral_contrast = 35.0
+
+    # P3 enrichment: BPM
+    bpm_confidence = 0.98
+    variable_tempo = False
+    bpm_histogram_first_peak_weight = 0.85
+    bpm_histogram_second_peak_bpm = 256.0
+
+    # P3 enrichment: Harmonic
+    atonality = False
+    key_confidence = 0.75
+
+    # P3 enrichment: Energy
+    short_term_lufs_mean = -9.5
+    loudness_range_lu = 8.0
+    crest_factor_db = 12.0
+    energy_slope = 0.02
+
+    # P3 enrichment: Spectral
+    spectral_rolloff_85 = 4500.0
+    spectral_rolloff_95 = 8000.0
+    spectral_slope = -0.003
+    spectral_flux_std = 0.05
+
+    # P3 enrichment: Groove
+    pulse_clarity = 0.85
+    hp_ratio = 2.5
+    tempogram_ratio_vector = "[0.8, 0.1, 0.05, 0.05]"
+
+    # P3 enrichment: Timbral
+    dynamic_complexity = 4.0
+
+
+def test_from_db_maps_new_p3_fields() -> None:
+    """from_db() should map all 18 new P3 enrichment fields."""
+    row = _FullRow()
+    feat = TrackFeatures.from_db(row)
+
+    # BPM enrichment
+    assert feat.bpm_confidence == 0.98
+    assert feat.variable_tempo is False
+    assert feat.bpm_histogram_first_peak_weight == 0.85
+    assert feat.bpm_histogram_second_peak_bpm == 256.0
+
+    # Harmonic enrichment
+    assert feat.atonality is False
+    assert feat.key_confidence == 0.75
+
+    # Energy enrichment
+    assert feat.short_term_lufs_mean == -9.5
+    assert feat.loudness_range_lu == 8.0
+    assert feat.crest_factor_db == 12.0
+    assert feat.energy_slope == 0.02
+
+    # Spectral enrichment
+    assert feat.spectral_rolloff_85 == 4500.0
+    assert feat.spectral_rolloff_95 == 8000.0
+    assert feat.spectral_slope == -0.003
+    assert feat.spectral_flux_std == 0.05
+
+    # Groove enrichment
+    assert feat.pulse_clarity == 0.85
+    assert feat.hp_ratio == 2.5
+    assert feat.tempogram_ratio_vector == [0.8, 0.1, 0.05, 0.05]
+
+    # Timbral enrichment
+    assert feat.dynamic_complexity == 4.0

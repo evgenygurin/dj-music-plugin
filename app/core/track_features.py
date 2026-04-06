@@ -42,6 +42,36 @@ class TrackFeatures:
     bpm_stability: float | None = None
     spectral_contrast: float | None = None
 
+    # P3 enrichment: BPM
+    bpm_confidence: float | None = None
+    variable_tempo: bool | None = None
+    bpm_histogram_first_peak_weight: float | None = None
+    bpm_histogram_second_peak_bpm: float | None = None
+
+    # P3 enrichment: Harmonic
+    atonality: bool | None = None
+    key_confidence: float | None = None
+
+    # P3 enrichment: Energy
+    short_term_lufs_mean: float | None = None
+    loudness_range_lu: float | None = None
+    crest_factor_db: float | None = None
+    energy_slope: float | None = None
+
+    # P3 enrichment: Spectral
+    spectral_rolloff_85: float | None = None
+    spectral_rolloff_95: float | None = None
+    spectral_slope: float | None = None
+    spectral_flux_std: float | None = None
+
+    # P3 enrichment: Groove
+    pulse_clarity: float | None = None
+    hp_ratio: float | None = None
+    tempogram_ratio_vector: list[float] | None = None
+
+    # P3 enrichment: Timbral
+    dynamic_complexity: float | None = None
+
     @classmethod
     def from_db(cls, row: Any) -> TrackFeatures:
         """Construct from a TrackAudioFeaturesComputed DB row."""
@@ -83,6 +113,14 @@ class TrackFeatures:
                 json.loads(raw_beat_loud) if isinstance(raw_beat_loud, str) else raw_beat_loud
             )
 
+        # Parse tempogram_ratio_vector from JSON
+        tempogram = None
+        raw_tempogram = getattr(row, "tempogram_ratio_vector", None)
+        if raw_tempogram:
+            tempogram = (
+                json.loads(raw_tempogram) if isinstance(raw_tempogram, str) else raw_tempogram
+            )
+
         return cls(
             bpm=row.bpm,
             key_code=row.key_code,
@@ -104,4 +142,28 @@ class TrackFeatures:
             pitch_salience_mean=getattr(row, "pitch_salience_mean", None),
             bpm_stability=getattr(row, "bpm_stability", None),
             spectral_contrast=getattr(row, "spectral_contrast", None),
+            # P3 enrichment: BPM
+            bpm_confidence=getattr(row, "bpm_confidence", None),
+            variable_tempo=getattr(row, "variable_tempo", None),
+            bpm_histogram_first_peak_weight=getattr(row, "bpm_histogram_first_peak_weight", None),
+            bpm_histogram_second_peak_bpm=getattr(row, "bpm_histogram_second_peak_bpm", None),
+            # P3 enrichment: Harmonic
+            atonality=getattr(row, "atonality", None),
+            key_confidence=getattr(row, "key_confidence", None),
+            # P3 enrichment: Energy
+            short_term_lufs_mean=getattr(row, "short_term_lufs_mean", None),
+            loudness_range_lu=getattr(row, "loudness_range_lu", None),
+            crest_factor_db=getattr(row, "crest_factor_db", None),
+            energy_slope=getattr(row, "energy_slope", None),
+            # P3 enrichment: Spectral
+            spectral_rolloff_85=getattr(row, "spectral_rolloff_85", None),
+            spectral_rolloff_95=getattr(row, "spectral_rolloff_95", None),
+            spectral_slope=getattr(row, "spectral_slope", None),
+            spectral_flux_std=getattr(row, "spectral_flux_std", None),
+            # P3 enrichment: Groove
+            pulse_clarity=getattr(row, "pulse_clarity", None),
+            hp_ratio=getattr(row, "hp_ratio", None),
+            tempogram_ratio_vector=tempogram,
+            # P3 enrichment: Timbral
+            dynamic_complexity=getattr(row, "dynamic_complexity", None),
         )
