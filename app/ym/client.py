@@ -210,6 +210,7 @@ class YandexMusicClient:
 
         if not all([host, path, ts, s]):
             raise APIError(500, f"Incomplete download info XML for track {track_id}")
+        assert path is not None and s is not None  # guaranteed by check above
 
         # Build signed URL: "XGRlBW9FXlekgbPrRHuSiA" is the sign salt
         sign = hashlib.md5(f"XGRlBW9FXlekgbPrRHuSiA{path[1:]}{s}".encode()).hexdigest()

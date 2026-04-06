@@ -9,6 +9,7 @@ from typing import Any
 
 from app.core.camelot import camelot_distance, key_code_to_camelot
 from app.core.errors import NotFoundError, ValidationError
+from app.models.set import SetVersion
 from app.repositories.feature import FeatureRepository
 from app.repositories.playlist import PlaylistRepository
 from app.repositories.set import SetRepository
@@ -44,7 +45,7 @@ class ReasoningService:
         result = await self._sets.load_version_with_items(set_id)
         if result is None:
             raise NotFoundError("SetVersion", f"set_id={set_id}")
-        latest, items = result
+        _latest, items = result
 
         if after_position < 0 or after_position >= len(items):
             raise ValidationError(f"Position {after_position} out of range (0-{len(items) - 1})")
@@ -94,7 +95,7 @@ class ReasoningService:
                     }
                 )
 
-        candidates.sort(key=lambda c: c["score"], reverse=True)
+        candidates.sort(key=lambda c: float(str(c["score"])), reverse=True)
 
         return {
             "set_id": set_id,
@@ -192,6 +193,8 @@ class ReasoningService:
         version_b: int | None = None,
     ) -> dict[str, Any]:
         """Compare two versions of a set: tracks added/removed, score changes."""
+        ver_a: SetVersion | None
+        ver_b: SetVersion | None
         if version_a is None or version_b is None:
             versions = await self._sets.get_latest_versions(set_id, count=2)
             if len(versions) < 2:

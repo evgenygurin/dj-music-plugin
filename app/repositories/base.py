@@ -1,6 +1,6 @@
 """Generic async repository with CRUD and cursor pagination."""
 
-from typing import Generic, TypeVar
+from typing import Any, Generic, TypeVar
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -59,7 +59,7 @@ class BaseRepository(Generic[T]):
 
     async def _paginate(
         self,
-        stmt,
+        stmt: Any,
         limit: int = 20,
         cursor: str | None = None,
     ) -> CursorPage[T]:

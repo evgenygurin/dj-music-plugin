@@ -63,7 +63,11 @@ class TrackFeatures:
             "energy_high",
         )
         bands_raw = [getattr(row, f, None) for f in band_fields]
-        energy_bands = bands_raw if all(b is not None for b in bands_raw) else None
+        energy_bands: list[float] | None = (
+            [float(b) for b in bands_raw if b is not None]
+            if all(b is not None for b in bands_raw)
+            else None
+        )
 
         # Parse tonnetz_vector from JSON
         tonnetz = None

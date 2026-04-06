@@ -129,7 +129,7 @@ from typing import ClassVar
 
 async def test_pipeline_two_phase_dependent_receives_prior(tmp_path, monkeypatch):
     """Dependent analyzers in Phase 2 receive Phase 1 results via prior_results."""
-    import soundfile as sf
+    sf = pytest.importorskip("soundfile")
 
     from app.audio.analyzers.base import AnalyzerRegistry, BaseAnalyzer
 
@@ -175,7 +175,7 @@ async def test_pipeline_two_phase_dependent_receives_prior(tmp_path, monkeypatch
 
 async def test_pipeline_phase1_runs_without_dependent(tmp_path):
     """When no dependent analyzers exist, pipeline runs identically to before."""
-    import soundfile as sf
+    sf = pytest.importorskip("soundfile")
 
     from app.audio.analyzers.base import AnalyzerRegistry, BaseAnalyzer
 
@@ -240,6 +240,7 @@ async def test_filter_features_serializes_vectors():
 
 async def test_pipeline_discovers_new_p1_analyzers():
     """Auto-discovery finds all 14 analyzers including 6 new P1 ones."""
+    pytest.importorskip("librosa")
     from app.audio.analyzers.base import AnalyzerRegistry
 
     registry = AnalyzerRegistry()
@@ -263,8 +264,9 @@ async def test_pipeline_discovers_new_p1_analyzers():
 
 async def test_pipeline_populates_beat_loudness_when_beats_available(tmp_path):
     """E2E: beat_loudness_band_ratio is populated when BeatDetector succeeds."""
+    sf = pytest.importorskip("soundfile")
+    pytest.importorskip("librosa")
     import numpy as np
-    import soundfile as sf
 
     from app.audio.pipeline import AnalysisPipeline
 
@@ -303,6 +305,7 @@ async def test_pipeline_populates_beat_loudness_when_beats_available(tmp_path):
 
 async def test_pipeline_discovers_p2_analyzers():
     """Auto-discovery finds P2 analyzers."""
+    pytest.importorskip("librosa")
     from app.audio.analyzers.base import AnalyzerRegistry
 
     registry = AnalyzerRegistry()

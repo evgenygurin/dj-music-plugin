@@ -99,6 +99,18 @@ class DeliveryService:
 
             file_path = await self._tracks.get_library_file_path(track.id)
 
+            # Load structure sections for this track
+            section_rows = await self._features.get_sections(track.id)
+            section_dicts = [
+                {
+                    "type": s.section_type,
+                    "start_ms": s.start_ms,
+                    "end_ms": s.end_ms,
+                    "energy": s.energy,
+                }
+                for s in section_rows
+            ]
+
             export_tracks.append(
                 ExportTrack(
                     position=item.sort_index,
@@ -109,6 +121,7 @@ class DeliveryService:
                     bpm=features.bpm if features else None,
                     key_camelot=key_camelot,
                     energy_lufs=features.integrated_lufs if features else None,
+                    sections=section_dicts,
                     mood=features.mood if features else None,
                     notes=item.notes,
                 )

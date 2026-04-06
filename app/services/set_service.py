@@ -331,6 +331,14 @@ class SetService:
             "cached": False,
         }
 
+    async def get_transition_candidates(self, track_id: int, top_n: int = 10) -> dict[str, Any]:
+        """Get best transition candidates for a track. Stub — returns empty list."""
+        return {
+            "track_id": track_id,
+            "candidates": [],
+            "note": "Transition candidate search not yet implemented",
+        }
+
     async def score_set_transitions(self, set_id: int) -> dict[str, Any]:
         """Score all sequential transitions in a set."""
         result = await self._sets.load_version_with_items(set_id)

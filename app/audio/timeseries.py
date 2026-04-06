@@ -61,7 +61,7 @@ class TimeseriesStorage:
         track_dir.mkdir(parents=True, exist_ok=True)
 
         file_path = track_dir / f"{feature_set_name}.npz"
-        np.savez_compressed(str(file_path), **data)
+        np.savez_compressed(str(file_path), **data)  # type: ignore[arg-type]
 
         # Determine frame_count and shape from the first array
         first_key = next(iter(data))

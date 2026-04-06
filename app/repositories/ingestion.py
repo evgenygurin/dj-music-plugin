@@ -38,7 +38,8 @@ class IngestionRepository:
         if row is None or not row.raw_data:
             return None
 
-        return json.loads(row.raw_data)
+        parsed: dict[str, Any] = json.loads(row.raw_data)
+        return parsed
 
     async def cache_response(
         self,

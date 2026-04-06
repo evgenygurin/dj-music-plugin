@@ -252,7 +252,7 @@ class ImportService:
 
                 local_track = await self._tracks.get_by_id(local_track_id)
                 if local_track and local_track.title.startswith("YM:"):
-                    artists = ", ".join(a.get("name", "?") for a in (ym_track.artists or []))
+                    artists = ", ".join(str(a.get("name", "?")) for a in (ym_track.artists or []))
                     local_track.title = (
                         f"{artists} - {ym_track.title}" if artists else ym_track.title
                     )

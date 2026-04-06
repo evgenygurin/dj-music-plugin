@@ -18,6 +18,8 @@ from fastmcp.dependencies import Depends
 from fastmcp.server.dependencies import get_context
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.audio.analyzers import AnalyzerRegistry
+from app.audio.timeseries import TimeseriesStorage
 from app.core.cache import TransitionCache
 from app.repositories.audio import AudioRepository
 from app.repositories.candidate import CandidateRepository
@@ -29,6 +31,21 @@ from app.repositories.playlist import PlaylistRepository
 from app.repositories.set import SetRepository
 from app.repositories.track import TrackRepository
 from app.repositories.transition import TransitionRepository
+from app.services.audio_service import AudioService
+from app.services.candidate_service import CandidateService
+from app.services.curation_service import CurationService
+from app.services.delivery_service import DeliveryService
+from app.services.discovery_service import DiscoveryService
+from app.services.embedding_service import EmbeddingService
+from app.services.import_service import ImportService
+from app.services.metadata_service import MetadataService
+from app.services.playlist_service import PlaylistService
+from app.services.reasoning_service import ReasoningService
+from app.services.search_service import SearchService
+from app.services.set_service import SetService
+from app.services.sync_service import SyncService
+from app.services.tiered_pipeline import TieredPipeline
+from app.services.track_service import TrackService
 from app.ym.client import YandexMusicClient
 
 
@@ -49,43 +66,43 @@ async def get_db_session() -> AsyncIterator[AsyncSession]:
 # ── Repository factories ─────────────────────────────
 
 
-def get_track_repo(session=Depends(get_db_session)) -> TrackRepository:  # noqa: B008
+def get_track_repo(session: AsyncSession = Depends(get_db_session)) -> TrackRepository:  # noqa: B008
     return TrackRepository(session)
 
 
-def get_playlist_repo(session=Depends(get_db_session)) -> PlaylistRepository:  # noqa: B008
+def get_playlist_repo(session: AsyncSession = Depends(get_db_session)) -> PlaylistRepository:  # noqa: B008
     return PlaylistRepository(session)
 
 
-def get_set_repo(session=Depends(get_db_session)) -> SetRepository:  # noqa: B008
+def get_set_repo(session: AsyncSession = Depends(get_db_session)) -> SetRepository:  # noqa: B008
     return SetRepository(session)
 
 
-def get_feature_repo(session=Depends(get_db_session)) -> FeatureRepository:  # noqa: B008
+def get_feature_repo(session: AsyncSession = Depends(get_db_session)) -> FeatureRepository:  # noqa: B008
     return FeatureRepository(session)
 
 
-def get_transition_repo(session=Depends(get_db_session)) -> TransitionRepository:  # noqa: B008
+def get_transition_repo(session: AsyncSession = Depends(get_db_session)) -> TransitionRepository:  # noqa: B008
     return TransitionRepository(session)
 
 
-def get_export_repo(session=Depends(get_db_session)) -> ExportRepository:  # noqa: B008
+def get_export_repo(session: AsyncSession = Depends(get_db_session)) -> ExportRepository:  # noqa: B008
     return ExportRepository(session)
 
 
-def get_ingestion_repo(session=Depends(get_db_session)) -> IngestionRepository:  # noqa: B008
+def get_ingestion_repo(session: AsyncSession = Depends(get_db_session)) -> IngestionRepository:  # noqa: B008
     return IngestionRepository(session)
 
 
-def get_audio_repo(session=Depends(get_db_session)) -> AudioRepository:  # noqa: B008
+def get_audio_repo(session: AsyncSession = Depends(get_db_session)) -> AudioRepository:  # noqa: B008
     return AudioRepository(session)
 
 
-def get_embedding_repo(session=Depends(get_db_session)) -> EmbeddingRepository:  # noqa: B008
+def get_embedding_repo(session: AsyncSession = Depends(get_db_session)) -> EmbeddingRepository:  # noqa: B008
     return EmbeddingRepository(session)
 
 
-def get_candidate_repo(session=Depends(get_db_session)) -> CandidateRepository:  # noqa: B008
+def get_candidate_repo(session: AsyncSession = Depends(get_db_session)) -> CandidateRepository:  # noqa: B008
     return CandidateRepository(session)
 
 
@@ -95,176 +112,156 @@ def get_candidate_repo(session=Depends(get_db_session)) -> CandidateRepository: 
 def get_ym_client() -> YandexMusicClient:
     """Get YM client from lifespan context."""
     ctx = get_context()
-    return ctx.lifespan_context["ym_client"]  # type: ignore[return-value]
+    client: YandexMusicClient = ctx.lifespan_context["ym_client"]
+    return client
 
 
-def get_analyzer_registry():  # type: ignore[no-untyped-def]
+def get_analyzer_registry() -> AnalyzerRegistry:
     """Get analyzer registry from lifespan context."""
     ctx = get_context()
-    return ctx.lifespan_context["analyzer_registry"]
+    result: AnalyzerRegistry = ctx.lifespan_context["analyzer_registry"]
+    return result
 
 
 def get_transition_cache() -> TransitionCache:
     """Get in-memory transition cache from lifespan context."""
     ctx = get_context()
-    return ctx.lifespan_context["transition_cache"]  # type: ignore[return-value]
+    cache: TransitionCache = ctx.lifespan_context["transition_cache"]
+    return cache
 
 
 # ── Service factories ────────────────────────────────
 
 
 def get_track_service(
-    track_repo=Depends(get_track_repo),  # noqa: B008
-    feature_repo=Depends(get_feature_repo),  # noqa: B008
-):  # type: ignore[no-untyped-def]
-    from app.services.track_service import TrackService
-
+    track_repo: TrackRepository = Depends(get_track_repo),  # noqa: B008
+    feature_repo: FeatureRepository = Depends(get_feature_repo),  # noqa: B008
+) -> TrackService:
     return TrackService(track_repo, feature_repo)
 
 
 def get_playlist_service(
-    repo=Depends(get_playlist_repo),  # noqa: B008
-):  # type: ignore[no-untyped-def]
-    from app.services.playlist_service import PlaylistService
-
+    repo: PlaylistRepository = Depends(get_playlist_repo),  # noqa: B008
+) -> PlaylistService:
     return PlaylistService(repo)
 
 
 def get_set_service(
-    set_repo=Depends(get_set_repo),  # noqa: B008
-    track_repo=Depends(get_track_repo),  # noqa: B008
-    playlist_repo=Depends(get_playlist_repo),  # noqa: B008
-    feature_repo=Depends(get_feature_repo),  # noqa: B008
-    transition_repo=Depends(get_transition_repo),  # noqa: B008
-):  # type: ignore[no-untyped-def]
-    from app.services.set_service import SetService
-
+    set_repo: SetRepository = Depends(get_set_repo),  # noqa: B008
+    track_repo: TrackRepository = Depends(get_track_repo),  # noqa: B008
+    playlist_repo: PlaylistRepository = Depends(get_playlist_repo),  # noqa: B008
+    feature_repo: FeatureRepository = Depends(get_feature_repo),  # noqa: B008
+    transition_repo: TransitionRepository = Depends(get_transition_repo),  # noqa: B008
+) -> SetService:
     return SetService(set_repo, track_repo, playlist_repo, feature_repo, transition_repo)
 
 
 def get_search_service(
-    track_repo=Depends(get_track_repo),  # noqa: B008
-    playlist_repo=Depends(get_playlist_repo),  # noqa: B008
-    set_repo=Depends(get_set_repo),  # noqa: B008
-    feature_repo=Depends(get_feature_repo),  # noqa: B008
-):  # type: ignore[no-untyped-def]
-    from app.services.search_service import SearchService
-
+    track_repo: TrackRepository = Depends(get_track_repo),  # noqa: B008
+    playlist_repo: PlaylistRepository = Depends(get_playlist_repo),  # noqa: B008
+    set_repo: SetRepository = Depends(get_set_repo),  # noqa: B008
+    feature_repo: FeatureRepository = Depends(get_feature_repo),  # noqa: B008
+) -> SearchService:
     return SearchService(track_repo, playlist_repo, set_repo, feature_repo)
 
 
 def get_curation_service(
-    track_repo=Depends(get_track_repo),  # noqa: B008
-    playlist_repo=Depends(get_playlist_repo),  # noqa: B008
-    set_repo=Depends(get_set_repo),  # noqa: B008
-    feature_repo=Depends(get_feature_repo),  # noqa: B008
-    transition_repo=Depends(get_transition_repo),  # noqa: B008
-):  # type: ignore[no-untyped-def]
-    from app.services.curation_service import CurationService
-
+    track_repo: TrackRepository = Depends(get_track_repo),  # noqa: B008
+    playlist_repo: PlaylistRepository = Depends(get_playlist_repo),  # noqa: B008
+    set_repo: SetRepository = Depends(get_set_repo),  # noqa: B008
+    feature_repo: FeatureRepository = Depends(get_feature_repo),  # noqa: B008
+    transition_repo: TransitionRepository = Depends(get_transition_repo),  # noqa: B008
+) -> CurationService:
     return CurationService(track_repo, playlist_repo, set_repo, feature_repo, transition_repo)
 
 
 def get_reasoning_service(
-    set_repo=Depends(get_set_repo),  # noqa: B008
-    track_repo=Depends(get_track_repo),  # noqa: B008
-    playlist_repo=Depends(get_playlist_repo),  # noqa: B008
-    feature_repo=Depends(get_feature_repo),  # noqa: B008
-    transition_repo=Depends(get_transition_repo),  # noqa: B008
-):  # type: ignore[no-untyped-def]
-    from app.services.reasoning_service import ReasoningService
-
+    set_repo: SetRepository = Depends(get_set_repo),  # noqa: B008
+    track_repo: TrackRepository = Depends(get_track_repo),  # noqa: B008
+    playlist_repo: PlaylistRepository = Depends(get_playlist_repo),  # noqa: B008
+    feature_repo: FeatureRepository = Depends(get_feature_repo),  # noqa: B008
+    transition_repo: TransitionRepository = Depends(get_transition_repo),  # noqa: B008
+) -> ReasoningService:
     return ReasoningService(set_repo, track_repo, playlist_repo, feature_repo, transition_repo)
 
 
 def get_delivery_service(
-    set_repo=Depends(get_set_repo),  # noqa: B008
-    track_repo=Depends(get_track_repo),  # noqa: B008
-    feature_repo=Depends(get_feature_repo),  # noqa: B008
-    transition_repo=Depends(get_transition_repo),  # noqa: B008
-    export_repo=Depends(get_export_repo),  # noqa: B008
-):  # type: ignore[no-untyped-def]
-    from app.services.delivery_service import DeliveryService
-
+    set_repo: SetRepository = Depends(get_set_repo),  # noqa: B008
+    track_repo: TrackRepository = Depends(get_track_repo),  # noqa: B008
+    feature_repo: FeatureRepository = Depends(get_feature_repo),  # noqa: B008
+    transition_repo: TransitionRepository = Depends(get_transition_repo),  # noqa: B008
+    export_repo: ExportRepository = Depends(get_export_repo),  # noqa: B008
+) -> DeliveryService:
     return DeliveryService(set_repo, track_repo, feature_repo, transition_repo, export_repo)
 
 
 def get_sync_service(
-    track_repo=Depends(get_track_repo),  # noqa: B008
-    playlist_repo=Depends(get_playlist_repo),  # noqa: B008
-    set_repo=Depends(get_set_repo),  # noqa: B008
-    ym=Depends(get_ym_client),  # noqa: B008
-):  # type: ignore[no-untyped-def]
-    from app.services.sync_service import SyncService
-
+    track_repo: TrackRepository = Depends(get_track_repo),  # noqa: B008
+    playlist_repo: PlaylistRepository = Depends(get_playlist_repo),  # noqa: B008
+    set_repo: SetRepository = Depends(get_set_repo),  # noqa: B008
+    ym: YandexMusicClient = Depends(get_ym_client),  # noqa: B008
+) -> SyncService:
     return SyncService(track_repo, playlist_repo, set_repo, ym)
 
 
 def get_discovery_service(
-    track_repo=Depends(get_track_repo),  # noqa: B008
-    ym=Depends(get_ym_client),  # noqa: B008
-):  # type: ignore[no-untyped-def]
-    from app.services.discovery_service import DiscoveryService
-
+    track_repo: TrackRepository = Depends(get_track_repo),  # noqa: B008
+    ym: YandexMusicClient = Depends(get_ym_client),  # noqa: B008
+) -> DiscoveryService:
     return DiscoveryService(track_repo, ym)
 
 
 def get_metadata_service(
-    session=Depends(get_db_session),  # noqa: B008
-):  # type: ignore[no-untyped-def]
-    from app.services.metadata_service import MetadataService
-
+    session: AsyncSession = Depends(get_db_session),  # noqa: B008
+) -> MetadataService:
     return MetadataService(session)
 
 
 def get_import_service(
-    track_repo=Depends(get_track_repo),  # noqa: B008
-    ym=Depends(get_ym_client),  # noqa: B008
-    metadata=Depends(get_metadata_service),  # noqa: B008
-    ingestion_repo=Depends(get_ingestion_repo),  # noqa: B008
-):  # type: ignore[no-untyped-def]
-    from app.services.import_service import ImportService
-
+    track_repo: TrackRepository = Depends(get_track_repo),  # noqa: B008
+    ym: YandexMusicClient = Depends(get_ym_client),  # noqa: B008
+    metadata: MetadataService = Depends(get_metadata_service),  # noqa: B008
+    ingestion_repo: IngestionRepository = Depends(get_ingestion_repo),  # noqa: B008
+) -> ImportService:
     return ImportService(track_repo, ym, metadata, ingestion_repo)
 
 
 def get_audio_service(
-    repo=Depends(get_audio_repo),  # noqa: B008
-    registry=Depends(get_analyzer_registry),  # noqa: B008
-):  # type: ignore[no-untyped-def]
+    repo: AudioRepository = Depends(get_audio_repo),  # noqa: B008
+    registry: AnalyzerRegistry = Depends(get_analyzer_registry),  # noqa: B008
+) -> AudioService:
     """Get AudioService with repository and analyzer registry."""
-    from app.services.audio_service import AudioService
-
     return AudioService(repo, registry)
 
 
 def get_candidate_service(
-    repo=Depends(get_candidate_repo),  # noqa: B008
-):  # type: ignore[no-untyped-def]
+    repo: CandidateRepository = Depends(get_candidate_repo),  # noqa: B008
+) -> CandidateService:
     """Get CandidateService for transition candidate pruning."""
-    from app.services.candidate_service import CandidateService
-
     return CandidateService(repo)
 
 
 def get_embedding_service(
-    repo=Depends(get_embedding_repo),  # noqa: B008
-):  # type: ignore[no-untyped-def]
+    repo: EmbeddingRepository = Depends(get_embedding_repo),  # noqa: B008
+) -> EmbeddingService:
     """Get EmbeddingService for vector embedding storage."""
-    from app.services.embedding_service import EmbeddingService
-
     return EmbeddingService(repo)
 
 
+def get_timeseries_storage() -> TimeseriesStorage:
+    """Get TimeseriesStorage for frame-level audio data."""
+    return TimeseriesStorage()
+
+
 def get_tiered_pipeline(
-    audio_repo=Depends(get_audio_repo),  # noqa: B008
-    track_repo=Depends(get_track_repo),  # noqa: B008
-    registry=Depends(get_analyzer_registry),  # noqa: B008
-    ym=Depends(get_ym_client),  # noqa: B008
-):  # type: ignore[no-untyped-def]
+    audio_repo: AudioRepository = Depends(get_audio_repo),  # noqa: B008
+    track_repo: TrackRepository = Depends(get_track_repo),  # noqa: B008
+    registry: AnalyzerRegistry = Depends(get_analyzer_registry),  # noqa: B008
+    ym: YandexMusicClient = Depends(get_ym_client),  # noqa: B008
+    timeseries: TimeseriesStorage = Depends(get_timeseries_storage),  # noqa: B008
+) -> TieredPipeline:
     """Get TieredPipeline for level-aware audio analysis."""
     from app.audio.pipeline import AnalysisPipeline
-    from app.services.tiered_pipeline import TieredPipeline
 
     pipeline = AnalysisPipeline(registry)
-    return TieredPipeline(audio_repo, track_repo, pipeline, ym)
+    return TieredPipeline(audio_repo, track_repo, pipeline, ym, timeseries=timeseries)

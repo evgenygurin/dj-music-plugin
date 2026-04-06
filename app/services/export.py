@@ -154,7 +154,7 @@ def write_rekordbox_xml(
         if track.key_camelot:
             attrs["Tonality"] = track.key_camelot
 
-        track_el = ET.SubElement(collection, "TRACK", **attrs)
+        track_el = ET.SubElement(collection, "TRACK", attrib=attrs)
 
         if opts.include_beatgrid and track.bpm:
             ET.SubElement(
@@ -295,6 +295,13 @@ def write_cheat_sheet(data: SetExportData, output_path: Path) -> Path:
             f"    BPM: {bpm_str}  Key: {key_str}  Energy: {energy_str} LUFS"
             f"  Mood: {track.mood or '?'}"
         )
+
+        # Section summary
+        if track.sections:
+            section_parts = [
+                f"{s.get('type', '?')}@{s.get('start_ms', 0) // 1000}s" for s in track.sections
+            ]
+            lines.append(f"    Sections: {' | '.join(section_parts)}")
 
         # Transition info
         trans = next(

@@ -5,6 +5,8 @@ Thin wrappers calling ReasoningService via Depends().
 
 from __future__ import annotations
 
+from typing import Any
+
 from fastmcp.dependencies import Depends
 from fastmcp.server.context import Context
 from fastmcp.tools import tool
@@ -22,14 +24,12 @@ async def suggest_next_track(
     energy_direction: str = "any",
     svc: ReasoningService = Depends(get_reasoning_service),  # noqa: B008
     ctx: Context | None = None,
-) -> dict:
+) -> dict[str, Any]:
     """Suggest best tracks for a set position, scored against both neighbors."""
     return await svc.suggest_next_track(
         set_id=set_id,
         after_position=after_position,
         count=count,
-        prefer_mood=prefer_mood,
-        energy_direction=energy_direction,
     )
 
 
@@ -39,7 +39,7 @@ async def explain_transition(
     to_track_id: int,
     svc: ReasoningService = Depends(get_reasoning_service),  # noqa: B008
     ctx: Context | None = None,
-) -> dict:
+) -> dict[str, Any]:
     """Explain why a transition works or doesn't — 5-component breakdown."""
     return await svc.explain_transition(from_track_id, to_track_id)
 
@@ -50,7 +50,7 @@ async def find_replacement(
     position: int,
     count: int = 5,
     ctx: Context | None = None,
-) -> dict:
+) -> dict[str, Any]:
     """Find replacement tracks for a set position, scored against both neighbors."""
     return {
         "set_id": set_id,
@@ -67,7 +67,7 @@ async def compare_set_versions(
     version_b: int | None = None,
     svc: ReasoningService = Depends(get_reasoning_service),  # noqa: B008
     ctx: Context | None = None,
-) -> dict:
+) -> dict[str, Any]:
     """Compare two versions of a set: tracks added/removed, score changes."""
     return await svc.compare_set_versions(
         set_id=set_id,
@@ -81,6 +81,6 @@ async def quick_set_review(
     set_id: int,
     svc: ReasoningService = Depends(get_reasoning_service),  # noqa: B008
     ctx: Context | None = None,
-) -> dict:
+) -> dict[str, Any]:
     """Complete set review in one call: tracks, weak transitions, problems."""
     return await svc.quick_set_review(set_id)

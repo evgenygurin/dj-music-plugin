@@ -241,29 +241,32 @@ async def ym_playlists(
         return {"action": "delete", "kind": kind}
 
     if action == "add_tracks":
+        assert kind is not None  # validated above
+        assert revision is not None
         # Auto-resolve bare track IDs to "trackId:albumId" format required by YM API
-        resolved_ids = await ym.resolve_track_ids_with_albums(track_ids)  # type: ignore[arg-type]
+        resolved_ids = await ym.resolve_track_ids_with_albums(track_ids or [])
         result = await ym.add_tracks_to_playlist(
             kind,
             resolved_ids,
-            revision,  # type: ignore[arg-type]
+            revision,
         )
         return {"action": "add_tracks", "kind": kind, "result": result}
 
     if action == "remove_tracks":
+        assert kind is not None  # validated above
         # YM API removes by index range, not track IDs.
         # Look up current playlist to find indices of given track_ids, then remove.
-        pl = await ym.get_playlist(settings.ym_user_id, kind)  # type: ignore[arg-type]
-        pl_tracks = await ym.get_playlist_tracks(settings.ym_user_id, kind)  # type: ignore[arg-type]
-        rev = revision  # type: ignore[assignment]
+        _pl = await ym.get_playlist(settings.ym_user_id, kind)
+        pl_tracks = await ym.get_playlist_tracks(settings.ym_user_id, kind)
+        rev: int = revision or 0
 
         # Build track_id → index mapping
         id_to_indices: dict[str, list[int]] = {}
         for idx, t in enumerate(pl_tracks):
-            if t.id in track_ids:
+            if t.id in (track_ids or []):
                 id_to_indices.setdefault(t.id, []).append(idx)
 
-        not_found = [tid for tid in track_ids if tid not in id_to_indices]
+        not_found = [tid for tid in (track_ids or []) if tid not in id_to_indices]
 
         # Collect all indices to remove, sort descending to avoid index shift
         indices_to_remove = sorted(
@@ -273,7 +276,7 @@ async def ym_playlists(
 
         removed = 0
         for idx in indices_to_remove:
-            result_data = await ym.remove_tracks_from_playlist(kind, idx, idx + 1, rev)  # type: ignore[arg-type]
+            result_data = await ym.remove_tracks_from_playlist(kind, idx, idx + 1, rev)
             rev = result_data.get("revision", rev + 1)
             removed += 1
 

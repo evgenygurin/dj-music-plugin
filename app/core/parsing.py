@@ -18,7 +18,7 @@ import json
 from typing import Any
 
 
-def ensure_list(value: Any) -> list:
+def ensure_list(value: Any) -> list[Any]:
     """Parse value to list. Handles: list (passthrough), JSON string, None -> []."""
     if value is None:
         return []
@@ -38,7 +38,7 @@ def ensure_list(value: Any) -> list:
     return [value]
 
 
-def ensure_dict(value: Any) -> dict | None:
+def ensure_dict(value: Any) -> dict[str, Any] | None:
     """Parse value to dict. Handles: dict (passthrough), JSON string, None."""
     if value is None:
         return None

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -37,7 +37,7 @@ class SetRepository(BaseRepository[DjSet]):
     async def create_version(
         self,
         set_id: int,
-        items: list[dict],
+        items: list[dict[str, Any]],
         label: str | None = None,
     ) -> SetVersion:
         """Create a new version with ordered items.
@@ -174,7 +174,7 @@ class SetRepository(BaseRepository[DjSet]):
     async def create_version_with_items(
         self,
         set_id: int,
-        items: list[dict],
+        items: list[dict[str, Any]],
         label: str | None = None,
     ) -> SetVersion:
         """Create version with items that may include pinned flag."""

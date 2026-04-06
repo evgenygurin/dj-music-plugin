@@ -50,9 +50,9 @@ async def classify_mood(
         ids_for_analysis.extend(await playlist_repo.get_track_ids(playlist_id))
 
     if ids_for_analysis:
-        analysis = await tiered.ensure_level(ids_for_analysis, AnalysisLevel.TRIAGE)
+        analysis = await tiered.ensure_level(ids_for_analysis, AnalysisLevel.ADVANCED)
         if ctx and analysis["analyzed"] > 0:
-            await ctx.info(f"Auto-analyzed {analysis['analyzed']} tracks (L1+L2)")
+            await ctx.info(f"Auto-analyzed {analysis['analyzed']} tracks (L5 advanced)")
 
     return await svc.classify_mood(
         track_ids=list(track_ids) if track_ids else None,
@@ -81,13 +81,13 @@ async def audit_playlist(
 
     validate_id_or_query(playlist_id, playlist_query, "playlist")
 
-    # Auto-analyze tracks to L2 before auditing
+    # Auto-analyze tracks to L5 before auditing
     if playlist_id is not None:
         ids = await playlist_repo.get_track_ids(playlist_id)
         if ids:
-            analysis = await tiered.ensure_level(ids, AnalysisLevel.TRIAGE)
+            analysis = await tiered.ensure_level(ids, AnalysisLevel.ADVANCED)
             if ctx and analysis["analyzed"] > 0:
-                await ctx.info(f"Auto-analyzed {analysis['analyzed']} tracks (L1+L2)")
+                await ctx.info(f"Auto-analyzed {analysis['analyzed']} tracks (L5 advanced)")
 
     return await svc.audit_playlist(
         playlist_id=playlist_id,
@@ -106,7 +106,7 @@ async def quick_set_review(
     ctx: Context | None = None,
 ) -> dict[str, Any]:
     """Review set quality: transition scores, BPM flow, energy arc, quality rating."""
-    return await svc.review_set_quality(set_id=set_id, version=version)
+    return await svc.review_set_quality(set_id=set_id, version_label=version)
 
 
 # ── 4. distribute_to_subgenres ──────────────────────
@@ -126,13 +126,13 @@ async def distribute_to_subgenres(
     """Distribute tracks to 15 subgenre playlists based on mood classification."""
     from app.audio.level_config import AnalysisLevel
 
-    # Auto-analyze tracks to L2 before mood-based distribution
+    # Auto-analyze tracks to L5 before mood-based distribution
     if source_playlist_id is not None:
         ids = await playlist_repo.get_track_ids(source_playlist_id)
         if ids:
-            analysis = await tiered.ensure_level(ids, AnalysisLevel.TRIAGE)
+            analysis = await tiered.ensure_level(ids, AnalysisLevel.ADVANCED)
             if ctx and analysis["analyzed"] > 0:
-                await ctx.info(f"Auto-analyzed {analysis['analyzed']} tracks (L1+L2)")
+                await ctx.info(f"Auto-analyzed {analysis['analyzed']} tracks (L5 advanced)")
 
     return await svc.distribute_to_subgenres(
         source_playlist_id=source_playlist_id,

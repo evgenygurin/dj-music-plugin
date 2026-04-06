@@ -107,7 +107,7 @@ class PlaylistRepository(BaseRepository[Playlist]):
         stmt = delete(PlaylistItem).where(PlaylistItem.playlist_id == playlist_id)
         result = await self.session.execute(stmt)
         await self.session.flush()
-        return result.rowcount  # type: ignore[return-value]
+        return result.rowcount  # type: ignore[attr-defined, no-any-return]
 
     async def get_max_sort_index(self, playlist_id: int) -> int:
         """Return the highest sort_index in a playlist, or -1 if empty."""

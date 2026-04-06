@@ -45,7 +45,7 @@ async def analyze_track(
 ) -> dict[str, Any]:
     """Run audio analysis pipeline + mood classification on a track.
 
-    If level is set (2/3/4), uses TieredPipeline (downloads from YM, no local file needed).
+    If level is set (2/3/4/5), uses TieredPipeline (downloads from YM, no local file needed).
     """
     from app.audio.level_config import AnalysisLevel
     from app.core.parsing import ensure_list
@@ -101,7 +101,7 @@ async def analyze_batch(
 ) -> dict[str, Any]:
     """Batch audio analysis for multiple tracks or a playlist.
 
-    If level is set (2/3/4), uses TieredPipeline (downloads from YM, no local file needed).
+    If level is set (2/3/4/5), uses TieredPipeline (downloads from YM, no local file needed).
     """
     from app.audio.level_config import AnalysisLevel
     from app.core.parsing import ensure_list
@@ -124,8 +124,8 @@ async def analyze_batch(
             .where(PlaylistItem.playlist_id == playlist_id)
             .order_by(PlaylistItem.sort_index)
         )
-        result = await session.execute(stmt)
-        track_ids = [r[0] for r in result.all()]
+        db_result = await session.execute(stmt)
+        track_ids = [r[0] for r in db_result.all()]
 
     if not track_ids:
         raise ToolError("No tracks to analyze")
