@@ -60,3 +60,4 @@ panel/out/
 # OS
 .DS_Store
 Thumbs.db
+.superpowers/

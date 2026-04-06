@@ -118,7 +118,7 @@ async def lifespan(app: FastAPI):  # type: ignore[no-untyped-def]
     If MCP lifespan fails (e.g., DB unreachable), the REST API still works
     for tool discovery. Only /api/tools/{name}/call requires a running MCP server.
     """
-    global _mcp_ready  # noqa: PLW0603
+    global _mcp_ready
     try:
         async with mcp_app.router.lifespan_context(mcp_app):
             _mcp_ready = True
@@ -167,7 +167,8 @@ api = FastAPI(
 
 api.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "https://*.vercel.app"],
+    allow_origins=["http://localhost:3000"],
+    allow_origin_regex=r"https://.*\.vercel\.app",
     allow_methods=["*"],
     allow_headers=["*"],
 )
