@@ -1012,12 +1012,801 @@ Expected: Success
 
 ## Phase 2: Classifier & Audit Enrichment
 
-> Separate plan — to be written after Phase 1 is implemented and merged.
+### Task 10: Add new features to subgenre profiles
+
+**Files:**
+- Modify: `app/audio/classification/profiles.py`
+- Modify: `app/models/audio.py` (extend `_CLASSIFIER_FIELDS`)
+- Test: `tests/test_audio/test_mood.py`
+
+- [ ] **Step 1: Write failing tests for new profile features**
+
+Add to `tests/test_audio/test_mood.py`:
+
+```python
+class TestNewProfileFeatures:
+    """Tests that new features influence classification."""
+
+    def test_onset_rate_separates_breakbeat_from_minimal(self) -> None:
+        """High onset_rate → breakbeat, low → minimal."""
+        classifier = MoodClassifier()
+        breakbeat_feats = _ideal_features("breakbeat")
+        breakbeat_feats["onset_rate"] = 6.0  # high
+        result_bb = classifier.classify(breakbeat_feats)
+
+        minimal_feats = _ideal_features("minimal")
+        minimal_feats["onset_rate"] = 2.0  # low
+        result_min = classifier.classify(minimal_feats)
+
+        assert result_bb.scores.get("breakbeat", 0) > result_min.scores.get("breakbeat", 0)
+
+    def test_kick_prominence_separates_peak_time_from_ambient(self) -> None:
+        classifier = MoodClassifier()
+        peak_feats = _ideal_features("peak_time")
+        peak_feats["kick_prominence"] = 0.9
+        result_peak = classifier.classify(peak_feats)
+
+        ambient_feats = _ideal_features("ambient_dub")
+        ambient_feats["kick_prominence"] = 0.1
+        result_ambient = classifier.classify(ambient_feats)
+
+        assert result_peak.scores.get("peak_time", 0) > result_ambient.scores.get("peak_time", 0)
+
+    def test_integrated_lufs_separates_hard_from_ambient(self) -> None:
+        classifier = MoodClassifier()
+        hard_feats = _ideal_features("hard_techno")
+        hard_feats["integrated_lufs"] = -6.0
+        result_hard = classifier.classify(hard_feats)
+
+        ambient_feats = _ideal_features("ambient_dub")
+        ambient_feats["integrated_lufs"] = -16.0
+        result_amb = classifier.classify(ambient_feats)
+
+        assert result_hard.scores.get("hard_techno", 0) > result_amb.scores.get("hard_techno", 0)
+
+    def test_spectral_contrast_separates_acid_from_dub(self) -> None:
+        classifier = MoodClassifier()
+        acid_feats = _ideal_features("acid")
+        acid_feats["spectral_contrast"] = 25.0
+        result_acid = classifier.classify(acid_feats)
+
+        dub_feats = _ideal_features("dub_techno")
+        dub_feats["spectral_contrast"] = 8.0
+        result_dub = classifier.classify(dub_feats)
+
+        assert result_acid.scores.get("acid", 0) > result_dub.scores.get("acid", 0)
+
+    def test_bpm_separates_hard_techno_from_breakbeat(self) -> None:
+        classifier = MoodClassifier()
+        hard_feats = _ideal_features("hard_techno")
+        hard_feats["bpm"] = 148.0
+        result_hard = classifier.classify(hard_feats)
+
+        bb_feats = _ideal_features("breakbeat")
+        bb_feats["bpm"] = 125.0
+        result_bb = classifier.classify(bb_feats)
+
+        assert result_hard.scores.get("hard_techno", 0) > result_bb.scores.get("hard_techno", 0)
+
+    def test_classifier_fields_include_new_features(self) -> None:
+        from app.models.audio import TrackAudioFeaturesComputed
+        fields = TrackAudioFeaturesComputed._CLASSIFIER_FIELDS
+        for f in ["onset_rate", "kick_prominence", "integrated_lufs",
+                   "spectral_contrast", "spectral_rolloff_85", "bpm",
+                   "bpm_histogram_first_peak_weight",
+                   "dominant_phrase_bars"]:
+            assert f in fields, f"{f} missing from _CLASSIFIER_FIELDS"
+```
+
+- [ ] **Step 2: Run to verify failure**
+
+Run: `uv run pytest tests/test_audio/test_mood.py::TestNewProfileFeatures -v`
+Expected: FAIL — profiles don't use onset_rate/kick_prominence yet
+
+- [ ] **Step 3: Add missing features to `_CLASSIFIER_FIELDS`**
+
+In `app/models/audio.py`, add to `_CLASSIFIER_FIELDS` tuple (after `spectral_slope`):
+
+```python
+        "onset_rate",
+        "kick_prominence",
+        "integrated_lufs",  # already in tuple? check — if not, add
+        "spectral_contrast",
+        "spectral_rolloff_85",
+        "bpm",  # already in tuple? check
+        "bpm_histogram_first_peak_weight",  # already in tuple? check
+        "dominant_phrase_bars",
+```
+
+Note: some fields may already be in `_CLASSIFIER_FIELDS` — verify before adding duplicates.
+
+- [ ] **Step 4: Add features to subgenre profiles**
+
+In `app/audio/classification/profiles.py`, add to each relevant profile:
+
+**BREAKBEAT profile** — add:
+```python
+FeatureWeight("onset_rate", weight=2.0, ideal=6.0, tolerance=2.0),
+FeatureWeight("kick_prominence", weight=1.0, ideal=0.6, tolerance=0.2),
+FeatureWeight("bpm", weight=1.5, ideal=128.0, tolerance=8.0),
+```
+
+**MINIMAL profile** — add:
+```python
+FeatureWeight("onset_rate", weight=1.5, ideal=2.5, tolerance=1.0),
+FeatureWeight("kick_prominence", weight=1.0, ideal=0.3, tolerance=0.15),
+```
+
+**PEAK_TIME profile** — add:
+```python
+FeatureWeight("kick_prominence", weight=2.0, ideal=0.85, tolerance=0.1),
+FeatureWeight("onset_rate", weight=1.0, ideal=4.5, tolerance=1.5),
+```
+
+**INDUSTRIAL profile** — add:
+```python
+FeatureWeight("kick_prominence", weight=1.5, ideal=0.7, tolerance=0.2),
+FeatureWeight("onset_rate", weight=1.0, ideal=5.0, tolerance=2.0),
+```
+
+**AMBIENT_DUB profile** — add:
+```python
+FeatureWeight("kick_prominence", weight=1.0, ideal=0.1, tolerance=0.1),
+FeatureWeight("integrated_lufs", weight=1.5, ideal=-16.0, tolerance=3.0),
+```
+
+**HARD_TECHNO profile** — add:
+```python
+FeatureWeight("kick_prominence", weight=1.5, ideal=0.8, tolerance=0.15),
+FeatureWeight("integrated_lufs", weight=1.5, ideal=-6.0, tolerance=2.0),
+FeatureWeight("bpm", weight=1.5, ideal=145.0, tolerance=5.0),
+FeatureWeight("spectral_rolloff_85", weight=1.0, ideal=7000.0, tolerance=2000.0),
+```
+
+**ACID profile** — add:
+```python
+FeatureWeight("spectral_contrast", weight=1.5, ideal=22.0, tolerance=5.0),
+```
+
+**DUB_TECHNO profile** — add:
+```python
+FeatureWeight("spectral_contrast", weight=1.0, ideal=10.0, tolerance=4.0),
+FeatureWeight("integrated_lufs", weight=1.0, ideal=-14.0, tolerance=3.0),
+```
+
+**TRIBAL profile** — add:
+```python
+FeatureWeight("onset_rate", weight=1.5, ideal=5.0, tolerance=1.5),
+FeatureWeight("bpm_histogram_first_peak_weight", weight=1.5, ideal=0.5, tolerance=0.15),
+```
+
+- [ ] **Step 5: Run tests**
+
+Run: `uv run pytest tests/test_audio/test_mood.py -v`
+Expected: All PASS (including existing tests — no regression)
+
+- [ ] **Step 6: Commit**
+
+```bash
+git add app/audio/classification/profiles.py app/models/audio.py tests/test_audio/test_mood.py
+git commit -m "feat(classifier): add onset_rate, kick_prominence, bpm, lufs, contrast to profiles"
+```
+
+---
+
+### Task 11: Add new audit_playlist checks
+
+**Files:**
+- Modify: `app/services/curation_service.py`
+- Modify: `app/config.py`
+- Test: `tests/test_services/test_curation_service.py`
+
+- [ ] **Step 1: Write failing tests for new audit checks**
+
+Add to `tests/test_services/test_curation_service.py`:
+
+```python
+class TestAuditNewChecks:
+    """Tests for new audio quality checks in audit_playlist."""
+
+    async def test_audit_flags_clipping_risk(self, seeded_db) -> None:
+        """true_peak_db > -0.3 → warning."""
+        # Create track with true_peak > -0.3
+        # Run audit_playlist
+        # Assert "clipping risk" in issues
+        pass  # TDD: implement after Step 3
+
+    async def test_audit_flags_unreliable_bpm(self, seeded_db) -> None:
+        """bpm_confidence < 0.5 → warning."""
+        pass
+
+    async def test_audit_flags_variable_tempo(self, seeded_db) -> None:
+        """variable_tempo = true → info."""
+        pass
+
+    async def test_audit_flags_high_hp_ratio(self, seeded_db) -> None:
+        """hp_ratio > 8.0 → warning (too harmonic for techno)."""
+        pass
+
+    async def test_audit_flags_noise_spectrum(self, seeded_db) -> None:
+        """spectral_flatness > 0.5 → warning."""
+        pass
+```
+
+- [ ] **Step 2: Add settings for audit thresholds**
+
+In `app/config.py`:
+
+```python
+    # ── Audit Thresholds ──────────────────────────────
+    audit_true_peak_max: float = -0.3  # dB
+    audit_bpm_confidence_min: float = 0.5
+    audit_key_confidence_min: float = 0.4
+    audit_hp_ratio_max: float = 8.0
+    audit_crest_factor_max: float = 30.0  # dB
+    audit_spectral_flatness_max: float = 0.5
+```
+
+- [ ] **Step 3: Implement new audit checks**
+
+In `app/services/curation_service.py`, in the `audit_playlist` method, add new checks after existing BPM/LUFS checks:
+
+```python
+            # New P3 quality checks
+            if features.true_peak_db is not None and features.true_peak_db > settings.audit_true_peak_max:
+                issues.append({
+                    "track_id": track.id,
+                    "issue": "clipping_risk",
+                    "severity": "warning",
+                    "detail": f"True peak {features.true_peak_db:.1f} dB > {settings.audit_true_peak_max} dB",
+                })
+
+            if features.bpm_confidence is not None and features.bpm_confidence < settings.audit_bpm_confidence_min:
+                issues.append({
+                    "track_id": track.id,
+                    "issue": "unreliable_bpm",
+                    "severity": "warning",
+                    "detail": f"BPM confidence {features.bpm_confidence:.2f} < {settings.audit_bpm_confidence_min}",
+                })
+
+            if features.key_confidence is not None and features.key_confidence < settings.audit_key_confidence_min:
+                issues.append({
+                    "track_id": track.id,
+                    "issue": "unreliable_key",
+                    "severity": "warning",
+                    "detail": f"Key confidence {features.key_confidence:.2f} < {settings.audit_key_confidence_min}",
+                })
+
+            if features.variable_tempo is True:
+                issues.append({
+                    "track_id": track.id,
+                    "issue": "variable_tempo",
+                    "severity": "info",
+                    "detail": "Variable tempo — harder to beatmatch",
+                })
+
+            if features.hp_ratio is not None and features.hp_ratio > settings.audit_hp_ratio_max:
+                issues.append({
+                    "track_id": track.id,
+                    "issue": "too_harmonic",
+                    "severity": "warning",
+                    "detail": f"HP ratio {features.hp_ratio:.1f} > {settings.audit_hp_ratio_max} (too harmonic for techno)",
+                })
+
+            if features.crest_factor_db is not None and features.crest_factor_db > settings.audit_crest_factor_max:
+                issues.append({
+                    "track_id": track.id,
+                    "issue": "excessive_dynamics",
+                    "severity": "warning",
+                    "detail": f"Crest factor {features.crest_factor_db:.1f} dB > {settings.audit_crest_factor_max} dB",
+                })
+
+            if features.spectral_flatness is not None and features.spectral_flatness > settings.audit_spectral_flatness_max:
+                issues.append({
+                    "track_id": track.id,
+                    "issue": "noise_spectrum",
+                    "severity": "warning",
+                    "detail": f"Spectral flatness {features.spectral_flatness:.2f} > {settings.audit_spectral_flatness_max}",
+                })
+```
+
+- [ ] **Step 4: Flesh out test implementations and run**
+
+Run: `uv run pytest tests/test_services/test_curation_service.py -v`
+Expected: All PASS
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add app/services/curation_service.py app/config.py tests/test_services/test_curation_service.py
+git commit -m "feat(audit): add 7 new quality checks for P3 features"
+```
+
+---
+
+### Task 12: Add review_set_quality enrichments
+
+**Files:**
+- Modify: `app/services/curation_service.py`
+- Test: `tests/test_services/test_curation_service.py`
+
+- [ ] **Step 1: Write failing test**
+
+```python
+class TestReviewSetQualityEnrichment:
+    async def test_review_includes_danceability_arc(self, seeded_db) -> None:
+        """review_set_quality should report danceability monotonicity."""
+        pass  # implement with seeded set
+
+    async def test_review_flags_hp_ratio_jumps(self, seeded_db) -> None:
+        """Large hp_ratio jumps between consecutive tracks → warning."""
+        pass
+
+    async def test_review_flags_phrase_mismatch(self, seeded_db) -> None:
+        """Different dominant_phrase_bars between neighbors → warning."""
+        pass
+```
+
+- [ ] **Step 2: Implement review enrichments**
+
+In `review_set_quality`, after existing BPM/energy analysis, add:
+
+```python
+            # Danceability arc analysis
+            danceability_values = [f.danceability for f in features_list if f.danceability is not None]
+            if danceability_values:
+                result["danceability_arc"] = {
+                    "min": min(danceability_values),
+                    "max": max(danceability_values),
+                    "mean": sum(danceability_values) / len(danceability_values),
+                }
+
+            # HP ratio jump detection
+            hp_jumps = []
+            for i in range(len(features_list) - 1):
+                f_a, f_b = features_list[i], features_list[i + 1]
+                if f_a.hp_ratio is not None and f_b.hp_ratio is not None:
+                    jump = abs(f_a.hp_ratio - f_b.hp_ratio)
+                    if jump > 2.0:
+                        hp_jumps.append({"position": i + 1, "jump": round(jump, 2)})
+            if hp_jumps:
+                result["hp_ratio_jumps"] = hp_jumps
+
+            # Phrase alignment check
+            phrase_mismatches = []
+            for i in range(len(features_list) - 1):
+                f_a, f_b = features_list[i], features_list[i + 1]
+                if f_a.dominant_phrase_bars is not None and f_b.dominant_phrase_bars is not None:
+                    if f_a.dominant_phrase_bars != f_b.dominant_phrase_bars:
+                        phrase_mismatches.append({
+                            "position": i + 1,
+                            "bars_a": f_a.dominant_phrase_bars,
+                            "bars_b": f_b.dominant_phrase_bars,
+                        })
+            if phrase_mismatches:
+                result["phrase_mismatches"] = phrase_mismatches
+```
+
+- [ ] **Step 3: Run tests**
+
+Run: `uv run pytest tests/test_services/test_curation_service.py -v`
+Expected: All PASS
+
+- [ ] **Step 4: Commit**
+
+```bash
+git add app/services/curation_service.py tests/test_services/test_curation_service.py
+git commit -m "feat(review): add danceability arc, HP ratio jumps, phrase alignment checks"
+```
+
+---
 
 ## Phase 3: Export Enrichment
 
-> Separate plan — to be written after Phase 1.
+### Task 13: Extend M3U8 with new EXTDJ tags
+
+**Files:**
+- Modify: `app/services/export.py`
+- Test: `tests/test_services/test_export.py`
+
+- [ ] **Step 1: Write failing tests for new M3U8 tags**
+
+Add to `tests/test_services/test_export.py`:
+
+```python
+def test_m3u8_includes_new_p3_tags(sample_data: SetExportData, tmp_path: Path) -> None:
+    """M3U8 should include mood_confidence, rms, peak, crest, danceability, hp_ratio, phrase."""
+    # Update sample_data tracks with new fields
+    sample_data.tracks[0].mood_confidence = 0.85
+    sample_data.tracks[0].rms_dbfs = -12.5
+    sample_data.tracks[0].true_peak_db = -0.8
+    sample_data.tracks[0].crest_factor_db = 11.0
+    sample_data.tracks[0].danceability = 1.5
+    sample_data.tracks[0].hp_ratio = 2.3
+    sample_data.tracks[0].dominant_phrase_bars = 8
+
+    path = write_m3u8(sample_data, tmp_path / "test.m3u8")
+    content = path.read_text()
+
+    assert "#EXTDJ-MOOD-CONFIDENCE:0.85" in content
+    assert "#EXTDJ-RMS:-12.5" in content
+    assert "#EXTDJ-PEAK:-0.8" in content
+    assert "#EXTDJ-CREST:11.0" in content
+    assert "#EXTDJ-DANCEABILITY:1.50" in content
+    assert "#EXTDJ-HP-RATIO:2.30" in content
+    assert "#EXTDJ-PHRASE:8 bars" in content
+```
+
+- [ ] **Step 2: Add new fields to ExportTrack dataclass**
+
+In `app/services/export.py`, extend `ExportTrack`:
+
+```python
+    # P3 enrichment fields
+    mood_confidence: float | None = None
+    rms_dbfs: float | None = None
+    true_peak_db: float | None = None
+    crest_factor_db: float | None = None
+    danceability: float | None = None
+    hp_ratio: float | None = None
+    dominant_phrase_bars: int | None = None
+    variable_tempo: bool | None = None
+```
+
+- [ ] **Step 3: Add new EXTDJ tags to M3U8 writer**
+
+In `write_m3u8`, after existing EXTDJ tags per-track, add:
+
+```python
+                if track.mood_confidence is not None:
+                    lines.append(f"#EXTDJ-MOOD-CONFIDENCE:{track.mood_confidence:.2f}")
+                if track.rms_dbfs is not None:
+                    lines.append(f"#EXTDJ-RMS:{track.rms_dbfs:.1f}")
+                if track.true_peak_db is not None:
+                    lines.append(f"#EXTDJ-PEAK:{track.true_peak_db:.1f}")
+                if track.crest_factor_db is not None:
+                    lines.append(f"#EXTDJ-CREST:{track.crest_factor_db:.1f}")
+                if track.danceability is not None:
+                    lines.append(f"#EXTDJ-DANCEABILITY:{track.danceability:.2f}")
+                if track.hp_ratio is not None:
+                    lines.append(f"#EXTDJ-HP-RATIO:{track.hp_ratio:.2f}")
+                if track.dominant_phrase_bars is not None:
+                    lines.append(f"#EXTDJ-PHRASE:{track.dominant_phrase_bars} bars")
+```
+
+- [ ] **Step 4: Run tests**
+
+Run: `uv run pytest tests/test_services/test_export.py -v`
+Expected: All PASS
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add app/services/export.py tests/test_services/test_export.py
+git commit -m "feat(export): add 7 new EXTDJ M3U8 tags for P3 features"
+```
+
+---
+
+### Task 14: Extend JSON guide with full features
+
+**Files:**
+- Modify: `app/services/export.py`
+- Modify: `app/services/delivery_service.py`
+- Test: `tests/test_services/test_export.py`
+
+- [ ] **Step 1: Write failing test**
+
+Add to `tests/test_services/test_export.py`:
+
+```python
+def test_json_guide_includes_full_audio_features(sample_data: SetExportData, tmp_path: Path) -> None:
+    """JSON guide should include all audio features per track."""
+    sample_data.tracks[0].audio_features = {
+        "tempo": {"bpm": 128.0, "confidence": 0.98, "stability": 0.95, "variable_tempo": False},
+        "loudness": {"integrated_lufs": -8.0, "short_term_mean": -9.5, "rms_dbfs": -12.0,
+                      "true_peak_db": -0.8, "crest_factor_db": 11.0, "loudness_range_lu": 8.0},
+        "energy": {"mean": 0.6, "max": 1.0},
+        "classification": {"mood": "driving", "confidence": 0.85},
+    }
+    path = write_json_guide(sample_data, tmp_path / "guide.json")
+    import json
+    data = json.loads(path.read_text())
+    track = data["tracks"][0]
+    assert "audio_features" in track
+    assert track["audio_features"]["tempo"]["bpm"] == 128.0
+    assert track["audio_features"]["loudness"]["true_peak_db"] == -0.8
+```
+
+- [ ] **Step 2: Add `audio_features` dict to ExportTrack**
+
+```python
+    audio_features: dict[str, Any] | None = None  # full features for JSON guide
+```
+
+- [ ] **Step 3: Update JSON guide writer to include audio_features**
+
+In `write_json_guide`, extend track dict:
+
+```python
+                if track.audio_features:
+                    track_dict["audio_features"] = track.audio_features
+```
+
+- [ ] **Step 4: Update delivery_service to populate audio_features**
+
+In `build_export_data`, when building ExportTrack, add full features dict from DB row.
+
+- [ ] **Step 5: Run tests**
+
+Run: `uv run pytest tests/test_services/test_export.py -v`
+Expected: All PASS
+
+- [ ] **Step 6: Commit**
+
+```bash
+git add app/services/export.py app/services/delivery_service.py tests/test_services/test_export.py
+git commit -m "feat(export): add full audio_features dict to JSON guide"
+```
+
+---
+
+### Task 15: Extend cheat sheet with phrase/flags
+
+**Files:**
+- Modify: `app/services/export.py`
+- Test: `tests/test_services/test_export.py`
+
+- [ ] **Step 1: Write failing test**
+
+```python
+def test_cheat_sheet_includes_phrase_and_flags(sample_data: SetExportData, tmp_path: Path) -> None:
+    sample_data.tracks[0].dominant_phrase_bars = 8
+    sample_data.tracks[0].variable_tempo = True
+    sample_data.tracks[0].true_peak_db = -0.1
+    sample_data.tracks[0].mood_confidence = 0.3
+
+    path = write_cheat_sheet(sample_data, tmp_path / "cheat.txt")
+    content = path.read_text()
+
+    assert "8 bars" in content
+    assert "VarTempo" in content or "Variable" in content
+```
+
+- [ ] **Step 2: Update cheat sheet writer**
+
+Add Phrase column and flags to per-track output:
+
+```python
+            # Build flags
+            flags = []
+            if track.variable_tempo:
+                flags.append("⚠ VarTempo")
+            if track.true_peak_db is not None and track.true_peak_db > -0.5:
+                flags.append("⚠ Peak>{:.1f}".format(track.true_peak_db))
+            if track.mood_confidence is not None and track.mood_confidence < 0.5:
+                flags.append("⚠ LowConf")
+
+            phrase_str = f"{track.dominant_phrase_bars} bars" if track.dominant_phrase_bars else ""
+            flag_str = "  ".join(flags)
+```
+
+- [ ] **Step 3: Run tests**
+
+Run: `uv run pytest tests/test_services/test_export.py -v`
+Expected: All PASS
+
+- [ ] **Step 4: Commit**
+
+```bash
+git add app/services/export.py tests/test_services/test_export.py
+git commit -m "feat(export): add phrase bars and warning flags to cheat sheet"
+```
+
+---
 
 ## Phase 4: Panel Enrichment
 
-> Separate plan — independent from Phase 1, can be done in parallel.
+### Task 16: Add new dashboard distribution charts
+
+**Files:**
+- Modify: `panel/lib/queries/dashboard.ts`
+- Create: `panel/components/charts/danceability-distribution.tsx`
+- Create: `panel/components/charts/hp-ratio-distribution.tsx`
+- Create: `panel/components/charts/phrase-distribution.tsx`
+- Modify: `panel/app/page.tsx`
+
+- [ ] **Step 1: Add new query functions**
+
+In `panel/lib/queries/dashboard.ts`:
+
+```typescript
+export interface DanceabilityBin {
+  bin: number;
+  count: number;
+}
+
+export async function getDanceabilityDistribution(): Promise<DanceabilityBin[]> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("track_audio_features_computed")
+    .select("danceability")
+    .not("danceability", "is", null);
+
+  if (!data) return [];
+  const bins: Record<number, number> = {};
+  for (const row of data) {
+    const bin = Math.round(row.danceability * 2) / 2; // 0.5 step bins
+    bins[bin] = (bins[bin] || 0) + 1;
+  }
+  return Object.entries(bins)
+    .map(([bin, count]) => ({ bin: Number(bin), count }))
+    .sort((a, b) => a.bin - b.bin);
+}
+
+export interface HpRatioBin {
+  bin: number;
+  count: number;
+}
+
+export async function getHpRatioDistribution(): Promise<HpRatioBin[]> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("track_audio_features_computed")
+    .select("hp_ratio")
+    .not("hp_ratio", "is", null);
+
+  if (!data) return [];
+  const bins: Record<number, number> = {};
+  for (const row of data) {
+    const bin = Math.round(row.hp_ratio); // integer bins
+    bins[bin] = (bins[bin] || 0) + 1;
+  }
+  return Object.entries(bins)
+    .map(([bin, count]) => ({ bin: Number(bin), count }))
+    .sort((a, b) => a.bin - b.bin);
+}
+
+export interface PhraseCount {
+  bars: number;
+  count: number;
+}
+
+export async function getPhraseDistribution(): Promise<PhraseCount[]> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("track_audio_features_computed")
+    .select("dominant_phrase_bars")
+    .not("dominant_phrase_bars", "is", null);
+
+  if (!data) return [];
+  const groups: Record<number, number> = {};
+  for (const row of data) {
+    const bars = row.dominant_phrase_bars;
+    groups[bars] = (groups[bars] || 0) + 1;
+  }
+  return Object.entries(groups)
+    .map(([bars, count]) => ({ bars: Number(bars), count }))
+    .sort((a, b) => a.bars - b.bars);
+}
+
+export interface QualityFlags {
+  variable_tempo_count: number;
+  atonality_count: number;
+  avg_bpm_confidence: number;
+}
+
+export async function getQualityFlags(): Promise<QualityFlags> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("track_audio_features_computed")
+    .select("variable_tempo, atonality, bpm_confidence");
+
+  if (!data) return { variable_tempo_count: 0, atonality_count: 0, avg_bpm_confidence: 0 };
+
+  const vt = data.filter((r) => r.variable_tempo === true).length;
+  const at = data.filter((r) => r.atonality === true).length;
+  const confs = data.filter((r) => r.bpm_confidence != null).map((r) => r.bpm_confidence);
+  const avgConf = confs.length > 0 ? confs.reduce((a, b) => a + b, 0) / confs.length : 0;
+
+  return { variable_tempo_count: vt, atonality_count: at, avg_bpm_confidence: avgConf };
+}
+```
+
+- [ ] **Step 2: Create chart components**
+
+Create `panel/components/charts/danceability-distribution.tsx`, `hp-ratio-distribution.tsx`, `phrase-distribution.tsx` following the existing pattern from `bpm-distribution.tsx` (BarChart with neon gradient).
+
+- [ ] **Step 3: Add charts to dashboard page**
+
+In `panel/app/page.tsx`, add queries to `Promise.all` and render new chart row below existing charts.
+
+- [ ] **Step 4: Verify in browser**
+
+Run: `cd panel && bun dev` → http://localhost:3000
+Expected: New charts visible on dashboard
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add panel/lib/queries/dashboard.ts panel/components/charts/ panel/app/page.tsx
+git commit -m "feat(panel): add danceability, HP ratio, phrase distribution charts to dashboard"
+```
+
+---
+
+### Task 17: Add optional columns to track list table
+
+**Files:**
+- Modify: `panel/app/library/library-table.tsx`
+- Modify: `panel/lib/queries/tracks.ts`
+
+- [ ] **Step 1: Extend track list query with new fields**
+
+In `panel/lib/queries/tracks.ts`, add to the SELECT in `getTrackList`:
+
+```typescript
+// Add to feature fields
+energy_mean, hp_ratio, danceability, dynamic_complexity, mood_confidence, analysis_level
+```
+
+- [ ] **Step 2: Add toggle-able columns to table**
+
+In `panel/app/library/library-table.tsx`, add optional columns (hidden by default) using TanStack Table `columnVisibility`:
+
+```typescript
+{
+  accessorKey: "hp_ratio",
+  header: "HP Ratio",
+  cell: ({ row }) => row.original.hp_ratio?.toFixed(2) ?? "—",
+  enableHiding: true,
+},
+{
+  accessorKey: "danceability",
+  header: "Dance",
+  cell: ({ row }) => row.original.danceability?.toFixed(2) ?? "—",
+  enableHiding: true,
+},
+{
+  accessorKey: "mood_confidence",
+  header: "Conf",
+  cell: ({ row }) => row.original.mood_confidence != null
+    ? `${(row.original.mood_confidence * 100).toFixed(0)}%`
+    : "—",
+  enableHiding: true,
+},
+```
+
+Add column visibility dropdown (shadcn DropdownMenu).
+
+- [ ] **Step 3: Verify in browser**
+
+Expected: Column toggle dropdown visible, optional columns work
+
+- [ ] **Step 4: Commit**
+
+```bash
+git add panel/app/library/library-table.tsx panel/lib/queries/tracks.ts
+git commit -m "feat(panel): add optional hp_ratio, danceability, mood_confidence columns to track list"
+```
+
+---
+
+### Task 18: Final regression + lint across all phases
+
+- [ ] **Step 1: Run full Python test suite**
+
+Run: `uv run pytest tests/ -v --timeout=120`
+Expected: All PASS
+
+- [ ] **Step 2: Run lint + typecheck**
+
+Run: `make check`
+Expected: No issues
+
+- [ ] **Step 3: Build panel**
+
+Run: `cd panel && bun run build`
+Expected: Build succeeds
+
+- [ ] **Step 4: Commit any fixes**
