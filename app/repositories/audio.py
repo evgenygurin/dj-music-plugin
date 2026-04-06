@@ -47,13 +47,13 @@ class AudioRepository(BaseRepository[TrackAudioFeaturesComputed]):
         result = await self.session.execute(stmt)
         return result.scalar_one_or_none()
 
-    async def save_features(
+    async def create_features_from_pipeline(
         self,
         track_id: int,
         features_dict: dict[str, Any],
         pipeline_run_id: int,
     ) -> TrackAudioFeaturesComputed:
-        """Create and persist a TrackAudioFeaturesComputed record."""
+        """Create features from pipeline analysis results."""
         features = TrackAudioFeaturesComputed(
             track_id=track_id,
             pipeline_run_id=pipeline_run_id,

@@ -5,12 +5,10 @@ Framework-agnostic: no MCP/FastMCP imports.
 
 from __future__ import annotations
 
-from sqlalchemy import func, select
-
 from app.core.errors import NotFoundError, ValidationError
 from app.core.pagination import CursorPage
 from app.core.schemas import PlaylistSummary
-from app.models.playlist import Playlist, PlaylistItem
+from app.models.playlist import Playlist
 from app.repositories.playlist import PlaylistRepository
 
 
@@ -48,12 +46,7 @@ class PlaylistService:
     async def list_all(
         self, *, limit: int = 20, cursor: str | None = None, source: str | None = None
     ) -> CursorPage[Playlist]:
-        from sqlalchemy.orm import selectinload
-
-        stmt = select(Playlist).options(selectinload(Playlist.items))
-        if source is not None:
-            stmt = stmt.where(Playlist.source_of_truth == source)
-        return await self._repo._paginate(stmt, limit=limit, cursor=cursor)
+        return await self._repo.list_with_items(source=source, limit=limit, cursor=cursor)
 
     # ── Write ────────────────────────────────────────
 
@@ -85,14 +78,7 @@ class PlaylistService:
         for i, tid in enumerate(track_ids):
             await self._repo.add_track(playlist_id, tid, max_idx + 1 + i)
 
-        # Count directly to avoid stale cache
-        count_stmt = (
-            select(func.count())
-            .select_from(PlaylistItem)
-            .where(PlaylistItem.playlist_id == playlist_id)
-        )
-        result = await self._repo.session.execute(count_stmt)
-        return result.scalar() or 0
+        return await self._repo.count_items(playlist_id)
 
     async def remove_track(self, playlist_id: int, position: int) -> bool:
         return await self._repo.remove_track(playlist_id, position)

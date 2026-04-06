@@ -9,13 +9,13 @@ from typing import Any
 
 from app.core.camelot import camelot_distance, key_code_to_camelot
 from app.core.errors import NotFoundError, ValidationError
+from app.domain.transition import TransitionScorer
 from app.models.set import SetVersion
 from app.repositories.feature import FeatureRepository
 from app.repositories.playlist import PlaylistRepository
 from app.repositories.set import SetRepository
 from app.repositories.track import TrackRepository
 from app.repositories.transition import TransitionRepository
-from app.services.transition import TransitionScorer
 
 
 class ReasoningService:

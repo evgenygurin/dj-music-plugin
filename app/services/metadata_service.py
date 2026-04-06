@@ -10,21 +10,18 @@ import logging
 from datetime import date
 from typing import Any
 
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
-
 from app.models.platform import YandexMetadata
 from app.models.track import (
     Artist,  # used at runtime in _get_or_create()
     Genre,  # used at runtime in _get_or_create()
     Label,
     Release,
-    Track,
     TrackArtist,  # used at runtime in _link_if_not_exists()
     TrackGenre,  # used at runtime in _link_if_not_exists()
     TrackLabel,  # used at runtime in _link_if_not_exists()
     TrackRelease,  # used at runtime in _link_if_not_exists()
 )
+from app.repositories.metadata import MetadataRepository
 
 logger = logging.getLogger(__name__)
 
@@ -32,8 +29,8 @@ logger = logging.getLogger(__name__)
 class MetadataService:
     """Normalize YM metadata into proper Artist/Genre/Label/Release entities."""
 
-    def __init__(self, session: AsyncSession) -> None:
-        self._session = session
+    def __init__(self, repo: MetadataRepository) -> None:
+        self._repo = repo
 
     # ── Public API ───────────────────────────────────────
 
@@ -126,15 +123,7 @@ class MetadataService:
 
         Returns summary with per-track results and totals.
         """
-        from app.models.playlist import PlaylistItem
-
-        stmt = (
-            select(PlaylistItem.track_id)
-            .where(PlaylistItem.playlist_id == playlist_id)
-            .order_by(PlaylistItem.sort_index)
-        )
-        result = await self._session.execute(stmt)
-        track_ids = [row[0] for row in result.all()]
+        track_ids = await self._repo.get_playlist_track_ids(playlist_id)
 
         total_artists = 0
         total_genres = 0
@@ -174,9 +163,7 @@ class MetadataService:
             return self._extract_from_ym_track(ym_track)
 
         # Fallback: load from YandexMetadata
-        stmt = select(YandexMetadata).where(YandexMetadata.track_id == track_id)
-        result = await self._session.execute(stmt)
-        meta = result.scalar_one_or_none()
+        meta = await self._repo.get_ym_metadata(track_id)
         if meta is None:
             return None
 
@@ -251,9 +238,7 @@ class MetadataService:
 
     async def _extract_artists_from_title(self, track_id: int) -> list[dict[str, str]]:
         """Parse artist names from track title in 'Artist1, Artist2 - Title' format."""
-        stmt = select(Track.title).where(Track.id == track_id)
-        result = await self._session.execute(stmt)
-        title = result.scalar_one_or_none()
+        title = await self._repo.get_track_title(track_id)
         if not title or " - " not in title:
             return []
 
@@ -265,29 +250,11 @@ class MetadataService:
 
     async def _get_or_create(self, model_class: type, **match_fields: Any) -> Any:
         """Get existing entity by fields, or create new one."""
-        stmt: Any = select(model_class)
-        for col, val in match_fields.items():
-            stmt = stmt.where(getattr(model_class, col) == val)
-        result = await self._session.execute(stmt.limit(1))
-        existing = result.scalar_one_or_none()
-        if existing is not None:
-            return existing
-        instance = model_class(**match_fields)
-        self._session.add(instance)
-        await self._session.flush()
-        return instance
+        return await self._repo.get_or_create(model_class, **match_fields)
 
     async def _link_if_not_exists(self, junction_model: type, **fields: Any) -> bool:
         """Create junction row if it doesn't exist. Returns True if created."""
-        stmt: Any = select(junction_model)
-        for col, val in fields.items():
-            stmt = stmt.where(getattr(junction_model, col) == val)
-        result = await self._session.execute(stmt.limit(1))
-        if result.scalar_one_or_none() is not None:
-            return False
-        self._session.add(junction_model(**fields))
-        await self._session.flush()
-        return True
+        return await self._repo.link_if_not_exists(junction_model, **fields)
 
     async def _get_or_create_release(
         self,
@@ -305,29 +272,19 @@ class MetadataService:
             with contextlib.suppress(ValueError, TypeError):
                 release_date_val = date(year, 1, 1)
 
-        # Match by title + year (if year available) to avoid duplicates
-        stmt = select(Release).where(Release.title == title)
-        if release_date_val is not None:
-            stmt = stmt.where(Release.release_date == release_date_val)
-
-        result = await self._session.execute(stmt)
-        release = result.scalars().first()
+        release = await self._repo.find_release(title, release_date_val)
         if release is not None:
             # Update label if it was missing
             if release.label_id is None and label is not None:
                 release.label_id = label.id
-                await self._session.flush()
             return release
 
-        release = Release(
+        return await self._repo.create_release(
             title=title,
             label_id=label.id if label else None,
             release_date=release_date_val,
             release_type=release_type,
         )
-        self._session.add(release)
-        await self._session.flush()
-        return release
 
     # ── Title cleanup ────────────────────────────────────
 
@@ -340,9 +297,7 @@ class MetadataService:
 
         Returns True if title was cleaned.
         """
-        stmt = select(Track).where(Track.id == track_id)
-        result = await self._session.execute(stmt)
-        track = result.scalar_one_or_none()
+        track = await self._repo.get_track(track_id)
         if track is None or " - " not in track.title:
             return False
 
@@ -355,8 +310,6 @@ class MetadataService:
         if track.title.startswith(f"{expected_prefix} - "):
             clean_title = track.title[len(expected_prefix) + 3 :]  # " - " = 3 chars
             if clean_title:
-                track.title = clean_title
-                await self._session.flush()
-                return True
+                return await self._repo.update_track_title(track_id, clean_title)
 
         return False

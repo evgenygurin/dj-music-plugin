@@ -15,13 +15,14 @@ from app.models.track import (
     TrackLabel,
     TrackRelease,
 )
+from app.repositories.metadata import MetadataRepository
 from app.services.metadata_service import MetadataService
 
 
 @pytest.fixture
 def metadata_svc(db):
     """MetadataService with test DB session."""
-    return MetadataService(db)
+    return MetadataService(MetadataRepository(db))
 
 
 class _FakeYMTrack:

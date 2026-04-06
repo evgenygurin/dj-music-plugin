@@ -214,7 +214,9 @@ def get_discovery_service(
 def get_metadata_service(
     session: AsyncSession = Depends(get_db_session),  # noqa: B008
 ) -> MetadataService:
-    return MetadataService(session)
+    from app.repositories.metadata import MetadataRepository
+
+    return MetadataService(MetadataRepository(session))
 
 
 def get_import_service(
