@@ -51,8 +51,8 @@ class DjBeatgrid(Base, TimestampMixin):
     first_downbeat_ms: Mapped[float | None] = mapped_column(nullable=True)
     grid_offset_ms: Mapped[float | None] = mapped_column(nullable=True)
     confidence: Mapped[float | None] = mapped_column(nullable=True)
-    variable_tempo: Mapped[bool] = mapped_column(default=False, server_default="0")
-    canonical: Mapped[bool] = mapped_column(default=False, server_default="0")
+    variable_tempo: Mapped[bool] = mapped_column(default=False, server_default="false")
+    canonical: Mapped[bool] = mapped_column(default=False, server_default="false")
 
     # relationships
     library_item: Mapped["DjLibraryItem"] = relationship(back_populates="beatgrids")
@@ -105,7 +105,7 @@ class DjCuePoint(Base, TimestampMixin):
     hotcue_index: Mapped[int | None] = mapped_column(nullable=True)
     label: Mapped[str | None] = mapped_column(String(200), nullable=True)
     color: Mapped[str | None] = mapped_column(String(20), nullable=True)
-    quantized: Mapped[bool] = mapped_column(default=False, server_default="0")
+    quantized: Mapped[bool] = mapped_column(default=False, server_default="false")
     source_app: Mapped[str | None] = mapped_column(String(50), nullable=True)
 
     # relationships
@@ -137,7 +137,7 @@ class DjSavedLoop(Base, TimestampMixin):
     length_ms: Mapped[float | None] = mapped_column(nullable=True)
     hotcue_index: Mapped[int | None] = mapped_column(nullable=True)
     label: Mapped[str | None] = mapped_column(String(200), nullable=True)
-    active_on_load: Mapped[bool] = mapped_column(default=False, server_default="0")
+    active_on_load: Mapped[bool] = mapped_column(default=False, server_default="false")
     color: Mapped[str | None] = mapped_column(String(20), nullable=True)
     source_app: Mapped[str | None] = mapped_column(String(50), nullable=True)
 

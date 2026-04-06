@@ -83,4 +83,4 @@ class TransitionCandidate(Base, TimestampMixin):
     key_distance: Mapped[int | None] = mapped_column(Integer, nullable=True)
     embedding_similarity: Mapped[float | None] = mapped_column(Float, nullable=True)
     energy_delta: Mapped[float | None] = mapped_column(Float, nullable=True)
-    fully_scored: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0")
+    fully_scored: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")

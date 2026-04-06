@@ -38,7 +38,15 @@ def do_run_migrations(connection):  # type: ignore[no-untyped-def]
 
 async def run_migrations_online() -> None:
     """Run migrations in 'online' mode with async engine."""
-    connectable = create_async_engine(settings.database_url)
+    connect_args = {}
+    if settings.database_url.startswith("postgresql"):
+        connect_args["statement_cache_size"] = 0
+        connect_args["prepared_statement_cache_size"] = 0
+    connectable = create_async_engine(
+        settings.database_url,
+        connect_args=connect_args,
+        pool_pre_ping=True,
+    )
     async with connectable.connect() as connection:
         await connection.run_sync(do_run_migrations)
     await connectable.dispose()

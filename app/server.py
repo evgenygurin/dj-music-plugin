@@ -51,10 +51,15 @@ os.environ.setdefault("FASTMCP_DOCKET_CONCURRENCY", str(settings.docket_concurre
 @lifespan
 async def db_lifespan(server):  # type: ignore[no-untyped-def]
     """Database engine + session factory lifecycle."""
+    connect_args = {}
+    if settings.database_url.startswith("postgresql"):
+        connect_args["statement_cache_size"] = 0  # required for PgBouncer/Supabase pooler
+        connect_args["prepared_statement_cache_size"] = 0
     engine = create_async_engine(
         settings.database_url,
         echo=settings.debug,
         pool_pre_ping=True,
+        connect_args=connect_args,
     )
     session_factory = async_sessionmaker(engine, expire_on_commit=False)
 

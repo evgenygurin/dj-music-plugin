@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import datetime
 
-from sqlalchemy import ForeignKey, String, Text
+from sqlalchemy import DateTime, ForeignKey, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import Base, TimestampMixin
@@ -37,4 +37,6 @@ class RawProviderResponse(Base, TimestampMixin):
         ForeignKey("providers.id", ondelete="CASCADE"),
     )
     raw_data: Mapped[str | None] = mapped_column(Text, nullable=True)
-    fetched_at: Mapped[datetime.datetime | None] = mapped_column(nullable=True)
+    fetched_at: Mapped[datetime.datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )

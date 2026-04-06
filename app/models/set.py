@@ -89,7 +89,7 @@ class SetItem(Base, TimestampMixin):
     mix_out_point_ms: Mapped[int | None] = mapped_column(Integer, nullable=True)
     planned_eq: Mapped[str | None] = mapped_column(Text, nullable=True)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
-    pinned: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0")
+    pinned: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
 
     version: Mapped[SetVersion] = relationship(back_populates="items")
 

@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import datetime
 
-from sqlalchemy import ForeignKey, Integer, String, Text, UniqueConstraint
+from sqlalchemy import DateTime, ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, TimestampMixin
@@ -52,6 +52,7 @@ class PlaylistItem(Base):
     track_id: Mapped[int] = mapped_column(ForeignKey("tracks.id", ondelete="CASCADE"))
     sort_index: Mapped[int] = mapped_column(Integer)
     added_at: Mapped[datetime.datetime | None] = mapped_column(
+        DateTime(timezone=True),
         nullable=True,
         default=utc_now,
     )
