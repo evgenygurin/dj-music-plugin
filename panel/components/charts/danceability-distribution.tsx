@@ -1,6 +1,6 @@
 'use client'
 
-import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from 'recharts'
+import { Bar, BarChart, CartesianGrid, ResponsiveContainer, XAxis, YAxis } from 'recharts'
 
 import {
   ChartContainer,
@@ -13,42 +13,49 @@ import type { DanceabilityBin } from '@/lib/queries/dashboard'
 const chartConfig = {
   count: {
     label: 'Tracks',
-    color: 'var(--chart-1)',
+    color: 'hsl(var(--foreground) / 0.35)',
   },
 } satisfies ChartConfig
 
 export function DanceabilityDistributionChart({ data }: { data: DanceabilityBin[] }) {
+  if (data.length === 0) {
+    return (
+      <div className="flex min-h-[200px] items-center justify-center text-sm text-muted-foreground">
+        No data
+      </div>
+    )
+  }
+
   return (
-    <ChartContainer config={chartConfig} className="h-[220px] w-full">
-      <BarChart data={data} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
-        <defs>
-          <linearGradient id="danceabilityGradient" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#ff00ff" stopOpacity={0.9} />
-            <stop offset="100%" stopColor="#cc00cc" stopOpacity={0.6} />
-          </linearGradient>
-        </defs>
-        <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="var(--border)" />
-        <XAxis
-          dataKey="bin"
-          tickLine={false}
-          axisLine={false}
-          tickMargin={8}
-          tick={{ fill: 'var(--muted-foreground)', fontSize: 11 }}
-          tickFormatter={(v) => `${v}`}
-        />
-        <YAxis
-          tickLine={false}
-          axisLine={false}
-          tickMargin={8}
-          width={32}
-          tick={{ fill: 'var(--muted-foreground)', fontSize: 11 }}
-        />
-        <ChartTooltip
-          content={<ChartTooltipContent />}
-          cursor={{ fill: 'var(--primary)', opacity: 0.08 }}
-        />
-        <Bar dataKey="count" fill="url(#danceabilityGradient)" radius={[4, 4, 0, 0]} />
-      </BarChart>
+    <ChartContainer config={chartConfig} className="min-h-[200px] w-full">
+      <ResponsiveContainer width="100%" height="100%">
+        <BarChart data={data} margin={{ top: 4, right: 4, left: -16, bottom: 0 }}>
+          <CartesianGrid vertical={false} stroke="hsl(var(--border))" strokeOpacity={0.5} />
+          <XAxis
+            dataKey="bin"
+            tickLine={false}
+            axisLine={false}
+            tickMargin={8}
+            tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }}
+          />
+          <YAxis
+            tickLine={false}
+            axisLine={false}
+            tickMargin={8}
+            width={32}
+            tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }}
+          />
+          <ChartTooltip
+            content={<ChartTooltipContent hideLabel={false} />}
+            cursor={{ fill: 'hsl(var(--muted))' }}
+          />
+          <Bar
+            dataKey="count"
+            fill="hsl(var(--foreground) / 0.35)"
+            radius={[3, 3, 0, 0]}
+          />
+        </BarChart>
+      </ResponsiveContainer>
     </ChartContainer>
   )
 }

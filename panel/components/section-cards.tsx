@@ -1,15 +1,25 @@
-import {
-  IconMusic,
-  IconWaveSine,
-  IconPlaylist,
-  IconDownload,
-  IconStar,
-} from '@tabler/icons-react'
-
-import { Badge } from '@/components/ui/badge'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-
+import { Card, CardContent } from '@/components/ui/card'
 import type { LibraryStats } from '@/lib/queries/dashboard'
+
+function MetricCard({
+  label,
+  value,
+  sub,
+}: {
+  label: string
+  value: string | number
+  sub?: string
+}) {
+  return (
+    <Card className="shadow-none">
+      <CardContent className="flex flex-col gap-1 p-4">
+        <p className="text-sm text-muted-foreground">{label}</p>
+        <p className="text-2xl font-semibold tabular-nums leading-none">{value}</p>
+        {sub && <p className="text-xs text-muted-foreground">{sub}</p>}
+      </CardContent>
+    </Card>
+  )
+}
 
 export function SectionCards({ stats }: { stats: LibraryStats }) {
   const coveragePct =
@@ -17,79 +27,28 @@ export function SectionCards({ stats }: { stats: LibraryStats }) {
       ? Math.round((stats.analyzedTracks / stats.totalTracks) * 100)
       : 0
 
-  const cards = [
-    {
-      title: 'Total Tracks',
-      value: stats.totalTracks.toLocaleString(),
-      description: 'in library',
-      icon: IconMusic,
-      badge: null,
-    },
-    {
-      title: 'Analyzed',
-      value: stats.analyzedTracks.toLocaleString(),
-      description: 'audio features',
-      icon: IconWaveSine,
-      badge: `${coveragePct}%`,
-    },
-    {
-      title: 'DJ Sets',
-      value: stats.totalSets.toLocaleString(),
-      description: 'created',
-      icon: IconPlaylist,
-      badge: null,
-    },
-    {
-      title: 'Library Files',
-      value: stats.libraryItems.toLocaleString(),
-      description: 'downloaded',
-      icon: IconDownload,
-      badge: null,
-    },
-    {
-      title: 'Set Quality',
-      value: stats.avgSetQuality?.toFixed(2) ?? '—',
-      description: stats.avgSetQuality ? 'avg score' : 'no sets scored',
-      icon: IconStar,
-      badge: null,
-    },
-  ]
-
   return (
-    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-      {cards.map((card) => (
-        <Card
-          key={card.title}
-          className="relative overflow-hidden border-border/50 transition-colors hover:border-primary/30"
-        >
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              {card.title}
-            </CardTitle>
-            <card.icon className="size-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-baseline gap-2">
-              <span className="text-3xl font-bold tracking-tight">
-                {card.value}
-              </span>
-              {card.badge && (
-                <Badge
-                  variant="secondary"
-                  className="bg-primary/10 text-primary text-xs"
-                >
-                  {card.badge}
-                </Badge>
-              )}
-            </div>
-            <p className="mt-1 text-xs text-muted-foreground">
-              {card.description}
-            </p>
-          </CardContent>
-          {/* Subtle glow accent on bottom border */}
-          <div className="absolute bottom-0 left-0 h-[2px] w-full bg-gradient-to-r from-transparent via-primary/40 to-transparent" />
-        </Card>
-      ))}
+    <div className="grid grid-cols-2 gap-3 px-4 lg:px-6 @xl/main:grid-cols-4">
+      <MetricCard
+        label="Tracks"
+        value={stats.totalTracks.toLocaleString()}
+        sub="in library"
+      />
+      <MetricCard
+        label="Analyzed"
+        value={stats.analyzedTracks.toLocaleString()}
+        sub={`${coveragePct}% coverage`}
+      />
+      <MetricCard
+        label="DJ Sets"
+        value={stats.totalSets.toLocaleString()}
+        sub="optimized orderings"
+      />
+      <MetricCard
+        label="Set Quality"
+        value={stats.avgSetQuality != null ? stats.avgSetQuality.toFixed(2) : '—'}
+        sub="avg transition score"
+      />
     </div>
   )
 }

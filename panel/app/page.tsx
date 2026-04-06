@@ -26,7 +26,18 @@ import { ANALYSIS_LEVELS } from '@/lib/constants'
 export const revalidate = 30
 
 export default async function DashboardPage() {
-  const [stats, bpmData, moodData, keyData, lufsData, coverageData, danceabilityData, hpRatioData, phraseData, qualityFlags] = await Promise.all([
+  const [
+    stats,
+    bpmData,
+    moodData,
+    keyData,
+    lufsData,
+    coverageData,
+    danceabilityData,
+    hpRatioData,
+    phraseData,
+    qualityFlags,
+  ] = await Promise.all([
     getLibraryStats(),
     getBpmDistribution(),
     getMoodDistribution(),
@@ -39,151 +50,171 @@ export default async function DashboardPage() {
     getQualityFlags(),
   ])
 
-  const totalCoverage = coverageData.reduce((sum, d) => sum + d.count, 0)
+  const totalAnalyzed = stats.totalTracks > 0 ? stats.analyzedTracks : 0
 
   return (
     <>
       <SiteHeader title="Dashboard" />
-      <div className="flex flex-1 flex-col gap-6 p-4 md:p-6">
-        <SectionCards stats={stats} />
+      <div className="flex flex-1 flex-col">
+        <div className="@container/main flex flex-1 flex-col gap-2">
+          <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
 
-        <div className="grid gap-4 md:grid-cols-2">
-          <Card className="border-border/50">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base font-semibold">BPM Distribution</CardTitle>
-              <CardDescription>Tempo spread across your library</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <BpmDistributionChart data={bpmData} />
-            </CardContent>
-          </Card>
+            {/* Metric cards */}
+            <SectionCards stats={stats} />
 
-          <Card className="border-border/50">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base font-semibold">LUFS Distribution</CardTitle>
-              <CardDescription>Loudness levels of analyzed tracks</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <LufsRangeChart data={lufsData} />
-            </CardContent>
-          </Card>
-
-          <Card className="border-border/50">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base font-semibold">Mood Distribution</CardTitle>
-              <CardDescription>Subgenre classification breakdown</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <MoodDistributionChart data={moodData} />
-            </CardContent>
-          </Card>
-
-          <Card className="border-border/50">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base font-semibold">Camelot Wheel</CardTitle>
-              <CardDescription>Key distribution for harmonic mixing</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <CamelotWheelChart data={keyData} />
-            </CardContent>
-          </Card>
-        </div>
-
-        <div className="grid gap-4 md:grid-cols-3">
-          <Card className="border-border/50">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base font-semibold">Danceability</CardTitle>
-              <CardDescription>Rhythmic danceability distribution</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <DanceabilityDistributionChart data={danceabilityData} />
-            </CardContent>
-          </Card>
-
-          <Card className="border-border/50">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base font-semibold">HP Ratio</CardTitle>
-              <CardDescription>Harmonic-to-percussive ratio spread</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <HpRatioDistributionChart data={hpRatioData} />
-            </CardContent>
-          </Card>
-
-          <Card className="border-border/50">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base font-semibold">Phrase Length</CardTitle>
-              <CardDescription>Dominant phrase length in bars</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <PhraseDistributionChart data={phraseData} />
-            </CardContent>
-          </Card>
-        </div>
-
-        <Card className="border-border/50">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base font-semibold">Quality Flags</CardTitle>
-            <CardDescription>Tracks with notable audio characteristics</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid gap-4 sm:grid-cols-3">
-              <div className="space-y-1">
-                <p className="text-sm text-muted-foreground">Variable Tempo</p>
-                <p className="text-2xl font-semibold tabular-nums">
-                  {qualityFlags.variable_tempo_count.toLocaleString()}
-                </p>
-              </div>
-              <div className="space-y-1">
-                <p className="text-sm text-muted-foreground">Atonal</p>
-                <p className="text-2xl font-semibold tabular-nums">
-                  {qualityFlags.atonality_count.toLocaleString()}
-                </p>
-              </div>
-              <div className="space-y-1">
-                <p className="text-sm text-muted-foreground">Avg BPM Confidence</p>
-                <p className="text-2xl font-semibold tabular-nums">
-                  {(qualityFlags.avg_bpm_confidence * 100).toFixed(1)}%
-                </p>
-              </div>
+            {/* BPM Distribution — full width */}
+            <div className="px-4 lg:px-6">
+              <Card className="shadow-none">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium">BPM Distribution</CardTitle>
+                  <CardDescription>Tempo spread across your library</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <BpmDistributionChart data={bpmData} />
+                </CardContent>
+              </Card>
             </div>
-          </CardContent>
-        </Card>
 
-        <Card className="border-border/50">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base font-semibold">Analysis Coverage</CardTitle>
-            <CardDescription>
-              {totalCoverage > 0
-                ? `${totalCoverage} tracks analyzed across ${coverageData.length} levels`
-                : 'No tracks analyzed yet'}
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {coverageData.length === 0 ? (
-              <p className="text-sm text-muted-foreground">
-                Run <code className="rounded bg-muted px-1 py-0.5 text-xs">classify_mood</code> to
-                start analyzing your library.
-              </p>
-            ) : (
-              coverageData.map((item) => {
-                const pct = totalCoverage > 0 ? Math.round((item.count / totalCoverage) * 100) : 0
-                const label = ANALYSIS_LEVELS[item.level] ?? `Level ${item.level}`
-                return (
-                  <div key={item.level} className="space-y-1.5">
-                    <div className="flex justify-between text-sm">
-                      <span className="font-medium">{label}</span>
-                      <span className="text-muted-foreground">
-                        {item.count.toLocaleString()} ({pct}%)
-                      </span>
+            {/* Mood + Camelot */}
+            <div className="grid gap-4 px-4 md:grid-cols-2 lg:px-6">
+              <Card className="shadow-none">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium">Mood Distribution</CardTitle>
+                  <CardDescription>Subgenre classification breakdown</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <MoodDistributionChart data={moodData} />
+                </CardContent>
+              </Card>
+
+              <Card className="shadow-none">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium">Key Distribution</CardTitle>
+                  <CardDescription>Camelot wheel — harmonic mixing</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <CamelotWheelChart data={keyData} />
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* LUFS + Coverage */}
+            <div className="grid gap-4 px-4 md:grid-cols-2 lg:px-6">
+              <Card className="shadow-none">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium">LUFS Distribution</CardTitle>
+                  <CardDescription>Loudness levels of analyzed tracks</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <LufsRangeChart data={lufsData} />
+                </CardContent>
+              </Card>
+
+              <Card className="shadow-none">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium">Analysis Coverage</CardTitle>
+                  <CardDescription>
+                    {totalAnalyzed > 0
+                      ? `${totalAnalyzed.toLocaleString()} tracks with audio features`
+                      : 'No tracks analyzed yet'}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {coverageData.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">
+                      Run{' '}
+                      <code className="rounded bg-muted px-1 py-0.5 text-xs">classify_mood</code>{' '}
+                      to start analyzing your library.
+                    </p>
+                  ) : (
+                    coverageData.map((item) => {
+                      const pct =
+                        totalAnalyzed > 0 ? Math.round((item.count / totalAnalyzed) * 100) : 0
+                      const label = ANALYSIS_LEVELS[item.level] ?? `Level ${item.level}`
+                      return (
+                        <div key={item.level} className="space-y-1.5">
+                          <div className="flex justify-between text-xs">
+                            <span className="text-muted-foreground">{label}</span>
+                            <span className="tabular-nums text-muted-foreground">
+                              {item.count.toLocaleString()} ({pct}%)
+                            </span>
+                          </div>
+                          <Progress value={pct} className="h-1.5" />
+                        </div>
+                      )
+                    })
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Danceability + HP Ratio + Phrase */}
+            <div className="grid gap-4 px-4 md:grid-cols-3 lg:px-6">
+              <Card className="shadow-none">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium">Danceability</CardTitle>
+                  <CardDescription>Rhythmic danceability score</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <DanceabilityDistributionChart data={danceabilityData} />
+                </CardContent>
+              </Card>
+
+              <Card className="shadow-none">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium">HP Ratio</CardTitle>
+                  <CardDescription>Harmonic-to-percussive ratio</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <HpRatioDistributionChart data={hpRatioData} />
+                </CardContent>
+              </Card>
+
+              <Card className="shadow-none">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium">Phrase Length</CardTitle>
+                  <CardDescription>Dominant phrase length in bars</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <PhraseDistributionChart data={phraseData} />
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Quality flags */}
+            <div className="px-4 lg:px-6">
+              <Card className="shadow-none">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium">Quality Flags</CardTitle>
+                  <CardDescription>Tracks with notable audio characteristics</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid gap-4 sm:grid-cols-3">
+                    <div className="space-y-0.5">
+                      <p className="text-sm text-muted-foreground">Variable Tempo</p>
+                      <p className="text-2xl font-semibold tabular-nums">
+                        {qualityFlags.variable_tempo_count.toLocaleString()}
+                      </p>
                     </div>
-                    <Progress value={pct} className="h-2" />
+                    <div className="space-y-0.5">
+                      <p className="text-sm text-muted-foreground">Atonal</p>
+                      <p className="text-2xl font-semibold tabular-nums">
+                        {qualityFlags.atonality_count.toLocaleString()}
+                      </p>
+                    </div>
+                    <div className="space-y-0.5">
+                      <p className="text-sm text-muted-foreground">Avg BPM Confidence</p>
+                      <p className="text-2xl font-semibold tabular-nums">
+                        {(qualityFlags.avg_bpm_confidence * 100).toFixed(1)}%
+                      </p>
+                    </div>
                   </div>
-                )
-              })
-            )}
-          </CardContent>
-        </Card>
+                </CardContent>
+              </Card>
+            </div>
+
+          </div>
+        </div>
       </div>
     </>
   )
