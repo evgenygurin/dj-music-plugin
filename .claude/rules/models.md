@@ -17,3 +17,7 @@ globs: app/models/**/*.py
 - Foreign keys always have `ondelete` specified (CASCADE or SET NULL)
 - Relationships use `Mapped[]` type annotations
 - Index frequently queried columns (bpm, key_code, status)
+
+## Gotchas
+
+- Energy band column names: `energy_sub`, `energy_lowmid`, `energy_highmid` (not `energy_band_*`, not `energy_low_mid`)

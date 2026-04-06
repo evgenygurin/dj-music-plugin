@@ -14,3 +14,7 @@ globs: app/repositories/**/*.py
 - Methods are async: `async def get_by_id(self, id: int) -> Track | None`
 - Use `selectinload()` for eager loading relationships when needed
 - Filter methods accept Optional params: `bpm_min: float | None = None`
+
+## Gotchas
+
+- `AsyncSession.delete()` IS async in SQLAlchemy 2.0 — `await` is correct

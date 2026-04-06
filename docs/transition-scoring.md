@@ -1,23 +1,26 @@
 # Transition Scoring
 
-5-component weighted formula for evaluating track-to-track transitions.
+6-component weighted formula for evaluating track-to-track transitions.
 
 ## Formula
 
 ```text
 score = w_bpm * S_bpm + w_harmonic * S_harmonic + w_energy * S_energy
-      + w_spectral * S_spectral + w_groove * S_groove
+      + w_spectral * S_spectral + w_groove * S_groove + w_timbral * S_timbral
 ```
 
 Default weights (from `app/core/constants.py`):
 
 | Component | Weight | Purpose |
 |-----------|--------|---------|
-| BPM | 0.25 | Tempo compatibility |
+| BPM | 0.22 | Tempo compatibility |
 | Harmonic | 0.20 | Key compatibility (Camelot) |
-| Energy | 0.25 | Energy flow (LUFS) |
-| Spectral | 0.15 | Timbral similarity |
-| Groove | 0.15 | Rhythmic compatibility |
+| Energy | 0.23 | Energy flow (LUFS) |
+| Spectral | 0.15 | Timbral similarity (MFCC + centroid + bands) |
+| Groove | 0.10 | Rhythmic compatibility |
+| Timbral | 0.10 | Timbral texture matching |
+
+Total weights = 1.0
 
 ## Hard Constraints
 
@@ -82,6 +85,29 @@ kick_match = 1 - |kick_prominence_a - kick_prominence_b|
 S_groove = 0.5 * onset_match + 0.5 * kick_match
 ```
 
+### S_timbral — Timbral Texture
+
+6th scoring component added for finer timbral discrimination:
+
+```text
+S_timbral = timbral_texture_similarity(features_a, features_b)
+```
+
+Uses spectral complexity, pitch salience, and energy band correlation for deeper timbral matching beyond MFCC cosine similarity.
+
+### TransitionIntent — Context-Aware Scoring
+
+Enum that modifies scoring weights based on track position in the set:
+
+| Intent | When | Effect |
+|--------|------|--------|
+| `maintain` | Mid-set, same energy | Favor similar tracks |
+| `ramp_up` | Building energy | Favor higher energy target |
+| `cool_down` | After peak | Favor lower energy target |
+| `contrast` | Deliberate shift | Relax similarity constraints |
+
+The GA optimizer assigns intent per position based on the template's energy arc.
+
 ## Camelot Wheel
 
 24 keys arranged in a circle. Adjacent keys are harmonically compatible.
@@ -130,7 +156,7 @@ LRU cache for computed scores:
 
 ```text
 Key: (track_id_a, track_id_b)   # ordered tuple
-Value: TransitionScore (5 components + overall)
+Value: TransitionScore (6 components + overall)
 TTL: settings.transition_cache_ttl (default 3600s)
 Max size: settings.transition_cache_max_size (default 10,000)
 Invalidation: when audio features of either track change

@@ -13,3 +13,8 @@ globs: app/config.py, app/core/constants.py
 - Non-configurable domain values in `app/core/constants.py` as enums and module-level constants
 - Never use bare numbers in code — reference `settings.*` or constants
 - Test overrides: use `Settings(field=value)` in test fixtures, or env var patching
+
+## Gotchas
+
+- Background tasks: `task=True` requires `pip install 'fastmcp[tasks]'`
+- Error masking: `mask_error_details=not settings.debug` in production

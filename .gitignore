@@ -52,6 +52,12 @@ in-memoria-vectors.db
 # uv
 uv.lock
 
+# Panel (Next.js)
+panel/.next/
+panel/node_modules/
+panel/out/
+
 # OS
 .DS_Store
 Thumbs.db
+.superpowers/
