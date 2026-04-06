@@ -284,9 +284,12 @@ class TransitionScorer:
                 score = max(0.0, score - settings.scoring_crest_diff_penalty)
 
         # Energy slope bonus: same direction = coherent energy arc
-        if from_t.energy_slope is not None and to_t.energy_slope is not None:
-            if (from_t.energy_slope > 0) == (to_t.energy_slope > 0):
-                score = min(1.0, score + settings.scoring_energy_slope_bonus)
+        if (
+            from_t.energy_slope is not None
+            and to_t.energy_slope is not None
+            and (from_t.energy_slope > 0) == (to_t.energy_slope > 0)
+        ):
+            score = min(1.0, score + settings.scoring_energy_slope_bonus)
 
         return score
 
@@ -446,7 +449,7 @@ class TransitionScorer:
             signals.append(max(0.0, 1.0 - diff / max(max_d, 3.0)))
             weights.append(0.15)
 
-        # Dynamic complexity similarity (0.15): range 0–~10
+        # Dynamic complexity similarity (0.15): range 0-~10
         if from_t.dynamic_complexity is not None and to_t.dynamic_complexity is not None:
             diff = abs(from_t.dynamic_complexity - to_t.dynamic_complexity)
             signals.append(max(0.0, 1.0 - diff / 10.0))
