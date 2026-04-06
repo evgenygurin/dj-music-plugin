@@ -48,6 +48,15 @@ class Settings(BaseSettings):
     transition_hard_reject_camelot_dist: int = 5
     transition_hard_reject_energy_gap: float = 6.0  # LUFS
 
+    # ── P3 Scoring Thresholds ─────────────────────────
+    scoring_bpm_confidence_floor: float = 0.5  # below this, BPM score reduced
+    scoring_variable_tempo_penalty: float = 0.15  # penalty for variable tempo tracks
+    scoring_lra_diff_penalty_threshold: float = 8.0  # LU difference for penalty
+    scoring_lra_diff_penalty: float = 0.10  # penalty amount
+    scoring_crest_diff_penalty_threshold: float = 10.0  # dB difference for penalty
+    scoring_crest_diff_penalty: float = 0.10  # penalty amount
+    scoring_energy_slope_bonus: float = 0.05  # bonus for same slope direction
+
     # ── Storage Backends ─────────────────────────────
     storage_backend: str = "memory"  # memory, file, redis
     storage_file_dir: str = "cache/storage"
