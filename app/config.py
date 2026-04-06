@@ -96,12 +96,7 @@ class Settings(BaseSettings):
     audio_hop_length: int = 512
     audio_sample_rate: int = 22050
     audio_mfcc_n_coeffs: int = 13
-    audio_beat_analysis_duration: float = (
-        60.0  # seconds — analyze only first N seconds for beat features
-    )
-
     # ── Tiered Analysis ───────────────────────────────
-    audio_triage_clip_duration: float = 30.0  # seconds, for L1+L2
     audio_triage_workers: int = 6  # parallel workers for L1+L2
     audio_scoring_workers: int = 4  # parallel workers for L3
     audio_download_workers: int = 8  # parallel download threads for L4
