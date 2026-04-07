@@ -4,13 +4,13 @@ description: Export and deliver a completed DJ set — M3U8, Rekordbox XML, JSON
 argument-hint: "[set_name] [format]"
 ---
 
-Deliver a DJ set. Use the `deliver-set` skill for the full workflow.
+Запусти skill `dj-music:deliver-set` со следующими аргументами: $ARGUMENTS
 
-Arguments (all optional):
-- `set_name` — set to deliver (will prompt if not given)
-- `format` — m3u8, rekordbox, json, cheatsheet, or all
+Если аргументы пустые — skill проведёт интерактивный workflow. Иначе используй их так:
+- 1-й аргумент — `set_name` (имя сета)
+- 2-й аргумент — `format` (m3u8, rekordbox, json, cheatsheet, all)
 
-Examples:
-- `/deliver-set` — interactive delivery workflow
-- `/deliver-set "Friday Night" rekordbox` — export as Rekordbox XML
-- `/deliver-set "Peak Time" all` — export in all formats + YM sync
+Примеры:
+- `/deliver-set` — интерактивный workflow
+- `/deliver-set "Friday Night" rekordbox` — экспорт в Rekordbox XML
+- `/deliver-set "Peak Time" all` — все форматы + YM sync

@@ -4,15 +4,19 @@ description: Sync playlists with Yandex Music — push, pull, search, manage YM 
 argument-hint: "[action] [playlist_name]"
 ---
 
-Yandex Music sync. Use the `ym-sync` skill for the full workflow.
+Запусти skill `dj-music:ym-sync` со следующими аргументами: $ARGUMENTS
 
-Actions:
-- `sync` — bidirectional playlist sync
-- `push` — push local playlist to YM
-- `pull` — pull YM playlist to local
-- `search` — search YM catalog
+Если аргументы пустые — skill проведёт интерактивный workflow. Иначе используй их так:
+- 1-й аргумент — `action` (sync, push, pull, search)
+- 2-й аргумент — `playlist_name` или поисковый запрос
 
-Examples:
-- `/ym-sync` — interactive sync workflow
-- `/ym-sync push "Friday Night Set"` — push set to YM
-- `/ym-sync search "Amelie Lens"` — search YM catalog
+Действия:
+- `sync` — двунаправленная синхронизация плейлиста
+- `push` — выгрузить локальный плейлист в YM
+- `pull` — загрузить YM плейлист локально
+- `search` — поиск по каталогу YM
+
+Примеры:
+- `/ym-sync` — интерактивный workflow
+- `/ym-sync push "Friday Night Set"` — выгрузка сета в YM
+- `/ym-sync search "Amelie Lens"` — поиск по каталогу YM

@@ -4,15 +4,19 @@ description: Classify tracks by mood/subgenre, audit quality, distribute to subg
 argument-hint: "[action] [playlist_name]"
 ---
 
-Curate the DJ library. Use the `curate-library` skill for the full workflow.
+Запусти skill `dj-music:curate-library` со следующими аргументами: $ARGUMENTS
 
-Actions:
-- `classify` — classify tracks by 15 techno subgenres
-- `audit` — audit playlist quality (BPM, key, energy coverage)
-- `distribute` — distribute tracks to subgenre playlists
-- `stats` — library statistics overview
+Если аргументы пустые — skill проведёт интерактивный workflow. Иначе используй их так:
+- 1-й аргумент — `action` (один из: classify, audit, distribute, stats)
+- 2-й аргумент — `playlist_name` (если применимо)
 
-Examples:
-- `/curate-library` — interactive curation workflow
-- `/curate-library classify "Peak Time Techno"` — classify tracks in playlist
-- `/curate-library stats` — show library statistics
+Действия:
+- `classify` — классифицировать треки по 15 поджанрам техно
+- `audit` — аудит качества плейлиста (BPM, ключ, энергия)
+- `distribute` — распределить треки по плейлистам поджанров
+- `stats` — общая статистика библиотеки
+
+Примеры:
+- `/curate-library` — интерактивный workflow
+- `/curate-library classify "Peak Time Techno"` — классификация треков плейлиста
+- `/curate-library stats` — статистика библиотеки
