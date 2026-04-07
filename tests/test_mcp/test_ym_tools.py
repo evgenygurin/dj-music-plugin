@@ -103,7 +103,6 @@ async def test_remove_tracks_calls_remove_descending_order() -> None:
         track_ids=["200"],
         revision=5,
         ym=ym_mock,
-        ctx=None,
     )
 
     assert result["action"] == "remove_tracks"
@@ -143,7 +142,6 @@ async def test_remove_tracks_reports_not_found() -> None:
         track_ids=["200", "999"],  # "999" not in playlist
         revision=5,
         ym=ym_mock,
-        ctx=None,
     )
 
     assert result["removed"] == 1
@@ -174,7 +172,6 @@ async def test_remove_tracks_single_track() -> None:
         track_ids=["200"],
         revision=1,
         ym=ym_mock,
-        ctx=None,
     )
 
     assert result["removed"] == 1

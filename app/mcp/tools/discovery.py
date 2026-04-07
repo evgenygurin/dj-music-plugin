@@ -33,19 +33,6 @@ from app.services.discovery_service import DiscoveryService
 _log = logging.getLogger(__name__)
 
 
-def _has_mcp_session(ctx: Context | None) -> bool:
-    """Return True only when ctx is wired into a real MCP session.
-
-    The REST gateway invokes ``mcp.call_tool()`` directly without going
-    through a transport layer, so ``ctx.session`` / ``ctx.session_id`` raise
-    ``RuntimeError`` if accessed. Anything that touches session state must
-    bail out early in that case — see BUG-21 root cause.
-    """
-    if ctx is None:
-        return False
-    return getattr(ctx, "request_context", None) is not None
-
-
 _EXPAND_ANNOTATIONS: dict[str, bool] = {
     "readOnlyHint": False,
     "openWorldHint": True,
@@ -180,17 +167,8 @@ async def filter_by_feedback(
     # session, so ctx.get_state / ctx.set_state / ctx.info all raise
     # RuntimeError("session is not available"). Session state caching is a
     # pure optimization — only attempt it when a real session exists.
-    state_available = _has_mcp_session(ctx)
-    can_log_via_ctx = state_available
-
-    async def _info(message: str) -> None:
-        if can_log_via_ctx:
-            try:
-                await log.info(message)
-                return
-            except Exception as exc:
-                _log.debug("ctx.info failed (%s); falling back to stdlib log", exc)
-        _log.info(message)
+    # ToolContext.active encapsulates that check (single source of truth).
+    state_available = log.active
 
     liked_set: set[str] | None = None
     disliked_set: set[str] | None = None
@@ -199,14 +177,14 @@ async def filter_by_feedback(
             cached_liked = await ctx.get_state("ym_liked_ids")
             cached_disliked = await ctx.get_state("ym_disliked_ids")
             if cached_liked is not None and cached_disliked is not None:
-                await _info("Using cached feedback (session state)")
+                await log.info("Using cached feedback (session state)")
                 liked_set = set(cached_liked)
                 disliked_set = set(cached_disliked)
         except Exception as exc:
             _log.warning("ctx.get_state failed for feedback cache: %s", exc)
 
     if liked_set is None or disliked_set is None:
-        await _info("Fetching liked/disliked from YM API...")
+        await log.info("Fetching liked/disliked from YM API...")
         liked_set, disliked_set = await svc.get_feedback_sets()
         if state_available and ctx is not None:
             try:
