@@ -18,6 +18,9 @@ build/
 *.swp
 *.swo
 
+# Worktrees
+.worktrees/
+
 # Testing
 .pytest_cache/
 .mypy_cache/
