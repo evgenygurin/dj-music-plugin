@@ -53,6 +53,10 @@ class TieredPipeline:
         Downloads temp files, runs level-appropriate analyzers,
         saves features, deletes temps.
 
+        Audio download+analysis runs concurrently (CPU/network bound).
+        DB writes are sequential — SQLAlchemy async session is not
+        safe for concurrent flush() calls from multiple coroutines.
+
         Returns: {"analyzed": N, "skipped": N, "failed": N}
         """
         if force:
@@ -65,31 +69,45 @@ class TieredPipeline:
         # Resolve local track IDs to YM IDs
         ym_map = await self._tracks.resolve_local_ids_to_ym(need_analysis)
 
-        # Determine concurrency based on level
+        # Determine concurrency based on level (download+analyze phase only)
         if target_level <= AnalysisLevel.TRIAGE:
             max_workers = settings.audio_triage_workers
         else:
             max_workers = settings.audio_scoring_workers
 
+        # Phase 1: parallel download + analyze (no DB writes)
         sem = asyncio.Semaphore(max_workers)
-        analyzed = 0
-        failed = 0
 
-        async def process_one(track_id: int) -> bool:
+        async def download_and_analyze(track_id: int) -> tuple[int, Any] | None:
+            """Download + analyze audio; return (track_id, pipeline_result) or None."""
             ym_id = ym_map.get(track_id)
             if not ym_id:
-                return False
+                logger.warning("No YM ID for track %s — skipping", track_id)
+                return None
             async with sem:
-                return await self._analyze_at_level(track_id, ym_id, target_level)
+                return await self._download_and_analyze(track_id, ym_id, target_level)
 
-        tasks = [process_one(tid) for tid in need_analysis]
-        results = await asyncio.gather(*tasks, return_exceptions=True)
+        tasks = [download_and_analyze(tid) for tid in need_analysis]
+        raw_results: list[tuple[int, Any] | None | BaseException] = await asyncio.gather(
+            *tasks, return_exceptions=True
+        )
 
-        for r in results:
-            if r is True:
-                analyzed += 1
-            else:
+        # Phase 2: sequential DB writes (one session, no concurrent flush)
+        analyzed = 0
+        failed = 0
+        for r in raw_results:
+            if isinstance(r, BaseException):
+                logger.error("Unexpected error during download/analyze: %s", r)
                 failed += 1
+            elif r is None:
+                failed += 1
+            else:
+                track_id, result = r
+                success = await self._save_analysis(track_id, result, target_level)
+                if success:
+                    analyzed += 1
+                else:
+                    failed += 1
 
         return {
             "analyzed": analyzed,
@@ -97,63 +115,84 @@ class TieredPipeline:
             "failed": failed,
         }
 
-    async def _analyze_at_level(
+    async def _download_and_analyze(
         self, track_id: int, ym_track_id: str, level: AnalysisLevel
-    ) -> bool:
-        """Download temp -> analyze -> save features -> delete temp."""
+    ) -> tuple[int, Any] | None:
+        """Download temp audio + run pipeline analyzers. No DB writes.
+
+        Returns (track_id, pipeline_result) on success, None on failure.
+        """
         from app.audio.temp_download import temp_download_track
 
         analyzers = get_analyzers_for_level(level)
+        save_ts = self._timeseries is not None and level >= AnalysisLevel.SCORING
 
         try:
             async with temp_download_track(self._ym, ym_track_id) as tmp_path:
-                save_ts = self._timeseries is not None and level >= AnalysisLevel.SCORING
                 result = await self._pipeline.analyze(
                     str(tmp_path),
                     analyzers=analyzers,
                     return_context=save_ts,
                 )
-                if result.features:
-                    # Extract sections before saving features (not a DB column)
-                    sections = result.features.pop("sections", None)
-                    result.features.pop("section_count", None)
-
-                    # Create pipeline run record for traceability
-                    run = await self._audio.create_pipeline_run(
-                        track_id=track_id,
-                        name=f"tiered_L{int(level)}",
-                        version="0.5.0",
-                        status="completed",
-                    )
-
-                    await self._audio.save_or_update_features(
-                        track_id=track_id,
-                        features_dict=result.features,
-                        level=level,
-                        pipeline_run_id=run.id,
-                    )
-
-                    # Run mood classifier (rule-based, <1ms)
-                    await self._classify_mood(track_id)
-
-                    # Persist sections to track_sections table
-                    if sections:
-                        await self._audio.save_sections(track_id, sections)
-
-                    # Save frame-level timeseries data
-                    if save_ts and result.context is not None and self._timeseries is not None:
-                        await self._save_timeseries(track_id, result.context)
-
-                    return True
+            return (track_id, result)
         except Exception:
             logger.exception(
-                "Tiered analysis failed for track %s (ym=%s, level=%s)",
+                "Download/analyze failed for track %s (ym=%s, level=%s)",
                 track_id,
                 ym_track_id,
                 level,
             )
+            return None
+
+    async def _save_analysis(self, track_id: int, result: Any, level: AnalysisLevel) -> bool:
+        """Persist pipeline result to DB. Must be called sequentially (one session).
+
+        Returns True on success.
+        """
+        try:
+            if not result.features:
+                logger.warning("No features extracted for track %s at level %s", track_id, level)
+                return False
+
+            # Extract sections before saving features (not a DB column)
+            sections = result.features.pop("sections", None)
+            result.features.pop("section_count", None)
+
+            # Create pipeline run record for traceability
+            run = await self._audio.create_pipeline_run(
+                track_id=track_id,
+                name=f"tiered_L{int(level)}",
+                version="0.5.0",
+                status="completed",
+            )
+
+            await self._audio.save_or_update_features(
+                track_id=track_id,
+                features_dict=result.features,
+                level=level,
+                pipeline_run_id=run.id,
+            )
+
+            # Run mood classifier (rule-based, <1ms)
+            await self._classify_mood(track_id)
+
+            # Persist sections to track_sections table
+            if sections:
+                await self._audio.save_sections(track_id, sections)
+
+            # Save frame-level timeseries data (if collected)
+            save_ts = self._timeseries is not None and level >= AnalysisLevel.SCORING
+            if save_ts and result.context is not None and self._timeseries is not None:
+                await self._save_timeseries(track_id, result.context)
+
+            return True
+        except Exception:
+            logger.exception(
+                "DB save failed for track %s (level=%s)",
+                track_id,
+                level,
+            )
             return False
-        return False
 
     async def _classify_mood(self, track_id: int) -> None:
         """Run rule-based mood classifier on saved features."""
