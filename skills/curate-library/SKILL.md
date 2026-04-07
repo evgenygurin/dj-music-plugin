@@ -1,6 +1,6 @@
 ---
 name: curate-library
-description: "This skill should be used when the user asks to \"classify tracks\", \"audit playlist\", \"library stats\", \"distribute to subgenres\", \"mood classification\", or \"review library quality\". Covers mood classification, playlist auditing, subgenre distribution, and library statistics."
+description: "Use when the user asks to classify tracks, audit playlist, get library stats, distribute to subgenres, run mood classification, or review library quality. Covers mood classification, audits, subgenre distribution and stats."
 version: 0.5.0
 ---
 
@@ -56,7 +56,9 @@ Tracks must meet these thresholds to be valid techno:
 
 ## Tips
 
-- Run `classify_mood` after importing new tracks — needed for subgenre playlists
-- `driving` and `hypnotic` are catch-all subgenres — they get penalized in scoring
+- `classify_mood` auto-triggers L1+L2 analysis for unanalyzed tracks — no need to call `analyze_track` manually
+- `driving` and `hypnotic` are catch-all subgenres — penalized via `settings.mood_catch_all_penalty`
 - Audit before building sets — ensures enough quality tracks are available
-- Use `filter_tracks(mood="peak_time", has_features=true)` to find tracks by subgenre
+- Use `filter_tracks(mood="peak_time")` to find tracks by subgenre (combine with `bpm_min/max`, `energy_min/max`)
+- Domain criteria & quality thresholds: see @REQUIREMENTS.md §12 and @docs/audio-pipeline.md
+- Tool reference: @docs/tool-catalog.md (classify_mood, audit_playlist, review_set_quality, distribute_to_subgenres, get_library_stats)
