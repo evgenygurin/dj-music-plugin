@@ -18,7 +18,13 @@ class YMTrack(BaseModel):
 
 
 class YMAlbum(BaseModel):
-    """Album from YM API."""
+    """Album from YM API.
+
+    ``tracks`` is populated only when the album was fetched via
+    ``/albums/{id}/with-tracks`` — regular ``get_album()`` leaves it
+    empty. The YM ``with-tracks`` response nests tracks inside
+    ``volumes`` (one list per disc); we flatten them on parse.
+    """
 
     id: str
     title: str
@@ -26,6 +32,7 @@ class YMAlbum(BaseModel):
     artists: list[dict[str, object]] = []
     year: int | None = None
     genre: str | None = None
+    tracks: list[YMTrack] = []
 
 
 class YMArtist(BaseModel):

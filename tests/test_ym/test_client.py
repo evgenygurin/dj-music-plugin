@@ -131,6 +131,43 @@ async def test_get_album() -> None:
     assert album.title == "Fabric 98"
     assert album.track_count == 22
     assert album.genre == "techno"
+    assert album.tracks == []  # regular endpoint → no tracks
+    await ym.close()
+
+
+@pytest.mark.asyncio
+async def test_get_album_with_tracks_flattens_volumes() -> None:
+    """YM /albums/{id}/with-tracks returns volumes: list[list[track]] — we flatten."""
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert "/with-tracks" in str(request.url)
+        return _json_response(
+            {
+                "result": {
+                    "id": 777,
+                    "title": "Double LP",
+                    "trackCount": 3,
+                    "artists": [{"id": 9, "name": "Artist"}],
+                    "volumes": [
+                        [
+                            {"id": 1, "title": "Intro", "durationMs": 120000},
+                            {"id": 2, "title": "Peak", "durationMs": 360000},
+                        ],
+                        [
+                            {"id": 3, "title": "Outro", "durationMs": 240000},
+                        ],
+                    ],
+                },
+            },
+        )
+
+    ym = _make_client(handler)
+    album = await ym.get_album("777", with_tracks=True)
+
+    assert album.id == "777"
+    assert len(album.tracks) == 3
+    assert [t.id for t in album.tracks] == ["1", "2", "3"]
+    assert [t.title for t in album.tracks] == ["Intro", "Peak", "Outro"]
     await ym.close()
 
 

@@ -502,7 +502,23 @@ def _parse_track(raw: dict[str, Any]) -> YMTrack:
 
 
 def _parse_album(raw: dict[str, Any]) -> YMAlbum:
-    """Parse a raw album dict from YM API into YMAlbum."""
+    """Parse a raw album dict from YM API into :class:`YMAlbum`.
+
+    When fetched via ``/albums/{id}/with-tracks`` the YM response nests
+    tracks inside ``volumes`` (one list per disc). We flatten them so
+    callers always see ``album.tracks`` as a single list. Regular
+    ``/albums/{id}`` responses leave ``tracks`` empty.
+    """
+    volumes = raw.get("volumes") or []
+    parsed_tracks: list[YMTrack] = []
+    if isinstance(volumes, list):
+        for vol in volumes:
+            if not isinstance(vol, list):
+                continue
+            for track_raw in vol:
+                if isinstance(track_raw, dict):
+                    parsed_tracks.append(_parse_track(track_raw))
+
     return YMAlbum(
         id=str(raw.get("id", "")),
         title=raw.get("title", ""),
@@ -512,6 +528,7 @@ def _parse_album(raw: dict[str, Any]) -> YMAlbum:
         ],
         year=raw.get("year"),
         genre=raw.get("genre"),
+        tracks=parsed_tracks,
     )
 
 
