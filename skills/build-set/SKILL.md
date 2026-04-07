@@ -1,6 +1,6 @@
 ---
 name: build-set
-description: "This skill should be used when the user asks to \"build a DJ set\", \"create a set from playlist\", \"optimize track order\", \"rebuild set\", \"reorder tracks\", or \"make a set\". Covers the full workflow from playlist audit to set optimization and review."
+description: "Use when the user asks to build a DJ set, create a set from playlist, optimize track order, rebuild set, reorder tracks, or make a set. Covers playlist audit, GA/greedy optimization, review and iteration."
 version: 0.5.0
 ---
 
@@ -45,7 +45,7 @@ Guide the user through building an optimized DJ set from a playlist.
 6. **Iterate if needed**
    - `suggest_next_track(set_id=..., after_position=N)` for gap filling
    - `find_replacement(set_id=..., position=N)` for weak transitions
-   - `rebuild_set(set_id=..., pin_tracks=[...], exclude_tracks=[...])` to re-optimize
+   - `rebuild_set(set_id=..., pin=[...], exclude=[...], algorithm="ga")` to re-optimize (also supports `unpin`, `include`, `swap`)
    - `compare_set_versions(set_id=...)` to verify improvement
 
 7. **Finalize**
@@ -54,14 +54,17 @@ Guide the user through building an optimized DJ set from a playlist.
 
 ## Key Parameters
 
-- **algorithm**: `"ga"` (genetic algorithm, better) or `"greedy"` (fast)
-- **pinned_tracks**: track IDs that MUST stay in the set
-- **excluded_tracks**: track IDs banned from the set
-- **dry_run**: `true` to preview without saving
+- **algorithm**: `"ga"` (genetic algorithm, better) or `"greedy"` (fast). Without features, falls back to `playlist_order`.
+- **rebuild_set ops**: `pin`, `unpin`, `exclude`, `include`, `swap` (all optional, take track IDs)
+- **dry_run**: `true` to preview without saving (build_set / rebuild_set)
+- **view** (get_set): `summary | tracks | transitions | full`
+
+Auto-analysis: `build_set` triggers L3 analysis for any candidate track with `analysis_level < 3` — no manual `analyze_track` needed (see @docs/reports/tiered-analysis-design-2026-03-27.md).
 
 ## Tips
 
-- Always audit before building — missing audio features = bad optimization
-- GA with 100+ tracks can take 30-120 seconds
-- The `view` parameter controls response size: use `"summary"` for overview, `"transitions"` for detail
+- Audit before building — missing audio features force `playlist_order` fallback
+- GA with 100+ tracks can take 30-120 seconds (tool timeout: 120s)
+- Use `view="summary"` for overview, `view="transitions"` for transition detail
 - Energy arc from template guides the optimizer — tracks are placed to match target energy curve
+- Tool reference: @docs/tool-catalog.md (build_set, rebuild_set, score_transitions, suggest_next_track, find_replacement, compare_set_versions, quick_set_review, get_set_cheat_sheet)
