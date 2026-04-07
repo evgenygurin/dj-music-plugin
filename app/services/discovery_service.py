@@ -171,9 +171,8 @@ class DiscoveryService:
 
     async def get_feedback_sets(self) -> tuple[set[str], set[str]]:
         """Fetch liked/disliked sets from YM API."""
-        liked_raw = await self._ym.get_liked_ids()
+        liked_set = await self._ym.get_liked_ids()
         disliked_set = await self._ym.get_disliked_ids()
-        liked_set = set(liked_raw)
         return liked_set, disliked_set
 
     async def expand_playlist_ym(
