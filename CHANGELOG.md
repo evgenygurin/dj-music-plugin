@@ -5,6 +5,8 @@ Format based on [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+## [0.5.0] — 2026-04-07
+
 ### Added
 - Second MCP server in plugin manifest: `db` — read-only DB inspection. Configured via `DJ_DB_ACCESS_TOKEN` and `DJ_DB_PROJECT_REF` in `.env`. Implementation: `@supabase/mcp-server-supabase@0.7.0` (pinned), `--read-only` enforced. Bash wrapper validates env vars and maps them to vendor names.
 - 4 new P2 analyzers: SpectralComplexityAnalyzer, PitchSalienceAnalyzer, BpmHistogramAnalyzer, PhraseAnalyzer
