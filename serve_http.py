@@ -101,6 +101,15 @@ class ToolCallRequest(BaseModel):
         ),
     )
 
+    # Schema-level example: Swagger UI's static "Example Value" box uses the
+    # json-schema `example` key. Without it, it auto-generates the infamous
+    # `additionalProp1: {}` placeholder from `additionalProperties: true`.
+    model_config = {
+        "json_schema_extra": {
+            "example": {"arguments": {"limit": 10}},
+        }
+    }
+
 
 # Concrete request examples surfaced by Swagger UI's "Example Value" dropdown.
 # Operation-level openapi_examples (vs model json_schema_extra) is the only
