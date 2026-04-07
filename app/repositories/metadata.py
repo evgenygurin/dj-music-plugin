@@ -12,7 +12,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.platform import YandexMetadata
-from app.models.track import Track
+from app.models.track import Release, Track
 
 
 class MetadataRepository:
@@ -81,20 +81,16 @@ class MetadataRepository:
         self,
         title: str,
         release_date: Any | None = None,
-    ) -> Any | None:
+    ) -> Release | None:
         """Find a release by title and optional release_date."""
-        from app.models.track import Release
-
         stmt = select(Release).where(Release.title == title)
         if release_date is not None:
             stmt = stmt.where(Release.release_date == release_date)
         result = await self.session.execute(stmt)
         return result.scalars().first()
 
-    async def create_release(self, **fields: Any) -> Any:
+    async def create_release(self, **fields: Any) -> Release:
         """Create a Release row."""
-        from app.models.track import Release
-
         release = Release(**fields)
         self.session.add(release)
         await self.session.flush()
