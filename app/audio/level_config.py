@@ -39,5 +39,3 @@ def get_analyzers_for_level(target: AnalysisLevel) -> list[str]:
         if level <= target:
             names.extend(_LEVEL_ANALYZERS[level])
     return names
-
-

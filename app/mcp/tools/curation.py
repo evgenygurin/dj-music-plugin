@@ -146,9 +146,7 @@ async def distribute_to_subgenres(
     log = ToolContext(ctx)
 
     if source_playlist_id is not None:
-        await _auto_triage(
-            await playlist_repo.get_track_ids(source_playlist_id), tiered, log
-        )
+        await _auto_triage(await playlist_repo.get_track_ids(source_playlist_id), tiered, log)
 
     return await svc.distribute_to_subgenres(
         source_playlist_id=source_playlist_id,

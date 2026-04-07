@@ -28,9 +28,7 @@ async def ym_search(
     ``type`` ∈ ``{tracks, albums, artists, playlists, all}``.
     """
     if type not in VALID_SEARCH_TYPES:
-        raise ToolError(
-            f"Invalid type: {type}. Valid: {', '.join(sorted(VALID_SEARCH_TYPES))}"
-        )
+        raise ToolError(f"Invalid type: {type}. Valid: {', '.join(sorted(VALID_SEARCH_TYPES))}")
 
     result = await ym.search(query, type=type, limit=min(limit, MAX_SEARCH_LIMIT))
     return {
