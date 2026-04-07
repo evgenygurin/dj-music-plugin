@@ -148,8 +148,8 @@ class TestSubgenreIdealProfiles:
 
     @pytest.mark.parametrize(
         "subgenre",
-        list(CATCH_ALL_SUBGENRES),
-        ids=[s.value for s in CATCH_ALL_SUBGENRES],
+        sorted(CATCH_ALL_SUBGENRES, key=lambda s: s.value),
+        ids=sorted(s.value for s in CATCH_ALL_SUBGENRES),
     )
     def test_ideal_features_top3_for_catchall(self, subgenre: TechnoSubgenre) -> None:
         """Catch-all subgenres with ideal features should be at least top-3
