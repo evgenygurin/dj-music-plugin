@@ -15,6 +15,7 @@ import {
   IconTerminal2,
   IconSettings,
   IconCommand,
+  IconDisc,
 } from '@tabler/icons-react'
 
 import {
@@ -36,6 +37,7 @@ const mainItems = [
   { title: 'Library', url: '/library', icon: IconVinyl },
   { title: 'Playlists', url: '/playlists', icon: IconPlaylist },
   { title: 'Sets', url: '/sets', icon: IconStack2 },
+  { title: 'DJ Player', url: '/player', icon: IconDisc },
 ]
 
 const toolsItems = [
