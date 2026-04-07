@@ -528,3 +528,153 @@ class TestStitchedClip:
 
         assert result.success_count == 1
         assert observed["duration"] == pytest.approx(200.0, abs=0.1)
+
+
+# ── Vectorized sliding-window RMS ──────────────────────────────────────
+
+
+class TestVectorizedSlidingWindowRMS:
+    """Numerical parity check for the vectorized loudness helpers.
+
+    The previous implementation used a Python ``for`` loop to compute RMS
+    per window. The vectorized form uses ``sliding_window_view`` and a
+    single mean-along-axis. This test pins down that the new
+    implementation returns identical values for representative inputs,
+    so any future regression on the LUFS pipeline gets caught.
+    """
+
+    @staticmethod
+    def _reference_loop(samples: np.ndarray, window: int, hop: int) -> np.ndarray:
+        n = len(samples)
+        if n < window or window <= 0:
+            return np.array([], dtype=np.float64)
+        n_windows = (n - window) // hop + 1
+        out = np.empty(n_windows, dtype=np.float64)
+        for i in range(n_windows):
+            start = i * hop
+            block = samples[start : start + window]
+            out[i] = float(np.sqrt(np.mean(block.astype(np.float64) ** 2)))
+        return out
+
+    def test_vectorized_matches_python_loop_on_400hz_sine(self) -> None:
+        from app.audio.analyzers.loudness import _sliding_window_rms
+
+        sr = 22050
+        t = np.arange(int(sr * 30.0)) / sr
+        sig = (0.4 * np.sin(2 * np.pi * 400 * t)).astype(np.float32)
+        for window, hop in [(8820, 2205), (66150, 22050), (4410, 1102)]:
+            new = _sliding_window_rms(sig, window, hop)
+            ref = self._reference_loop(sig, window, hop)
+            assert new.shape == ref.shape
+            np.testing.assert_allclose(new, ref, rtol=1e-6, atol=1e-8)
+
+    def test_vectorized_matches_python_loop_on_white_noise(self) -> None:
+        from app.audio.analyzers.loudness import _sliding_window_rms
+
+        sr = 22050
+        rng = np.random.default_rng(7)
+        sig = rng.standard_normal(sr * 60).astype(np.float32)
+        new = _sliding_window_rms(sig, window_size=int(0.4 * sr), hop_size=int(0.1 * sr))
+        ref = self._reference_loop(sig, window=int(0.4 * sr), hop=int(0.1 * sr))
+        np.testing.assert_allclose(new, ref, rtol=1e-6, atol=1e-8)
+
+    def test_short_signal_returns_empty(self) -> None:
+        from app.audio.analyzers.loudness import _sliding_window_rms
+
+        sig = np.zeros(100, dtype=np.float32)
+        out = _sliding_window_rms(sig, window_size=200, hop_size=50)
+        assert out.shape == (0,)
+
+    def test_rms_to_lufs_array_matches_scalar(self) -> None:
+        from app.audio.analyzers.loudness import _rms_to_lufs, _rms_to_lufs_array
+
+        rms = np.array([1e-8, 0.001, 0.05, 0.3, 1.0], dtype=np.float64)
+        vec = _rms_to_lufs_array(rms)
+        scal = np.array([_rms_to_lufs(float(r)) for r in rms])
+        np.testing.assert_allclose(vec, scal, rtol=1e-12, atol=1e-12)
+
+
+# ── Vectorized spectral slope / contrast ───────────────────────────────
+
+
+class TestVectorizedSpectral:
+    """Numerical parity check for vectorized spectral helpers."""
+
+    @staticmethod
+    def _make_magnitude(seed: int = 0) -> tuple[np.ndarray, np.ndarray]:
+        """Build a (n_bins, n_frames) magnitude matrix and matching freqs."""
+        n_bins = 1025
+        n_frames = 200
+        rng = np.random.default_rng(seed)
+        # Power-law spectrum so the slope is non-trivial and per-frame
+        # variation is realistic.
+        base = 1.0 / (np.arange(1, n_bins + 1) ** 0.7)
+        mag = (
+            base[:, None] * (1.0 + 0.3 * rng.standard_normal((n_bins, n_frames)))
+        ).clip(min=1e-6).astype(np.float64)
+        freqs = np.linspace(0.0, 11025.0, n_bins).astype(np.float64)
+        return mag, freqs
+
+    @staticmethod
+    def _reference_slope_loop(mag: np.ndarray, freqs: np.ndarray) -> np.ndarray:
+        """Per-frame polyfit reference (the original implementation)."""
+        n_frames = mag.shape[1]
+        out = np.empty(n_frames, dtype=np.float64)
+        valid = freqs > 0
+        log_freqs = np.log2(freqs[valid])
+        for i in range(n_frames):
+            log_mags = 20.0 * np.log10(mag[valid, i] + 1e-10)
+            coeffs = np.polyfit(log_freqs, log_mags, 1)
+            out[i] = float(coeffs[0])
+        return out
+
+    @staticmethod
+    def _reference_contrast_loop(
+        mag: np.ndarray, freqs: np.ndarray, alpha: float = 0.2
+    ) -> np.ndarray:
+        from app.audio.analyzers.spectral import _CONTRAST_BANDS_HZ
+
+        n_frames = mag.shape[1]
+        out = np.empty(n_frames, dtype=np.float64)
+        for i in range(n_frames):
+            contrasts: list[float] = []
+            for low_hz, high_hz in _CONTRAST_BANDS_HZ:
+                mask = (freqs >= low_hz) & (freqs < high_hz)
+                band_mags = mag[mask, i]
+                if len(band_mags) < 2:
+                    continue
+                sorted_mags = np.sort(band_mags)
+                n_alpha = max(1, int(len(sorted_mags) * alpha))
+                peak = float(np.mean(sorted_mags[-n_alpha:]))
+                valley = float(np.mean(sorted_mags[:n_alpha]))
+                contrasts.append(
+                    20.0 * np.log10(peak + 1e-10) - 20.0 * np.log10(valley + 1e-10)
+                )
+            out[i] = float(np.mean(contrasts)) if contrasts else 0.0
+        return out
+
+    def test_vectorized_slope_matches_polyfit_loop(self) -> None:
+        from app.audio.analyzers.spectral import _vectorized_spectral_slope
+
+        mag, freqs = self._make_magnitude(seed=1)
+        new = _vectorized_spectral_slope(mag, freqs)
+        ref = self._reference_slope_loop(mag, freqs)
+        # Closed-form OLS slope is mathematically identical to polyfit's
+        # least-squares solution for a linear fit.
+        np.testing.assert_allclose(new, ref, rtol=1e-9, atol=1e-9)
+
+    def test_vectorized_contrast_matches_per_frame_loop(self) -> None:
+        from app.audio.analyzers.spectral import _vectorized_spectral_contrast
+
+        mag, freqs = self._make_magnitude(seed=2)
+        new = _vectorized_spectral_contrast(mag, freqs)
+        ref = self._reference_contrast_loop(mag, freqs)
+        np.testing.assert_allclose(new, ref, rtol=1e-9, atol=1e-9)
+
+    def test_vectorized_slope_zero_when_no_valid_freqs(self) -> None:
+        from app.audio.analyzers.spectral import _vectorized_spectral_slope
+
+        mag = np.ones((1, 50), dtype=np.float64)
+        freqs = np.array([0.0])  # only DC bin
+        out = _vectorized_spectral_slope(mag, freqs)
+        np.testing.assert_array_equal(out, np.zeros(50))
