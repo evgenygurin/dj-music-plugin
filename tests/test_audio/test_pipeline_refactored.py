@@ -350,3 +350,181 @@ def test_scoring_parity_without_p2():
     score = scorer.score(a, b)
     assert 0.0 <= score.overall <= 1.0
     assert not score.hard_reject
+
+
+# ── Stitched multi-window clip strategy ────────────────────────────────
+
+
+class TestStitchedClip:
+    """Cover the multi-window clip strategy used by heavy librosa analyzers."""
+
+    @staticmethod
+    def _make_signal(duration_s: float, sr: int = 22050) -> AudioSignal:
+        rng = np.random.default_rng(0)
+        n = int(duration_s * sr)
+        return AudioSignal(
+            samples=rng.standard_normal(n).astype(np.float32),
+            sample_rate=sr,
+            duration_seconds=duration_s,
+        )
+
+    def test_clip_passthrough_when_signal_shorter_than_target(self) -> None:
+        """A 30s source asked for 60s clip returns the full source unchanged."""
+        from app.audio.pipeline import _clip_signal
+
+        sig = self._make_signal(30.0)
+        out = _clip_signal(sig, 60.0, centered=True)
+        assert out is sig
+
+    def test_clip_centered_returns_target_duration(self) -> None:
+        """A 400s source clipped to 60s returns exactly 60s of audio."""
+        from app.audio.pipeline import _clip_signal
+
+        sig = self._make_signal(400.0)
+        out = _clip_signal(sig, 60.0, centered=True)
+        assert out.sample_rate == sig.sample_rate
+        # Length within one sample of the target (integer division)
+        target = int(60.0 * sig.sample_rate)
+        assert abs(len(out.samples) - target) <= 1
+        assert abs(out.duration_seconds - 60.0) < 1e-3
+
+    def test_stitched_clip_samples_from_three_distinct_regions(self) -> None:
+        """Three windows must be sourced from across the track, not contiguous.
+
+        Mark the source with a slowly-rising ramp and check that the stitched
+        clip contains samples from regions that span ≥50% of the source.
+        Pure copy-from-the-middle would only span ~15% (60s of 400s).
+        """
+        from app.audio.pipeline import _clip_signal
+
+        sr = 22050
+        duration = 400.0
+        n = int(duration * sr)
+        # Strictly monotonic ramp 0..1 — every sample's value identifies its
+        # original position uniquely
+        ramp = (np.arange(n) / n).astype(np.float32)
+        sig = AudioSignal(samples=ramp, sample_rate=sr, duration_seconds=duration)
+
+        out = _clip_signal(sig, 60.0, centered=True)
+
+        # Strip the fade-affected boundaries before checking source positions
+        # (fade ramps multiply by hann, so values near 0 or 1 are distorted)
+        clean = out.samples[2000:-2000]
+        clean = clean[clean > 0.01]  # drop fade-zeroed boundary samples
+        # Window centers should be near 1/6, 3/6, 5/6 → 0.167, 0.5, 0.833
+        # Stitched clip must contain samples from BOTH the lower third and
+        # the upper third of the source.
+        assert clean.min() < 0.30, f"no early-track samples found, min={clean.min()}"
+        assert clean.max() > 0.70, f"no late-track samples found, max={clean.max()}"
+
+    def test_clip_head_only_for_max_duration_legacy(self) -> None:
+        """centered=False (caller-supplied max_duration) takes the head."""
+        from app.audio.pipeline import _clip_signal
+
+        sr = 22050
+        n = sr * 100
+        sig = AudioSignal(
+            samples=np.arange(n, dtype=np.float32),
+            sample_rate=sr,
+            duration_seconds=100.0,
+        )
+        out = _clip_signal(sig, 10.0, centered=False)
+        assert out.samples[0] == 0.0
+        assert len(out.samples) == sr * 10
+
+    def test_stitched_clip_fades_to_zero_at_window_boundaries(self) -> None:
+        """Hann ramps must drive the very first sample of each window to 0."""
+        from app.audio.pipeline import _build_stitched_clip
+
+        sr = 22050
+        n = sr * 400
+        # Constant non-zero signal so fade artifacts are easy to spot
+        samples = np.ones(n, dtype=np.float32)
+        out = _build_stitched_clip(samples, sr, duration_s=60.0, n_windows=3)
+
+        win_size = int(60.0 * sr) // 3
+        # First sample of each window should be ~0 (hann ramp starts at 0)
+        for i in range(3):
+            assert out[i * win_size] == pytest.approx(0.0, abs=1e-6)
+            assert out[(i + 1) * win_size - 1] == pytest.approx(0.0, abs=1e-6)
+        # Sample in the middle of a window should be back to ~1
+        midpoint = win_size // 2
+        assert out[midpoint] == pytest.approx(1.0, rel=1e-3)
+
+    async def test_pipeline_uses_stitched_clip_for_clipped_analyzers(self) -> None:
+        """End-to-end: an analyzer with clip_duration_s=60 sees 60s context."""
+        from typing import Any
+
+        from app.audio.analyzers.base import BaseAnalyzer
+        from app.audio.core.context import AnalysisContext
+
+        sr = 22050
+        n = sr * 200  # 200s source
+        sig = AudioSignal(
+            samples=np.random.default_rng(1).standard_normal(n).astype(np.float32),
+            sample_rate=sr,
+            duration_seconds=200.0,
+        )
+
+        observed: dict[str, float] = {}
+
+        class _Probe(BaseAnalyzer):
+            name: ClassVar[str] = "_probe_clip"
+            capabilities: ClassVar[frozenset[str]] = frozenset()
+            required_packages: ClassVar[list[str]] = []
+            clip_duration_s: ClassVar[float | None] = 60.0
+
+            def _extract(self, ctx: AnalysisContext) -> dict[str, Any]:
+                observed["duration"] = ctx.duration
+                observed["samples"] = float(len(ctx.samples))
+                return {"probe_ok": 1.0}
+
+        registry = AnalyzerRegistry()
+        registry.register(_Probe())
+        loader = AsyncMock(spec=AudioLoader)
+        loader.load.return_value = sig
+
+        pipeline = AnalysisPipeline(registry, loader)
+        result = await pipeline.analyze("/fake.wav", analyzers=["_probe_clip"])
+
+        assert result.success_count == 1
+        # Probe must see ~60s of audio, not the full 200s
+        assert observed["duration"] == pytest.approx(60.0, abs=0.1)
+        assert observed["samples"] == pytest.approx(sr * 60.0, abs=sr * 0.1)
+
+    async def test_pipeline_full_track_for_unclipped_analyzers(self) -> None:
+        """Analyzers with clip_duration_s=None see the full track."""
+        from typing import Any
+
+        from app.audio.analyzers.base import BaseAnalyzer
+        from app.audio.core.context import AnalysisContext
+
+        sr = 22050
+        sig = AudioSignal(
+            samples=np.random.default_rng(2).standard_normal(sr * 200).astype(np.float32),
+            sample_rate=sr,
+            duration_seconds=200.0,
+        )
+
+        observed: dict[str, float] = {}
+
+        class _FullProbe(BaseAnalyzer):
+            name: ClassVar[str] = "_probe_full"
+            capabilities: ClassVar[frozenset[str]] = frozenset()
+            required_packages: ClassVar[list[str]] = []
+            clip_duration_s: ClassVar[float | None] = None
+
+            def _extract(self, ctx: AnalysisContext) -> dict[str, Any]:
+                observed["duration"] = ctx.duration
+                return {"full_ok": 1.0}
+
+        registry = AnalyzerRegistry()
+        registry.register(_FullProbe())
+        loader = AsyncMock(spec=AudioLoader)
+        loader.load.return_value = sig
+
+        pipeline = AnalysisPipeline(registry, loader)
+        result = await pipeline.analyze("/fake.wav", analyzers=["_probe_full"])
+
+        assert result.success_count == 1
+        assert observed["duration"] == pytest.approx(200.0, abs=0.1)

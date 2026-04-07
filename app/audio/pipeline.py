@@ -7,12 +7,17 @@ asyncio.to_thread() for CPU-bound concurrency.
 
 Analyzers declare their needed clip via ``BaseAnalyzer.clip_duration_s``:
 - ``None`` → full track (loudness, structure, energy)
-- ``60.0`` → centered 60-second clip (beat, bpm, key, spectral, ...)
+- ``60.0`` → stitched 60-second clip (beat, bpm, key, spectral, ...)
 
 Heavy librosa ops (effects.hpss, beat_track, chroma_cqt, tonnetz) are O(N)
 in samples. On a 6-7 minute techno track the difference is dramatic
-(beat: 16s vs 3s). For mood classification and transition scoring a 60s
-center clip is statistically equivalent — techno has stable BPM/key/timbre.
+(beat: 16s vs 3s). The stitched clip samples 3 windows of 20s from
+positions ~17%/50%/83% of the track and concatenates them with short
+fades to avoid click artifacts. This is more robust than a single
+center window: it skips intro/outro padding while capturing variation
+between sections (build vs drop vs breakdown), giving statistically
+representative aggregates for techno tracks where harmony, BPM, and
+timbre are stable but per-section dynamics differ.
 """
 
 from __future__ import annotations
@@ -21,10 +26,47 @@ import asyncio
 from dataclasses import dataclass, field
 from typing import Any
 
+import numpy as np
+
 from app.audio.analyzers.base import AnalyzerRegistry, BaseAnalyzer
 from app.audio.core.context import AnalysisContext
 from app.audio.core.loader import AudioLoader
 from app.audio.core.types import AnalyzerResult, AudioSignal
+
+# Stitched-clip strategy parameters. Three windows from across the track
+# at positions corresponding to (i + 0.5) / N for i in 0..N-1, i.e. 1/6,
+# 3/6, 5/6 of duration. Skips intro/outro, captures section variation.
+_DEFAULT_N_WINDOWS = 3
+_FADE_MS = 20.0
+
+_LIBROSA_WARMED_UP = False
+
+
+def _warmup_librosa() -> None:
+    """Pre-import librosa submodules on the main thread.
+
+    Without this, multiple worker threads concurrently triggering the lazy
+    loader inside librosa/scipy hit a circular-import race the first time
+    each submodule is touched (``Module 'scipy' has no attribute '_lib'``,
+    ``cannot import name 'PytestTester'``). Warming up once on the main
+    thread before any ``asyncio.to_thread(analyzer.run, ...)`` dispatch
+    eliminates the race.
+    """
+    global _LIBROSA_WARMED_UP
+    if _LIBROSA_WARMED_UP:
+        return
+    try:
+        import librosa
+        import librosa.beat
+        import librosa.effects
+        import librosa.feature
+        import librosa.feature.rhythm
+        import librosa.feature.spectral
+        import librosa.onset  # noqa: F401
+    except ImportError:
+        # librosa is optional — only librosa-dependent analyzers will fail
+        pass
+    _LIBROSA_WARMED_UP = True
 
 
 @dataclass
@@ -80,6 +122,10 @@ class AnalysisPipeline:
         instances = [
             a for n in analyzer_names if (a := self.registry.get(n)) and a.is_available()
         ]
+
+        # Eliminate scipy/librosa lazy-loader races before threaded dispatch
+        if any("librosa" in a.required_packages for a in instances):
+            _warmup_librosa()
 
         # Build one context per unique clip duration. Most heavy analyzers
         # share clip_duration_s=60, so typically we build at most 2 contexts
@@ -155,17 +201,80 @@ class AnalysisPipeline:
 def _clip_signal(signal: AudioSignal, duration_s: float, centered: bool = False) -> AudioSignal:
     """Return a clipped copy of the signal.
 
-    centered=True picks a window from the middle of the track (best for
-    techno: skips intro/outro, captures the main groove). centered=False
-    takes the head — used for max_duration legacy behavior.
+    centered=True selects a representative excerpt of `duration_s` seconds
+    using the stitched multi-window strategy (default 3 x 20s windows
+    from positions ~1/6, 3/6, 5/6 of the track). This captures variation
+    between sections (intro/build/drop/breakdown) better than a single
+    center window while keeping the same compute budget.
+
+    centered=False takes the head — used for caller-supplied max_duration
+    legacy behavior.
+
+    Falls back to a single centered window when the track is too short
+    for non-overlapping sub-windows.
     """
-    n_samples = int(duration_s * signal.sample_rate)
-    if n_samples >= len(signal.samples):
+    sr = signal.sample_rate
+    n_total = int(duration_s * sr)
+    if n_total >= len(signal.samples):
         return signal
-    start = (len(signal.samples) - n_samples) // 2 if centered else 0
+
+    if not centered:
+        return AudioSignal(
+            samples=signal.samples[:n_total],
+            sample_rate=sr,
+            duration_seconds=n_total / sr,
+            file_path=signal.file_path,
+        )
+
+    samples = _build_stitched_clip(signal.samples, sr, duration_s, _DEFAULT_N_WINDOWS)
     return AudioSignal(
-        samples=signal.samples[start : start + n_samples],
-        sample_rate=signal.sample_rate,
-        duration_seconds=n_samples / signal.sample_rate,
+        samples=samples,
+        sample_rate=sr,
+        duration_seconds=len(samples) / sr,
         file_path=signal.file_path,
     )
+
+
+def _build_stitched_clip(
+    samples: np.ndarray, sr: int, duration_s: float, n_windows: int
+) -> np.ndarray:
+    """Build a stitched clip by sampling N windows across the source.
+
+    Each window is `duration_s / n_windows` seconds long, centered at
+    position ``(i + 0.5) / n_windows`` of the source. Windows are
+    fade-blended at their boundaries with a short hann ramp to avoid
+    click artifacts that would create false onsets in beat detection.
+
+    If windows would overlap (track too short), falls back to a single
+    centered window of `duration_s` seconds.
+    """
+    n_total = int(duration_s * sr)
+    win_size = n_total // n_windows
+    fade_len = min(int(_FADE_MS / 1000.0 * sr), win_size // 4)
+
+    # Span needed for non-overlapping windows: n_windows * win_size.
+    # If source is shorter, fall back to single centered window.
+    if len(samples) < n_windows * win_size:
+        start = (len(samples) - n_total) // 2
+        return samples[start : start + n_total].copy()
+
+    # Hann fade-in and fade-out ramps applied to each window
+    if fade_len > 0:
+        ramp = 0.5 * (1.0 - np.cos(np.pi * np.arange(fade_len) / fade_len))
+        ramp = ramp.astype(samples.dtype)
+    else:
+        ramp = np.empty(0, dtype=samples.dtype)
+
+    pieces: list[np.ndarray] = []
+    for i in range(n_windows):
+        center = int((i + 0.5) / n_windows * len(samples))
+        start = max(0, center - win_size // 2)
+        end = min(len(samples), start + win_size)
+        start = max(0, end - win_size)  # right-align if we hit the end
+        window = samples[start:end].copy()
+        if fade_len > 0:
+            window[:fade_len] *= ramp
+            window[-fade_len:] *= ramp[::-1]
+        pieces.append(window)
+
+    return np.concatenate(pieces)
