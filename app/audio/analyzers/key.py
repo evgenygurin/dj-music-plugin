@@ -88,8 +88,10 @@ def _compute_hnr_autocorrelation(samples: np.ndarray, sr: int) -> float:
             search_region = acf[min_lag:max_lag]
             if len(search_region) > 0:
                 peak = float(np.max(search_region))
-                peak = max(0.0, min(0.9999, peak))  # clamp
-                hnr = 10.0 * np.log10(peak / (1.0 - peak + 1e-10))
+                # Clamp lower bound to a tiny positive value so log10 doesn't
+                # see 0 (silence/noise frames produce peak ≈ 0 → -inf + warning).
+                peak = max(1e-10, min(0.9999, peak))
+                hnr = 10.0 * np.log10(peak / (1.0 - peak))
                 hnr_values.append(float(hnr))
 
     if not hnr_values:
