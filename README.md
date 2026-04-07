@@ -39,18 +39,19 @@ uv run fastmcp run app/server.py
 
 Плагин поднимает два MCP сервера:
 
-| Сервер | Назначение | Транспорт |
-|--------|------------|-----------|
-| `mcp` | 50 DJ tools (FastMCP) | stdio (`uv run`) |
-| `db` | Read-only инспекция БД, схемы, логов (Supabase) | stdio (`npx @supabase/mcp-server-supabase`) |
+| Сервер | Назначение |
+|--------|------------|
+| `mcp` | 50 DJ tools — построение сетов, аудиоанализ, YM, экспорт (FastMCP) |
+| `db` | Read-only инспекция БД: схема, SQL, миграции, логи |
 
-Для `db` создай токен в [Supabase Dashboard](https://supabase.com/dashboard/account/tokens) и положи в `.env`:
+Сервер `db` принудительно `--read-only` — все мутации БД выполняются через `mcp`. Конфигурация в [.env](.env.example):
 
 ```bash
-SUPABASE_ACCESS_TOKEN=sbp_xxxxxxxxxxxx
+DJ_DB_ACCESS_TOKEN="..."   # personal access token
+DJ_DB_PROJECT_REF="..."    # project reference id
 ```
 
-Сервер привязан к проекту `bowosphlnghhgaulcyfm` и работает в `--read-only` режиме. Мутации БД проходят через DJ tools, не через Supabase MCP.
+> Реализация — `@supabase/mcp-server-supabase@0.7.0` (запускается через `npx`). Токен генерится в [Supabase Dashboard](https://supabase.com/dashboard/account/tokens).
 
 ## Разработка
 
