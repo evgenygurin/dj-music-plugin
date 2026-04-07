@@ -1,4 +1,5 @@
 {
+  "description": "Loads DJ Music context and starts REST API + Next.js panel for the dashboard",
   "hooks": {
     "SessionStart": [
       {
