@@ -85,6 +85,9 @@ class SpectralAnalyzer(BaseAnalyzer):
     name: ClassVar[str] = "spectral"
     capabilities: ClassVar[frozenset[str]] = frozenset({"spectral"})
     required_packages: ClassVar[list[str]] = []
+    # Per-frame slope/contrast loops scale linearly with frame count.
+    # Aggregate stats (centroid, rolloff, flatness) converge well within 60s.
+    clip_duration_s: ClassVar[float | None] = 60.0
 
     def _extract(self, ctx: AnalysisContext) -> dict[str, Any]:
         """Compute spectral features reusing pre-computed ctx.magnitude/freqs.

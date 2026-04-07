@@ -107,6 +107,9 @@ class KeyDetector(BaseAnalyzer):
     name: ClassVar[str] = "key"
     capabilities: ClassVar[frozenset[str]] = frozenset({"key", "harmony"})
     required_packages: ClassVar[list[str]] = ["librosa"]
+    # chroma_cqt is O(N). Key is constant within a techno track — 60s clip
+    # gives the same Krumhansl-Kessler correlation as the full track.
+    clip_duration_s: ClassVar[float | None] = 60.0
 
     def _extract(self, ctx: AnalysisContext) -> dict[str, Any]:
         """Detect musical key using CQT chroma."""

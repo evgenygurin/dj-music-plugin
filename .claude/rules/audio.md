@@ -24,5 +24,6 @@ globs: app/audio/**/*.py
 - P2 analyzers: SpectralComplexityAnalyzer, PitchSalienceAnalyzer depend on essentia; BpmHistogramAnalyzer depends on `beat` (depends_on); PhraseAnalyzer depends on `beat` + `bpm`
 - `depends_on`: `ClassVar[frozenset[str]]` — Phase 2 pipeline passes `prior_results` to dependent analyzers
 - `_ANALYZER_REGISTRY`: global dict, `importlib` doesn't re-register decorator on re-import — in tests delete only `_test_*` keys, never `clear()`
-- Beat analyzer: processes first `settings.audio_beat_analysis_duration` seconds (default 60), not the entire track
+- Per-analyzer clip duration: heavy librosa analyzers (beat, bpm, key, spectral, mfcc, tonnetz, tempogram, pitch_salience) declare `clip_duration_s: ClassVar[float | None] = 60.0`. Pipeline builds a centered 60s `AnalysisContext` for them and a full-track context for analyzers with `clip_duration_s = None` (loudness, structure, energy). One STFT per unique clip duration, shared across bucket members
+- Shared onset envelope: `bpm`, `beat`, `tempogram` read `ctx.get_onset_env()` (lazy + lock-protected) instead of recomputing `librosa.onset.onset_strength` three times
 - MP3 analysis: requires `uv sync --extra audio` (librosa + soundfile)

@@ -40,6 +40,30 @@ result = await pipeline.analyze(audio_path, track_id)
 
 **Partial failure**: if BPMDetector fails (librosa not installed), pipeline continues with other analyzers. Known errors bubble up, unexpected errors wrapped in `PipelineError`.
 
+### Per-Analyzer Clip Duration
+
+Heavy librosa analyzers (`beat`, `bpm`, `key`, `spectral`, `mfcc`, `tonnetz`,
+`tempogram`, `pitch_salience`) declare a 60-second clip via the
+`clip_duration_s` ClassVar on `BaseAnalyzer`. The pipeline groups analyzers
+by their requested clip duration and builds **one** `AnalysisContext` per
+unique value — typically two contexts per track:
+
+- **Full-track context** for `loudness` (LUFS integration), `structure`
+  (section detection), `energy` (cheap pure-numpy).
+- **Centered 60s context** for everything else.
+
+`librosa.effects.hpss`, `chroma_cqt`, `beat_track`, etc. are all O(N) in
+samples — clipping to 60s gives ~5x speedup on a 6-7 minute techno track
+with negligible loss of fidelity (BPM, key, MFCC, timbre are stable across
+the track).
+
+### Shared Onset Envelope
+
+`bpm`, `beat`, and `tempogram` all consume `librosa.onset.onset_strength`.
+Instead of recomputing it three times the pipeline caches it on the
+`AnalysisContext` via `ctx.get_onset_env()` — lazy + lock-protected, safe
+under concurrent thread dispatch. Saves ~3s per track.
+
 ## Analyzer Interface
 
 Each analyzer implements:

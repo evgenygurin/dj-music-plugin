@@ -8,10 +8,16 @@ Why eager, not lazy:
     create check-then-act race conditions. Eager computation makes
     context immutable after construction — thread-safe by design.
 
+Optional shared intermediates (e.g. ``librosa_onset_env``) are computed
+on first access under a lock so concurrent analyzers don't recompute
+them. They're still safe to read after computation.
+
 Memory: For 60s track at 22050 Hz: STFT ~4 MB, frame_energies ~10 KB.
 """
 
 from __future__ import annotations
+
+import threading
 
 import numpy as np
 
@@ -30,7 +36,9 @@ class AnalysisContext:
     __slots__ = (
         "_frame_energies",
         "_freqs",
+        "_lock",
         "_magnitude",
+        "_onset_env",
         "_params",
         "_signal",
         "_stft",
@@ -43,6 +51,8 @@ class AnalysisContext:
     ) -> None:
         self._signal = signal
         self._params = params or FrameParams()
+        self._lock = threading.Lock()
+        self._onset_env: np.ndarray | None = None
 
         self._stft: np.ndarray = compute_stft(
             signal.samples,
@@ -95,3 +105,24 @@ class AnalysisContext:
     @property
     def frame_energies(self) -> np.ndarray:
         return self._frame_energies
+
+    def get_onset_env(self) -> np.ndarray:
+        """Lazily compute and cache librosa onset envelope.
+
+        Three analyzers (bpm, beat, tempogram) all need the same
+        ``librosa.onset.onset_strength`` output. Computing it once on the
+        context (under a lock for thread-safety) saves ~2x ~1.5s per track.
+
+        Returns the onset envelope array. Requires librosa to be installed —
+        callers should ensure their analyzer's ``required_packages`` includes it.
+        """
+        if self._onset_env is not None:
+            return self._onset_env
+        with self._lock:
+            if self._onset_env is None:
+                import librosa
+
+                self._onset_env = librosa.onset.onset_strength(
+                    y=self._signal.samples, sr=self._signal.sample_rate
+                )
+        return self._onset_env

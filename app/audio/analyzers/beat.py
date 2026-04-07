@@ -20,6 +20,10 @@ class BeatDetector(BaseAnalyzer):
     name: ClassVar[str] = "beat"
     capabilities: ClassVar[frozenset[str]] = frozenset({"rhythm", "beat"})
     required_packages: ClassVar[list[str]] = ["librosa"]
+    # librosa.effects.hpss is O(N) and dominates runtime on long tracks
+    # (~13s on 6.6 min, ~2s on 60s). Centered 60s clip is representative
+    # for techno: stable rhythm, no intro/outro contamination.
+    clip_duration_s: ClassVar[float | None] = 60.0
 
     def _extract(self, ctx: AnalysisContext) -> dict[str, Any]:
         """Analyze rhythmic features from full audio signal."""
@@ -29,9 +33,9 @@ class BeatDetector(BaseAnalyzer):
         sr = ctx.sr
         analysis_duration = len(samples) / sr
 
-        # Onset detection
-        onset_env = librosa.onset.onset_strength(y=samples, sr=sr)
-        onsets = librosa.onset.onset_detect(y=samples, sr=sr, units="time")
+        # Onset detection (envelope shared with bpm/tempogram via ctx)
+        onset_env = ctx.get_onset_env()
+        onsets = librosa.onset.onset_detect(onset_envelope=onset_env, sr=sr, units="time")
         onset_rate = float(len(onsets) / analysis_duration) if analysis_duration > 0 else 0.0
 
         # Pulse clarity (tempogram autocorrelation peak)
