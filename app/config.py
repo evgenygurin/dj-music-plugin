@@ -100,6 +100,13 @@ class Settings(BaseSettings):
     audio_triage_workers: int = 6  # parallel workers for L1+L2
     audio_scoring_workers: int = 4  # parallel workers for L3
     audio_download_workers: int = 8  # parallel download threads for L4
+    # Per-worker AnalysisContext LRU cache size (process-pool path).
+    # Each entry holds one AnalysisContext (STFT + magnitude + freqs +
+    # frame_energies) plus the SharedMemory handle backing its samples.
+    # Within a single analyze() call we typically need 2 entries (full
+    # track + 60s clip); 4 covers two concurrent analyze() calls per
+    # worker, which is the realistic upper bound.
+    audio_process_worker_cache_size: int = 4
 
     # ── Techno Quality Criteria ───────────────────────
     techno_bpm_min: float = 120.0

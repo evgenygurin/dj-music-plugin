@@ -102,6 +102,64 @@ Instead of recomputing it three times the pipeline caches it on the
 `AnalysisContext` via `ctx.get_onset_env()` — lazy + lock-protected, safe
 under concurrent thread dispatch. Saves ~3s per track.
 
+### ProcessPool Path: SharedMemory + Per-Worker Context Cache
+
+When `AnalysisPipeline(use_processes=True)` is enabled, two further
+optimizations kick in inside `_run_phase_processes`:
+
+1. **SharedMemory transport for clip samples.** Each unique clip variant
+   is published once into a `multiprocessing.shared_memory.SharedMemory`
+   block. Workers receive only `(shm_name, dtype, shape)` and attach a
+   zero-copy `np.ndarray` view onto the shared buffer instead of
+   receiving the multi-MB ndarray pickled on every task. Variants
+   pointing at the same underlying buffer (e.g. on a short track every
+   clip-duration key collapses to the full samples) are deduped via
+   `id(samples)` so a single SharedMemory block is reused. Cleanup is
+   `shm.close()` + `shm.unlink()` in a `finally` block — even if
+   workers still hold attached views inside their LRU cache, the
+   segment name disappears from `/dev/shm` immediately so it never
+   shows up as a leak. The OS releases the backing bytes once the last
+   worker attachment is dropped.
+
+2. **Per-worker AnalysisContext LRU cache.** Each worker process keeps
+   a module-level `OrderedDict` mapping `(shm_name, sample_rate,
+   frame_length, hop_length)` → `(SharedMemory, AnalysisContext)`. The
+   first analyzer in a given (worker, clip variant) bucket pays the
+   STFT/magnitude/freqs/frame_energies cost once; every subsequent
+   analyzer in the same `analyze()` call that lands on the same worker
+   reuses the cached context, saving ~150–300 ms per cached analyzer.
+   Cache size is bounded by `settings.audio_process_worker_cache_size`
+   (default 4) and entries are evicted LRU; eviction closes the cached
+   SharedMemory attachment so memory is bounded at
+   `max_workers * cache_max_size * avg_clip_size`. The shm name is
+   unique per `analyze()` call, so cache key collisions across
+   unrelated tracks are impossible — features cannot leak between
+   pipeline calls.
+
+#### Measured Overhead (6-min synthetic techno, 22050 Hz, ~30 MB buffer)
+
+Isolated micro-benchmarks on the two optimizations, 18 analyzers per
+pipeline call (the production workload):
+
+| Step | Baseline (pickle) | SharedMemory | Speedup |
+|------|-------------------|--------------|---------|
+| Transport (18 × 30 MB) | ~505 ms | ~47 ms | **10.8x** |
+| Of which: `_create_shared_clip` (one-time copy) | — | 34 ms | — |
+| Of which: worker attach × 18 (zero-copy) | — | 13 ms | — |
+
+| Step | Cost |
+|------|------|
+| `AnalysisContext` build (cold STFT + magnitude + freqs + frame_energies, 60s clip) | ~178 ms |
+| Savings from LRU cache hit (per subsequent analyzer sharing the same clip variant) | ~178 ms |
+| Expected savings per worker per call (8 analyzers → 7 cache hits) | **~1.25 s** |
+
+Combined expected wall-clock saving on a warm pool, 18-analyzer
+pipeline call: **~1.7 s** (0.46 s transport + ~1.25 s STFT reuse).
+Actual end-to-end speedup scales with the ratio of (cached analyzer
+cost + transport overhead) to the overall pipeline wall-clock, which
+is dominated by the single heaviest librosa analyzer on a real
+techno track (`pitch_salience` at ~6.5 s).
+
 ## Analyzer Interface
 
 Each analyzer implements:
