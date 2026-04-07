@@ -73,6 +73,11 @@ uv run alembic upgrade head                # Migrations
 uv run fastmcp dev app/server.py --reload  # MCP dev server
 make check                                 # lint + typecheck + test
 
+# Fallback если uv не в PATH (используй venv напрямую):
+.venv/bin/python -m pytest -q
+.venv/bin/python -m mypy app/
+.venv/bin/python -m ruff check app/ tests/
+
 # REST API
 uv run --extra http uvicorn serve_http:api --host 0.0.0.0 --port 8000 --reload
 

@@ -69,10 +69,14 @@ class CurationService:
         if not items:
             raise ValidationError("Set is empty")
 
+        # Batch-load features for all set tracks (N queries → 1)
+        item_track_ids = [item.track_id for item in items]
+        features_map = await self._features.get_features_batch(item_track_ids)
+
         bpm_flow: list[float | None] = []
         energy_flow: list[float | None] = []
         for item in items:
-            features = await self._features.get_features(item.track_id)
+            features = features_map.get(item.track_id)
             if features:
                 bpm_flow.append(features.bpm)
                 energy_flow.append(features.energy_mean)

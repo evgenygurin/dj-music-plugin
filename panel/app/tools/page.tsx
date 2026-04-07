@@ -1,10 +1,18 @@
 import { fetchTools, type ToolInfo } from '@/lib/mcp-client'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { SiteHeader } from '@/components/site-header'
+import { PageShell, PageHeader } from '@/components/page-shell'
+import {
+  Empty,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+  EmptyDescription,
+} from '@/components/ui/empty'
+import { IconTool } from '@tabler/icons-react'
 import Link from 'next/link'
 
-export const revalidate = 60
+export const dynamic = 'force-dynamic'
 
 const TAG_ORDER = [
   'core',
@@ -35,17 +43,26 @@ export default async function ToolsPage() {
   ]
 
   return (
-    <>
-      <SiteHeader title="Tools" />
-      <div className="flex flex-1 flex-col gap-6 py-6 px-4 lg:px-6">
-        <div>
-          <h1 className="text-lg font-semibold">MCP Tools</h1>
-          <p className="text-sm text-muted-foreground">
-            {tools.length} tools available
-          </p>
-        </div>
+    <PageShell title="Tools">
+      <PageHeader
+        title="MCP Tools"
+        description={`${tools.length} tools available`}
+      />
 
-        {sortedTags.map((tag) => (
+      {tools.length === 0 ? (
+        <Empty className="border min-h-[200px]">
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <IconTool />
+            </EmptyMedia>
+            <EmptyTitle>No tools available</EmptyTitle>
+            <EmptyDescription>
+              Is the MCP backend running on port 8000?
+            </EmptyDescription>
+          </EmptyHeader>
+        </Empty>
+      ) : (
+        sortedTags.map((tag) => (
           <div key={tag} className="grid gap-3">
             <div className="flex items-center gap-2">
               <h2 className="text-sm font-medium capitalize">{tag}</h2>
@@ -58,9 +75,7 @@ export default async function ToolsPage() {
                 <Link key={tool.name} href={`/tools/${tool.name}`}>
                   <Card className="hover:bg-accent/50 transition-colors cursor-pointer h-full">
                     <CardHeader className="pb-2">
-                      <CardTitle className="text-sm font-mono">
-                        {tool.name}
-                      </CardTitle>
+                      <CardTitle className="text-sm font-mono">{tool.name}</CardTitle>
                     </CardHeader>
                     <CardContent>
                       <p className="text-xs text-muted-foreground line-clamp-2">
@@ -79,16 +94,8 @@ export default async function ToolsPage() {
               ))}
             </div>
           </div>
-        ))}
-
-        {tools.length === 0 && (
-          <div className="flex flex-1 flex-col items-center justify-center py-20">
-            <p className="text-sm text-muted-foreground">
-              No tools available. Is the MCP backend running?
-            </p>
-          </div>
-        )}
-      </div>
-    </>
+        ))
+      )}
+    </PageShell>
   )
 }

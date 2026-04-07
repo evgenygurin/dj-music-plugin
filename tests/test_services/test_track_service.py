@@ -60,6 +60,57 @@ async def test_create_track_sets_sort_title(db: AsyncSession) -> None:
     assert track.sort_title == "acid track"
 
 
+# ── Search by external_id (Bug #4) ────────────────────
+
+
+@pytest.mark.asyncio
+async def test_search_finds_track_by_ym_prefix(db: AsyncSession) -> None:
+    """``search('ym:12345')`` must return tracks linked to that YM ID.
+
+    Regression for ОШИБКА #4 in docs/reports/mcp-tools-test-2026-04-07.md.
+    """
+    svc = _make_track_service(db)
+    track_repo = TrackRepository(db)
+
+    track = await svc.create("Hidden Title", duration_ms=400000)
+    await track_repo.add_external_id(track.id, "yandex_music", "54486493")
+    await db.flush()
+
+    results = await svc.search("ym:54486493", limit=1)
+    assert len(results) == 1
+    assert results[0].id == track.id
+
+
+@pytest.mark.asyncio
+async def test_search_finds_track_by_uppercase_ym_prefix(db: AsyncSession) -> None:
+    svc = _make_track_service(db)
+    track_repo = TrackRepository(db)
+
+    track = await svc.create("Whatever", duration_ms=400000)
+    await track_repo.add_external_id(track.id, "yandex_music", "999111")
+    await db.flush()
+
+    results = await svc.search("YM:999111", limit=1)
+    assert len(results) == 1
+    assert results[0].id == track.id
+
+
+@pytest.mark.asyncio
+async def test_search_falls_back_to_text_when_ym_id_unknown(db: AsyncSession) -> None:
+    """When YM ID is not found, plain text search should still work."""
+    svc = _make_track_service(db)
+    await svc.create("Unique Search Target", duration_ms=300000)
+    await db.flush()
+
+    # Unknown ym: id returns nothing — does NOT fall back to title search
+    miss = await svc.search("ym:000000", limit=5)
+    assert miss == []
+
+    # But plain text query still works
+    hit = await svc.search("Unique Search Target", limit=5)
+    assert len(hit) >= 1
+
+
 @pytest.mark.asyncio
 async def test_update_track_regenerates_sort_title(db: AsyncSession) -> None:
     """Updating a track's title should regenerate sort_title."""

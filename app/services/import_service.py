@@ -16,6 +16,7 @@ from app.core.errors import ValidationError
 from app.models.library import DjLibraryItem
 from app.models.track import Track
 from app.repositories.ingestion import IngestionRepository
+from app.repositories.playlist import PlaylistRepository
 from app.repositories.track import TrackRepository
 from app.ym.client import YandexMusicClient
 
@@ -46,8 +47,18 @@ class ImportService:
     async def import_tracks(
         self,
         track_refs: list[str],
+        playlist_id: int | None = None,
     ) -> dict[str, Any]:
-        """Import YM track IDs into local DB. Idempotent — skips existing."""
+        """Import YM track IDs into local DB. Idempotent — skips existing.
+
+        Returns ``id_mapping`` (ym_id → local_track_id) for **all** refs,
+        including skipped ones, so callers can drive subsequent operations
+        (analyze_batch, manage_playlist) without re-querying the DB.
+
+        If ``playlist_id`` is provided, all imported and skipped tracks are
+        appended to that playlist (idempotent — tracks already in the
+        playlist are not duplicated).
+        """
         if not track_refs:
             raise ValidationError("track_refs is required (list of YM track IDs)")
 
@@ -64,6 +75,7 @@ class ImportService:
             existing = await self._tracks.get_by_external_id("yandex_music", ym_id)
             if existing is not None:
                 skipped += 1
+                id_mapping[ym_id] = existing.id
                 continue
 
             track = await self._tracks.create(Track(title=f"YM:{ym_id}", status=0))
@@ -72,15 +84,41 @@ class ImportService:
             imported_ids.append(ym_id)
             id_mapping[ym_id] = track.id
 
-        # Enrich with YM metadata (batch fetch)
+        # Enrich with YM metadata (batch fetch) — best effort, only for new
         enriched = await self._enrich_from_ym(imported_ids, id_mapping)
+
+        # Optionally add all imported+existing tracks to a playlist
+        playlist_added = 0
+        if playlist_id is not None and id_mapping:
+            playlist_added = await self._add_to_playlist(playlist_id, list(id_mapping.values()))
 
         return {
             "imported": imported,
             "skipped": skipped,
             "enriched": enriched,
             "total_refs": len(track_refs),
+            "id_mapping": id_mapping,
+            "playlist_added": playlist_added,
         }
+
+    async def _add_to_playlist(self, playlist_id: int, track_ids: list[int]) -> int:
+        """Append track IDs to a playlist, skipping ones already present.
+
+        Returns the count of tracks newly added to the playlist.
+        """
+        playlist_repo = PlaylistRepository(self._tracks.session)
+        existing = set(await playlist_repo.get_track_ids(playlist_id))
+        next_index = await playlist_repo.get_max_sort_index(playlist_id) + 1
+
+        added = 0
+        for tid in track_ids:
+            if tid in existing:
+                continue
+            await playlist_repo.add_track(playlist_id, tid, next_index)
+            existing.add(tid)
+            next_index += 1
+            added += 1
+        return added
 
     async def download_tracks(
         self,

@@ -10,7 +10,6 @@ from typing import Any
 
 from fastmcp.dependencies import Depends
 from fastmcp.exceptions import ToolError
-from fastmcp.server.context import Context
 from fastmcp.tools import tool
 
 from app.core.parsing import ensure_list
@@ -34,7 +33,9 @@ async def _get_liked(
     offset: int = 0,
     **_: Any,
 ) -> dict[str, Any]:
-    liked = await ym.get_liked_ids()
+    liked_set = await ym.get_liked_ids()
+    # Sort for stable pagination — set ordering is unspecified.
+    liked = sorted(liked_set)
     total = len(liked)
 
     if offset < 0:
@@ -87,7 +88,6 @@ async def ym_likes(
     limit: int | None = None,
     offset: int = 0,
     ym: YandexMusicClient = Depends(get_ym_client),  # noqa: B008
-    ctx: Context | None = None,
 ) -> dict[str, Any]:
     """Consolidated likes operations on Yandex Music.
 

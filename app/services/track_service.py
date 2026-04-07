@@ -18,6 +18,15 @@ from app.repositories.track import TrackRepository
 
 _LEADING_ARTICLES = re.compile(r"^(the|a|an)\s+", re.IGNORECASE)
 _NON_ALNUM_PREFIX = re.compile(r"^[^a-z0-9\u00C0-\u024F]+")
+_YM_PREFIX = re.compile(r"^ym:(\d+)$", re.IGNORECASE)
+
+
+def _extract_ym_id(query: str) -> str | None:
+    """Return the bare YM ID if ``query`` is ``ym:<digits>``, else ``None``."""
+    if not query:
+        return None
+    match = _YM_PREFIX.match(query.strip())
+    return match.group(1) if match else None
 
 
 def generate_sort_title(title: str) -> str:
@@ -56,6 +65,19 @@ class TrackService:
         return track, features
 
     async def search(self, query: str, limit: int = 10) -> list[Track]:
+        """Search tracks by text or external ID.
+
+        ``ym:12345`` / ``YM:12345`` looks up the YM external ID directly
+        and returns the linked track (or an empty list). All other queries
+        fall through to text search across title and artist names.
+        """
+        ym_id = _extract_ym_id(query)
+        if ym_id is not None:
+            link = await self._tracks.get_by_external_id("yandex_music", ym_id)
+            if link is None:
+                return []
+            track = await self._tracks.get_by_id(link.track_id)
+            return [track] if track is not None else []
         return await self._tracks.search_by_text(query, limit=limit)
 
     async def list_all(self, *, limit: int = 20, cursor: str | None = None) -> CursorPage[Track]:

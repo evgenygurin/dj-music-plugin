@@ -2,7 +2,7 @@ import Link from 'next/link'
 import { IconMusic } from '@tabler/icons-react'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardHeader, CardTitle } from '@/components/ui/card'
-import { SiteHeader } from '@/components/site-header'
+import { PageShell, PageHeader } from '@/components/page-shell'
 import {
   Empty,
   EmptyHeader,
@@ -75,41 +75,33 @@ export default async function PlaylistsPage() {
   }
 
   return (
-    <>
-      <SiteHeader title="Playlists" />
-      <div className="flex flex-1 flex-col">
-        <div className="@container/main flex flex-1 flex-col gap-2">
-          <div className="flex flex-col gap-4 px-4 py-4 md:gap-6 md:py-6 lg:px-6">
+    <PageShell title="Playlists">
+      <PageHeader
+        title="Playlists"
+        badge={
+          playlists.length > 0 && (
+            <Badge variant="secondary" className="tabular-nums">
+              {playlists.length}
+            </Badge>
+          )
+        }
+      />
 
-            {/* Header row */}
-            <div className="flex items-center gap-3">
-              <h1 className="text-lg font-semibold">Playlists</h1>
-              {playlists.length > 0 && (
-                <Badge variant="secondary" className="tabular-nums">
-                  {playlists.length}
-                </Badge>
-              )}
-            </div>
-
-            {/* Content */}
-            {playlists.length === 0 ? (
-              <Empty className="border min-h-[200px]">
-                <EmptyHeader>
-                  <EmptyMedia variant="icon">
-                    <IconMusic />
-                  </EmptyMedia>
-                  <EmptyTitle>No playlists yet</EmptyTitle>
-                  <EmptyDescription>
-                    Import tracks and create playlists to get started.
-                  </EmptyDescription>
-                </EmptyHeader>
-              </Empty>
-            ) : (
-              <div>{renderTree(roots, 0)}</div>
-            )}
-          </div>
-        </div>
-      </div>
-    </>
+      {playlists.length === 0 ? (
+        <Empty className="border min-h-[200px]">
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <IconMusic />
+            </EmptyMedia>
+            <EmptyTitle>No playlists yet</EmptyTitle>
+            <EmptyDescription>
+              Import tracks and create playlists to get started.
+            </EmptyDescription>
+          </EmptyHeader>
+        </Empty>
+      ) : (
+        <div>{renderTree(roots, 0)}</div>
+      )}
+    </PageShell>
   )
 }
