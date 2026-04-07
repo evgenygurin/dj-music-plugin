@@ -12,11 +12,12 @@
         ]
       },
       {
-        "matcher": "startup",
+        "matcher": "startup|resume",
         "hooks": [
           {
             "type": "command",
             "command": "bash \"${CLAUDE_PLUGIN_ROOT}/scripts/start-services.sh\"",
+            "timeout": 30,
             "statusMessage": "Starting DJ Music backend + panel..."
           }
         ]
