@@ -31,7 +31,9 @@ async def test_ym_get_album_raises_on_empty_stub() -> None:
         ),
     )
 
-    with pytest.raises(ToolError, match="Album not found: 999999"):
+    from fastmcp.exceptions import NotFoundError as FastMCPNotFoundError
+
+    with pytest.raises(FastMCPNotFoundError, match="Album not found: 999999"):
         await ym_get_album(album_id="999999", include_tracks=True, ym=ym_mock)
 
 

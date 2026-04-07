@@ -297,6 +297,104 @@ class ReasoningService:
             ),
         }
 
+    async def find_replacement(
+        self,
+        set_id: int,
+        position: int,
+        count: int = 5,
+    ) -> dict[str, Any]:
+        """Find replacement tracks for a position, scored against both neighbours.
+
+        For an interior position the candidate must transition cleanly
+        from ``items[position-1]`` *and* into ``items[position+1]``; the
+        score is the average of both. Edge positions use only the one
+        existing neighbour.
+        """
+        result = await self._sets.load_version_with_items(set_id)
+        if result is None:
+            raise NotFoundError("SetVersion", f"set_id={set_id}")
+        _, items = result
+
+        if not items:
+            raise ValidationError("Set is empty")
+        if position < 0 or position >= len(items):
+            raise ValidationError(f"Position {position} out of range (0-{len(items) - 1})")
+
+        prev_item = items[position - 1] if position > 0 else None
+        next_item = items[position + 1] if position + 1 < len(items) else None
+        current_item = items[position]
+
+        prev_feat = (
+            await self._features.get_scoring_features(prev_item.track_id) if prev_item else None
+        )
+        next_feat = (
+            await self._features.get_scoring_features(next_item.track_id) if next_item else None
+        )
+
+        dj_set = await self._sets.get_by_id(set_id)
+        if not dj_set:
+            raise NotFoundError("Set", set_id)
+
+        set_track_ids = {item.track_id for item in items}
+        if dj_set.source_playlist_id:
+            pool_ids = await self._playlists.get_track_ids(dj_set.source_playlist_id)
+        else:
+            pool_ids = await self._features.get_all_track_ids_with_features()
+        pool_ids = [tid for tid in pool_ids if tid not in set_track_ids]
+
+        features_map = await self._features.get_scoring_features_batch(pool_ids[:200])
+
+        scorer = TransitionScorer()
+        candidates: list[dict[str, Any]] = []
+        for tid, cand_feat in features_map.items():
+            if cand_feat.bpm is None:
+                continue
+
+            scores: list[float] = []
+            hard_reject = False
+
+            if prev_feat is not None:
+                s_in = scorer.score(prev_feat, cand_feat)
+                if s_in.hard_reject:
+                    hard_reject = True
+                else:
+                    scores.append(s_in.overall)
+
+            if next_feat is not None:
+                s_out = scorer.score(cand_feat, next_feat)
+                if s_out.hard_reject:
+                    hard_reject = True
+                else:
+                    scores.append(s_out.overall)
+
+            if hard_reject or not scores:
+                continue
+
+            avg = sum(scores) / len(scores)
+            track = await self._tracks.get_by_id(tid)
+            candidates.append(
+                {
+                    "track_id": tid,
+                    "title": track.title if track else f"#{tid}",
+                    "score": round(avg, 4),
+                    "bpm": cand_feat.bpm,
+                    "key_code": cand_feat.key_code,
+                    "mood": cand_feat.mood,
+                    "lufs": cand_feat.integrated_lufs,
+                }
+            )
+
+        candidates.sort(key=lambda c: float(str(c["score"])), reverse=True)
+
+        return {
+            "set_id": set_id,
+            "position": position,
+            "current_track_id": current_item.track_id,
+            "pool_size": len(pool_ids),
+            "scored": len(candidates),
+            "candidates": candidates[:count],
+        }
+
     async def quick_set_review(self, set_id: int) -> dict[str, Any]:
         """Quick set review: tracks and basic quality info."""
         dj_set = await self._sets.get_by_id(set_id)

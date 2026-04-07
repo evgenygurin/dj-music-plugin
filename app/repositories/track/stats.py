@@ -32,8 +32,15 @@ class StatsMixin:
         archived_tracks = (
             await self.session.execute(select(func.count(Track.id)).where(Track.status == 1))
         ).scalar() or 0
+        # Only count features for active tracks — otherwise an
+        # archived-track-with-features inflates the numerator and breaks
+        # the invariant ``with_features + without_features == active``.
         tracks_with_features = (
-            await self.session.execute(select(func.count(TrackAudioFeaturesComputed.track_id)))
+            await self.session.execute(
+                select(func.count(TrackAudioFeaturesComputed.track_id))
+                .join(Track, Track.id == TrackAudioFeaturesComputed.track_id)
+                .where(Track.status == 0)
+            )
         ).scalar() or 0
         playlist_count = (
             await self.session.execute(select(func.count(Playlist.id)))

@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from app.core.camelot import camelot_to_key_code, is_compatible
+from app.core.camelot import camelot_to_key_code, is_compatible, key_code_to_camelot
 from app.core.constants import KEY_CODE_MAX, KEY_CODE_MIN
 from app.core.errors import ValidationError
 from app.core.pagination import CursorPage
@@ -48,9 +48,27 @@ class SearchService:
 
         if "tracks" in entities:
             tracks = await self._tracks.search_by_text(query.strip(), limit=limit)
-            results["tracks"] = [
-                {"id": t.id, "title": t.title, "duration_ms": t.duration_ms} for t in tracks
-            ]
+            track_ids = [t.id for t in tracks]
+            artist_map = await self._tracks.get_artist_names_batch(track_ids) if track_ids else {}
+            features_map = await self._features.get_features_batch(track_ids) if track_ids else {}
+            track_results: list[dict[str, Any]] = []
+            for t in tracks:
+                feat = features_map.get(t.id)
+                track_results.append(
+                    {
+                        "id": t.id,
+                        "title": t.title,
+                        "artist_names": artist_map.get(t.id, []),
+                        "bpm": feat.bpm if feat else None,
+                        "key_camelot": (
+                            key_code_to_camelot(feat.key_code)
+                            if feat and feat.key_code is not None
+                            else None
+                        ),
+                        "duration_ms": t.duration_ms,
+                    }
+                )
+            results["tracks"] = track_results
 
         if "artists" in entities:
             artists = await self._tracks.search_artists(query.strip(), limit=limit)

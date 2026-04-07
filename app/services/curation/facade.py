@@ -118,7 +118,19 @@ class CurationService:
         if len(scored) < len(items) - 1:
             quality_issues.append(f"{len(items) - 1 - len(scored)} unscored transitions")
 
-        if not quality_issues:
+        # Rating heuristic — hard conflicts are non-negotiable: any
+        # ``hard_reject`` transition means we cannot mix the set as
+        # planned without violating BPM/key/energy constraints. We
+        # also penalise sets where hard conflicts dominate the few
+        # transitions we do have (e.g. 1/1 = 100% broken).
+        total_transitions = max(len(items) - 1, 0)
+        hard_conflict_ratio = hard_conflicts / total_transitions if total_transitions > 0 else 0.0
+
+        if hard_conflict_ratio >= 0.5 or (hard_conflicts >= 1 and total_transitions <= 2):
+            rating = "poor"
+        elif hard_conflicts >= 1:
+            rating = "fair"
+        elif not quality_issues:
             rating = "excellent"
         elif len(quality_issues) <= 1:
             rating = "good"
