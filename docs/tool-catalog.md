@@ -34,15 +34,15 @@ Quick reference for all 50 tools (46 visible + 4 atomic hidden).
 | Tool | Params | RO |
 |------|--------|-----|
 | `search` | query, entity(tracks\|artists\|playlists\|sets\|all), limit | yes |
-| `filter_tracks` | bpm_min/max?, key?, energy_min/max?, mood?, sort_by, limit, cursor | yes |
+| `filter_tracks` | bpm_min/max?, key?, key_compatible?, energy_min/max?, has_features?, exclude_set_id?, sort_by, limit, cursor | yes |
 
 ### Set Building (4 tools, tag: `sets`, file: `sets.py`)
 
 | Tool | Params | RO | Timeout |
 |------|--------|----|---------|
-| `build_set` | playlist_id, name, template?, algorithm(greedy\|ga), dry_run? | no | 120s |
-| `rebuild_set` | set_id, pin/unpin/exclude/include/swap?, algorithm, version_label? | no | 120s |
-| `score_transitions` | mode(set\|pair\|track_candidates), set_id?, from/to_track_id?, top_n? | no | — |
+| `build_set` | playlist_id, name, template?, target_duration_min?, algorithm(greedy\|ga), dry_run? | no | 120s |
+| `rebuild_set` | set_id, pin_tracks?, exclude_tracks?, algorithm, version_label? | no | 120s |
+| `score_transitions` | mode(set\|pair\|track_candidates), set_id?, from/to_track_id?, track_id?, top_n? | no | — |
 | `get_set_cheat_sheet` | set_id, version? | yes | — |
 
 ### Set Reasoning (5 tools, tag: `sets`, file: `reasoning.py`)
@@ -75,11 +75,11 @@ Quick reference for all 50 tools (46 visible + 4 atomic hidden).
 
 | Tool | File | Params | RO |
 |------|------|--------|-----|
-| `find_similar_tracks` | discovery.py | track_id, strategy?, limit?, bpm_tolerance?, key_compatible? | yes |
-| `expand_playlist_ym` | discovery.py | playlist_id, target_count?, strategy? | no |
-| `filter_by_feedback` | discovery.py | playlist_id?, liked_only? | yes |
+| `find_similar_tracks` | discovery.py | track_id, strategy(ym\|llm)?, limit?, min/max_duration_ms?, genre_filter?, genre_blacklist?, exclude_patterns? | yes |
+| `expand_playlist_ym` | discovery.py | ym_playlist_kind, target_count?, genre_filter?, genre_blacklist?, exclude_patterns?, min/max_duration_ms?, use_feedback?, dry_run? | no |
+| `filter_by_feedback` | discovery.py | ym_track_ids (returns passed/blocked/boosted) | yes |
 | `import_tracks` | import_download.py | track_refs, playlist_id?, auto_analyze? | no |
-| `download_tracks` | import_download.py | track_refs, target_dir?, skip_existing? | no |
+| `download_tracks` | import_download.py | track_refs, target_dir?, skip_existing?, prefer_bitrate? | no |
 
 ### Curation (5 tools, tag: `curation`, file: `curation.py`)
 
@@ -95,8 +95,8 @@ Quick reference for all 50 tools (46 visible + 4 atomic hidden).
 
 | Tool | Params | RO |
 |------|--------|-----|
-| `sync_playlist` | playlist_id, direction?, conflict_strategy?, dry_run? | no |
-| `push_set_to_ym` | set_id, ym_playlist_name?, mode? | no |
+| `sync_playlist` | playlist_id, direction(pull\|push\|diff)?, conflict_strategy?, dry_run?=true | no |
+| `push_set_to_ym` | set_id, ym_playlist_name?, mode(create\|update\|auto)? | no |
 
 ### YM API (6 tools, tag: `ym`, package: `yandex/`)
 
@@ -104,11 +104,11 @@ Each YM tool lives in its own submodule under `app/mcp/tools/yandex/`:
 
 | Tool | File | Params | RO |
 |------|------|--------|-----|
-| `ym_search` | `yandex/search.py` | query, type?, limit? | yes |
-| `ym_get_tracks` | `yandex/tracks.py` | track_ids | yes |
-| `ym_artist_tracks` | `yandex/tracks.py` | artist_id, page?, sort_by? | yes |
+| `ym_search` | `yandex/search.py` | query, type(tracks\|albums\|artists\|playlists\|all)?, limit? | yes |
+| `ym_get_tracks` | `yandex/tracks.py` | track_ids, fields? | yes |
+| `ym_artist_tracks` | `yandex/tracks.py` | artist_id, page?, sort_by(date\|popularity)? | yes |
 | `ym_get_album` | `yandex/albums.py` | album_id, include_tracks? | yes |
-| `ym_playlists` | `yandex/playlists.py` | action(get\|get_tracks\|list\|create\|rename\|delete\|add_tracks\|remove_tracks) | varies |
+| `ym_playlists` | `yandex/playlists.py` | action(get\|get_tracks\|list\|create\|rename\|delete\|add_tracks\|remove_tracks), kind?, name?, track_ids?, revision? | varies |
 | `ym_likes` | `yandex/likes.py` | action(get_liked\|add\|remove), track_ids? | varies |
 
 `ym_playlists` and `ym_likes` dispatch via `ActionDispatcher` (Command + Registry) — adding a new action is `@_dispatcher.register("name")` plus a handler, no `if/elif` edits.
@@ -119,8 +119,8 @@ Each YM tool lives in its own submodule under `app/mcp/tools/yandex/`:
 
 | Tool | Params | Timeout |
 |------|---------|---------|
-| `analyze_track` | track_id?, track_query?, analyzers?, force? | 120s |
-| `analyze_batch` | track_ids?\|playlist_id?, analyzers?, priority? | 600s |
+| `analyze_track` | track_id?, track_query?, analyzers?, force?, level? | 120s |
+| `analyze_batch` | track_ids?\|playlist_id?, batch_size?, analyzers?, level?, force? | 600s |
 | `separate_stems` | track_id?, track_query?, stems? | 300s |
 
 ### Atomic (4 tools, tag: `atomic`, file: `audio_atomic.py`)
@@ -129,10 +129,10 @@ Low-level building blocks used by composite tools. Not intended for direct use.
 
 | Tool | Params | RO |
 |------|--------|-----|
-| `analyze_one_track` | track_id | no |
+| `analyze_one_track` | track_id, analyzers?, force? | no |
 | `classify_one_track` | track_id | no |
-| `gate_one_track` | track_id | yes |
-| `get_similar_one_track` | track_id, limit? | yes |
+| `gate_one_track` | track_id, criteria? | yes |
+| `get_similar_one_track` | ym_track_id, limit?, min/max_duration_ms?, genre_filter?, genre_blacklist?, exclude_patterns? | yes |
 
 ## Summary
 

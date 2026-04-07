@@ -1,6 +1,6 @@
 ---
 name: ym-sync
-description: "This skill should be used when the user asks to \"sync playlist\", \"push to YM\", \"pull from YM\", \"yandex music search\", \"ym playlist\", or \"manage YM likes\". Covers bidirectional Yandex Music sync, playlist management, search, and likes."
+description: "Use when the user asks to sync a playlist, push or pull from Yandex Music, search YM, manage YM playlists, or manage YM likes. Covers bidirectional sync, playlist management, search and likes."
 version: 0.5.0
 ---
 
@@ -18,9 +18,9 @@ unlock_tools(action="unlock", category="ym")
 ## Sync Actions
 
 ### Search YM
-- `ym_search(query="...", type="track")` — search tracks
+- `ym_search(query="...", type="tracks")` — search tracks (note: plural form, see @.claude/rules/ym.md)
 - `ym_search(query="...", type="all")` — search everything
-- Types: `track`, `album`, `artist`, `playlist`, `all`
+- Types: `tracks`, `albums`, `artists`, `playlists`, `all`
 
 ### Get Track Info
 - `ym_get_tracks(track_ids=["12345", "67890"])` — batch fetch
@@ -28,11 +28,17 @@ unlock_tools(action="unlock", category="ym")
 - `ym_artist_tracks(artist_id=..., page=0)` — paginated artist tracks
 
 ### Playlist Management
+
+`ym_playlists` is action-dispatched. Identify a playlist by `kind` (numeric YM playlist kind), not by a generic `playlist_id`. Mutating actions need a fresh `revision`.
+
 - `ym_playlists(action="list")` — list user's YM playlists
-- `ym_playlists(action="get", playlist_id="...")` — get playlist tracks
-- `ym_playlists(action="create", name="...", visibility="public")` — create new
-- `ym_playlists(action="add_tracks", playlist_id="...", track_ids=[...])` — add tracks
-- `ym_playlists(action="remove_tracks", playlist_id="...", positions=[...])` — remove by position
+- `ym_playlists(action="get", kind=1234)` — get playlist metadata
+- `ym_playlists(action="get_tracks", kind=1234)` — get playlist tracks (id/title/artists)
+- `ym_playlists(action="create", name="My Set")` — create new playlist
+- `ym_playlists(action="rename", kind=1234, name="New name")`
+- `ym_playlists(action="delete", kind=1234)`
+- `ym_playlists(action="add_tracks", kind=1234, track_ids=["t1", "t2"], revision=N)` — bare track IDs; album resolution happens server-side
+- `ym_playlists(action="remove_tracks", kind=1234, track_ids=["t1"])` — removes by track_id (not by position)
 
 ### Likes
 - `ym_likes(action="get_liked")` — get liked track IDs
@@ -40,15 +46,14 @@ unlock_tools(action="unlock", category="ym")
 - `ym_likes(action="remove", track_ids=[...])` — unlike
 
 ### Bidirectional Sync
-- `sync_playlist(playlist_id=..., direction="pull")` — pull YM → local
+- `sync_playlist(playlist_id=..., direction="pull")` — pull YM → local (default)
 - `sync_playlist(playlist_id=..., direction="push")` — push local → YM
-- `conflict_strategy="ask"` — ask for each conflict (default)
-- `conflict_strategy="source_wins"` — source of truth wins silently
-- `dry_run=true` — preview changes
+- `conflict_strategy="source_wins"` (default) — source of truth wins silently
+- `dry_run=true` (default) — preview changes; pass `false` to apply
 
 ### Push DJ Set to YM
-- `push_set_to_ym(set_id=..., ym_playlist_name="My DJ Set")` — create/update YM playlist
-- `mode="overwrite"` / `"append"` / `"create_new"`
+- `push_set_to_ym(set_id=..., ym_playlist_name="My DJ Set", mode="auto")`
+- `mode` ∈ `{create, update, auto}` — `auto` updates an existing YM playlist with the same name, otherwise creates one
 
 ## Source of Truth
 
@@ -60,10 +65,12 @@ Sync direction follows source of truth by default.
 
 ## YM API Quirks
 
+See @docs/ym-api-guide.md for full details. Highlights:
+
 - **Rate limiting**: 1.5s between calls + exponential backoff on 429
-- **Playlist edits use diff format**: the server handles this internally
-- **After every edit**: server re-fetches for fresh revision
-- **Broken endpoints**: artist brief-info (403), lyrics (400) — skipped
+- **Playlist edits use diff format**: handled inside the client
+- **`revision` is required** for `add_tracks` — fetch it via `ym_playlists(action="get", kind=...)` first
+- **Broken endpoints**: artist brief-info (403 Antirobot), lyrics (400 HMAC) — skipped
 
 ## Tips
 
