@@ -29,3 +29,5 @@ globs: app/audio/**/*.py
 - Shared onset envelope: `bpm`, `beat`, `tempogram` read `ctx.get_onset_env()` (lazy + lock-protected) instead of recomputing `librosa.onset.onset_strength` three times
 - Librosa warmup: pipeline pre-imports librosa submodules on the main thread before parallel dispatch (`_warmup_librosa()`). Without this, multiple worker threads racing the lazy loader hit "Module 'scipy' has no attribute '_lib'" / "PytestTester circular import" errors
 - MP3 analysis: requires `uv sync --extra audio` (librosa + soundfile)
+- **BPM analyzer (`app/audio/analyzers/bpm.py`)**: НЕ использует `librosa.beat.beat_track` для tempo — она квантует к integer frames-per-beat (sr=22050 hop=512 → только {123.05, 129.20, 136.00} в 120-140 BPM). Используется `_bpm_from_onset_autocorrelation` (parabolic peak interpolation на onset autocorrelation) для sub-frame precision. `min_bpm=80` чтобы избежать half-tempo lock на 60-70 BPM. См. regression `tests/test_audio/test_bpm_detector.py`
+- **PLP confidence**: `librosa.beat.plp(...).max()` ≈ 1.0 на любом ритмичном сигнале — НЕ используй для confidence. Используй `np.mean(plp)` (BPMDetector это делает)
