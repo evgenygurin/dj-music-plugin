@@ -23,7 +23,10 @@ from app.mcp.tools._shared import (
     ToolCategory,
     UnknownActionError,
 )
-from app.mcp.tools.yandex._constants import YM_WRITE_ANNOTATIONS
+from app.mcp.tools.yandex._constants import (
+    MAX_PLAYLIST_TRACKS_PAGE,
+    YM_WRITE_ANNOTATIONS,
+)
 from app.ym.client import YandexMusicClient
 
 _dispatcher: ActionDispatcher[dict[str, Any]] = ActionDispatcher()
@@ -73,15 +76,29 @@ async def _get_tracks(
     *,
     kind: int | None,
     ym: YandexMusicClient,
+    limit: int | None = None,
+    offset: int = 0,
     **_: Any,
 ) -> dict[str, Any]:
     resolved_kind = _require_kind(kind, "get_tracks")
+    if offset < 0:
+        raise ToolError(f"offset must be >= 0, got {offset}")
+    page_size = (
+        MAX_PLAYLIST_TRACKS_PAGE if limit is None else min(max(limit, 1), MAX_PLAYLIST_TRACKS_PAGE)
+    )
+
     tracks = await ym.get_playlist_tracks(settings.ym_user_id, resolved_kind)
+    total = len(tracks)
+    page = tracks[offset : offset + page_size]
+    next_offset = offset + len(page)
+
     return {
         "action": "get_tracks",
         "kind": resolved_kind,
-        "count": len(tracks),
-        "track_ids": [t.id for t in tracks],
+        "count": total,
+        "offset": offset,
+        "limit": page_size,
+        "track_ids": [t.id for t in page],
         "tracks": [
             {
                 "id": t.id,
@@ -90,8 +107,10 @@ async def _get_tracks(
                     a.get("name", "") if isinstance(a, dict) else a.name for a in (t.artists or [])
                 ],
             }
-            for t in tracks
+            for t in page
         ],
+        "next_offset": next_offset if next_offset < total else None,
+        "truncated": next_offset < total,
     }
 
 
@@ -198,13 +217,19 @@ async def ym_playlists(
     name: str | None = None,
     track_ids: Any = None,
     revision: int | None = None,
+    limit: int | None = None,
+    offset: int = 0,
     ym: YandexMusicClient = Depends(get_ym_client),  # noqa: B008
     ctx: Context | None = None,
 ) -> dict[str, Any]:
     """Consolidated playlist operations on Yandex Music.
 
     ``action`` ∈ ``{get, get_tracks, list, create, rename, delete,
-    add_tracks, remove_tracks}``.
+    add_tracks, remove_tracks}``. ``limit``/``offset`` apply only to
+    ``get_tracks`` and page through the playlist (default page size is
+    :data:`MAX_PLAYLIST_TRACKS_PAGE`) so very large playlists never
+    blow up the response budget. ``count`` is always the total length;
+    ``next_offset`` and ``truncated`` describe the next page.
     """
     ids = ensure_list(track_ids) or None
     try:
@@ -214,6 +239,8 @@ async def ym_playlists(
             name=name,
             track_ids=ids,
             revision=revision,
+            limit=limit,
+            offset=offset,
             ym=ym,
         )
     except UnknownActionError as e:
