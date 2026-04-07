@@ -55,9 +55,7 @@ class SetRepository(BaseRepository[DjSet]):
 
         if items and isinstance(items[0], int):
             for idx, tid in enumerate(items):
-                self.session.add(
-                    SetItem(version_id=version.id, track_id=tid, sort_index=idx)  # type: ignore[arg-type]
-                )
+                self.session.add(SetItem(version_id=version.id, track_id=tid, sort_index=idx))
         else:
             for item_data in items:
                 self.session.add(

@@ -243,8 +243,28 @@ class YandexMusicClient:
         path = f"/albums/{album_id}"
         if with_tracks:
             path += "/with-tracks"
-        data = await self._request("GET", path)
-        return _parse_album(data.get("result", {}))
+        try:
+            data = await self._request("GET", path)
+        except APIError as exc:
+            # YM rejects out-of-range IDs (e.g. >9 digits) with HTTP 400
+            # ``validate`` error instead of HTTP 404. Treat any 4xx for
+            # a single-album lookup as "not found" so the tool layer can
+            # raise a clean ``Album not found`` ToolError. 5xx / network
+            # errors keep their original APIError.
+            if 400 <= exc.status_code < 500:
+                return _parse_album({})
+            raise
+
+        # YM API returns ``{"result": null}`` (or omits ``result``) when
+        # the album does not exist — including for syntactically valid
+        # but out-of-range numeric IDs. Coerce to an empty dict so
+        # ``_parse_album`` produces an empty stub. The result may also
+        # contain a top-level ``error`` field with the actual id but no
+        # album metadata; treat that the same way.
+        result = data.get("result")
+        if not isinstance(result, dict) or "error" in result:
+            result = {}
+        return _parse_album(result)
 
     # ── Artists ───────────────────────────────────────────
 

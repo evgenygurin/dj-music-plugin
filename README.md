@@ -32,10 +32,57 @@ uv run fastmcp run app/server.py
 
 ### Установка как Claude Code плагин
 
+Внутри Claude Code (slash-команды):
+
 ```bash
 /plugin marketplace add evgenygurin/dj-music-plugin
 /plugin install dj-music
 ```
+
+Из терминала через `claude` CLI (non-interactive, годится для скриптов и CI):
+
+```bash
+# stable (default branch)
+claude plugin marketplace add evgenygurin/dj-music-plugin
+claude plugin install dj-music@dj-music-plugin
+
+# dev branch
+claude plugin marketplace add evgenygurin/dj-music-plugin@dev
+claude plugin install dj-music@dj-music-plugin
+```
+
+Альтернативный синтаксис через git URL (любая ветка/тег/SHA):
+
+```bash
+claude plugin marketplace add https://github.com/evgenygurin/dj-music-plugin.git#dev
+```
+
+Плагин поднимает два MCP сервера:
+
+| Сервер | Назначение |
+|--------|------------|
+| `mcp` | 50 DJ tools — построение сетов, аудиоанализ, YM, экспорт (FastMCP) |
+| `db` | Read-only инспекция БД: схема, SQL, миграции, логи |
+
+Сервер `db` принудительно изолирован (security hardening по [официальным рекомендациям Supabase MCP](https://github.com/supabase-community/supabase-mcp#security-risks)):
+
+- `--read-only` — мутации БД блокируются (выполняются через `mcp`)
+- `--project-ref=bowosphlnghhgaulcyfm` — scoped к одному проекту
+- `--features=database,docs,debug` — surface ограничен: SQL, схема, миграции, логи. Account/branches/storage/edge-functions tools отключены
+
+Конфигурация токена — в [.env](.env.example):
+
+```bash
+DJ_DB_ACCESS_TOKEN="..."   # personal access token
+```
+
+> Реализация — `@supabase/mcp-server-supabase@0.7.0` (запускается через `npx`). Токен генерится в [Supabase Dashboard](https://supabase.com/dashboard/account/tokens).
+
+#### Платформенные ограничения
+
+Сервер `db` использует `bash`-wrapper для авто-загрузки `.env` (Claude Code не делает этого нативно). На **Windows без WSL/Git-Bash не запустится** — альтернатива: экспортировать `DJ_DB_ACCESS_TOKEN` в shell вручную и заменить wrapper на нативный `env`-блок в `plugin.json`.
+
+Сервер `mcp` использует нативный `command`/`cwd` — pydantic-settings (`app/config.py`) читает `.env` сам, кроссплатформенно.
 
 ## Разработка
 

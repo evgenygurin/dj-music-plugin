@@ -26,56 +26,76 @@ _CONTRAST_BANDS_HZ: list[tuple[float, float]] = [
 ]
 
 
-def _compute_spectral_slope(magnitude: np.ndarray, freqs: np.ndarray) -> float:
-    """Compute spectral slope via linear regression on log-frequency axis.
+def _vectorized_spectral_slope(magnitude: np.ndarray, freqs: np.ndarray) -> np.ndarray:
+    """Per-frame spectral slope (dB/octave) — fully vectorized.
 
-    Fits a line to the log-magnitude spectrum vs. log-frequency.
-    Result is in dB/octave: how fast the spectrum rolls off.
+    Computes the closed-form OLS slope of log-magnitude (dB) versus log2
+    frequency for every frame in one shot. Equivalent to running
+    ``np.polyfit(log_freqs, log_mags_frame, 1)[0]`` per frame, but
+    avoids the per-frame Python overhead which dominates runtime on
+    long signals.
+
+    Skips the DC bin (freq=0). Empty frequency axes return zeros.
     """
-    # Skip DC (freq=0) and zero magnitudes
-    valid = (freqs > 0) & (magnitude > 0)
-    if np.sum(valid) < 2:
-        return 0.0
+    valid = freqs > 0
+    if int(np.sum(valid)) < 2:
+        return np.zeros(magnitude.shape[1], dtype=np.float64)
 
-    log_freqs = np.log2(freqs[valid])
-    log_mags = 20.0 * np.log10(magnitude[valid] + 1e-10)  # dB
+    log_freqs = np.log2(freqs[valid])  # shape (n_valid,)
+    # dB conversion. Add eps so silent frames don't blow up to -inf.
+    log_mags = 20.0 * np.log10(magnitude[valid, :] + 1e-10)  # (n_valid, n_frames)
 
-    # Linear regression: slope in dB per octave (log2 frequency)
-    coeffs = np.polyfit(log_freqs, log_mags, 1)
-    return float(coeffs[0])
+    # Closed-form linear regression slope:
+    #   slope = sum((x - mean_x) * (y - mean_y)) / sum((x - mean_x)^2)
+    x = log_freqs
+    x_centered = x - x.mean()
+    denom = float(np.sum(x_centered**2))
+    if denom <= 0:
+        return np.zeros(magnitude.shape[1], dtype=np.float64)
+    y_centered = log_mags - log_mags.mean(axis=0, keepdims=True)
+    slopes: np.ndarray = (x_centered[:, None] * y_centered).sum(axis=0) / denom
+    return slopes
 
 
-def _compute_spectral_contrast_frame(
+def _vectorized_spectral_contrast(
     magnitude: np.ndarray, freqs: np.ndarray, alpha: float = 0.2
-) -> float:
-    """Compute spectral contrast for one frame: mean peak-valley difference across bands.
+) -> np.ndarray:
+    """Per-frame mean spectral contrast (dB) — fully vectorized.
 
-    For each frequency band, contrast = peak_dB - valley_dB, where peak/valley
-    are computed from the top/bottom alpha fraction of magnitudes in the band.
-    Returns the mean contrast across all bands (dB).
+    For each band, sorts the in-band magnitudes along the frequency
+    axis (one ``np.sort`` per band, batched across frames), then takes
+    the dB difference between the mean of the top-alpha and bottom-alpha
+    slices. The per-band results are averaged into one contrast value
+    per frame.
+
+    Equivalent to calling the original ``_compute_spectral_contrast_frame``
+    on each frame independently, but avoids the Python loop over frames.
     """
-    contrasts: list[float] = []
+    n_frames = magnitude.shape[1]
+    band_contrasts: list[np.ndarray] = []
 
     for low_hz, high_hz in _CONTRAST_BANDS_HZ:
         mask = (freqs >= low_hz) & (freqs < high_hz)
-        band_mags = magnitude[mask]
-
-        if len(band_mags) < 2:
+        n_in_band = int(np.sum(mask))
+        if n_in_band < 2:
             continue
 
-        sorted_mags = np.sort(band_mags)
-        n_alpha = max(1, int(len(sorted_mags) * alpha))
+        band_mags = magnitude[mask, :]  # (n_in_band, n_frames)
+        sorted_mags = np.sort(band_mags, axis=0)  # ascending along bin axis
+        n_alpha = max(1, int(n_in_band * alpha))
 
-        # Peak: mean of top alpha fraction (in dB)
-        peak = float(np.mean(sorted_mags[-n_alpha:]))
-        # Valley: mean of bottom alpha fraction (in dB)
-        valley = float(np.mean(sorted_mags[:n_alpha]))
+        # Top alpha (peak) and bottom alpha (valley) — averaged along bin axis
+        peak = sorted_mags[-n_alpha:, :].mean(axis=0)
+        valley = sorted_mags[:n_alpha, :].mean(axis=0)
 
         peak_db = 20.0 * np.log10(peak + 1e-10)
         valley_db = 20.0 * np.log10(valley + 1e-10)
-        contrasts.append(peak_db - valley_db)
+        band_contrasts.append(peak_db - valley_db)
 
-    return float(np.mean(contrasts)) if contrasts else 0.0
+    if not band_contrasts:
+        return np.zeros(n_frames, dtype=np.float64)
+    result: np.ndarray = np.mean(np.stack(band_contrasts, axis=0), axis=0)
+    return result
 
 
 @register_analyzer
@@ -85,19 +105,22 @@ class SpectralAnalyzer(BaseAnalyzer):
     name: ClassVar[str] = "spectral"
     capabilities: ClassVar[frozenset[str]] = frozenset({"spectral"})
     required_packages: ClassVar[list[str]] = []
+    # Per-frame slope/contrast loops scale linearly with frame count.
+    # Aggregate stats (centroid, rolloff, flatness) converge well within 60s.
+    clip_duration_s: ClassVar[float | None] = 60.0
 
     def _extract(self, ctx: AnalysisContext) -> dict[str, Any]:
         """Compute spectral features reusing pre-computed ctx.magnitude/freqs.
 
-        Vectorized where possible — avoids per-frame Python loops for
-        centroid, rolloff, flatness, and flux. Slope and contrast still
-        need per-frame computation but benefit from shared magnitude.
+        Fully vectorized — no per-frame Python loops. All eight features
+        are computed via numpy reductions over the (n_bins, n_frames)
+        magnitude matrix shared via the AnalysisContext.
         """
         mag = ctx.magnitude  # shape: (n_bins, n_frames)
         freqs = ctx.freqs  # shape: (n_bins,)
-        n_frames = mag.shape[1]
+        n_bins = mag.shape[0]
 
-        # ── Vectorized: centroid, rolloff, flatness, flux ──
+        # ── Centroid, rolloff, flatness, flux (already vectorized) ──
 
         total_mag = mag.sum(axis=0)  # (n_frames,)
         safe_total = np.where(total_mag > 0, total_mag, 1.0)
@@ -105,16 +128,20 @@ class SpectralAnalyzer(BaseAnalyzer):
         # Centroid: weighted mean frequency per frame
         centroids = (freqs[:, None] * mag).sum(axis=0) / safe_total
 
-        # Rolloff 85 / 95: cumulative sum along frequency axis
+        # Rolloff 85 / 95: vectorized via argmax over cumsum threshold
         cumsum = np.cumsum(mag, axis=0)  # (n_bins, n_frames)
-        rolloff_85 = np.zeros(n_frames)
-        rolloff_95 = np.zeros(n_frames)
-        for i in range(n_frames):
-            if total_mag[i] > 0:
-                idx_85 = np.searchsorted(cumsum[:, i], 0.85 * total_mag[i])
-                idx_95 = np.searchsorted(cumsum[:, i], 0.95 * total_mag[i])
-                rolloff_85[i] = freqs[min(idx_85, len(freqs) - 1)]
-                rolloff_95[i] = freqs[min(idx_95, len(freqs) - 1)]
+        # cumsum >= threshold returns a bool matrix; argmax along axis=0
+        # finds the first True per column, equivalent to searchsorted.
+        thresh_85 = 0.85 * total_mag  # (n_frames,)
+        thresh_95 = 0.95 * total_mag
+        idx_85 = np.argmax(cumsum >= thresh_85[None, :], axis=0)
+        idx_95 = np.argmax(cumsum >= thresh_95[None, :], axis=0)
+        # Frames with total_mag == 0 → both thresholds are 0, argmax → 0
+        # which maps to freqs[0] = 0. Acceptable for silent frames.
+        idx_85 = np.minimum(idx_85, n_bins - 1)
+        idx_95 = np.minimum(idx_95, n_bins - 1)
+        rolloff_85 = freqs[idx_85]
+        rolloff_95 = freqs[idx_95]
 
         # Flatness: geometric / arithmetic mean per frame
         log_mag = np.log(mag + 1e-10)
@@ -124,16 +151,11 @@ class SpectralAnalyzer(BaseAnalyzer):
 
         # Flux: L2 norm of frame differences, normalized
         diff = np.diff(mag, axis=1)  # (n_bins, n_frames-1)
-        n_bins = mag.shape[0]
         flux = np.linalg.norm(diff, axis=0) / (n_bins + 1e-10)
 
-        # ── Per-frame: slope and contrast (use shared magnitude) ──
-        slope_list: list[float] = []
-        contrast_list: list[float] = []
-        for i in range(n_frames):
-            frame_mag = mag[:, i]
-            slope_list.append(_compute_spectral_slope(frame_mag, freqs))
-            contrast_list.append(_compute_spectral_contrast_frame(frame_mag, freqs))
+        # ── Slope and contrast: now vectorized across frames ──
+        slopes = _vectorized_spectral_slope(mag, freqs)
+        contrasts = _vectorized_spectral_contrast(mag, freqs)
 
         return {
             "spectral_centroid_hz": float(np.mean(centroids)),
@@ -142,6 +164,6 @@ class SpectralAnalyzer(BaseAnalyzer):
             "spectral_flatness": float(np.mean(flatness)),
             "spectral_flux_mean": float(np.mean(flux)) if len(flux) > 0 else 0.0,
             "spectral_flux_std": float(np.std(flux)) if len(flux) > 0 else 0.0,
-            "spectral_slope": float(np.mean(slope_list)),
-            "spectral_contrast": float(np.mean(contrast_list)),
+            "spectral_slope": float(np.mean(slopes)),
+            "spectral_contrast": float(np.mean(contrasts)),
         }

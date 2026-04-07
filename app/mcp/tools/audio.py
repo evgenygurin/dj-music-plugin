@@ -86,9 +86,7 @@ async def analyze_track(
         result = await svc.analyze_track(resolved_id, analyzers=analyzers_list, force=force)
         if result.get("error") == "No audio file linked":
             await log.info("No local file — falling back to tiered pipeline...")
-            analysis = await tiered.ensure_level(
-                [resolved_id], AnalysisLevel.SCORING, force=force
-            )
+            analysis = await tiered.ensure_level([resolved_id], AnalysisLevel.SCORING, force=force)
             return {
                 "track_id": resolved_id,
                 "level": int(AnalysisLevel.SCORING),
@@ -217,9 +215,7 @@ async def separate_stems(
     if stems_list:
         invalid = set(stems_list) - _VALID_STEMS
         if invalid:
-            raise ToolError(
-                f"Invalid stems: {sorted(invalid)}. Valid: {sorted(_VALID_STEMS)}"
-            )
+            raise ToolError(f"Invalid stems: {sorted(invalid)}. Valid: {sorted(_VALID_STEMS)}")
 
     return {
         "track_id": track_id,

@@ -22,6 +22,9 @@ class TonnetzAnalyzer(BaseAnalyzer):
     name: ClassVar[str] = "tonnetz"
     capabilities: ClassVar[frozenset[str]] = frozenset({"harmony", "tonal"})
     required_packages: ClassVar[list[str]] = ["librosa"]
+    # librosa.feature.tonnetz computes chroma_cqt internally — same scaling
+    # as KeyDetector. Mean-across-time aggregate is stable on 60s.
+    clip_duration_s: ClassVar[float | None] = 60.0
 
     def _extract(self, ctx: AnalysisContext) -> dict[str, Any]:
         import librosa

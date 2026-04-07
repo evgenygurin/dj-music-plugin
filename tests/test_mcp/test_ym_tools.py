@@ -31,7 +31,9 @@ async def test_ym_get_album_raises_on_empty_stub() -> None:
         ),
     )
 
-    with pytest.raises(ToolError, match="Album not found: 999999"):
+    from fastmcp.exceptions import NotFoundError as FastMCPNotFoundError
+
+    with pytest.raises(FastMCPNotFoundError, match="Album not found: 999999"):
         await ym_get_album(album_id="999999", include_tracks=True, ym=ym_mock)
 
 
@@ -182,3 +184,121 @@ async def test_remove_tracks_single_track() -> None:
     call_args = ym_mock.remove_tracks_from_playlist.call_args
     assert call_args[0][1] == 1  # from_idx
     assert call_args[0][2] == 2  # to_idx (exclusive)
+
+
+# ── BUG-018: ym_playlists get_tracks pagination ─────
+
+
+@pytest.mark.asyncio
+async def test_get_tracks_paginates_by_default() -> None:
+    """ym_playlists get_tracks must page large playlists to avoid oversized
+    responses (BUG-018: 1377-track playlist returned ~106k chars)."""
+    from app.mcp.tools.yandex._constants import MAX_PLAYLIST_TRACKS_PAGE
+    from app.mcp.tools.yandex.playlists import ym_playlists
+
+    ym_mock = AsyncMock()
+    big_playlist = [YMTrack(id=str(i), title=f"Track {i}") for i in range(1377)]
+    ym_mock.get_playlist_tracks = AsyncMock(return_value=big_playlist)
+
+    result = await ym_playlists(action="get_tracks", kind=10, ym=ym_mock, ctx=None)
+
+    # Total still reported, but tracks are paged
+    assert result["count"] == 1377
+    assert result["limit"] == MAX_PLAYLIST_TRACKS_PAGE
+    assert result["offset"] == 0
+    assert len(result["tracks"]) == MAX_PLAYLIST_TRACKS_PAGE
+    assert len(result["track_ids"]) == MAX_PLAYLIST_TRACKS_PAGE
+    assert result["truncated"] is True
+    assert result["next_offset"] == MAX_PLAYLIST_TRACKS_PAGE
+
+
+@pytest.mark.asyncio
+async def test_get_tracks_respects_limit_and_offset() -> None:
+    """get_tracks must accept limit/offset and slice the playlist accordingly."""
+    from app.mcp.tools.yandex.playlists import ym_playlists
+
+    ym_mock = AsyncMock()
+    playlist = [YMTrack(id=str(i), title=f"Track {i}") for i in range(50)]
+    ym_mock.get_playlist_tracks = AsyncMock(return_value=playlist)
+
+    result = await ym_playlists(
+        action="get_tracks",
+        kind=10,
+        limit=10,
+        offset=20,
+        ym=ym_mock,
+        ctx=None,
+    )
+
+    assert result["count"] == 50
+    assert result["offset"] == 20
+    assert result["limit"] == 10
+    assert result["track_ids"] == [str(i) for i in range(20, 30)]
+    assert len(result["tracks"]) == 10
+    assert result["truncated"] is True
+    assert result["next_offset"] == 30
+
+
+@pytest.mark.asyncio
+async def test_get_tracks_last_page_marks_not_truncated() -> None:
+    """The final page must report ``truncated=False`` and ``next_offset=None``."""
+    from app.mcp.tools.yandex.playlists import ym_playlists
+
+    ym_mock = AsyncMock()
+    playlist = [YMTrack(id=str(i), title=f"Track {i}") for i in range(15)]
+    ym_mock.get_playlist_tracks = AsyncMock(return_value=playlist)
+
+    result = await ym_playlists(
+        action="get_tracks",
+        kind=10,
+        limit=10,
+        offset=10,
+        ym=ym_mock,
+        ctx=None,
+    )
+
+    assert result["count"] == 15
+    assert result["offset"] == 10
+    assert len(result["tracks"]) == 5  # only 5 tracks left
+    assert result["truncated"] is False
+    assert result["next_offset"] is None
+
+
+@pytest.mark.asyncio
+async def test_get_tracks_caps_limit_to_max() -> None:
+    """``limit`` larger than ``MAX_PLAYLIST_TRACKS_PAGE`` must be capped."""
+    from app.mcp.tools.yandex._constants import MAX_PLAYLIST_TRACKS_PAGE
+    from app.mcp.tools.yandex.playlists import ym_playlists
+
+    ym_mock = AsyncMock()
+    playlist = [YMTrack(id=str(i), title=f"Track {i}") for i in range(1000)]
+    ym_mock.get_playlist_tracks = AsyncMock(return_value=playlist)
+
+    result = await ym_playlists(
+        action="get_tracks",
+        kind=10,
+        limit=10_000,  # absurdly large
+        ym=ym_mock,
+        ctx=None,
+    )
+
+    assert result["limit"] == MAX_PLAYLIST_TRACKS_PAGE
+    assert len(result["tracks"]) == MAX_PLAYLIST_TRACKS_PAGE
+
+
+@pytest.mark.asyncio
+async def test_get_tracks_rejects_negative_offset() -> None:
+    """A negative ``offset`` must raise instead of returning the tail."""
+    from app.mcp.tools.yandex.playlists import ym_playlists
+
+    ym_mock = AsyncMock()
+    ym_mock.get_playlist_tracks = AsyncMock(return_value=[YMTrack(id="1", title="A")])
+
+    with pytest.raises(ToolError, match="offset must be >= 0"):
+        await ym_playlists(
+            action="get_tracks",
+            kind=10,
+            offset=-1,
+            ym=ym_mock,
+            ctx=None,
+        )

@@ -19,5 +19,4 @@ if [ ! -f panel/.env ]; then
   cp panel/.env.example panel/.env
   echo "Created panel/.env from .env.example"
 fi
-
 echo "Dependencies installed"

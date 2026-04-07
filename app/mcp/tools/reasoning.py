@@ -67,15 +67,20 @@ async def find_replacement(
     set_id: int,
     position: int,
     count: int = 5,
+    svc: ReasoningService = Depends(get_reasoning_service),  # noqa: B008
     ctx: Context | None = None,
 ) -> dict[str, Any]:
-    """Find replacement tracks for a set position, scored against both neighbours."""
-    return {
-        "set_id": set_id,
-        "position": position,
-        "candidates": [],
-        "note": "Full replacement engine requires Sub-Project #5 (transition scoring)",
-    }
+    """Find replacement tracks for a set position, scored against both neighbours.
+
+    Each candidate is scored against the prev *and* next track (whichever
+    exist) using :class:`TransitionScorer`; hard-rejects on either side
+    are dropped. Returns the top ``count`` ranked by average score.
+    """
+    return await svc.find_replacement(
+        set_id=set_id,
+        position=position,
+        count=count,
+    )
 
 
 @tool(tags={ToolCategory.SETS.value}, annotations=ANNOTATIONS_READ_ONLY)

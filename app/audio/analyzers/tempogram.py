@@ -22,6 +22,9 @@ class TempogramAnalyzer(BaseAnalyzer):
     name: ClassVar[str] = "tempogram"
     capabilities: ClassVar[frozenset[str]] = frozenset({"rhythm", "tempo"})
     required_packages: ClassVar[list[str]] = ["librosa"]
+    # Tempogram autocorrelation aggregated across time — 60s captures the
+    # dominant tempo lattice for stable-BPM techno.
+    clip_duration_s: ClassVar[float | None] = 60.0
 
     # Standard BPM ratio multipliers to sample from tempogram
     _BPM_RATIOS: ClassVar[tuple[float, ...]] = (0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0)
@@ -29,8 +32,8 @@ class TempogramAnalyzer(BaseAnalyzer):
     def _extract(self, ctx: AnalysisContext) -> dict[str, Any]:
         import librosa
 
-        # Compute onset envelope and tempogram
-        onset_env = librosa.onset.onset_strength(y=ctx.samples, sr=ctx.sr)
+        # Onset envelope shared via ctx (bpm/beat reuse it)
+        onset_env = ctx.get_onset_env()
         tempogram = librosa.feature.tempogram(onset_envelope=onset_env, sr=ctx.sr)
 
         # Estimate dominant tempo

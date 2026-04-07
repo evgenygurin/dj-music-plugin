@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from fastmcp.dependencies import Depends
+from fastmcp.exceptions import NotFoundError as FastMCPNotFoundError
 from fastmcp.exceptions import ToolError
 from fastmcp.server.context import Context
 from fastmcp.tools import tool
@@ -23,9 +24,11 @@ async def ym_get_album(
 ) -> dict[str, Any]:
     """Get album info from Yandex Music, optionally with tracks.
 
-    Raises :class:`ToolError` if YM does not return an album with the
-    given id (the YM API replies with an empty stub instead of HTTP
-    404, which used to silently look like a real, empty album).
+    Raises :class:`fastmcp.exceptions.NotFoundError` if YM does not
+    return an album with the given id (the YM API replies with an empty
+    stub or HTTP 400 instead of HTTP 404). Raised as the FastMCP-native
+    not-found type so the outer ``ErrorHandlingMiddleware`` maps it to
+    MCP error code ``-32001 Not found`` rather than ``-32603``.
     """
     if not album_id or not str(album_id).strip():
         raise ToolError("album_id is required")
@@ -35,6 +38,6 @@ async def ym_get_album(
     # YM returns an empty stub (id="" / no title / no artists / 0 tracks)
     # when the album does not exist. Treat as not-found.
     if not album.title and not album.artists and not album.tracks:
-        raise ToolError(f"Album not found: {album_id}")
+        raise FastMCPNotFoundError(f"Album not found: {album_id}")
 
     return {"album_id": album_id, "album": album.model_dump()}

@@ -105,20 +105,41 @@ async def run_tool(
     if ctx is None:
         raise ToolError("run_tool requires an active MCP context")
 
-    # ``ctx.fastmcp.call_tool`` propagates errors from the target tool.
-    # FastMCP's ``_call_tool`` already passes ``FastMCPError`` subclasses
-    # (incl. ``ToolError`` and ``NotFoundError``) and ``McpError`` through
-    # unchanged — only opaque ``Exception``s get masked into the unhelpful
-    # ``"Error calling tool 'X'"`` envelope when ``mask_error_details``
-    # is on. We catch only those and re-raise as a clean ``ToolError``
-    # carrying the original message + the *target* tool name (not
-    # ``run_tool``), so users see which call actually failed.
+    # CRITICAL: pass ``run_middleware=False`` to the inner ``call_tool``.
+    #
+    # When middleware runs on the *inner* call, ``ErrorHandlingMiddleware``
+    # transforms any tool error into an ``McpError`` (e.g. -32001 for
+    # NotFound). ``McpError`` is NOT a subclass of ``FastMCPError``, so
+    # the *outer* ``_call_tool('run_tool', ...)`` then catches it via
+    # the bare ``except Exception`` branch and wraps it as
+    # ``ToolError("Error calling tool 'run_tool'")``. The outer
+    # middleware then re-maps that as a generic ``-32603 Internal error``
+    # and the original error code + message are lost forever.
+    #
+    # Disabling middleware on the inner call keeps the exception in its
+    # native FastMCP form (``FastMCPError`` subclass — including the
+    # ``ToolError`` wrapper that masking adds, with ``__cause__`` pointing
+    # at the real ``NotFoundError``). The outer ``_call_tool``'s
+    # ``except FastMCPError: raise`` then passes it through unchanged,
+    # and the *single* outer middleware run maps it via the ``__cause__``
+    # chain to the correct MCP error code.
     from fastmcp.exceptions import FastMCPError
-    from mcp import McpError
+    from fastmcp.exceptions import NotFoundError as FastMCPNotFoundError
+
+    clean_exc: tuple[type[BaseException], ...] = (
+        FastMCPError,
+        FastMCPNotFoundError,
+        FileNotFoundError,
+        KeyError,
+        ValueError,
+        TypeError,
+        PermissionError,
+        TimeoutError,
+    )
 
     try:
-        return await ctx.fastmcp.call_tool(name, parsed)
-    except (FastMCPError, McpError):
+        return await ctx.fastmcp.call_tool(name, parsed, run_middleware=False)
+    except clean_exc:
         raise
     except Exception as exc:
         message = str(exc)

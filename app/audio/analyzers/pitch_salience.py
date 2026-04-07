@@ -22,11 +22,10 @@ class PitchSalienceAnalyzer(BaseAnalyzer):
     name: ClassVar[str] = "pitch_salience"
     capabilities: ClassVar[frozenset[str]] = frozenset({"spectral", "harmony"})
     required_packages: ClassVar[list[str]] = ["essentia"]
-
-    # Max analysis duration in seconds. Full-track PitchYin is O(N^2) per
-    # frame — 398s track takes 23s. 60s from the middle is representative
-    # enough for a single mean value and brings runtime to ~3.5s.
-    _MAX_DURATION_S: ClassVar[float] = 60.0
+    # Full-track PitchYin is O(N^2) per frame — 398s track takes 23s.
+    # The pipeline supplies a centered 60s clip context, bringing runtime
+    # down to ~3.5s. Mean-across-frames is statistically equivalent.
+    clip_duration_s: ClassVar[float | None] = 60.0
 
     def _extract(self, ctx: AnalysisContext) -> dict[str, Any]:
         import essentia.standard as es
@@ -34,13 +33,7 @@ class PitchSalienceAnalyzer(BaseAnalyzer):
         frame_size = 2048
         hop_size = 1024
         sr = float(ctx.sr)
-
-        # Clip to centre region for performance
         samples = ctx.samples
-        max_samples = int(self._MAX_DURATION_S * ctx.sr)
-        if len(samples) > max_samples:
-            start_offset = (len(samples) - max_samples) // 2
-            samples = samples[start_offset : start_offset + max_samples]
 
         w = es.Windowing(type="hann")
         spectrum = es.Spectrum()

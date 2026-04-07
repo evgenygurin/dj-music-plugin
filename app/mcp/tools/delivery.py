@@ -39,9 +39,7 @@ from app.utils.files import is_icloud_stub
 
 _DELIVER_SET_ANNOTATIONS: dict[str, bool] = {"readOnlyHint": False, "idempotentHint": True}
 
-_VALID_EXPORT_FORMATS = frozenset(
-    {"m3u8", "rekordbox", "json", "cheatsheet", "cheat_sheet"}
-)
+_VALID_EXPORT_FORMATS = frozenset({"m3u8", "rekordbox", "json", "cheatsheet", "cheat_sheet"})
 
 
 def _set_output_dir(base: Path, set_name: str) -> Path:
@@ -178,9 +176,7 @@ async def deliver_set(
 
     # Stage 3: Create output dir + exports
     set_dir.mkdir(parents=True, exist_ok=True)
-    generated_files = await _write_exports(
-        export_data, set_dir, dj_set.name, export_formats
-    )
+    generated_files = await _write_exports(export_data, set_dir, dj_set.name, export_formats)
     await log.info(f"Stage 3/4: Generated {len(generated_files)} export files")
     await log.progress(3, 4)
 

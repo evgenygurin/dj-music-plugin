@@ -80,27 +80,33 @@ def _apply_k_weighting(samples: np.ndarray, sr: int) -> np.ndarray:
 
 
 def _rms_to_lufs(rms_val: float) -> float:
-    """Convert RMS of K-weighted signal to LUFS."""
+    """Convert RMS of K-weighted signal to LUFS (scalar form)."""
     return float(20.0 * np.log10(rms_val + 1e-10) - 0.691)
 
 
-def _sliding_window_rms(samples: np.ndarray, window_size: int, hop_size: int) -> np.ndarray:
-    """Compute RMS values over a sliding window.
+def _rms_to_lufs_array(rms_vals: np.ndarray) -> np.ndarray:
+    """Vectorized RMS → LUFS conversion. Operates on the whole block array."""
+    return 20.0 * np.log10(rms_vals + 1e-10) - 0.691
 
-    Returns array of RMS values for each window position.
+
+def _sliding_window_rms(samples: np.ndarray, window_size: int, hop_size: int) -> np.ndarray:
+    """Compute RMS values over a sliding window — fully vectorized.
+
+    Uses ``numpy.lib.stride_tricks.sliding_window_view`` to build a
+    zero-copy view of all windows, then computes RMS along the window
+    axis in one shot. Avoids the per-window Python loop that previously
+    dominated runtime (~4000 iterations on a 400s track).
     """
     n_samples = len(samples)
     if n_samples < window_size or window_size <= 0:
         return np.array([], dtype=np.float64)
 
-    n_windows = (n_samples - window_size) // hop_size + 1
-    rms_values = np.empty(n_windows, dtype=np.float64)
-    for i in range(n_windows):
-        start = i * hop_size
-        block = samples[start : start + window_size]
-        rms_values[i] = float(np.sqrt(np.mean(block**2)))
-
-    return rms_values
+    # Zero-copy view: shape (n_total_windows, window_size). Then take
+    # every `hop_size`-th window to honor the requested hop.
+    view = np.lib.stride_tricks.sliding_window_view(samples, window_size)[::hop_size]
+    # Use float64 accumulator for stability — input may be float32
+    rms: np.ndarray = np.sqrt(np.mean(view.astype(np.float64) ** 2, axis=1))
+    return rms
 
 
 def _compute_true_peak(samples: np.ndarray) -> float:
@@ -137,7 +143,7 @@ def _gated_lufs(
         rms = float(np.sqrt(np.mean(k_weighted**2)))
         return _rms_to_lufs(rms)
 
-    block_lufs = np.array([_rms_to_lufs(float(r)) for r in block_rms])
+    block_lufs = _rms_to_lufs_array(block_rms)
 
     # Stage 1: absolute gate at -70 LUFS
     above_abs = block_lufs > -70.0
@@ -206,9 +212,10 @@ class LoudnessAnalyzer(BaseAnalyzer):
         short_term_rms = _sliding_window_rms(k_weighted, short_term_window, short_term_hop)
 
         if len(short_term_rms) > 0:
-            short_term_lufs_values = np.array([_rms_to_lufs(float(r)) for r in short_term_rms])
-            short_term_lufs_mean = float(np.mean(short_term_lufs_values))
+            st_lufs = _rms_to_lufs_array(short_term_rms)
+            short_term_lufs_mean = float(np.mean(st_lufs))
         else:
+            st_lufs = np.array([], dtype=np.float64)
             short_term_lufs_mean = integrated_lufs
 
         # ── Momentary max (EBU R128: 400ms window, 100ms hop) ─
@@ -217,16 +224,13 @@ class LoudnessAnalyzer(BaseAnalyzer):
         momentary_rms = _sliding_window_rms(k_weighted, momentary_window, momentary_hop)
 
         if len(momentary_rms) > 0:
-            momentary_lufs_values = np.array([_rms_to_lufs(float(r)) for r in momentary_rms])
-            momentary_max = float(np.max(momentary_lufs_values))
+            momentary_max = float(np.max(_rms_to_lufs_array(momentary_rms)))
         else:
             momentary_max = integrated_lufs
 
         # ── Loudness Range (LRA) approximation ───────────────
-        # Uses short-term loudness blocks, 10th-95th percentile
-        if len(short_term_rms) >= 2:
-            st_lufs = np.array([_rms_to_lufs(float(r)) for r in short_term_rms])
-            # Apply absolute gate at -70 LUFS
+        # Reuses st_lufs computed above (avoids a third pass over short-term blocks)
+        if len(st_lufs) >= 2:
             st_above_gate = st_lufs[st_lufs > -70.0]
             if len(st_above_gate) >= 2:
                 sorted_vals = np.sort(st_above_gate)

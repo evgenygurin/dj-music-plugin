@@ -48,7 +48,7 @@ class FilteringMixin:
         if energy_max is not None:
             stmt = stmt.where(TrackAudioFeaturesComputed.energy_mean <= energy_max)
 
-        return await self._paginate(stmt, limit=limit, cursor=cursor)  # type: ignore[attr-defined]
+        return await self._paginate(stmt, limit=limit, cursor=cursor)  # type: ignore[attr-defined,no-any-return]
 
     async def filter_tracks_advanced(
         self,

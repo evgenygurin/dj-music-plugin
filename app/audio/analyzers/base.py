@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import contextlib
 import logging
+import time
 from abc import ABC, abstractmethod
 from typing import Any, ClassVar
 
@@ -46,6 +47,12 @@ class BaseAnalyzer(ABC):
     required_packages: ClassVar[list[str]] = []
     depends_on: ClassVar[frozenset[str]] = frozenset()
 
+    # Maximum audio duration (seconds) this analyzer needs. None = full track.
+    # Heavy librosa analyzers (beat, bpm, key, spectral) get a centered clip
+    # for ~5x speedup on long techno tracks (5-7 min). Analyzers that depend
+    # on the full track (structure, loudness) leave this as None.
+    clip_duration_s: ClassVar[float | None] = None
+
     def run(
         self, ctx: AnalysisContext, prior_results: dict[str, Any] | None = None
     ) -> AnalyzerResult:
@@ -56,15 +63,25 @@ class BaseAnalyzer(ABC):
         """
         if len(ctx.samples) == 0:
             return AnalyzerResult(analyzer_name=self.name, success=False, error="Empty signal")
+        start = time.perf_counter()
         try:
             if self.depends_on:
                 features = self._extract(ctx, prior_results=prior_results or {})  # type: ignore[call-arg]
             else:
                 features = self._extract(ctx)
-            return AnalyzerResult(analyzer_name=self.name, features=features)
+            return AnalyzerResult(
+                analyzer_name=self.name,
+                features=features,
+                elapsed_s=time.perf_counter() - start,
+            )
         except Exception as e:
             logger.warning("Analyzer %s failed: %s", self.name, e)
-            return AnalyzerResult(analyzer_name=self.name, success=False, error=str(e))
+            return AnalyzerResult(
+                analyzer_name=self.name,
+                success=False,
+                error=str(e),
+                elapsed_s=time.perf_counter() - start,
+            )
 
     @abstractmethod
     def _extract(self, ctx: AnalysisContext) -> dict[str, Any]:

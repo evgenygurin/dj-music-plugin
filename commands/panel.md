@@ -2,7 +2,7 @@
 name: panel
 description: Open the DJ Music monitoring panel (Next.js dashboard at http://localhost:3000)
 argument-hint: (none)
-allowed-tools: ["Bash"]
+allowed-tools: Bash
 ---
 
 # Open DJ Music Panel
