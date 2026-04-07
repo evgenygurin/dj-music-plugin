@@ -18,3 +18,5 @@ globs: app/repositories/**/*.py
 ## Gotchas
 
 - `AsyncSession.delete()` IS async in SQLAlchemy 2.0 — `await` is correct
+- `TrackRepository.filter_tracks_advanced` `sort_by` поддерживает direction-суффикс: `bpm`/`bpm_desc`/`bpm_asc`, `id_desc`, `energy_desc`, `title_asc`. Без суффикса — ascending. Cursor pagination корректно работает только при сортировке по `id` (TODO в коде).
+- `filter_tracks_advanced` делает **INNER JOIN** на `track_audio_features_computed` если `has_features` ∈ {None, True} → треки без features НЕ возвращаются. В тестах сначала seed `TrackAudioFeaturesComputed(track_id=..., bpm=..., analysis_level=3)` для каждого трека, иначе результат пуст.

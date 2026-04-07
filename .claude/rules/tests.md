@@ -17,3 +17,9 @@ globs: tests/**/*.py
 - Test error cases: not found, invalid params, partial success
 - Audio tests use synthetic WAV fixtures (440Hz sine, 128 BPM click, white noise)
 - Name test files to mirror source: `app/services/track.py` → `tests/test_services/test_track.py`
+
+## Gotchas
+
+- **Sort/order assertions**: всегда `assert len(result) > 0` ПЕРЕД проверкой порядка. `[] == sorted([])` тривиально true и даёт false-positive PASS — баг сортировки пройдёт незамеченным
+- **`filter_tracks_advanced` тесты**: seed `TrackAudioFeaturesComputed` для каждого Track перед вызовом, иначе INNER JOIN на features отсеет всё (см. `_seed_tracks_with_features` helper в `tests/test_repositories/test_track.py`)
+- **BPM analyzer тесты**: используй `_kick_pattern(bpm)` (см. `tests/test_audio/test_bpm_detector.py`) — синтетический click track 30s+, дающий стабильную onset envelope
