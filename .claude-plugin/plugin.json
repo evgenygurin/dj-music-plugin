@@ -17,7 +17,7 @@
         "cd \"${CLAUDE_PLUGIN_ROOT}\" && set -a && source .env 2>/dev/null && set +a && exec uv run fastmcp run fastmcp.json --reload --reload-dir app --no-banner"
       ]
     },
-    "supabase": {
+    "db": {
       "command": "bash",
       "args": [
         "-c",

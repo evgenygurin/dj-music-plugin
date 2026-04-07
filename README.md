@@ -42,9 +42,9 @@ uv run fastmcp run app/server.py
 | Сервер | Назначение | Транспорт |
 |--------|------------|-----------|
 | `mcp` | 50 DJ tools (FastMCP) | stdio (`uv run`) |
-| `supabase` | Read-only инспекция БД, схемы, логов | stdio (`npx @supabase/mcp-server-supabase`) |
+| `db` | Read-only инспекция БД, схемы, логов (Supabase) | stdio (`npx @supabase/mcp-server-supabase`) |
 
-Для `supabase` создай токен в [Supabase Dashboard](https://supabase.com/dashboard/account/tokens) и положи в `.env`:
+Для `db` создай токен в [Supabase Dashboard](https://supabase.com/dashboard/account/tokens) и положи в `.env`:
 
 ```bash
 SUPABASE_ACCESS_TOKEN=sbp_xxxxxxxxxxxx
