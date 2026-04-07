@@ -37,6 +37,21 @@ uv run fastmcp run app/server.py
 /plugin install dj-music
 ```
 
+Плагин поднимает два MCP сервера:
+
+| Сервер | Назначение | Транспорт |
+|--------|------------|-----------|
+| `mcp` | 50 DJ tools (FastMCP) | stdio (`uv run`) |
+| `supabase` | Read-only инспекция БД, схемы, логов | stdio (`npx @supabase/mcp-server-supabase`) |
+
+Для `supabase` создай токен в [Supabase Dashboard](https://supabase.com/dashboard/account/tokens) и положи в `.env`:
+
+```bash
+SUPABASE_ACCESS_TOKEN=sbp_xxxxxxxxxxxx
+```
+
+Сервер привязан к проекту `bowosphlnghhgaulcyfm` и работает в `--read-only` режиме. Мутации БД проходят через DJ tools, не через Supabase MCP.
+
 ## Разработка
 
 ```bash

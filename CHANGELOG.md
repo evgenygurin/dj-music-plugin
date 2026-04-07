@@ -6,6 +6,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/).
 ## [Unreleased]
 
 ### Added
+- Second MCP server in plugin manifest: `supabase` (`@supabase/mcp-server-supabase`), scoped to project `bowosphlnghhgaulcyfm`, `--read-only` by default. Reads `SUPABASE_ACCESS_TOKEN` from `.env`.
 - 4 new P2 analyzers: SpectralComplexityAnalyzer, PitchSalienceAnalyzer, BpmHistogramAnalyzer, PhraseAnalyzer
 - Context-aware `TransitionIntent` enum with weight modifiers (maintain/ramp_up/cool_down/contrast)
 - New `score_timbral` component in TransitionScorer (spectral contrast + pitch salience proximity)
