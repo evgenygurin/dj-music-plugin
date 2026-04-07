@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# Start DJ Music backend (REST API) and panel (Next.js) if not already running.
-# Called by SessionStart hook. Must exit quickly — processes backgrounded via nohup.
+# Restart DJ Music backend (REST API) and panel (Next.js).
+# Always kills any existing processes on ports 8000/3000 and starts fresh.
+# Called by SessionStart hook and /panel slash command.
 #
 # Env:
 #   CLAUDE_PLUGIN_ROOT — plugin root (set by Claude Code)
@@ -21,24 +22,36 @@ PANEL_PORT=3000
 BACKEND_LOG=/tmp/dj-music-backend.log
 PANEL_LOG=/tmp/dj-music-panel.log
 
-port_busy() {
-  lsof -iTCP:"$1" -sTCP:LISTEN -n -P >/dev/null 2>&1
+kill_port() {
+  local port="$1"
+  local pids
+  pids=$(lsof -tiTCP:"$port" -sTCP:LISTEN 2>/dev/null || true)
+  if [ -n "$pids" ]; then
+    echo "$pids" | xargs kill -TERM 2>/dev/null || true
+    sleep 1
+    pids=$(lsof -tiTCP:"$port" -sTCP:LISTEN 2>/dev/null || true)
+    if [ -n "$pids" ]; then
+      echo "$pids" | xargs kill -KILL 2>/dev/null || true
+    fi
+  fi
 }
 
-# REST API (FastAPI wrapping MCP) — only start if port 8000 is free
-if ! port_busy "$BACKEND_PORT"; then
-  (
-    cd "$ROOT" || exit 1
-    set -a; . .env 2>/dev/null || true; set +a
-    nohup uv run --extra http uvicorn serve_http:api \
-      --host 127.0.0.1 --port "$BACKEND_PORT" \
-      >"$BACKEND_LOG" 2>&1 &
-    disown
-  )
-fi
+# Kill anything squatting on our ports (old uvicorn/bun/node from prior sessions)
+kill_port "$BACKEND_PORT"
+kill_port "$PANEL_PORT"
 
-# Next.js panel — only start if port 3000 is free and panel/node_modules exists
-if ! port_busy "$PANEL_PORT" && [ -d "$ROOT/panel/node_modules" ]; then
+# Start REST API (FastAPI wrapping MCP)
+(
+  cd "$ROOT" || exit 1
+  set -a; . .env 2>/dev/null || true; set +a
+  nohup uv run --extra http uvicorn serve_http:api \
+    --host 127.0.0.1 --port "$BACKEND_PORT" \
+    >"$BACKEND_LOG" 2>&1 &
+  disown
+)
+
+# Start Next.js panel (only if deps are installed)
+if [ -d "$ROOT/panel/node_modules" ]; then
   (
     cd "$ROOT/panel" || exit 1
     nohup bun dev --port "$PANEL_PORT" \
