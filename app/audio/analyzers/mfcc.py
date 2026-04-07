@@ -21,6 +21,9 @@ class MFCCExtractor(BaseAnalyzer):
     name: ClassVar[str] = "mfcc"
     capabilities: ClassVar[frozenset[str]] = frozenset({"mfcc", "timbre"})
     required_packages: ClassVar[list[str]] = ["librosa"]
+    # MFCC mean-across-time is the timbral fingerprint — stable across the
+    # track. 60s clip is industry standard (used by audio-fingerprinting libs).
+    clip_duration_s: ClassVar[float | None] = 60.0
 
     def _extract(self, ctx: AnalysisContext) -> dict[str, Any]:
         """Extract MFCC features."""

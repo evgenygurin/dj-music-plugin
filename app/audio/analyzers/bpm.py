@@ -20,6 +20,9 @@ class BPMDetector(BaseAnalyzer):
     name: ClassVar[str] = "bpm"
     capabilities: ClassVar[frozenset[str]] = frozenset({"tempo", "rhythm"})
     required_packages: ClassVar[list[str]] = ["librosa"]
+    # beat_track + onset_strength scale linearly with audio length.
+    # Techno BPM is stable across the whole track — 60s is sufficient.
+    clip_duration_s: ClassVar[float | None] = 60.0
 
     def _extract(self, ctx: AnalysisContext) -> dict[str, Any]:
         """Detect BPM, confidence, and stability."""
@@ -35,8 +38,8 @@ class BPMDetector(BaseAnalyzer):
         # Beat times for stability analysis
         beat_times = librosa.frames_to_time(beat_frames, sr=sr)
 
-        # Confidence from onset strength
-        onset_env = librosa.onset.onset_strength(y=samples, sr=sr)
+        # Confidence from onset strength (shared with beat/tempogram via ctx)
+        onset_env = ctx.get_onset_env()
         pulse = librosa.beat.plp(onset_envelope=onset_env, sr=sr)
         confidence = float(np.max(pulse)) if len(pulse) > 0 else 0.5
 

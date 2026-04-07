@@ -41,3 +41,4 @@ class AnalyzerResult:
     features: dict[str, Any] = field(default_factory=dict)
     success: bool = True
     error: str | None = None
+    elapsed_s: float = 0.0

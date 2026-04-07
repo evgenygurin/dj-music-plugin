@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""End-to-end verification of the refactored audio pipeline.
+"""End-to-end verification of the audio pipeline.
 
-Loads a real MP3, runs all 18 analyzers (sequential + parallel),
-classifies mood, and prints a full feature report with timing breakdown.
-Compares sequential vs parallel pipeline timing to validate parallelism.
+Loads a real MP3, runs the production pipeline (all registered analyzers
+with per-analyzer clip duration + parallel dispatch), classifies mood,
+and prints a feature report with a runtime budget check.
 
 Usage:
     uv run python scripts/verify_audio_pipeline.py [path_to_mp3]
@@ -98,7 +98,7 @@ def find_real_mp3(library_root: str | None = None) -> str:
 # ── Main pipeline test ──────────────────────────────
 
 
-async def run_verification(track_path: str) -> bool:
+async def run_verification(track_path: str, use_processes: bool = False) -> bool:
     """Run full E2E verification. Returns True if all checks pass."""
 
     timing = TimingReport()
@@ -124,7 +124,7 @@ async def run_verification(track_path: str) -> bool:
     )
     print(f"\n[1/7] AudioLoader: {signal.duration_seconds:.1f}s audio loaded ({t.elapsed:.2f}s)")
 
-    # ── 2. AnalysisContext (eager precompute) ──
+    # ── 2. AnalysisContext (eager precompute on full track for inspection) ──
     from app.audio.core.context import AnalysisContext
 
     with Timer() as t:
@@ -136,53 +136,57 @@ async def run_verification(track_path: str) -> bool:
     )
     print(f"[2/7] AnalysisContext: STFT {ctx.stft.shape} ({t.elapsed:.2f}s)")
 
-    # ── 3. Individual analyzers (sequential, for per-analyzer timing) ──
+    # ── 3. Pipeline (production path: parallel + per-analyzer clip) ──
+    # The pipeline is the only thing production code calls. Run it once
+    # and use its per-analyzer timings for the breakdown — running every
+    # analyzer twice (sequential + parallel) doubled the verify time and
+    # measured cold-vs-warm CPU rather than real concurrency benefit.
     from app.audio.analyzers import AnalyzerRegistry
+    from app.audio.pipeline import AnalysisPipeline
 
     registry = AnalyzerRegistry()
     registry.discover()
-
     all_analyzers = sorted(registry.list_all())
-    print(f"[3/7] Analyzers (sequential, {len(all_analyzers)} registered):")
-    # Run independent analyzers first, then dependent ones with accumulated results
-    independent = [n for n in all_analyzers if not registry.get(n).depends_on]
-    dependent = [n for n in all_analyzers if registry.get(n).depends_on]
+    print(f"[3/7] Analyzers registered: {len(all_analyzers)}")
+    for name in all_analyzers:
+        a = registry.get(name)
+        clip = f"clip={a.clip_duration_s:.0f}s" if a and a.clip_duration_s else "full"
+        deps = f" deps={sorted(a.depends_on)}" if a and a.depends_on else ""
+        print(f"      {name:20s}  {clip}{deps}")
 
-    seq_features: dict = {}
-    seq_total = 0.0
-    for name in independent + dependent:
-        analyzer = registry.get(name)
-        assert analyzer is not None
-        with Timer() as t:
-            # Dependent analyzers need prior_results from independent phase
-            if analyzer.depends_on:
-                result = analyzer.run(ctx, prior_results=seq_features)
-            else:
-                result = analyzer.run(ctx)
-        seq_total += t.elapsed
-        n = len(result.features) if result.features else 0
-        status = "OK" if result.success else f"FAIL: {result.error}"
-        print(f"      {name:12s} -> {status} ({n} feat, {t.elapsed:.2f}s)")
-        timing.record(f"  analyzer/{name}", t.elapsed, f"{n} features")
-        if result.features:
-            seq_features.update(result.features)
-    timing.record("Sequential total", seq_total, f"{len(seq_features)} features")
+    pipeline = AnalysisPipeline(registry=registry, loader=loader, use_processes=use_processes)
+    mode = "ProcessPool" if use_processes else "ThreadPool"
+    print(f"[4/7] Pipeline run ({mode}):")
 
-    # ── 4. Pipeline (parallel via asyncio.to_thread) ──
-    from app.audio.pipeline import AnalysisPipeline
+    # In ProcessPool mode the first call pays a one-off cold-start cost
+    # (workers spawn and import librosa). Production callers (FastMCP
+    # server, batch jobs) reuse a long-lived pool, so the warm wall is
+    # the relevant number — measure it explicitly with a second call.
+    if use_processes:
+        cold_timer = Timer()
+        with cold_timer:
+            await pipeline.analyze(track_path)
+        print(f"      cold start: {cold_timer.elapsed:.2f}s")
 
-    pipeline = AnalysisPipeline(registry=registry, loader=loader)
-    with Timer() as t:
+    pipe_timer = Timer()
+    with pipe_timer:
         pipe_result = await pipeline.analyze(track_path)
-    speedup = seq_total / t.elapsed if t.elapsed > 0 else 0
+
+    if use_processes:
+        pipeline.shutdown()
+    print(
+        f"      {pipe_result.success_count}/{len(pipe_result.results)} OK in "
+        f"{pipe_timer.elapsed:.2f}s"
+    )
+    for r in sorted(pipe_result.results, key=lambda r: -r.elapsed_s):
+        n = len(r.features) if r.features else 0
+        status = "OK" if r.success else f"FAIL: {r.error}"
+        print(f"      {r.analyzer_name:20s} -> {status} ({n} feat, {r.elapsed_s:.2f}s)")
+        timing.record(f"  analyzer/{r.analyzer_name}", r.elapsed_s, f"{n} features")
     timing.record(
         "Pipeline (parallel)",
-        t.elapsed,
-        f"{pipe_result.success_count}/{len(pipe_result.results)} OK, {speedup:.1f}x speedup",
-    )
-    print(
-        f"[4/7] Pipeline (parallel): {pipe_result.success_count}/{len(pipe_result.results)} OK "
-        f"({t.elapsed:.2f}s, {speedup:.1f}x speedup vs sequential)"
+        pipe_timer.elapsed,
+        f"{pipe_result.success_count}/{len(pipe_result.results)} OK",
     )
 
     f = pipe_result.features
@@ -299,14 +303,15 @@ async def run_verification(track_path: str) -> bool:
         errors.append(f"LUFS {f['integrated_lufs']} should be negative")
     print(f"  LUFS negative:  {'OK' if f['integrated_lufs'] < 0 else 'FAIL'}")
 
-    if seq_features.keys() != f.keys():
-        diff = seq_features.keys() ^ f.keys()
-        errors.append(f"Sequential vs parallel key mismatch: {diff}")
-    print(f"  Seq/Par match:  {'OK' if seq_features.keys() == f.keys() else 'FAIL'}")
-
-    if speedup < 1.0:
-        errors.append(f"No parallel speedup: {speedup:.1f}x")
-    print(f"  Parallel gain:  {speedup:.1f}x")
+    # Pipeline must complete in reasonable time on typical 6-min techno track.
+    # 25s budget = 60s clip x ~6 heavy librosa analyzers in worst case (with
+    # GIL contention). Spot-check, not a strict bound.
+    if pipe_timer.elapsed > 25.0:
+        errors.append(f"Pipeline too slow: {pipe_timer.elapsed:.1f}s (budget 25s)")
+    print(
+        f"  Runtime budget: {'OK' if pipe_timer.elapsed <= 25.0 else 'FAIL'} "
+        f"({pipe_timer.elapsed:.1f}s ≤ 25s)"
+    )
 
     # ── Timing summary ──
     timing.print_summary()
@@ -323,8 +328,12 @@ async def run_verification(track_path: str) -> bool:
 
 
 def main() -> None:
-    if len(sys.argv) > 1:
-        track_path = sys.argv[1]
+    args = [a for a in sys.argv[1:] if not a.startswith("--")]
+    flags = {a for a in sys.argv[1:] if a.startswith("--")}
+    use_processes = "--processes" in flags
+
+    if args:
+        track_path = args[0]
         if not os.path.isfile(track_path):
             print(f"File not found: {track_path}", file=sys.stderr)
             sys.exit(1)
@@ -333,7 +342,7 @@ def main() -> None:
         track_path = find_real_mp3()
         print(f"Found: {Path(track_path).name}\n")
 
-    ok = asyncio.run(run_verification(track_path))
+    ok = asyncio.run(run_verification(track_path, use_processes=use_processes))
     sys.exit(0 if ok else 1)
 
 
