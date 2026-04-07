@@ -32,9 +32,29 @@ uv run fastmcp run app/server.py
 
 ### Установка как Claude Code плагин
 
+Внутри Claude Code (slash-команды):
+
 ```bash
 /plugin marketplace add evgenygurin/dj-music-plugin
 /plugin install dj-music
+```
+
+Из терминала через `claude` CLI (non-interactive, годится для скриптов и CI):
+
+```bash
+# stable (default branch)
+claude plugin marketplace add evgenygurin/dj-music-plugin
+claude plugin install dj-music@dj-music-plugin
+
+# dev branch
+claude plugin marketplace add evgenygurin/dj-music-plugin@dev
+claude plugin install dj-music@dj-music-plugin
+```
+
+Альтернативный синтаксис через git URL (любая ветка/тег/SHA):
+
+```bash
+claude plugin marketplace add https://github.com/evgenygurin/dj-music-plugin.git#dev
 ```
 
 Плагин поднимает два MCP сервера:
