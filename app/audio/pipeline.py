@@ -44,8 +44,10 @@ import contextlib
 import importlib
 import multiprocessing
 import os
+from collections import OrderedDict
 from concurrent.futures import ProcessPoolExecutor
 from dataclasses import dataclass, field
+from multiprocessing import shared_memory
 from typing import Any
 
 import numpy as np
@@ -54,6 +56,7 @@ from app.audio.analyzers.base import AnalyzerRegistry, BaseAnalyzer
 from app.audio.core.context import AnalysisContext
 from app.audio.core.loader import AudioLoader
 from app.audio.core.types import AnalyzerResult, AudioSignal, FrameParams
+from app.config import settings
 
 # Stitched-clip strategy parameters. Three windows from across the track
 # at positions corresponding to (i + 0.5) / N for i in 0..N-1, i.e. 1/6,
@@ -62,6 +65,21 @@ _DEFAULT_N_WINDOWS = 3
 _FADE_MS = 20.0
 
 _LIBROSA_WARMED_UP = False
+
+# ── Per-worker AnalysisContext cache (process-pool path) ───────────────
+# Module-level OrderedDict acting as an LRU. Lives inside each worker
+# process — populated on first task that touches a given clip variant,
+# reused by every subsequent task in the SAME analyze() call that needs
+# the same clip (typically 4-8 analyzers per clip variant share one
+# context, paying the ~150-300ms STFT cost only once per worker per
+# call). Cache key includes the SharedMemory name, which is unique per
+# analyze() call, so reuse across pipeline calls cannot leak features
+# between unrelated tracks. Eviction frees the underlying SharedMemory
+# attachment so the segment can be released by the OS once the main
+# process unlinks it.
+_WorkerCacheKey = tuple[str, int, int, int]
+_WorkerCacheEntry = tuple[shared_memory.SharedMemory, AnalysisContext]
+_WORKER_CONTEXT_CACHE: OrderedDict[_WorkerCacheKey, _WorkerCacheEntry] = OrderedDict()
 
 
 def _warmup_librosa() -> None:
@@ -91,12 +109,78 @@ def _warmup_librosa() -> None:
     _LIBROSA_WARMED_UP = True
 
 
-def _process_analyzer_worker(
+def _create_shared_clip(
     samples: np.ndarray,
+) -> tuple[shared_memory.SharedMemory, str, str, tuple[int, ...]]:
+    """Allocate a SharedMemory block and copy ``samples`` into it.
+
+    Returns the live SharedMemory handle (caller must close + unlink it
+    in a finally block) plus the (name, dtype, shape) triple needed by
+    workers to attach. We always copy because the input may be a non-
+    contiguous slice (e.g. a stitched-clip view); the destination is a
+    fresh contiguous buffer the worker can wrap with zero-copy
+    ``np.ndarray(..., buffer=shm.buf)``.
+    """
+    contiguous = np.ascontiguousarray(samples)
+    shm = shared_memory.SharedMemory(create=True, size=contiguous.nbytes)
+    view = np.ndarray(contiguous.shape, dtype=contiguous.dtype, buffer=shm.buf)
+    view[...] = contiguous
+    return shm, shm.name, contiguous.dtype.str, tuple(contiguous.shape)
+
+
+def _attach_shared_clip(
+    name: str, dtype_str: str, shape: tuple[int, ...]
+) -> tuple[shared_memory.SharedMemory, np.ndarray]:
+    """Attach to an existing SharedMemory block by name (worker side).
+
+    The returned ndarray is a zero-copy view onto the shared buffer and
+    is marked read-only — workers must not mutate input samples (it
+    would corrupt every other analyzer reading the same clip).
+    """
+    shm = shared_memory.SharedMemory(name=name)
+    arr = np.ndarray(shape, dtype=np.dtype(dtype_str), buffer=shm.buf)
+    arr.setflags(write=False)
+    return shm, arr
+
+
+def _publish_clips_to_shared_memory(
+    clips: dict[float | None, np.ndarray],
+) -> dict[float | None, tuple[shared_memory.SharedMemory, str, str, tuple[int, ...]]]:
+    """Allocate one SharedMemory block per unique clip buffer.
+
+    Multiple clip-duration keys can map to the same underlying ndarray
+    (e.g. on a short track every variant collapses to the full
+    samples). We dedupe by ``id(samples)`` so duplicates share one
+    SharedMemory block — both saving the bytewise copy and ensuring
+    every analyzer in the same bucket lands on a single cache entry
+    in the worker, regardless of how many clip-duration buckets
+    happen to point at the same buffer.
+
+    Module-level so the dispatcher can hand it off to ``to_thread``
+    without binding ``self`` (the bytewise copy can be ~10ms on a
+    multi-MB clip — small but still off the event loop).
+    """
+    by_buffer: dict[int, tuple[shared_memory.SharedMemory, str, str, tuple[int, ...]]] = {}
+    out: dict[float | None, tuple[shared_memory.SharedMemory, str, str, tuple[int, ...]]] = {}
+    for clip, samples in clips.items():
+        buf_id = id(samples)
+        entry = by_buffer.get(buf_id)
+        if entry is None:
+            entry = _create_shared_clip(samples)
+            by_buffer[buf_id] = entry
+        out[clip] = entry
+    return out
+
+
+def _process_analyzer_worker(
+    shm_name: str,
+    dtype_str: str,
+    shape: tuple[int, ...],
     sample_rate: int,
     file_path: str,
     frame_length: int,
     hop_length: int,
+    cache_max_size: int,
     analyzer_module: str,
     analyzer_class: str,
     prior_results: dict[str, Any] | None = None,
@@ -104,11 +188,21 @@ def _process_analyzer_worker(
     """Run a single analyzer in a worker process.
 
     Module-level function (required for pickling under
-    ProcessPoolExecutor + spawn/forkserver). Receives the raw clip
-    samples plus enough metadata to rebuild ``AudioSignal`` and
+    ProcessPoolExecutor + spawn/forkserver). Receives a SharedMemory
+    handle name + the metadata needed to rebuild ``AudioSignal`` and
     ``AnalysisContext`` locally — we cannot pickle the context itself
     because it holds a ``threading.Lock`` for the lazy onset envelope
     cache.
+
+    Two amortizations live here:
+
+    1. Sample transport via SharedMemory: the worker attaches a zero-
+       copy view onto the shared buffer instead of receiving a pickled
+       multi-MB ndarray on every task.
+    2. Per-worker LRU AnalysisContext cache: the first analyzer in a
+       given (shm, frame_params) bucket pays the STFT/magnitude/freqs
+       cost; every subsequent analyzer in the same call that lands on
+       the same worker reuses the cached context.
 
     The worker also calls ``_warmup_librosa()`` once per process so
     librosa submodule imports are resolved before any analyzer runs
@@ -116,14 +210,26 @@ def _process_analyzer_worker(
     """
     _warmup_librosa()
 
-    signal = AudioSignal(
-        samples=samples,
-        sample_rate=sample_rate,
-        duration_seconds=len(samples) / sample_rate,
-        file_path=file_path,
-    )
-    params = FrameParams(frame_length=frame_length, hop_length=hop_length)
-    ctx = AnalysisContext(signal, params=params)
+    cache_key = (shm_name, sample_rate, frame_length, hop_length)
+    cached = _WORKER_CONTEXT_CACHE.get(cache_key)
+    if cached is not None:
+        _shm, ctx = cached
+        _WORKER_CONTEXT_CACHE.move_to_end(cache_key)
+    else:
+        shm, samples = _attach_shared_clip(shm_name, dtype_str, shape)
+        signal = AudioSignal(
+            samples=samples,
+            sample_rate=sample_rate,
+            duration_seconds=len(samples) / sample_rate,
+            file_path=file_path,
+        )
+        params = FrameParams(frame_length=frame_length, hop_length=hop_length)
+        ctx = AnalysisContext(signal, params=params)
+        _WORKER_CONTEXT_CACHE[cache_key] = (shm, ctx)
+        while len(_WORKER_CONTEXT_CACHE) > cache_max_size:
+            _, (old_shm, _old_ctx) = _WORKER_CONTEXT_CACHE.popitem(last=False)
+            with contextlib.suppress(Exception):
+                old_shm.close()
 
     module = importlib.import_module(analyzer_module)
     cls = getattr(module, analyzer_class)
@@ -339,6 +445,7 @@ class AnalysisPipeline:
         pool = self._get_pool()
         loop = asyncio.get_running_loop()
         params = FrameParams()  # default frame params; matches AnalysisContext default
+        cache_max_size = settings.audio_process_worker_cache_size
 
         # Pre-compute clip variants once per unique clip duration.
         # Stitched-window construction does numpy concat + hann fades
@@ -346,44 +453,84 @@ class AnalysisPipeline:
         # event loop, so offload to a worker thread.
         clips = await asyncio.to_thread(_build_clip_variants_for_instances, signal, instances)
 
-        # Sort by descending observed cost so heavy analyzers are
-        # submitted first. ProcessPoolExecutor dispatches FIFO across
-        # workers, so the earliest tasks land in workers immediately —
-        # putting the heaviest analyzer at the head ensures it starts
-        # running on its own core from t=0 instead of waiting in the
-        # queue while cheap analyzers tie up workers.
-        #
-        # Costs come from the previous call's ``elapsed_s``. On the
-        # first call ``_observed_costs`` is empty so all analyzers
-        # have cost 0.0 — sorting is a no-op and dispatch order is
-        # the registry order. From the second call onward, dispatch
-        # is optimal for the actual measured workload of THIS pipeline.
-        sorted_instances = sorted(
-            instances,
-            key=lambda a: self._observed_costs.get(a.name, 0.0),
-            reverse=True,
-        )
+        # Publish each unique clip variant into a SharedMemory block.
+        # Workers attach zero-copy views via the block name instead of
+        # receiving the multi-MB ndarray pickled on every task. This
+        # alone removes ~1-2s of pickling overhead on a multi-analyzer
+        # phase. The bytewise copy from the source ndarray to the shm
+        # buffer is offloaded to a worker thread so it never touches
+        # the event loop.
+        shm_blocks: dict[
+            float | None,
+            tuple[shared_memory.SharedMemory, str, str, tuple[int, ...]],
+        ] = {}
+        try:
+            shm_blocks = await asyncio.to_thread(_publish_clips_to_shared_memory, clips)
 
-        futures = []
-        for analyzer in sorted_instances:
-            samples = clips[analyzer.clip_duration_s]
-            cls = type(analyzer)
-            futures.append(
-                loop.run_in_executor(
-                    pool,
-                    _process_analyzer_worker,
-                    samples,
-                    signal.sample_rate,
-                    signal.file_path,
-                    params.frame_length,
-                    params.hop_length,
-                    cls.__module__,
-                    cls.__name__,
-                    prior_results,
-                )
+            # Sort by descending observed cost so heavy analyzers are
+            # submitted first. ProcessPoolExecutor dispatches FIFO
+            # across workers, so the earliest tasks land in workers
+            # immediately — putting the heaviest analyzer at the head
+            # ensures it starts running on its own core from t=0
+            # instead of waiting in the queue while cheap analyzers
+            # tie up workers.
+            #
+            # Costs come from the previous call's ``elapsed_s``. On
+            # the first call ``_observed_costs`` is empty so all
+            # analyzers have cost 0.0 — sorting is a no-op and
+            # dispatch order is the registry order. From the second
+            # call onward, dispatch is optimal for the actual measured
+            # workload of THIS pipeline.
+            sorted_instances = sorted(
+                instances,
+                key=lambda a: self._observed_costs.get(a.name, 0.0),
+                reverse=True,
             )
 
-        results = list(await asyncio.gather(*futures))
+            futures = []
+            for analyzer in sorted_instances:
+                _shm, shm_name, dtype_str, shape = shm_blocks[analyzer.clip_duration_s]
+                cls = type(analyzer)
+                futures.append(
+                    loop.run_in_executor(
+                        pool,
+                        _process_analyzer_worker,
+                        shm_name,
+                        dtype_str,
+                        shape,
+                        signal.sample_rate,
+                        signal.file_path,
+                        params.frame_length,
+                        params.hop_length,
+                        cache_max_size,
+                        cls.__module__,
+                        cls.__name__,
+                        prior_results,
+                    )
+                )
+
+            results = list(await asyncio.gather(*futures))
+        finally:
+            # Release SharedMemory in the main process. ``unlink`` removes
+            # the segment name from /dev/shm so it never appears as a
+            # leak even when workers still hold attached views inside
+            # their LRU AnalysisContext cache. The OS frees the backing
+            # bytes once the last attachment is dropped (which happens
+            # via LRU eviction or worker shutdown). The per-worker LRU
+            # bounds memory growth at
+            # ``max_workers * cache_max_size * avg_clip_size`` so we
+            # don't need an explicit fan-out eviction task on every
+            # call — keeping the dispatch path lean.
+            seen_shm_ids: set[int] = set()
+            for shm, _name, _dtype, _shape in shm_blocks.values():
+                if id(shm) in seen_shm_ids:
+                    continue
+                seen_shm_ids.add(id(shm))
+                with contextlib.suppress(Exception):
+                    shm.close()
+                with contextlib.suppress(Exception):
+                    shm.unlink()
+
         # No shared context to return from worker processes — caller
         # gets None and the PipelineResult.context will be None too.
         return results, None

@@ -929,3 +929,190 @@ class TestEventLoopResponsiveness:
             f"event loop blocked for {max_gap:.3f}s during process-mode "
             f"analyze() — some sync work is not offloaded"
         )
+
+
+# ── SharedMemory transport + per-worker context cache ─────────────────
+
+
+class TestSharedMemoryTransport:
+    """Verify that the process-pool path uses SharedMemory for clip samples
+    and that segments are reliably released after every analyze() call.
+
+    The optimization swaps multi-MB ndarray pickling for a zero-copy
+    SharedMemory attach, plus an LRU AnalysisContext cache inside each
+    worker so the STFT/magnitude/freqs work is paid only once per
+    (worker, clip variant) pair within a call.
+    """
+
+    @staticmethod
+    def _list_shm_segments() -> set[str]:
+        """Snapshot ``/dev/shm`` for posix-shm names (Linux only)."""
+        shm_root = Path("/dev/shm")
+        if not shm_root.exists():
+            return set()
+        return {p.name for p in shm_root.iterdir() if p.name.startswith("psm_")}
+
+    @pytest.mark.skipif(
+        not Path("/dev/shm").exists(),
+        reason="posix shared memory only on Linux",
+    )
+    async def test_no_shared_memory_leak_after_analyze(
+        self, tmp_path: Path, registry: AnalyzerRegistry
+    ) -> None:
+        """``/dev/shm`` must not grow across analyze() calls.
+
+        Each call publishes clip variants into freshly-allocated
+        SharedMemory blocks, then unlinks them in a finally. Even if
+        worker LRU cache still holds attached views, the segment NAMES
+        must disappear from ``/dev/shm`` so they don't show up as a
+        leak. We allow the count to dip but not grow.
+        """
+        import soundfile as sf
+
+        sr = 22050
+        duration = 4.0
+        n = int(sr * duration)
+        rng = np.random.default_rng(7)
+        samples = (0.3 * rng.standard_normal(n)).astype(np.float32)
+        wav_path = tmp_path / "signal.wav"
+        sf.write(str(wav_path), samples, sr)
+
+        baseline = self._list_shm_segments()
+        pipeline = AnalysisPipeline(registry=registry, use_processes=True, max_workers=2)
+        try:
+            for _ in range(3):
+                result = await pipeline.analyze(
+                    str(wav_path), analyzers=["loudness", "energy", "spectral"]
+                )
+                assert result.success_count == 3
+        finally:
+            pipeline.shutdown()
+
+        # Workers are gone — give the OS a moment to reap any
+        # lingering shared memory references and re-snapshot.
+        await asyncio.sleep(0.05)
+        after = self._list_shm_segments()
+        leaked = after - baseline
+        assert not leaked, (
+            f"shared memory leaked {len(leaked)} segment(s) after analyze: {sorted(leaked)}"
+        )
+
+    async def test_features_identical_to_thread_mode(
+        self, tmp_path: Path, registry: AnalyzerRegistry
+    ) -> None:
+        """Numerical parity: process-mode features must match thread-mode.
+
+        SharedMemory + worker context cache must not change a single
+        feature value — workers see byte-identical samples and build
+        a byte-identical AnalysisContext, so every analyzer output
+        must match the thread-mode reference within float tolerance.
+        """
+        import soundfile as sf
+
+        sr = 22050
+        n = int(sr * 4.0)
+        rng = np.random.default_rng(11)
+        samples = (0.3 * rng.standard_normal(n)).astype(np.float32)
+        wav_path = tmp_path / "signal.wav"
+        sf.write(str(wav_path), samples, sr)
+
+        analyzers = ["loudness", "energy", "spectral"]
+
+        thread_pipe = AnalysisPipeline(registry=registry, use_processes=False)
+        thread_result = await thread_pipe.analyze(str(wav_path), analyzers=analyzers)
+
+        proc_pipe = AnalysisPipeline(registry=registry, use_processes=True, max_workers=2)
+        try:
+            proc_result = await proc_pipe.analyze(str(wav_path), analyzers=analyzers)
+        finally:
+            proc_pipe.shutdown()
+
+        assert set(thread_result.features.keys()) == set(proc_result.features.keys())
+        for key, thread_val in thread_result.features.items():
+            proc_val = proc_result.features[key]
+            if isinstance(thread_val, (int, float)) and isinstance(proc_val, (int, float)):
+                np.testing.assert_allclose(
+                    proc_val,
+                    thread_val,
+                    rtol=1e-9,
+                    atol=1e-9,
+                    err_msg=f"feature {key} differs between thread and process mode",
+                )
+            elif isinstance(thread_val, (list, tuple, np.ndarray)):
+                np.testing.assert_allclose(
+                    np.asarray(proc_val, dtype=float),
+                    np.asarray(thread_val, dtype=float),
+                    rtol=1e-9,
+                    atol=1e-9,
+                    err_msg=f"vector feature {key} differs between thread and process mode",
+                )
+            else:
+                assert proc_val == thread_val, f"feature {key} differs"
+
+    async def test_worker_context_cache_reused_within_call(
+        self, tmp_path: Path, registry: AnalyzerRegistry
+    ) -> None:
+        """A second analyzer landing on the same worker reuses the cached context.
+
+        We pin a single worker (``max_workers=1``) so every task in a
+        single analyze() call lands on the same process. Three analyzers
+        share the same clip variant (full track for loudness/energy/
+        spectral). The first builds the AnalysisContext and primes the
+        per-worker LRU; the next two MUST hit the cache, otherwise we
+        regressed.
+
+        We probe the cache by inspecting the module-level dict via a
+        cleanup-task hook submitted on the same pool.
+        """
+        import soundfile as sf
+
+        from app.audio import pipeline as pipeline_module
+
+        sr = 22050
+        n = int(sr * 4.0)
+        rng = np.random.default_rng(13)
+        samples = (0.3 * rng.standard_normal(n)).astype(np.float32)
+        wav_path = tmp_path / "signal.wav"
+        sf.write(str(wav_path), samples, sr)
+
+        pipe = AnalysisPipeline(registry=registry, use_processes=True, max_workers=1)
+        try:
+            result = await pipe.analyze(
+                str(wav_path), analyzers=["loudness", "energy", "spectral"]
+            )
+            assert result.success_count == 3
+
+            # After the call, the LRU on the single worker should hold
+            # exactly one entry (one clip variant). We probe it by
+            # asking the pool to introspect its module-level cache.
+            pool = pipe._get_pool()
+            loop = asyncio.get_running_loop()
+            cache_size = await loop.run_in_executor(pool, _probe_worker_cache_size)
+            assert cache_size == 1, (
+                f"expected exactly 1 cached AnalysisContext on the single "
+                f"worker (one clip variant shared by 3 analyzers), got "
+                f"{cache_size}"
+            )
+
+            # And the cache must NEVER exceed the configured LRU bound.
+            from app.config import settings
+
+            assert cache_size <= settings.audio_process_worker_cache_size
+
+            # Sanity: the module-level _WORKER_CONTEXT_CACHE in the MAIN
+            # process stays empty — the cache lives only in workers.
+            assert len(pipeline_module._WORKER_CONTEXT_CACHE) == 0
+        finally:
+            pipe.shutdown()
+
+
+def _probe_worker_cache_size() -> int:
+    """Module-level helper picklable into a worker process.
+
+    Returns the live size of the per-worker AnalysisContext cache so
+    tests can assert reuse vs. eviction. Must NOT be defined inside a
+    test class — ProcessPoolExecutor cannot pickle methods.
+    """
+    from app.audio.pipeline import _WORKER_CONTEXT_CACHE
+
+    return len(_WORKER_CONTEXT_CACHE)
