@@ -10,7 +10,7 @@
   "license": "MIT",
   "keywords": ["dj", "techno", "music", "mcp", "yandex-music", "set-building", "audio-analysis"],
   "mcpServers": {
-    "server": {
+    "mcp": {
       "command": "bash",
       "args": [
         "-c",
