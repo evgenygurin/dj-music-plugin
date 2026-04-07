@@ -16,6 +16,13 @@
         "-c",
         "cd \"${CLAUDE_PLUGIN_ROOT}\" && set -a && source .env 2>/dev/null && set +a && exec uv run fastmcp run fastmcp.json --reload --reload-dir app --no-banner"
       ]
+    },
+    "supabase": {
+      "command": "bash",
+      "args": [
+        "-c",
+        "cd \"${CLAUDE_PLUGIN_ROOT}\" && set -a && source .env 2>/dev/null && set +a && exec npx -y @supabase/mcp-server-supabase@latest --read-only --project-ref=bowosphlnghhgaulcyfm"
+      ]
     }
   }
 }
