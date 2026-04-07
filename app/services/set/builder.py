@@ -40,6 +40,8 @@ class SetBuilderService:
 
         Returns (dj_set, version, quality_score, algorithm_used).
         """
+        if await self._playlists.get_by_id(playlist_id) is None:
+            raise NotFoundError("Playlist", playlist_id)
         track_ids = await self._playlists.get_track_ids(playlist_id)
         if not track_ids:
             raise ValidationError("Playlist is empty")
@@ -134,17 +136,32 @@ class SetBuilderService:
         exclude_set = set(exclude_tracks or [])
         filtered = [tid for tid in current_ids if tid not in exclude_set]
 
+        # Re-optimize the filtered track set so the new version has a quality score
+        # comparable to build_set.
+        features_map = await self._features.get_scoring_features_batch(filtered)
+        track_features_list = [features_map.get(tid, TrackFeatures()) for tid in filtered]
+        optimized_order, quality, _ = self._optimize_order(
+            filtered,
+            track_features_list,
+            algorithm,
+        )
+
+        pinned_set = set(pin_tracks or [])
         label = version_label or f"v{latest.id + 1}"
 
         items = [
             {
                 "track_id": tid,
                 "sort_index": idx,
-                "pinned": tid in (pin_tracks or []),
+                "pinned": tid in pinned_set,
             }
-            for idx, tid in enumerate(filtered)
+            for idx, tid in enumerate(optimized_order)
         ]
         version = await self._sets.create_version_with_items(set_id, items, label=label)
+
+        if quality is not None:
+            version.quality_score = quality
+            await self._sets.session.flush()
 
         return version
 

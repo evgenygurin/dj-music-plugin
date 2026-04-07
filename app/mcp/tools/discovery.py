@@ -10,6 +10,7 @@ Tools:
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 from fastmcp.dependencies import Depends
@@ -28,6 +29,22 @@ from app.mcp.tools._shared import (
     map_domain_errors,
 )
 from app.services.discovery_service import DiscoveryService
+
+_log = logging.getLogger(__name__)
+
+
+def _has_mcp_session(ctx: Context | None) -> bool:
+    """Return True only when ctx is wired into a real MCP session.
+
+    The REST gateway invokes ``mcp.call_tool()`` directly without going
+    through a transport layer, so ``ctx.session`` / ``ctx.session_id`` raise
+    ``RuntimeError`` if accessed. Anything that touches session state must
+    bail out early in that case — see BUG-21 root cause.
+    """
+    if ctx is None:
+        return False
+    return getattr(ctx, "request_context", None) is not None
+
 
 _EXPAND_ANNOTATIONS: dict[str, bool] = {
     "readOnlyHint": False,
@@ -159,22 +176,44 @@ async def filter_by_feedback(
     if not ids_list:
         raise ToolError("ym_track_ids required")
 
+    # BUG-21 root cause: REST gateway calls mcp.call_tool() outside any MCP
+    # session, so ctx.get_state / ctx.set_state / ctx.info all raise
+    # RuntimeError("session is not available"). Session state caching is a
+    # pure optimization — only attempt it when a real session exists.
+    state_available = _has_mcp_session(ctx)
+    can_log_via_ctx = state_available
+
+    async def _info(message: str) -> None:
+        if can_log_via_ctx:
+            try:
+                await log.info(message)
+                return
+            except Exception as exc:
+                _log.debug("ctx.info failed (%s); falling back to stdlib log", exc)
+        _log.info(message)
+
     liked_set: set[str] | None = None
     disliked_set: set[str] | None = None
-    if ctx is not None:
-        cached_liked = await ctx.get_state("ym_liked_ids")
-        cached_disliked = await ctx.get_state("ym_disliked_ids")
-        if cached_liked is not None and cached_disliked is not None:
-            await log.info("Using cached feedback (session state)")
-            liked_set = set(cached_liked)
-            disliked_set = set(cached_disliked)
+    if state_available and ctx is not None:
+        try:
+            cached_liked = await ctx.get_state("ym_liked_ids")
+            cached_disliked = await ctx.get_state("ym_disliked_ids")
+            if cached_liked is not None and cached_disliked is not None:
+                await _info("Using cached feedback (session state)")
+                liked_set = set(cached_liked)
+                disliked_set = set(cached_disliked)
+        except Exception as exc:
+            _log.warning("ctx.get_state failed for feedback cache: %s", exc)
 
     if liked_set is None or disliked_set is None:
-        await log.info("Fetching liked/disliked from YM API...")
+        await _info("Fetching liked/disliked from YM API...")
         liked_set, disliked_set = await svc.get_feedback_sets()
-        if ctx is not None:
-            await ctx.set_state("ym_liked_ids", list(liked_set))
-            await ctx.set_state("ym_disliked_ids", list(disliked_set))
+        if state_available and ctx is not None:
+            try:
+                await ctx.set_state("ym_liked_ids", sorted(liked_set))
+                await ctx.set_state("ym_disliked_ids", sorted(disliked_set))
+            except Exception as exc:
+                _log.warning("ctx.set_state failed for feedback cache: %s", exc)
 
     return await svc.filter_by_feedback(
         ym_track_ids=list(ids_list),

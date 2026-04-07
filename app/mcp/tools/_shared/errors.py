@@ -1,13 +1,40 @@
 """Domain-to-MCP error mapping for tool adapters.
 
 Services raise typed domain errors (``NotFoundError``, ``ValidationError``,
-``ConflictError``) from :mod:`app.core.errors`. MCP clients expect a
-:class:`fastmcp.exceptions.ToolError`.
+``ConflictError``) from :mod:`app.core.errors`. The MCP transport layer
+expects FastMCP-native exception types so they reach the client with the
+correct JSON-RPC error code instead of a generic
+``-32603 Internal error`` envelope.
 
-Rather than litter every tool body with ``try/except`` blocks — and hide
-the intent behind boilerplate — this module exposes a single decorator
-and context manager that transparently re-raise domain errors as
-``ToolError`` instances with a stable, human-readable message.
+Why this is non-trivial:
+
+1. ``fastmcp.server.server.FastMCP._call_tool`` (lines 986-1010) only
+   re-raises subclasses of ``FastMCPError`` and Pydantic
+   ``ValidationError`` *unmodified*. Anything else gets wrapped as
+   ``ToolError("Error calling tool 'X'")`` when ``mask_error_details=True``,
+   which destroys the original message before it leaves the tool layer.
+2. The outer ``ErrorHandlingMiddleware._transform_error`` then maps
+   only a fixed set of types to clean MCP error codes:
+
+   * ``fastmcp.exceptions.NotFoundError`` / ``FileNotFoundError`` /
+     ``KeyError`` → ``-32001 Not found``
+   * ``ValueError`` / ``TypeError``               → ``-32602 Invalid params``
+   * ``PermissionError``                          → ``-32000 Permission denied``
+   * ``TimeoutError``                             → ``-32000 Request timeout``
+   * everything else (incl. bare ``ToolError``)   → ``-32603 Internal error``
+
+So we translate each domain exception to the *exact* type both layers
+already understand:
+
+| Domain error           | Raised as                       | Final MCP code         |
+|------------------------|---------------------------------|------------------------|
+| ``NotFoundError``      | ``fastmcp.exceptions.NotFoundError`` | ``-32001 Not found``   |
+| ``ValidationError``    | ``ValueError``                  | ``-32602 Invalid params`` |
+| ``ConflictError``      | ``ToolError`` (best available)  | ``-32603 Internal error: Conflict: …`` |
+
+Conflicts are rare; until upstream FastMCP supports a richer
+business-error contract, the "Internal error" envelope is acceptable
+for them.
 
 Usage::
 
@@ -21,10 +48,6 @@ Usage::
     async def tool_body():
         async with domain_errors_as_tool_error():
             ...
-
-The decorator catches :class:`NotFoundError`, :class:`ValidationError`
-and :class:`ConflictError`. ``ToolError`` itself passes through
-untouched, so tools can still raise it directly for input validation.
 """
 
 from __future__ import annotations
@@ -34,7 +57,9 @@ from contextlib import asynccontextmanager
 from functools import wraps
 from typing import Any, TypeVar
 
+from fastmcp.exceptions import NotFoundError as FastMCPNotFoundError
 from fastmcp.exceptions import ToolError
+from mcp import McpError
 
 from app.core.errors import ConflictError, NotFoundError, ValidationError
 
@@ -43,21 +68,24 @@ R = TypeVar("R")
 
 @asynccontextmanager
 async def domain_errors_as_tool_error() -> AsyncIterator[None]:
-    """Context manager: translate domain exceptions to :class:`ToolError`."""
+    """Translate domain exceptions to FastMCP-native error types.
+
+    See module docstring for the mapping table and rationale.
+    """
     try:
         yield
-    except ToolError:
+    except (McpError, FastMCPNotFoundError, ToolError):
         raise
     except NotFoundError as exc:
-        raise ToolError(str(exc)) from exc
+        raise FastMCPNotFoundError(str(exc)) from exc
     except ValidationError as exc:
-        raise ToolError(str(exc)) from exc
+        raise ValueError(str(exc)) from exc
     except ConflictError as exc:
-        raise ToolError(str(exc)) from exc
+        raise ToolError(f"Conflict: {exc}") from exc
 
 
 def map_domain_errors[R](fn: Callable[..., Awaitable[R]]) -> Callable[..., Awaitable[R]]:
-    """Decorator: translate domain exceptions to :class:`ToolError`.
+    """Decorator: translate domain exceptions to FastMCP-native error types.
 
     Applied to ``@tool`` functions that call services which raise
     :class:`~app.core.errors.NotFoundError`, :class:`ValidationError` or

@@ -22,6 +22,11 @@ from fastapi import Body, FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
+# Importing app.server triggers sentry_sdk.init() once for the entire process
+# (both the MCP transport and the FastAPI ASGI wrapper).  When DJ_SENTRY_DSN
+# is set, the FastAPI integration is registered automatically by sentry-sdk's
+# framework auto-detection (see /getsentry/sentry-python docs), so the ASGI
+# request path gets traces and exception capture for free.
 from app.server import mcp
 
 logger = logging.getLogger(__name__)

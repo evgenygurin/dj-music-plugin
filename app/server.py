@@ -14,6 +14,7 @@ OpenTelemetry (optional, requires `uv sync --extra otel`):
 import logging
 import os
 from pathlib import Path
+from typing import Any
 
 from fastmcp import FastMCP
 from fastmcp.server.lifespan import lifespan
@@ -27,18 +28,52 @@ from app.core.cache import TransitionCache
 
 logger = logging.getLogger(__name__)
 
+_sentry_enabled = False
 if settings.sentry_dsn:
     try:
         import sentry_sdk
+        from sentry_sdk.integrations.asyncio import AsyncioIntegration
+        from sentry_sdk.integrations.logging import LoggingIntegration
+        from sentry_sdk.integrations.sqlalchemy import SqlalchemyIntegration
 
         sentry_sdk.init(
             dsn=settings.sentry_dsn,
-            traces_sample_rate=0.1 if not settings.debug else 1.0,
             environment="development" if settings.debug else "production",
+            release=f"dj-music@{os.environ.get('DJ_PLUGIN_VERSION', 'dev')}",
+            traces_sample_rate=1.0 if settings.debug else 0.2,
+            profiles_sample_rate=1.0 if settings.debug else 0.1,
+            send_default_pii=False,
+            attach_stacktrace=True,
+            integrations=[
+                AsyncioIntegration(),
+                SqlalchemyIntegration(),
+                # Capture WARNING+ as breadcrumbs, ERROR+ as events.
+                LoggingIntegration(level=logging.INFO, event_level=logging.ERROR),
+            ],
         )
-        logger.info("Sentry error tracking enabled")
+        _sentry_enabled = True
+        logger.info(
+            "Sentry error tracking enabled (env=%s)", "debug" if settings.debug else "production"
+        )
     except ImportError:
-        logger.warning("SENTRY_DSN set but sentry-sdk not installed")
+        logger.warning("SENTRY_DSN set but sentry-sdk not installed (uv sync --extra sentry)")
+
+
+def _sentry_error_callback(error: Exception, ctx: Any) -> None:
+    """Forward FastMCP middleware errors into Sentry with tool/method context."""
+    if not _sentry_enabled:
+        return
+    try:
+        import sentry_sdk
+
+        method = getattr(ctx, "method", None) or "unknown"
+        with sentry_sdk.push_scope() as scope:
+            scope.set_tag("mcp.method", method)
+            scope.set_tag("mcp.error_type", type(error).__name__)
+            sentry_sdk.capture_exception(error)
+    except Exception as exc:  # never let telemetry crash the request path
+        logger.debug("Sentry capture_exception failed: %s", exc)
+
 
 # ── Background Tasks Environment ─────────────────────
 
@@ -178,12 +213,16 @@ server_transforms = []
 try:
     from fastmcp.server.transforms.search import BM25SearchTransform
 
+    # NOTE: call_tool_name points at an internal stub that we immediately
+    # disable below. Our own `run_tool` (app/mcp/tools/run_tool.py) takes
+    # over — it accepts `arguments` as dict OR JSON string, which the
+    # upstream proxy refuses.
     server_transforms.append(
         BM25SearchTransform(
             max_results=10,
-            always_visible=["unlock_tools", "get_library_stats"],
+            always_visible=["unlock_tools", "get_library_stats", "run_tool"],
             search_tool_name="search_tools",
-            call_tool_name="run_tool",
+            call_tool_name="_bm25_call_tool",
         )
     )
 except ImportError:
@@ -241,8 +280,24 @@ except ImportError:
 
 # Built-in FastMCP middleware
 try:
-    from fastmcp.server.middleware.error_handling import RetryMiddleware
+    from fastmcp.server.middleware.error_handling import (
+        ErrorHandlingMiddleware,
+        RetryMiddleware,
+    )
 
+    # ErrorHandlingMiddleware logs the full traceback to "fastmcp.errors" even
+    # when mask_error_details=True hides details from the client. Without it,
+    # production tool failures surface as opaque "Error calling tool 'X'" with
+    # zero server-side context — which is exactly what made BUG-21 hard to
+    # diagnose. Always include traceback regardless of debug mode: this stays
+    # in the server log, never in the client response.
+    mcp.add_middleware(
+        ErrorHandlingMiddleware(
+            include_traceback=True,
+            transform_errors=True,
+            error_callback=_sentry_error_callback if _sentry_enabled else None,
+        )
+    )
     mcp.add_middleware(RetryMiddleware(max_retries=2))
 except ImportError:
     pass
@@ -253,3 +308,8 @@ except ImportError:
 # so mcp.disable() + unlock_tools() was ineffective. Audio tools are now
 # always available. Atomic tools remain hidden (internal building blocks).
 mcp.disable(tags={"atomic"})
+
+# Hide the upstream BM25 call_tool stub — our custom `run_tool`
+# (app/mcp/tools/run_tool.py) replaces it with a version that accepts
+# `arguments` as either a dict or a JSON string.
+mcp.disable(names={"_bm25_call_tool"})

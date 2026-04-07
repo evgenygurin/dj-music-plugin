@@ -5,7 +5,7 @@ from __future__ import annotations
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.track import Artist, Track
+from app.models.track import Artist, Track, TrackArtist
 from app.repositories.base import BaseRepository
 
 
@@ -25,9 +25,19 @@ class TrackCoreRepository(BaseRepository[Track]):
         return result.scalar_one_or_none()
 
     async def search_by_text(self, query: str, limit: int = 10) -> list[Track]:
-        """Case-insensitive search on track title using ILIKE."""
+        """Case-insensitive search across track title and linked artist names."""
+        from sqlalchemy import or_
+
         pattern = f"%{query}%"
-        stmt = select(Track).where(Track.title.ilike(pattern)).order_by(Track.id).limit(limit)
+        stmt = (
+            select(Track)
+            .outerjoin(TrackArtist, TrackArtist.track_id == Track.id)
+            .outerjoin(Artist, Artist.id == TrackArtist.artist_id)
+            .where(or_(Track.title.ilike(pattern), Artist.name.ilike(pattern)))
+            .distinct()
+            .order_by(Track.id)
+            .limit(limit)
+        )
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
 
@@ -57,7 +67,6 @@ class TrackCoreRepository(BaseRepository[Track]):
 
     async def get_artist_names(self, track_id: int) -> str | None:
         """Get comma-separated artist names for a track."""
-        from app.models.track import TrackArtist
 
         stmt = (
             select(Artist.name)
@@ -75,8 +84,6 @@ class TrackCoreRepository(BaseRepository[Track]):
         """
         if not track_ids:
             return {}
-
-        from app.models.track import TrackArtist
 
         stmt = (
             select(TrackArtist.track_id, Artist.name)

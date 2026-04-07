@@ -106,7 +106,8 @@ async def track_features(
             "pulse_clarity": features.pulse_clarity,
             "onset_rate": features.onset_rate,
         },
-        "mood": "N/A (requires classifier)",
+        "mood": features.mood,
+        "mood_confidence": features.mood_confidence,
     }
 
     return json.dumps(data, indent=2)

@@ -207,7 +207,7 @@ class SetService:
                 SetSummary(
                     id=s.id,
                     name=s.name,
-                    track_count=0,
+                    track_count=len(latest.items) if latest and latest.items else 0,
                     template=s.template_name,
                     latest_score=latest.quality_score if latest else None,
                 ).model_dump()
@@ -262,6 +262,41 @@ class SetService:
             response["version_id"] = latest.id
             response["version_label"] = latest.label
             response["quality_score"] = latest.quality_score
+
+            items = result[1] if result else []
+            transitions: list[dict[str, Any]] = []
+            for i in range(len(items) - 1):
+                from_id = items[i].track_id
+                to_id = items[i + 1].track_id
+                existing = await self._transitions.get_score(from_id, to_id)
+                if existing is None:
+                    transitions.append(
+                        {
+                            "position": i,
+                            "from_track_id": from_id,
+                            "to_track_id": to_id,
+                            "scored": False,
+                        }
+                    )
+                    continue
+                transitions.append(
+                    {
+                        "position": i,
+                        "from_track_id": from_id,
+                        "to_track_id": to_id,
+                        "overall_quality": existing.overall_quality,
+                        "bpm_score": existing.bpm_score,
+                        "harmonic_score": existing.harmonic_score,
+                        "energy_score": existing.energy_score,
+                        "spectral_score": existing.spectral_score,
+                        "groove_score": existing.groove_score,
+                        "timbral_score": existing.timbral_score,
+                        "hard_reject": bool(existing.hard_reject),
+                        "reject_reason": existing.reject_reason,
+                        "scored": True,
+                    }
+                )
+            response["transitions"] = transitions
 
         return response
 
