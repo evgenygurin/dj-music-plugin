@@ -20,6 +20,10 @@ build/
 
 # Worktrees
 .worktrees/
+.claude/worktrees/
+
+# Plugin build artifact
+*.plugin
 
 # Testing
 .pytest_cache/
