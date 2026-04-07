@@ -68,7 +68,7 @@ class AudioLoader:
             import librosa
 
             samples, file_sr = librosa.load(str(path), sr=None, mono=True)
-            return samples, file_sr
+            return samples, int(file_sr)
         except Exception:
             pass
 

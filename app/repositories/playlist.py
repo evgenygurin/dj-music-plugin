@@ -122,7 +122,7 @@ class PlaylistRepository(BaseRepository[Playlist]):
         source: str | None = None,
         limit: int = 20,
         cursor: str | None = None,
-    ) -> CursorPage[Playlist]:  # type: ignore[type-arg]
+    ) -> CursorPage[Playlist]:
         """List playlists with items eager-loaded, optionally filtered by source."""
 
         stmt = select(Playlist).options(selectinload(Playlist.items))
