@@ -1,7 +1,7 @@
 ---
 name: ym-sync
 description: "This skill should be used when the user asks to \"sync playlist\", \"push to YM\", \"pull from YM\", \"yandex music search\", \"ym playlist\", or \"manage YM likes\". Covers bidirectional Yandex Music sync, playlist management, search, and likes."
-version: 0.3.0
+version: 0.5.0
 ---
 
 # Yandex Music Sync Workflow

@@ -1,7 +1,7 @@
 {
   "name": "dj-music",
-  "version": "0.3.0",
-  "description": "DJ techno music library management — 51 MCP tools for set building, audio analysis, playlist expansion, and Yandex Music integration",
+  "version": "0.5.0",
+  "description": "DJ techno music library management — 50 MCP tools for set building, audio analysis, playlist expansion, and Yandex Music integration",
   "author": {
     "name": "Evgeny Gurin",
     "url": "https://github.com/evgenygurin"
@@ -9,23 +9,13 @@
   "repository": "https://github.com/evgenygurin/dj-music-plugin",
   "license": "MIT",
   "keywords": ["dj", "techno", "music", "mcp", "yandex-music", "set-building", "audio-analysis"],
-  "skills": [
-    {
-      "name": "expand-playlist",
-      "path": "skills/expand-playlist/SKILL.md"
-    }
-  ],
   "mcpServers": {
     "dj-music": {
       "command": "bash",
       "args": [
         "-c",
-        "cd \"${CLAUDE_PLUGIN_ROOT}\" && set -a && source .env 2>/dev/null && set +a && exec uv run fastmcp run app/server.py"
-      ],
-      "env": {
-        "DJ_DATABASE_URL": "sqlite+aiosqlite:///${CLAUDE_PLUGIN_ROOT}/dj_music.db",
-        "DJ_DEBUG": "true"
-      }
+        "cd \"${CLAUDE_PLUGIN_ROOT}\" && set -a && source .env 2>/dev/null && set +a && exec uv run fastmcp run fastmcp.json --reload --reload-dir app --no-banner"
+      ]
     }
   }
 }

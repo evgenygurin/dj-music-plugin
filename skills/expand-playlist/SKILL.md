@@ -1,7 +1,7 @@
 ---
 name: expand-playlist
 description: "This skill should be used when the user asks to \"expand playlist\", \"find similar tracks\", \"add more tracks\", \"discover new tracks\", \"import from Yandex Music\", or \"fill gaps in playlist\". Covers discovery, import, download, and analysis of new tracks."
-version: 0.3.0
+version: 0.5.0
 ---
 
 # Expand Playlist Workflow
