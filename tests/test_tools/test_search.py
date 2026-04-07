@@ -258,11 +258,28 @@ async def test_unlock_tools_unlock_all(client: Client):
 
 
 async def test_unlock_tools_status(client: Client):
-    """unlock_tools() with action='status' returns status message."""
+    """unlock_tools() with action='status' reports effective per-category state."""
     result = await client.call_tool("unlock_tools", {"action": "status"})
     data = _parse_result(result)
 
     assert data["action"] == "status"
+    assert "toggleable_categories" in data
+    assert "effective" in data
+    assert "session_rules" in data
+    # All toggleable categories must appear in the effective map.
+    assert set(data["effective"].keys()) == set(data["toggleable_categories"])
+    # Default state when no rules have run.
+    assert all(state == "default" for state in data["effective"].values())
+
+
+async def test_unlock_tools_status_after_unlock_reflects_state(client: Client):
+    """After unlocking a category, status should report it as enabled."""
+    await client.call_tool("unlock_tools", {"action": "unlock", "category": "audio"})
+
+    result = await client.call_tool("unlock_tools", {"action": "status"})
+    data = _parse_result(result)
+
+    assert data["effective"]["audio"] == "enabled"
 
 
 async def test_unlock_tools_invalid_category(client: Client):

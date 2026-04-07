@@ -20,6 +20,7 @@ from app.mcp.tools._shared import (
     ToolCategory,
     ToolContext,
     ToolTimeout,
+    map_domain_errors,
 )
 from app.repositories.playlist import PlaylistRepository
 from app.services.set_service import SetService
@@ -45,6 +46,7 @@ async def _ensure_scoring_level(
     timeout=ToolTimeout.BATCH,
     task=True,
 )
+@map_domain_errors
 async def build_set(
     playlist_id: int,
     name: str,
@@ -104,6 +106,7 @@ async def build_set(
     timeout=ToolTimeout.BATCH,
     task=True,
 )
+@map_domain_errors
 async def rebuild_set(
     set_id: int,
     pin_tracks: list[int] | None = None,
@@ -133,6 +136,7 @@ async def rebuild_set(
 
 
 @tool(tags={ToolCategory.SETS.value}, annotations=ANNOTATIONS_WRITE)
+@map_domain_errors
 async def score_transitions(
     mode: str = "set",
     set_id: int | None = None,
@@ -170,6 +174,7 @@ async def score_transitions(
 
 
 @tool(tags={ToolCategory.SETS.value}, annotations=ANNOTATIONS_READ_ONLY)
+@map_domain_errors
 async def get_set_cheat_sheet(
     set_id: int,
     version: str | None = None,

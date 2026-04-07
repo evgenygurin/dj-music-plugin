@@ -33,6 +33,7 @@ from app.mcp.tools._shared import (
     ToolContext,
     ToolTimeout,
     ensure_reference,
+    map_domain_errors,
 )
 from app.repositories.playlist import PlaylistRepository
 from app.services.curation_service import CurationService
@@ -58,6 +59,7 @@ async def _auto_triage(
     timeout=ToolTimeout.BATCH,
     task=True,
 )
+@map_domain_errors
 async def classify_mood(
     track_ids: Any = None,
     playlist_id: int | None = None,
@@ -92,6 +94,7 @@ async def classify_mood(
     timeout=ToolTimeout.BATCH,
     task=True,
 )
+@map_domain_errors
 async def audit_playlist(
     playlist_id: int | None = None,
     playlist_query: str | None = None,
@@ -116,6 +119,7 @@ async def audit_playlist(
 
 
 @tool(tags={ToolCategory.CURATION.value}, annotations=ANNOTATIONS_READ_ONLY)
+@map_domain_errors
 async def review_set_quality(
     set_id: int,
     version: str | None = None,
@@ -127,6 +131,7 @@ async def review_set_quality(
 
 
 @tool(tags={ToolCategory.CURATION.value}, annotations=ANNOTATIONS_WRITE)
+@map_domain_errors
 async def distribute_to_subgenres(
     source_playlist_id: int | None = None,
     mode: str = "append",
@@ -153,6 +158,7 @@ async def distribute_to_subgenres(
 
 
 @tool(tags={ToolCategory.CURATION.value}, annotations=ANNOTATIONS_READ_ONLY)
+@map_domain_errors
 async def get_library_stats(
     svc: CurationService = Depends(get_curation_service),  # noqa: B008
     ctx: Context | None = None,

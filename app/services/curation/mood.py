@@ -38,16 +38,17 @@ class MoodClassificationService:
 
         classifier = MoodClassifier()
         classifications: list[dict[str, Any]] = []
-        skipped = 0
+        skipped_no_features = 0
+        skipped_already_classified = 0
 
         for tid in ids_to_classify:
             features = await self._features.get_features(tid)
             if features is None:
-                skipped += 1
+                skipped_no_features += 1
                 continue
 
             if not reclassify and features.mood is not None:
-                skipped += 1
+                skipped_already_classified += 1
                 continue
 
             feat_dict = features.to_classifier_dict()
@@ -79,7 +80,8 @@ class MoodClassificationService:
 
         return {
             "classified": len(classifications),
-            "skipped_no_features": skipped,
+            "skipped_no_features": skipped_no_features,
+            "skipped_already_classified": skipped_already_classified,
             "total": len(ids_to_classify),
             "distribution": mood_counts,
             "tracks": classifications,

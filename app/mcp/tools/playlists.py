@@ -24,6 +24,7 @@ from app.mcp.tools._shared import (
     ANNOTATIONS_READ_ONLY,
     ANNOTATIONS_WRITE,
     ToolCategory,
+    map_domain_errors,
     resolve_entity,
 )
 from app.services.playlist_service import PlaylistService
@@ -35,6 +36,7 @@ _PLAYLIST_ACTIONS = frozenset(
 
 
 @tool(tags={ToolCategory.CORE.value}, annotations=ANNOTATIONS_READ_ONLY)
+@map_domain_errors
 async def list_playlists(
     source: str | None = None,
     limit: int = 20,
@@ -51,6 +53,7 @@ async def list_playlists(
 
 
 @tool(tags={ToolCategory.CORE.value}, annotations=ANNOTATIONS_READ_ONLY)
+@map_domain_errors
 async def get_playlist(
     id: int | None = None,
     query: str | None = None,
@@ -89,6 +92,7 @@ async def get_playlist(
 
 
 @tool(tags={ToolCategory.CORE.value}, annotations=ANNOTATIONS_WRITE)
+@map_domain_errors
 async def manage_playlist(
     action: str,
     data: Any = None,

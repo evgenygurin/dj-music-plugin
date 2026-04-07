@@ -28,6 +28,7 @@ from app.mcp.tools._shared import (
     ToolContext,
     ToolTimeout,
     ensure_reference,
+    map_domain_errors,
     resolve_track_id,
 )
 from app.models.playlist import PlaylistItem
@@ -54,6 +55,7 @@ def _resolve_level(level: int) -> AnalysisLevel:
     annotations=_ANALYSIS_IDEMPOTENT,
     timeout=ToolTimeout.BATCH,
 )
+@map_domain_errors
 async def analyze_track(
     track_id: int | None = None,
     track_query: str | None = None,
@@ -112,6 +114,7 @@ async def analyze_track(
     timeout=ToolTimeout.BATCH,
     task=True,
 )
+@map_domain_errors
 async def analyze_batch(
     track_ids: Any = None,
     playlist_id: int | None = None,
@@ -200,6 +203,7 @@ async def analyze_batch(
 
 
 @tool(tags={ToolCategory.AUDIO.value}, timeout=ToolTimeout.BATCH)
+@map_domain_errors
 async def separate_stems(
     track_id: int | None = None,
     track_query: str | None = None,

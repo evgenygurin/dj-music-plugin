@@ -25,6 +25,24 @@ class FeatureRepository(BaseRepository[TrackAudioFeaturesComputed]):
         result = await self.session.execute(stmt)
         return result.scalar_one_or_none()
 
+    async def get_features_batch(
+        self, track_ids: list[int]
+    ) -> dict[int, TrackAudioFeaturesComputed]:
+        """Return raw ``TrackAudioFeaturesComputed`` rows keyed by ``track_id``.
+
+        Single SQL ``IN (...)`` query — used by ``list_tracks`` /
+        ``filter_tracks`` to render BPM/key/LUFS columns without
+        per-row N+1 lookups. Tracks without features are simply absent
+        from the returned mapping.
+        """
+        if not track_ids:
+            return {}
+        stmt = select(TrackAudioFeaturesComputed).where(
+            TrackAudioFeaturesComputed.track_id.in_(track_ids)
+        )
+        result = await self.session.execute(stmt)
+        return {row.track_id: row for row in result.scalars().all()}
+
     async def save_features(
         self, features: TrackAudioFeaturesComputed
     ) -> TrackAudioFeaturesComputed:

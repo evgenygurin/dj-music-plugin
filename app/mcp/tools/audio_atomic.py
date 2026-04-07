@@ -24,6 +24,7 @@ from app.mcp.tools._shared import (
     ANNOTATIONS_WRITE,
     ToolCategory,
     ToolTimeout,
+    map_domain_errors,
 )
 from app.services.audio_service import AudioService
 from app.ym.client import YandexMusicClient
@@ -34,6 +35,7 @@ from app.ym.client import YandexMusicClient
     annotations=ANNOTATIONS_WRITE,
     timeout=ToolTimeout.BATCH,
 )
+@map_domain_errors
 async def analyze_one_track(
     track_id: int,
     analyzers: Any = None,
@@ -58,6 +60,7 @@ async def analyze_one_track(
 
 
 @tool(tags={ToolCategory.ATOMIC.value}, annotations=ANNOTATIONS_WRITE)
+@map_domain_errors
 async def classify_one_track(
     track_id: int,
     svc: AudioService = Depends(get_audio_service),  # noqa: B008
@@ -72,6 +75,7 @@ async def classify_one_track(
 
 
 @tool(tags={ToolCategory.ATOMIC.value}, annotations=ANNOTATIONS_READ_ONLY)
+@map_domain_errors
 async def gate_one_track(
     track_id: int,
     criteria: dict[str, float] | None = None,
@@ -83,6 +87,7 @@ async def gate_one_track(
 
 
 @tool(tags={ToolCategory.ATOMIC.value}, annotations=ANNOTATIONS_READ_ONLY_OPEN_WORLD)
+@map_domain_errors
 async def get_similar_one_track(
     ym_track_id: str,
     limit: int = 20,

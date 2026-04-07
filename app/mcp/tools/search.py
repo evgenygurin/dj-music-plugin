@@ -13,13 +13,23 @@ from fastmcp.server.context import Context
 from fastmcp.tools import tool
 
 from app.core.schemas import PaginatedResponse, TrackBrief
-from app.mcp.dependencies import get_search_service, get_track_service
-from app.mcp.tools._shared import ANNOTATIONS_READ_ONLY, ToolCategory
+from app.mcp.dependencies import (
+    get_feature_repo,
+    get_search_service,
+    get_track_service,
+)
+from app.mcp.tools._shared import (
+    ANNOTATIONS_READ_ONLY,
+    ToolCategory,
+    map_domain_errors,
+)
+from app.repositories.feature import FeatureRepository
 from app.services.search_service import SearchService
 from app.services.track_service import TrackService
 
 
 @tool(tags={ToolCategory.CORE.value}, annotations=ANNOTATIONS_READ_ONLY)
+@map_domain_errors
 async def search(
     query: str,
     entity: str = "all",
@@ -34,6 +44,7 @@ async def search(
 
 
 @tool(tags={ToolCategory.CORE.value}, annotations=ANNOTATIONS_READ_ONLY)
+@map_domain_errors
 async def filter_tracks(
     bpm_min: float | None = None,
     bpm_max: float | None = None,
@@ -48,13 +59,15 @@ async def filter_tracks(
     cursor: str | None = None,
     svc: SearchService = Depends(get_search_service),  # noqa: B008
     track_svc: TrackService = Depends(get_track_service),  # noqa: B008
+    feat_repo: FeatureRepository = Depends(get_feature_repo),  # noqa: B008
     ctx: Context | None = None,
 ) -> PaginatedResponse[TrackBrief]:
     """Filter tracks by audio features: BPM, key, energy, mood.
 
     Returns the same :class:`TrackBrief` projection as ``list_tracks``
-    (artist names, BPM, Camelot key, duration) — consistent
-    ``structuredContent`` across all list/filter tools.
+    — populated BPM, Camelot key, artists and duration via two batched
+    queries (artists + features). Identical ``structuredContent`` across
+    all list/filter tools.
     """
     page = await svc.filter_tracks(
         bpm_min=bpm_min,
@@ -72,9 +85,17 @@ async def filter_tracks(
 
     track_ids = [t.id for t in page.items]
     artist_map = await track_svc.get_artist_names_batch(track_ids)
+    features_map = await feat_repo.get_features_batch(track_ids)
 
     return PaginatedResponse[TrackBrief](
-        items=[track_svc.to_brief(t, artist_names=artist_map.get(t.id)) for t in page.items],
+        items=[
+            track_svc.to_brief(
+                t,
+                features=features_map.get(t.id),
+                artist_names=artist_map.get(t.id),
+            )
+            for t in page.items
+        ],
         next_cursor=page.next_cursor,
         total=page.total,
     )

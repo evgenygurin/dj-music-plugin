@@ -117,7 +117,10 @@ async def test_classify_mood_skips_already_classified(db: AsyncSession) -> None:
 
     result = await svc.classify_mood(track_ids=[track.id])
     assert result["classified"] == 0
-    assert result["skipped_no_features"] == 1  # skipped because already has mood
+    # BUG-11: tracks with features but already-classified mood are reported
+    # in their own bucket, not lumped under "skipped_no_features".
+    assert result["skipped_no_features"] == 0
+    assert result["skipped_already_classified"] == 1
 
 
 @pytest.mark.asyncio

@@ -12,13 +12,14 @@ from fastmcp.server.context import Context
 from fastmcp.tools import tool
 
 from app.mcp.dependencies import get_sync_service
-from app.mcp.tools._shared import ToolCategory
+from app.mcp.tools._shared import ToolCategory, map_domain_errors
 from app.services.sync_service import SyncService
 
 _SYNC_ANNOTATIONS: dict[str, bool] = {"readOnlyHint": False, "openWorldHint": True}
 
 
 @tool(tags={ToolCategory.SYNC.value}, annotations=_SYNC_ANNOTATIONS)
+@map_domain_errors
 async def sync_playlist(
     playlist_id: int,
     direction: str = "pull",
@@ -39,6 +40,7 @@ async def sync_playlist(
 
 
 @tool(tags={ToolCategory.SYNC.value}, annotations=_SYNC_ANNOTATIONS)
+@map_domain_errors
 async def push_set_to_ym(
     set_id: int,
     ym_playlist_name: str | None = None,

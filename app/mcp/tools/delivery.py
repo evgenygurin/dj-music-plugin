@@ -31,6 +31,7 @@ from app.mcp.tools._shared import (
     ToolCategory,
     ToolContext,
     ToolTimeout,
+    map_domain_errors,
 )
 from app.services.delivery_service import DeliveryService
 from app.services.tiered_pipeline import TieredPipeline
@@ -99,6 +100,7 @@ async def _copy_audio_bundle(
     timeout=ToolTimeout.BATCH,
     task=True,
 )
+@map_domain_errors
 async def deliver_set(
     set_id: int,
     version: str | None = None,
@@ -203,6 +205,7 @@ async def deliver_set(
 
 
 @tool(tags={ToolCategory.DELIVERY.value}, annotations=ANNOTATIONS_WRITE)
+@map_domain_errors
 async def export_set(
     set_id: int,
     format: str = "m3u8",

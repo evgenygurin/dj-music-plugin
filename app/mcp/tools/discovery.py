@@ -25,6 +25,7 @@ from app.mcp.tools._shared import (
     ToolCategory,
     ToolContext,
     ToolTimeout,
+    map_domain_errors,
 )
 from app.services.discovery_service import DiscoveryService
 
@@ -83,6 +84,7 @@ async def _find_similar_llm(
     tags={ToolCategory.DISCOVERY.value},
     annotations=ANNOTATIONS_READ_ONLY_OPEN_WORLD,
 )
+@map_domain_errors
 async def find_similar_tracks(
     track_id: int,
     strategy: str = "ym",
@@ -141,6 +143,7 @@ async def find_similar_tracks(
     tags={ToolCategory.DISCOVERY.value},
     annotations=ANNOTATIONS_READ_ONLY_OPEN_WORLD,
 )
+@map_domain_errors
 async def filter_by_feedback(
     ym_track_ids: Any = None,
     svc: DiscoveryService = Depends(get_discovery_service),  # noqa: B008
@@ -186,6 +189,7 @@ async def filter_by_feedback(
     timeout=ToolTimeout.BATCH,
     task=True,
 )
+@map_domain_errors
 async def expand_playlist_ym(
     ym_playlist_kind: int,
     target_count: int = 100,

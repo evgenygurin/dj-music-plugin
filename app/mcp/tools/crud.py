@@ -17,11 +17,13 @@ from app.mcp.tools._shared import (
     ANNOTATIONS_WRITE,
     ToolCategory,
     ensure_reference,
+    map_domain_errors,
 )
 from app.services.set_service import SetService
 
 
 @tool(tags={ToolCategory.CORE.value}, annotations=ANNOTATIONS_READ_ONLY)
+@map_domain_errors
 async def list_sets(
     template: str | None = None,
     limit: int = 20,
@@ -33,6 +35,7 @@ async def list_sets(
 
 
 @tool(tags={ToolCategory.CORE.value}, annotations=ANNOTATIONS_READ_ONLY)
+@map_domain_errors
 async def get_set(
     id: int | None = None,
     query: str | None = None,
@@ -48,6 +51,7 @@ async def get_set(
 
 
 @tool(tags={ToolCategory.CORE.value}, annotations=ANNOTATIONS_WRITE)
+@map_domain_errors
 async def manage_set(
     action: str,
     data: Any = None,

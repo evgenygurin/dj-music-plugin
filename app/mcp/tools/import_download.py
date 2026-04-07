@@ -14,7 +14,12 @@ from fastmcp.tools import tool
 
 from app.core.parsing import ensure_list
 from app.mcp.dependencies import get_import_service
-from app.mcp.tools._shared import ToolCategory, ToolContext, ToolTimeout
+from app.mcp.tools._shared import (
+    ToolCategory,
+    ToolContext,
+    ToolTimeout,
+    map_domain_errors,
+)
 from app.services.import_service import ImportService
 
 _IMPORT_ANNOTATIONS: dict[str, bool] = {"readOnlyHint": False, "idempotentHint": True}
@@ -22,6 +27,7 @@ _DOWNLOAD_ANNOTATIONS: dict[str, bool] = {"readOnlyHint": False, "openWorldHint"
 
 
 @tool(tags={ToolCategory.DISCOVERY.value}, annotations=_IMPORT_ANNOTATIONS)
+@map_domain_errors
 async def import_tracks(
     track_refs: Any = None,
     playlist_id: int | None = None,
@@ -55,6 +61,7 @@ async def import_tracks(
     timeout=ToolTimeout.BATCH,
     task=True,
 )
+@map_domain_errors
 async def download_tracks(
     track_refs: Any = None,
     target_dir: str | None = None,

@@ -1,12 +1,72 @@
-"""Tests for ym_playlists tool — remove_tracks index-based removal (B4)."""
+"""Tests for ym_playlists tool — remove_tracks index-based removal (B4)
+and ym_get_album empty-response handling (BUG-14)."""
 
 from __future__ import annotations
 
 from unittest.mock import AsyncMock
 
 import pytest
+from fastmcp.exceptions import ToolError
 
-from app.ym.models import YMPlaylist, YMTrack
+from app.ym.models import YMAlbum, YMPlaylist, YMTrack
+
+# ── BUG-14: ym_get_album validation ───────────────────
+
+
+@pytest.mark.asyncio
+async def test_ym_get_album_raises_on_empty_stub() -> None:
+    """YM returns an empty album dict when the id is unknown — must raise."""
+    from app.mcp.tools.yandex.albums import ym_get_album
+
+    ym_mock = AsyncMock()
+    ym_mock.get_album = AsyncMock(
+        return_value=YMAlbum(
+            id="999999",
+            title="",
+            track_count=None,
+            artists=[],
+            year=None,
+            genre=None,
+            tracks=[],
+        ),
+    )
+
+    with pytest.raises(ToolError, match="Album not found: 999999"):
+        await ym_get_album(album_id="999999", include_tracks=True, ym=ym_mock)
+
+
+@pytest.mark.asyncio
+async def test_ym_get_album_returns_album_when_present() -> None:
+    """A real album with title or artists must pass through unchanged."""
+    from app.mcp.tools.yandex.albums import ym_get_album
+
+    ym_mock = AsyncMock()
+    ym_mock.get_album = AsyncMock(
+        return_value=YMAlbum(
+            id="42",
+            title="Real Album",
+            track_count=2,
+            artists=[{"id": "1", "name": "Artist"}],
+            tracks=[YMTrack(id="1", title="A"), YMTrack(id="2", title="B")],
+        ),
+    )
+
+    result = await ym_get_album(album_id="42", include_tracks=True, ym=ym_mock)
+    assert result["album_id"] == "42"
+    assert result["album"]["title"] == "Real Album"
+    assert len(result["album"]["tracks"]) == 2
+
+
+@pytest.mark.asyncio
+async def test_ym_get_album_rejects_blank_id() -> None:
+    """A blank/empty album_id must fail before hitting the YM client."""
+    from app.mcp.tools.yandex.albums import ym_get_album
+
+    ym_mock = AsyncMock()
+    with pytest.raises(ToolError, match="album_id is required"):
+        await ym_get_album(album_id="   ", ym=ym_mock)
+    ym_mock.get_album.assert_not_called()
+
 
 # ── B4: ym_playlists remove_tracks ────────────────────
 

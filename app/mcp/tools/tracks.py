@@ -16,13 +16,15 @@ from fastmcp.tools import tool
 
 from app.core.parsing import ensure_dict
 from app.core.schemas import PaginatedResponse, TrackBrief, TrackStandard
-from app.mcp.dependencies import get_track_service
+from app.mcp.dependencies import get_feature_repo, get_track_service
 from app.mcp.tools._shared import (
     ANNOTATIONS_READ_ONLY,
     ANNOTATIONS_WRITE,
     ToolCategory,
+    map_domain_errors,
     resolve_track_id,
 )
+from app.repositories.feature import FeatureRepository
 from app.services.track_service import TrackService
 
 _TRACK_ACTIONS = frozenset({"create", "update", "archive", "unarchive"})
@@ -39,14 +41,21 @@ def _parse_json(value: str | None) -> Any:
 
 
 @tool(tags={ToolCategory.CORE.value}, annotations=ANNOTATIONS_READ_ONLY)
+@map_domain_errors
 async def list_tracks(
     limit: int = 20,
     cursor: str | None = None,
     bpm_min: float | None = None,
     bpm_max: float | None = None,
     svc: TrackService = Depends(get_track_service),  # noqa: B008
+    feat_repo: FeatureRepository = Depends(get_feature_repo),  # noqa: B008
 ) -> PaginatedResponse[TrackBrief]:
-    """List tracks with optional filters and cursor pagination."""
+    """List tracks with optional filters and cursor pagination.
+
+    BPM and Camelot key are populated from a single batched
+    ``FeatureRepository.get_features_batch`` query — no per-track N+1
+    lookup.
+    """
     if bpm_min is not None or bpm_max is not None:
         page = await svc.filter_by_features(
             bpm_min=bpm_min, bpm_max=bpm_max, limit=limit, cursor=cursor
@@ -56,15 +65,24 @@ async def list_tracks(
 
     track_ids = [t.id for t in page.items]
     artist_map = await svc.get_artist_names_batch(track_ids)
+    features_map = await feat_repo.get_features_batch(track_ids)
 
     return PaginatedResponse[TrackBrief](
-        items=[svc.to_brief(t, artist_names=artist_map.get(t.id)) for t in page.items],
+        items=[
+            svc.to_brief(
+                t,
+                features=features_map.get(t.id),
+                artist_names=artist_map.get(t.id),
+            )
+            for t in page.items
+        ],
         next_cursor=page.next_cursor,
         total=page.total,
     )
 
 
 @tool(tags={ToolCategory.CORE.value}, annotations=ANNOTATIONS_READ_ONLY)
+@map_domain_errors
 async def get_track(
     id: int | None = None,
     query: str | None = None,
@@ -78,6 +96,7 @@ async def get_track(
 
 
 @tool(tags={ToolCategory.CORE.value}, annotations=ANNOTATIONS_WRITE)
+@map_domain_errors
 async def manage_tracks(
     action: str,
     data: Any = None,
@@ -116,6 +135,7 @@ async def manage_tracks(
 
 
 @tool(tags={ToolCategory.CORE.value}, annotations=ANNOTATIONS_READ_ONLY)
+@map_domain_errors
 async def get_track_features(
     id: int | None = None,
     query: str | None = None,
