@@ -1,72 +1,49 @@
 'use client'
 
-import { useState } from 'react'
 import { IconRefresh, IconCloudUpload } from '@tabler/icons-react'
 import { Button } from '@/components/ui/button'
-import { toast } from 'sonner'
 import { auditPlaylist, syncPlaylist } from '@/actions/playlist-actions'
+import { useToolAction } from '@/hooks/use-tool-action'
 
 interface PlaylistActionsBarProps {
   playlistId: number
 }
 
 export function PlaylistActionsBar({ playlistId }: PlaylistActionsBarProps) {
-  const [auditLoading, setAuditLoading] = useState(false)
-  const [syncLoading, setSyncLoading] = useState(false)
+  const audit = useToolAction({
+    label: 'Audit',
+    fn: () => auditPlaylist(playlistId),
+    successMessage: 'Playlist audit finished.',
+  })
 
-  async function handleAudit() {
-    setAuditLoading(true)
-    try {
-      const result = await auditPlaylist(playlistId)
-      if (result && typeof result === 'object' && 'is_error' in result && result.is_error) {
-        toast.error('Audit failed', { description: 'Check MCP server connection.' })
-      } else {
-        toast.success('Audit complete', { description: 'Playlist audit finished.' })
-      }
-    } catch {
-      toast.error('Audit failed', { description: 'Unexpected error.' })
-    } finally {
-      setAuditLoading(false)
-    }
-  }
-
-  async function handleSync() {
-    setSyncLoading(true)
-    try {
-      const result = await syncPlaylist(playlistId)
-      if (result && typeof result === 'object' && 'is_error' in result && result.is_error) {
-        toast.error('Sync failed', { description: 'Check MCP server connection.' })
-      } else {
-        toast.success('Synced', { description: 'Playlist pulled from Yandex Music.' })
-      }
-    } catch {
-      toast.error('Sync failed', { description: 'Unexpected error.' })
-    } finally {
-      setSyncLoading(false)
-    }
-  }
+  const sync = useToolAction({
+    label: 'Sync',
+    fn: () => syncPlaylist(playlistId),
+    successMessage: 'Playlist pulled from Yandex Music.',
+    refresh: true,
+  })
 
   return (
     <div className="flex flex-wrap gap-2">
       <Button
         variant="outline"
         size="sm"
-        onClick={handleAudit}
-        disabled={auditLoading}
+        onClick={audit.run}
+        disabled={audit.loading}
         className="gap-1.5"
       >
-        <IconRefresh className={`h-4 w-4 ${auditLoading ? 'animate-spin' : ''}`} />
-        {auditLoading ? 'Auditing…' : 'Audit Playlist'}
+        <IconRefresh className={`h-4 w-4 ${audit.loading ? 'animate-spin' : ''}`} />
+        {audit.loading ? 'Auditing…' : 'Audit Playlist'}
       </Button>
       <Button
         variant="outline"
         size="sm"
-        onClick={handleSync}
-        disabled={syncLoading}
+        onClick={sync.run}
+        disabled={sync.loading}
         className="gap-1.5"
       >
-        <IconCloudUpload className={`h-4 w-4 ${syncLoading ? 'animate-bounce' : ''}`} />
-        {syncLoading ? 'Syncing…' : 'Sync to YM'}
+        <IconCloudUpload className={`h-4 w-4 ${sync.loading ? 'animate-bounce' : ''}`} />
+        {sync.loading ? 'Syncing…' : 'Sync to YM'}
       </Button>
     </div>
   )

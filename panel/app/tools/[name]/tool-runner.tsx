@@ -1,11 +1,10 @@
 'use client'
 
-import { useState } from 'react'
+import { useRef } from 'react'
 import { ToolForm } from '@/components/tool-form'
 import { ToolResult } from '@/components/tool-result'
 import { executeToolAction } from '@/actions/tool-actions'
-import type { ToolCallResult } from '@/lib/mcp-client'
-import { toast } from 'sonner'
+import { useToolAction } from '@/hooks/use-tool-action'
 
 export function ToolRunner({
   toolName,
@@ -14,31 +13,16 @@ export function ToolRunner({
   toolName: string
   schema: Record<string, unknown>
 }) {
-  const [loading, setLoading] = useState(false)
-  const [result, setResult] = useState<ToolCallResult | null>(null)
+  const argsRef = useRef<Record<string, unknown>>({})
+
+  const action = useToolAction({
+    label: toolName,
+    fn: () => executeToolAction(toolName, argsRef.current),
+  })
 
   const handleSubmit = async (args: Record<string, unknown>) => {
-    setLoading(true)
-    setResult(null)
-    try {
-      const res = await executeToolAction(toolName, args)
-      setResult(res)
-      if (res.is_error) {
-        toast.error(`${toolName} failed`)
-      } else {
-        toast.success(`${toolName} completed`)
-      }
-    } catch (e) {
-      toast.error(`Failed to call ${toolName}`)
-      setResult({
-        tool_name: toolName,
-        content: [{ type: 'text', text: String(e) }],
-        structured_content: null,
-        is_error: true,
-      })
-    } finally {
-      setLoading(false)
-    }
+    argsRef.current = args
+    await action.run()
   }
 
   return (
@@ -46,9 +30,9 @@ export function ToolRunner({
       <ToolForm
         schema={schema as Parameters<typeof ToolForm>[0]['schema']}
         onSubmit={handleSubmit}
-        loading={loading}
+        loading={action.loading}
       />
-      {result && <ToolResult result={result} />}
+      {action.result && <ToolResult result={action.result} />}
     </div>
   )
 }
