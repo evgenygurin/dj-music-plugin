@@ -154,9 +154,7 @@ async def run_verification(track_path: str, use_processes: bool = False) -> bool
         deps = f" deps={sorted(a.depends_on)}" if a and a.depends_on else ""
         print(f"      {name:20s}  {clip}{deps}")
 
-    pipeline = AnalysisPipeline(
-        registry=registry, loader=loader, use_processes=use_processes
-    )
+    pipeline = AnalysisPipeline(registry=registry, loader=loader, use_processes=use_processes)
     mode = "ProcessPool" if use_processes else "ThreadPool"
     print(f"[4/7] Pipeline run ({mode}):")
 

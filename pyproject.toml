@@ -69,6 +69,9 @@ ignore_missing_imports = true
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
+# Run tests in parallel across CPU cores by default. Override with `-n 0` for
+# serial execution (e.g. when debugging with pdb or inspecting per-test output).
+addopts = "-n auto --dist loadfile"
 filterwarnings = [
     "ignore::DeprecationWarning:sqlalchemy.*",
     # librosa is chatty when synthetic test signals are shorter than its
@@ -84,3 +87,8 @@ packages = ["app"]
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+[dependency-groups]
+dev = [
+    "pytest-xdist>=3.8.0",
+]
