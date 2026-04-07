@@ -4,7 +4,7 @@ Thin wrappers calling CurationService via Depends().
 Tools:
 - classify_mood: classify tracks by 15 techno subgenres
 - audit_playlist: audit playlist for quality criteria
-- quick_set_review: review set transitions quality
+- review_set_quality: review set transitions quality
 - distribute_to_subgenres: sort tracks into subgenre playlists
 - get_library_stats: library dashboard stats
 """
@@ -95,11 +95,11 @@ async def audit_playlist(
     )
 
 
-# ── 3. quick_set_review ─────────────────────────────
+# ── 3. review_set_quality ───────────────────────────
 
 
 @tool(tags={"curation"}, annotations={"readOnlyHint": True})
-async def quick_set_review(
+async def review_set_quality(
     set_id: int,
     version: str | None = None,
     svc: CurationService = Depends(get_curation_service),  # noqa: B008
