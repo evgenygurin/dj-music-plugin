@@ -17,7 +17,7 @@ async def test_remove_tracks_calls_remove_descending_order() -> None:
 
     This prevents index shifting when removing multiple tracks.
     """
-    from app.mcp.tools.ym import ym_playlists
+    from app.mcp.tools.yandex.playlists import ym_playlists
 
     ym_mock = AsyncMock()
 
@@ -62,7 +62,7 @@ async def test_remove_tracks_calls_remove_descending_order() -> None:
 @pytest.mark.asyncio
 async def test_remove_tracks_reports_not_found() -> None:
     """ym_playlists remove_tracks should report track IDs not found in playlist."""
-    from app.mcp.tools.ym import ym_playlists
+    from app.mcp.tools.yandex.playlists import ym_playlists
 
     ym_mock = AsyncMock()
 
@@ -92,7 +92,7 @@ async def test_remove_tracks_reports_not_found() -> None:
 @pytest.mark.asyncio
 async def test_remove_tracks_single_track() -> None:
     """ym_playlists remove_tracks should work for a single track removal."""
-    from app.mcp.tools.ym import ym_playlists
+    from app.mcp.tools.yandex.playlists import ym_playlists
 
     ym_mock = AsyncMock()
 
