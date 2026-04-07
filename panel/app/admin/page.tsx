@@ -1,12 +1,11 @@
-import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty"
-import { SiteHeader } from "@/components/site-header"
-import { IconSettings } from "@tabler/icons-react"
+import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
+import { PageShell } from '@/components/page-shell'
+import { IconSettings } from '@tabler/icons-react'
 
 export default function AdminPage() {
   return (
-    <>
-      <SiteHeader title="Admin" />
-      <div className="flex flex-1 flex-col items-center justify-center py-20">
+    <PageShell title="Admin">
+      <div className="flex flex-1 items-center justify-center py-20">
         <Empty>
           <EmptyHeader>
             <EmptyMedia variant="icon">
@@ -19,6 +18,6 @@ export default function AdminPage() {
           </EmptyHeader>
         </Empty>
       </div>
-    </>
+    </PageShell>
   )
 }

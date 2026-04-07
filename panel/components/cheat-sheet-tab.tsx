@@ -3,51 +3,37 @@
 import { useState } from 'react'
 import { IconRefresh } from '@tabler/icons-react'
 import { Button } from '@/components/ui/button'
-import { toast } from 'sonner'
 import { getCheatSheet } from '@/actions/set-actions'
+import { useToolAction } from '@/hooks/use-tool-action'
 
 interface CheatSheetTabProps {
   setId: number
 }
 
+function extractCheatSheetText(
+  structured: Record<string, unknown> | null,
+  content: Array<{ type: string; text?: string }>
+): string {
+  if (structured && typeof structured.cheat_sheet === 'string') {
+    return structured.cheat_sheet
+  }
+  return content
+    .filter((c) => c.type === 'text' && c.text)
+    .map((c) => c.text)
+    .join('')
+}
+
 export function CheatSheetTab({ setId }: CheatSheetTabProps) {
   const [content, setContent] = useState<string | null>(null)
-  const [loading, setLoading] = useState(false)
 
-  async function load() {
-    setLoading(true)
-    try {
-      const result = await getCheatSheet(setId)
-      if (result && typeof result === 'object' && 'is_error' in result && result.is_error) {
-        toast.error('Failed to load cheat sheet')
-        return
-      }
-      // Extract text from result
-      let text = ''
-      if (typeof result === 'string') {
-        text = result
-      } else if (result && typeof result === 'object') {
-        const r = result as Record<string, unknown>
-        if ('cheat_sheet' in r) {
-          text = String(r.cheat_sheet)
-        } else if ('content' in r) {
-          const c = r.content
-          if (Array.isArray(c)) {
-            text = c.map((item) => (item as { text?: string }).text ?? '').join('')
-          } else {
-            text = String(c)
-          }
-        } else {
-          text = JSON.stringify(result, null, 2)
-        }
-      }
-      setContent(text)
-    } catch {
-      toast.error('Failed to load cheat sheet')
-    } finally {
-      setLoading(false)
-    }
-  }
+  const action = useToolAction({
+    label: 'Cheat sheet',
+    fn: () => getCheatSheet(setId),
+    successMessage: 'Loaded.',
+    onSuccess: (result) => {
+      setContent(extractCheatSheetText(result.structured_content, result.content))
+    },
+  })
 
   if (!content) {
     return (
@@ -55,9 +41,15 @@ export function CheatSheetTab({ setId }: CheatSheetTabProps) {
         <p className="text-sm text-muted-foreground">
           Load cheat sheet to see human-readable transition info.
         </p>
-        <Button variant="outline" size="sm" onClick={load} disabled={loading} className="gap-1.5">
-          <IconRefresh className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-          {loading ? 'Loading…' : 'Load Cheat Sheet'}
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={action.run}
+          disabled={action.loading}
+          className="gap-1.5"
+        >
+          <IconRefresh className={`h-4 w-4 ${action.loading ? 'animate-spin' : ''}`} />
+          {action.loading ? 'Loading…' : 'Load Cheat Sheet'}
         </Button>
       </div>
     )
@@ -66,8 +58,14 @@ export function CheatSheetTab({ setId }: CheatSheetTabProps) {
   return (
     <div className="flex flex-col gap-3">
       <div className="flex justify-end">
-        <Button variant="ghost" size="sm" onClick={load} disabled={loading} className="gap-1.5">
-          <IconRefresh className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={action.run}
+          disabled={action.loading}
+          className="gap-1.5"
+        >
+          <IconRefresh className={`h-3.5 w-3.5 ${action.loading ? 'animate-spin' : ''}`} />
           Refresh
         </Button>
       </div>

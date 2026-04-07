@@ -1,22 +1,13 @@
-import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { SiteHeader } from '@/components/site-header'
+import { PageShell } from '@/components/page-shell'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { TransitionTable } from '@/components/transition-table'
 import { EnergyArcChart, prepareEnergyArcData } from '@/components/charts/energy-arc'
-import { MoodBadge } from '@/components/mood-badge'
 import { SetActionsPanel } from '@/components/set-actions-panel'
 import { CheatSheetTab } from '@/components/cheat-sheet-tab'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
+import { TrackOrderTable } from '@/components/track-order-table'
 import { getSetDetail, getSetVersionTracks } from '@/lib/queries/sets'
 import { formatDuration, formatBpm, scoreColor } from '@/lib/utils'
 
@@ -51,13 +42,8 @@ export default async function SetDetailPage({ params }: SetDetailPageProps) {
   const qualityScore = latestVersion?.quality_score ?? null
 
   return (
-    <>
-      <SiteHeader title={set.name} parent={{ label: 'DJ Sets', href: '/sets' }} />
-      <div className="flex flex-1 flex-col">
-        <div className="@container/main flex flex-1 flex-col gap-2">
-          <div className="flex flex-col gap-4 px-4 py-4 md:gap-6 md:py-6 lg:px-6">
-
-            {/* Header */}
+    <PageShell title={set.name} parent={{ label: 'DJ Sets', href: '/sets' }}>
+      {/* Header */}
             <div className="flex flex-col gap-2">
               <div className="flex flex-wrap items-center gap-2">
                 <h1 className="text-lg font-semibold">{set.name}</h1>
@@ -129,60 +115,10 @@ export default async function SetDetailPage({ params }: SetDetailPageProps) {
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="p-0">
-                    {versionTracks.length === 0 ? (
-                      <p className="p-4 text-sm text-muted-foreground">No tracks in this version.</p>
-                    ) : (
-                      <div className="overflow-auto">
-                        <Table>
-                          <TableHeader>
-                            <TableRow>
-                              <TableHead className="w-10">#</TableHead>
-                              <TableHead>Track</TableHead>
-                              <TableHead className="w-16">BPM</TableHead>
-                              <TableHead className="w-14">Key</TableHead>
-                              <TableHead className="w-32">Mood</TableHead>
-                            </TableRow>
-                          </TableHeader>
-                          <TableBody>
-                            {versionTracks.map((item) => (
-                              <TableRow key={item.sort_index}>
-                                <TableCell className="text-muted-foreground text-xs tabular-nums">
-                                  {item.sort_index + 1}
-                                </TableCell>
-                                <TableCell>
-                                  <div className="min-w-0">
-                                    <Link
-                                      href={`/library/${item.track.id}`}
-                                      className="hover:underline font-medium text-sm line-clamp-1 max-w-[220px] block"
-                                    >
-                                      {item.track.title}
-                                    </Link>
-                                    {item.track.artists && (
-                                      <div className="truncate text-xs text-muted-foreground max-w-[220px]">
-                                        {item.track.artists}
-                                      </div>
-                                    )}
-                                  </div>
-                                </TableCell>
-                                <TableCell>
-                                  <span className="font-mono text-xs tabular-nums">
-                                    {formatBpm(item.track.bpm)}
-                                  </span>
-                                </TableCell>
-                                <TableCell>
-                                  <span className="font-mono text-xs">
-                                    {item.track.camelot ?? '—'}
-                                  </span>
-                                </TableCell>
-                                <TableCell>
-                                  <MoodBadge mood={item.track.mood} />
-                                </TableCell>
-                              </TableRow>
-                            ))}
-                          </TableBody>
-                        </Table>
-                      </div>
-                    )}
+                    <TrackOrderTable
+                      tracks={versionTracks}
+                      emptyMessage="No tracks in this version."
+                    />
                   </CardContent>
                 </Card>
               </TabsContent>
@@ -249,10 +185,6 @@ export default async function SetDetailPage({ params }: SetDetailPageProps) {
                 </CardContent>
               </Card>
             )}
-
-          </div>
-        </div>
-      </div>
-    </>
+    </PageShell>
   )
 }
