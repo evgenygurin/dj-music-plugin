@@ -20,3 +20,4 @@ VALID_ARTIST_SORTS: Final[frozenset[str]] = frozenset({"date", "popularity"})
 MAX_BATCH_TRACKS: Final[int] = 100
 MAX_SEARCH_LIMIT: Final[int] = 20
 MAX_LIKED_PAGE: Final[int] = 200
+MAX_PLAYLIST_TRACKS_PAGE: Final[int] = 200
