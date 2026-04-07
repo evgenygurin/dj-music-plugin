@@ -20,7 +20,7 @@ description: |
   user: "Я добавил 80 треков в YM-плейлист, разложи их по поджанрам"
   assistant: "Передаю dj-assistant — он прогонит classify_mood (L1+L2 tiered) и distribute_to_subgenres."
   </example>
-tools: Read, Glob, Grep, Bash
+disallowedTools: Write, Edit, NotebookEdit, WebFetch, WebSearch
 model: inherit
 color: pink
 ---
