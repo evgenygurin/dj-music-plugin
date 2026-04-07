@@ -48,7 +48,6 @@ uv run fastmcp run app/server.py
 
 ```bash
 DJ_DB_ACCESS_TOKEN="..."   # personal access token
-DJ_DB_PROJECT_REF="..."    # project reference id
 ```
 
 > Реализация — `@supabase/mcp-server-supabase@0.7.0` (запускается через `npx`). Токен генерится в [Supabase Dashboard](https://supabase.com/dashboard/account/tokens).
