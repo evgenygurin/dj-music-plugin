@@ -1,0 +1,45 @@
+# DJ Music Plugin — Fly.io app config
+#
+# Region: ams (Amsterdam) — closest to Supabase eu-central-1 to minimize DB latency.
+# Memory: 1GB — librosa import alone is ~400MB; analyze_track needs headroom.
+# Auto stop: enabled — no traffic = machine stops, costs $0 when idle.
+#
+# Secrets (set via `flyctl secrets set`):
+#   DJ_DATABASE_URL  — Supabase pooled connection string
+#   DJ_YM_TOKEN      — Yandex Music OAuth token
+#   DJ_YM_USER_ID    — Yandex Music user ID
+
+app = "dj-music-plugin"
+primary_region = "ams"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  DJ_DEBUG = "false"
+  PYTHONUNBUFFERED = "1"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 0
+  processes = ["app"]
+
+  [http_service.concurrency]
+    type = "requests"
+    hard_limit = 50
+    soft_limit = 25
+
+  [[http_service.checks]]
+    grace_period = "30s"
+    interval = "30s"
+    method = "GET"
+    timeout = "10s"
+    path = "/api/health"
+
+[[vm]]
+  cpu_kind = "shared"
+  cpus = 1
+  memory = "1gb"

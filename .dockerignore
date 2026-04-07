@@ -1,0 +1,62 @@
+# Build artifacts
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+htmlcov/
+.coverage
+*.egg-info/
+dist/
+build/
+
+# Local databases (production uses Supabase)
+*.db
+*.db-shm
+*.db-wal
+in-memoria.db*
+
+# Local audio cache & generated artifacts
+cache/
+generated-sets/
+panel/.next/
+panel/node_modules/
+panel/.vercel/
+
+# IDE & editor
+.vscode/
+.idea/
+*.swp
+.DS_Store
+
+# Git & worktrees
+.git/
+.worktrees/
+
+# Tests & docs (not needed at runtime)
+tests/
+docs/
+.claude/
+.claude-plugin/
+.superpowers/
+
+# Local secrets — Fly secrets are set via CLI, never baked into image
+.env
+.env.local
+.env.example
+
+# Plugin assets unrelated to backend
+panel/
+agents/
+commands/
+skills/
+hooks/
+flows/
+scripts/
+mcp-test-results*.md
+
+# Keep these in image:
+#   pyproject.toml, uv.lock, README.md, app/, serve_http.py
