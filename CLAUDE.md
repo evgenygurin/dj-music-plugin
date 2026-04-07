@@ -42,17 +42,20 @@ Panel (Next.js) → REST API (FastAPI) → MCP Server (FastMCP) → DB (Supabase
 ```
 
 ```text
-app/models/       → SQLAlchemy модели (данные)
-app/repositories/ → Data access (flush, never commit)
-app/services/     → Business logic (domain errors, no MCP imports)
-app/mcp/tools/    → MCP tools (standalone @tool, FileSystemProvider auto-discovers)
-app/mcp/resources/ → MCP resources (read-only data views)
-app/mcp/prompts/  → Workflow prompt templates
-app/audio/        → Audio analysis, tiered pipeline, level config, temp download
-app/ym/           → Yandex Music client (async httpx)
-app/core/         → Shared: errors, constants, pagination, entity resolver
-panel/            → Next.js dashboard (shadcn, Supabase, Recharts)
-serve_http.py     → FastAPI REST API wrapper
+app/models/             → SQLAlchemy модели (данные)
+app/repositories/       → Data access (flush, never commit)
+app/services/           → Business logic (domain errors, no MCP imports)
+app/mcp/tools/          → MCP tools (standalone @tool, FSProvider auto-discovers)
+app/mcp/tools/_shared/  → Tool infra: taxonomy, resolvers, ToolContext, dispatch
+app/mcp/tools/yandex/   → YM API tools split by entity (search/tracks/albums/...)
+app/mcp/schemas/        → Tool-only Pydantic models (LLM sampling)
+app/mcp/resources/      → MCP resources (read-only data views)
+app/mcp/prompts/        → Workflow prompt templates
+app/audio/              → Audio analysis, tiered pipeline, level config
+app/ym/                 → Yandex Music client (async httpx)
+app/core/               → Shared: errors, constants, schemas, ym_filters
+panel/                  → Next.js dashboard (shadcn, Supabase, Recharts)
+serve_http.py           → FastAPI REST API wrapper
 ```
 
 Правило: каждый слой импортирует только слой ниже. Tools → Services → Repositories → Models.

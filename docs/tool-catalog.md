@@ -98,16 +98,20 @@ Quick reference for all 50 tools (46 visible + 4 atomic hidden).
 | `sync_playlist` | playlist_id, direction?, conflict_strategy?, dry_run? | no |
 | `push_set_to_ym` | set_id, ym_playlist_name?, mode? | no |
 
-### YM API (6 tools, tag: `ym`, file: `ym.py`)
+### YM API (6 tools, tag: `ym`, package: `yandex/`)
 
-| Tool | Params | RO |
-|------|--------|-----|
-| `ym_search` | query, type?, limit? | yes |
-| `ym_get_tracks` | track_ids | yes |
-| `ym_get_album` | album_id, include_tracks? | yes |
-| `ym_artist_tracks` | artist_id, page?, sort_by? | yes |
-| `ym_playlists` | action(get\|get_tracks\|list\|create\|rename\|delete\|add_tracks\|remove_tracks) | varies |
-| `ym_likes` | action(get_liked\|add\|remove), track_ids? | varies |
+Each YM tool lives in its own submodule under `app/mcp/tools/yandex/`:
+
+| Tool | File | Params | RO |
+|------|------|--------|-----|
+| `ym_search` | `yandex/search.py` | query, type?, limit? | yes |
+| `ym_get_tracks` | `yandex/tracks.py` | track_ids | yes |
+| `ym_artist_tracks` | `yandex/tracks.py` | artist_id, page?, sort_by? | yes |
+| `ym_get_album` | `yandex/albums.py` | album_id, include_tracks? | yes |
+| `ym_playlists` | `yandex/playlists.py` | action(get\|get_tracks\|list\|create\|rename\|delete\|add_tracks\|remove_tracks) | varies |
+| `ym_likes` | `yandex/likes.py` | action(get_liked\|add\|remove), track_ids? | varies |
+
+`ym_playlists` and `ym_likes` dispatch via `ActionDispatcher` (Command + Registry) — adding a new action is `@_dispatcher.register("name")` plus a handler, no `if/elif` edits.
 
 ## Hidden Tools (explicit unlock required — 7 tools)
 

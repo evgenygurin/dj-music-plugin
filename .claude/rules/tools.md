@@ -5,19 +5,22 @@ globs: app/mcp/tools/**/*.py
 
 # MCP Tools
 
-- Use standalone `@tool` decorator from `fastmcp` (FileSystemProvider auto-discovers)
-- **Every tool must have**: `tags={"category"}` and `annotations={"readOnlyHint": ...}`
+- Use standalone `@tool` decorator from `fastmcp` (FileSystemProvider auto-discovers, scans subpackages recursively)
+- **Tag and annotation constants**: import from `app.mcp.tools._shared` — never hardcode literals
+  - `tags={ToolCategory.CORE.value}` (StrEnum, no magic strings)
+  - `annotations=ANNOTATIONS_READ_ONLY` / `ANNOTATIONS_WRITE` / `ANNOTATIONS_READ_ONLY_OPEN_WORLD`
+  - `timeout=ToolTimeout.MEDIUM | HEAVY | BATCH`
+- **Entity resolution**: use `resolve_track_id` / `resolve_entity` / `ensure_reference` from `_shared` — never re-implement `id|query` validation
+- **Context logging**: wrap `ctx` in `ToolContext(ctx)` and call `await log.info(...)`, `log.progress(...)`, `log.elicit(...)` — never write `if ctx: await ctx.info(...)` guards
+- **Action-dispatched tools** (`ym_playlists`, `ym_likes`, `manage_*`): use `ActionDispatcher[ResultT]` from `_shared.dispatch` — `@_dispatcher.register("name")` instead of `if/elif` chains. Duplicate registration raises at import time.
 - Tool descriptions ≤50 words — details go in parameter descriptions
 - Use `Depends()` for DI — hidden from tool schema automatically
-- Use `CurrentContext()` for MCP context (logging, progress, elicitation)
-- Return Pydantic models for `structuredContent` (not dicts)
+- Return Pydantic models for `structuredContent` (not dicts) where the service supports it
 - Use `view: Literal["summary", "full"]` pattern for progressive disclosure
-- Entity resolution: use explicit `id: int | None, query: str | None` — not `ref: str`
-- Elicitation: always use `safe_elicit()` wrapper with fallback
-- Progress: `ctx.report_progress(current, total)` for long operations
-- Timeouts: set `timeout=N` on heavy tools (build_set, analyze_*, deliver_set)
-- Never import repositories directly — use services via Depends
+- Never import repositories directly — use services via `Depends`
 - Never call `session.commit()` — DI handles transaction lifecycle
+- **No lazy imports inside function bodies** — hoist to module top. Lazy import = code smell.
+- YM tools live in `app/mcp/tools/yandex/` (one file per entity), not in a flat `ym.py`
 
 ## Gotchas
 
