@@ -98,7 +98,7 @@ def find_real_mp3(library_root: str | None = None) -> str:
 # ── Main pipeline test ──────────────────────────────
 
 
-async def run_verification(track_path: str) -> bool:
+async def run_verification(track_path: str, use_processes: bool = False) -> bool:
     """Run full E2E verification. Returns True if all checks pass."""
 
     timing = TimingReport()
@@ -154,11 +154,28 @@ async def run_verification(track_path: str) -> bool:
         deps = f" deps={sorted(a.depends_on)}" if a and a.depends_on else ""
         print(f"      {name:20s}  {clip}{deps}")
 
-    pipeline = AnalysisPipeline(registry=registry, loader=loader)
-    print("[4/7] Pipeline run (production path):")
+    pipeline = AnalysisPipeline(
+        registry=registry, loader=loader, use_processes=use_processes
+    )
+    mode = "ProcessPool" if use_processes else "ThreadPool"
+    print(f"[4/7] Pipeline run ({mode}):")
+
+    # In ProcessPool mode the first call pays a one-off cold-start cost
+    # (workers spawn and import librosa). Production callers (FastMCP
+    # server, batch jobs) reuse a long-lived pool, so the warm wall is
+    # the relevant number — measure it explicitly with a second call.
+    if use_processes:
+        cold_timer = Timer()
+        with cold_timer:
+            await pipeline.analyze(track_path)
+        print(f"      cold start: {cold_timer.elapsed:.2f}s")
+
     pipe_timer = Timer()
     with pipe_timer:
         pipe_result = await pipeline.analyze(track_path)
+
+    if use_processes:
+        pipeline.shutdown()
     print(
         f"      {pipe_result.success_count}/{len(pipe_result.results)} OK in "
         f"{pipe_timer.elapsed:.2f}s"
@@ -313,8 +330,12 @@ async def run_verification(track_path: str) -> bool:
 
 
 def main() -> None:
-    if len(sys.argv) > 1:
-        track_path = sys.argv[1]
+    args = [a for a in sys.argv[1:] if not a.startswith("--")]
+    flags = {a for a in sys.argv[1:] if a.startswith("--")}
+    use_processes = "--processes" in flags
+
+    if args:
+        track_path = args[0]
         if not os.path.isfile(track_path):
             print(f"File not found: {track_path}", file=sys.stderr)
             sys.exit(1)
@@ -323,7 +344,7 @@ def main() -> None:
         track_path = find_real_mp3()
         print(f"Found: {Path(track_path).name}\n")
 
-    ok = asyncio.run(run_verification(track_path))
+    ok = asyncio.run(run_verification(track_path, use_processes=use_processes))
     sys.exit(0 if ok else 1)
 
 

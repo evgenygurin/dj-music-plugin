@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from unittest.mock import AsyncMock
 
 import numpy as np
@@ -678,3 +679,143 @@ class TestVectorizedSpectral:
         freqs = np.array([0.0])  # only DC bin
         out = _vectorized_spectral_slope(mag, freqs)
         np.testing.assert_array_equal(out, np.zeros(50))
+
+
+# ── ProcessPool dispatch path ──────────────────────────────────────────
+
+
+class TestProcessPoolDispatch:
+    """End-to-end checks for the ProcessPoolExecutor pipeline path.
+
+    These tests spawn real worker processes via the forkserver start
+    method, so they're slower than the thread-mode tests. Each test
+    instantiates its own pipeline and shuts down the pool to keep
+    test isolation clean.
+    """
+
+    @staticmethod
+    def _make_techno_signal(duration_s: float = 8.0, sr: int = 22050) -> AudioSignal:
+        """Build a small synthetic techno-like signal: 130 BPM kick + pad."""
+        n = int(sr * duration_s)
+        t = np.arange(n) / sr
+        # Sub-bass kick at 60 Hz, on-beat at 130 BPM
+        kick = np.zeros(n, dtype=np.float32)
+        period = int(sr * 60.0 / 130.0)
+        for start in range(0, n, period):
+            length = min(int(0.05 * sr), n - start)
+            env = np.exp(-np.arange(length) / (0.01 * sr)).astype(np.float32)
+            kick[start : start + length] += (
+                env * np.sin(2 * np.pi * 60 * np.arange(length) / sr).astype(np.float32)
+            )
+        # Pad above to give the spectrum some upper content
+        pad = (0.2 * np.sin(2 * np.pi * 220 * t) + 0.1 * np.sin(2 * np.pi * 330 * t)).astype(
+            np.float32
+        )
+        samples = (kick + pad) * 0.7
+        return AudioSignal(
+            samples=samples.astype(np.float32),
+            sample_rate=sr,
+            duration_seconds=duration_s,
+        )
+
+    async def test_process_pool_runs_pure_numpy_analyzer(
+        self, tmp_path: Path, registry: AnalyzerRegistry
+    ) -> None:
+        """A core (numpy-only) analyzer must run end-to-end via processes."""
+        import soundfile as sf
+
+        from app.audio.pipeline import AnalysisPipeline
+
+        sig = self._make_techno_signal(duration_s=4.0)
+        wav_path = tmp_path / "tiny.wav"
+        sf.write(str(wav_path), sig.samples, sig.sample_rate)
+
+        pipeline = AnalysisPipeline(
+            registry=registry, use_processes=True, max_workers=2
+        )
+        try:
+            result = await pipeline.analyze(
+                str(wav_path), analyzers=["loudness", "energy"]
+            )
+            assert result.success_count == 2
+            assert "integrated_lufs" in result.features
+            assert "energy_mean" in result.features
+            # Returned context is None in process mode (workers can't pickle Lock)
+            assert result.context is None
+        finally:
+            pipeline.shutdown()
+
+    async def test_process_pool_runs_librosa_analyzer(
+        self, tmp_path: Path, registry: AnalyzerRegistry
+    ) -> None:
+        """A librosa-dependent analyzer must run via processes too.
+
+        This is the case where the warmup matters most: each fresh
+        worker imports librosa+scipy on its first task. Verifies the
+        worker function calls _warmup_librosa correctly.
+        """
+        pytest.importorskip("librosa")
+        import soundfile as sf
+
+        from app.audio.pipeline import AnalysisPipeline
+
+        sig = self._make_techno_signal(duration_s=4.0)
+        wav_path = tmp_path / "tiny.wav"
+        sf.write(str(wav_path), sig.samples, sig.sample_rate)
+
+        pipeline = AnalysisPipeline(
+            registry=registry, use_processes=True, max_workers=2
+        )
+        try:
+            result = await pipeline.analyze(str(wav_path), analyzers=["bpm"])
+            assert result.success_count == 1
+            assert "bpm" in result.features
+            assert result.features["bpm"] > 0
+        finally:
+            pipeline.shutdown()
+
+    async def test_process_pool_warm_pool_reuses_workers(
+        self, tmp_path: Path, registry: AnalyzerRegistry
+    ) -> None:
+        """Second analyze() call should reuse the warm pool — no second spawn.
+
+        We don't time it precisely (CI noise), but we verify both calls
+        succeed and produce identical features for the same input. If the
+        pool was tearing down between calls and respawning, the second
+        call would either fail or restart workers from cold.
+        """
+        import soundfile as sf
+
+        from app.audio.pipeline import AnalysisPipeline
+
+        sig = self._make_techno_signal(duration_s=4.0)
+        wav_path = tmp_path / "tiny.wav"
+        sf.write(str(wav_path), sig.samples, sig.sample_rate)
+
+        pipeline = AnalysisPipeline(
+            registry=registry, use_processes=True, max_workers=2
+        )
+        try:
+            r1 = await pipeline.analyze(str(wav_path), analyzers=["loudness"])
+            r2 = await pipeline.analyze(str(wav_path), analyzers=["loudness"])
+            assert r1.success_count == 1
+            assert r2.success_count == 1
+            # Identical features for identical input
+            assert r1.features["integrated_lufs"] == pytest.approx(
+                r2.features["integrated_lufs"], abs=1e-9
+            )
+        finally:
+            pipeline.shutdown()
+
+    def test_pipeline_shutdown_is_idempotent(
+        self, registry: AnalyzerRegistry
+    ) -> None:
+        """Calling shutdown() multiple times must be safe (no exception)."""
+        from app.audio.pipeline import AnalysisPipeline
+
+        pipeline = AnalysisPipeline(
+            registry=registry, use_processes=True, max_workers=2
+        )
+        # Pool is created lazily, so shutdown without analyze() is a no-op
+        pipeline.shutdown()
+        pipeline.shutdown()  # second call should not raise

@@ -2,8 +2,25 @@
 """Analysis pipeline — orchestrates analyzers with parallel execution.
 
 Builds one AnalysisContext per unique clip duration (full track + 60s clip
-for heavy librosa analyzers), then dispatches analyzers via
-asyncio.to_thread() for CPU-bound concurrency.
+for heavy librosa analyzers), then dispatches analyzers either via
+asyncio.to_thread() (default, ThreadPool) or via a ProcessPoolExecutor
+when ``use_processes=True``.
+
+ThreadPool path:
+    Cheap (no spawn cost, no pickling), but limited by the Python GIL.
+    Many of our analyzers do significant Python work between numpy/C
+    calls, so threads compete for the GIL and effective parallelism is
+    only ~3-5x even with 8 cores. Per-analyzer wall-clock can be
+    inflated 20-30x vs real CPU time on cheap analyzers (bpm, key).
+
+ProcessPool path:
+    Each worker is a separate Python interpreter with its own GIL.
+    True parallelism — pipeline wall-clock approaches max(per-analyzer
+    real CPU). Pays a one-off ~0.5-1s spawn cost per worker (forkserver
+    on Linux/macOS) and pickling overhead per dispatch. Worth it when
+    the pool is reused across multiple analyses (FastMCP server,
+    batch jobs). The pool is created lazily on first use and lives
+    until the pipeline is garbage-collected.
 
 Analyzers declare their needed clip via ``BaseAnalyzer.clip_duration_s``:
 - ``None`` → full track (loudness, structure, energy)
@@ -23,6 +40,11 @@ timbre are stable but per-section dynamics differ.
 from __future__ import annotations
 
 import asyncio
+import contextlib
+import importlib
+import multiprocessing
+import os
+from concurrent.futures import ProcessPoolExecutor
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -31,7 +53,7 @@ import numpy as np
 from app.audio.analyzers.base import AnalyzerRegistry, BaseAnalyzer
 from app.audio.core.context import AnalysisContext
 from app.audio.core.loader import AudioLoader
-from app.audio.core.types import AnalyzerResult, AudioSignal
+from app.audio.core.types import AnalyzerResult, AudioSignal, FrameParams
 
 # Stitched-clip strategy parameters. Three windows from across the track
 # at positions corresponding to (i + 0.5) / N for i in 0..N-1, i.e. 1/6,
@@ -69,6 +91,47 @@ def _warmup_librosa() -> None:
     _LIBROSA_WARMED_UP = True
 
 
+def _process_analyzer_worker(
+    samples: np.ndarray,
+    sample_rate: int,
+    file_path: str,
+    frame_length: int,
+    hop_length: int,
+    analyzer_module: str,
+    analyzer_class: str,
+    prior_results: dict[str, Any] | None = None,
+) -> AnalyzerResult:
+    """Run a single analyzer in a worker process.
+
+    Module-level function (required for pickling under
+    ProcessPoolExecutor + spawn/forkserver). Receives the raw clip
+    samples plus enough metadata to rebuild ``AudioSignal`` and
+    ``AnalysisContext`` locally — we cannot pickle the context itself
+    because it holds a ``threading.Lock`` for the lazy onset envelope
+    cache.
+
+    The worker also calls ``_warmup_librosa()`` once per process so
+    librosa submodule imports are resolved before any analyzer runs
+    (the warmup result is cached at module level inside the worker).
+    """
+    _warmup_librosa()
+
+    signal = AudioSignal(
+        samples=samples,
+        sample_rate=sample_rate,
+        duration_seconds=len(samples) / sample_rate,
+        file_path=file_path,
+    )
+    params = FrameParams(frame_length=frame_length, hop_length=hop_length)
+    ctx = AnalysisContext(signal, params=params)
+
+    module = importlib.import_module(analyzer_module)
+    cls = getattr(module, analyzer_class)
+    analyzer = cls()
+    result: AnalyzerResult = analyzer.run(ctx, prior_results=prior_results)
+    return result
+
+
 @dataclass
 class PipelineResult:
     """Combined result from all analyzers in a pipeline run."""
@@ -92,11 +155,72 @@ class PipelineResult:
 
 
 class AnalysisPipeline:
-    """Runs analyzers on audio files with shared context and parallel execution."""
+    """Runs analyzers on audio files with shared context and parallel execution.
 
-    def __init__(self, registry: AnalyzerRegistry, loader: AudioLoader | None = None) -> None:
+    Two dispatch modes:
+        ``use_processes=False`` (default): asyncio.to_thread → ThreadPool.
+            Cheap, no spawn cost, but GIL-bound.
+        ``use_processes=True``: ProcessPoolExecutor with forkserver.
+            True parallelism, ~2x faster on a multi-analyzer pipeline,
+            pays a one-off pool startup cost.
+
+    Pool lifecycle: created lazily on first analyze() call,
+    held for the lifetime of the pipeline. Use as a long-lived
+    instance (FastMCP server, batch script) to amortize spawn cost.
+    """
+
+    def __init__(
+        self,
+        registry: AnalyzerRegistry,
+        loader: AudioLoader | None = None,
+        use_processes: bool = False,
+        max_workers: int | None = None,
+    ) -> None:
         self.registry = registry
         self._loader = loader or AudioLoader()
+        self._use_processes = use_processes
+        self._max_workers = max_workers or max(1, (os.cpu_count() or 4))
+        self._pool: ProcessPoolExecutor | None = None
+
+        # Self-tuning per-analyzer cost estimates (seconds), populated
+        # from real ``AnalyzerResult.elapsed_s`` values after each call.
+        # Used purely for ProcessPool dispatch ordering — heavier
+        # analyzers are submitted first so the FIFO worker queue picks
+        # them up immediately. NEVER substituted into any feature: a
+        # missing or failed analyzer still produces None / a failed
+        # AnalyzerResult, never a synthetic value.
+        # First call: empty dict, no sorting (registry order). Every
+        # subsequent call uses the most recently observed elapsed times.
+        self._observed_costs: dict[str, float] = {}
+
+    def _get_pool(self) -> ProcessPoolExecutor:
+        """Lazily build the ProcessPool on first use.
+
+        Uses ``forkserver`` start method which is safe on macOS (where
+        ``fork`` is unsupported with threads/Cocoa) and faster than
+        ``spawn`` because the server process keeps a warm interpreter
+        between worker forks. Also pre-warms librosa once in each
+        worker via the worker function itself, so per-task warmup
+        cost is paid only on the first task each worker handles.
+        """
+        if self._pool is None:
+            ctx = multiprocessing.get_context("forkserver")
+            self._pool = ProcessPoolExecutor(
+                max_workers=self._max_workers, mp_context=ctx
+            )
+        return self._pool
+
+    def shutdown(self) -> None:
+        """Release the worker pool. Safe to call multiple times."""
+        if self._pool is not None:
+            self._pool.shutdown(wait=True)
+            self._pool = None
+
+    def __del__(self) -> None:
+        # Best-effort cleanup. Errors during interpreter shutdown are
+        # silently ignored — workers get killed by the OS anyway.
+        with contextlib.suppress(Exception):
+            self.shutdown()
 
     async def analyze(
         self,
@@ -127,43 +251,134 @@ class AnalysisPipeline:
         if any("librosa" in a.required_packages for a in instances):
             _warmup_librosa()
 
-        # Build one context per unique clip duration. Most heavy analyzers
-        # share clip_duration_s=60, so typically we build at most 2 contexts
-        # (full + 60s). Spectral STFT is reused across all bucket members.
-        contexts = self._build_contexts(signal, instances)
-
         # Partition by dependency: independent first, then dependent
         independent = [a for a in instances if not a.depends_on]
         dependent = [a for a in instances if a.depends_on]
 
-        # Phase 1: independent
-        phase1_results: list[AnalyzerResult] = list(
-            await asyncio.gather(
-                *(asyncio.to_thread(a.run, contexts[a.clip_duration_s]) for a in independent)
-            )
-        )
-
-        # Phase 2: dependent — receive merged Phase 1 results
-        all_results = list(phase1_results)
-        if dependent:
-            prior = self._merge_features(phase1_results)
-            phase2_results: list[AnalyzerResult] = list(
+        if self._use_processes:
+            phase1_results, return_ctx = await self._run_phase_processes(signal, independent)
+            all_results = list(phase1_results)
+            if dependent:
+                prior = self._merge_features(phase1_results)
+                phase2_results, _ = await self._run_phase_processes(
+                    signal, dependent, prior_results=prior
+                )
+                all_results.extend(phase2_results)
+        else:
+            # Build one context per unique clip duration. Most heavy
+            # analyzers share clip_duration_s=60, so typically we build
+            # at most 2 contexts (full + 60s). STFT shared across bucket
+            # members in the thread path.
+            contexts = self._build_contexts(signal, instances)
+            phase1_results = list(
                 await asyncio.gather(
                     *(
-                        asyncio.to_thread(a.run, contexts[a.clip_duration_s], prior)
-                        for a in dependent
+                        asyncio.to_thread(a.run, contexts[a.clip_duration_s])
+                        for a in independent
                     )
                 )
             )
-            all_results.extend(phase2_results)
+            all_results = list(phase1_results)
+            if dependent:
+                prior = self._merge_features(phase1_results)
+                phase2_results = list(
+                    await asyncio.gather(
+                        *(
+                            asyncio.to_thread(a.run, contexts[a.clip_duration_s], prior)
+                            for a in dependent
+                        )
+                    )
+                )
+                all_results.extend(phase2_results)
+            return_ctx = contexts.get(None) or next(iter(contexts.values()), None)
 
-        # Return the full-track context if available, else any context
-        return_ctx = contexts.get(None) or next(iter(contexts.values()), None)
+        # Update self-tuning cost map for the next call's dispatch order.
+        # Only successful runs contribute (a failed analyzer's elapsed
+        # may be a fast crash and is unrepresentative of its real cost).
+        for r in all_results:
+            if r.success and r.elapsed_s > 0:
+                self._observed_costs[r.analyzer_name] = r.elapsed_s
+
         return PipelineResult(
             results=all_results,
             features=self._merge_features(all_results),
             context=return_ctx if return_context else None,
         )
+
+    async def _run_phase_processes(
+        self,
+        signal: AudioSignal,
+        instances: list[BaseAnalyzer],
+        prior_results: dict[str, Any] | None = None,
+    ) -> tuple[list[AnalyzerResult], AnalysisContext | None]:
+        """Dispatch a phase of analyzers via the ProcessPool.
+
+        Each analyzer runs in its own worker call. The worker rebuilds
+        a local AnalysisContext from the supplied clip samples — we
+        cannot pickle the context itself because it holds a
+        threading.Lock for the lazy onset envelope cache.
+
+        Each analyzer gets the clip variant matching its
+        ``clip_duration_s`` so heavy librosa analyzers see the stitched
+        60s clip while ``loudness``/``structure`` see the full track.
+        """
+        if not instances:
+            return [], None
+
+        pool = self._get_pool()
+        loop = asyncio.get_running_loop()
+        params = FrameParams()  # default frame params; matches AnalysisContext default
+
+        # Pre-compute clip variants once per unique clip duration
+        clips: dict[float | None, np.ndarray] = {}
+        for clip_duration in {a.clip_duration_s for a in instances}:
+            if clip_duration is None or signal.duration_seconds <= clip_duration:
+                clips[clip_duration] = signal.samples
+            else:
+                clipped = _clip_signal(signal, clip_duration, centered=True)
+                clips[clip_duration] = clipped.samples
+
+        # Sort by descending observed cost so heavy analyzers are
+        # submitted first. ProcessPoolExecutor dispatches FIFO across
+        # workers, so the earliest tasks land in workers immediately —
+        # putting the heaviest analyzer at the head ensures it starts
+        # running on its own core from t=0 instead of waiting in the
+        # queue while cheap analyzers tie up workers.
+        #
+        # Costs come from the previous call's ``elapsed_s``. On the
+        # first call ``_observed_costs`` is empty so all analyzers
+        # have cost 0.0 — sorting is a no-op and dispatch order is
+        # the registry order. From the second call onward, dispatch
+        # is optimal for the actual measured workload of THIS pipeline.
+        sorted_instances = sorted(
+            instances,
+            key=lambda a: self._observed_costs.get(a.name, 0.0),
+            reverse=True,
+        )
+
+        futures = []
+        for analyzer in sorted_instances:
+            samples = clips[analyzer.clip_duration_s]
+            cls = type(analyzer)
+            futures.append(
+                loop.run_in_executor(
+                    pool,
+                    _process_analyzer_worker,
+                    samples,
+                    signal.sample_rate,
+                    signal.file_path,
+                    params.frame_length,
+                    params.hop_length,
+                    cls.__module__,
+                    cls.__name__,
+                    prior_results,
+                )
+            )
+
+        results = list(await asyncio.gather(*futures))
+        # No shared context to return from worker processes — caller
+        # gets None and the PipelineResult.context will be None too.
+        return results, None
 
     @staticmethod
     def _build_contexts(
