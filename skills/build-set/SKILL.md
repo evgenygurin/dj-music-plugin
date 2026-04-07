@@ -45,7 +45,7 @@ Guide the user through building an optimized DJ set from a playlist.
 6. **Iterate if needed**
    - `suggest_next_track(set_id=..., after_position=N)` for gap filling
    - `find_replacement(set_id=..., position=N)` for weak transitions
-   - `rebuild_set(set_id=..., pin=[...], exclude=[...], algorithm="ga")` to re-optimize (also supports `unpin`, `include`, `swap`)
+   - `rebuild_set(set_id=..., pin_tracks=[...], exclude_tracks=[...], algorithm="ga", version_label="...")` — creates a new version
    - `compare_set_versions(set_id=...)` to verify improvement
 
 7. **Finalize**
@@ -54,9 +54,9 @@ Guide the user through building an optimized DJ set from a playlist.
 
 ## Key Parameters
 
-- **algorithm**: `"ga"` (genetic algorithm, better) or `"greedy"` (fast). Without features, falls back to `playlist_order`.
-- **rebuild_set ops**: `pin`, `unpin`, `exclude`, `include`, `swap` (all optional, take track IDs)
-- **dry_run**: `true` to preview without saving (build_set / rebuild_set)
+- **algorithm**: `"ga"` (genetic algorithm, better) or `"greedy"` (fast, default). Without features, falls back to `playlist_order`.
+- **rebuild_set params**: `pin_tracks: list[int]`, `exclude_tracks: list[int]`, `algorithm`, `version_label` — produces a new `SetVersion`, never mutates the previous one.
+- **dry_run**: `true` to preview without saving — supported by `build_set` only (not `rebuild_set`).
 - **view** (get_set): `summary | tracks | transitions | full`
 
 Auto-analysis: `build_set` triggers L3 analysis for any candidate track with `analysis_level < 3` — no manual `analyze_track` needed (see @docs/reports/tiered-analysis-design-2026-03-27.md).
