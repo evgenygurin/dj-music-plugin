@@ -98,12 +98,8 @@ def test_pure_sine_has_high_hp_ratio_and_low_kick_prominence():
     pytest.importorskip("librosa")
     duration = 6.0
     n = int(SAMPLE_RATE * duration)
-    samples = (0.4 * np.sin(2 * np.pi * 440 * np.arange(n) / SAMPLE_RATE)).astype(
-        np.float32
-    )
-    signal = AudioSignal(
-        samples=samples, sample_rate=SAMPLE_RATE, duration_seconds=duration
-    )
+    samples = (0.4 * np.sin(2 * np.pi * 440 * np.arange(n) / SAMPLE_RATE)).astype(np.float32)
+    signal = AudioSignal(samples=samples, sample_rate=SAMPLE_RATE, duration_seconds=duration)
     result = BeatDetector().run(AnalysisContext(signal))
     assert result.success
 
@@ -113,9 +109,7 @@ def test_pure_sine_has_high_hp_ratio_and_low_kick_prominence():
         f"kick_prominence={feats['kick_prominence']} too high for 440Hz sine"
     )
     # Pure sine is dominantly harmonic
-    assert feats["hp_ratio"] > 1.0, (
-        f"hp_ratio={feats['hp_ratio']} too low for harmonic signal"
-    )
+    assert feats["hp_ratio"] > 1.0, f"hp_ratio={feats['hp_ratio']} too low for harmonic signal"
 
 
 def test_pulse_clarity_higher_for_periodic_than_noise():
@@ -126,9 +120,7 @@ def test_pulse_clarity_higher_for_periodic_than_noise():
     n = int(SAMPLE_RATE * duration)
 
     noise = (0.1 * rng.standard_normal(n)).astype(np.float32)
-    noise_sig = AudioSignal(
-        samples=noise, sample_rate=SAMPLE_RATE, duration_seconds=duration
-    )
+    noise_sig = AudioSignal(samples=noise, sample_rate=SAMPLE_RATE, duration_seconds=duration)
     noise_result = BeatDetector().run(AnalysisContext(noise_sig))
 
     kick_sig = _make_kick_signal(bpm=130.0, duration=duration)

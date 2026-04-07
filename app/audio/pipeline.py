@@ -205,9 +205,7 @@ class AnalysisPipeline:
         """
         if self._pool is None:
             ctx = multiprocessing.get_context("forkserver")
-            self._pool = ProcessPoolExecutor(
-                max_workers=self._max_workers, mp_context=ctx
-            )
+            self._pool = ProcessPoolExecutor(max_workers=self._max_workers, mp_context=ctx)
         return self._pool
 
     def shutdown(self) -> None:
@@ -250,18 +248,15 @@ class AnalysisPipeline:
 
         # Resolve analyzer instances (trivial dict lookups, no offload needed)
         analyzer_names = analyzers or self.registry.list_available()
-        instances = [
-            a for n in analyzer_names if (a := self.registry.get(n)) and a.is_available()
-        ]
+        instances = [a for n in analyzer_names if (a := self.registry.get(n)) and a.is_available()]
 
         # Pre-warm librosa to eliminate scipy/librosa lazy-loader races.
         # In process mode the workers warm up themselves on their first
         # task, so we skip the main-process warmup entirely. In thread
         # mode we still need it on the main process — but we offload the
         # ~5s import work to a worker thread so the event loop stays free.
-        needs_warmup = (
-            not self._use_processes
-            and any("librosa" in a.required_packages for a in instances)
+        needs_warmup = not self._use_processes and any(
+            "librosa" in a.required_packages for a in instances
         )
         if needs_warmup:
             await asyncio.to_thread(_warmup_librosa)
@@ -291,10 +286,7 @@ class AnalysisPipeline:
             contexts = await asyncio.to_thread(self._build_contexts, signal, instances)
             phase1_results = list(
                 await asyncio.gather(
-                    *(
-                        asyncio.to_thread(a.run, contexts[a.clip_duration_s])
-                        for a in independent
-                    )
+                    *(asyncio.to_thread(a.run, contexts[a.clip_duration_s]) for a in independent)
                 )
             )
             all_results = list(phase1_results)
@@ -352,9 +344,7 @@ class AnalysisPipeline:
         # Stitched-window construction does numpy concat + hann fades
         # (~50-100ms on a 6 min track) — small but still blocks the
         # event loop, so offload to a worker thread.
-        clips = await asyncio.to_thread(
-            _build_clip_variants_for_instances, signal, instances
-        )
+        clips = await asyncio.to_thread(_build_clip_variants_for_instances, signal, instances)
 
         # Sort by descending observed cost so heavy analyzers are
         # submitted first. ProcessPoolExecutor dispatches FIFO across

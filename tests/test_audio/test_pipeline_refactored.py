@@ -613,8 +613,10 @@ class TestVectorizedSpectral:
         # variation is realistic.
         base = 1.0 / (np.arange(1, n_bins + 1) ** 0.7)
         mag = (
-            base[:, None] * (1.0 + 0.3 * rng.standard_normal((n_bins, n_frames)))
-        ).clip(min=1e-6).astype(np.float64)
+            (base[:, None] * (1.0 + 0.3 * rng.standard_normal((n_bins, n_frames))))
+            .clip(min=1e-6)
+            .astype(np.float64)
+        )
         freqs = np.linspace(0.0, 11025.0, n_bins).astype(np.float64)
         return mag, freqs
 
@@ -650,9 +652,7 @@ class TestVectorizedSpectral:
                 n_alpha = max(1, int(len(sorted_mags) * alpha))
                 peak = float(np.mean(sorted_mags[-n_alpha:]))
                 valley = float(np.mean(sorted_mags[:n_alpha]))
-                contrasts.append(
-                    20.0 * np.log10(peak + 1e-10) - 20.0 * np.log10(valley + 1e-10)
-                )
+                contrasts.append(20.0 * np.log10(peak + 1e-10) - 20.0 * np.log10(valley + 1e-10))
             out[i] = float(np.mean(contrasts)) if contrasts else 0.0
         return out
 
@@ -706,9 +706,9 @@ class TestProcessPoolDispatch:
         for start in range(0, n, period):
             length = min(int(0.05 * sr), n - start)
             env = np.exp(-np.arange(length) / (0.01 * sr)).astype(np.float32)
-            kick[start : start + length] += (
-                env * np.sin(2 * np.pi * 60 * np.arange(length) / sr).astype(np.float32)
-            )
+            kick[start : start + length] += env * np.sin(
+                2 * np.pi * 60 * np.arange(length) / sr
+            ).astype(np.float32)
         # Pad above to give the spectrum some upper content
         pad = (0.2 * np.sin(2 * np.pi * 220 * t) + 0.1 * np.sin(2 * np.pi * 330 * t)).astype(
             np.float32
@@ -732,13 +732,9 @@ class TestProcessPoolDispatch:
         wav_path = tmp_path / "tiny.wav"
         sf.write(str(wav_path), sig.samples, sig.sample_rate)
 
-        pipeline = AnalysisPipeline(
-            registry=registry, use_processes=True, max_workers=2
-        )
+        pipeline = AnalysisPipeline(registry=registry, use_processes=True, max_workers=2)
         try:
-            result = await pipeline.analyze(
-                str(wav_path), analyzers=["loudness", "energy"]
-            )
+            result = await pipeline.analyze(str(wav_path), analyzers=["loudness", "energy"])
             assert result.success_count == 2
             assert "integrated_lufs" in result.features
             assert "energy_mean" in result.features
@@ -765,9 +761,7 @@ class TestProcessPoolDispatch:
         wav_path = tmp_path / "tiny.wav"
         sf.write(str(wav_path), sig.samples, sig.sample_rate)
 
-        pipeline = AnalysisPipeline(
-            registry=registry, use_processes=True, max_workers=2
-        )
+        pipeline = AnalysisPipeline(registry=registry, use_processes=True, max_workers=2)
         try:
             result = await pipeline.analyze(str(wav_path), analyzers=["bpm"])
             assert result.success_count == 1
@@ -794,9 +788,7 @@ class TestProcessPoolDispatch:
         wav_path = tmp_path / "tiny.wav"
         sf.write(str(wav_path), sig.samples, sig.sample_rate)
 
-        pipeline = AnalysisPipeline(
-            registry=registry, use_processes=True, max_workers=2
-        )
+        pipeline = AnalysisPipeline(registry=registry, use_processes=True, max_workers=2)
         try:
             r1 = await pipeline.analyze(str(wav_path), analyzers=["loudness"])
             r2 = await pipeline.analyze(str(wav_path), analyzers=["loudness"])
@@ -809,15 +801,11 @@ class TestProcessPoolDispatch:
         finally:
             pipeline.shutdown()
 
-    def test_pipeline_shutdown_is_idempotent(
-        self, registry: AnalyzerRegistry
-    ) -> None:
+    def test_pipeline_shutdown_is_idempotent(self, registry: AnalyzerRegistry) -> None:
         """Calling shutdown() multiple times must be safe (no exception)."""
         from app.audio.pipeline import AnalysisPipeline
 
-        pipeline = AnalysisPipeline(
-            registry=registry, use_processes=True, max_workers=2
-        )
+        pipeline = AnalysisPipeline(registry=registry, use_processes=True, max_workers=2)
         # Pool is created lazily, so shutdown without analyze() is a no-op
         pipeline.shutdown()
         pipeline.shutdown()  # second call should not raise
@@ -918,17 +906,13 @@ class TestEventLoopResponsiveness:
         wav_path = tmp_path / "signal.wav"
         sf.write(str(wav_path), samples, sr)
 
-        pipeline = AnalysisPipeline(
-            registry=registry, use_processes=True, max_workers=2
-        )
+        pipeline = AnalysisPipeline(registry=registry, use_processes=True, max_workers=2)
 
         ticks: list[float] = []
         stop = asyncio.Event()
         ticker_task = asyncio.create_task(self._ticker(stop, ticks))
         try:
-            result = await pipeline.analyze(
-                str(wav_path), analyzers=["loudness", "energy"]
-            )
+            result = await pipeline.analyze(str(wav_path), analyzers=["loudness", "energy"])
         finally:
             stop.set()
             await ticker_task
