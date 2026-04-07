@@ -164,6 +164,35 @@ class ToolCallResponse(BaseModel):
     structured_content: dict[str, Any] | None = None
     is_error: bool = False
 
+    model_config = {
+        "json_schema_extra": {
+            "example": {
+                "tool_name": "list_tracks",
+                "content": [
+                    {
+                        "type": "text",
+                        "text": '{"items":[{"id":146,"title":"Soul Spiritism","bpm":129.2}],"total":1}',
+                    }
+                ],
+                "structured_content": {
+                    "items": [
+                        {
+                            "id": 146,
+                            "title": "Soul Spiritism",
+                            "artist_names": ["DRVSH"],
+                            "bpm": 129.2,
+                            "key_camelot": "6A",
+                            "duration_ms": 435000,
+                        }
+                    ],
+                    "total": 1,
+                    "next_cursor": None,
+                },
+                "is_error": False,
+            }
+        }
+    }
+
 
 class ToolInfo(BaseModel):
     """MCP tool metadata."""
@@ -175,12 +204,51 @@ class ToolInfo(BaseModel):
     input_schema: dict[str, Any] = Field(default_factory=dict)
     timeout: float | None = None
 
+    model_config = {
+        "json_schema_extra": {
+            "example": {
+                "name": "list_tracks",
+                "description": "List tracks with cursor pagination and optional BPM filter",
+                "tags": ["core"],
+                "annotations": {"readOnlyHint": True},
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "limit": {"type": "integer", "default": 50},
+                        "cursor": {"type": "string", "nullable": True},
+                        "bpm_min": {"type": "number", "nullable": True},
+                        "bpm_max": {"type": "number", "nullable": True},
+                    },
+                },
+                "timeout": None,
+            }
+        }
+    }
+
 
 class ToolListResponse(BaseModel):
     """List of all registered MCP tools."""
 
     total: int
     tools: list[ToolInfo]
+
+    model_config = {
+        "json_schema_extra": {
+            "example": {
+                "total": 50,
+                "tools": [
+                    {
+                        "name": "list_tracks",
+                        "description": "List tracks with cursor pagination",
+                        "tags": ["core"],
+                        "annotations": {"readOnlyHint": True},
+                        "input_schema": {"type": "object", "properties": {}},
+                        "timeout": None,
+                    }
+                ],
+            }
+        }
+    }
 
 
 # ── Lifespan ────────────────────────────────────────
@@ -268,7 +336,24 @@ api.add_middleware(
 # ── Health ──────────────────────────────────────────
 
 
-@api.get("/api/health", tags=["system"])
+@api.get(
+    "/api/health",
+    tags=["system"],
+    responses={
+        200: {
+            "description": "Сервер работает; tools_discovered = число обнаруженных tools.",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "status": "ok",
+                        "tools_discovered": 50,
+                        "mcp_ready": True,
+                    }
+                }
+            },
+        }
+    },
+)
 def health() -> dict[str, str | int | bool]:
     """Проверка работоспособности сервера."""
     return {
@@ -326,7 +411,36 @@ async def get_tool(tool_name: str) -> ToolInfo:
     raise HTTPException(status_code=404, detail=f"Tool '{tool_name}' not found")
 
 
-@api.get("/api/tools/{tool_name}/schema", tags=["discovery"])
+_TOOL_SCHEMA_RESPONSES: dict[int | str, dict[str, Any]] = {
+    200: {
+        "description": "JSON Schema (Draft 7) для аргументов tool.",
+        "content": {
+            "application/json": {
+                "example": {
+                    "type": "object",
+                    "properties": {
+                        "limit": {
+                            "type": "integer",
+                            "default": 50,
+                            "description": "Page size",
+                        },
+                        "cursor": {"type": "string", "nullable": True},
+                        "bpm_min": {"type": "number", "nullable": True},
+                        "bpm_max": {"type": "number", "nullable": True},
+                    },
+                    "required": [],
+                }
+            }
+        },
+    },
+    404: {
+        "description": "Tool not found",
+        "content": {"application/json": {"example": {"detail": "Tool 'unknown_tool' not found"}}},
+    },
+}
+
+
+@api.get("/api/tools/{tool_name}/schema", tags=["discovery"], responses=_TOOL_SCHEMA_RESPONSES)
 async def get_tool_schema(tool_name: str) -> dict[str, Any]:
     """JSON Schema параметров tool (inputSchema) — удобно для генерации форм."""
     for t in _tools_cache:
