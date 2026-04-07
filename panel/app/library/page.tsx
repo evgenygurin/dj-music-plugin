@@ -1,4 +1,4 @@
-import { SiteHeader } from '@/components/site-header'
+import { PageShell } from '@/components/page-shell'
 import { getTrackList } from '@/lib/queries/tracks'
 import { LibraryTable } from './library-table'
 
@@ -22,22 +22,15 @@ export default async function LibraryPage({ searchParams }: LibraryPageProps) {
   const result = await getTrackList({ page, sortBy, sortDir, bpmMin, bpmMax, mood, search })
 
   return (
-    <>
-      <SiteHeader title="Library" />
-      <div className="flex flex-1 flex-col">
-        <div className="@container/main flex flex-1 flex-col gap-2">
-          <div className="flex flex-col gap-4 px-4 py-4 md:gap-6 md:py-6 lg:px-6">
-            <LibraryTable
-          initialTracks={result.tracks}
-          total={result.total}
-          currentPage={page}
-          currentSearch={search ?? ''}
-          currentSortBy={sortBy}
-          currentSortDir={sortDir}
-            />
-          </div>
-        </div>
-      </div>
-    </>
+    <PageShell title="Library">
+      <LibraryTable
+        initialTracks={result.tracks}
+        total={result.total}
+        currentPage={page}
+        currentSearch={search ?? ''}
+        currentSortBy={sortBy}
+        currentSortDir={sortDir}
+      />
+    </PageShell>
   )
 }

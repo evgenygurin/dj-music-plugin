@@ -2,16 +2,16 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "backend",
-      "runtimeExecutable": "/Users/laptop/.local/bin/uv",
-      "runtimeArgs": ["run", "--extra", "http", "uvicorn", "serve_http:api", "--host", "0.0.0.0", "--port", "8000", "--reload"],
-      "port": 8000
+      "name": "panel",
+      "runtimeExecutable": "/bin/bash",
+      "runtimeArgs": ["scripts/preview-panel.sh"],
+      "port": 3000
     },
     {
-      "name": "panel",
-      "runtimeExecutable": "/bin/sh",
-      "runtimeArgs": ["-c", "cd panel && /Users/laptop/.bun/bin/bun run dev"],
-      "port": 3000
+      "name": "rest-api",
+      "runtimeExecutable": "/bin/bash",
+      "runtimeArgs": ["scripts/preview-rest-api.sh"],
+      "port": 8000
     }
   ]
 }

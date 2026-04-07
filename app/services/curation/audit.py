@@ -55,13 +55,17 @@ class PlaylistAuditService:
         bpm_values: list[float] = []
         energy_values: list[float] = []
 
+        # Batch-load tracks and features in two queries instead of 2N
+        tracks_map = await self._tracks.get_by_ids(track_ids)
+        features_map = await self._features.get_features_batch(track_ids)
+
         for tid in track_ids:
-            track = await self._tracks.get_by_id(tid)
+            track = tracks_map.get(tid)
             if track is None:
                 issues.append({"track_id": tid, "issue": "track_missing", "severity": "error"})
                 continue
 
-            features = await self._features.get_features(tid)
+            features = features_map.get(tid)
             if features is None:
                 stats["without_features"] += 1
                 issues.append(

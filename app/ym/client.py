@@ -10,6 +10,11 @@ to get the updated revision and track indices.
 from __future__ import annotations
 
 import asyncio
+import hashlib
+import json
+import logging
+import xml.etree.ElementTree as ET
+from pathlib import Path
 from typing import Any
 
 import httpx
@@ -23,6 +28,12 @@ from app.ym.models import (
     YMTrack,
 )
 from app.ym.rate_limiter import RateLimiter
+
+_log = logging.getLogger(__name__)
+
+# Sign salt for /tracks/{id}/download-info → MP3 URL signing.
+# This is a public constant baked into the YM client implementation.
+_DOWNLOAD_SIGN_SALT = "XGRlBW9FXlekgbPrRHuSiA"
 
 
 class YandexMusicClient:
@@ -141,8 +152,25 @@ class YandexMusicClient:
         return [_parse_track(t) for t in raw_tracks]
 
     async def get_similar(self, track_id: str) -> list[YMTrack]:
-        """Get similar tracks for a given track."""
-        data = await self._request("GET", f"/tracks/{track_id}/similar")
+        """Get similar tracks for a given track.
+
+        4xx responses (endpoint blocked, no data) are downgraded to an
+        empty list — callers cannot distinguish "no similar tracks" from
+        "endpoint unavailable" anyway, and the consumer behavior is the
+        same. 5xx and network errors keep their original :class:`APIError`.
+        """
+        try:
+            data = await self._request("GET", f"/tracks/{track_id}/similar")
+        except APIError as exc:
+            if 400 <= exc.status_code < 500:
+                _log.warning(
+                    "ym.get_similar(%s) returned %s — degrading to empty list",
+                    track_id,
+                    exc.status_code,
+                )
+                return []
+            raise
+
         similar = data.get("result", {}).get("similarTracks", [])
         return [_parse_track(t) for t in similar]
 
@@ -174,61 +202,84 @@ class YandexMusicClient:
         1. GET /tracks/{id}/download-info → list of download options
         2. Pick best bitrate → GET download URL with sign + ts params
         """
-        import hashlib
-
         infos = await self.get_download_info(track_id)
         if not infos:
             raise APIError(404, f"No download info for track {track_id}")
 
-        # Pick best matching bitrate
-        best = infos[0]  # already sorted by bitrate desc
+        # Pick best matching bitrate (infos already sorted by bitrate desc)
+        best = infos[0]
         for info in infos:
             if info.get("bitrateInKbps", 0) <= prefer_bitrate and info.get("codec") == "mp3":
                 best = info
                 break
 
-        # Get direct download URL
         download_info_url = best.get("downloadInfoUrl")
         if not download_info_url:
             raise APIError(404, f"No downloadInfoUrl for track {track_id}")
 
+        # Step 2a: fetch signed XML with host/path/ts/s parts
+        download_url = await self._resolve_download_url(track_id, download_info_url)
+
+        # Step 2b: stream the MP3 to disk
+        return await self._stream_to_file(track_id, download_url, dest_path)
+
+    async def _resolve_download_url(self, track_id: str, info_url: str) -> str:
+        """Fetch the signed XML descriptor and build the final MP3 URL.
+
+        Wraps HTTP and XML errors in :class:`APIError` so callers see a
+        single, well-typed failure mode instead of leaking ``httpx`` /
+        ``xml.etree`` exceptions.
+        """
         await self._rate_limiter.acquire()
-        client = self._client
-        resp = await client.get(
-            download_info_url, headers={"Authorization": f"OAuth {self._token}"}
-        )
-        resp.raise_for_status()
+        try:
+            resp = await self._client.get(
+                info_url, headers={"Authorization": f"OAuth {self._token}"}
+            )
+            resp.raise_for_status()
+        except httpx.HTTPStatusError as exc:
+            raise APIError(
+                exc.response.status_code,
+                f"Download info request failed for {track_id}: {exc.response.text}",
+            ) from exc
+        except httpx.RequestError as exc:
+            raise APIError(500, f"Download info network error for {track_id}: {exc}") from exc
 
-        # Parse XML response for src, path, s
-        import xml.etree.ElementTree as ET
+        try:
+            root = ET.fromstring(resp.text)
+        except ET.ParseError as exc:
+            raise APIError(500, f"Invalid download info XML for track {track_id}: {exc}") from exc
 
-        root = ET.fromstring(resp.text)
         host = root.findtext("host")
         path = root.findtext("path")
         ts = root.findtext("ts")
         s = root.findtext("s")
 
-        if not all([host, path, ts, s]):
+        if not host or not path or not ts or not s:
             raise APIError(500, f"Incomplete download info XML for track {track_id}")
-        assert path is not None and s is not None  # guaranteed by check above
 
-        # Build signed URL: "XGRlBW9FXlekgbPrRHuSiA" is the sign salt
-        sign = hashlib.md5(f"XGRlBW9FXlekgbPrRHuSiA{path[1:]}{s}".encode()).hexdigest()
-        download_url = f"https://{host}/get-mp3/{sign}/{ts}{path}"
+        sign = hashlib.md5(f"{_DOWNLOAD_SIGN_SALT}{path[1:]}{s}".encode()).hexdigest()
+        return f"https://{host}/get-mp3/{sign}/{ts}{path}"
 
-        # Download file
+    async def _stream_to_file(self, track_id: str, download_url: str, dest_path: str) -> int:
+        """Stream a download URL to disk. Returns bytes written."""
         await self._rate_limiter.acquire()
-        from pathlib import Path
-
-        async with client.stream("GET", download_url) as stream:
-            stream.raise_for_status()
-            dest = Path(dest_path)
-            dest.parent.mkdir(parents=True, exist_ok=True)
-            file_size = 0
-            with dest.open("wb") as f:
-                async for chunk in stream.aiter_bytes(chunk_size=65536):
-                    f.write(chunk)
-                    file_size += len(chunk)
+        try:
+            async with self._client.stream("GET", download_url) as stream:
+                stream.raise_for_status()
+                dest = Path(dest_path)
+                dest.parent.mkdir(parents=True, exist_ok=True)
+                file_size = 0
+                with dest.open("wb") as f:
+                    async for chunk in stream.aiter_bytes(chunk_size=65536):
+                        f.write(chunk)
+                        file_size += len(chunk)
+        except httpx.HTTPStatusError as exc:
+            raise APIError(
+                exc.response.status_code,
+                f"Download stream failed for {track_id}: {exc.response.text}",
+            ) from exc
+        except httpx.RequestError as exc:
+            raise APIError(500, f"Download stream network error for {track_id}: {exc}") from exc
 
         return file_size
 
@@ -412,8 +463,6 @@ class YandexMusicClient:
         After modification, the caller MUST re-fetch the playlist
         to get the updated revision and track indices.
         """
-        import json
-
         tracks_payload = []
         for tid in track_ids:
             if ":" in str(tid):
@@ -447,8 +496,6 @@ class YandexMusicClient:
         After modification, the caller MUST re-fetch the playlist
         to get the updated revision and track indices.
         """
-        import json
-
         diff = json.dumps([{"op": "delete", "from": from_idx, "to": to_idx}])
         data = await self._request(
             "POST",
@@ -460,15 +507,20 @@ class YandexMusicClient:
 
     # ── Likes ─────────────────────────────────────────────
 
-    async def get_liked_ids(self) -> list[str]:
-        """Get IDs of all liked tracks for the authenticated user."""
+    async def get_liked_ids(self) -> set[str]:
+        """Get IDs of all liked tracks for the authenticated user.
+
+        Returns a ``set`` to mirror :meth:`get_disliked_ids` and to make
+        membership checks O(1) at the call site (most consumers want to
+        ask "is this track liked?", not iterate ordered).
+        """
         data = await self._request(
             "GET",
             f"/users/{self._user_id}/likes/tracks",
         )
         library = data.get("result", {}).get("library", {})
         tracks_raw: list[dict[str, Any]] = library.get("tracks", [])
-        return [str(t.get("id", "")) for t in tracks_raw]
+        return {str(t.get("id", "")) for t in tracks_raw if t.get("id")}
 
     async def add_likes(self, track_ids: list[str]) -> bool:
         """Add tracks to likes. Returns True on success."""

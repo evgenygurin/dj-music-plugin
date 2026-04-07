@@ -41,8 +41,11 @@ class MoodClassificationService:
         skipped_no_features = 0
         skipped_already_classified = 0
 
+        # Batch-load features for all tracks (N queries → 1)
+        features_map = await self._features.get_features_batch(ids_to_classify)
+
         for tid in ids_to_classify:
-            features = await self._features.get_features(tid)
+            features = features_map.get(tid)
             if features is None:
                 skipped_no_features += 1
                 continue

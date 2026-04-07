@@ -117,7 +117,16 @@ class FilteringMixin:
             "title": Track.title,
             "id": Track.id,
         }
-        order_col = sort_map.get(sort_by, TrackAudioFeaturesComputed.bpm)
+        # Parse direction suffix: "id_desc" → ("id", desc), "bpm" → ("bpm", asc)
+        descending = False
+        sort_key = sort_by
+        if sort_by.endswith("_desc"):
+            sort_key = sort_by[: -len("_desc")]
+            descending = True
+        elif sort_by.endswith("_asc"):
+            sort_key = sort_by[: -len("_asc")]
+        order_col = sort_map.get(sort_key, TrackAudioFeaturesComputed.bpm)
+        primary = order_col.desc() if descending else order_col
 
         count_stmt = select(sa_func.count()).select_from(stmt.subquery())
         total = (await self.session.execute(count_stmt)).scalar_one()
@@ -130,7 +139,7 @@ class FilteringMixin:
         # TODO: cursor pagination uses Track.id > last_id which only works correctly
         # when primary sort is by Track.id. For non-ID sorts, keyset pagination
         # would be needed for fully correct cursor behavior.
-        stmt = stmt.order_by(order_col, Track.id).limit(limit)
+        stmt = stmt.order_by(primary, Track.id).limit(limit)
         result = await self.session.execute(stmt)
         tracks = list(result.scalars().all())
 

@@ -25,13 +25,6 @@ otel = [
     "opentelemetry-exporter-otlp",
 ]
 sentry = ["sentry-sdk>=2.0"]
-dev = [
-    "pytest>=8.0",
-    "pytest-asyncio>=0.24",
-    "ruff>=0.8",
-    "mypy>=1.13",
-    "alembic>=1.14",
-]
 
 [tool.ruff]
 line-length = 99
@@ -90,5 +83,10 @@ build-backend = "hatchling.build"
 
 [dependency-groups]
 dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.24",
     "pytest-xdist>=3.8.0",
+    "ruff>=0.8",
+    "mypy>=1.13",
+    "alembic>=1.14",
 ]

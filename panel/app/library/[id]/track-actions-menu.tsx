@@ -1,7 +1,5 @@
 'use client'
 
-import { useState } from 'react'
-import { toast } from 'sonner'
 import { useRouter } from 'next/navigation'
 import {
   DropdownMenu,
@@ -12,6 +10,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { buttonVariants } from '@/components/ui/button'
 import { analyzeTrack, classifyTrackMood, archiveTrack } from '@/actions/track-actions'
+import { useToolAction } from '@/hooks/use-tool-action'
 
 interface TrackActionsMenuProps {
   trackId: number
@@ -19,49 +18,29 @@ interface TrackActionsMenuProps {
 
 export function TrackActionsMenu({ trackId }: TrackActionsMenuProps) {
   const router = useRouter()
-  const [loading, setLoading] = useState(false)
 
-  const handleAnalyze = async () => {
-    setLoading(true)
-    const toastId = toast.loading('Analyzing track...')
-    try {
-      await analyzeTrack(trackId)
-      toast.success('Analysis complete', { id: toastId })
-      router.refresh()
-    } catch (err) {
-      toast.error(`Analysis failed: ${err instanceof Error ? err.message : 'Unknown error'}`, { id: toastId })
-    } finally {
-      setLoading(false)
-    }
-  }
+  const analyze = useToolAction({
+    label: 'Analyzing track',
+    fn: () => analyzeTrack(trackId),
+    successMessage: 'Analysis complete.',
+    refresh: true,
+  })
 
-  const handleClassify = async () => {
-    setLoading(true)
-    const toastId = toast.loading('Classifying mood...')
-    try {
-      await classifyTrackMood(trackId)
-      toast.success('Mood classified', { id: toastId })
-      router.refresh()
-    } catch (err) {
-      toast.error(`Classification failed: ${err instanceof Error ? err.message : 'Unknown error'}`, { id: toastId })
-    } finally {
-      setLoading(false)
-    }
-  }
+  const classify = useToolAction({
+    label: 'Classifying mood',
+    fn: () => classifyTrackMood(trackId),
+    successMessage: 'Mood classified.',
+    refresh: true,
+  })
 
-  const handleArchive = async () => {
-    setLoading(true)
-    const toastId = toast.loading('Archiving track...')
-    try {
-      await archiveTrack(trackId)
-      toast.success('Track archived', { id: toastId })
-      router.push('/library')
-    } catch (err) {
-      toast.error(`Archive failed: ${err instanceof Error ? err.message : 'Unknown error'}`, { id: toastId })
-    } finally {
-      setLoading(false)
-    }
-  }
+  const archive = useToolAction({
+    label: 'Archiving track',
+    fn: () => archiveTrack(trackId),
+    successMessage: 'Track archived.',
+    onSuccess: () => router.push('/library'),
+  })
+
+  const loading = analyze.loading || classify.loading || archive.loading
 
   return (
     <DropdownMenu>
@@ -72,14 +51,10 @@ export function TrackActionsMenu({ trackId }: TrackActionsMenuProps) {
         Actions
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
-        <DropdownMenuItem onClick={handleAnalyze}>
-          Analyze Track
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={handleClassify}>
-          Classify Mood
-        </DropdownMenuItem>
+        <DropdownMenuItem onClick={analyze.run}>Analyze Track</DropdownMenuItem>
+        <DropdownMenuItem onClick={classify.run}>Classify Mood</DropdownMenuItem>
         <DropdownMenuSeparator />
-        <DropdownMenuItem variant="destructive" onClick={handleArchive}>
+        <DropdownMenuItem variant="destructive" onClick={archive.run}>
           Archive
         </DropdownMenuItem>
       </DropdownMenuContent>

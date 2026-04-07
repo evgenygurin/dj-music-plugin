@@ -28,7 +28,7 @@ export function SectionCards({ stats }: { stats: LibraryStats }) {
       : 0
 
   return (
-    <div className="grid grid-cols-2 gap-3 px-4 lg:px-6 @xl/main:grid-cols-4">
+    <div className="grid grid-cols-2 gap-3 @xl/main:grid-cols-4">
       <MetricCard
         label="Tracks"
         value={stats.totalTracks.toLocaleString()}
