@@ -19,17 +19,4 @@ if [ ! -f panel/.env ]; then
   cp panel/.env.example panel/.env
   echo "Created panel/.env from .env.example"
 fi
-
-# ── Install / update Claude Code plugin + MCP servers ──
-# Marketplace берётся из текущего checkout (тот же dev-ref, что и сессия).
-# Идемпотентно: add/install молча no-op, если уже добавлено/установлено.
-if command -v claude >/dev/null 2>&1; then
-  claude plugin marketplace add "$PROJECT_DIR" 2>&1 | sed 's/^/[plugin] /' || true
-  claude plugin marketplace update dj-music-plugin 2>&1 | sed 's/^/[plugin] /' || true
-  claude plugin install dj-music@dj-music-plugin 2>&1 | sed 's/^/[plugin] /' || true
-  claude plugin update dj-music@dj-music-plugin 2>&1 | sed 's/^/[plugin] /' || true
-else
-  echo "[plugin] claude CLI не найден — пропускаю установку плагина"
-fi
-
 echo "Dependencies installed"
