@@ -10,7 +10,7 @@ from typing import Any
 
 from app.config import settings
 from app.core.errors import NotFoundError, ValidationError
-from app.core.schemas import genre_ok, is_excluded_title, ym_track_summary
+from app.core.ym_filters import genre_ok, is_excluded_title, ym_track_summary
 from app.repositories.track import TrackRepository
 from app.ym.client import YandexMusicClient
 

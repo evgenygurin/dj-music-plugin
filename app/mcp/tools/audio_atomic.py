@@ -14,7 +14,7 @@ from fastmcp.server.context import Context
 from fastmcp.tools import tool
 
 from app.config import settings
-from app.core.schemas import genre_ok, is_excluded_title, ym_track_summary
+from app.core.ym_filters import genre_ok, is_excluded_title, ym_track_summary
 from app.mcp.dependencies import get_audio_service, get_ym_client
 from app.services.audio_service import AudioService
 from app.ym.client import YandexMusicClient
