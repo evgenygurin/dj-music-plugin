@@ -16,6 +16,10 @@ from __future__ import annotations
 
 from app.mcp.tools._shared.context import ToolContext
 from app.mcp.tools._shared.dispatch import ActionDispatcher, UnknownActionError
+from app.mcp.tools._shared.errors import (
+    domain_errors_as_tool_error,
+    map_domain_errors,
+)
 from app.mcp.tools._shared.resolvers import (
     ensure_reference,
     resolve_entity,
@@ -38,7 +42,9 @@ __all__ = [
     "ToolContext",
     "ToolTimeout",
     "UnknownActionError",
+    "domain_errors_as_tool_error",
     "ensure_reference",
+    "map_domain_errors",
     "resolve_entity",
     "resolve_track_id",
 ]

@@ -17,6 +17,31 @@ from app.repositories.set import SetRepository
 from app.repositories.track import TrackRepository
 from app.repositories.transition import TransitionRepository
 
+_ENERGY_DIRECTIONS: frozenset[str] = frozenset({"any", "up", "down"})
+
+#: Multiplicative bonus/penalty applied per LUFS delta when the caller
+#: requests a specific energy direction. Tuned so that a +3 LUFS lift
+#: is ~9% boost — enough to re-order otherwise-tied candidates without
+#: dominating the underlying transition score.
+_ENERGY_PREFERENCE_WEIGHT: float = 0.03
+
+
+def _apply_energy_preference(
+    overall: float,
+    *,
+    current_lufs: float | None,
+    candidate_lufs: float | None,
+    direction: str,
+) -> float:
+    """Nudge an overall transition score toward the preferred energy direction."""
+    if direction == "any" or current_lufs is None or candidate_lufs is None:
+        return overall
+    delta = candidate_lufs - current_lufs
+    bonus = delta * _ENERGY_PREFERENCE_WEIGHT
+    if direction == "down":
+        bonus = -bonus
+    return max(0.0, min(1.0, overall + bonus))
+
 
 class ReasoningService:
     """DJ-specific reasoning: suggestions, explanations, comparisons."""
@@ -40,12 +65,33 @@ class ReasoningService:
         set_id: int,
         after_position: int,
         count: int = 5,
+        prefer_mood: str | None = None,
+        energy_direction: str = "any",
     ) -> dict[str, Any]:
-        """Suggest best tracks for a set position, scored against both neighbors."""
+        """Suggest best tracks for a set position, scored against both neighbours.
+
+        Parameters
+        ----------
+        prefer_mood:
+            Optional subgenre filter — only candidates whose classified
+            mood matches are considered.
+        energy_direction:
+            ``"up"`` boosts candidates with higher integrated LUFS than
+            the current track, ``"down"`` boosts lower-LUFS ones,
+            ``"any"`` leaves the transition score untouched.
+        """
+        if energy_direction not in _ENERGY_DIRECTIONS:
+            raise ValidationError(
+                f"Invalid energy_direction: {energy_direction!r}. "
+                f"Expected one of {sorted(_ENERGY_DIRECTIONS)}",
+                field="energy_direction",
+                value=energy_direction,
+            )
+
         result = await self._sets.load_version_with_items(set_id)
         if result is None:
             raise NotFoundError("SetVersion", f"set_id={set_id}")
-        _latest, items = result
+        _, items = result
 
         if after_position < 0 or after_position >= len(items):
             raise ValidationError(f"Position {after_position} out of range (0-{len(items) - 1})")
@@ -78,22 +124,42 @@ class ReasoningService:
         features_map = await self._features.get_scoring_features_batch(pool_ids[:100])
 
         scorer = TransitionScorer()
-        candidates = []
+        current_lufs = current_feat.integrated_lufs
+        candidates: list[dict[str, Any]] = []
+        mood_filter = prefer_mood.lower() if prefer_mood else None
+
         for tid, cand_feat in features_map.items():
             if cand_feat.bpm is None:
                 continue
+            if mood_filter is not None:
+                cand_mood = (cand_feat.mood or "").lower()
+                if cand_mood != mood_filter:
+                    continue
+
             score = scorer.score(current_feat, cand_feat)
-            if not score.hard_reject:
-                track = await self._tracks.get_by_id(tid)
-                candidates.append(
-                    {
-                        "track_id": tid,
-                        "title": track.title if track else f"#{tid}",
-                        "score": round(score.overall, 4),
-                        "bpm": cand_feat.bpm,
-                        "key_code": cand_feat.key_code,
-                    }
-                )
+            if score.hard_reject:
+                continue
+
+            adjusted = _apply_energy_preference(
+                score.overall,
+                current_lufs=current_lufs,
+                candidate_lufs=cand_feat.integrated_lufs,
+                direction=energy_direction,
+            )
+
+            track = await self._tracks.get_by_id(tid)
+            candidates.append(
+                {
+                    "track_id": tid,
+                    "title": track.title if track else f"#{tid}",
+                    "score": round(adjusted, 4),
+                    "base_score": round(score.overall, 4),
+                    "bpm": cand_feat.bpm,
+                    "key_code": cand_feat.key_code,
+                    "mood": cand_feat.mood,
+                    "lufs": cand_feat.integrated_lufs,
+                }
+            )
 
         candidates.sort(key=lambda c: float(str(c["score"])), reverse=True)
 
@@ -101,6 +167,8 @@ class ReasoningService:
             "set_id": set_id,
             "after_position": after_position,
             "current_track": current_track.title if current_track else None,
+            "prefer_mood": prefer_mood,
+            "energy_direction": energy_direction,
             "suggestions": candidates[:count],
             "pool_size": len(pool_ids),
             "scored": len(candidates),
@@ -182,6 +250,9 @@ class ReasoningService:
                 "energy": score.energy_score,
                 "spectral": score.spectral_score,
                 "groove": score.groove_score,
+                "timbral": score.timbral_score,
+                "hard_reject": bool(score.hard_reject) if score.hard_reject is not None else False,
+                "reject_reason": score.reject_reason,
             }
 
         return explanation

@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from app.core.errors import NotFoundError
+from app.models.transition import Transition
 from app.repositories.feature import FeatureRepository
 from app.repositories.set import SetRepository
 from app.repositories.transition import TransitionRepository
@@ -24,21 +25,65 @@ class SetScoringService:
         self._features = feature_repo
         self._transitions = transition_repo
 
+    @staticmethod
+    def _format_pair_response(
+        from_id: int,
+        to_id: int,
+        *,
+        overall: float | None,
+        bpm: float | None,
+        harmonic: float | None,
+        energy: float | None,
+        spectral: float | None,
+        groove: float | None,
+        timbral: float | None,
+        hard_reject: bool | None,
+        reject_reason: str | None,
+        cached: bool,
+    ) -> dict[str, Any]:
+        """Build the canonical pair-score response envelope.
+
+        All 6 components are surfaced, plus ``hard_reject`` /
+        ``reject_reason`` so cache hits and fresh scores are
+        indistinguishable to callers.
+        """
+
+        def _round(v: float | None) -> float | None:
+            return round(v, 4) if v is not None else None
+
+        return {
+            "from_track_id": from_id,
+            "to_track_id": to_id,
+            "overall_quality": _round(overall),
+            "bpm_score": _round(bpm),
+            "harmonic_score": _round(harmonic),
+            "energy_score": _round(energy),
+            "spectral_score": _round(spectral),
+            "groove_score": _round(groove),
+            "timbral_score": _round(timbral),
+            "hard_reject": bool(hard_reject) if hard_reject is not None else False,
+            "reject_reason": reject_reason,
+            "cached": cached,
+        }
+
     async def score_pair(self, from_id: int, to_id: int) -> dict[str, Any]:
         """Score transition between two tracks. Save to DB."""
         existing = await self._transitions.get_score(from_id, to_id)
         if existing and existing.overall_quality is not None:
-            return {
-                "from_track_id": from_id,
-                "to_track_id": to_id,
-                "overall_quality": existing.overall_quality,
-                "bpm_score": existing.bpm_score,
-                "harmonic_score": existing.harmonic_score,
-                "energy_score": existing.energy_score,
-                "spectral_score": existing.spectral_score,
-                "groove_score": existing.groove_score,
-                "cached": True,
-            }
+            return self._format_pair_response(
+                from_id,
+                to_id,
+                overall=existing.overall_quality,
+                bpm=existing.bpm_score,
+                harmonic=existing.harmonic_score,
+                energy=existing.energy_score,
+                spectral=existing.spectral_score,
+                groove=existing.groove_score,
+                timbral=existing.timbral_score,
+                hard_reject=existing.hard_reject,
+                reject_reason=existing.reject_reason,
+                cached=True,
+            )
 
         ft_from = await self._features.get_scoring_features(from_id)
         ft_to = await self._features.get_scoring_features(to_id)
@@ -54,33 +99,37 @@ class SetScoringService:
         scorer = TransitionScorer()
         score = scorer.score(ft_from, ft_to)
 
-        from app.models.transition import Transition
+        final_quality = 0.0 if score.hard_reject else score.overall
 
         transition = Transition(
             from_track_id=from_id,
             to_track_id=to_id,
-            overall_quality=score.overall if not score.hard_reject else 0.0,
+            overall_quality=final_quality,
             bpm_score=score.bpm,
             harmonic_score=score.harmonic,
             energy_score=score.energy,
             spectral_score=score.spectral,
             groove_score=score.groove,
+            timbral_score=score.timbral,
+            hard_reject=score.hard_reject,
+            reject_reason=score.reject_reason,
         )
         await self._transitions.save_score(transition)
 
-        return {
-            "from_track_id": from_id,
-            "to_track_id": to_id,
-            "overall_quality": round(score.overall, 4) if not score.hard_reject else 0.0,
-            "bpm_score": round(score.bpm, 4),
-            "harmonic_score": round(score.harmonic, 4),
-            "energy_score": round(score.energy, 4),
-            "spectral_score": round(score.spectral, 4),
-            "groove_score": round(score.groove, 4),
-            "hard_reject": score.hard_reject,
-            "reject_reason": score.reject_reason,
-            "cached": False,
-        }
+        return self._format_pair_response(
+            from_id,
+            to_id,
+            overall=final_quality,
+            bpm=score.bpm,
+            harmonic=score.harmonic,
+            energy=score.energy,
+            spectral=score.spectral,
+            groove=score.groove,
+            timbral=score.timbral,
+            hard_reject=score.hard_reject,
+            reject_reason=score.reject_reason,
+            cached=False,
+        )
 
     async def score_set_transitions(self, set_id: int) -> dict[str, Any]:
         """Score all sequential transitions in a set."""
@@ -96,7 +145,13 @@ class SetScoringService:
             transitions_data.append(score_data)
 
         scored = [t for t in transitions_data if t.get("overall_quality") is not None]
-        hard_conflicts = [t for t in scored if t.get("overall_quality") == 0.0]
+        hard_conflicts = [t for t in scored if t.get("hard_reject") is True]
+
+        # Average only over non-reject, scored transitions.
+        soft_scored = [t for t in scored if not t.get("hard_reject")]
+        avg_score: float | None = None
+        if soft_scored:
+            avg_score = sum(float(t["overall_quality"]) for t in soft_scored) / len(soft_scored)
 
         return {
             "set_id": set_id,
@@ -104,12 +159,7 @@ class SetScoringService:
             "total_transitions": len(transitions_data),
             "scored_transitions": len(scored),
             "hard_conflicts": len(hard_conflicts),
-            "avg_score": (
-                sum(t["overall_quality"] for t in scored if t["overall_quality"])
-                / max(1, len(scored) - len(hard_conflicts))
-                if scored
-                else None
-            ),
+            "avg_score": avg_score,
             "transitions": transitions_data,
         }
 

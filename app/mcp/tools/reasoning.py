@@ -1,6 +1,9 @@
 """DJ-specific reasoning tools: suggest, explain, replace, compare, quick review.
 
-Thin wrappers calling :class:`ReasoningService` via ``Depends()``.
+Thin wrappers calling :class:`ReasoningService` via ``Depends()``. All
+domain errors (``NotFoundError``, ``ValidationError``) are translated
+to :class:`fastmcp.exceptions.ToolError` by the shared
+:func:`map_domain_errors` decorator.
 """
 
 from __future__ import annotations
@@ -12,11 +15,16 @@ from fastmcp.server.context import Context
 from fastmcp.tools import tool
 
 from app.mcp.dependencies import get_reasoning_service
-from app.mcp.tools._shared import ANNOTATIONS_READ_ONLY, ToolCategory
+from app.mcp.tools._shared import (
+    ANNOTATIONS_READ_ONLY,
+    ToolCategory,
+    map_domain_errors,
+)
 from app.services.reasoning_service import ReasoningService
 
 
 @tool(tags={ToolCategory.SETS.value}, annotations=ANNOTATIONS_READ_ONLY)
+@map_domain_errors
 async def suggest_next_track(
     set_id: int,
     after_position: int,
@@ -26,15 +34,23 @@ async def suggest_next_track(
     svc: ReasoningService = Depends(get_reasoning_service),  # noqa: B008
     ctx: Context | None = None,
 ) -> dict[str, Any]:
-    """Suggest best tracks for a set position, scored against both neighbours."""
+    """Suggest best tracks for a set position, scored against both neighbours.
+
+    ``prefer_mood`` filters candidates by classified subgenre.
+    ``energy_direction`` ∈ ``{up, down, any}`` nudges scoring toward
+    higher or lower LUFS candidates (defaults to ``any``, no bias).
+    """
     return await svc.suggest_next_track(
         set_id=set_id,
         after_position=after_position,
         count=count,
+        prefer_mood=prefer_mood,
+        energy_direction=energy_direction,
     )
 
 
 @tool(tags={ToolCategory.SETS.value}, annotations=ANNOTATIONS_READ_ONLY)
+@map_domain_errors
 async def explain_transition(
     from_track_id: int,
     to_track_id: int,
@@ -46,6 +62,7 @@ async def explain_transition(
 
 
 @tool(tags={ToolCategory.SETS.value}, annotations=ANNOTATIONS_READ_ONLY)
+@map_domain_errors
 async def find_replacement(
     set_id: int,
     position: int,
@@ -62,6 +79,7 @@ async def find_replacement(
 
 
 @tool(tags={ToolCategory.SETS.value}, annotations=ANNOTATIONS_READ_ONLY)
+@map_domain_errors
 async def compare_set_versions(
     set_id: int,
     version_a: int | None = None,
@@ -78,6 +96,7 @@ async def compare_set_versions(
 
 
 @tool(tags={ToolCategory.SETS.value}, annotations=ANNOTATIONS_READ_ONLY)
+@map_domain_errors
 async def quick_set_review(
     set_id: int,
     svc: ReasoningService = Depends(get_reasoning_service),  # noqa: B008

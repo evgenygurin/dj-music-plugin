@@ -34,6 +34,7 @@ class Transition(Base, TimestampMixin):
         _score_check("harmonic_score"),
         _score_check("spectral_score"),
         _score_check("groove_score"),
+        _score_check("timbral_score"),
         _score_check("key_distance_weighted"),
         _score_check("low_conflict_score"),
         _score_check("overall_quality"),
@@ -56,6 +57,15 @@ class Transition(Base, TimestampMixin):
     harmonic_score: Mapped[float | None] = mapped_column(nullable=True)
     spectral_score: Mapped[float | None] = mapped_column(nullable=True)
     groove_score: Mapped[float | None] = mapped_column(nullable=True)
+    #: 6th TransitionScorer component: deeper timbral texture similarity
+    #: (spectral complexity + pitch salience + band correlation).
+    timbral_score: Mapped[float | None] = mapped_column(nullable=True)
+    #: ``True`` when a hard constraint (BPM gap, key distance, LUFS gap)
+    #: forced ``overall_quality`` to 0 — preserved across cache hits so
+    #: clients can distinguish "bad score" from "explicit reject".
+    hard_reject: Mapped[bool | None] = mapped_column(nullable=True, default=None)
+    #: Human-readable reason for a hard reject (e.g. ``"bpm_diff=12"``).
+    reject_reason: Mapped[str | None] = mapped_column(nullable=True, default=None)
     key_distance_weighted: Mapped[float | None] = mapped_column(nullable=True)
     low_conflict_score: Mapped[float | None] = mapped_column(nullable=True)
     overall_quality: Mapped[float | None] = mapped_column(nullable=True)

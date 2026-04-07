@@ -72,6 +72,9 @@ class TrackFeatures:
     # P3 enrichment: Timbral
     dynamic_complexity: float | None = None
 
+    # Mood classification (used by reasoning / filtering, not by TransitionScorer)
+    mood: str | None = None
+
     @classmethod
     def from_db(cls, row: Any) -> TrackFeatures:
         """Construct from a TrackAudioFeaturesComputed DB row."""
@@ -166,4 +169,6 @@ class TrackFeatures:
             tempogram_ratio_vector=tempogram,
             # P3 enrichment: Timbral
             dynamic_complexity=getattr(row, "dynamic_complexity", None),
+            # Mood classification (optional)
+            mood=getattr(row, "mood", None),
         )

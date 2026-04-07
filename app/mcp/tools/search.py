@@ -12,9 +12,11 @@ from fastmcp.exceptions import ToolError
 from fastmcp.server.context import Context
 from fastmcp.tools import tool
 
-from app.mcp.dependencies import get_search_service
+from app.core.schemas import PaginatedResponse, TrackBrief
+from app.mcp.dependencies import get_search_service, get_track_service
 from app.mcp.tools._shared import ANNOTATIONS_READ_ONLY, ToolCategory
 from app.services.search_service import SearchService
+from app.services.track_service import TrackService
 
 
 @tool(tags={ToolCategory.CORE.value}, annotations=ANNOTATIONS_READ_ONLY)
@@ -45,9 +47,15 @@ async def filter_tracks(
     limit: int = 20,
     cursor: str | None = None,
     svc: SearchService = Depends(get_search_service),  # noqa: B008
+    track_svc: TrackService = Depends(get_track_service),  # noqa: B008
     ctx: Context | None = None,
-) -> dict[str, Any]:
-    """Filter tracks by audio features: BPM, key, energy, mood."""
+) -> PaginatedResponse[TrackBrief]:
+    """Filter tracks by audio features: BPM, key, energy, mood.
+
+    Returns the same :class:`TrackBrief` projection as ``list_tracks``
+    (artist names, BPM, Camelot key, duration) — consistent
+    ``structuredContent`` across all list/filter tools.
+    """
     page = await svc.filter_tracks(
         bpm_min=bpm_min,
         bpm_max=bpm_max,
@@ -61,10 +69,12 @@ async def filter_tracks(
         limit=limit,
         cursor=cursor,
     )
-    return {
-        "items": [
-            {"id": t.id, "title": t.title, "duration_ms": t.duration_ms} for t in page.items
-        ],
-        "next_cursor": page.next_cursor,
-        "total": page.total,
-    }
+
+    track_ids = [t.id for t in page.items]
+    artist_map = await track_svc.get_artist_names_batch(track_ids)
+
+    return PaginatedResponse[TrackBrief](
+        items=[track_svc.to_brief(t, artist_names=artist_map.get(t.id)) for t in page.items],
+        next_cursor=page.next_cursor,
+        total=page.total,
+    )
