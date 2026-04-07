@@ -136,6 +136,30 @@ optimizations kick in inside `_run_phase_processes`:
    unrelated tracks are impossible — features cannot leak between
    pipeline calls.
 
+#### Measured Overhead (6-min synthetic techno, 22050 Hz, ~30 MB buffer)
+
+Isolated micro-benchmarks on the two optimizations, 18 analyzers per
+pipeline call (the production workload):
+
+| Step | Baseline (pickle) | SharedMemory | Speedup |
+|------|-------------------|--------------|---------|
+| Transport (18 × 30 MB) | ~505 ms | ~47 ms | **10.8x** |
+| Of which: `_create_shared_clip` (one-time copy) | — | 34 ms | — |
+| Of which: worker attach × 18 (zero-copy) | — | 13 ms | — |
+
+| Step | Cost |
+|------|------|
+| `AnalysisContext` build (cold STFT + magnitude + freqs + frame_energies, 60s clip) | ~178 ms |
+| Savings from LRU cache hit (per subsequent analyzer sharing the same clip variant) | ~178 ms |
+| Expected savings per worker per call (8 analyzers → 7 cache hits) | **~1.25 s** |
+
+Combined expected wall-clock saving on a warm pool, 18-analyzer
+pipeline call: **~1.7 s** (0.46 s transport + ~1.25 s STFT reuse).
+Actual end-to-end speedup scales with the ratio of (cached analyzer
+cost + transport overhead) to the overall pipeline wall-clock, which
+is dominated by the single heaviest librosa analyzer on a real
+techno track (`pitch_salience` at ~6.5 s).
+
 ## Analyzer Interface
 
 Each analyzer implements:
