@@ -72,16 +72,28 @@ async def _get(
 async def _get_tracks(
     *,
     kind: int | None,
+    limit: int | None,
+    offset: int | None,
     ym: YandexMusicClient,
     **_: Any,
 ) -> dict[str, Any]:
     resolved_kind = _require_kind(kind, "get_tracks")
-    tracks = await ym.get_playlist_tracks(settings.ym_user_id, resolved_kind)
+    page_limit = max(1, min(int(limit or 100), 500))
+    page_offset = max(0, int(offset or 0))
+
+    all_tracks = await ym.get_playlist_tracks(settings.ym_user_id, resolved_kind)
+    total = len(all_tracks)
+    window = all_tracks[page_offset : page_offset + page_limit]
+
     return {
         "action": "get_tracks",
         "kind": resolved_kind,
-        "count": len(tracks),
-        "track_ids": [t.id for t in tracks],
+        "total": total,
+        "count": len(window),
+        "offset": page_offset,
+        "limit": page_limit,
+        "has_more": page_offset + len(window) < total,
+        "track_ids": [t.id for t in window],
         "tracks": [
             {
                 "id": t.id,
@@ -90,7 +102,7 @@ async def _get_tracks(
                     a.get("name", "") if isinstance(a, dict) else a.name for a in (t.artists or [])
                 ],
             }
-            for t in tracks
+            for t in window
         ],
     }
 
@@ -198,6 +210,8 @@ async def ym_playlists(
     name: str | None = None,
     track_ids: Any = None,
     revision: int | None = None,
+    limit: int | None = None,
+    offset: int | None = None,
     ym: YandexMusicClient = Depends(get_ym_client),  # noqa: B008
     ctx: Context | None = None,
 ) -> dict[str, Any]:
@@ -205,6 +219,9 @@ async def ym_playlists(
 
     ``action`` ∈ ``{get, get_tracks, list, create, rename, delete,
     add_tracks, remove_tracks}``.
+
+    For ``get_tracks``: ``limit`` defaults to 100 (max 500), ``offset``
+    defaults to 0. The response always includes ``total`` and ``has_more``.
     """
     ids = ensure_list(track_ids) or None
     try:
@@ -214,6 +231,8 @@ async def ym_playlists(
             name=name,
             track_ids=ids,
             revision=revision,
+            limit=limit,
+            offset=offset,
             ym=ym,
         )
     except UnknownActionError as e:
