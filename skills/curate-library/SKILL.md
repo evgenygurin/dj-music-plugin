@@ -36,8 +36,8 @@ ambient_dub → dub_techno → minimal → detroit → melodic_deep → progress
 - BPM histogram, key distribution, energy range
 
 ### Distribute to Subgenre Playlists
-- `distribute_to_subgenres(source_playlist_id=..., mode="add")` — add new tracks
-- `distribute_to_subgenres(mode="clean_rebuild")` — full rebuild (asks confirmation)
+- `distribute_to_subgenres(source_playlist_id=..., mode="append")` — add classified tracks to subgenre playlists (default mode)
+- `distribute_to_subgenres(mode="clean_rebuild")` — wipe and rebuild every subgenre playlist from scratch
 - `sync_to_ym=true` — also push subgenre playlists to YM
 - `dry_run=true` — preview distribution without changes
 
