@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """End-to-end verification of the refactored audio pipeline.
 
-Loads a real MP3, runs all 8 analyzers (sequential + parallel),
+Loads a real MP3, runs all 18 analyzers (sequential + parallel),
 classifies mood, and prints a full feature report with timing breakdown.
+Compares sequential vs parallel pipeline timing to validate parallelism.
 
 Usage:
     uv run python scripts/verify_audio_pipeline.py [path_to_mp3]
