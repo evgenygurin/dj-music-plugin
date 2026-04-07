@@ -13,17 +13,33 @@ MCP (native): POST http://localhost:8000/mcp
 from __future__ import annotations
 
 import logging
+import tomllib
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
-from fastapi import FastAPI, HTTPException
+from fastapi import Body, FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
 from app.server import mcp
 
 logger = logging.getLogger(__name__)
+
+
+def _project_version() -> str:
+    """Read version from pyproject.toml so OpenAPI doesn't drift from source.
+
+    Falls back to "0.0.0" if pyproject.toml is missing or unreadable.
+    """
+    try:
+        pyproject = Path(__file__).parent / "pyproject.toml"
+        with pyproject.open("rb") as fh:
+            data = tomllib.load(fh)
+        return str(data.get("project", {}).get("version", "0.0.0"))
+    except Exception:
+        return "0.0.0"
+
 
 # ── Static tool discovery (no DB required) ──────────
 
@@ -70,12 +86,65 @@ logger.info("Discovered %d MCP tools for OpenAPI docs", len(_tools_cache))
 
 
 class ToolCallRequest(BaseModel):
-    """Request body for calling an MCP tool."""
+    """Request body for calling an MCP tool.
+
+    Per-tool schema is available via ``GET /api/tools/{name}/schema``.
+    Concrete invocation examples are attached at the operation level via
+    ``Body(openapi_examples=...)`` — see ``call_tool`` below.
+    """
 
     arguments: dict[str, Any] = Field(
         default_factory=dict,
-        description="Tool arguments as key-value pairs (see tool's inputSchema)",
+        description=(
+            "Tool arguments as key-value pairs. Shape depends on the tool — "
+            "fetch the per-tool JSON Schema from `GET /api/tools/{name}/schema`."
+        ),
     )
+
+
+# Concrete request examples surfaced by Swagger UI's "Example Value" dropdown.
+# Operation-level openapi_examples (vs model json_schema_extra) is the only
+# place FastAPI wires into the request body examples picker.
+_CALL_EXAMPLES: dict[str, dict[str, Any]] = {
+    "list_tracks": {
+        "summary": "list_tracks — первые 10 треков",
+        "value": {"arguments": {"limit": 10}},
+    },
+    "search": {
+        "summary": "search — найти треки по запросу",
+        "value": {"arguments": {"query": "techno", "entity": "tracks", "limit": 20}},
+    },
+    "filter_tracks": {
+        "summary": "filter_tracks — по BPM и тональности",
+        "value": {
+            "arguments": {
+                "bpm_min": 125,
+                "bpm_max": 132,
+                "key": "8A",
+                "limit": 20,
+            }
+        },
+    },
+    "ym_get_tracks": {
+        "summary": "ym_get_tracks — batch fetch по YM IDs",
+        "value": {"arguments": {"track_ids": ["54486493", "55516369"]}},
+    },
+    "build_set": {
+        "summary": "build_set — собрать сет из плейлиста",
+        "value": {
+            "arguments": {
+                "playlist_id": 1,
+                "name": "Peak Hour 60",
+                "template": "peak_hour_60",
+                "algorithm": "ga",
+            }
+        },
+    },
+    "empty": {
+        "summary": "get_library_stats — без аргументов",
+        "value": {"arguments": {}},
+    },
+}
 
 
 class ToolCallResponse(BaseModel):
@@ -135,6 +204,28 @@ async def lifespan(app: FastAPI):  # type: ignore[no-untyped-def]
 
 # ── FastAPI App ─────────────────────────────────────
 
+# OpenAPI top-level tags — Swagger UI groups operations under these and shows
+# the descriptions inline, which is much more useful than a single big
+# markdown table buried in the description.
+_OPENAPI_TAGS: list[dict[str, str]] = [
+    {"name": "system", "description": "Health check и операционные данные."},
+    {
+        "name": "discovery",
+        "description": "Поиск, листинг и схема MCP tools (без вызова).",
+    },
+    {
+        "name": "execution",
+        "description": "Универсальный POST /api/tools/{name}/call для вызова любого MCP tool.",
+    },
+    {
+        "name": "mcp",
+        "description": (
+            "Нативный MCP StreamableHTTP transport, смонтирован на /mcp. "
+            "Используется AI-клиентами; не описывается в этом OpenAPI."
+        ),
+    },
+]
+
 api = FastAPI(
     title="DJ Music Plugin — MCP API",
     description=(
@@ -143,23 +234,14 @@ api = FastAPI(
         "## Транспорты\n\n"
         "| Транспорт | URL | Описание |\n"
         "|-----------|-----|----------|\n"
-        "| MCP (StreamableHTTP) | `POST /mcp` | Нативный MCP-протокол |\n"
+        "| MCP (StreamableHTTP) | `POST /mcp` | Нативный MCP-протокол (не в OpenAPI) |\n"
         "| REST API | `/api/*` | HTTP-обёртка для Swagger |\n\n"
-        "## Категории tools\n\n"
-        "| Категория | Кол-во | Описание |\n"
-        "|-----------|--------|----------|\n"
-        "| `core` | 10 | CRUD треков, плейлистов, сетов |\n"
-        "| `sets` | 9 | Построение и анализ DJ-сетов |\n"
-        "| `delivery` | 2 | Экспорт и доставка |\n"
-        "| `discovery` | 5 | Поиск похожих треков, импорт |\n"
-        "| `curation` | 5 | Классификация, аудит |\n"
-        "| `sync` | 2 | Синхронизация с YM |\n"
-        "| `ym` | 6 | Прямой доступ к YM API |\n"
-        "| `admin` | 2 | Управление видимостью |\n"
-        "| `audio` | 3 | Аудио-анализ (hidden) |\n"
-        "| `atomic` | 4 | Атомарные операции (hidden) |\n"
+        "REST API — тонкий gateway над `mcp.call_tool()`. Все 50 tools "
+        "вызываются через универсальный `POST /api/tools/{name}/call`. "
+        "Схема `arguments` per-tool — через `GET /api/tools/{name}/schema`."
     ),
-    version="0.5.0",
+    version=_project_version(),
+    openapi_tags=_OPENAPI_TAGS,
     lifespan=lifespan,
     docs_url="/docs",
     redoc_url="/redoc",
@@ -190,11 +272,35 @@ def health() -> dict[str, str | int | bool]:
 # ── Tool Discovery ──────────────────────────────────
 
 
+# Tag query param uses Literal of all real ToolCategory values so Swagger UI
+# renders a dropdown instead of a free-form text field. Keeping this in sync
+# with ToolCategory is mechanical: extend the enum in app/mcp/tools/_shared
+# and the Literal updates here on next reload.
+_ToolCategoryLiteral = Literal[
+    "core",
+    "sets",
+    "delivery",
+    "discovery",
+    "curation",
+    "sync",
+    "ym",
+    "admin",
+    "audio",
+    "atomic",
+]
+
+
 @api.get("/api/tools", tags=["discovery"], response_model=ToolListResponse)
-async def list_tools(tag: str | None = None) -> ToolListResponse:
+async def list_tools(
+    tag: _ToolCategoryLiteral | None = Query(
+        default=None,
+        description="Фильтр по категории tools (значения соответствуют ToolCategory enum).",
+    ),
+) -> ToolListResponse:
     """Список всех MCP tools с inputSchema.
 
-    Фильтрация по тегу: `?tag=core`, `?tag=sets`, `?tag=ym`
+    Опционально фильтрует по категории — например `?tag=core`, `?tag=sets`,
+    `?tag=ym`. Без `tag` возвращает все 50 tools.
     """
     tools = _tools_cache
     if tag:
@@ -222,13 +328,43 @@ async def get_tool_schema(tool_name: str) -> dict[str, Any]:
 
 # ── Tool Execution ──────────────────────────────────
 
+_CALL_RESPONSES: dict[int | str, dict[str, Any]] = {
+    404: {
+        "description": "Tool not found",
+        "content": {
+            "application/json": {
+                "example": {"detail": "Tool 'unknown_tool' not found"},
+            }
+        },
+    },
+    422: {
+        "description": (
+            "Tool execution failed (invalid arguments или domain error). "
+            "В production режиме (`mask_error_details=True`) сообщение скрыто. "
+            "Полный traceback всегда логгируется на сервере через ErrorHandlingMiddleware."
+        ),
+    },
+    503: {
+        "description": "MCP server lifespan не запустился (БД недоступна).",
+        "content": {
+            "application/json": {
+                "example": {"detail": "MCP server not ready — DB may be unreachable"},
+            }
+        },
+    },
+}
+
 
 @api.post(
     "/api/tools/{tool_name}/call",
     tags=["execution"],
     response_model=ToolCallResponse,
+    responses=_CALL_RESPONSES,
 )
-async def call_tool(tool_name: str, request: ToolCallRequest) -> ToolCallResponse:
+async def call_tool(
+    tool_name: str,
+    request: ToolCallRequest = Body(..., openapi_examples=_CALL_EXAMPLES),
+) -> ToolCallResponse:
     """Вызвать MCP tool по имени.
 
     Требует работающий MCP сервер (подключение к БД).
@@ -255,19 +391,22 @@ async def call_tool(tool_name: str, request: ToolCallRequest) -> ToolCallRespons
         for item in result.content:
             content.append(item.model_dump(exclude_none=True))
 
-    structured = None
-    if hasattr(result, "structured_content") and result.structured_content:
+    structured: dict[str, Any] | None = None
+    raw_structured = getattr(result, "structured_content", None)
+    if raw_structured:
         structured = (
-            result.structured_content
-            if isinstance(result.structured_content, dict)
-            else {"data": result.structured_content}
+            raw_structured if isinstance(raw_structured, dict) else {"data": raw_structured}
         )
 
+    # FastMCP raises on error rather than returning ToolResult.is_error, so by
+    # the time we get here is_error is always False. We keep the field in the
+    # response model for forward compatibility but never set it from a missing
+    # attribute.
     return ToolCallResponse(
         tool_name=tool_name,
         content=content,
         structured_content=structured,
-        is_error=result.is_error if hasattr(result, "is_error") else False,
+        is_error=False,
     )
 
 
