@@ -12,7 +12,6 @@ from typing import Any
 
 from fastmcp.dependencies import Depends
 from fastmcp.exceptions import ToolError
-from fastmcp.server.context import Context
 from fastmcp.tools import tool
 
 from app.config import settings
@@ -199,7 +198,6 @@ async def ym_playlists(
     track_ids: Any = None,
     revision: int | None = None,
     ym: YandexMusicClient = Depends(get_ym_client),  # noqa: B008
-    ctx: Context | None = None,
 ) -> dict[str, Any]:
     """Consolidated playlist operations on Yandex Music.
 

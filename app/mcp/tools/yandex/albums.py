@@ -7,7 +7,6 @@ from typing import Any
 from fastmcp.dependencies import Depends
 from fastmcp.exceptions import NotFoundError as FastMCPNotFoundError
 from fastmcp.exceptions import ToolError
-from fastmcp.server.context import Context
 from fastmcp.tools import tool
 
 from app.mcp.dependencies import get_ym_client
@@ -20,7 +19,6 @@ async def ym_get_album(
     album_id: str,
     include_tracks: bool = False,
     ym: YandexMusicClient = Depends(get_ym_client),  # noqa: B008
-    ctx: Context | None = None,
 ) -> dict[str, Any]:
     """Get album info from Yandex Music, optionally with tracks.
 
