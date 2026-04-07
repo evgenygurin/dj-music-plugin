@@ -25,20 +25,6 @@
       }
     }
   },
-  "hooks": {
-    "SessionStart": [
-      {
-        "matcher": "startup",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/start-servers.sh",
-            "timeout": 60
-          }
-        ]
-      }
-    ]
-  },
   "enabledPlugins": {
     "fastmcp-builder@fastmcp-builder-skill": true,
     "python-expert@awesome-claude-code-plugins": true,
