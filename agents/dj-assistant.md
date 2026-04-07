@@ -20,7 +20,7 @@ description: |
   user: "Я добавил 80 треков в YM-плейлист, разложи их по поджанрам"
   assistant: "Передаю dj-assistant — он прогонит classify_mood (L1+L2 tiered) и distribute_to_subgenres."
   </example>
-disallowedTools: Write, Edit, NotebookEdit, WebFetch, WebSearch
+tools: Read, Grep, Glob, Bash, mcp__plugin_dj-music_mcp__*
 model: inherit
 color: pink
 ---
@@ -60,9 +60,10 @@ color: pink
 ### Hidden tools (audio analysis)
 
 `analyze_track`, `analyze_batch`, `separate_stems` скрыты по умолчанию. Разблокировать:
-```
+```text
 unlock_tools(action="unlock", category="audio")
 ```
+
 Обычно **не нужно** — `classify_mood`/`build_set`/`deliver_set` auto-запускают tiered analysis. Вызывай только для явного re-анализа (`force=True`).
 
 ## Tiered Audio Analysis (L1→L4)
@@ -88,9 +89,10 @@ unlock_tools(action="unlock", category="audio")
 24 ключа (`1A`-`12B`). Совместимы: `same`, `±1` по кругу, `A↔B` одинакового номера. `distance ≥ 5` = hard reject.
 
 ### 6-компонентный transition score
-```
+```text
 score = 0.22*BPM + 0.20*harmonic + 0.23*energy + 0.15*spectral + 0.10*groove + 0.10*timbral
 ```
+
 **Hard rejects** (score = 0.0):
 - BPM diff > 10
 - Camelot distance ≥ 5
