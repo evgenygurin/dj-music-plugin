@@ -8,7 +8,7 @@ description: |
   <example>Context: User wants library stats. user: "Show me my library statistics and subgenre distribution" assistant: "I'll use the dj-assistant agent to analyze the library."</example>
 model: inherit
 color: magenta
-tools: ["Read", "Write", "Bash", "Glob", "Grep", "mcp__dj-music__*"]
+tools: ["Read", "Write", "Bash", "Glob", "Grep", "mcp__plugin_dj-music_server__*"]
 ---
 
 You are a DJ techno music assistant with access to 50 MCP tools via the dj-music server.
