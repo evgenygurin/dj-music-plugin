@@ -1,8 +1,18 @@
-"""Unit tests for domain-error → ToolError mapping."""
+"""Unit tests for domain-error → FastMCP-native error mapping.
+
+Mapping contract (see ``app/mcp/tools/_shared/errors.py`` module docstring):
+
+| Domain error        | Raised as                            | MCP code            |
+|---------------------|--------------------------------------|---------------------|
+| ``NotFoundError``   | ``fastmcp.exceptions.NotFoundError`` | -32001 Not found    |
+| ``ValidationError`` | ``ValueError``                       | -32602 Invalid params |
+| ``ConflictError``   | ``ToolError`` (Conflict: …)          | -32603 Internal error |
+"""
 
 from __future__ import annotations
 
 import pytest
+from fastmcp.exceptions import NotFoundError as FastMCPNotFoundError
 from fastmcp.exceptions import ToolError
 
 from app.core.errors import ConflictError, NotFoundError, ValidationError
@@ -12,30 +22,30 @@ from app.mcp.tools._shared.errors import (
 )
 
 
-async def test_not_found_mapped_to_tool_error() -> None:
+async def test_not_found_mapped_to_fastmcp_not_found() -> None:
     @map_domain_errors
     async def _tool() -> None:
         raise NotFoundError("Track", 42)
 
-    with pytest.raises(ToolError, match="Track not found: 42"):
+    with pytest.raises(FastMCPNotFoundError, match="Track not found: 42"):
         await _tool()
 
 
-async def test_validation_error_mapped() -> None:
+async def test_validation_error_mapped_to_value_error() -> None:
     @map_domain_errors
     async def _tool() -> None:
         raise ValidationError("bpm out of range", field="bpm", value=500)
 
-    with pytest.raises(ToolError, match="bpm out of range"):
+    with pytest.raises(ValueError, match="bpm out of range"):
         await _tool()
 
 
-async def test_conflict_error_mapped() -> None:
+async def test_conflict_error_mapped_to_tool_error() -> None:
     @map_domain_errors
     async def _tool() -> None:
         raise ConflictError("duplicate playlist name")
 
-    with pytest.raises(ToolError, match="duplicate playlist name"):
+    with pytest.raises(ToolError, match="Conflict: duplicate playlist name"):
         await _tool()
 
 
@@ -82,6 +92,6 @@ async def test_context_manager_form() -> None:
     async with domain_errors_as_tool_error():
         pass  # no raise
 
-    with pytest.raises(ToolError, match="Set not found: 7"):
+    with pytest.raises(FastMCPNotFoundError, match="Set not found: 7"):
         async with domain_errors_as_tool_error():
             raise NotFoundError("Set", 7)

@@ -9,6 +9,9 @@ from app.mcp.tools._shared.context import ToolContext
 
 class _FakeCtx:
     def __init__(self) -> None:
+        # ``ToolContext._has_session`` treats a Context as active only when
+        # ``request_context`` is not None — simulate an attached MCP session.
+        self.request_context = object()
         self.infos: list[str] = []
         self.warns: list[str] = []
         self.progress: list[tuple[int, int]] = []
@@ -60,6 +63,7 @@ async def test_active_context_forwards() -> None:
 async def test_warn_falls_back_to_info_when_warning_absent() -> None:
     class _MinimalCtx:
         def __init__(self) -> None:
+            self.request_context = object()  # simulate attached MCP session
             self.infos: list[str] = []
 
         async def info(self, msg: str) -> None:
