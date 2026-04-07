@@ -234,22 +234,37 @@ class AnalysisPipeline:
         ``max_duration`` is an explicit override that clips the source signal
         before any analyzer runs. Per-analyzer clipping (via
         ``clip_duration_s`` ClassVar) is applied on top of this.
+
+        Async hygiene: every CPU-bound or import-bound step is offloaded
+        to a worker (thread or process) so the caller's event loop stays
+        responsive throughout. The only main-thread work is trivial
+        bookkeeping (list comprehensions over analyzer instances, dict
+        merges of features) which completes in microseconds.
         """
         signal = await self._loader.load(file_path)
 
-        # Explicit caller-supplied clip (overrides per-analyzer settings)
+        # Explicit caller-supplied clip — wrap the numpy work in to_thread
+        # so a long max_duration call doesn't block the event loop.
         if max_duration and signal.duration_seconds > max_duration:
-            signal = _clip_signal(signal, max_duration)
+            signal = await asyncio.to_thread(_clip_signal, signal, max_duration)
 
-        # Resolve analyzer instances
+        # Resolve analyzer instances (trivial dict lookups, no offload needed)
         analyzer_names = analyzers or self.registry.list_available()
         instances = [
             a for n in analyzer_names if (a := self.registry.get(n)) and a.is_available()
         ]
 
-        # Eliminate scipy/librosa lazy-loader races before threaded dispatch
-        if any("librosa" in a.required_packages for a in instances):
-            _warmup_librosa()
+        # Pre-warm librosa to eliminate scipy/librosa lazy-loader races.
+        # In process mode the workers warm up themselves on their first
+        # task, so we skip the main-process warmup entirely. In thread
+        # mode we still need it on the main process — but we offload the
+        # ~5s import work to a worker thread so the event loop stays free.
+        needs_warmup = (
+            not self._use_processes
+            and any("librosa" in a.required_packages for a in instances)
+        )
+        if needs_warmup:
+            await asyncio.to_thread(_warmup_librosa)
 
         # Partition by dependency: independent first, then dependent
         independent = [a for a in instances if not a.depends_on]
@@ -269,7 +284,11 @@ class AnalysisPipeline:
             # analyzers share clip_duration_s=60, so typically we build
             # at most 2 contexts (full + 60s). STFT shared across bucket
             # members in the thread path.
-            contexts = self._build_contexts(signal, instances)
+            #
+            # _build_contexts does the STFT/magnitude/freqs work (~0.5-1s
+            # on a long track). Offloaded to to_thread so it doesn't
+            # block the event loop.
+            contexts = await asyncio.to_thread(self._build_contexts, signal, instances)
             phase1_results = list(
                 await asyncio.gather(
                     *(
@@ -329,14 +348,13 @@ class AnalysisPipeline:
         loop = asyncio.get_running_loop()
         params = FrameParams()  # default frame params; matches AnalysisContext default
 
-        # Pre-compute clip variants once per unique clip duration
-        clips: dict[float | None, np.ndarray] = {}
-        for clip_duration in {a.clip_duration_s for a in instances}:
-            if clip_duration is None or signal.duration_seconds <= clip_duration:
-                clips[clip_duration] = signal.samples
-            else:
-                clipped = _clip_signal(signal, clip_duration, centered=True)
-                clips[clip_duration] = clipped.samples
+        # Pre-compute clip variants once per unique clip duration.
+        # Stitched-window construction does numpy concat + hann fades
+        # (~50-100ms on a 6 min track) — small but still blocks the
+        # event loop, so offload to a worker thread.
+        clips = await asyncio.to_thread(
+            _build_clip_variants_for_instances, signal, instances
+        )
 
         # Sort by descending observed cost so heavy analyzers are
         # submitted first. ProcessPoolExecutor dispatches FIFO across
@@ -448,6 +466,24 @@ def _clip_signal(signal: AudioSignal, duration_s: float, centered: bool = False)
         duration_seconds=len(samples) / sr,
         file_path=signal.file_path,
     )
+
+
+def _build_clip_variants_for_instances(
+    signal: AudioSignal, instances: list[BaseAnalyzer]
+) -> dict[float | None, np.ndarray]:
+    """Pre-compute clip variant samples once per unique clip duration.
+
+    Module-level helper so it can be offloaded to ``asyncio.to_thread``
+    from inside ``_run_phase_processes`` without binding ``self``.
+    """
+    clips: dict[float | None, np.ndarray] = {}
+    for clip_duration in {a.clip_duration_s for a in instances}:
+        if clip_duration is None or signal.duration_seconds <= clip_duration:
+            clips[clip_duration] = signal.samples
+        else:
+            clipped = _clip_signal(signal, clip_duration, centered=True)
+            clips[clip_duration] = clipped.samples
+    return clips
 
 
 def _build_stitched_clip(

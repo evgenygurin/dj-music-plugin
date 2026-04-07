@@ -3,6 +3,8 @@
 
 from __future__ import annotations
 
+import asyncio
+import time
 from pathlib import Path
 from unittest.mock import AsyncMock
 
@@ -819,3 +821,127 @@ class TestProcessPoolDispatch:
         # Pool is created lazily, so shutdown without analyze() is a no-op
         pipeline.shutdown()
         pipeline.shutdown()  # second call should not raise
+
+
+# ── Async hygiene: event loop must stay responsive during analyze() ────
+
+
+class TestEventLoopResponsiveness:
+    """``analyze()`` must never block the caller's event loop.
+
+    A blocking analyze() is a real production hazard: a FastAPI handler
+    or MCP tool that calls await pipeline.analyze() would lock up the
+    server for ~5s while librosa imports or ~1s while STFT runs in the
+    main thread. These tests run a "ticker" coroutine in parallel with
+    analyze() and verify the ticker keeps making progress.
+    """
+
+    @staticmethod
+    async def _ticker(stop_event: asyncio.Event, ticks: list[float]) -> None:
+        """Increment a counter every 10ms until told to stop."""
+        start = time.perf_counter()
+        while not stop_event.is_set():
+            ticks.append(time.perf_counter() - start)
+            try:
+                await asyncio.wait_for(stop_event.wait(), timeout=0.01)
+            except TimeoutError:
+                continue
+
+    async def test_thread_mode_analyze_does_not_block_event_loop(
+        self, tmp_path: Path, registry: AnalyzerRegistry
+    ) -> None:
+        """Thread-mode analyze() must yield to other coroutines.
+
+        We dispatch a 10ms ticker concurrently with a real analyze()
+        call. If analyze() blocks (e.g., synchronous _build_contexts
+        in main thread), the ticker stops making progress for 0.5-5s
+        and the gap between consecutive ticks exceeds the 10ms wait.
+        """
+        import soundfile as sf
+
+        from app.audio.pipeline import AnalysisPipeline
+
+        # Build a small techno-like signal so analyze() takes 1-3s
+        sr = 22050
+        duration = 4.0
+        n = int(sr * duration)
+        rng = np.random.default_rng(0)
+        samples = (0.3 * rng.standard_normal(n)).astype(np.float32)
+        wav_path = tmp_path / "signal.wav"
+        sf.write(str(wav_path), samples, sr)
+
+        pipeline = AnalysisPipeline(registry=registry)  # thread mode
+
+        ticks: list[float] = []
+        stop = asyncio.Event()
+        ticker_task = asyncio.create_task(self._ticker(stop, ticks))
+        try:
+            result = await pipeline.analyze(
+                str(wav_path), analyzers=["loudness", "energy", "spectral"]
+            )
+        finally:
+            stop.set()
+            await ticker_task
+
+        assert result.success_count >= 2
+
+        # Compute the largest gap between consecutive ticks. If the
+        # event loop was blocked, there'll be a gap of >0.5s.
+        assert len(ticks) >= 2, "ticker did not run at all"
+        gaps = [ticks[i + 1] - ticks[i] for i in range(len(ticks) - 1)]
+        max_gap = max(gaps) if gaps else 0.0
+        # 0.2s budget — well above the 10ms target but well below the
+        # ~1s _build_contexts cost we're protecting against.
+        assert max_gap < 0.2, (
+            f"event loop blocked for {max_gap:.3f}s during analyze() — "
+            f"some sync work is not offloaded to to_thread"
+        )
+
+    async def test_process_mode_analyze_does_not_block_event_loop(
+        self, tmp_path: Path, registry: AnalyzerRegistry
+    ) -> None:
+        """Same responsiveness check for ProcessPool path.
+
+        ProcessPool mode has additional sync work in the main process:
+        clip variant construction, future submission. All of it should
+        be offloaded so the ticker keeps progressing.
+        """
+        import soundfile as sf
+
+        from app.audio.pipeline import AnalysisPipeline
+
+        sr = 22050
+        duration = 4.0
+        n = int(sr * duration)
+        rng = np.random.default_rng(1)
+        samples = (0.3 * rng.standard_normal(n)).astype(np.float32)
+        wav_path = tmp_path / "signal.wav"
+        sf.write(str(wav_path), samples, sr)
+
+        pipeline = AnalysisPipeline(
+            registry=registry, use_processes=True, max_workers=2
+        )
+
+        ticks: list[float] = []
+        stop = asyncio.Event()
+        ticker_task = asyncio.create_task(self._ticker(stop, ticks))
+        try:
+            result = await pipeline.analyze(
+                str(wav_path), analyzers=["loudness", "energy"]
+            )
+        finally:
+            stop.set()
+            await ticker_task
+            pipeline.shutdown()
+
+        assert result.success_count == 2
+        assert len(ticks) >= 2, "ticker did not run at all"
+        gaps = [ticks[i + 1] - ticks[i] for i in range(len(ticks) - 1)]
+        max_gap = max(gaps) if gaps else 0.0
+        # ProcessPool spawn happens inside loop.run_in_executor which
+        # returns a future immediately, so the spawn cost lives in the
+        # worker process — main thread stays free.
+        assert max_gap < 0.5, (
+            f"event loop blocked for {max_gap:.3f}s during process-mode "
+            f"analyze() — some sync work is not offloaded"
+        )
