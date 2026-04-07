@@ -8,12 +8,11 @@ Design notes
 ------------
 - Resolution is a **Strategy**: lookup by numeric id takes precedence,
   free-text query is the fallback.
-- Errors are raised as typed domain exceptions that the caller maps to
-  MCP ``ToolError``. Keeping the low-level module free of FastMCP
-  imports makes it trivially unit-testable.
-- The public helpers (:func:`ensure_reference`, :func:`resolve_entity`,
-  :func:`resolve_track_id`) cover every call-site that previously lived
-  in ``_helpers.py``.
+- Failures raise :class:`fastmcp.exceptions.ToolError` directly so that
+  tool bodies do not have to translate domain exceptions at every call
+  site. The wire message stays stable (``"<entity> not found: <ref>"``,
+  ``"provide <entity> id or query"``) so LLM clients receive the same
+  text they did before the refactor.
 """
 
 from __future__ import annotations
@@ -21,13 +20,7 @@ from __future__ import annotations
 from collections.abc import Awaitable, Callable
 from typing import Any
 
-
-class EntityReferenceError(ValueError):
-    """Raised when neither an id nor a query was supplied."""
-
-
-class EntityNotFoundError(LookupError):
-    """Raised when the lookup completed but yielded no entity."""
+from fastmcp.exceptions import ToolError
 
 
 def ensure_reference(
@@ -41,7 +34,7 @@ def ensure_reference(
     Replaces the old ``validate_id_or_query`` helper.
     """
     if entity_id is None and not query:
-        raise EntityReferenceError(f"Provide {entity_name} id or query")
+        raise ToolError(f"Provide {entity_name} id or query")
 
 
 async def resolve_entity[EntityT](
@@ -75,24 +68,23 @@ async def resolve_entity[EntityT](
 
     Raises
     ------
-    EntityReferenceError
-        If neither ``entity_id`` nor ``query`` was supplied.
-    EntityNotFoundError
-        If the lookup returned ``None``.
+    ToolError
+        If neither reference form was supplied, or if the lookup
+        returned ``None``.
     """
     ensure_reference(entity_id, query, entity_name=entity_name)
 
     entity: EntityT | None
     if entity_id is not None:
         entity = await get_by_id(entity_id)
-        reference = str(entity_id)
+        reference: Any = entity_id
     else:
         assert query is not None  # ensured by ensure_reference
         entity = await search_by_query(query)
         reference = query
 
     if entity is None:
-        raise EntityNotFoundError(f"{entity_name} not found: {reference}")
+        raise ToolError(f"{entity_name} not found: {reference}")
 
     return entity
 
@@ -116,5 +108,5 @@ async def resolve_track_id(
     assert query is not None
     results = await search(query, 1)
     if not results:
-        raise EntityNotFoundError(f"track not found: {query}")
+        raise ToolError(f"track not found: {query}")
     return int(results[0].id)

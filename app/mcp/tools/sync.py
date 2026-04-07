@@ -1,6 +1,6 @@
-"""Sync tools — bidirectional playlist sync with Yandex Music (2 tools, tag: sync).
+"""Sync tools — bidirectional playlist sync with Yandex Music (2 tools).
 
-Thin wrappers calling SyncService via Depends().
+Thin wrappers calling :class:`SyncService` via ``Depends()``.
 """
 
 from __future__ import annotations
@@ -12,15 +12,13 @@ from fastmcp.server.context import Context
 from fastmcp.tools import tool
 
 from app.mcp.dependencies import get_sync_service
+from app.mcp.tools._shared import ToolCategory
 from app.services.sync_service import SyncService
 
-# ── 1. sync_playlist ─────────────────────────────────
+_SYNC_ANNOTATIONS: dict[str, bool] = {"readOnlyHint": False, "openWorldHint": True}
 
 
-@tool(
-    tags={"sync"},
-    annotations={"readOnlyHint": False, "openWorldHint": True},
-)
+@tool(tags={ToolCategory.SYNC.value}, annotations=_SYNC_ANNOTATIONS)
 async def sync_playlist(
     playlist_id: int,
     direction: str = "pull",
@@ -29,7 +27,10 @@ async def sync_playlist(
     svc: SyncService = Depends(get_sync_service),  # noqa: B008
     ctx: Context | None = None,
 ) -> dict[str, Any]:
-    """Sync local playlist with Yandex Music. direction: pull|push|diff. dry_run=True by default."""
+    """Sync local playlist with Yandex Music.
+
+    ``direction`` ∈ ``{pull, push, diff}``; ``dry_run`` is ``True`` by default.
+    """
     return await svc.sync_playlist(
         playlist_id=playlist_id,
         direction=direction,
@@ -37,13 +38,7 @@ async def sync_playlist(
     )
 
 
-# ── 2. push_set_to_ym ───────────────────────────────
-
-
-@tool(
-    tags={"sync"},
-    annotations={"readOnlyHint": False, "openWorldHint": True},
-)
+@tool(tags={ToolCategory.SYNC.value}, annotations=_SYNC_ANNOTATIONS)
 async def push_set_to_ym(
     set_id: int,
     ym_playlist_name: str | None = None,
@@ -51,7 +46,7 @@ async def push_set_to_ym(
     svc: SyncService = Depends(get_sync_service),  # noqa: B008
     ctx: Context | None = None,
 ) -> dict[str, Any]:
-    """Push DJ set as YM playlist. mode: create|update|auto."""
+    """Push DJ set as YM playlist. ``mode`` ∈ ``{create, update, auto}``."""
     return await svc.push_set_to_ym(
         set_id=set_id,
         ym_playlist_name=ym_playlist_name,

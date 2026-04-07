@@ -1,7 +1,8 @@
-"""Atomic audio tools — one operation per one track (tag: atomic, hidden by default).
+"""Atomic audio tools — one operation per track (tag: atomic, hidden).
 
-Unlock via: unlock_tools(action="unlock", category="atomic")
-Composites (analyze_batch, classify_mood, gate_by_audio) call these internally.
+Unlock via ``unlock_tools(action="unlock", category="atomic")``.
+Composites (``analyze_batch``, ``classify_mood``, ...) call these
+internally.
 """
 
 from __future__ import annotations
@@ -14,15 +15,25 @@ from fastmcp.server.context import Context
 from fastmcp.tools import tool
 
 from app.config import settings
+from app.core.parsing import ensure_list
 from app.core.ym_filters import genre_ok, is_excluded_title, ym_track_summary
 from app.mcp.dependencies import get_audio_service, get_ym_client
+from app.mcp.tools._shared import (
+    ANNOTATIONS_READ_ONLY,
+    ANNOTATIONS_READ_ONLY_OPEN_WORLD,
+    ANNOTATIONS_WRITE,
+    ToolCategory,
+    ToolTimeout,
+)
 from app.services.audio_service import AudioService
 from app.ym.client import YandexMusicClient
 
-# ── 1. analyze_one_track ─────────────────────────────
 
-
-@tool(tags={"atomic"}, annotations={"readOnlyHint": False}, timeout=600.0)
+@tool(
+    tags={ToolCategory.ATOMIC.value},
+    annotations=ANNOTATIONS_WRITE,
+    timeout=ToolTimeout.BATCH,
+)
 async def analyze_one_track(
     track_id: int,
     analyzers: Any = None,
@@ -31,27 +42,22 @@ async def analyze_one_track(
     ctx: Context | None = None,
 ) -> dict[str, Any]:
     """Run audio analysis pipeline on ONE track. Saves features to DB."""
-    from app.core.parsing import ensure_list
-
     analyzers_list = ensure_list(analyzers) or None
     result = await svc.analyze_track(track_id, analyzers=analyzers_list, force=force)
 
-    if result.get("status") == "error" and result.get("error") == "Track not found":
+    status = result.get("status")
+    err = result.get("error") or ""
+    if status == "error" and err == "Track not found":
         raise ToolError(f"Track {track_id} not found")
-    if result.get("status") == "error" and "No audio file" in result.get("error", ""):
+    if status == "error" and "No audio file" in err:
         raise ToolError(f"No audio file for track {track_id}")
-    if result.get("status") == "error" and "not found" in result.get("error", "").lower():
-        raise ToolError(result["error"])
-    if result.get("status") == "error" and "iCloud stub" in result.get("error", ""):
-        raise ToolError(result["error"])
+    if status == "error" and ("not found" in err.lower() or "iCloud stub" in err):
+        raise ToolError(err)
 
     return result
 
 
-# ── 2. classify_one_track ────────────────────────────
-
-
-@tool(tags={"atomic"}, annotations={"readOnlyHint": False})
+@tool(tags={ToolCategory.ATOMIC.value}, annotations=ANNOTATIONS_WRITE)
 async def classify_one_track(
     track_id: int,
     svc: AudioService = Depends(get_audio_service),  # noqa: B008
@@ -62,14 +68,10 @@ async def classify_one_track(
 
     if result.get("status") == "error" and result.get("error") == "No features":
         raise ToolError(f"No audio features for track {track_id}. Run analyze_one_track first.")
-
     return result
 
 
-# ── 3. gate_one_track ───────────────────────────────
-
-
-@tool(tags={"atomic"}, annotations={"readOnlyHint": True})
+@tool(tags={ToolCategory.ATOMIC.value}, annotations=ANNOTATIONS_READ_ONLY)
 async def gate_one_track(
     track_id: int,
     criteria: dict[str, float] | None = None,
@@ -80,10 +82,7 @@ async def gate_one_track(
     return await svc.gate_track(track_id, criteria=criteria)
 
 
-# ── 4. get_similar_one_track ────────────────────────
-
-
-@tool(tags={"atomic"}, annotations={"readOnlyHint": True, "openWorldHint": True})
+@tool(tags={ToolCategory.ATOMIC.value}, annotations=ANNOTATIONS_READ_ONLY_OPEN_WORLD)
 async def get_similar_one_track(
     ym_track_id: str,
     limit: int = 20,
@@ -101,7 +100,7 @@ async def get_similar_one_track(
     min_dur = min_duration_ms or settings.discovery_min_duration_ms
     max_dur = max_duration_ms or settings.discovery_max_duration_ms
 
-    filtered = []
+    filtered: list[dict[str, Any]] = []
     for t in raw_similar:
         dur = t.duration_ms or 0
         if dur and (dur < min_dur or dur > max_dur):

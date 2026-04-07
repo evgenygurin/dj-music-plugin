@@ -1,6 +1,8 @@
 """Track tools — list, get, manage, features (4 tools, tag: core).
 
-Thin wrappers calling TrackService via Depends().
+Thin wrappers calling :class:`TrackService` via ``Depends()``. All
+entity resolution, parsing and taxonomy live in
+:mod:`app.mcp.tools._shared` and :mod:`app.core.parsing`.
 """
 
 from __future__ import annotations
@@ -12,14 +14,22 @@ from fastmcp.dependencies import Depends
 from fastmcp.exceptions import ToolError
 from fastmcp.tools import tool
 
+from app.core.parsing import ensure_dict
 from app.core.schemas import PaginatedResponse, TrackBrief, TrackStandard
 from app.mcp.dependencies import get_track_service
-from app.mcp.tools._helpers import resolve_track_id
+from app.mcp.tools._shared import (
+    ANNOTATIONS_READ_ONLY,
+    ANNOTATIONS_WRITE,
+    ToolCategory,
+    resolve_track_id,
+)
 from app.services.track_service import TrackService
+
+_TRACK_ACTIONS = frozenset({"create", "update", "archive", "unarchive"})
 
 
 def _parse_json(value: str | None) -> Any:
-    """Parse a JSON string, returning None on failure."""
+    """Parse a JSON string, returning ``None`` on failure."""
     if not value:
         return None
     try:
@@ -28,7 +38,7 @@ def _parse_json(value: str | None) -> Any:
         return None
 
 
-@tool(tags={"core"}, annotations={"readOnlyHint": True})
+@tool(tags={ToolCategory.CORE.value}, annotations=ANNOTATIONS_READ_ONLY)
 async def list_tracks(
     limit: int = 20,
     cursor: str | None = None,
@@ -44,7 +54,6 @@ async def list_tracks(
     else:
         page = await svc.list_all(limit=limit, cursor=cursor)
 
-    # Batch-fetch artist names for all tracks in the page
     track_ids = [t.id for t in page.items]
     artist_map = await svc.get_artist_names_batch(track_ids)
 
@@ -55,39 +64,41 @@ async def list_tracks(
     )
 
 
-@tool(tags={"core"}, annotations={"readOnlyHint": True})
+@tool(tags={ToolCategory.CORE.value}, annotations=ANNOTATIONS_READ_ONLY)
 async def get_track(
     id: int | None = None,
     query: str | None = None,
     svc: TrackService = Depends(get_track_service),  # noqa: B008
 ) -> TrackStandard:
     """Get full track details by id or text query."""
-    track_id = await resolve_track_id(id=id, query=query, svc=svc)
+    track_id = await resolve_track_id(entity_id=id, query=query, search=svc.search)
     track, features = await svc.get_with_features(track_id)
     artist_map = await svc.get_artist_names_batch([track_id])
     return svc.to_standard(track, features, artist_names=artist_map.get(track_id))
 
 
-@tool(tags={"core"}, annotations={"readOnlyHint": False})
+@tool(tags={ToolCategory.CORE.value}, annotations=ANNOTATIONS_WRITE)
 async def manage_tracks(
     action: str,
     data: Any = None,
     svc: TrackService = Depends(get_track_service),  # noqa: B008
 ) -> TrackStandard:
-    """Create, update, archive, or unarchive a track. action: create|update|archive|unarchive."""
-    from app.core.parsing import ensure_dict
+    """Create, update, archive or unarchive a track.
 
-    data = ensure_dict(data)
-    if action not in ("create", "update", "archive", "unarchive"):
+    ``action`` ∈ ``{create, update, archive, unarchive}``.
+    """
+    if action not in _TRACK_ACTIONS:
         raise ToolError(f"Unknown action: {action}")
 
+    data_dict = ensure_dict(data)
+
     if action == "create":
-        if not data or "title" not in data:
+        if not data_dict or "title" not in data_dict:
             raise ToolError("data.title required for create")
-        track = await svc.create(data["title"], data.get("duration_ms"))
+        track = await svc.create(data_dict["title"], data_dict.get("duration_ms"))
         return svc.to_standard(track)
 
-    track_id = (data or {}).get("id")
+    track_id = (data_dict or {}).get("id")
     if track_id is None:
         raise ToolError("data.id required")
 
@@ -95,17 +106,16 @@ async def manage_tracks(
         track = await svc.archive(track_id)
     elif action == "unarchive":
         track = await svc.unarchive(track_id)
-    elif action == "update" and data:
-        fields = {k: v for k, v in data.items() if k != "id"}
+    else:  # action == "update"
+        assert data_dict is not None  # type narrowing for mypy
+        fields = {k: v for k, v in data_dict.items() if k != "id"}
         track = await svc.update(track_id, **fields)
-    else:
-        raise ToolError("Unreachable")
 
     artist_map = await svc.get_artist_names_batch([track_id])
     return svc.to_standard(track, artist_names=artist_map.get(track_id))
 
 
-@tool(tags={"core"}, annotations={"readOnlyHint": True})
+@tool(tags={ToolCategory.CORE.value}, annotations=ANNOTATIONS_READ_ONLY)
 async def get_track_features(
     id: int | None = None,
     query: str | None = None,
@@ -113,7 +123,7 @@ async def get_track_features(
     svc: TrackService = Depends(get_track_service),  # noqa: B008
 ) -> dict[str, Any]:
     """Get audio features for a track by id or query. Optionally include sections."""
-    track_id = await resolve_track_id(id=id, query=query, svc=svc)
+    track_id = await resolve_track_id(entity_id=id, query=query, search=svc.search)
     track, features = await svc.get_with_features(track_id)
 
     if features is None:

@@ -1,6 +1,6 @@
 """DJ-specific reasoning tools: suggest, explain, replace, compare, quick review.
 
-Thin wrappers calling ReasoningService via Depends().
+Thin wrappers calling :class:`ReasoningService` via ``Depends()``.
 """
 
 from __future__ import annotations
@@ -12,10 +12,11 @@ from fastmcp.server.context import Context
 from fastmcp.tools import tool
 
 from app.mcp.dependencies import get_reasoning_service
+from app.mcp.tools._shared import ANNOTATIONS_READ_ONLY, ToolCategory
 from app.services.reasoning_service import ReasoningService
 
 
-@tool(tags={"sets"}, annotations={"readOnlyHint": True})
+@tool(tags={ToolCategory.SETS.value}, annotations=ANNOTATIONS_READ_ONLY)
 async def suggest_next_track(
     set_id: int,
     after_position: int,
@@ -25,7 +26,7 @@ async def suggest_next_track(
     svc: ReasoningService = Depends(get_reasoning_service),  # noqa: B008
     ctx: Context | None = None,
 ) -> dict[str, Any]:
-    """Suggest best tracks for a set position, scored against both neighbors."""
+    """Suggest best tracks for a set position, scored against both neighbours."""
     return await svc.suggest_next_track(
         set_id=set_id,
         after_position=after_position,
@@ -33,25 +34,25 @@ async def suggest_next_track(
     )
 
 
-@tool(tags={"sets"}, annotations={"readOnlyHint": True})
+@tool(tags={ToolCategory.SETS.value}, annotations=ANNOTATIONS_READ_ONLY)
 async def explain_transition(
     from_track_id: int,
     to_track_id: int,
     svc: ReasoningService = Depends(get_reasoning_service),  # noqa: B008
     ctx: Context | None = None,
 ) -> dict[str, Any]:
-    """Explain why a transition works or doesn't — 5-component breakdown."""
+    """Explain why a transition works or does not — component breakdown."""
     return await svc.explain_transition(from_track_id, to_track_id)
 
 
-@tool(tags={"sets"}, annotations={"readOnlyHint": True})
+@tool(tags={ToolCategory.SETS.value}, annotations=ANNOTATIONS_READ_ONLY)
 async def find_replacement(
     set_id: int,
     position: int,
     count: int = 5,
     ctx: Context | None = None,
 ) -> dict[str, Any]:
-    """Find replacement tracks for a set position, scored against both neighbors."""
+    """Find replacement tracks for a set position, scored against both neighbours."""
     return {
         "set_id": set_id,
         "position": position,
@@ -60,7 +61,7 @@ async def find_replacement(
     }
 
 
-@tool(tags={"sets"}, annotations={"readOnlyHint": True})
+@tool(tags={ToolCategory.SETS.value}, annotations=ANNOTATIONS_READ_ONLY)
 async def compare_set_versions(
     set_id: int,
     version_a: int | None = None,
@@ -76,7 +77,7 @@ async def compare_set_versions(
     )
 
 
-@tool(tags={"sets"}, annotations={"readOnlyHint": True})
+@tool(tags={ToolCategory.SETS.value}, annotations=ANNOTATIONS_READ_ONLY)
 async def quick_set_review(
     set_id: int,
     svc: ReasoningService = Depends(get_reasoning_service),  # noqa: B008

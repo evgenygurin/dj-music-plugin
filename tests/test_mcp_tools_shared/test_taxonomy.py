@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import pytest
-
 from app.mcp.tools._shared.taxonomy import (
     ANNOTATIONS_READ_ONLY,
     ANNOTATIONS_READ_ONLY_OPEN_WORLD,
@@ -27,19 +25,20 @@ def test_tool_category_values_match_legacy_tag_strings() -> None:
     assert ToolCategory.ADMIN.value == "admin"
 
 
-def test_annotation_presets_are_immutable() -> None:
-    """MappingProxyType should prevent accidental mutation."""
-    with pytest.raises(TypeError):
-        ANNOTATIONS_READ_ONLY["readOnlyHint"] = False  # type: ignore[index]
-    with pytest.raises(TypeError):
-        ANNOTATIONS_WRITE["readOnlyHint"] = True  # type: ignore[index]
-
-
 def test_annotation_presets_content() -> None:
-    assert ANNOTATIONS_READ_ONLY["readOnlyHint"] is True
-    assert ANNOTATIONS_WRITE["readOnlyHint"] is False
-    assert ANNOTATIONS_READ_ONLY_OPEN_WORLD["readOnlyHint"] is True
-    assert ANNOTATIONS_READ_ONLY_OPEN_WORLD["openWorldHint"] is True
+    """Presets hold the exact MCP annotation flags tools rely on."""
+    assert ANNOTATIONS_READ_ONLY == {"readOnlyHint": True}
+    assert ANNOTATIONS_WRITE == {"readOnlyHint": False}
+    assert ANNOTATIONS_READ_ONLY_OPEN_WORLD == {
+        "readOnlyHint": True,
+        "openWorldHint": True,
+    }
+
+
+def test_annotation_presets_are_distinct_instances() -> None:
+    """Each preset is a separate dict so mutating one does not leak."""
+    assert ANNOTATIONS_READ_ONLY is not ANNOTATIONS_WRITE
+    assert ANNOTATIONS_READ_ONLY is not ANNOTATIONS_READ_ONLY_OPEN_WORLD
 
 
 def test_timeouts_monotonic() -> None:

@@ -1,6 +1,6 @@
 """Search and filter tools: cross-entity text search + parametric track filter.
 
-Thin wrappers calling SearchService via Depends().
+Thin wrappers calling :class:`SearchService` via ``Depends()``.
 """
 
 from __future__ import annotations
@@ -13,10 +13,11 @@ from fastmcp.server.context import Context
 from fastmcp.tools import tool
 
 from app.mcp.dependencies import get_search_service
+from app.mcp.tools._shared import ANNOTATIONS_READ_ONLY, ToolCategory
 from app.services.search_service import SearchService
 
 
-@tool(tags={"core"}, annotations={"readOnlyHint": True})
+@tool(tags={ToolCategory.CORE.value}, annotations=ANNOTATIONS_READ_ONLY)
 async def search(
     query: str,
     entity: str = "all",
@@ -30,7 +31,7 @@ async def search(
     return await svc.search(query=query, entity=entity, limit=limit)
 
 
-@tool(tags={"core"}, annotations={"readOnlyHint": True})
+@tool(tags={ToolCategory.CORE.value}, annotations=ANNOTATIONS_READ_ONLY)
 async def filter_tracks(
     bpm_min: float | None = None,
     bpm_max: float | None = None,

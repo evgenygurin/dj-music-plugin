@@ -5,10 +5,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 import pytest
+from fastmcp.exceptions import ToolError
 
 from app.mcp.tools._shared.resolvers import (
-    EntityNotFoundError,
-    EntityReferenceError,
     ensure_reference,
     resolve_entity,
     resolve_track_id,
@@ -22,7 +21,7 @@ class _Entity:
 
 
 def test_ensure_reference_rejects_empty() -> None:
-    with pytest.raises(EntityReferenceError):
+    with pytest.raises(ToolError, match="Provide track id or query"):
         ensure_reference(None, None, entity_name="track")
 
 
@@ -35,7 +34,7 @@ def test_ensure_reference_accepts_query() -> None:
 
 
 def test_ensure_reference_rejects_empty_string() -> None:
-    with pytest.raises(EntityReferenceError):
+    with pytest.raises(ToolError):
         ensure_reference(None, "", entity_name="track")
 
 
@@ -80,7 +79,7 @@ async def test_resolve_entity_not_found_by_id() -> None:
     async def search(_: str) -> _Entity | None:
         return None
 
-    with pytest.raises(EntityNotFoundError, match="track not found: 99"):
+    with pytest.raises(ToolError, match="track not found: 99"):
         await resolve_entity(
             entity_id=99,
             query=None,
@@ -97,7 +96,7 @@ async def test_resolve_entity_not_found_by_query() -> None:
     async def search(_: str) -> _Entity | None:
         return None
 
-    with pytest.raises(EntityNotFoundError, match="playlist not found: ghosts"):
+    with pytest.raises(ToolError, match="playlist not found: ghosts"):
         await resolve_entity(
             entity_id=None,
             query="ghosts",
@@ -130,5 +129,5 @@ async def test_resolve_track_id_not_found() -> None:
     async def search(_q: str, _l: int) -> list[object]:
         return []
 
-    with pytest.raises(EntityNotFoundError):
+    with pytest.raises(ToolError, match="track not found: ghosts"):
         await resolve_track_id(entity_id=None, query="ghosts", search=search)

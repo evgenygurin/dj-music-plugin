@@ -13,13 +13,13 @@ Usage::
     )
 
     @tool(
-        tags={ToolCategory.CORE},
+        tags={ToolCategory.CORE.value},
         annotations=ANNOTATIONS_READ_ONLY,
     )
     async def list_tracks(...) -> PaginatedResponse[TrackBrief]: ...
 
     @tool(
-        tags={ToolCategory.SETS},
+        tags={ToolCategory.SETS.value},
         annotations=ANNOTATIONS_WRITE,
         timeout=ToolTimeout.HEAVY,
         task=True,
@@ -29,10 +29,8 @@ Usage::
 
 from __future__ import annotations
 
-from collections.abc import Mapping
 from enum import StrEnum
-from types import MappingProxyType
-from typing import Final
+from typing import Any, Final
 
 
 class ToolCategory(StrEnum):
@@ -54,18 +52,19 @@ class ToolCategory(StrEnum):
     ADMIN = "admin"
 
 
-# ── Annotation presets (immutable to prevent accidental mutation) ──
+# ── Annotation presets ────────────────────────────────────────────
+#
+# FastMCP's ``@tool`` expects ``dict[str, Any]`` for annotations; we
+# intentionally use plain dicts (not ``MappingProxyType``) so mypy
+# accepts them without casting at every call-site. Do **not** mutate
+# these at runtime.
 
-#: MCP annotation dict for read-only tools. Use as ``annotations=ANNOTATIONS_READ_ONLY``.
-ANNOTATIONS_READ_ONLY: Final[Mapping[str, bool]] = MappingProxyType({"readOnlyHint": True})
-
-#: MCP annotation dict for mutating tools.
-ANNOTATIONS_WRITE: Final[Mapping[str, bool]] = MappingProxyType({"readOnlyHint": False})
-
-#: Annotation for read-only tools that reach external systems (YM, Spotify, ...).
-ANNOTATIONS_READ_ONLY_OPEN_WORLD: Final[Mapping[str, bool]] = MappingProxyType(
-    {"readOnlyHint": True, "openWorldHint": True},
-)
+ANNOTATIONS_READ_ONLY: Final[dict[str, Any]] = {"readOnlyHint": True}
+ANNOTATIONS_WRITE: Final[dict[str, Any]] = {"readOnlyHint": False}
+ANNOTATIONS_READ_ONLY_OPEN_WORLD: Final[dict[str, Any]] = {
+    "readOnlyHint": True,
+    "openWorldHint": True,
+}
 
 
 class ToolTimeout:

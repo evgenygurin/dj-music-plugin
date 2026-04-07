@@ -1,6 +1,6 @@
 """Import & download tools (2 tools, tag: discovery).
 
-Thin wrappers calling ImportService via Depends().
+Thin wrappers calling :class:`ImportService` via ``Depends()``.
 """
 
 from __future__ import annotations
@@ -12,16 +12,16 @@ from fastmcp.exceptions import ToolError
 from fastmcp.server.context import Context
 from fastmcp.tools import tool
 
+from app.core.parsing import ensure_list
 from app.mcp.dependencies import get_import_service
+from app.mcp.tools._shared import ToolCategory, ToolContext, ToolTimeout
 from app.services.import_service import ImportService
 
-# ── 1. import_tracks ─────────────────────────────────
+_IMPORT_ANNOTATIONS: dict[str, bool] = {"readOnlyHint": False, "idempotentHint": True}
+_DOWNLOAD_ANNOTATIONS: dict[str, bool] = {"readOnlyHint": False, "openWorldHint": True}
 
 
-@tool(
-    tags={"discovery"},
-    annotations={"readOnlyHint": False, "idempotentHint": True},
-)
+@tool(tags={ToolCategory.DISCOVERY.value}, annotations=_IMPORT_ANNOTATIONS)
 async def import_tracks(
     track_refs: Any = None,
     playlist_id: int | None = None,
@@ -29,20 +29,18 @@ async def import_tracks(
     svc: ImportService = Depends(get_import_service),  # noqa: B008
     ctx: Context | None = None,
 ) -> dict[str, Any]:
-    """Import YM track IDs into local DB. Accepts strings or ints. Idempotent — skips existing."""
-    from app.core.parsing import ensure_list
-
-    track_refs = ensure_list(track_refs)
-    if not track_refs:
+    """Import YM track IDs into local DB. Idempotent — skips existing."""
+    log = ToolContext(ctx)
+    refs = ensure_list(track_refs)
+    if not refs:
         raise ToolError("track_refs is required (list of YM track IDs)")
 
-    result = await svc.import_tracks(track_refs=[str(ref) for ref in track_refs])
+    result = await svc.import_tracks(track_refs=[str(ref) for ref in refs])
 
-    if ctx:
-        await ctx.info(
-            f"Import complete: {result['imported']} new, "
-            f"{result['skipped']} skipped, {result['enriched']} enriched"
-        )
+    await log.info(
+        f"Import complete: {result['imported']} new, "
+        f"{result['skipped']} skipped, {result['enriched']} enriched"
+    )
 
     if playlist_id:
         result["playlist_note"] = "Use manage_playlist(add_tracks) to add to playlist"
@@ -51,13 +49,10 @@ async def import_tracks(
     return result
 
 
-# ── 2. download_tracks ───────────────────────────────
-
-
 @tool(
-    tags={"discovery"},
-    annotations={"readOnlyHint": False, "openWorldHint": True},
-    timeout=600.0,
+    tags={ToolCategory.DISCOVERY.value},
+    annotations=_DOWNLOAD_ANNOTATIONS,
+    timeout=ToolTimeout.BATCH,
     task=True,
 )
 async def download_tracks(
@@ -68,37 +63,35 @@ async def download_tracks(
     svc: ImportService = Depends(get_import_service),  # noqa: B008
     ctx: Context | None = None,
 ) -> dict[str, Any]:
-    """Download MP3 from YM and link to library. Accepts local or YM track IDs.
+    """Download MP3 from YM and link to the local library.
 
-    track_refs: local track IDs (e.g. "1", "42") or YM IDs (e.g. "12345678", "ym:12345678").
-    Local IDs are resolved to YM IDs automatically via track_external_ids.
-    Downloads files, creates DjLibraryItem records (so analyze_track finds them).
-    target_dir: where to save (default: settings.ym_library_path).
-    skip_existing: skip if file already exists.
-    prefer_bitrate: target bitrate in kbps (320, 192, 128).
+    ``track_refs`` accepts local track IDs (``"1"``, ``"42"``) or YM IDs
+    (``"12345678"``, ``"ym:12345678"``). Local IDs are resolved via
+    ``track_external_ids``. Files are persisted as :class:`DjLibraryItem`
+    records so ``analyze_track`` can find them.
+
+    ``target_dir`` defaults to ``settings.ym_library_path``.
+    ``skip_existing`` skips paths that already exist.
+    ``prefer_bitrate`` selects download bitrate (320 / 192 / 128).
     """
-    from app.core.parsing import ensure_list
-
-    track_refs = ensure_list(track_refs)
-    if not track_refs:
+    log = ToolContext(ctx)
+    refs = ensure_list(track_refs)
+    if not refs:
         raise ToolError("track_refs is required (list of YM track IDs)")
 
-    total = len(track_refs)
-    if ctx:
-        await ctx.info(f"Starting download of {total} tracks...")
+    total = len(refs)
+    await log.info(f"Starting download of {total} tracks...")
 
     result = await svc.download_tracks(
-        track_refs=[str(ref) for ref in track_refs],
+        track_refs=[str(ref) for ref in refs],
         target_dir=target_dir,
         skip_existing=skip_existing,
         prefer_bitrate=prefer_bitrate,
     )
 
-    if ctx:
-        await ctx.report_progress(total, total)
-        await ctx.info(
-            f"Done: {result['downloaded']} downloaded, {result['skipped']} skipped, "
-            f"{result['linked_to_library']} linked, {result['failed']} failed"
-        )
-
+    await log.progress(total, total)
+    await log.info(
+        f"Done: {result['downloaded']} downloaded, {result['skipped']} skipped, "
+        f"{result['linked_to_library']} linked, {result['failed']} failed"
+    )
     return result
