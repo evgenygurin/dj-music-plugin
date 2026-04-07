@@ -1,6 +1,6 @@
 ---
 name: deliver-set
-description: "This skill should be used when the user asks to \"deliver set\", \"export set\", \"finalize set\", \"rekordbox export\", \"sync set to YM\", or \"generate cheat sheet\". Covers M3U8, Rekordbox XML, JSON guide, cheat sheet export and YM sync."
+description: "Use when the user asks to deliver a set, export a set, finalize a set, do a rekordbox export, sync a set to YM, or generate a cheat sheet. Covers M3U8, Rekordbox XML, JSON guide, cheat sheet export and YM sync."
 version: 0.5.0
 ---
 
@@ -63,6 +63,8 @@ export_set(set_id=..., format="rekordbox_xml", rekordbox_options={
 ## Tips
 
 - Use `dry_run=true` first to preview what would be generated
-- iCloud stubs (not yet downloaded) are skipped during MP3 copy but referenced in M3U
-- Cheat sheet is the most useful for live performance — print it!
+- `deliver_set` auto-triggers L4 analysis (structure + permanent MP3 download) for set tracks — see @docs/reports/tiered-analysis-design-2026-03-27.md
+- iCloud stubs (downloaded < 90% of expected size) are skipped during MP3 copy but referenced in M3U
+- On hard conflicts (score=0.0) `deliver_set` elicits a confirmation — answer "continue" or "abort"
+- Tool timeout: `deliver_set` is HEAVY (300s). Tool reference: @docs/tool-catalog.md
 - After delivery, the set is ready for import into Traktor, Rekordbox, or djay
