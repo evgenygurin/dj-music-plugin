@@ -11,8 +11,8 @@ they remain runtime-overridable for tests.
 
 from __future__ import annotations
 
+from app.camelot.wheel import camelot_distance
 from app.config import settings
-from app.core.camelot import camelot_distance
 from app.core.track_features import TrackFeatures
 from app.transition.math_helpers import bpm_distance
 from app.transition.score import TransitionScore

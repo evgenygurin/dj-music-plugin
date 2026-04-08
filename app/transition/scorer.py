@@ -14,7 +14,6 @@ from __future__ import annotations
 
 from app.core.constants import DEFAULT_TRANSITION_WEIGHTS
 from app.core.track_features import TrackFeatures
-from app.core.transition_intent import INTENT_WEIGHT_MODIFIERS, TransitionIntent
 from app.transition.components import (
     score_bpm,
     score_energy,
@@ -24,6 +23,7 @@ from app.transition.components import (
     score_timbral,
 )
 from app.transition.hard_constraints import check_hard_constraints
+from app.transition.intent import INTENT_WEIGHT_MODIFIERS, TransitionIntent
 from app.transition.score import TransitionScore
 from app.transition.section_context import SectionContext
 from app.transition.style import recommend_style, style_profile

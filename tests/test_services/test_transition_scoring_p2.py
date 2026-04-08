@@ -390,39 +390,39 @@ class TestTransitionIntent:
     """Tests for TransitionIntent enum, weight modifiers, and infer_intent."""
 
     def test_infer_ramp_up_early_position(self) -> None:
-        from app.core.transition_intent import TransitionIntent, infer_intent
+        from app.transition.intent import TransitionIntent, infer_intent
 
         assert infer_intent(0.1, 0.0) == TransitionIntent.RAMP_UP
 
     def test_infer_cool_down_late_position(self) -> None:
-        from app.core.transition_intent import TransitionIntent, infer_intent
+        from app.transition.intent import TransitionIntent, infer_intent
 
         assert infer_intent(0.9, 0.0) == TransitionIntent.COOL_DOWN
 
     def test_infer_ramp_up_energy_delta(self) -> None:
-        from app.core.transition_intent import TransitionIntent, infer_intent
+        from app.transition.intent import TransitionIntent, infer_intent
 
         assert infer_intent(0.5, 3.0) == TransitionIntent.RAMP_UP
 
     def test_infer_cool_down_energy_delta(self) -> None:
-        from app.core.transition_intent import TransitionIntent, infer_intent
+        from app.transition.intent import TransitionIntent, infer_intent
 
         assert infer_intent(0.5, -3.0) == TransitionIntent.COOL_DOWN
 
     def test_infer_maintain_default(self) -> None:
-        from app.core.transition_intent import TransitionIntent, infer_intent
+        from app.transition.intent import TransitionIntent, infer_intent
 
         assert infer_intent(0.5, 0.5) == TransitionIntent.MAINTAIN
 
     def test_all_intents_weights_sum_to_one(self) -> None:
-        from app.core.transition_intent import INTENT_WEIGHT_MODIFIERS
+        from app.transition.intent import INTENT_WEIGHT_MODIFIERS
 
         for intent, weights in INTENT_WEIGHT_MODIFIERS.items():
             total = sum(weights.values())
             assert abs(total - 1.0) < 0.01, f"{intent}: weights sum to {total}"
 
     def test_scorer_with_intent_produces_valid_score(self) -> None:
-        from app.core.transition_intent import TransitionIntent
+        from app.transition.intent import TransitionIntent
 
         scorer = TransitionScorer()
         a = _base_features()

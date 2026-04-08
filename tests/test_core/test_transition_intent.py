@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 
 from app.core.constants import SetTemplate
-from app.core.transition_intent import (
+from app.transition.intent import (
     INTENT_WEIGHT_MODIFIERS,
     TransitionIntent,
     infer_intent,

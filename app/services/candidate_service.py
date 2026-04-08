@@ -12,8 +12,8 @@ import itertools
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
+from app.camelot.wheel import camelot_distance
 from app.config import settings
-from app.core.camelot import camelot_distance
 from app.db.models.transition import TransitionCandidate
 from app.transition import TransitionScorer
 

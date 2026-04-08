@@ -165,7 +165,7 @@ class TrackService:
     ) -> str | None:
         """Convert key_code from features to Camelot notation."""
         if features and features.key_code is not None:
-            from app.core.camelot import key_code_to_camelot
+            from app.camelot.wheel import key_code_to_camelot
 
             return key_code_to_camelot(features.key_code)
         return None

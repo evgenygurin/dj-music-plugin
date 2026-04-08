@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from app.core.camelot import camelot_distance, key_code_to_camelot
+from app.camelot.wheel import camelot_distance, key_code_to_camelot
 from app.core.errors import NotFoundError, ValidationError
 from app.db.models.set import SetVersion
 from app.db.repositories.feature import FeatureRepository

@@ -11,7 +11,7 @@ import logging
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from app.core.camelot import camelot_distance
+from app.camelot.wheel import camelot_distance
 from app.core.constants import CAMELOT_KEYS, Provider
 from app.db.models.ingestion import ProviderModel
 from app.db.models.key import Key, KeyEdge

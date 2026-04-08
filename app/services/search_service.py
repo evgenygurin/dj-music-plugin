@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from app.core.camelot import camelot_to_key_code, is_compatible, key_code_to_camelot
+from app.camelot.wheel import camelot_to_key_code, is_compatible, key_code_to_camelot
 from app.core.constants import KEY_CODE_MAX, KEY_CODE_MIN
 from app.core.errors import ValidationError
 from app.core.utils.pagination import CursorPage

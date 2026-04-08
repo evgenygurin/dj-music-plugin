@@ -8,7 +8,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from app.core.camelot import key_code_to_camelot
+from app.camelot.wheel import key_code_to_camelot
 from app.core.errors import NotFoundError, ValidationError
 from app.db.models.export import AppExport
 from app.db.repositories.export import ExportRepository
