@@ -441,7 +441,6 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
             incomingMetaPromise,
           ])
 
-          const t0 = ctx.currentTime
           // Use the OUTGOING track's BPM (already known from current.bpm /
           // currentMetaRef) to convert bars→seconds. This locks the mix
           // duration to musical time, not wall-clock time.
@@ -487,6 +486,64 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
             }
           }
 
+          // ── Downbeat alignment (the systemic fix) ───────────────
+          // Previous implementation scheduled the envelopes at
+          // ctx.currentTime and seeked incoming to a raw-seconds
+          // position, so nothing guaranteed that the two tracks' kicks
+          // landed on the same wall-clock moment. Tempo-match brings
+          // BPMs together, but does nothing about PHASE. Result: every
+          // transition played with a flam / off-beat kick.
+          //
+          // Fix in one pass:
+          //   1. Tempo-match ratio first (we need it before the seek
+          //      so we can pre-roll the incoming position to compensate
+          //      for the delay we're about to add).
+          //   2. Compute outgoing's next downbeat from current position.
+          //      firstDownbeatSec is 0 in the TrackMixMeta query (no
+          //      beatgrid wired up yet), so for 4/4 techno a downbeat
+          //      sits at every multiple of `240/bpm` seconds from 0.
+          //   3. Delay `t0` until that outgoing downbeat (at most one
+          //      bar ~ 1.9s at 127 BPM). Outgoing's kick at t0 is now
+          //      guaranteed to be on a downbeat.
+          //   4. Snap the incoming seek target to *its* nearest native
+          //      downbeat, then pre-roll by -(delay * ratio) so the
+          //      audio element arrives at the snapped downbeat exactly
+          //      at wall-clock t0. Incoming's kick at t0 also falls on
+          //      a downbeat. Since wall-clock bar interval matches
+          //      (incoming's bar = inBar / ratio = outBar), all
+          //      subsequent beats stay aligned for the whole fade.
+          const activeMeta = currentMetaRef.current
+          let ratio = 1
+          if (incomingMeta?.bpm && activeMeta?.bpm) {
+            const candidate = activeMeta.bpm / incomingMeta.bpm
+            if (candidate >= 0.92 && candidate <= 1.08) {
+              ratio = candidate
+            }
+          }
+
+          // Outgoing next-downbeat delay (0..outBar seconds).
+          const DOWNBEAT_EPSILON = 0.03 // 30 ms — already-on-beat snap
+          let delaySec = 0
+          if (outgoingBpm && outgoingBpm > 0) {
+            const outBar = 240 / outgoingBpm // 4 beats / bar
+            const currentOutPos = active.audio.currentTime || 0
+            const toNext = outBar - (currentOutPos % outBar)
+            // If we're within epsilon of a downbeat already, fire now.
+            delaySec = toNext < DOWNBEAT_EPSILON || toNext > outBar - DOWNBEAT_EPSILON
+              ? 0
+              : toNext
+            // Never delay past end-of-track.
+            if (active.audio.duration) {
+              const room = active.audio.duration - currentOutPos - cf
+              if (room < delaySec) delaySec = Math.max(0, room)
+            }
+          }
+
+          const t0 = ctx.currentTime + delaySec
+
+          // Compute + snap incoming seek, with pre-roll compensation so
+          // at wall-clock t0 the audio element is exactly on the snap.
+          let snappedSeekTarget: number | null = null
           if (
             incomingMeta?.introEndSec != null &&
             incomingMeta.introEndSec > 0 &&
@@ -498,26 +555,51 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
             if (introLen > 1) {
               cf = Math.max(2, Math.min(cf, introLen))
             }
-            const seekTarget = Math.max(introStart, introEnd - cf)
+            let seekTarget = Math.max(introStart, introEnd - cf)
+            // Snap to nearest incoming downbeat (firstDownbeatSec = 0).
+            if (incomingMeta.bpm && incomingMeta.bpm > 0) {
+              const inBar = 240 / incomingMeta.bpm
+              seekTarget = Math.max(0, Math.round(seekTarget / inBar) * inBar)
+              // Pre-roll must be ≥ 0 — we can't seek the <audio> element
+              // to negative time. If the snap lands too early for the
+              // delay-compensation to work, bump it forward by whole
+              // bars until pre-roll is non-negative. This still lands
+              // on a downbeat, just a later one.
+              const preRollNeeded = delaySec * ratio
+              while (seekTarget < preRollNeeded) {
+                seekTarget += inBar
+              }
+            }
+            snappedSeekTarget = seekTarget
+            const preRollCompensated = Math.max(0, seekTarget - delaySec * ratio)
             try {
-              inactive.audio.currentTime = seekTarget
+              inactive.audio.currentTime = preRollCompensated
             } catch {
               // ignore — currentTime not yet writable
             }
+          } else if (delaySec > 0) {
+            // No intro meta but we still need to start incoming from 0
+            // at wall-clock t0. Pre-roll is impossible (can't seek
+            // negative), so let the incoming simply start silent at
+            // currentTime=0; it'll be delaySec*ratio seconds into the
+            // track by the time the fade begins. Phase alignment
+            // degrades to "whatever it was" — the delay is small
+            // (<2s at techno BPM) so the mis-alignment is likewise
+            // small, and better than the original no-delay behaviour.
+            try {
+              inactive.audio.currentTime = 0
+            } catch {
+              // ignore
+            }
           }
 
-          // Tempo match against the active deck's track if BPMs are
-          // within 8%. Applied AFTER the seek so it doesn't interfere
-          // with currentTime.
-          const activeMeta = currentMetaRef.current
-          if (incomingMeta?.bpm && activeMeta?.bpm) {
-            const ratio = activeMeta.bpm / incomingMeta.bpm
-            if (ratio >= 0.92 && ratio <= 1.08) {
-              try {
-                inactive.audio.playbackRate = ratio
-              } catch {
-                // ignore
-              }
+          // Apply tempo match AFTER seek so it doesn't race with the
+          // currentTime write.
+          if (ratio !== 1) {
+            try {
+              inactive.audio.playbackRate = ratio
+            } catch {
+              // ignore
             }
           }
           if (incomingMeta) currentMetaRef.current = incomingMeta
@@ -529,13 +611,20 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
           setCrossfadeStartedAt(t0)
           setCrossfadeDurationSeconds(cf)
           // Snapshot per-deck playhead positions and the playback rates
-          // they're locked into. Visualizer extrapolates real positions
-          // = startPos + progress*cf*rate, so it can drive both
-          // waveforms with the actual sample positions instead of 0.
-          setOutgoingFadeStartPosition(active.audio.currentTime || 0)
-          setIncomingFadeStartPosition(inactive.audio.currentTime || 0)
+          // they're locked into, projected forward to the moment the
+          // envelopes actually start (t0 = now + delaySec). Visualizer
+          // extrapolates real positions = startPos + progress*cf*rate,
+          // so it can drive both waveforms with actual sample positions
+          // instead of 0.
+          const outgoingAtT0 = (active.audio.currentTime || 0) + delaySec
+          const incomingAtT0 =
+            snappedSeekTarget != null
+              ? snappedSeekTarget
+              : (inactive.audio.currentTime || 0) + delaySec * ratio
+          setOutgoingFadeStartPosition(outgoingAtT0)
+          setIncomingFadeStartPosition(incomingAtT0)
           setOutgoingFadePlaybackRate(active.audio.playbackRate || 1)
-          setIncomingFadePlaybackRate(inactive.audio.playbackRate || 1)
+          setIncomingFadePlaybackRate(ratio)
 
           // Equal-power crossfade — `cos(t·π/2)` for the outgoing deck and
           // `sin(t·π/2)` for the incoming deck. Linear ramps drop the
@@ -616,7 +705,10 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
                 }
               }
             }
-          }, cf * 1000 + 50)
+            // Include the downbeat-alignment delay — fade starts at
+            // delaySec into the future, so the finaliser must wait
+            // (delaySec + cf) wall-seconds for the curves to finish.
+          }, (delaySec + cf) * 1000 + 50)
         })
         .catch((err: DOMException) => {
           fadingRef.current = false
