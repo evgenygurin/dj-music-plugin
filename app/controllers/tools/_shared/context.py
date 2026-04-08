@@ -42,7 +42,7 @@ _log = logging.getLogger("app.controllers.tool_context")
 def _has_session(ctx: Context | None) -> bool:
     """True only when ``ctx`` is bound to a real, established MCP session.
 
-    The REST gateway (``serve_http.py``) calls ``mcp.call_tool()`` directly
+    The REST gateway (``app/api/server.py``) calls ``mcp.call_tool()`` directly
     without going through a transport layer, so the resulting Context has
     ``request_context = None``. Touching ``ctx.session``, ``ctx.session_id``,
     ``ctx.info`` or any state API in that case raises
