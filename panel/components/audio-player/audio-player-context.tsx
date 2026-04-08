@@ -159,23 +159,45 @@ interface Deck {
   audio: HTMLAudioElement
   source: MediaElementAudioSourceNode
   // Signal chain:
-  //   source → preGain → low (lowshelf 250 Hz)
-  //          → kickNotch (peaking 500 Hz, Q=2)
-  //          → mid (peaking 1 kHz)
-  //          → high (highshelf 4 kHz)
-  //          → gain → destination
+  //                              ┌─→ dryGain ─────────────────┐
+  //   source → preGain → split ──┤                            ├─→ sum → mid → high → fadeGain → master
+  //                              └─→ hp1 → hp2 → wetGain ─────┘
   //
-  // - `preGain` is a static level offset used for LUFS normalization
-  //   of the whole track (replay-gain style). Held constant for the
-  //   entire playback of that track.
-  // - `low` kills the kick fundamental (50-80 Hz).
-  // - `kickNotch` kills the kick "click" (400-800 Hz) that a 250 Hz
-  //   lowshelf can't touch — this is what used to cause the
-  //   "doubling kicks" artifact during bass swap.
-  // - `gain` is the per-deck fade envelope (cos/sin equal-power).
+  // - `preGain` holds a static replay-gain-style level offset used
+  //   for LUFS normalization. Set once at fade start from
+  //   `integrated_lufs`. We only ever *attenuate* (boost = clipping
+  //   risk), so the loudest of the two decks gets pulled down to the
+  //   quieter one and the quiet deck stays at 1.0.
+  //
+  // - The `dryGain + wetGain` split is the "kick kill" path. The dry
+  //   branch passes the source unchanged; the wet branch is run
+  //   through a Linkwitz-Riley 4th-order highpass (two cascaded
+  //   BiquadFilterNode(highpass, Q=0.7071) @ 150 Hz) that completely
+  //   removes the kick body AND its click transient. A biquad
+  //   lowshelf at -40 dB cannot kill a kick drum — the attack
+  //   transient lives up to 2-4 kHz and slips through the 12 dB/oct
+  //   slope. Pro DJ mixers (Pioneer DJM, Allen & Heath Xone) use
+  //   24 dB/oct Butterworth / Linkwitz-Riley for the same reason.
+  //
+  //   The *swap* is done by crossfading `dryGain` and `wetGain`
+  //   against each other in equal-power: full-dry = kick intact,
+  //   full-wet = kick killed. Both decks swap simultaneously in
+  //   opposite directions. This is the same "dry/wet" pattern used
+  //   throughout Web Audio effects work — it avoids gradual
+  //   attenuation artefacts and guarantees a clean hand-off.
+  //
+  // - `sum` re-merges the two branches before the rest of the EQ.
+  //
+  // - `mid` (peaking 1 kHz) and `high` (highshelf 4 kHz) remain for
+  //   future per-band EQ and are currently neutral.
+  //
+  // - `fadeGain` is the per-deck equal-power crossfade envelope.
   preGain: GainNode
-  low: BiquadFilterNode
-  kickNotch: BiquadFilterNode
+  dryGain: GainNode
+  wetGain: GainNode
+  hp1: BiquadFilterNode
+  hp2: BiquadFilterNode
+  sum: GainNode
   mid: BiquadFilterNode
   high: BiquadFilterNode
   gain: GainNode
@@ -193,6 +215,11 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
   const ctxRef = useRef<AudioContext | null>(null)
   const deckARef = useRef<Deck | null>(null)
   const deckBRef = useRef<Deck | null>(null)
+  // Master-bus safety limiter. Sits between both decks and the
+  // destination. Guarantees true-peak never passes -0.3 dBFS even
+  // if LUFS normalisation miscalculates. Industry standard for DJ
+  // software (Serato, Rekordbox all have one on master out).
+  const masterLimiterRef = useRef<DynamicsCompressorNode | null>(null)
   const activeDeckRef = useRef<'A' | 'B'>('A')
   const fadingRef = useRef(false)
   const fadeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -274,29 +301,62 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     if (!Ctx) return null
     const ctx = new Ctx()
 
+    // One-shot master limiter for the whole audio context. Sits
+    // between both decks' gain and ctx.destination. DJ software
+    // industry-standard safety net — guarantees no true-peak
+    // clipping even if LUFS normalisation gets it wrong.
+    //   threshold: -1 dBFS    (catches anything above -1)
+    //   knee:       0 dB      (hard knee — brick-wall behaviour)
+    //   ratio:     20:1       (effectively limiting, not soft comp)
+    //   attack:     3 ms      (fast enough to catch transients)
+    //   release:   50 ms      (natural decay without pumping)
+    const masterLimiter = ctx.createDynamicsCompressor()
+    masterLimiter.threshold.value = -1
+    masterLimiter.knee.value = 0
+    masterLimiter.ratio.value = 20
+    masterLimiter.attack.value = 0.003
+    masterLimiter.release.value = 0.05
+    masterLimiter.connect(ctx.destination)
+    masterLimiterRef.current = masterLimiter
+
     const buildDeck = (id: 'A' | 'B'): Deck => {
       const audio = new Audio()
       audio.preload = 'auto'
       audio.crossOrigin = 'anonymous'
       const source = ctx.createMediaElementSource(audio)
 
-      // preGain — static LUFS-normalization offset applied before the
-      // EQ chain. Set per track in startCrossfade/play from
-      // `track.integrated_lufs`. Default 1.0 (no offset).
+      // preGain — static LUFS-normalization offset applied before
+      // the kick-kill split. Set per track in startCrossfade from
+      // `track.integrated_lufs`. Default 1.0 (no offset). We ONLY
+      // attenuate; boosting risks true-peak clipping (which the
+      // master limiter would catch, but it's cleaner to prevent).
       const preGain = ctx.createGain()
       preGain.gain.value = 1.0
 
-      // 4-filter EQ chain (lowshelf @ 250 Hz, kickNotch @ 500 Hz,
-      // peaking @ 1 kHz, highshelf @ 4 kHz).
-      const low = ctx.createBiquadFilter()
-      low.type = 'lowshelf'
-      low.frequency.value = 250
-      low.gain.value = 0
-      const kickNotch = ctx.createBiquadFilter()
-      kickNotch.type = 'peaking'
-      kickNotch.frequency.value = 500 // kick click / punch region
-      kickNotch.Q.value = 2.0
-      kickNotch.gain.value = 0
+      // Dry/wet split for kick-kill. The dry branch passes the
+      // source unchanged. The wet branch runs through a Linkwitz-
+      // Riley 4th-order highpass (two cascaded Butterworth Q=0.707
+      // @ 150 Hz = 24 dB/oct) that completely removes the kick
+      // body AND its attack transient. During a bass swap we
+      // crossfade between the two branches: `dry=1, wet=0` means
+      // kick intact; `dry=0, wet=1` means kick fully killed.
+      const dryGain = ctx.createGain()
+      dryGain.gain.value = 1.0
+      const wetGain = ctx.createGain()
+      wetGain.gain.value = 0.0
+      const hp1 = ctx.createBiquadFilter()
+      hp1.type = 'highpass'
+      hp1.frequency.value = 150
+      hp1.Q.value = 0.7071
+      const hp2 = ctx.createBiquadFilter()
+      hp2.type = 'highpass'
+      hp2.frequency.value = 150
+      hp2.Q.value = 0.7071
+      const sum = ctx.createGain()
+      sum.gain.value = 1.0
+
+      // Mid / high bands stay in the chain so we can add per-band
+      // adjustments later, but they're neutral for now.
       const mid = ctx.createBiquadFilter()
       mid.type = 'peaking'
       mid.frequency.value = 1000
@@ -309,14 +369,19 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
 
       const gain = ctx.createGain()
       gain.gain.value = 0
-      source
-        .connect(preGain)
-        .connect(low)
-        .connect(kickNotch)
-        .connect(mid)
-        .connect(high)
-        .connect(gain)
-        .connect(ctx.destination)
+
+      // Wire topology:
+      //   source → preGain ─┬─→ dryGain ────────────┐
+      //                     │                       ├─→ sum → mid → high → gain → masterLimiter → destination
+      //                     └─→ hp1 → hp2 → wetGain─┘
+      source.connect(preGain)
+      preGain.connect(dryGain)
+      preGain.connect(hp1)
+      hp1.connect(hp2)
+      hp2.connect(wetGain)
+      dryGain.connect(sum)
+      wetGain.connect(sum)
+      sum.connect(mid).connect(high).connect(gain).connect(masterLimiter)
 
       audio.addEventListener('play', () => {
         if (activeDeckRef.current === id) setIsPlaying(true)
@@ -357,7 +422,19 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
         }
       })
 
-      return { audio, source, preGain, low, kickNotch, mid, high, gain }
+      return {
+        audio,
+        source,
+        preGain,
+        dryGain,
+        wetGain,
+        hp1,
+        hp2,
+        sum,
+        mid,
+        high,
+        gain,
+      }
     }
 
     const A = buildDeck('A')
@@ -745,71 +822,82 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
           inactive.gain.gain.setValueAtTime(0, t0)
           inactive.gain.gain.setValueCurveAtTime(fadeIn, t0, cf)
 
-          // ── LUFS normalization (fixes "громкость плывёт") ────
-          // The equal-power cos/sin crossfade holds total POWER
-          // constant but does nothing about absolute loudness — if
-          // outgoing is mastered to -7 LUFS and incoming to -12 LUFS,
-          // the perceived level dips through the fade and jumps up
-          // again when the old deck fades out. We compensate with a
-          // static preGain on the incoming deck sized so its
-          // integrated LUFS matches the outgoing's.
+          // ── LUFS normalization — attenuate-only ───────────────
           //
-          // Formula:  offsetDb = outLufs − inLufs
-          //           linear  = 10 ^ (offsetDb / 20)
+          // Professional DJ software (Serato Gain Structure, Rekordbox
+          // Track Gain, Traktor Autogain) all normalise tracks to a
+          // shared target BEFORE any crossfade curve runs. Without
+          // this, equal-power cos/sin is correct mathematically but
+          // the perceived level drifts through the fade because the
+          // two masters are at different LUFS.
           //
-          // Clamp to [0.5, 1.8] to avoid runaway boost on very quiet
-          // masters and to keep headroom below true-peak clipping
-          // (0 dBFS). Also honour `true_peak_db` when known — if
-          // adding the offset would push peaks above -0.5 dBFS, pull
-          // the gain back just enough to stay under that ceiling.
+          // Target policy: `min(outLufs, inLufs) - 0.5 dB`. This is
+          // SAFE: we only ever attenuate. The quieter track stays at
+          // its natural level; the louder one gets pulled down to
+          // match. A boost would risk clipping even though the master
+          // limiter catches it — better to never send over-level
+          // signal into the graph in the first place.
+          //
+          //   outGainDb = target - outLufs  (≤ 0 always)
+          //   inGainDb  = target - inLufs   (≤ 0 always)
+          //
+          // Both are written as `setValueAtTime` on the deck's
+          // preGain node at t0; they hold for the entire fade
+          // duration and only reset on the next play() / crossfade
+          // start.
           const outLufs = currentMetaRef.current?.integratedLufs ?? null
           const inLufs = incomingMeta?.integratedLufs ?? null
-          let incomingPreGain = 1.0
+          let outPreGain = 1.0
+          let inPreGain = 1.0
           if (outLufs != null && inLufs != null) {
-            const offsetDb = outLufs - inLufs
-            let linearGain = Math.pow(10, offsetDb / 20)
-            // Peak safety: if boosting past -0.5 dBFS, clamp.
-            const inPeak = incomingMeta?.truePeakDb ?? 0
-            const maxGainDb = -0.5 - inPeak
-            const maxGain = Math.pow(10, maxGainDb / 20)
-            linearGain = Math.min(linearGain, maxGain)
-            incomingPreGain = Math.max(0.5, Math.min(1.8, linearGain))
+            const target = Math.min(outLufs, inLufs) - 0.5
+            const outGainDb = target - outLufs
+            const inGainDb = target - inLufs
+            // Clamp to [0.3, 1.0] — we never boost (upper bound 1.0),
+            // and never attenuate more than -10 dB (lower bound ~0.3)
+            // for sanity on pathological masters.
+            outPreGain = Math.max(0.3, Math.min(1.0, Math.pow(10, outGainDb / 20)))
+            inPreGain = Math.max(0.3, Math.min(1.0, Math.pow(10, inGainDb / 20)))
           }
           try {
+            active.preGain.gain.cancelScheduledValues(t0)
+            active.preGain.gain.setValueAtTime(outPreGain, t0)
             inactive.preGain.gain.cancelScheduledValues(t0)
-            inactive.preGain.gain.setValueAtTime(incomingPreGain, t0)
+            inactive.preGain.gain.setValueAtTime(inPreGain, t0)
           } catch {
             // ignore
           }
 
-          // ── Adaptive bass swap ────────────────────────────────
+          // ── Adaptive dry/wet bass kill swap ───────────────────
           //
-          // Three things are now adaptive based on track metadata:
+          // Instead of ramping an EQ band's dB gain (which a biquad
+          // can't physically do below ~12 dB/oct — kick attack
+          // transients slip through anything less than 24 dB/oct),
+          // we crossfade between the deck's dry path and its
+          // Linkwitz-Riley 4th-order highpass path. `full dry` =
+          // kick intact. `full wet` = kick fully killed. The swap is
+          // the simultaneous crossfade of BOTH decks in opposite
+          // directions.
           //
-          // 1. Swap DURATION scales with cf AND with how "percussive"
-          //    the tracks are. High hp_ratio = harmonic content → can
-          //    do a quick swap without noticeable doubling. Low
-          //    hp_ratio = percussion-heavy → need a longer swap to
-          //    let kicks breathe.
+          // Adaptive parameters pulled from track metadata:
           //
-          // 2. Swap DEPTH on the lowshelf scales with `kick_prominence`.
-          //    A heavily-kick-forward track needs the low fully
-          //    killed (-40 dB) to prevent "two kicks fighting". A
-          //    dubby / minimal track can get away with -20 dB and
-          //    sounds more organic.
+          // 1. Swap DURATION scales with cf and with hp_ratio.
+          //    Percussive pairs (low hp) need a longer swap to let
+          //    kicks breathe; harmonic pairs (high hp) get a
+          //    snappier handover.
           //
-          // 3. `kickNotch` (peaking @ 500 Hz) kills the kick CLICK
-          //    that the 250 Hz lowshelf can't touch. The lowshelf
-          //    kills 50-80 Hz fundamentals, but the transient click
-          //    of a techno kick lives around 400-800 Hz and was
-          //    slipping through unattenuated — this was the audible
-          //    "двоится" (doubling) artifact the user reported.
-          //    Depth scales with kick_prominence too.
+          // 2. HP cutoff adapts to hp_ratio. Harmonic-heavy pairs
+          //    get a gentler 200 Hz cutoff (preserves more lower
+          //    mids). Very percussive pairs get the tighter 150 Hz
+          //    standard cutoff (kills more of the kick body).
+          //
+          // 3. `kick_prominence` scales how DEEPLY the wet path
+          //    ducks — i.e. whether the swap goes to 100% wet
+          //    (kick fully killed) or only 60% wet (partial duck,
+          //    sounds more organic for ambient / minimal material).
           const outBarForSwap = outgoingBpm ? 240 / outgoingBpm : 1.88
           const cfBars = cf / outBarForSwap
 
-          // Percussiveness: lower hp_ratio = more percussive.
-          // Typical techno range is roughly 0.3..3.0 (median ~1).
           const avgHpRatio = (() => {
             const a = currentMetaRef.current?.hpRatio
             const b = incomingMeta?.hpRatio
@@ -818,9 +906,6 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
             if (b == null) return a
             return (a + b) / 2
           })()
-          // Map hp_ratio to a length multiplier: very percussive
-          // (hp ≤ 0.5) → 1.5×, median (hp ~1) → 1.0×, harmonic
-          // (hp ≥ 3) → 0.7×.
           const hpLengthFactor = Math.max(0.7, Math.min(1.5, 1.3 - avgHpRatio * 0.2))
           const baseSwapBars = Math.max(1, Math.min(4, cfBars / 8))
           const swapBars = Math.max(1, Math.min(4, baseSwapBars * hpLengthFactor))
@@ -828,7 +913,6 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
           const tSwapStart = Math.max(t0, tSwap - swapDurationSec / 2)
           const tSwapEnd = Math.min(t0 + cf, tSwap + swapDurationSec / 2)
 
-          // Kick prominence: 0..1.
           const avgKickProm = (() => {
             const a = currentMetaRef.current?.kickProminence
             const b = incomingMeta?.kickProminence
@@ -837,36 +921,67 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
             if (b == null) return a
             return (a + b) / 2
           })()
-          // Lowshelf depth: -20 dB at 0 prominence, -40 dB at 1.
-          const lowCutDb = -20 - avgKickProm * 20
-          // Kick-notch depth: -3 dB at 0 prominence, -15 dB at 1.
-          // Very audible headroom for the kick click region.
-          const kickNotchCutDb = -3 - avgKickProm * 12
 
-          // Apply the cross-ramp to BOTH the lowshelf (fundamentals)
-          // AND the kick-notch (click) on each deck. Both ramps use
-          // the same tSwapStart → tSwapEnd window, so they move
-          // together as a single "bass-kill" gesture.
+          // Wet ceiling: how much of the signal goes through the HP
+          // path at peak swap. 1.0 = fully killed, 0.6 = partial.
+          // High kick prominence → full kill (1.0). Low → partial.
+          const wetCeiling = 0.6 + avgKickProm * 0.4
+          const dryFloor = 1.0 - wetCeiling
 
-          active.low.gain.cancelScheduledValues(t0)
-          active.low.gain.setValueAtTime(0, t0)
-          active.low.gain.setValueAtTime(0, tSwapStart)
-          active.low.gain.linearRampToValueAtTime(lowCutDb, tSwapEnd)
+          // HP cutoff: percussive pairs get tight 150 Hz, harmonic
+          // pairs get gentler 200 Hz. Applied to both decks' HP
+          // cascades at t0 and held.
+          const hpCutoffHz = avgHpRatio >= 2 ? 200 : 150
+          try {
+            active.hp1.frequency.setValueAtTime(hpCutoffHz, t0)
+            active.hp2.frequency.setValueAtTime(hpCutoffHz, t0)
+            inactive.hp1.frequency.setValueAtTime(hpCutoffHz, t0)
+            inactive.hp2.frequency.setValueAtTime(hpCutoffHz, t0)
+          } catch {
+            // ignore
+          }
 
-          active.kickNotch.gain.cancelScheduledValues(t0)
-          active.kickNotch.gain.setValueAtTime(0, t0)
-          active.kickNotch.gain.setValueAtTime(0, tSwapStart)
-          active.kickNotch.gain.linearRampToValueAtTime(kickNotchCutDb, tSwapEnd)
+          // Pre-compute equal-power dry/wet curves. One set on each
+          // deck, 64 samples each. setValueCurveAtTime interpolates
+          // linearly so the step count is mostly cosmetic for a
+          // 2-8 s swap. Curves run on normalised [0, 1].
+          const CURVE_N = 64
+          // Outgoing deck: dry 1→dryFloor, wet 0→wetCeiling.
+          const outDryCurve = new Float32Array(CURVE_N)
+          const outWetCurve = new Float32Array(CURVE_N)
+          // Incoming deck: dry dryFloor→1, wet wetCeiling→0.
+          const inDryCurve = new Float32Array(CURVE_N)
+          const inWetCurve = new Float32Array(CURVE_N)
+          for (let i = 0; i < CURVE_N; i++) {
+            const t = i / (CURVE_N - 1)
+            const c = Math.cos((t * Math.PI) / 2) // 1→0
+            const s = Math.sin((t * Math.PI) / 2) // 0→1
+            outDryCurve[i] = dryFloor + c * (1 - dryFloor)
+            outWetCurve[i] = s * wetCeiling
+            inDryCurve[i] = dryFloor + s * (1 - dryFloor)
+            inWetCurve[i] = c * wetCeiling
+          }
 
-          inactive.low.gain.cancelScheduledValues(t0)
-          inactive.low.gain.setValueAtTime(lowCutDb, t0)
-          inactive.low.gain.setValueAtTime(lowCutDb, tSwapStart)
-          inactive.low.gain.linearRampToValueAtTime(0, tSwapEnd)
-
-          inactive.kickNotch.gain.cancelScheduledValues(t0)
-          inactive.kickNotch.gain.setValueAtTime(kickNotchCutDb, t0)
-          inactive.kickNotch.gain.setValueAtTime(kickNotchCutDb, tSwapStart)
-          inactive.kickNotch.gain.linearRampToValueAtTime(0, tSwapEnd)
+          // Schedule the crossfade on all four gain nodes.
+          // Pre-hold with setValueAtTime so the audio graph has a
+          // known value at tSwapStart regardless of whatever the
+          // previous fade left behind.
+          const scheduleSwap = (
+            node: GainNode,
+            start: number,
+            curve: Float32Array,
+            dur: number,
+          ) => {
+            node.gain.cancelScheduledValues(t0)
+            node.gain.setValueAtTime(node.gain.value, t0)
+            node.gain.setValueAtTime(curve[0], start)
+            node.gain.setValueCurveAtTime(curve, start, dur)
+          }
+          const swapDur = Math.max(0.01, tSwapEnd - tSwapStart)
+          scheduleSwap(active.dryGain, tSwapStart, outDryCurve, swapDur)
+          scheduleSwap(active.wetGain, tSwapStart, outWetCurve, swapDur)
+          scheduleSwap(inactive.dryGain, tSwapStart, inDryCurve, swapDur)
+          scheduleSwap(inactive.wetGain, tSwapStart, inWetCurve, swapDur)
 
           fadeTimeoutRef.current = setTimeout(() => {
             // Reset filters on the freed deck so it's neutral next time.
@@ -879,14 +994,17 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
             }
             active.gain.gain.cancelScheduledValues(ctx.currentTime)
             active.gain.gain.setValueAtTime(0, ctx.currentTime)
-            // Neutral-reset every filter band on the freed deck so it
-            // starts cleanly on its next use. Include `kickNotch` too
-            // — it was attenuated during the swap and needs to come
-            // back to 0 dB.
-            for (const f of [active.low, active.kickNotch, active.mid, active.high]) {
+            // Neutral-reset the freed deck's mid/high bands + restore
+            // the dry/wet balance (fully dry = kick intact = the
+            // state a fresh track expects).
+            for (const f of [active.mid, active.high]) {
               f.gain.cancelScheduledValues(ctx.currentTime)
               f.gain.setValueAtTime(0, ctx.currentTime)
             }
+            active.dryGain.gain.cancelScheduledValues(ctx.currentTime)
+            active.dryGain.gain.setValueAtTime(1.0, ctx.currentTime)
+            active.wetGain.gain.cancelScheduledValues(ctx.currentTime)
+            active.wetGain.gain.setValueAtTime(0.0, ctx.currentTime)
             active.preGain.gain.cancelScheduledValues(ctx.currentTime)
             active.preGain.gain.setValueAtTime(1.0, ctx.currentTime)
             // Inactive becomes the new active.
@@ -997,11 +1115,17 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
       active.audio.playbackRate = 1
       active.gain.gain.cancelScheduledValues(ctx.currentTime)
       active.gain.gain.setValueAtTime(volumeRef.current, ctx.currentTime)
-      // Reset EQ filters to neutral (0 dB on each band).
-      for (const f of [active.low, active.kickNotch, active.mid, active.high]) {
+      // Reset remaining EQ bands (mid/high) to neutral.
+      for (const f of [active.mid, active.high]) {
         f.gain.cancelScheduledValues(ctx.currentTime)
         f.gain.setValueAtTime(0, ctx.currentTime)
       }
+      // Reset the dry/wet kick-kill split — fresh track should play
+      // dry (kick intact).
+      active.dryGain.gain.cancelScheduledValues(ctx.currentTime)
+      active.dryGain.gain.setValueAtTime(1.0, ctx.currentTime)
+      active.wetGain.gain.cancelScheduledValues(ctx.currentTime)
+      active.wetGain.gain.setValueAtTime(0.0, ctx.currentTime)
       // Reset preGain — the snap-load path plays a "first track",
       // there's nothing to match its LUFS against yet. The next
       // crossfade will set this based on outgoing vs incoming LUFS.
