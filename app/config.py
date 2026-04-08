@@ -121,8 +121,10 @@ class Settings(BaseSettings):
     techno_centroid_min: float = 300.0  # Hz
     techno_centroid_max: float = 10_000.0  # Hz
     techno_flatness_max: float = 0.5
-    techno_tempo_confidence_min: float = 0.3
-    techno_bpm_stability_min: float = 0.3
+    # PLP mean is ~0.15-0.25 on real compressed techno MP3s; 0.3 rejected ~99%
+    # of a known-good production corpus (L5 audit 2026-04-08).
+    techno_tempo_confidence_min: float = 0.10
+    techno_bpm_stability_min: float = 0.15
     techno_crest_factor_max: float = 30.0  # dB
     techno_lra_max: float = 25.0  # LU
     techno_hnr_min: float = -30.0  # dB
