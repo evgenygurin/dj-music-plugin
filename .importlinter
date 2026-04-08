@@ -1,0 +1,63 @@
+[importlinter]
+root_packages =
+    app
+include_external_packages = True
+
+# ── Contract 1: services must be framework-agnostic ─────────────────
+# Services orchestrate domain logic and must not depend on transport (mcp)
+# or HTTP frameworks (fastmcp). Reactivated for Phase 7 enforcement.
+[importlinter:contract:services-no-mcp]
+name = Services must be framework-agnostic (no fastmcp / app.mcp imports)
+type = forbidden
+source_modules =
+    app.services
+forbidden_modules =
+    fastmcp
+    app.mcp
+
+# ── Contract 2: domain layer (transition scoring) is pure ──────────
+# Pure mathematical scoring must not touch persistence or framework.
+# This already holds — locks the invariant.
+[importlinter:contract:transition-pure]
+name = Transition scoring must be pure (no DB, no MCP, no HTTP)
+type = forbidden
+source_modules =
+    app.domain.transition
+forbidden_modules =
+    app.repositories
+    app.models
+    app.mcp
+    app.services
+    fastmcp
+    sqlalchemy
+    httpx
+
+# ── Contract 3: domain.optimization is pure ─────────────────────────
+[importlinter:contract:optimization-pure]
+name = Optimization (GA, greedy, fitness) must be pure
+type = forbidden
+source_modules =
+    app.domain.optimization
+forbidden_modules =
+    app.repositories
+    app.models
+    app.mcp
+    app.services
+    fastmcp
+    sqlalchemy
+    httpx
+
+# ── Contract 4: utils leaf ──────────────────────────────────────────
+[importlinter:contract:utils-leaf]
+name = Utils must not depend on app domain code
+type = forbidden
+source_modules =
+    app.utils
+forbidden_modules =
+    app.models
+    app.repositories
+    app.services
+    app.mcp
+    app.audio
+    app.ym
+    app.domain
