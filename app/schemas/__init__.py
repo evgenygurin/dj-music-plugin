@@ -18,11 +18,11 @@ schemas, and were moved out of this module to keep concerns separated.
 
 from __future__ import annotations
 
-from app.core.schemas.common import PaginatedResponse
-from app.core.schemas.playlist import PlaylistSummary
-from app.core.schemas.set import SetSummary
-from app.core.schemas.track import TrackBrief, TrackStandard
-from app.core.schemas.yandex import YMTrackSummary
+from app.schemas.common import PaginatedResponse
+from app.schemas.playlist import PlaylistSummary
+from app.schemas.set import SetSummary
+from app.schemas.track import TrackBrief, TrackStandard
+from app.schemas.yandex import YMTrackSummary
 
 __all__ = [
     "PaginatedResponse",

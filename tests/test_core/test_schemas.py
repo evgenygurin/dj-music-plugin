@@ -1,4 +1,4 @@
-from app.core.schemas import (
+from app.schemas import (
     PaginatedResponse,
     PlaylistSummary,
     SetSummary,

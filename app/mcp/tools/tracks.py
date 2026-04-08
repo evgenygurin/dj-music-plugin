@@ -14,7 +14,6 @@ from fastmcp.dependencies import Depends
 from fastmcp.exceptions import ToolError
 from fastmcp.tools import tool
 
-from app.core.schemas import PaginatedResponse, TrackBrief, TrackStandard
 from app.core.utils.parsing import ensure_dict
 from app.db.repositories.feature import FeatureRepository
 from app.mcp.dependencies import get_feature_repo, get_track_service
@@ -25,6 +24,7 @@ from app.mcp.tools._shared import (
     map_domain_errors,
     resolve_track_id,
 )
+from app.schemas import PaginatedResponse, TrackBrief, TrackStandard
 from app.services.track_service import TrackService
 
 _TRACK_ACTIONS = frozenset({"create", "update", "archive", "unarchive"})

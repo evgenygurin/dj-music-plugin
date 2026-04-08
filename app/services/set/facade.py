@@ -5,7 +5,6 @@ from __future__ import annotations
 from typing import Any
 
 from app.core.errors import ValidationError
-from app.core.schemas import SetSummary
 from app.core.utils.pagination import CursorPage
 from app.db.models.set import DjSet, SetConstraint, SetFeedback, SetItem, SetVersion
 from app.db.repositories.feature import FeatureRepository
@@ -13,6 +12,7 @@ from app.db.repositories.playlist import PlaylistRepository
 from app.db.repositories.set import SetRepository
 from app.db.repositories.track import TrackRepository
 from app.db.repositories.transition import TransitionRepository
+from app.schemas import SetSummary
 from app.services.set.builder import SetBuilderService
 from app.services.set.cheatsheet import SetCheatSheetService
 from app.services.set.crud import SetCrudService
@@ -212,7 +212,7 @@ class SetService:
                     latest_score=latest.quality_score if latest else None,
                 ).model_dump()
             )
-        from app.core.schemas import PaginatedResponse
+        from app.schemas import PaginatedResponse
 
         return PaginatedResponse[SetSummary](
             items=items, next_cursor=page.next_cursor, total=page.total

@@ -6,10 +6,10 @@ Framework-agnostic: no MCP/FastMCP imports.
 from __future__ import annotations
 
 from app.core.errors import NotFoundError, ValidationError
-from app.core.schemas import PlaylistSummary
 from app.core.utils.pagination import CursorPage
 from app.db.models.playlist import Playlist
 from app.db.repositories.playlist import PlaylistRepository
+from app.schemas import PlaylistSummary
 
 
 class PlaylistService:

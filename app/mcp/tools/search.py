@@ -12,7 +12,6 @@ from fastmcp.exceptions import ToolError
 from fastmcp.server.context import Context
 from fastmcp.tools import tool
 
-from app.core.schemas import PaginatedResponse, TrackBrief
 from app.db.repositories.feature import FeatureRepository
 from app.mcp.dependencies import (
     get_feature_repo,
@@ -24,6 +23,7 @@ from app.mcp.tools._shared import (
     ToolCategory,
     map_domain_errors,
 )
+from app.schemas import PaginatedResponse, TrackBrief
 from app.services.search_service import SearchService
 from app.services.track_service import TrackService
 

@@ -2,7 +2,7 @@
 
 Only models that exist *solely* to shape MCP tool output live here. Shared
 domain DTOs (``TrackBrief``, ``PlaylistSummary`` etc.) live in
-:mod:`app.core.schemas` because services consume them as return types.
+:mod:`app.schemas` because services consume them as return types.
 
 Currently exposes:
 - ``SearchQuery``, ``SimilarTrackSearchStrategy`` — LLM sampling structured output
