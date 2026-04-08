@@ -204,7 +204,7 @@ commands/build-set.md, commands/curate-library.md, commands/deliver-set.md, comm
 2. Дополнительно проверь:
    - Дублирует ли какой-нибудь подкаталоговый CLAUDE.md содержимое корневого
    - Корректны ли все @import-ы (ссылки на существующие файлы)
-   - Соответствует ли список tools в docs/tool-catalog.md актуальному коду (Glob app/mcp/tools/**/*.py и сравни)
+   - Соответствует ли список tools в docs/tool-catalog.md актуальному коду (Glob app/controllers/tools/**/*.py и сравни)
    - Есть ли упоминания удалённых фич (например supabase MCP server vs db MCP server — переименование)
    - .claude/rules/ файлы все ли актуальны, нет ли мёртвых
 3. Settings.json: проверь что enabledPlugins не содержит несуществующих, hooks не дублируют plugin hooks.
@@ -236,7 +236,7 @@ Smoke-тест плагина dj-music-plugin как целого (cwd: /Users/l
    - какие docs ссылаются на какие файлы
 4. Проверь broken references:
    - все @import пути существуют
-   - все MCP tool имена в skills/commands соответствуют реальным tools (grep по app/mcp/tools/**/*.py)
+   - все MCP tool имена в skills/commands соответствуют реальным tools (grep по app/controllers/tools/**/*.py)
    - все упоминания scripts/* и .claude/hooks/* указывают на существующие файлы
    - все ссылки в README.md и CHANGELOG.md живые
 5. Проверь .env.example содержит ВСЕ переменные, которые упоминаются в коде/конфигах (DJ_*, SUPABASE_*, NEXT_PUBLIC_*).
@@ -264,7 +264,7 @@ Smoke-тест плагина dj-music-plugin как целого (cwd: /Users/l
 Проблема:
 - Сейчас клиент часто видит бесполезные сообщения вида `Error calling tool 'get_track'` без причины, без поля, без подсказки.
 - Это происходит когда FastMCP с `mask_error_details=True` оборачивает любое неизвестное исключение в generic ToolError.
-- В app/mcp/tools/_shared/errors.py уже есть слой трансляции domain → MCP errors (NotFoundError → fastmcp.NotFoundError, ValidationError → ValueError, ConflictError → ToolError "Conflict:"), но применяется не везде через @map_domain_errors / domain_errors_as_tool_error.
+- В app/controllers/tools/_shared/errors.py уже есть слой трансляции domain → MCP errors (NotFoundError → fastmcp.NotFoundError, ValidationError → ValueError, ConflictError → ToolError "Conflict:"), но применяется не везде через @map_domain_errors / domain_errors_as_tool_error.
 - Также многие tools кидают сырые exceptions из app.core.errors без перевода, либо ловят и возвращают error-dict вместо raise.
 
 Цель:
@@ -277,8 +277,8 @@ Smoke-тест плагина dj-music-plugin как целого (cwd: /Users/l
 Задачи:
 1. Прочитай:
    - app/core/errors.py (типы доменных ошибок)
-   - app/mcp/tools/_shared/errors.py (текущий маппинг)
-   - 5-7 представительных tools: app/mcp/tools/tracks.py, playlists.py, sets/crud.py, search.py, sets/sets.py, run_tool.py, yandex/playlists.py
+   - app/controllers/tools/_shared/errors.py (текущий маппинг)
+   - 5-7 представительных tools: app/controllers/tools/tracks.py, playlists.py, sets/crud.py, search.py, sets/sets.py, run_tool.py, yandex/playlists.py
    - app/server.py / fastmcp.json (mask_error_details setting)
 2. Изучи как правильно писать ошибки:
    - Официальная FastMCP дока: https://gofastmcp.com/servers/tools — раздел Error Handling. Используй WebFetch.
@@ -295,7 +295,7 @@ Smoke-тест плагина dj-music-plugin как целого (cwd: /Users/l
    - ConflictError содержит сущность + причину + suggestion ("Set version 5 already exists; use force=True to overwrite or version_label='5b'")
    - Unexpected exceptions: log full trace + raise ToolError с короткой версией + request_id
 5. Реализация:
-   - Расширь app/mcp/tools/_shared/errors.py: добавь helper-функции `not_found(entity, ref)`, `invalid_param(field, value, expected)`, `conflict(entity, reason, suggestion=None)` чтобы единообразно формировать сообщения
+   - Расширь app/controllers/tools/_shared/errors.py: добавь helper-функции `not_found(entity, ref)`, `invalid_param(field, value, expected)`, `conflict(entity, reason, suggestion=None)` чтобы единообразно формировать сообщения
    - Применить @map_domain_errors ко всем tools где его нет
    - Заменить hardcoded строки ошибок на helpers
    - Доменные сервисы (app/services/*) — убедись что они raise с осмысленным message, не сырое `raise NotFoundError()`
@@ -338,8 +338,8 @@ Granularity:
 - Panel: Next.js 16 + Bun + shadcn/ui (Base UI + Tailwind v4) + Recharts + TanStack Table + @tabler/icons-react. Cyberpunk dark theme.
 - Два независимых канала данных:
   1. READ path: Page (server component) → lib/queries/*.ts → Supabase PostgreSQL (direct SQL, no ORM, anon key, RLS disabled)
-  2. WRITE/MUTATION path: User action → Server action (actions/*.ts) → lib/mcp-client.ts → HTTP POST на REST API (serve_http.py:8000) → mcp.call_tool() → FastMCP server → DB
-- REST API: serve_http.py — тонкая FastAPI обёртка, НЕ дублирует business logic, только проксирует mcp.call_tool(). Endpoints: /api/health, /api/tools, /api/tools/{name}, /api/tools/{name}/schema, /api/tools/{name}/call, /mcp (native StreamableHTTP).
+  2. WRITE/MUTATION path: User action → Server action (actions/*.ts) → lib/mcp-client.ts → HTTP POST на REST API (app/api/server.py:8000) → mcp.call_tool() → FastMCP server → DB
+- REST API: app/api/server.py — тонкая FastAPI обёртка, НЕ дублирует business logic, только проксирует mcp.call_tool(). Endpoints: /api/health, /api/tools, /api/tools/{name}, /api/tools/{name}/schema, /api/tools/{name}/call, /mcp (native StreamableHTTP).
 - MCP: 50 tools (46 visible + 4 atomic hidden), namespace через FastMCP, FileSystemProvider auto-discovery.
 - Env vars: NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY, MCP_HTTP_URL (default http://localhost:8000).
 - Pages: /, /library, /library/[id], /playlists, /playlists/[id], /sets, /sets/[id], /discover.
@@ -357,7 +357,7 @@ Granularity:
 Задачи (по фазам):
 
 ### Фаза 0: Аудит (только чтение)
-1. Прочитай: panel/package.json, panel/next.config.ts, panel/tsconfig.json, panel/tailwind.config.ts, panel/components.json, .env.example, serve_http.py, app/server.py, app/mcp/tools/_shared/dispatch.py.
+1. Прочитай: panel/package.json, panel/next.config.ts, panel/tsconfig.json, panel/tailwind.config.ts, panel/components.json, .env.example, app/api/server.py, app/server.py, app/controllers/tools/_shared/dispatch.py.
 2. Изучи структуру: panel/app/, panel/lib/, panel/components/, panel/actions/.
 3. Изучи https://nextjs.org/docs/app/building-your-application/data-fetching (Server Components, Server Actions, revalidation), https://supabase.com/docs/guides/auth/server-side/nextjs, https://gofastmcp.com/clients/python (MCP HTTP client).
 4. Построй карту: страница → query → таблицы Supabase | страница → action → MCP tool.
@@ -413,7 +413,7 @@ Granularity:
 - НЕ ломать существующие routes — все page paths остаются такими же
 - НЕ менять схему Supabase — только читаешь
 - НЕ устанавливать heavy deps без необходимости (проверь что уже есть в package.json)
-- НЕ трогать backend (app/*, serve_http.py) — только если найдёшь баг в REST API, открой отдельный issue
+- НЕ трогать backend (app/*, app/api/server.py) — только если найдёшь баг в REST API, открой отдельный issue
 
 Зависимости от других агентов:
 - Лучше запускать ПОСЛЕ агента #9 (errors) — тогда mcp-client сможет парсить осмысленные ошибки

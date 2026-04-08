@@ -1,13 +1,13 @@
 ---
-description: REST API wrapper patterns (serve_http.py)
-globs: serve_http.py
+description: REST API wrapper patterns (app/api/server.py)
+globs: app/api/server.py
 ---
 
 # REST API (FastAPI Wrapper)
 
-- `serve_http.py` is a thin wrapper exposing MCP tools over HTTP — **never duplicate business logic here**
+- `app/api/server.py` is a thin wrapper exposing MCP tools over HTTP — **never duplicate business logic here**
 - All business logic lives in MCP tools/services. REST API only proxies `mcp.call_tool()`
-- Run: `uv run --extra http uvicorn serve_http:api --host 0.0.0.0 --port 8000 --reload`
+- Run: `uv run --extra http uvicorn app.api.server:api --host 0.0.0.0 --port 8000 --reload`
 
 ## Endpoints
 

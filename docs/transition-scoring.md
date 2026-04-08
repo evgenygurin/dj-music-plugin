@@ -8,7 +8,7 @@
 ## Module Layout
 
 ```text
-app/domain/transition/
+app/transition/
 ├── __init__.py            (public re-exports)
 ├── math_helpers.py        (bpm_distance, cosine_similarity, correlation)
 ├── weights.py             (ALL magic numbers + StyleRules dataclass +
@@ -36,7 +36,7 @@ score = w_bpm * S_bpm + w_harmonic * S_harmonic + w_energy * S_energy
       + w_spectral * S_spectral + w_groove * S_groove + w_timbral * S_timbral
 ```
 
-Default weights (single source of truth: `app/core/constants.py:DEFAULT_TRANSITION_WEIGHTS`, re-exported as `app/domain/transition/weights.py:DEFAULT_WEIGHTS`):
+Default weights (single source of truth: `app/core/constants.py:DEFAULT_TRANSITION_WEIGHTS`, re-exported as `app/transition/weights.py:DEFAULT_WEIGHTS`):
 
 | Component | Weight | Was | Purpose |
 |-----------|--------|-----|---------|
@@ -51,7 +51,7 @@ Total = 1.00. Rebalance rationale: Kim et al. ISMIR 2020 found MFCC similarity t
 
 ## Hard Constraints
 
-If ANY violated → `TransitionScore(hard_reject=True, overall=0.0, reject_reason=...)`. The gate is `app/domain/transition/hard_constraints.py:check_hard_constraints` (standalone function).
+If ANY violated → `TransitionScore(hard_reject=True, overall=0.0, reject_reason=...)`. The gate is `app/transition/hard_constraints.py:check_hard_constraints` (standalone function).
 
 | Constraint | Threshold | Config |
 |-----------|-----------|--------|
@@ -203,7 +203,7 @@ Compatible transitions (distance ≤ 1):
 
 ## Style Recommendation
 
-`app/domain/transition/style.py:recommend_style(score, *, rules=DEFAULT_STYLE_RULES)`. Pure function on a `TransitionScore` (works on synthetic scores reconstructed from persisted DB rows — used by `app/services/set/scoring.py`).
+`app/transition/style.py:recommend_style(score, *, rules=DEFAULT_STYLE_RULES)`. Pure function on a `TransitionScore` (works on synthetic scores reconstructed from persisted DB rows — used by `app/services/set/scoring.py`).
 
 Decision tree (default `StyleRules` thresholds in parentheses):
 
@@ -220,7 +220,7 @@ Decision tree (default `StyleRules` thresholds in parentheses):
 `StyleRules` is a frozen dataclass — pass a custom instance to override per-template:
 
 ```python
-from app.domain.transition.weights import StyleRules
+from app.transition.weights import StyleRules
 strict = StyleRules(spectral_collision_cutoff=0.55, harmonic_drift_cutoff=0.65)
 recommend_style(score, rules=strict)
 ```
@@ -238,7 +238,7 @@ features_map = await feat_repo.get_scoring_features_batch(track_ids)
 feat = features_map.get(tid, TrackFeatures())
 ```
 
-Both methods live in `app/repositories/feature.py`.
+Both methods live in `app/db/repositories/feature.py`.
 
 ## Transition Cache
 

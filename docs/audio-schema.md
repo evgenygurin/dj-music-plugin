@@ -1,7 +1,7 @@
 # Audio DB Schema — Core Tables Overview
 
 > Короткий обзор "что у нас есть по аудио" в БД, без расширенных P1/P2 фич.
-> Для полной справки по features см. `app/models/audio.py` и
+> Для полной справки по features см. `app/db/models/audio.py` и
 > `docs/domain-glossary.md`.
 
 ## Наглядно — покрытие данными

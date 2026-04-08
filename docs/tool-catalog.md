@@ -100,7 +100,7 @@ Quick reference for all 50 tools (46 visible + 4 atomic hidden).
 
 ### YM API (6 tools, tag: `ym`, package: `yandex/`)
 
-Each YM tool lives in its own submodule under `app/mcp/tools/yandex/`:
+Each YM tool lives in its own submodule under `app/controllers/tools/yandex/`:
 
 | Tool | File | Params | RO |
 |------|------|--------|-----|

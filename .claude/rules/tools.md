@@ -1,12 +1,12 @@
 ---
 description: MCP tool implementation patterns (FastMCP v3)
-globs: app/mcp/tools/**/*.py
+globs: app/controllers/tools/**/*.py
 ---
 
 # MCP Tools
 
 - Use standalone `@tool` decorator from `fastmcp` (FileSystemProvider auto-discovers, scans subpackages recursively)
-- **Tag and annotation constants**: import from `app.mcp.tools._shared` — never hardcode literals
+- **Tag and annotation constants**: import from `app.controllers.tools._shared` — never hardcode literals
   - `tags={ToolCategory.CORE.value}` (StrEnum, no magic strings)
   - `annotations=ANNOTATIONS_READ_ONLY` / `ANNOTATIONS_WRITE` / `ANNOTATIONS_READ_ONLY_OPEN_WORLD`
   - `timeout=ToolTimeout.MEDIUM | HEAVY | BATCH`
@@ -20,7 +20,7 @@ globs: app/mcp/tools/**/*.py
 - Never import repositories directly — use services via `Depends`
 - Never call `session.commit()` — DI handles transaction lifecycle
 - **No lazy imports inside function bodies** — hoist to module top. Lazy import = code smell.
-- YM tools live in `app/mcp/tools/yandex/` (one file per entity), not in a flat `ym.py`
+- YM tools live in `app/controllers/tools/yandex/` (one file per entity), not in a flat `ym.py`
 
 ## Gotchas
 
