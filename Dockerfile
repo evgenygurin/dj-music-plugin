@@ -2,7 +2,7 @@
 #
 # Two-stage build:
 #   1. builder — installs uv + project dependencies into a venv at /app/.venv
-#   2. runtime — copies the venv + source, runs uvicorn against serve_http:api
+#   2. runtime — copies the venv + source, runs uvicorn against app.api.server:api
 #
 # Skipped extras: stems (demucs/torch ~2GB), postgres (pgvector — Supabase
 # already provides it server-side), otel (only needed if Sentry/OTEL set).
@@ -43,7 +43,7 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 
 # Now install the project itself (re-runs on app code changes only)
 COPY app ./app
-COPY serve_http.py ./
+COPY app/api/server.py ./
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --frozen --extra http --extra audio
 
@@ -72,7 +72,7 @@ EXPOSE 8080
 
 # uvicorn directly — no `uv run` wrapper since the venv is already activated
 # via PATH. --proxy-headers is required because Fly's edge terminates TLS.
-CMD ["uvicorn", "serve_http:api", \
+CMD ["uvicorn", "app.api.server:api", \
      "--host", "0.0.0.0", \
      "--port", "8080", \
      "--proxy-headers", \

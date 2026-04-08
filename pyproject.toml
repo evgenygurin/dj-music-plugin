@@ -52,6 +52,7 @@ ignore = [
 "app/ym/**" = ["E501"]  # long URLs and API paths
 "app/services/**" = ["E501"]  # long f-strings in error messages
 "app/controllers/tools/**" = ["E501"]  # tool descriptions and f-strings
+"app/api/**" = ["E501", "RUF001", "RUF002", "B008"]  # Swagger examples + multilingual docs + FastAPI Query/Body defaults
 "tests/**" = ["E501", "RUF012"]  # test assertions can be long, mock classes OK
 
 [tool.ruff.lint.isort]
