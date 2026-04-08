@@ -1,5 +1,7 @@
 'use client'
 
+import { useEffect } from 'react'
+
 import {
   AudioPlayerProvider,
   useAudioPlayer,
@@ -30,6 +32,17 @@ export function usePlayer(): PlayerApi {
   const audio = useAudioPlayer()
   const set = useSetSession()
   const { level, promote, collapse, jumpTo } = usePlayerInteractionLevel()
+
+  // Auto-promote: as soon as a track is loaded into the audio player,
+  // make sure the bar layer is at least 1. Without this, clicking ▶ on
+  // a library row sets `audio.current` but the Layer 1 mini bar's gate
+  // (`if (layer !== 1) return null`) keeps it hidden.
+  useEffect(() => {
+    if (audio.current !== null && level === 0) {
+      jumpTo(1)
+    }
+  }, [audio.current, level, jumpTo])
+
   return {
     audio,
     set,
