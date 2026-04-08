@@ -801,26 +801,98 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
           setOutgoingFadePlaybackRate(active.audio.playbackRate || 1)
           setIncomingFadePlaybackRate(ratio)
 
-          // Equal-power crossfade — `cos(t·π/2)` for the outgoing deck and
-          // `sin(t·π/2)` for the incoming deck. Linear ramps drop the
-          // perceived loudness by ~3 dB at the midpoint; equal-power keeps
-          // total power constant across the fade. We sample 64 points;
-          // setValueCurveAtTime interpolates linearly between samples,
-          // which is more than enough for a fade lasting seconds.
-          const N = 64
-          const fadeOut = new Float32Array(N)
-          const fadeIn = new Float32Array(N)
-          for (let i = 0; i < N; i++) {
-            const x = i / (N - 1)
-            fadeOut[i] = Math.cos((x * Math.PI) / 2) * vol
-            fadeIn[i] = Math.sin((x * Math.PI) / 2) * vol
-          }
+          // ── Transition-style dispatcher ───────────────────────
+          //
+          // Four canonical DJ transition types. The backend scorer
+          // (score_transitions) recommends one of six styles; we
+          // fold them down to four implementations and dispatch:
+          //
+          //   backend style     → runtime style
+          //   ─────────────────   ─────────────
+          //   'cut'              → CUT       (drum cut, hard on downbeat)
+          //   'bass_swap_short'  → SWAP      (drum swap, LR4 kick kill)
+          //   'bass_swap_long'   → SWAP
+          //   'long_blend'       → HARMONIC  (key-matched long blend)
+          //   'echo_out'         → SWAP      (advanced — defer)
+          //   'filter_sweep'     → SWAP      (advanced — defer)
+          //    null              → FADE      (safe default when no rec)
+          //
+          // All four share: downbeat alignment, LUFS normalisation,
+          // master limiter. They differ in:
+          //
+          //   CUT:      hard cut. 50 ms linear fade-out on outgoing,
+          //             instant snap-in of incoming. No overlap. No
+          //             bass kill. `cf` collapses to 0.05 s.
+          //
+          //   SWAP:     equal-power cos/sin gain curves over `cf`
+          //             + LR4 dry/wet bass-kick kill around tSwap.
+          //             This is the standard techno bass swap.
+          //
+          //   HARMONIC: equal-power cos/sin gain curves over `cf`,
+          //             NO dry/wet manipulation. Both kicks play
+          //             through — relies on key compatibility for
+          //             a clean tonal blend.
+          //
+          //   FADE:     LINEAR gain crossfade over `cf`, no bass kill.
+          //             Plain fade — used as a safe default when the
+          //             backend has no recommendation.
+          const recommendedStyle: string | null | undefined = styleResult?.recommendedStyle
+          type RuntimeStyle = 'cut' | 'swap' | 'harmonic' | 'fade'
+          const resolvedStyle: RuntimeStyle = ((): RuntimeStyle => {
+            switch (recommendedStyle) {
+              case 'cut':
+                return 'cut'
+              case 'bass_swap_short':
+              case 'bass_swap_long':
+              case 'echo_out':
+              case 'filter_sweep':
+                return 'swap'
+              case 'long_blend':
+                return 'harmonic'
+              default:
+                return 'fade'
+            }
+          })()
+
+          // Effective fade duration — CUT collapses to 50 ms.
+          const CUT_FADE_SEC = 0.05
+          const effectiveFadeSec = resolvedStyle === 'cut' ? CUT_FADE_SEC : cf
+
+          // Dispatch the gain envelope.
           active.gain.gain.cancelScheduledValues(t0)
           active.gain.gain.setValueAtTime(active.gain.gain.value, t0)
-          active.gain.gain.setValueCurveAtTime(fadeOut, t0, cf)
           inactive.gain.gain.cancelScheduledValues(t0)
           inactive.gain.gain.setValueAtTime(0, t0)
-          inactive.gain.gain.setValueCurveAtTime(fadeIn, t0, cf)
+
+          if (resolvedStyle === 'cut') {
+            // Drum cut: 50 ms linear fade on outgoing, instant snap
+            // on incoming. On the bar, just like a DJ hitting the
+            // fader. No overlap, no equal-power curve needed.
+            active.gain.gain.linearRampToValueAtTime(0, t0 + CUT_FADE_SEC)
+            inactive.gain.gain.setValueAtTime(vol, t0)
+          } else {
+            // SWAP / HARMONIC → equal-power cos/sin.
+            // FADE → linear.
+            const N = 64
+            const fadeOut = new Float32Array(N)
+            const fadeIn = new Float32Array(N)
+            if (resolvedStyle === 'fade') {
+              for (let i = 0; i < N; i++) {
+                const x = i / (N - 1)
+                fadeOut[i] = (1 - x) * vol
+                fadeIn[i] = x * vol
+              }
+            } else {
+              // swap + harmonic: equal-power
+              for (let i = 0; i < N; i++) {
+                const x = i / (N - 1)
+                fadeOut[i] = Math.cos((x * Math.PI) / 2) * vol
+                fadeIn[i] = Math.sin((x * Math.PI) / 2) * vol
+              }
+            }
+            active.gain.gain.setValueCurveAtTime(fadeOut, t0, cf)
+            inactive.gain.gain.setValueCurveAtTime(fadeIn, t0, cf)
+          }
 
           // ── LUFS normalization — attenuate-only ───────────────
           //
@@ -868,16 +940,13 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
             // ignore
           }
 
-          // ── Adaptive dry/wet bass kill swap ───────────────────
+          // ── Bass kick kill (SWAP style only) ──────────────────
           //
-          // Instead of ramping an EQ band's dB gain (which a biquad
-          // can't physically do below ~12 dB/oct — kick attack
-          // transients slip through anything less than 24 dB/oct),
-          // we crossfade between the deck's dry path and its
-          // Linkwitz-Riley 4th-order highpass path. `full dry` =
-          // kick intact. `full wet` = kick fully killed. The swap is
-          // the simultaneous crossfade of BOTH decks in opposite
-          // directions.
+          // CUT / HARMONIC / FADE skip the dry/wet manipulation
+          // entirely — they leave `dryGain = 1.0` and `wetGain = 0.0`
+          // on both decks, so each track plays through the full-
+          // spectrum path. Only the SWAP style engages the LR4
+          // highpass cross-ramp to duck kicks.
           //
           // Adaptive parameters pulled from track metadata:
           //
@@ -897,6 +966,8 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
           //    sounds more organic for ambient / minimal material).
           const outBarForSwap = outgoingBpm ? 240 / outgoingBpm : 1.88
           const cfBars = cf / outBarForSwap
+
+          if (resolvedStyle === 'swap') {
 
           const avgHpRatio = (() => {
             const a = currentMetaRef.current?.hpRatio
@@ -982,6 +1053,8 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
           scheduleSwap(active.wetGain, tSwapStart, outWetCurve, swapDur)
           scheduleSwap(inactive.dryGain, tSwapStart, inDryCurve, swapDur)
           scheduleSwap(inactive.wetGain, tSwapStart, inWetCurve, swapDur)
+          }
+          // ── end of `if (resolvedStyle === 'swap')` ─────────────
 
           fadeTimeoutRef.current = setTimeout(() => {
             // Reset filters on the freed deck so it's neutral next time.
@@ -1043,8 +1116,10 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
             }
             // Include the downbeat-alignment delay — fade starts at
             // delaySec into the future, so the finaliser must wait
-            // (delaySec + cf) wall-seconds for the curves to finish.
-          }, (delaySec + cf) * 1000 + 50)
+            // (delaySec + effectiveFadeSec) wall-seconds for the
+            // curves to finish. effectiveFadeSec collapses to 50 ms
+            // for CUT-style transitions so we free the deck promptly.
+          }, (delaySec + effectiveFadeSec) * 1000 + 50)
         })
         .catch((err: DOMException) => {
           fadingRef.current = false
