@@ -89,11 +89,13 @@ export function TransitionVisualizer() {
   const incomingPos =
     incomingFadeStartPosition != null ? incomingFadeStartPosition + elapsed * inRate : 0
 
-  // Bass-swap is linear over the FIRST half of the fade (active.low
-  // 0dB → -40dB by midpoint, inactive.low -40dB → 0dB by midpoint).
-  const halfP = Math.min(1, progress * 2)
-  const bassOut = 1 - halfP // 1 → 0
-  const bassIn = halfP // 0 → 1
+  // Bass-swap is now a HARD step at the midpoint (the audio engine
+  // does a 20 ms ramp on a downbeat; the visualizer shows this as a
+  // step function). Until progress=0.5: outgoing has full bass,
+  // incoming is muted. After progress=0.5: swap — outgoing killed,
+  // incoming full.
+  const bassOut = progress < 0.5 ? 1 : 0
+  const bassIn = progress < 0.5 ? 0 : 1
 
   return (
     <div
