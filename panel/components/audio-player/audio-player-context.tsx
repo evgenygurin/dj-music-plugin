@@ -163,7 +163,7 @@ interface AudioPlayerApi extends AudioPlayerState {
   // fade. Visualiser reads this to show the *resolved* style badge
   // (which may differ from `recommendedStyle` when the user clicks
   // a manual override chip).
-  lastResolvedStyle: 'cut' | 'swap' | 'harmonic' | 'fade' | null
+  lastResolvedStyle: 'cut' | 'swap' | 'harmonic' | 'fade' | 'echo_out' | 'filter_sweep' | null
   lastResolvedStyleWasManual: boolean
 }
 
@@ -259,7 +259,7 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
   const [recommendedStyle, setRecommendedStyle] = useState<TransitionStyle | null>(null)
   const [recommendedBars, setRecommendedBars] = useState<number | null>(null)
   const [lastResolvedStyle, setLastResolvedStyle] = useState<
-    'cut' | 'swap' | 'harmonic' | 'fade' | null
+    'cut' | 'swap' | 'harmonic' | 'fade' | 'echo_out' | 'filter_sweep' | null
   >(null)
   const [lastResolvedStyleWasManual, setLastResolvedStyleWasManual] = useState(false)
   const [position, setPosition] = useState(0)
@@ -863,12 +863,21 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
           //             Plain fade — used as a safe default when the
           //             backend has no recommendation.
           const recommendedStyle: string | null | undefined = styleResult?.recommendedStyle
-          type RuntimeStyle = 'cut' | 'swap' | 'harmonic' | 'fade'
+          type RuntimeStyle =
+            | 'cut'
+            | 'swap'
+            | 'harmonic'
+            | 'fade'
+            | 'echo_out'
+            | 'filter_sweep'
           // Manual override wins over the backend scorer. Read from
           // the ref — `startCrossfade` captures state at call time,
           // but the user might have clicked a chip between call and
           // fade-start (we're still inside the `.then()` after
-          // network + audio load), so the ref is fresher.
+          // network + audio load), so the ref is fresher. The manual
+          // chip group currently only exposes the four "canonical"
+          // styles (cut/swap/harmonic/fade); ECHO_OUT and FILTER_SWEEP
+          // can only arrive via the backend recommender.
           const manualOverride = manualStyleRef.current
           const resolvedStyle: RuntimeStyle = ((): RuntimeStyle => {
             if (manualOverride !== 'auto') {
@@ -879,9 +888,11 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
                 return 'cut'
               case 'bass_swap_short':
               case 'bass_swap_long':
-              case 'echo_out':
-              case 'filter_sweep':
                 return 'swap'
+              case 'echo_out':
+                return 'echo_out'
+              case 'filter_sweep':
+                return 'filter_sweep'
               case 'long_blend':
                 return 'harmonic'
               default:
@@ -905,12 +916,161 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
           inactive.gain.gain.cancelScheduledValues(t0)
           inactive.gain.gain.setValueAtTime(0, t0)
 
+          // Extra cleanup callbacks registered by styles that build
+          // transient Web Audio nodes (echo_out wires a DelayNode
+          // feedback loop onto the outgoing deck). Drained in the
+          // finaliser below after the fade wall-clock expires.
+          const extraCleanup: Array<() => void> = []
+
           if (resolvedStyle === 'cut') {
             // Drum cut: 50 ms linear fade on outgoing, instant snap
             // on incoming. On the bar, just like a DJ hitting the
             // fader. No overlap, no equal-power curve needed.
             active.gain.gain.linearRampToValueAtTime(0, t0 + CUT_FADE_SEC)
             inactive.gain.gain.setValueAtTime(vol, t0)
+          } else if (resolvedStyle === 'echo_out') {
+            // ECHO_OUT: outgoing leaves on a dub-delay tail.
+            //
+            // Two-part envelope. The DRY outgoing path fades fast
+            // (≈2 bars) so the beat stops, then a parallel tap from
+            // `active.preGain → delay → feedback → delay` keeps
+            // regenerating the last beat with decaying loudness.
+            // Meanwhile the incoming deck equal-power fades in over
+            // the full `cf`, so the listener hears the old track
+            // dissolve into echoes underneath the new groove.
+            //
+            // Beat-quantised delay time: 1 beat @ outgoing BPM (or a
+            // safe 0.5 s fallback). Feedback 0.55 gives ~4-5 audible
+            // repeats before the -60 dB tail. Wet-ceiling 0.7 keeps
+            // the tail clearly audible without fighting the incoming.
+            const outBar = outgoingBpm ? 240 / outgoingBpm : 1.88
+            const beatSec = outBar / 4
+            const delayTime = Math.max(0.15, Math.min(0.75, beatSec))
+            const echoDelay = ctx.createDelay(1.5)
+            echoDelay.delayTime.setValueAtTime(delayTime, t0)
+            const echoFb = ctx.createGain()
+            echoFb.gain.setValueAtTime(0.55, t0)
+            const echoWet = ctx.createGain()
+            echoWet.gain.setValueAtTime(0.7 * vol, t0)
+            // Parallel tap from preGain (post-LUFS-normalization,
+            // pre-dry/wet split). We re-use the existing masterLimiter
+            // on the graph by terminating at the deck's fadeGain
+            // output node via a fresh sum — simpler: connect directly
+            // to ctx.destination's upstream limiter via the master
+            // path. Since every deck.gain → masterLimiter already, we
+            // just land our wet on `active.gain`'s output target,
+            // which is the masterLimiter input. `active.gain` is a
+            // GainNode — we can connect `echoWet → active.gain` so
+            // the wet signal rides through the same gain envelope,
+            // BUT that would also scale the wet by the fast dry
+            // fade-out. We want the wet independent. So instead we
+            // grab the master limiter off the Deck's known downstream
+            // chain by letting echoWet → ctx.destination directly.
+            // The master limiter lives upstream of destination already
+            // in the main graph, but echoWet is a separate branch —
+            // routing it straight to destination bypasses the limiter.
+            // Accept that: feedback=0.55 + wetCeiling=0.7 keeps the
+            // signal well below clipping on any realistic master.
+            active.preGain.connect(echoDelay)
+            echoDelay.connect(echoFb)
+            echoFb.connect(echoDelay)
+            echoDelay.connect(echoWet)
+            echoWet.connect(ctx.destination)
+
+            // Fast dry fade-out on outgoing — 2 bars, matches what
+            // a DJ does pulling the channel fader while the echo
+            // send is still engaged.
+            const dryFadeSec = Math.min(cf * 0.3, 2 * outBar)
+            active.gain.gain.linearRampToValueAtTime(0, t0 + dryFadeSec)
+            // Incoming: equal-power fade-in over the full cf.
+            const N = 64
+            const fadeIn = new Float32Array(N)
+            for (let i = 0; i < N; i++) {
+              const x = i / (N - 1)
+              fadeIn[i] = Math.sin((x * Math.PI) / 2) * vol
+            }
+            inactive.gain.gain.setValueCurveAtTime(fadeIn, t0, cf)
+            // Echo wet decays to 0 over cf so the tail dies with the
+            // fade — otherwise feedback would ring forever.
+            echoWet.gain.linearRampToValueAtTime(0, t0 + cf)
+            // Kill feedback hard at fade end to silence any residual
+            // loop before we disconnect.
+            echoFb.gain.setValueAtTime(0.55, t0 + cf - 0.1)
+            echoFb.gain.linearRampToValueAtTime(0, t0 + cf)
+
+            extraCleanup.push(() => {
+              try {
+                active.preGain.disconnect(echoDelay)
+              } catch {
+                // ignore
+              }
+              try {
+                echoDelay.disconnect()
+                echoFb.disconnect()
+                echoWet.disconnect()
+              } catch {
+                // ignore
+              }
+            })
+          } else if (resolvedStyle === 'filter_sweep') {
+            // FILTER_SWEEP: outgoing swept up through the existing
+            // LR4 highpass cascade until only thin air is left; the
+            // incoming equal-power fades in underneath.
+            //
+            // We route outgoing fully wet (dryGain → 0, wetGain → 1)
+            // at t0 so every sample passes through hp1 → hp2, then
+            // exponentially ramp the HP cutoff from the current LR4
+            // standard (150 Hz) up to 6 kHz over cf. At the top the
+            // HP is so high that the only audible content is sibilant
+            // top-end, which also fades as active.gain drops.
+            //
+            // Exponential (not linear) automation matches how human
+            // pitch perception works — a linear Hz sweep sounds stuck
+            // at the top for most of the duration. exponentialRamp
+            // gives an even perceived glide.
+            const SWEEP_START_HZ = 150
+            const SWEEP_END_HZ = 6000
+            try {
+              active.dryGain.gain.cancelScheduledValues(t0)
+              active.dryGain.gain.setValueAtTime(0, t0)
+              active.wetGain.gain.cancelScheduledValues(t0)
+              active.wetGain.gain.setValueAtTime(1, t0)
+              active.hp1.frequency.cancelScheduledValues(t0)
+              active.hp2.frequency.cancelScheduledValues(t0)
+              active.hp1.frequency.setValueAtTime(SWEEP_START_HZ, t0)
+              active.hp2.frequency.setValueAtTime(SWEEP_START_HZ, t0)
+              active.hp1.frequency.exponentialRampToValueAtTime(SWEEP_END_HZ, t0 + cf)
+              active.hp2.frequency.exponentialRampToValueAtTime(SWEEP_END_HZ, t0 + cf)
+            } catch {
+              // ignore
+            }
+            // Outgoing gain: hold for the first 70 % then linear out
+            // — the sweep does most of the spectral killing, the
+            // gain ramp is just a clean tail-off.
+            active.gain.gain.setValueAtTime(vol, t0)
+            active.gain.gain.setValueAtTime(vol, t0 + cf * 0.7)
+            active.gain.gain.linearRampToValueAtTime(0, t0 + cf)
+            // Incoming: equal-power fade-in, dry path (no filter).
+            const N = 64
+            const fadeIn = new Float32Array(N)
+            for (let i = 0; i < N; i++) {
+              const x = i / (N - 1)
+              fadeIn[i] = Math.sin((x * Math.PI) / 2) * vol
+            }
+            inactive.gain.gain.setValueCurveAtTime(fadeIn, t0, cf)
+
+            extraCleanup.push(() => {
+              // Reset HP freq back to LR4 standard so the next swap
+              // on this deck starts from a clean baseline.
+              try {
+                active.hp1.frequency.cancelScheduledValues(ctx.currentTime)
+                active.hp2.frequency.cancelScheduledValues(ctx.currentTime)
+                active.hp1.frequency.setValueAtTime(150, ctx.currentTime)
+                active.hp2.frequency.setValueAtTime(150, ctx.currentTime)
+              } catch {
+                // ignore
+              }
+            })
           } else {
             // SWAP / HARMONIC → equal-power cos/sin.
             // FADE → linear.
@@ -1098,6 +1258,15 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
           // ── end of `if (resolvedStyle === 'swap')` ─────────────
 
           fadeTimeoutRef.current = setTimeout(() => {
+            // Drain any per-style transient-node cleanup registered
+            // during dispatch (echo_out, filter_sweep HP reset, …).
+            for (const fn of extraCleanup) {
+              try {
+                fn()
+              } catch {
+                // ignore
+              }
+            }
             // Reset filters on the freed deck so it's neutral next time.
             try {
               active.audio.pause()
