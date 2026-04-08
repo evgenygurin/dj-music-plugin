@@ -1,4 +1,4 @@
-"""Invariant tests for app/domain/transition/weights.py.
+"""Invariant tests for app/transition/weights.py.
 
 Pure data file — these are sanity checks (sums, ranges, types) so that
 mistuning a constant fails CI before it ships.

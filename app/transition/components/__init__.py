@@ -2,7 +2,7 @@
 
 Each module exposes a single ``score_<component>`` pure function that
 takes two ``TrackFeatures`` and returns a float in [0, 1]. The
-orchestrator (``app/domain/transition/scorer.py``) calls them and
+orchestrator (``app/transition/scorer.py``) calls them and
 combines the results with weights from ``weights.py``.
 
 No I/O, no DB, no class state — these are leaf functions for the

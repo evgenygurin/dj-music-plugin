@@ -1,8 +1,8 @@
-# serve_http.py
+# app/api/server.py
 """FastAPI wrapper exposing FastMCP server over HTTP with Swagger/OpenAPI docs.
 
 Usage:
-    uv run --extra http uvicorn serve_http:api --host 0.0.0.0 --port 8000 --reload
+    uv run --extra http uvicorn app.api.server:api --host 0.0.0.0 --port 8000 --reload
 
 Swagger UI: http://localhost:8000/docs
 ReDoc: http://localhost:8000/redoc
@@ -397,7 +397,7 @@ def health() -> dict[str, str | int | bool]:
 
 # Tag query param uses Literal of all real ToolCategory values so Swagger UI
 # renders a dropdown instead of a free-form text field. Keeping this in sync
-# with ToolCategory is mechanical: extend the enum in app/mcp/tools/_shared
+# with ToolCategory is mechanical: extend the enum in app/controllers/tools/_shared
 # and the Literal updates here on next reload.
 _ToolCategoryLiteral = Literal[
     "core",

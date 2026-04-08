@@ -22,7 +22,7 @@ tools: ["Read", "Grep", "Glob", "Bash", "mcp__plugin_dj-music_mcp__*"]
 |---|---|---|
 | `scripts/ym_bfs_expand.py` | `/tmp/ym-bfs-expand.log` | BFS-экспансия YM плейлиста через `/similar` рекомендации до target count |
 | `scripts/vm_import_and_analyze.py` | `/tmp/ym-l5-analyze.log` | Continuous import + tiered L1→L5 анализ по YM плейлистам |
-| `serve_http:api` (uvicorn) | `/tmp/dj-rest-api.log` | REST wrapper для панели, порт 8000 |
+| `app.api.server:api` (uvicorn) | `/tmp/dj-rest-api.log` | REST wrapper для панели, порт 8000 |
 | `bun dev` (Next.js panel) | stdout | Панель на порту 3000 |
 
 Как искать: `ps aux | grep -E "ym_bfs_expand|vm_import_and_analyze|serve_http|uvicorn|bun dev"` + `lsof -i :8000 -i :3000`.

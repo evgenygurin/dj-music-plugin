@@ -193,7 +193,7 @@ KEY_CODE_MAX: int = 23
 # Transition scoring weights (default, overridable per-template).
 # Rebalanced from research §4.4 (Kim ISMIR 2020): MFCC #1, key
 # overrated, structural / groove undervalued. Sums to 1.0.
-# Re-exported from ``app/domain/transition/weights.py:DEFAULT_WEIGHTS``
+# Re-exported from ``app/transition/weights.py:DEFAULT_WEIGHTS``
 # for the domain layer; this dict is the single source of truth.
 DEFAULT_TRANSITION_WEIGHTS: dict[str, float] = {
     "bpm": 0.20,  # was 0.22

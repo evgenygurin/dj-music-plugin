@@ -6,7 +6,7 @@ score reconstructed from a persisted DB row (see
 ``app/services/set/scoring.py``) without rebuilding the scorer.
 
 The decision tree thresholds live in a ``StyleRules`` dataclass
-(``app/domain/transition/weights.py``) so future per-template overrides
+(``app/transition/weights.py``) so future per-template overrides
 can swap them without touching this module.
 
 Decision tree (in priority order):

@@ -1,7 +1,7 @@
 """Transition scoring engine — orchestrator for the 6-component formula.
 
 Pure domain logic: no I/O, no DB, no async. The actual scoring lives in
-``app/domain/transition/components/`` (one pure function per component);
+``app/transition/components/`` (one pure function per component);
 this file only checks hard constraints, dispatches to the components,
 and combines the results with weights.
 
@@ -152,7 +152,7 @@ class TransitionScorer:
         )
 
 
-# recommend_style and style_profile live in app/domain/transition/style.py
+# recommend_style and style_profile live in app/transition/style.py
 # and are re-exported above so existing
 # `from app.transition.scorer import recommend_style` calls
 # remain valid.

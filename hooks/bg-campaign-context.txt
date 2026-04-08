@@ -5,7 +5,7 @@ DJ Music Plugin — активная BG-кампания.
   Цель: YM плейлист "Techno 2 Mega Boost" (kind=1355, owner=250905515) до 20000 треков.
 - L5 analyzer: scripts/vm_import_and_analyze.py → /tmp/ym-l5-analyze.log
   Цель: continuous tiered analysis (L5, 18 анализаторов) новых треков из того же плейлиста.
-- REST API на :8000 (uvicorn serve_http:api).
+- REST API на :8000 (uvicorn app.api.server:api).
 
 АГЕНТЫ (.claude/agents/):
 - bg-jobs-watcher — executor: статус, рестарт, триаж логов фоновых jobs.

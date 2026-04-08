@@ -1,7 +1,7 @@
 ---
 name: panel-doctor
 description: |
-  Use this agent to diagnose and fix issues in the Next.js panel (`panel/`) — hydration mismatches, SSR/client boundary bugs, Supabase query failures, REST API wiring to MCP server (`serve_http.py`), server actions that call `mcpCall()`, shadcn/ui composition, Tailwind v4 theming, and data-flow problems between Supabase direct reads and MCP mutations. This is the triage agent for the panel's most brittle layer.
+  Use this agent to diagnose and fix issues in the Next.js panel (`panel/`) — hydration mismatches, SSR/client boundary bugs, Supabase query failures, REST API wiring to MCP server (`app/api/server.py`), server actions that call `mcpCall()`, shadcn/ui composition, Tailwind v4 theming, and data-flow problems between Supabase direct reads and MCP mutations. This is the triage agent for the panel's most brittle layer.
 
   <example>Context: user sees a hydration error in the browser console. user: "hydration failed в library" assistant: "I'll use the panel-doctor agent to locate and fix the hydration mismatch."</example>
   <example>Context: panel shows ECONNREFUSED on API routes. user: "audio route 500" assistant: "I'll use the panel-doctor agent to check if the REST API is up and trace the request chain."</example>
@@ -27,7 +27,7 @@ tools: ["Read", "Grep", "Glob", "Edit", "Write", "Bash", "mcp__plugin_dj-music_m
 | Theme | next-themes class-based dark | Geist sans+mono local в `app/fonts/` |
 | Reads | Supabase PostgreSQL **direct** | `lib/supabase/server.ts` → `createClient()` |
 | Mutations | Server actions → `lib/mcp-client.ts` → REST API | POST /api/tools/{name}/call |
-| REST API | `serve_http.py` (FastAPI wrapper) | порт 8000, `uv run --extra http uvicorn serve_http:api` |
+| REST API | `app/api/server.py` (FastAPI wrapper) | порт 8000, `uv run --extra http uvicorn app.api.server:api` |
 
 ## Data flow
 
@@ -41,7 +41,7 @@ WRITE path:
 
 STREAM path (audio player):
   Component → GET /api/audio/[trackId] → route.ts fetches REST_BASE/api/audio/stream/<ym_id>
-    → serve_http.py streams MP3 with Range headers
+    → app/api/server.py streams MP3 with Range headers
 ```
 
 ## Ключевые файлы
@@ -78,13 +78,13 @@ STREAM path (audio player):
 
 ### ECONNREFUSED на `/api/audio/*` или `/api/tools/*`
 
-**Причина**: REST API (`serve_http.py`) не запущен на порту 8000.
+**Причина**: REST API (`app/api/server.py`) не запущен на порту 8000.
 
 **Проверка**: `lsof -i :8000` или `curl -sf http://localhost:8000/api/health`.
 
 **Фикс**:
 ```bash
-nohup uv run --extra http uvicorn serve_http:api --host 0.0.0.0 --port 8000 > /tmp/dj-rest-api.log 2>&1 &
+nohup uv run --extra http uvicorn app.api.server:api --host 0.0.0.0 --port 8000 > /tmp/dj-rest-api.log 2>&1 &
 sleep 3 && curl -sf http://localhost:8000/api/health
 ```
 
@@ -131,7 +131,7 @@ sleep 3 && curl -sf http://localhost:8000/api/health
 - Не делаешь рефакторинги панели «по дороге».
 - Не бегаешь `bun install` или dep upgrades без явного запроса.
 - Не меняешь Supabase schema.
-- Не трогаешь backend Python (только `serve_http.py` если там wiring баг).
+- Не трогаешь backend Python (только `app/api/server.py` если там wiring баг).
 - Не запускаешь dev servers — проверяешь что они ИДУТ, но не запускаешь сам (это делает watcher или main).
 
 ## Что ты ВСЕГДА делаешь
