@@ -12,12 +12,14 @@ import {
   usePlayerInteractionLevel,
   type PlayerLayer,
 } from './interaction-level'
+import { PlayerKeyboardShortcuts } from './player-keyboard-shortcuts'
 
 export function PlayerProvider({ children }: { children: React.ReactNode }) {
   return (
     <AudioPlayerProvider>
       <SetSessionProvider>
         <PlayerInteractionLevelProvider>
+          <PlayerKeyboardShortcuts />
           <>{children}</>
         </PlayerInteractionLevelProvider>
       </SetSessionProvider>

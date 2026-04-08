@@ -4,12 +4,15 @@ import { useMemo, useRef, useState, useCallback, useEffect } from 'react'
 import { useRouter, usePathname, useSearchParams } from 'next/navigation'
 import { Search } from 'lucide-react'
 import {
+  IconAlertTriangle,
   IconPlayerPlay,
   IconPlayerPause,
   IconArrowLeft,
   IconArrowRight,
+  IconRefresh,
   IconRepeat,
   IconMusic,
+  IconX,
 } from '@tabler/icons-react'
 
 import { Badge } from '@/components/ui/badge'
@@ -26,8 +29,31 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip'
 import { MoodBadge } from '@/components/mood-badge'
+import { useAudioPlayer } from '@/components/audio-player/audio-player-context'
+import type { PlayerTrackMeta } from '@/components/audio-player/audio-player-types'
 import { cn, formatBpm, formatDuration, formatLufs } from '@/lib/utils'
 import type { TrackDetail, TrackRow } from '@/lib/queries/tracks'
+
+// ─── Audio engine adapter ──────────────────────────────────────────────────
+
+/**
+ * Convert a server-loaded `TrackDetail` into the minimal
+ * `PlayerTrackMeta` shape expected by `useAudioPlayer().play()`.
+ * Returns `null` for an empty deck so callers can spread without
+ * conditional branches.
+ */
+function toPlayerMeta(t: TrackDetail | null): PlayerTrackMeta | null {
+  if (!t) return null
+  return {
+    id: t.id,
+    title: t.title,
+    artists: t.artists.map((a) => a.name).join(', ') || null,
+    durationMs: t.duration_ms,
+    bpm: t.features?.bpm ?? null,
+    camelot: t.features?.camelot ?? null,
+    mood: t.features?.mood ?? null,
+  }
+}
 
 // ─── Constants ─────────────────────────────────────────────────────────────
 
@@ -801,19 +827,52 @@ interface DjPlayerProps {
 export function DjPlayer({
   deck1, deck2, library, libraryTotal, currentPage, currentSearch,
 }: DjPlayerProps) {
-  const [playing1, setPlaying1] = useState(false)
-  const [playing2, setPlaying2] = useState(false)
+  const player = useAudioPlayer()
   const [crossfader, setCrossfader] = useState(50)
   const [sync1, setSync1] = useState(false)
   const [sync2, setSync2] = useState(false)
 
+  // Derived "is this deck playing right now" — a deck is considered
+  // playing when it matches `player.current` AND the engine is not
+  // paused. Either deck being crossfaded away still reads as
+  // `isPlaying` until the engine updates `current` at fade finalise.
+  const deck1Meta = useMemo(() => toPlayerMeta(deck1), [deck1])
+  const deck2Meta = useMemo(() => toPlayerMeta(deck2), [deck2])
+  const isPlaying1 = player.current?.id === deck1?.id && player.isPlaying
+  const isPlaying2 = player.current?.id === deck2?.id && player.isPlaying
+
+  // Unified transport for a deck:
+  //   - If this deck isn't current → play it. The other loaded deck
+  //     becomes the single-entry queue, so the engine's auto-DJ can
+  //     pick it up for crossfade on end-of-track, and `mixNow()`
+  //     targets the correct "other" track.
+  //   - If this deck is already current → toggle pause/resume.
+  // Empty decks are no-ops.
+  const makeToggle = useCallback(
+    (meta: PlayerTrackMeta | null, other: PlayerTrackMeta | null) => () => {
+      if (!meta) return
+      if (player.current?.id === meta.id) {
+        player.toggle()
+        return
+      }
+      const queue = other ? [other] : []
+      player.play(meta, queue)
+    },
+    [player],
+  )
+
+  const onTogglePlay1 = makeToggle(deck1Meta, deck2Meta)
+  const onTogglePlay2 = makeToggle(deck2Meta, deck1Meta)
+
   return (
     <TooltipProvider>
-      <div className="flex flex-1 flex-col gap-4 py-4 px-4 lg:px-6">
+      <div data-player-root="true" className="flex flex-1 flex-col gap-4 py-4 px-4 lg:px-6">
+
+        {player.error && <DjPlayerErrorBanner key={player.error} message={player.error} />}
 
         {/* Player section */}
         <div className="grid gap-3" style={{ gridTemplateColumns: '1fr 148px 1fr' }}>
-          <Deck side="A" track={deck1} isPlaying={playing1} onTogglePlay={() => setPlaying1((p) => !p)} />
+          <Deck side="A" track={deck1} isPlaying={isPlaying1} onTogglePlay={onTogglePlay1} />
           <Mixer
             deck1={deck1} deck2={deck2}
             crossfader={crossfader} onCrossfaderChange={setCrossfader}
@@ -821,7 +880,7 @@ export function DjPlayer({
             onToggleSync1={() => setSync1((s) => !s)}
             onToggleSync2={() => setSync2((s) => !s)}
           />
-          <Deck side="B" track={deck2} isPlaying={playing2} onTogglePlay={() => setPlaying2((p) => !p)} />
+          <Deck side="B" track={deck2} isPlaying={isPlaying2} onTogglePlay={onTogglePlay2} />
         </div>
 
         {/* Library */}
@@ -897,5 +956,56 @@ export function DjPlayer({
 
       </div>
     </TooltipProvider>
+  )
+}
+
+// ─── Error banner ──────────────────────────────────────────────────────────
+
+/**
+ * Inline error banner shown at the top of the DJ player grid when
+ * the audio engine reports a failure. Offers a one-click Retry
+ * (re-plays the current track, which clears the error on success
+ * inside the engine) and a local Dismiss that hides the banner
+ * through a `dismissed` flag. The parent keys this component on
+ * `message`, so a distinct subsequent failure remounts a fresh
+ * banner and the dismiss state resets automatically.
+ */
+function DjPlayerErrorBanner({ message }: { message: string }) {
+  const player = useAudioPlayer()
+  const [dismissed, setDismissed] = useState(false)
+
+  if (dismissed) return null
+
+  return (
+    <div
+      role="alert"
+      className="flex items-center gap-3 rounded-lg border border-red-500/40 bg-red-950/60 px-4 py-2"
+    >
+      <IconAlertTriangle className="size-4 shrink-0 text-red-400" />
+      <div className="flex-1 min-w-0">
+        <div className="text-xs font-semibold text-red-200">Playback error</div>
+        <div className="truncate text-xs text-red-300/80">{message}</div>
+      </div>
+      <button
+        type="button"
+        onClick={() => {
+          if (player.current) player.play(player.current)
+        }}
+        disabled={!player.current}
+        aria-label="Retry playback"
+        className="flex items-center gap-1 rounded border border-red-400/40 bg-red-500/10 px-2 py-1 text-xs font-medium text-red-200 transition-colors hover:bg-red-500/20 disabled:cursor-not-allowed disabled:opacity-50"
+      >
+        <IconRefresh className="size-3" />
+        Retry
+      </button>
+      <button
+        type="button"
+        onClick={() => setDismissed(true)}
+        aria-label="Dismiss error"
+        className="rounded p-1 text-red-300/70 transition-colors hover:bg-red-500/10 hover:text-red-200"
+      >
+        <IconX className="size-3.5" />
+      </button>
+    </div>
   )
 }
