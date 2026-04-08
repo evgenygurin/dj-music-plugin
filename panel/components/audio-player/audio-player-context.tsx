@@ -654,7 +654,19 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
             }
           }
           if (incomingMeta) currentMetaRef.current = incomingMeta
-          const tMid = t0 + cf / 2
+          // Bass-swap moment — the instant at which outgoing's kick/
+          // bass is killed and incoming's kick/bass unmutes. Should
+          // land on an OUTGOING downbeat to feel tight. For whole-bar
+          // cf values (32-bar / 8-bar / 16-bar styles) `cf / 2` is
+          // already on a downbeat, but cf may have been clamped by
+          // intro length or outgoing-remaining time so we re-snap to
+          // the nearest outgoing bar around the midpoint.
+          let tSwap = t0 + cf / 2
+          if (outgoingBpm && outgoingBpm > 0) {
+            const outBar = 240 / outgoingBpm
+            const bars = Math.round((tSwap - t0) / outBar)
+            tSwap = t0 + bars * outBar
+          }
           const vol = volumeRef.current
 
           // Publish fade timing for the visualizer overlay (AudioContext
@@ -698,16 +710,44 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
           inactive.gain.gain.setValueAtTime(0, t0)
           inactive.gain.gain.setValueCurveAtTime(fadeIn, t0, cf)
 
-          // Bass swap — keep low end clean during the overlap.
-          // Active: 0 dB → -40 dB by midpoint, hold.
-          // Inactive: starts at -40 dB, climbs to 0 dB by midpoint.
+          // Bass swap — HARD step at tSwap (downbeat-aligned).
+          //
+          // Previous behaviour linearly ramped outgoing low 0 → -40
+          // and incoming low -40 → 0 across the entire first half.
+          // That left both kicks audible at ~-20 dB around the 25%
+          // mark — the exact "two kicks fighting" overlap a bass
+          // swap is supposed to prevent. Classic DJ practice is an
+          // instant swap on a downbeat: until tSwap only outgoing's
+          // bass plays; at tSwap outgoing's low end is killed and
+          // incoming's unmutes in a single bar. We use a 20 ms
+          // linear ramp around the swap point to avoid a digital
+          // click, which is short enough to still sound like a
+          // hard cut to the ear.
+          //
+          // Envelope shape (outgoing.low):
+          //   t0            →  0 dB (full bass)
+          //   tSwap - 10 ms →  0 dB (held)
+          //   tSwap + 10 ms → -40 dB (killed, 20 ms ramp)
+          //   stays at -40 dB through the rest of the fade
+          //
+          // Envelope shape (incoming.low):
+          //   t0            → -40 dB (muted)
+          //   tSwap - 10 ms → -40 dB (held)
+          //   tSwap + 10 ms →   0 dB (full bass, 20 ms ramp)
+          //   stays at 0 dB through the rest of the fade
+          const SWAP_RAMP_SEC = 0.02
+          const tSwapStart = Math.max(t0, tSwap - SWAP_RAMP_SEC / 2)
+          const tSwapEnd = tSwap + SWAP_RAMP_SEC / 2
+
           active.low.gain.cancelScheduledValues(t0)
-          active.low.gain.setValueAtTime(active.low.gain.value || 0, t0)
-          active.low.gain.linearRampToValueAtTime(-40, tMid)
+          active.low.gain.setValueAtTime(0, t0)
+          active.low.gain.setValueAtTime(0, tSwapStart)
+          active.low.gain.linearRampToValueAtTime(-40, tSwapEnd)
 
           inactive.low.gain.cancelScheduledValues(t0)
           inactive.low.gain.setValueAtTime(-40, t0)
-          inactive.low.gain.linearRampToValueAtTime(0, tMid)
+          inactive.low.gain.setValueAtTime(-40, tSwapStart)
+          inactive.low.gain.linearRampToValueAtTime(0, tSwapEnd)
 
           fadeTimeoutRef.current = setTimeout(() => {
             // Reset filters on the freed deck so it's neutral next time.
