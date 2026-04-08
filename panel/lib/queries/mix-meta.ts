@@ -18,6 +18,16 @@ export interface TrackMixMeta {
   introEndSec: number | null // optimal end of mix-in zone
   introStartSec: number | null // start of intro (where to "drop" the next track in)
   sections: TrackSection[]
+  // ── Loudness (for LUFS normalization during crossfade) ────
+  integratedLufs: number | null
+  truePeakDb: number | null
+  // ── Kick / bass character (for adaptive bass swap) ────────
+  kickProminence: number | null // 0..1 — how much the kick stands out
+  hpRatio: number | null // harmonic-to-percussive ratio
+  // ── Low-band energy (for swap-depth adaptation) ───────────
+  energySub: number | null // ~20-60 Hz
+  energyLow: number | null // ~60-250 Hz
+  energyLowmid: number | null // ~250-500 Hz (kick click region)
 }
 
 const SECTION_INTRO = 0
@@ -37,7 +47,9 @@ export async function getTrackMixMeta(trackId: number): Promise<TrackMixMeta | n
       supabase.from('tracks').select('id, duration_ms').eq('id', trackId).maybeSingle(),
       supabase
         .from('track_audio_features_computed')
-        .select('bpm')
+        .select(
+          'bpm, integrated_lufs, true_peak_db, kick_prominence, hp_ratio, energy_sub, energy_low, energy_lowmid',
+        )
         .eq('track_id', trackId)
         .maybeSingle(),
       supabase
@@ -114,6 +126,10 @@ export async function getTrackMixMeta(trackId: number): Promise<TrackMixMeta | n
   const introStart = intros.length ? intros[0].startMs : null
   const introEnd = intros.length ? intros[0].endMs : null
 
+  const features = featuresResult.data
+  const pickNumber = (v: unknown): number | null =>
+    typeof v === 'number' && Number.isFinite(v) ? v : null
+
   return {
     trackId,
     durationMs: trackResult.data.duration_ms,
@@ -121,7 +137,7 @@ export async function getTrackMixMeta(trackId: number): Promise<TrackMixMeta | n
     // features row, which may come from a different analyzer pass.
     // Both are reliable for techno but the beatgrid is what the
     // downbeat math uses, so use the same source for both.
-    bpm: beatgridBpm ?? featuresResult.data?.bpm ?? null,
+    bpm: beatgridBpm ?? pickNumber(features?.bpm),
     // Real first downbeat from the beatgrid, or 0 as fallback for
     // 4/4 techno with no measured grid (previous assumption).
     firstDownbeatSec: firstDownbeatMs != null ? firstDownbeatMs / 1000 : 0,
@@ -129,5 +145,12 @@ export async function getTrackMixMeta(trackId: number): Promise<TrackMixMeta | n
     introEndSec: introEnd != null ? introEnd / 1000 : null,
     introStartSec: introStart != null ? introStart / 1000 : null,
     sections,
+    integratedLufs: pickNumber(features?.integrated_lufs),
+    truePeakDb: pickNumber(features?.true_peak_db),
+    kickProminence: pickNumber(features?.kick_prominence),
+    hpRatio: pickNumber(features?.hp_ratio),
+    energySub: pickNumber(features?.energy_sub),
+    energyLow: pickNumber(features?.energy_low),
+    energyLowmid: pickNumber(features?.energy_lowmid),
   }
 }
