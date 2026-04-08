@@ -158,6 +158,13 @@ interface AudioPlayerApi extends AudioPlayerState {
   // Visualizer reads these to surface "what the algorithm suggested".
   recommendedStyle: TransitionStyle | null
   recommendedBars: number | null
+  // What the dispatcher actually ran on the currently-active fade,
+  // after applying `manualStyle` override. `null` outside an active
+  // fade. Visualiser reads this to show the *resolved* style badge
+  // (which may differ from `recommendedStyle` when the user clicks
+  // a manual override chip).
+  lastResolvedStyle: 'cut' | 'swap' | 'harmonic' | 'fade' | null
+  lastResolvedStyleWasManual: boolean
 }
 
 interface Deck {
@@ -251,6 +258,10 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
   )
   const [recommendedStyle, setRecommendedStyle] = useState<TransitionStyle | null>(null)
   const [recommendedBars, setRecommendedBars] = useState<number | null>(null)
+  const [lastResolvedStyle, setLastResolvedStyle] = useState<
+    'cut' | 'swap' | 'harmonic' | 'fade' | null
+  >(null)
+  const [lastResolvedStyleWasManual, setLastResolvedStyleWasManual] = useState(false)
   const [position, setPosition] = useState(0)
   const [duration, setDuration] = useState(0)
   const [volume, setVolumeState] = useState(0.85)
@@ -877,6 +888,12 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
                 return 'fade'
             }
           })()
+
+          // Publish the resolved style so the visualiser can show
+          // which of the four runtime styles actually played. Also
+          // flag whether it came from a manual override chip.
+          setLastResolvedStyle(resolvedStyle)
+          setLastResolvedStyleWasManual(manualOverride !== 'auto')
 
           // Effective fade duration — CUT collapses to 50 ms.
           const CUT_FADE_SEC = 0.05
@@ -1650,6 +1667,8 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
       incomingFadePlaybackRate,
       recommendedStyle,
       recommendedBars,
+      lastResolvedStyle,
+      lastResolvedStyleWasManual,
       nextUp,
       play,
       toggle,
@@ -1695,6 +1714,8 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
       incomingFadePlaybackRate,
       recommendedStyle,
       recommendedBars,
+      lastResolvedStyle,
+      lastResolvedStyleWasManual,
       nextUp,
       play,
       toggle,
