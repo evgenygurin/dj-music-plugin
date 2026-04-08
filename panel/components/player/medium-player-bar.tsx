@@ -22,6 +22,7 @@ import { cn } from '@/lib/utils'
 
 import { MixButton } from './mix-button'
 import { usePlayer } from './player-provider'
+import { TrackWaveform } from './track-waveform'
 
 interface Props {
   onCollapse: () => void
@@ -151,18 +152,26 @@ export function MediumPlayerBar({ onCollapse, onOpenControlPanel }: Props) {
             <span className="tabular-nums text-[10px] text-muted-foreground">
               {formatTime(position)}
             </span>
-            <Slider
-              value={[hasTrack && duration > 0 ? (position / duration) * 100 : 0]}
-              min={0}
-              max={100}
-              step={0.1}
-              disabled={!hasTrack}
-              onValueChange={(v) => {
-                if (hasTrack && duration > 0) audio.seek((v[0] / 100) * duration)
-              }}
-              className="flex-1"
-              aria-label="Seek"
-            />
+            {hasTrack ? (
+              <TrackWaveform
+                trackId={current.id}
+                position={position}
+                duration={duration}
+                onSeek={(s) => audio.seek(s)}
+                className="flex-1"
+                height={40}
+              />
+            ) : (
+              <Slider
+                value={[0]}
+                min={0}
+                max={100}
+                step={1}
+                disabled
+                className="flex-1"
+                aria-label="Seek"
+              />
+            )}
             <span className="tabular-nums text-[10px] text-muted-foreground">
               {formatTime(duration)}
             </span>

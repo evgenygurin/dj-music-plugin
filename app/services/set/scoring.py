@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from app.core.errors import NotFoundError
+from app.domain.transition import TransitionScore, recommend_style, style_profile
 from app.models.transition import Transition
 from app.repositories.feature import FeatureRepository
 from app.repositories.set import SetRepository
@@ -51,6 +52,30 @@ class SetScoringService:
         def _round(v: float | None) -> float | None:
             return round(v, 4) if v is not None else None
 
+        # Reconstruct a TransitionScore from the persisted/computed
+        # numbers so the style decision uses the SAME logic for cache
+        # hits and fresh scores. Missing components default to 0 — they
+        # only land in the response when the recommendation is genuine
+        # (we hide style entirely when overall is None).
+        recommended_style: str | None = None
+        recommended_bars: float | int | None = None
+        if overall is not None:
+            synthetic = TransitionScore(
+                bpm=bpm or 0.0,
+                harmonic=harmonic or 0.0,
+                energy=energy or 0.0,
+                spectral=spectral or 0.0,
+                groove=groove or 0.0,
+                timbral=timbral or 0.0,
+                overall=overall,
+                hard_reject=bool(hard_reject) if hard_reject is not None else False,
+                reject_reason=reject_reason,
+            )
+            style = recommend_style(synthetic)
+            recommended_style = style.value
+            profile_bars = style_profile(style)["bars"]
+            recommended_bars = profile_bars if isinstance(profile_bars, int | float) else None
+
         return {
             "from_track_id": from_id,
             "to_track_id": to_id,
@@ -64,6 +89,8 @@ class SetScoringService:
             "hard_reject": bool(hard_reject) if hard_reject is not None else False,
             "reject_reason": reject_reason,
             "cached": cached,
+            "recommended_style": recommended_style,
+            "recommended_bars": recommended_bars,
         }
 
     async def score_pair(self, from_id: int, to_id: int) -> dict[str, Any]:

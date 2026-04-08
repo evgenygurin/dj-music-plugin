@@ -8,6 +8,7 @@ import { MiniPlayerBar } from './mini-player-bar'
 import { PlayerHero } from './player-hero'
 import { SetIndicatorChip } from './set-indicator-chip'
 import { SetPlannerDrawer } from './set-planner-drawer'
+import { TransitionVisualizer } from './transition-visualizer'
 import { usePlayer } from './player-provider'
 
 export function Player() {
@@ -30,6 +31,7 @@ export function Player() {
           </div>
         </div>
       )}
+      <TransitionVisualizer />
       <ControlPanel open={controlPanelOpen} onClose={() => setControlPanelOpen(false)} />
       <SetPlannerDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} />
     </>

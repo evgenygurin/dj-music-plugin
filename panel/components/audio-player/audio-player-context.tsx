@@ -11,7 +11,11 @@ import {
 } from 'react'
 
 import { fetchTrackMixMeta } from '@/actions/mix-meta-actions'
-import { scoreTransitionCandidates } from '@/actions/transition-actions'
+import {
+  getTransitionStyle,
+  scoreTransitionCandidates,
+  type TransitionStyle,
+} from '@/actions/transition-actions'
 import type { TrackMixMeta } from '@/lib/queries/mix-meta'
 
 export interface PlayerTrackMeta {
@@ -114,6 +118,19 @@ interface AudioPlayerApi extends AudioPlayerState {
   setCrossfadeBars: (b: number) => void
   crossfadeSeconds: number // derived from bars + current BPM (read-only)
   isCrossfading: boolean
+  // During an active crossfade these mirror the OUTGOING track + the
+  // moment the fade was initiated (`AudioContext.currentTime` seconds).
+  // Both clear back to null in the fadeTimeout finalizer. Used by the
+  // <TransitionVisualizer> overlay to drive its progress bar and to
+  // render the "from → to" pair of waveforms.
+  outgoing: PlayerTrackMeta | null
+  crossfadeStartedAt: number | null
+  crossfadeDurationSeconds: number | null
+  // Backend-recommended style for the active fade. Resolved
+  // asynchronously after the crossfade starts (no audio blocking).
+  // Visualizer reads these to surface "what the algorithm suggested".
+  recommendedStyle: TransitionStyle | null
+  recommendedBars: number | null
 }
 
 interface Deck {
@@ -147,6 +164,11 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
   const [isPlaying, setIsPlaying] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [isCrossfading, setIsCrossfading] = useState(false)
+  const [outgoing, setOutgoing] = useState<PlayerTrackMeta | null>(null)
+  const [crossfadeStartedAt, setCrossfadeStartedAt] = useState<number | null>(null)
+  const [crossfadeDurationSeconds, setCrossfadeDurationSeconds] = useState<number | null>(null)
+  const [recommendedStyle, setRecommendedStyle] = useState<TransitionStyle | null>(null)
+  const [recommendedBars, setRecommendedBars] = useState<number | null>(null)
   const [position, setPosition] = useState(0)
   const [duration, setDuration] = useState(0)
   const [volume, setVolumeState] = useState(0.85)
@@ -316,7 +338,26 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
       if (fadeTimeoutRef.current) clearTimeout(fadeTimeoutRef.current)
       fadingRef.current = true
       setIsCrossfading(true)
+      // Snapshot the OUTGOING track BEFORE we mutate `current`. The
+      // <TransitionVisualizer> needs both endpoints of the fade.
+      setOutgoing(current)
+      setRecommendedStyle(null)
+      setRecommendedBars(null)
       setError(null)
+
+      // Async style recommendation — runs in parallel with audio
+      // loading. We later `await` it inside the play().then() block so
+      // the recommended bar count actually drives the fade duration.
+      // Tracked as a promise so the .then() chain can resolve it
+      // exactly once without leaking pending fetches.
+      const fromId = current?.id
+      const stylePromise: Promise<Awaited<ReturnType<typeof getTransitionStyle>>> =
+        fromId !== undefined ? getTransitionStyle(fromId, track.id) : Promise.resolve(null)
+      void stylePromise.then((res) => {
+        if (!res) return
+        setRecommendedStyle(res.recommendedStyle)
+        setRecommendedBars(res.recommendedBars)
+      })
 
       const url = `/api/audio/${track.id}`
       inactive.audio.src = url
@@ -358,23 +399,60 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
 
       inactive.audio
         .play()
-        .then(() => {
+        .then(async () => {
+          // Wait for the backend's style recommendation. Worst case it
+          // arrived ~100-300ms ago and resolves instantly; in the cold
+          // path we add up to ~300ms of pre-roll (silent — `inactive`
+          // gain is at 0). The fade hasn't started yet, so this is
+          // imperceptible.
+          const styleResult = await stylePromise
+
           const t0 = ctx.currentTime
           // Use the OUTGOING track's BPM (already known from current.bpm /
           // currentMetaRef) to convert bars→seconds. This locks the mix
           // duration to musical time, not wall-clock time.
           const outgoingBpm =
             currentMetaRef.current?.bpm ?? current?.bpm ?? track.bpm ?? null
-          const cf = Math.max(2, computeCrossfadeSeconds(crossfadeBars, outgoingBpm))
+
+          // Pick the bar count: if the backend recommended a non-zero
+          // value, use it; CUT (0 bars) collapses to a 2s minimum so
+          // setValueCurveAtTime stays valid (proper snap-cut handling
+          // is a separate PR — see TRANSITION_STYLE_PROFILES). Without
+          // a recommendation we fall back to the user's slider.
+          const recBars = styleResult?.recommendedBars
+          const effectiveBars =
+            typeof recBars === 'number' && recBars > 0 ? recBars : crossfadeBars
+
+          const cf = Math.max(2, computeCrossfadeSeconds(effectiveBars, outgoingBpm))
           const t1 = t0 + cf
           const tMid = t0 + cf / 2
           const vol = volumeRef.current
 
-          // Volume crossfade
+          // Publish fade timing for the visualizer overlay (AudioContext
+          // currentTime, not wall clock — same units the engine uses).
+          setCrossfadeStartedAt(t0)
+          setCrossfadeDurationSeconds(cf)
+
+          // Equal-power crossfade — `cos(t·π/2)` for the outgoing deck and
+          // `sin(t·π/2)` for the incoming deck. Linear ramps drop the
+          // perceived loudness by ~3 dB at the midpoint; equal-power keeps
+          // total power constant across the fade. We sample 64 points;
+          // setValueCurveAtTime interpolates linearly between samples,
+          // which is more than enough for a fade lasting seconds.
+          const N = 64
+          const fadeOut = new Float32Array(N)
+          const fadeIn = new Float32Array(N)
+          for (let i = 0; i < N; i++) {
+            const x = i / (N - 1)
+            fadeOut[i] = Math.cos((x * Math.PI) / 2) * vol
+            fadeIn[i] = Math.sin((x * Math.PI) / 2) * vol
+          }
           active.gain.gain.cancelScheduledValues(t0)
           active.gain.gain.setValueAtTime(active.gain.gain.value, t0)
-          active.gain.gain.linearRampToValueAtTime(0.0001, t1)
-          inactive.gain.gain.linearRampToValueAtTime(vol, t1)
+          active.gain.gain.setValueCurveAtTime(fadeOut, t0, cf)
+          inactive.gain.gain.cancelScheduledValues(t0)
+          inactive.gain.gain.setValueAtTime(0, t0)
+          inactive.gain.gain.setValueCurveAtTime(fadeIn, t0, cf)
 
           // Bass swap — keep low end clean during the overlap.
           // Active: 0 dB → -40 dB by midpoint, hold.
@@ -404,6 +482,9 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
             activeDeckRef.current = activeDeckRef.current === 'A' ? 'B' : 'A'
             fadingRef.current = false
             setIsCrossfading(false)
+            setOutgoing(null)
+            setCrossfadeStartedAt(null)
+            setCrossfadeDurationSeconds(null)
             const newActive = getActiveDeck()
             if (newActive) {
               setPosition(newActive.audio.currentTime || 0)
@@ -461,6 +542,11 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
       if (fadeTimeoutRef.current) clearTimeout(fadeTimeoutRef.current)
       fadingRef.current = false
       setIsCrossfading(false)
+      setOutgoing(null)
+      setCrossfadeStartedAt(null)
+      setCrossfadeDurationSeconds(null)
+      setRecommendedStyle(null)
+      setRecommendedBars(null)
       setError(null)
       setCurrent(track)
       historyRef.current = [...historyRef.current, track.id].slice(-50)
@@ -852,6 +938,11 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
       crossfadeBars,
       crossfadeSeconds,
       isCrossfading,
+      outgoing,
+      crossfadeStartedAt,
+      crossfadeDurationSeconds,
+      recommendedStyle,
+      recommendedBars,
       play,
       toggle,
       pause,
@@ -883,6 +974,11 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
       crossfadeBars,
       crossfadeSeconds,
       isCrossfading,
+      outgoing,
+      crossfadeStartedAt,
+      crossfadeDurationSeconds,
+      recommendedStyle,
+      recommendedBars,
       play,
       toggle,
       pause,
