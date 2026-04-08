@@ -93,3 +93,20 @@ def test_bpm_detector_returns_realistic_confidence() -> None:
     assert result.success
     conf = float(result.features["bpm_confidence"])
     assert 0.0 < conf <= 1.0, f"confidence out of range: {conf}"
+
+
+def test_bpm_detector_no_half_tempo_lock_on_peak_time_techno() -> None:
+    """Peak-time techno (~160-170 BPM) must not be detected as half-tempo.
+
+    Regression for the production half-tempo-lock bug where min_bpm=80
+    allowed the autocorrelation peak at 2x lag (~83 BPM) to dominate the
+    fundamental (~165 BPM) on noisy or compressed inputs. DB audit showed
+    1097/5702 L5 tracks (19%) locked to 80-84 BPM. Fix: raise min_bpm
+    floor to 110 inside ``_bpm_from_onset_autocorrelation``.
+    """
+    for target in (160.0, 165.0, 168.0, 172.0):
+        detected = _detect_bpm(_kick_pattern(target))
+        assert detected >= 110.0, (
+            f"Half-tempo lock at {target} BPM: got {detected}. "
+            f"Expected >=110 (fundamental or close)."
+        )

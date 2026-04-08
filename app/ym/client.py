@@ -80,8 +80,14 @@ class YandexMusicClient:
                 raise RateLimitedError(
                     retry_after=self._rate_limiter.get_backoff_delay(attempt),
                 )
-            elif response.status_code in (401, 403):
+            elif response.status_code == 401:
                 raise AuthFailedError()
+            elif response.status_code == 403:
+                # 403 is NOT always auth failure on YM — it's also
+                # returned for region-locked / DMCA'd / unavailable tracks.
+                # Classify as APIError so callers can handle per-track
+                # without tearing down the whole pipeline.
+                raise APIError(response.status_code, response.text)
             else:
                 raise APIError(response.status_code, response.text)
 
