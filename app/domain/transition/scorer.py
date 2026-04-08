@@ -7,7 +7,6 @@ See docs/transition-scoring.md for full algorithm description.
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass
 
 from app.config import settings
 from app.core.camelot import camelot_distance
@@ -18,22 +17,16 @@ from app.core.constants import (
 )
 from app.core.track_features import TrackFeatures
 from app.core.transition_intent import INTENT_WEIGHT_MODIFIERS, TransitionIntent
-from app.domain.transition.math_helpers import correlation, cosine_similarity
+from app.domain.transition.hard_constraints import check_hard_constraints
+from app.domain.transition.math_helpers import bpm_distance, correlation, cosine_similarity
+from app.domain.transition.score import TransitionScore
 
-
-@dataclass
-class TransitionScore:
-    """6-component transition score between two tracks."""
-
-    bpm: float = 0.0
-    harmonic: float = 0.0
-    energy: float = 0.0
-    spectral: float = 0.0
-    groove: float = 0.0
-    timbral: float = 0.0
-    overall: float = 0.0
-    hard_reject: bool = False
-    reject_reason: str | None = None
+__all__ = [
+    "TransitionScore",
+    "TransitionScorer",
+    "recommend_style",
+    "style_profile",
+]
 
 
 class TransitionScorer:
@@ -63,7 +56,7 @@ class TransitionScorer:
             intent: Optional context-aware intent for weight modifiers.
                 When provided, per-intent weights override instance defaults.
         """
-        rejection = self._check_hard_constraints(from_t, to_t)
+        rejection = check_hard_constraints(from_t, to_t)
         if rejection is not None:
             return rejection
 
@@ -86,7 +79,7 @@ class TransitionScorer:
 
         Falls back to full score() if no candidate data provided.
         """
-        rejection = self._check_hard_constraints(
+        rejection = check_hard_constraints(
             from_t,
             to_t,
             pre_bpm_dist=candidate_bpm_distance,
@@ -99,70 +92,6 @@ class TransitionScorer:
         return self._compute_score(from_t, to_t)
 
     # ── Shared internals ───────────────────────────
-
-    def _check_hard_constraints(
-        self,
-        from_t: TrackFeatures,
-        to_t: TrackFeatures,
-        *,
-        pre_bpm_dist: float | None = None,
-        pre_key_dist: int | None = None,
-        pre_energy_delta: float | None = None,
-    ) -> TransitionScore | None:
-        """Check hard constraints; return a zero-score rejection or None if all pass."""
-        from app.domain.transition.math_helpers import bpm_distance
-
-        # ── BPM constraint ──
-        if pre_bpm_dist is not None:
-            bpm_diff: float | None = pre_bpm_dist
-        elif from_t.bpm is not None and to_t.bpm is not None:
-            bpm_diff = bpm_distance(from_t.bpm, to_t.bpm)
-        else:
-            bpm_diff = None
-
-        if bpm_diff is not None and bpm_diff > settings.transition_hard_reject_bpm_diff:
-            return TransitionScore(
-                hard_reject=True,
-                reject_reason=(
-                    f"BPM diff {bpm_diff:.1f} > {settings.transition_hard_reject_bpm_diff}"
-                ),
-            )
-
-        # ── Key constraint ──
-        if pre_key_dist is not None:
-            key_dist: int | None = pre_key_dist
-        elif from_t.key_code is not None and to_t.key_code is not None:
-            key_dist = camelot_distance(from_t.key_code, to_t.key_code)
-        else:
-            key_dist = None
-
-        if key_dist is not None and key_dist >= settings.transition_hard_reject_camelot_dist:
-            return TransitionScore(
-                hard_reject=True,
-                reject_reason=(
-                    f"Camelot distance {key_dist} "
-                    f">= {settings.transition_hard_reject_camelot_dist}"
-                ),
-            )
-
-        # ── Energy constraint ──
-        if pre_energy_delta is not None:
-            energy_gap: float | None = pre_energy_delta
-        elif from_t.integrated_lufs is not None and to_t.integrated_lufs is not None:
-            energy_gap = abs(from_t.integrated_lufs - to_t.integrated_lufs)
-        else:
-            energy_gap = None
-
-        if energy_gap is not None and energy_gap > settings.transition_hard_reject_energy_gap:
-            return TransitionScore(
-                hard_reject=True,
-                reject_reason=(
-                    f"Energy gap {energy_gap:.1f} LUFS "
-                    f"> {settings.transition_hard_reject_energy_gap}"
-                ),
-            )
-
-        return None
 
     def _compute_score(
         self,
@@ -201,8 +130,6 @@ class TransitionScorer:
     # ── BPM ──────────────────────────────────────────
 
     def _score_bpm(self, from_t: TrackFeatures, to_t: TrackFeatures) -> float:
-        from app.domain.transition.math_helpers import bpm_distance
-
         if from_t.bpm is None or to_t.bpm is None:
             return 0.5  # unknown = neutral
         delta = bpm_distance(from_t.bpm, to_t.bpm)
