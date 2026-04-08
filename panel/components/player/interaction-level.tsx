@@ -1,11 +1,31 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react'
 
 export type PlayerLayer = 0 | 1 | 2 | 3 | 4
 const STORAGE_KEY = 'dj-player-level'
 
-export function usePlayerInteractionLevel() {
+interface InteractionLevelApi {
+  level: PlayerLayer
+  promote: () => void
+  collapse: () => void
+  jumpTo: (target: PlayerLayer) => void
+}
+
+const Ctx = createContext<InteractionLevelApi | null>(null)
+
+export function PlayerInteractionLevelProvider({
+  children,
+}: {
+  children: React.ReactNode
+}) {
   const [level, setLevel] = useState<PlayerLayer>(0)
 
   useEffect(() => {
@@ -25,12 +45,24 @@ export function usePlayerInteractionLevel() {
   }, [])
 
   const promote = useCallback(() => {
-    persist(Math.min(4, level + 1) as PlayerLayer)
-  }, [level, persist])
+    setLevel((cur) => {
+      const next = Math.min(4, cur + 1) as PlayerLayer
+      if (typeof window !== 'undefined') {
+        window.localStorage.setItem(STORAGE_KEY, String(next))
+      }
+      return next
+    })
+  }, [])
 
   const collapse = useCallback(() => {
-    persist(Math.max(0, level - 1) as PlayerLayer)
-  }, [level, persist])
+    setLevel((cur) => {
+      const next = Math.max(0, cur - 1) as PlayerLayer
+      if (typeof window !== 'undefined') {
+        window.localStorage.setItem(STORAGE_KEY, String(next))
+      }
+      return next
+    })
+  }, [])
 
   const jumpTo = useCallback(
     (target: PlayerLayer) => {
@@ -39,5 +71,20 @@ export function usePlayerInteractionLevel() {
     [persist],
   )
 
-  return { level, promote, collapse, jumpTo }
+  const api = useMemo<InteractionLevelApi>(
+    () => ({ level, promote, collapse, jumpTo }),
+    [level, promote, collapse, jumpTo],
+  )
+
+  return <Ctx.Provider value={api}>{children}</Ctx.Provider>
+}
+
+export function usePlayerInteractionLevel(): InteractionLevelApi {
+  const ctx = useContext(Ctx)
+  if (!ctx) {
+    throw new Error(
+      'usePlayerInteractionLevel must be used inside PlayerInteractionLevelProvider',
+    )
+  }
+  return ctx
 }

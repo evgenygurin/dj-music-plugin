@@ -7,13 +7,19 @@ import {
   useAudioPlayer,
 } from '@/components/audio-player/audio-player-context'
 import { SetSessionProvider, useSetSession } from './set-session-context'
-import { usePlayerInteractionLevel, type PlayerLayer } from './interaction-level'
+import {
+  PlayerInteractionLevelProvider,
+  usePlayerInteractionLevel,
+  type PlayerLayer,
+} from './interaction-level'
 
 export function PlayerProvider({ children }: { children: React.ReactNode }) {
   return (
     <AudioPlayerProvider>
       <SetSessionProvider>
-        <>{children}</>
+        <PlayerInteractionLevelProvider>
+          <>{children}</>
+        </PlayerInteractionLevelProvider>
       </SetSessionProvider>
     </AudioPlayerProvider>
   )
