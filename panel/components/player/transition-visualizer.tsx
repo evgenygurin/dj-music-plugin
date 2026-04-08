@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 
 import { useAudioPlayer } from '@/components/audio-player/audio-player-context'
+import { cn } from '@/lib/utils'
 
 import { TrackWaveform } from './track-waveform'
 
@@ -31,6 +32,8 @@ export function TransitionVisualizer() {
     incomingFadePlaybackRate,
     recommendedStyle,
     recommendedBars,
+    lastResolvedStyle,
+    lastResolvedStyleWasManual,
   } = audio
 
   // Wall-clock progress 0..1 across the crossfade. Driven by rAF so it
@@ -117,13 +120,30 @@ export function TransitionVisualizer() {
           <span className="font-mono uppercase tracking-wider text-primary/80">
             Transition · {(progress * 100).toFixed(0)}%
           </span>
-          {recommendedStyle && (
+          {/* Runtime style badge: prefer the RESOLVED style (what
+              the dispatcher actually ran, after applying the manual
+              override chip) over the backend's raw recommendation.
+              Falls back to `recommendedStyle` when the dispatcher
+              hasn't fired yet. */}
+          {(lastResolvedStyle ?? recommendedStyle) && (
             <span
-              className="rounded-full border border-primary/40 bg-primary/10 px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider text-primary"
-              title="Backend-recommended transition style"
+              className={cn(
+                'rounded-full border px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider',
+                lastResolvedStyleWasManual
+                  ? 'border-amber-400/50 bg-amber-400/10 text-amber-300'
+                  : 'border-primary/40 bg-primary/10 text-primary',
+              )}
+              title={
+                lastResolvedStyleWasManual
+                  ? 'Manual override — user picked this style'
+                  : 'Backend-recommended transition style'
+              }
             >
-              {recommendedStyle.replace(/_/g, ' ')}
-              {recommendedBars != null && recommendedBars > 0 ? ` · ${recommendedBars}b` : ''}
+              {(lastResolvedStyle ?? recommendedStyle ?? '').replace(/_/g, ' ')}
+              {recommendedBars != null && recommendedBars > 0
+                ? ` · ${recommendedBars}b`
+                : ''}
+              {lastResolvedStyleWasManual ? ' · manual' : ''}
             </span>
           )}
           <span className="tabular-nums text-muted-foreground">
