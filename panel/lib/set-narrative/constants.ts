@@ -42,3 +42,7 @@ export const ALPHA_DEFAULT = 0.6
 export const ALPHA_KEY_SLOT = 0.4
 export const ALPHA_SLOT_ENDING = 0.3
 export const ALPHA_SLOT_ENDING_POSITION = 0.8
+
+// Picker constraints
+export const PICKER_TOP_N = 8
+export const BACKEND_CANDIDATES_TOP_N = 30

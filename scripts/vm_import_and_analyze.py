@@ -76,6 +76,13 @@ signal.signal(signal.SIGTERM, _on_signal)
 
 DEFAULT_TECHNO_REGEX = r"techno|tech\s*house|minimal|peak\s*time|dub\s*techno|acid"
 
+# Sub-batch size for the analyze phase. Each sub-batch holds one DB session
+# open from the start of phase 1 (download+analyze) until phase 2 (save).
+# Keep it small enough that the session never sits idle long enough for the
+# Supabase pooler to prune the underlying connection (~5 min idle window).
+# 10 tracks × ~9s/track ≈ 90s with workers≥6 leaves a comfortable margin.
+SUB_BATCH_SIZE = 10
+
 
 async def _fetch_playlist_track_ids(
     ym: Any,
@@ -108,6 +115,79 @@ async def _get_user_playlists(ym: Any) -> list[Any]:
         return []
 
 
+async def _filter_techno_only(session_factory: Any, local_ids: list[int]) -> tuple[list[int], int]:
+    """Hard-delete non-techno tracks and backfill missing track_external_ids.
+
+    Returns (techno_local_ids, dropped_count). Three things happen here:
+
+    1. Drop any track whose ``yandex_metadata.album_genre`` is missing or not
+       exactly 'techno'. CASCADE handles features/library/playlist cleanup.
+    2. Backfill ``track_external_ids`` (provider='yandex_music') for surviving
+       tracks that have ``yandex_metadata.yandex_track_id`` but no row in
+       ``track_external_ids`` — ImportService sometimes writes one but not the
+       other, and ``TieredPipeline.resolve_local_ids_to_ym`` only consults
+       ``track_external_ids``, so missing rows turn into "No YM ID — skipping".
+    """
+    if not local_ids:
+        return [], 0
+
+    from sqlalchemy import text  # local import keeps top-level imports tidy
+
+    async with session_factory() as session:
+        non_techno_q = text(
+            """
+            SELECT t.id
+            FROM tracks t
+            LEFT JOIN yandex_metadata ym ON ym.track_id = t.id
+            WHERE t.id = ANY(:ids)
+              AND (ym.album_genre IS NULL OR LOWER(ym.album_genre) <> 'techno')
+            """
+        )
+        non_techno = [
+            r[0] for r in (await session.execute(non_techno_q, {"ids": local_ids})).all()
+        ]
+
+        if non_techno:
+            await session.execute(
+                text("DELETE FROM tracks WHERE id = ANY(:ids)"),
+                {"ids": non_techno},
+            )
+            await session.commit()
+
+        techno_set = set(local_ids) - set(non_techno)
+        techno_ids = [tid for tid in local_ids if tid in techno_set]
+
+        # Backfill missing track_external_ids rows from yandex_metadata.
+        # Schema is (track_id, platform, external_id) — no provider_id FK.
+        if techno_ids:
+            await session.execute(
+                text(
+                    """
+                    INSERT INTO track_external_ids (track_id, platform, external_id, created_at, updated_at)
+                    SELECT
+                        ym.track_id,
+                        'yandex_music',
+                        ym.yandex_track_id,
+                        NOW(),
+                        NOW()
+                    FROM yandex_metadata ym
+                    WHERE ym.track_id = ANY(:ids)
+                      AND ym.yandex_track_id IS NOT NULL
+                      AND NOT EXISTS (
+                          SELECT 1 FROM track_external_ids tei
+                          WHERE tei.track_id = ym.track_id
+                            AND tei.platform = 'yandex_music'
+                      )
+                    ON CONFLICT DO NOTHING
+                    """
+                ),
+                {"ids": techno_ids},
+            )
+            await session.commit()
+
+    return techno_ids, len(non_techno)
+
+
 async def _process_refs(
     refs: list[str],
     *,
@@ -122,13 +202,19 @@ async def _process_refs(
     """Import refs (idempotent) and analyze up to target_level in chunks."""
     from app.audio.level_config import AnalysisLevel
     from app.audio.pipeline import AnalysisPipeline
+    from app.audio.timeseries import TimeseriesStorage
     from app.repositories.audio import AudioRepository
     from app.repositories.ingestion import IngestionRepository
     from app.repositories.track import TrackRepository
     from app.services.import_service import ImportService
     from app.services.tiered_pipeline import TieredPipeline
 
-    totals = {"imported": 0, "skipped": 0, "analyzed": 0, "failed": 0}
+    # Single storage instance — TieredPipeline only calls .save() (stateless
+    # module-level dispatch), so reusing across sub-batches is safe and avoids
+    # re-creating the base cache directory on every chunk.
+    timeseries_storage = TimeseriesStorage()
+
+    totals = {"imported": 0, "skipped": 0, "analyzed": 0, "failed": 0, "dropped_non_techno": 0}
     level = AnalysisLevel(target_level)
 
     for i in range(0, len(refs), batch_size):
@@ -162,76 +248,111 @@ async def _process_refs(
         if not local_ids:
             continue
 
-        async with session_factory() as session:
-            audio_repo = AudioRepository(session)
-            track_repo = TrackRepository(session)
-            pipeline = AnalysisPipeline(
-                registry=registry,
-                use_processes=False,  # ProcessPool deadlocks after BrokenProcessPool
-                max_workers=workers,
+        # Genre gate: drop everything that isn't strict 'techno' in YM metadata.
+        # Done BEFORE the analyze phase so we don't waste minutes on tracks we
+        # were going to delete anyway. CASCADE handles the rest of the rows.
+        local_ids, chunk_dropped = await _filter_techno_only(session_factory, local_ids)
+        if chunk_dropped:
+            log.info(
+                "  filtered: dropped %d non-techno tracks (kept %d)",
+                chunk_dropped,
+                len(local_ids),
             )
-            tiered = TieredPipeline(
-                audio_repo=audio_repo,
-                track_repo=track_repo,
-                pipeline=pipeline,
-                ym_client=ym_client,
-                timeseries=None,
+            totals["dropped_non_techno"] += chunk_dropped
+        if not local_ids:
+            log.info(
+                "  chunk done in %.1fs — all %d refs were non-techno, nothing to analyze",
+                time.time() - t0,
+                chunk_dropped,
             )
+            continue
 
-            # Wrap _download_and_analyze with live per-track progress logging
-            _orig = tiered._download_and_analyze
-            counters = {"done": 0, "ok": 0, "fail": 0}
-            chunk_total = len(local_ids)
-            log_lock = asyncio.Lock()
+        # Sub-batch the analyze phase. One TieredPipeline.ensure_level() call
+        # holds its DB session open for the entire phase 1 (download+analyze)
+        # — when that takes >5 min on large chunks, Supabase prunes the idle
+        # connection mid-flight and the phase 2 (save) batch fails wholesale.
+        # Splitting into smaller subchunks (~10 tracks ≈ 90s each) keeps every
+        # session well under the idle-timeout window.
+        sub = SUB_BATCH_SIZE
+        chunk_total = len(local_ids)
+        chunk_ana = 0
+        chunk_fail = 0
+        counters = {"done": 0, "ok": 0, "fail": 0}
+        log_lock = asyncio.Lock()
 
-            async def _wrapped(track_id: int, ym_track_id: str, level_arg: Any) -> Any:
-                t_start = time.time()
+        for sub_i in range(0, chunk_total, sub):
+            if _shutdown.is_set():
+                break
+            sub_ids = local_ids[sub_i : sub_i + sub]
+
+            async with session_factory() as session:
+                audio_repo = AudioRepository(session)
+                track_repo = TrackRepository(session)
+                pipeline = AnalysisPipeline(
+                    registry=registry,
+                    use_processes=False,
+                    max_workers=workers,
+                )
+                tiered = TieredPipeline(
+                    audio_repo=audio_repo,
+                    track_repo=track_repo,
+                    pipeline=pipeline,
+                    ym_client=ym_client,
+                    timeseries=timeseries_storage,
+                )
+
+                _orig = tiered._download_and_analyze
+
+                async def _wrapped(track_id: int, ym_track_id: str, level_arg: Any) -> Any:
+                    t_start = time.time()
+                    res = None
+                    try:
+                        res = await _orig(track_id, ym_track_id, level_arg)
+                        return res
+                    finally:
+                        async with log_lock:
+                            counters["done"] += 1
+                            ok = res is not None
+                            counters["ok" if ok else "fail"] += 1
+                            log.info(
+                                "    [%d/%d] track=%d ym=%s %s in %.1fs (ok=%d fail=%d)",
+                                counters["done"],
+                                chunk_total,
+                                track_id,
+                                ym_track_id,
+                                "OK" if ok else "FAIL",
+                                time.time() - t_start,
+                                counters["ok"],
+                                counters["fail"],
+                            )
+
+                tiered._download_and_analyze = _wrapped  # type: ignore[method-assign]
+
                 try:
-                    res = await _orig(track_id, ym_track_id, level_arg)
-                    return res
-                finally:
-                    async with log_lock:
-                        counters["done"] += 1
-                        ok = res is not None  # type: ignore[has-type]
-                        if ok:
-                            counters["ok"] += 1
-                        else:
-                            counters["fail"] += 1
-                        log.info(
-                            "    [%d/%d] track=%d ym=%s %s in %.1fs (ok=%d fail=%d)",
-                            counters["done"],
-                            chunk_total,
-                            track_id,
-                            ym_track_id,
-                            "OK" if ok else "FAIL",
-                            time.time() - t_start,
-                            counters["ok"],
-                            counters["fail"],
-                        )
+                    res = await tiered.ensure_level(sub_ids, level, force=force)
+                    await session.commit()
+                except Exception as e:
+                    await session.rollback()
+                    log.error("  TieredPipeline error: %s", e, exc_info=True)
+                    res = {"analyzed": 0, "failed": len(sub_ids), "skipped": 0}
 
-            tiered._download_and_analyze = _wrapped  # type: ignore[method-assign]
+            chunk_ana += res.get("analyzed", 0)
+            chunk_fail += res.get("failed", 0)
 
-            try:
-                res = await tiered.ensure_level(local_ids, level, force=force)
-                await session.commit()
-            except Exception as e:
-                await session.rollback()
-                log.error("  TieredPipeline error: %s", e, exc_info=True)
-                res = {"analyzed": 0, "failed": len(local_ids), "skipped": 0}
-
-        totals["analyzed"] += res.get("analyzed", 0)
-        totals["failed"] += res.get("failed", 0)
+        totals["analyzed"] += chunk_ana
+        totals["failed"] += chunk_fail
 
         elapsed = time.time() - t0
-        rate = len(local_ids) / elapsed if elapsed > 0 else 0
+        rate = chunk_total / elapsed if elapsed > 0 else 0
         log.info(
-            "  chunk done in %.1fs (%.1f tr/s) imp=%d skip=%d ana=%d fail=%d",
+            "  chunk done in %.1fs (%.1f tr/s) imp=%d skip=%d ana=%d fail=%d drop=%d",
             elapsed,
             rate,
             result.get("imported", 0),
             result.get("skipped", 0),
-            res.get("analyzed", 0),
-            res.get("failed", 0),
+            chunk_ana,
+            chunk_fail,
+            chunk_dropped,
         )
 
     return totals
@@ -313,8 +434,18 @@ async def main() -> None:
     if settings.database_url.startswith("postgresql"):
         connect_args["statement_cache_size"] = 0
         connect_args["prepared_statement_cache_size"] = 0
+        # asyncpg-level TCP keepalive — keep idle connections alive across
+        # long Phase 1 (download+analyze) periods so Phase 2 (DB save) doesn't
+        # hit "connection was closed in the middle of operation".
+        connect_args["server_settings"] = {"application_name": "dj_loop"}
     engine = create_async_engine(
-        settings.database_url, pool_pre_ping=True, connect_args=connect_args
+        settings.database_url,
+        pool_pre_ping=True,
+        # Recycle connections every 3 minutes — Supabase pooler closes idle
+        # connections after ~5 min; 3 min ensures pre_ping always gets a
+        # fresh one before the server prunes it.
+        pool_recycle=180,
+        connect_args=connect_args,
     )
     session_factory = async_sessionmaker(engine, expire_on_commit=False)
 
