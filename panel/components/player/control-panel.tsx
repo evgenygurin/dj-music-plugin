@@ -15,7 +15,6 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 
-import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 
 import { usePlayer } from './player-provider'
@@ -58,7 +57,7 @@ function SparklineArc({ template }: { template: SetTemplate }) {
 
 export function ControlPanel({ open, onClose }: { open: boolean; onClose: () => void }) {
   const player = usePlayer()
-  const { set, audio } = player
+  const { set } = player
 
   if (!open) return null
 
@@ -122,24 +121,6 @@ export function ControlPanel({ open, onClose }: { open: boolean; onClose: () => 
                 </button>
               )
             })}
-          </div>
-
-          <div className="flex items-center gap-2 border-t border-border/60 px-4 py-2 text-xs text-muted-foreground">
-            <span>Mix length:</span>
-            {[4, 8, 16, 32, 64].map((b) => (
-              <Button
-                key={b}
-                size="sm"
-                variant={audio.crossfadeBars === b ? 'default' : 'outline'}
-                className="h-6 px-2 text-[10px]"
-                onClick={() => audio.setCrossfadeBars?.(b)}
-              >
-                {b}
-              </Button>
-            ))}
-            <span className="ml-2 tabular-nums">
-              ~{Math.round(audio.crossfadeSeconds)}s
-            </span>
           </div>
         </div>
       </div>

@@ -9,8 +9,27 @@ function Popover({ ...props }: PopoverPrimitive.Root.Props) {
   return <PopoverPrimitive.Root data-slot="popover" {...props} />
 }
 
-function PopoverTrigger({ ...props }: PopoverPrimitive.Trigger.Props) {
-  return <PopoverPrimitive.Trigger data-slot="popover-trigger" {...props} />
+type PopoverTriggerProps = PopoverPrimitive.Trigger.Props & {
+  asChild?: boolean
+}
+
+function PopoverTrigger({ asChild, children, ...props }: PopoverTriggerProps) {
+  // Legacy shim: Radix used `asChild` to merge into a single child element.
+  // base-ui exposes the same behaviour through the `render` prop.
+  if (asChild && children) {
+    return (
+      <PopoverPrimitive.Trigger
+        data-slot="popover-trigger"
+        render={children as React.ReactElement}
+        {...props}
+      />
+    )
+  }
+  return (
+    <PopoverPrimitive.Trigger data-slot="popover-trigger" {...props}>
+      {children}
+    </PopoverPrimitive.Trigger>
+  )
 }
 
 function PopoverContent({

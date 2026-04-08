@@ -1,6 +1,7 @@
 'use client'
 
 import {
+  Blend,
   Loader2,
   Music,
   Pause,
@@ -17,6 +18,7 @@ import {
 
 import { MoodBadge } from '@/components/mood-badge'
 import { Button } from '@/components/ui/button'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Slider } from '@/components/ui/slider'
 import { cn } from '@/lib/utils'
 
@@ -174,8 +176,9 @@ export function PlayerBar({ onOpenControlPanel, onOpenSetPlanner }: PlayerBarPro
           </div>
         </div>
 
-        {/* Right: set mode + volume */}
+        {/* Right: mix + set mode + volume */}
         <div className="flex min-w-0 items-center justify-end gap-2">
+          <MixButton />
           {set.active ? (
             <Button
               size="sm"
@@ -244,5 +247,87 @@ export function PlayerBar({ onOpenControlPanel, onOpenSetPlanner }: PlayerBarPro
         style={{ width: `${progressPct}%` }}
       />
     </div>
+  )
+}
+
+/**
+ * Mix toggle + length selector. Default ON / 32 bars / auto.
+ *
+ * - Off  → next-track switches snap instantly (no crossfade)
+ * - Auto → crossfades use the configured bar length, scaled to BPM
+ */
+function MixButton() {
+  const player = usePlayer()
+  const { audio } = player
+  const enabled = audio.mixEnabled
+  const bars = audio.crossfadeBars
+  const seconds = audio.crossfadeSeconds
+
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button
+          size="sm"
+          variant={enabled ? 'default' : 'ghost'}
+          className={cn(
+            'h-8 gap-1.5 rounded-full px-3 text-[11px] font-medium',
+            !enabled && 'border border-border/60',
+          )}
+          aria-label="Mix settings"
+          title={enabled ? `Mix: ${bars} bars (~${Math.round(seconds)}s)` : 'Mix: off'}
+        >
+          <Blend className="size-3.5" />
+          <span className="hidden sm:inline">{enabled ? `${bars} bars` : 'Off'}</span>
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent align="end" sideOffset={8} className="w-64 p-3">
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="text-sm font-medium">Crossfade mix</div>
+              <div className="text-[11px] text-muted-foreground">
+                {enabled
+                  ? `Auto · ~${Math.round(seconds)}s @ current BPM`
+                  : 'Snap transitions'}
+              </div>
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={enabled}
+              onClick={() => audio.toggleMixEnabled()}
+              className={cn(
+                'relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors',
+                enabled ? 'bg-primary' : 'bg-muted',
+              )}
+            >
+              <span
+                className={cn(
+                  'inline-block size-4 transform rounded-full bg-background transition-transform',
+                  enabled ? 'translate-x-[18px]' : 'translate-x-0.5',
+                )}
+              />
+            </button>
+          </div>
+          <div className="grid grid-cols-5 gap-1.5">
+            {[4, 8, 16, 32, 64].map((b) => (
+              <Button
+                key={b}
+                size="sm"
+                variant={bars === b ? 'default' : 'outline'}
+                className="h-7 px-0 text-[11px]"
+                disabled={!enabled}
+                onClick={() => audio.setCrossfadeBars(b)}
+              >
+                {b}
+              </Button>
+            ))}
+          </div>
+          <div className="text-[10px] text-muted-foreground text-center">
+            Bars · 1 bar = 4 beats
+          </div>
+        </div>
+      </PopoverContent>
+    </Popover>
   )
 }

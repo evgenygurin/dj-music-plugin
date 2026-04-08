@@ -108,6 +108,8 @@ interface AudioPlayerApi extends AudioPlayerState {
   setVolume: (vol: number) => void
   toggleMute: () => void
   toggleAutoDj: () => void
+  mixEnabled: boolean // master toggle for crossfade mixing — when false transitions snap
+  toggleMixEnabled: () => void
   crossfadeBars: number // length of mix in BARS (DJ-native unit)
   setCrossfadeBars: (b: number) => void
   crossfadeSeconds: number // derived from bars + current BPM (read-only)
@@ -151,6 +153,9 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
   const [muted, setMuted] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [autoDj, setAutoDj] = useState(false)
+  // Master mix switch — default ON. When false, every transition snaps
+  // instantly (useful for preview-style listening).
+  const [mixEnabled, setMixEnabled] = useState(true)
   // Default 32 bars — long, smooth, professional DJ-style mix.
   // 32 bars at 124 BPM = 32*4/124*60 ≈ 62 seconds.
   const [crossfadeBars, setCrossfadeBars] = useState(32)
@@ -438,8 +443,15 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
       }
 
       const active = getActiveDeck()
-      // Crossfade only if there's already a real track playing.
-      if (current && active && !active.audio.paused && active.audio.currentTime > 0.1) {
+      // Crossfade only if there's already a real track playing AND the
+      // master mix toggle is on. Otherwise we snap to the new track.
+      if (
+        mixEnabled &&
+        current &&
+        active &&
+        !active.audio.paused &&
+        active.audio.currentTime > 0.1
+      ) {
         startCrossfade(track)
         return
       }
@@ -492,6 +504,7 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
       current,
       startCrossfade,
       loadMixMeta,
+      mixEnabled,
     ],
   )
 
@@ -724,6 +737,7 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
   }, [autoDj, current, queue, hasNext, next, play])
 
   const toggleAutoDj = useCallback(() => setAutoDj((a) => !a), [])
+  const toggleMixEnabled = useCallback(() => setMixEnabled((m) => !m), [])
 
   // ── Media Session API ────────────────────────────────────────────
   // Wires hardware media keys (Mac Touch Bar / F7-F9, headphone buttons,
@@ -834,6 +848,7 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
       muted,
       error,
       autoDj,
+      mixEnabled,
       crossfadeBars,
       crossfadeSeconds,
       isCrossfading,
@@ -847,6 +862,7 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
       setVolume,
       toggleMute,
       toggleAutoDj,
+      toggleMixEnabled,
       setCrossfadeBars,
     }),
     [
@@ -863,6 +879,7 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
       muted,
       error,
       autoDj,
+      mixEnabled,
       crossfadeBars,
       crossfadeSeconds,
       isCrossfading,
@@ -876,6 +893,7 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
       setVolume,
       toggleMute,
       toggleAutoDj,
+      toggleMixEnabled,
     ],
   )
 
