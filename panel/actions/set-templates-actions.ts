@@ -3,24 +3,48 @@
 import { callTool } from '@/lib/mcp-client'
 import type { SetTemplate } from '@/lib/set-narrative/types'
 
+interface RawSlot {
+  position: number
+  target_mood: string | null
+  energy_lufs: number
+  bpm_min: number
+  bpm_max: number
+  duration_ms: number
+  flexibility: number
+}
+
+interface RawTemplate {
+  name: string
+  duration_min: number
+  description: string
+  slots: RawSlot[]
+}
+
+/**
+ * Fetch set templates from the MCP backend.
+ *
+ * Returns an empty array on any failure (backend down, malformed response,
+ * tool not registered) so the UI renders its empty state instead of
+ * crashing the page with a 500.
+ */
 export async function fetchSetTemplates(): Promise<SetTemplate[]> {
-  const response = await callTool('get_set_templates', {})
-
-  if (response.is_error) {
-    throw new Error(`MCP error: ${response.content?.[0]?.text ?? 'unknown error'}`)
+  let response
+  try {
+    response = await callTool('get_set_templates', {})
+  } catch {
+    return []
   }
 
-  const result = response.structured_content as any
+  if (response.is_error) return []
 
-  if (!result.templates) {
-    throw new Error('Invalid templates response from MCP server')
-  }
+  const sc = response.structured_content as { templates?: RawTemplate[] } | null
+  if (!sc?.templates || !Array.isArray(sc.templates)) return []
 
-  return result.templates.map((tpl: any) => ({
+  return sc.templates.map((tpl) => ({
     name: tpl.name,
     durationMin: tpl.duration_min,
     description: tpl.description,
-    slots: tpl.slots.map((slot: any) => ({
+    slots: tpl.slots.map((slot) => ({
       position: slot.position,
       targetMood: slot.target_mood,
       energyLufs: slot.energy_lufs,
