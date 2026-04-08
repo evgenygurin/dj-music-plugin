@@ -12,7 +12,7 @@ from app.repositories.playlist import PlaylistRepository
 from app.repositories.set import SetRepository
 from app.repositories.track import TrackRepository
 from app.repositories.transition import TransitionRepository
-from app.services.set_service import SetService
+from app.services.set.facade import SetService
 
 
 def _make_set_service(db: AsyncSession) -> SetService:

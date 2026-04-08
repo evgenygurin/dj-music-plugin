@@ -36,7 +36,7 @@ from app.mcp.tools._shared import (
     map_domain_errors,
 )
 from app.repositories.playlist import PlaylistRepository
-from app.services.curation_service import CurationService
+from app.services.curation.facade import CurationService
 from app.services.tiered_pipeline import TieredPipeline
 
 

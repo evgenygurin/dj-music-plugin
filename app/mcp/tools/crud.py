@@ -19,7 +19,7 @@ from app.mcp.tools._shared import (
     ensure_reference,
     map_domain_errors,
 )
-from app.services.set_service import SetService
+from app.services.set.facade import SetService
 
 
 @tool(tags={ToolCategory.CORE.value}, annotations=ANNOTATIONS_READ_ONLY)

@@ -64,7 +64,7 @@ async def make_services():
     from app.repositories.set import SetRepository
     from app.repositories.track import TrackRepository
     from app.repositories.transition import TransitionRepository
-    from app.services.set_service import SetService
+    from app.services.set.facade import SetService
     from app.services.track_service import TrackService
 
     async with make_session() as session:

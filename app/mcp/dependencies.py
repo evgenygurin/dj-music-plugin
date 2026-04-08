@@ -33,7 +33,7 @@ from app.repositories.track import TrackRepository
 from app.repositories.transition import TransitionRepository
 from app.services.audio_service import AudioService
 from app.services.candidate_service import CandidateService
-from app.services.curation_service import CurationService
+from app.services.curation.facade import CurationService
 from app.services.delivery_service import DeliveryService
 from app.services.discovery_service import DiscoveryService
 from app.services.embedding_service import EmbeddingService
@@ -42,7 +42,7 @@ from app.services.metadata_service import MetadataService
 from app.services.playlist_service import PlaylistService
 from app.services.reasoning_service import ReasoningService
 from app.services.search_service import SearchService
-from app.services.set_service import SetService
+from app.services.set.facade import SetService
 from app.services.sync_service import SyncService
 from app.services.tiered_pipeline import TieredPipeline
 from app.services.track_service import TrackService

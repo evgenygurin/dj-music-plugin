@@ -23,7 +23,7 @@ from app.mcp.tools._shared import (
     map_domain_errors,
 )
 from app.repositories.playlist import PlaylistRepository
-from app.services.set_service import SetService
+from app.services.set.facade import SetService
 from app.services.tiered_pipeline import TieredPipeline
 
 

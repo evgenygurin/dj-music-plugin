@@ -13,7 +13,7 @@ from app.repositories.playlist import PlaylistRepository
 from app.repositories.set import SetRepository
 from app.repositories.track import TrackRepository
 from app.repositories.transition import TransitionRepository
-from app.services.curation_service import CurationService
+from app.services.curation.facade import CurationService
 
 
 def _make_curation_service(db: AsyncSession) -> CurationService:

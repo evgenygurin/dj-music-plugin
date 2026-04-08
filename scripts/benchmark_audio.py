@@ -29,7 +29,7 @@ async def main() -> None:
     from app.repositories.set import SetRepository
     from app.repositories.track import TrackRepository
     from app.repositories.transition import TransitionRepository
-    from app.services.set_service import SetService
+    from app.services.set.facade import SetService
     from app.services.track_service import TrackService
 
     track_repo = TrackRepository(session)
