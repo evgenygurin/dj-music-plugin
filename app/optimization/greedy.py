@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
-from app.core.track_features import TrackFeatures
+from app.entities.audio.features import TrackFeatures
 from app.optimization.fitness import compute_fitness
 from app.optimization.result import OptimizationResult
 from app.templates.models import SetTemplateDefinition

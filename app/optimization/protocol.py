@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Protocol
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-    from app.core.track_features import TrackFeatures
+    from app.entities.audio.features import TrackFeatures
     from app.optimization.result import OptimizationResult
     from app.templates.models import SetTemplateDefinition
 

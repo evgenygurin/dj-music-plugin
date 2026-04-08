@@ -7,7 +7,7 @@ their per-feature weights.
 
 from __future__ import annotations
 
-from app.core.track_features import TrackFeatures
+from app.entities.audio.features import TrackFeatures
 from app.transition.math_helpers import cosine_similarity
 from app.transition.weights import GROOVE_SUB_WEIGHTS
 

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from app.config import settings
-from app.core.track_features import TrackFeatures
+from app.entities.audio.features import TrackFeatures
 from app.transition.hard_constraints import check_hard_constraints
 
 

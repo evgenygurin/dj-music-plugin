@@ -5,10 +5,10 @@ from __future__ import annotations
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.track_features import TrackFeatures
 from app.db.models.audio import TrackAudioFeaturesComputed, TrackSection
 from app.db.models.track import Track
 from app.db.repositories.base import BaseRepository
+from app.entities.audio.features import TrackFeatures
 
 
 class FeatureRepository(BaseRepository[TrackAudioFeaturesComputed]):

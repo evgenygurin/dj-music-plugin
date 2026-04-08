@@ -8,7 +8,7 @@ on the full TransitionScorer.
 from __future__ import annotations
 
 from app.core.constants import SectionType
-from app.core.track_features import TrackFeatures
+from app.entities.audio.features import TrackFeatures
 from app.transition import SectionContext, TransitionScorer
 from app.transition.components.harmonic import score_harmonic
 from app.transition.weights import (

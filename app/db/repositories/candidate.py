@@ -5,10 +5,10 @@ from __future__ import annotations
 from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.track_features import TrackFeatures
 from app.db.models.audio import TrackAudioFeaturesComputed
 from app.db.models.transition import TransitionCandidate
 from app.db.repositories.base import BaseRepository
+from app.entities.audio.features import TrackFeatures
 
 
 class CandidateRepository(BaseRepository[TransitionCandidate]):

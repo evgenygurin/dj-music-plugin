@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import math
 
-from app.core.track_features import TrackFeatures
+from app.entities.audio.features import TrackFeatures
 from app.templates.models import SetTemplateDefinition
 from app.transition.intent import infer_intent
 from app.transition.scorer import TransitionScorer

@@ -7,7 +7,7 @@ blended with Tonnetz cosine similarity for a continuous estimate.
 from __future__ import annotations
 
 from app.camelot.wheel import camelot_distance
-from app.core.track_features import TrackFeatures
+from app.entities.audio.features import TrackFeatures
 from app.transition.math_helpers import cosine_similarity
 from app.transition.section_context import SectionContext
 from app.transition.weights import (

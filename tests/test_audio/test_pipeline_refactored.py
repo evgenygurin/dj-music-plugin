@@ -322,7 +322,7 @@ async def test_pipeline_discovers_p2_analyzers():
 
 def test_scoring_parity_without_p2():
     """Tracks without P2 features produce valid scores (no crash, no NaN)."""
-    from app.core.track_features import TrackFeatures
+    from app.entities.audio.features import TrackFeatures
     from app.services.transition import TransitionScorer
 
     scorer = TransitionScorer()

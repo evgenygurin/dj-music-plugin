@@ -13,7 +13,7 @@ redesign that produced this layout.
 from __future__ import annotations
 
 from app.core.constants import DEFAULT_TRANSITION_WEIGHTS
-from app.core.track_features import TrackFeatures
+from app.entities.audio.features import TrackFeatures
 from app.transition.components import (
     score_bpm,
     score_energy,

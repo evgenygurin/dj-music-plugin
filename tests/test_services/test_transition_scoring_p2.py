@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import pytest
 
-from app.core.track_features import TrackFeatures
+from app.entities.audio.features import TrackFeatures
 from app.services.transition import TransitionScorer
 
 

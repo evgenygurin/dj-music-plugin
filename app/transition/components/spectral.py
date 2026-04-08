@@ -8,7 +8,7 @@ spectral complexity.
 
 from __future__ import annotations
 
-from app.core.track_features import TrackFeatures
+from app.entities.audio.features import TrackFeatures
 from app.transition.math_helpers import correlation, cosine_similarity
 from app.transition.weights import (
     COMPLEXITY_DIFF_THRESHOLD,
