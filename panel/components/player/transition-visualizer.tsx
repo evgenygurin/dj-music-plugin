@@ -89,13 +89,22 @@ export function TransitionVisualizer() {
   const incomingPos =
     incomingFadeStartPosition != null ? incomingFadeStartPosition + elapsed * inRate : 0
 
-  // Bass-swap is now a HARD step at the midpoint (the audio engine
-  // does a 20 ms ramp on a downbeat; the visualizer shows this as a
-  // step function). Until progress=0.5: outgoing has full bass,
-  // incoming is muted. After progress=0.5: swap — outgoing killed,
-  // incoming full.
-  const bassOut = progress < 0.5 ? 1 : 0
-  const bassIn = progress < 0.5 ? 0 : 1
+  // Bass swap is a short cross-ramp centered on the midpoint. The
+  // audio engine ramps over 1..4 bars depending on cf; we don't have
+  // cf in bars here, so we use a fixed 12.5 % window (matches the
+  // engine's swapBars = cfBars / 8 rule). Outgoing bass drops from
+  // 1 → 0 and incoming rises from 0 → 1 linearly over that window.
+  const SWAP_WINDOW = 0.125 // 12.5 % of fade width
+  const swapStart = 0.5 - SWAP_WINDOW / 2
+  const swapEnd = 0.5 + SWAP_WINDOW / 2
+  const swapProgress =
+    progress <= swapStart
+      ? 0
+      : progress >= swapEnd
+        ? 1
+        : (progress - swapStart) / SWAP_WINDOW
+  const bassOut = 1 - swapProgress
+  const bassIn = swapProgress
 
   return (
     <div
