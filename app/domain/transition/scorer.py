@@ -12,11 +12,7 @@ redesign that produced this layout.
 
 from __future__ import annotations
 
-from app.core.constants import (
-    DEFAULT_TRANSITION_WEIGHTS,
-    TRANSITION_STYLE_PROFILES,
-    TransitionStyle,
-)
+from app.core.constants import DEFAULT_TRANSITION_WEIGHTS
 from app.core.track_features import TrackFeatures
 from app.core.transition_intent import INTENT_WEIGHT_MODIFIERS, TransitionIntent
 from app.domain.transition.components import (
@@ -29,6 +25,7 @@ from app.domain.transition.components import (
 )
 from app.domain.transition.hard_constraints import check_hard_constraints
 from app.domain.transition.score import TransitionScore
+from app.domain.transition.style import recommend_style, style_profile
 
 __all__ = [
     "TransitionScore",
@@ -139,80 +136,7 @@ class TransitionScorer:
         )
 
 
-# ── Style recommendation ─────────────────────────────────────────────
-#
-# Decoupled from the scorer class so it can be called on a cached
-# `TransitionScore` without rebuilding the engine.
-#
-# Decision tree (in priority order):
-#   1. Hard reject              → FILTER_SWEEP    (last resort, requires
-#                                                  spectral cleanup before
-#                                                  the swap is even safe)
-#   2. score.spectral < 0.45    → FILTER_SWEEP    (spectral collision —
-#                                                  sweep outgoing HPF up)
-#   3. score.energy < 0.40      → ECHO_OUT        (big energy gap —
-#                                                  tail-stop with echo)
-#   4. score.harmonic < 0.55    → LONG_BLEND      (key drift — slow
-#                                                  harmonic shift)
-#   5. score.bpm    > 0.95
-#      AND score.harmonic > 0.85
-#      AND score.groove   > 0.75 → CUT             (perfect match — drop
-#                                                  on the bar, no overlap)
-#   6. score.overall > 0.75     → BASS_SWAP_SHORT (good match — 8 bars)
-#   7. else                     → BASS_SWAP_LONG  (DJ default — 32 bars)
-
-
-def recommend_style(score: TransitionScore) -> TransitionStyle:
-    """Pick a transition style from a 6-component score.
-
-    Pure function — no I/O, no DB, no engine state. Decisions are based
-    only on the public fields of ``TransitionScore``. The thresholds
-    encode the rules in the comment block above.
-
-    A hard-rejected score still returns a style (FILTER_SWEEP) — it is
-    the *caller's* job to decide whether to actually play the
-    transition. ``recommend_style`` only answers "if you do play it,
-    here's the least bad way to do it".
-    """
-    if score.hard_reject:
-        return TransitionStyle.FILTER_SWEEP
-
-    # Spectral collision → sweep before anything else, even if other
-    # axes are clean. Two tracks fighting for the same frequency band
-    # can't be solved with a longer crossfade.
-    if score.spectral < 0.45:
-        return TransitionStyle.FILTER_SWEEP
-
-    # Energy gap → echo-tail the outgoing track to bridge the drop.
-    # Long blends across an energy chasm just sound like a slow
-    # disappointment.
-    if score.energy < 0.40:
-        return TransitionStyle.ECHO_OUT
-
-    # Harmonic mismatch → long tonal blend gives the ear time to
-    # accept the new key. Camelot wheel is forgiving but not
-    # instantaneous.
-    if score.harmonic < 0.55:
-        return TransitionStyle.LONG_BLEND
-
-    # Near-perfect match across BPM, key, and groove → just cut on
-    # the bar. Crossfading a perfectly aligned pair is busy-work.
-    if score.bpm > 0.95 and score.harmonic > 0.85 and score.groove > 0.75:
-        return TransitionStyle.CUT
-
-    # Default branches: short or long bass-swap blend depending on
-    # how confident we are in the overall fit.
-    if score.overall > 0.75:
-        return TransitionStyle.BASS_SWAP_SHORT
-    return TransitionStyle.BASS_SWAP_LONG
-
-
-def style_profile(style: TransitionStyle) -> dict[str, float | str]:
-    """Return the bars + reason metadata for a given style.
-
-    Thin wrapper around ``TRANSITION_STYLE_PROFILES`` so callers don't
-    need to import the table directly. Raises ``KeyError`` for unknown
-    styles, which would only happen if the enum and table drift apart
-    (covered by tests).
-    """
-    return TRANSITION_STYLE_PROFILES[style]
+# recommend_style and style_profile live in app/domain/transition/style.py
+# and are re-exported above so existing
+# `from app.domain.transition.scorer import recommend_style` calls
+# remain valid.

@@ -140,3 +140,35 @@ def test_recommend_style_branches(
     score_kwargs: dict[str, float | bool], expected: TransitionStyle
 ) -> None:
     assert recommend_style(_score(**score_kwargs)) == expected
+
+
+# ── StyleRules override (introduced in commit 4) ─────────────────────
+
+
+def test_recommend_style_accepts_custom_rules() -> None:
+    """Custom StyleRules can shift cutoffs without touching the function."""
+    from app.domain.transition.style import recommend_style as rs_with_rules
+    from app.domain.transition.weights import StyleRules
+
+    # A score that would trigger LONG_BLEND under defaults (harmonic 0.40)…
+    score = _score(harmonic=0.40, spectral=0.80, energy=0.80)
+    assert rs_with_rules(score) == TransitionStyle.LONG_BLEND
+
+    # …becomes a regular bass-swap when we lower the harmonic cutoff.
+    permissive = StyleRules(harmonic_drift_cutoff=0.30)
+    result = rs_with_rules(score, rules=permissive)
+    assert result in {TransitionStyle.BASS_SWAP_SHORT, TransitionStyle.BASS_SWAP_LONG}
+
+
+def test_default_rules_match_legacy_thresholds() -> None:
+    """The dataclass defaults must encode the historical hand-tuned values
+    so that this commit is a no-op for behaviour."""
+    from app.domain.transition.weights import DEFAULT_STYLE_RULES
+
+    assert DEFAULT_STYLE_RULES.spectral_collision_cutoff == 0.45
+    assert DEFAULT_STYLE_RULES.energy_gap_cutoff == 0.40
+    assert DEFAULT_STYLE_RULES.harmonic_drift_cutoff == 0.55
+    assert DEFAULT_STYLE_RULES.perfect_bpm_cutoff == 0.95
+    assert DEFAULT_STYLE_RULES.perfect_harmonic_cutoff == 0.85
+    assert DEFAULT_STYLE_RULES.perfect_groove_cutoff == 0.75
+    assert DEFAULT_STYLE_RULES.confident_overall_cutoff == 0.75
