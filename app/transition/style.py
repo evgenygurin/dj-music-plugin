@@ -30,8 +30,8 @@ Decision tree (in priority order):
 from __future__ import annotations
 
 from app.core.constants import TRANSITION_STYLE_PROFILES, TransitionStyle
-from app.domain.transition.score import TransitionScore
-from app.domain.transition.weights import DEFAULT_STYLE_RULES, StyleRules
+from app.transition.score import TransitionScore
+from app.transition.weights import DEFAULT_STYLE_RULES, StyleRules
 
 
 def recommend_style(

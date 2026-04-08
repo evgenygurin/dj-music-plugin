@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from app.domain.export.models import SetExportData
+from app.export.models import SetExportData
 
 
 def write_m3u8(data: SetExportData, output_path: Path) -> Path:

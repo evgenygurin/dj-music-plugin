@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 
 from app.core.constants import TRANSITION_STYLE_PROFILES, TransitionStyle
-from app.domain.transition import TransitionScore, recommend_style, style_profile
+from app.transition import TransitionScore, recommend_style, style_profile
 
 
 def _score(**overrides: float | bool | str | None) -> TransitionScore:
@@ -147,8 +147,8 @@ def test_recommend_style_branches(
 
 def test_recommend_style_accepts_custom_rules() -> None:
     """Custom StyleRules can shift cutoffs without touching the function."""
-    from app.domain.transition.style import recommend_style as rs_with_rules
-    from app.domain.transition.weights import StyleRules
+    from app.transition.style import recommend_style as rs_with_rules
+    from app.transition.weights import StyleRules
 
     # A score that would trigger LONG_BLEND under defaults (harmonic 0.40)…
     score = _score(harmonic=0.40, spectral=0.80, energy=0.80)
@@ -163,7 +163,7 @@ def test_recommend_style_accepts_custom_rules() -> None:
 def test_default_rules_match_legacy_thresholds() -> None:
     """The dataclass defaults must encode the historical hand-tuned values
     so that this commit is a no-op for behaviour."""
-    from app.domain.transition.weights import DEFAULT_STYLE_RULES
+    from app.transition.weights import DEFAULT_STYLE_RULES
 
     assert DEFAULT_STYLE_RULES.spectral_collision_cutoff == 0.45
     assert DEFAULT_STYLE_RULES.energy_gap_cutoff == 0.40

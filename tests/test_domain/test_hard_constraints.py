@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from app.config import settings
 from app.core.track_features import TrackFeatures
-from app.domain.transition.hard_constraints import check_hard_constraints
+from app.transition.hard_constraints import check_hard_constraints
 
 
 def _features(**overrides: object) -> TrackFeatures:

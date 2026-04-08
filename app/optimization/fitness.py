@@ -9,8 +9,8 @@ import math
 
 from app.core.track_features import TrackFeatures
 from app.core.transition_intent import infer_intent
-from app.domain.templates.models import SetTemplateDefinition
-from app.domain.transition.scorer import TransitionScorer
+from app.templates.models import SetTemplateDefinition
+from app.transition.scorer import TransitionScorer
 
 _FITNESS_WEIGHTS = {
     "transition": 0.35,

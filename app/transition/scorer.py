@@ -15,7 +15,7 @@ from __future__ import annotations
 from app.core.constants import DEFAULT_TRANSITION_WEIGHTS
 from app.core.track_features import TrackFeatures
 from app.core.transition_intent import INTENT_WEIGHT_MODIFIERS, TransitionIntent
-from app.domain.transition.components import (
+from app.transition.components import (
     score_bpm,
     score_energy,
     score_groove,
@@ -23,11 +23,11 @@ from app.domain.transition.components import (
     score_spectral,
     score_timbral,
 )
-from app.domain.transition.hard_constraints import check_hard_constraints
-from app.domain.transition.score import TransitionScore
-from app.domain.transition.section_context import SectionContext
-from app.domain.transition.style import recommend_style, style_profile
-from app.domain.transition.weights import DRUM_ONLY_WEIGHT_OVERRIDE
+from app.transition.hard_constraints import check_hard_constraints
+from app.transition.score import TransitionScore
+from app.transition.section_context import SectionContext
+from app.transition.style import recommend_style, style_profile
+from app.transition.weights import DRUM_ONLY_WEIGHT_OVERRIDE
 
 __all__ = [
     "TransitionScore",
@@ -154,5 +154,5 @@ class TransitionScorer:
 
 # recommend_style and style_profile live in app/domain/transition/style.py
 # and are re-exported above so existing
-# `from app.domain.transition.scorer import recommend_style` calls
+# `from app.transition.scorer import recommend_style` calls
 # remain valid.

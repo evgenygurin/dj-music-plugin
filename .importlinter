@@ -22,7 +22,7 @@ forbidden_modules =
 name = Transition scoring must be pure (no DB, no MCP, no HTTP)
 type = forbidden
 source_modules =
-    app.domain.transition
+    app.transition
 forbidden_modules =
     app.repositories
     app.models
@@ -37,7 +37,7 @@ forbidden_modules =
 name = Optimization (GA, greedy, fitness) must be pure
 type = forbidden
 source_modules =
-    app.domain.optimization
+    app.optimization
 forbidden_modules =
     app.repositories
     app.models
@@ -60,4 +60,8 @@ forbidden_modules =
     app.mcp
     app.audio
     app.ym
-    app.domain
+    app.transition
+    app.optimization
+    app.templates
+    app.audit
+    app.export

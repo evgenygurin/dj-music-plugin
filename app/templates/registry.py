@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from app.domain.templates.models import SetTemplateDefinition, TemplateSlot
+from app.templates.models import SetTemplateDefinition, TemplateSlot
 
 TEMPLATES: dict[str, SetTemplateDefinition] = {
     # ── 1. Warm-up opener (30 min) ─────────────────────

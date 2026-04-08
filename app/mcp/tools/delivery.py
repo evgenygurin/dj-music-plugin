@@ -19,7 +19,7 @@ from app.config import settings
 from app.core.constants import ExportFormat
 from app.core.utils.files import is_icloud_stub
 from app.core.utils.parsing import ensure_dict, ensure_list
-from app.domain.export import (
+from app.export import (
     RekordboxOptions,
     write_cheat_sheet,
     write_json_guide,

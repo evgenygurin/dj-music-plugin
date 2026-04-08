@@ -5,7 +5,7 @@ from __future__ import annotations
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
-from app.domain.export.models import RekordboxOptions, SetExportData
+from app.export.models import RekordboxOptions, SetExportData
 
 
 def write_rekordbox_xml(

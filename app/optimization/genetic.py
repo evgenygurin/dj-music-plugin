@@ -7,10 +7,10 @@ from collections.abc import Callable
 
 from app.config import settings
 from app.core.track_features import TrackFeatures
-from app.domain.optimization.fitness import compute_fitness
-from app.domain.optimization.result import OptimizationResult
-from app.domain.templates.models import SetTemplateDefinition
-from app.domain.transition.scorer import TransitionScorer
+from app.optimization.fitness import compute_fitness
+from app.optimization.result import OptimizationResult
+from app.templates.models import SetTemplateDefinition
+from app.transition.scorer import TransitionScorer
 
 
 class GeneticAlgorithm:

@@ -11,8 +11,8 @@ import math
 
 from app.config import settings
 from app.core.track_features import TrackFeatures
-from app.domain.transition.math_helpers import bpm_distance
-from app.domain.transition.weights import (
+from app.transition.math_helpers import bpm_distance
+from app.transition.weights import (
     BPM_CONFIDENCE_PENALTY_FLOOR,
     BPM_GAUSS_SIGMA,
     BPM_STABILITY_FLOOR,

@@ -4,11 +4,11 @@ from __future__ import annotations
 
 from typing import Any
 
+from app.audit.rules import DEFAULT_AUDIT_RULES, run_audit_rules
 from app.core.errors import NotFoundError, ValidationError
 from app.db.repositories.feature import FeatureRepository
 from app.db.repositories.playlist import PlaylistRepository
 from app.db.repositories.track import TrackRepository
-from app.domain.audit.rules import DEFAULT_AUDIT_RULES, run_audit_rules
 
 
 class PlaylistAuditService:

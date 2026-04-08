@@ -7,7 +7,6 @@ and plain downbeat lists, no fixtures.
 from __future__ import annotations
 
 from app.core.constants import SectionType
-from app.domain.transition.section_context import SectionContext
 from app.services.mix_point_service import (
     TrackSectionRow,
     build_section_context,
@@ -16,6 +15,7 @@ from app.services.mix_point_service import (
     quantize_to_downbeat,
     section_at,
 )
+from app.transition.section_context import SectionContext
 
 # ── quantize_to_downbeat ─────────────────────────────────────────────
 

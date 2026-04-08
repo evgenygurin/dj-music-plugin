@@ -11,7 +11,7 @@ import math
 
 from app.config import settings
 from app.core.track_features import TrackFeatures
-from app.domain.transition.weights import ENERGY_SIGMOID_DIVISOR
+from app.transition.weights import ENERGY_SIGMOID_DIVISOR
 
 
 def score_energy(from_t: TrackFeatures, to_t: TrackFeatures) -> float:

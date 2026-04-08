@@ -205,7 +205,7 @@ async def main() -> None:
 
     # ── 4. Transition scoring with real features ──
     print("\n--- Transition Scoring ---")
-    from app.domain.transition import TransitionScorer
+    from app.transition import TransitionScorer
 
     scorer = TransitionScorer()
 

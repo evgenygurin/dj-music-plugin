@@ -9,8 +9,8 @@ from app.db.models.transition import Transition
 from app.db.repositories.feature import FeatureRepository
 from app.db.repositories.set import SetRepository
 from app.db.repositories.transition import TransitionRepository
-from app.domain.transition import TransitionScore, recommend_style, style_profile
 from app.services.transition import TransitionScorer
+from app.transition import TransitionScore, recommend_style, style_profile
 
 
 class SetScoringService:

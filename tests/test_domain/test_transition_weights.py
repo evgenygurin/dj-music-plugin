@@ -10,7 +10,7 @@ import math
 
 import pytest
 
-from app.domain.transition.weights import (
+from app.transition.weights import (
     BPM_GAUSS_SIGMA,
     BPM_STABILITY_FLOOR,
     DEFAULT_STYLE_RULES,

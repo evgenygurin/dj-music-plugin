@@ -15,7 +15,7 @@ from app.db.repositories.playlist import PlaylistRepository
 from app.db.repositories.set import SetRepository
 from app.db.repositories.track import TrackRepository
 from app.db.repositories.transition import TransitionRepository
-from app.domain.transition import TransitionScorer
+from app.transition import TransitionScorer
 
 _ENERGY_DIRECTIONS: frozenset[str] = frozenset({"any", "up", "down"})
 

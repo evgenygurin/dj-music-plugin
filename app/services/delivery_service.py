@@ -16,7 +16,7 @@ from app.db.repositories.feature import FeatureRepository
 from app.db.repositories.set import SetRepository
 from app.db.repositories.track import TrackRepository
 from app.db.repositories.transition import TransitionRepository
-from app.domain.export import (
+from app.export import (
     ExportTrack,
     ExportTransition,
     RekordboxOptions,

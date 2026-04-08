@@ -8,8 +8,8 @@ their per-feature weights.
 from __future__ import annotations
 
 from app.core.track_features import TrackFeatures
-from app.domain.transition.math_helpers import cosine_similarity
-from app.domain.transition.weights import GROOVE_SUB_WEIGHTS
+from app.transition.math_helpers import cosine_similarity
+from app.transition.weights import GROOVE_SUB_WEIGHTS
 
 
 def score_groove(from_t: TrackFeatures, to_t: TrackFeatures) -> float:

@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from app.domain.export.models import SetExportData
+from app.export.models import SetExportData
 
 
 def write_json_guide(data: SetExportData, output_path: Path) -> Path:

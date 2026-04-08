@@ -9,8 +9,8 @@ spectral complexity.
 from __future__ import annotations
 
 from app.core.track_features import TrackFeatures
-from app.domain.transition.math_helpers import correlation, cosine_similarity
-from app.domain.transition.weights import (
+from app.transition.math_helpers import correlation, cosine_similarity
+from app.transition.weights import (
     COMPLEXITY_DIFF_THRESHOLD,
     COMPLEXITY_PENALTY,
     DISSONANCE_PAIR_THRESHOLD,

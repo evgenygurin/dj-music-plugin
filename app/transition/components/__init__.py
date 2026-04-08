@@ -9,12 +9,12 @@ No I/O, no DB, no class state — these are leaf functions for the
 weighted sum.
 """
 
-from app.domain.transition.components.bpm import score_bpm
-from app.domain.transition.components.energy import score_energy
-from app.domain.transition.components.groove import score_groove
-from app.domain.transition.components.harmonic import score_harmonic
-from app.domain.transition.components.spectral import score_spectral
-from app.domain.transition.components.timbral import score_timbral
+from app.transition.components.bpm import score_bpm
+from app.transition.components.energy import score_energy
+from app.transition.components.groove import score_groove
+from app.transition.components.harmonic import score_harmonic
+from app.transition.components.spectral import score_spectral
+from app.transition.components.timbral import score_timbral
 
 __all__ = [
     "score_bpm",

@@ -17,7 +17,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from app.core.constants import SectionType
-from app.domain.transition.section_context import SectionContext
+from app.transition.section_context import SectionContext
 
 # A "phrase" in techno is the 32-beat (8-bar) unit DJs build their
 # blends around. We quantise to half a phrase (16 beats / 4 bars) so we

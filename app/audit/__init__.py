@@ -1,6 +1,6 @@
 """Audit rules — Chain of Responsibility for playlist quality checks."""
 
-from app.domain.audit.rules import (
+from app.audit.rules import (
     DEFAULT_AUDIT_RULES,
     AuditIssue,
     AuditRule,

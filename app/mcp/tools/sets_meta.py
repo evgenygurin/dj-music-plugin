@@ -6,8 +6,8 @@ from typing import Any
 
 from fastmcp.tools import tool
 
-from app.domain.templates.registry import TEMPLATES
 from app.mcp.tools._shared import ANNOTATIONS_READ_ONLY, ToolCategory
+from app.templates.registry import TEMPLATES
 
 
 @tool(
