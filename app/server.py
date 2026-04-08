@@ -22,7 +22,7 @@ from fastmcp.server.providers import FileSystemProvider
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from app.config import settings
-from app.core.cache import TransitionCache
+from app.core.utils.cache import TransitionCache
 
 # ── Observability Setup ──────────────────────────────
 

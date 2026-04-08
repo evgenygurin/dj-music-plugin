@@ -2,7 +2,7 @@
 
 Thin wrappers calling :class:`TrackService` via ``Depends()``. All
 entity resolution, parsing and taxonomy live in
-:mod:`app.mcp.tools._shared` and :mod:`app.core.parsing`.
+:mod:`app.mcp.tools._shared` and :mod:`app.core.utils.parsing`.
 """
 
 from __future__ import annotations
@@ -14,8 +14,8 @@ from fastmcp.dependencies import Depends
 from fastmcp.exceptions import ToolError
 from fastmcp.tools import tool
 
-from app.core.parsing import ensure_dict
 from app.core.schemas import PaginatedResponse, TrackBrief, TrackStandard
+from app.core.utils.parsing import ensure_dict
 from app.mcp.dependencies import get_feature_repo, get_track_service
 from app.mcp.tools._shared import (
     ANNOTATIONS_READ_ONLY,

@@ -13,8 +13,8 @@ from fastmcp.tools import tool
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.entity_resolver import resolve_track_refs
-from app.core.parsing import ensure_dict, ensure_list
 from app.core.schemas import PaginatedResponse, PlaylistSummary
+from app.core.utils.parsing import ensure_dict, ensure_list
 from app.mcp.dependencies import (
     get_db_session,
     get_playlist_service,

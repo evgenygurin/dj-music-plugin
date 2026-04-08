@@ -72,7 +72,7 @@ class AudioService:
             }
 
         # 4. Check iCloud stub
-        from app.utils.files import is_icloud_stub
+        from app.core.utils.files import is_icloud_stub
 
         if is_icloud_stub(file_path):
             return {

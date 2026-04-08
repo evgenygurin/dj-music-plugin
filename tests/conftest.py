@@ -128,7 +128,7 @@ async def client(async_engine):  # type: ignore[no-untyped-def]
     from unittest.mock import AsyncMock
 
     from app.audio.analyzers import AnalyzerRegistry
-    from app.core.cache import TransitionCache
+    from app.core.utils.cache import TransitionCache
 
     # Provide all lifespan context keys that tools may need
     registry = AnalyzerRegistry()

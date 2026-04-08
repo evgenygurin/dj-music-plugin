@@ -52,7 +52,7 @@ forbidden_modules =
 name = Utils must not depend on app domain code
 type = forbidden
 source_modules =
-    app.utils
+    app.core.utils
 forbidden_modules =
     app.models
     app.repositories

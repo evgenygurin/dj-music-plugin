@@ -5,7 +5,7 @@ from __future__ import annotations
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.pagination import CursorPage
+from app.core.utils.pagination import CursorPage
 from app.models.audio import TrackAudioFeaturesComputed
 from app.models.track import Track
 
@@ -68,7 +68,7 @@ class FilteringMixin:
         """Advanced parametric track filter used by SearchService."""
         from sqlalchemy import func as sa_func
 
-        from app.core.pagination import decode_cursor, encode_cursor
+        from app.core.utils.pagination import decode_cursor, encode_cursor
         from app.models.set import SetItem, SetVersion
 
         if has_features is False:

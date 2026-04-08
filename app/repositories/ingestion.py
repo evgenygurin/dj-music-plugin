@@ -8,9 +8,9 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.utils.time import utc_now
 from app.models.ingestion import RawProviderResponse
 from app.repositories.base import BaseRepository
-from app.utils.time import utc_now
 
 
 class IngestionRepository(BaseRepository[RawProviderResponse]):

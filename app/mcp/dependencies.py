@@ -20,7 +20,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.audio.analyzers import AnalyzerRegistry
 from app.audio.timeseries import TimeseriesStorage
-from app.core.cache import TransitionCache
+from app.core.utils.cache import TransitionCache
 from app.repositories.audio import AudioRepository
 from app.repositories.candidate import CandidateRepository
 from app.repositories.embedding import EmbeddingRepository

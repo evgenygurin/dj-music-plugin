@@ -14,7 +14,7 @@ from fastmcp.server.lifespan import lifespan
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from app.audio.analyzers import AnalyzerRegistry
-from app.core.cache import TransitionCache
+from app.core.utils.cache import TransitionCache
 from app.ym.client import YandexMusicClient
 from app.ym.rate_limiter import RateLimiter
 

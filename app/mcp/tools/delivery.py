@@ -17,7 +17,8 @@ from fastmcp.tools import tool
 from app.audio.level_config import AnalysisLevel
 from app.config import settings
 from app.core.constants import ExportFormat
-from app.core.parsing import ensure_dict, ensure_list
+from app.core.utils.files import is_icloud_stub
+from app.core.utils.parsing import ensure_dict, ensure_list
 from app.domain.export import (
     RekordboxOptions,
     write_cheat_sheet,
@@ -35,7 +36,6 @@ from app.mcp.tools._shared import (
 )
 from app.services.delivery_service import DeliveryService
 from app.services.tiered_pipeline import TieredPipeline
-from app.utils.files import is_icloud_stub
 
 _DELIVER_SET_ANNOTATIONS: dict[str, bool] = {"readOnlyHint": False, "idempotentHint": True}
 

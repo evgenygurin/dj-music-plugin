@@ -5,7 +5,7 @@ from datetime import datetime
 from sqlalchemy import DateTime
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
-from app.utils.time import sa_now
+from app.core.utils.time import sa_now
 
 
 class Base(DeclarativeBase):

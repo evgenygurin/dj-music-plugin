@@ -1,6 +1,6 @@
 import pytest
 
-from app.core.pagination import CursorPage, decode_cursor, encode_cursor
+from app.core.utils.pagination import CursorPage, decode_cursor, encode_cursor
 
 
 def test_encode_decode_roundtrip() -> None:

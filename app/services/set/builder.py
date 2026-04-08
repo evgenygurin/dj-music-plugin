@@ -63,7 +63,7 @@ class SetBuilderService:
         )
         dj_set = await self._sets.create(dj_set)
 
-        from app.utils.time import utc_timestamp_iso
+        from app.core.utils.time import utc_timestamp_iso
 
         gen_meta = _json.dumps(
             {

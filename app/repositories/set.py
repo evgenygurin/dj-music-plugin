@@ -12,7 +12,7 @@ from app.models.set import DjSet, SetItem, SetVersion
 from app.repositories.base import BaseRepository
 
 if TYPE_CHECKING:
-    from app.core.pagination import CursorPage
+    from app.core.utils.pagination import CursorPage
     from app.models.set import SetConstraint, SetFeedback
 
 

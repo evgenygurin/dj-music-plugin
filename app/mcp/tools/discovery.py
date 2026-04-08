@@ -19,7 +19,7 @@ from fastmcp.server.context import Context
 from fastmcp.tools import tool
 from pydantic import BaseModel
 
-from app.core.parsing import ensure_list
+from app.core.utils.parsing import ensure_list
 from app.mcp.dependencies import get_discovery_service
 from app.mcp.tools._shared import (
     ANNOTATIONS_READ_ONLY_OPEN_WORLD,

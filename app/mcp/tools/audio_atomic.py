@@ -15,7 +15,7 @@ from fastmcp.server.context import Context
 from fastmcp.tools import tool
 
 from app.config import settings
-from app.core.parsing import ensure_list
+from app.core.utils.parsing import ensure_list
 from app.core.ym_filters import genre_ok, is_excluded_title, ym_track_summary
 from app.mcp.dependencies import get_audio_service, get_ym_client
 from app.mcp.tools._shared import (

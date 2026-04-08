@@ -12,7 +12,7 @@ from app.models.playlist import Playlist, PlaylistItem
 from app.repositories.base import BaseRepository
 
 if TYPE_CHECKING:
-    from app.core.pagination import CursorPage
+    from app.core.utils.pagination import CursorPage
 
 
 class PlaylistRepository(BaseRepository[Playlist]):

@@ -5,8 +5,8 @@ from __future__ import annotations
 from typing import Any
 
 from app.core.errors import ValidationError
-from app.core.pagination import CursorPage
 from app.core.schemas import SetSummary
+from app.core.utils.pagination import CursorPage
 from app.models.set import DjSet, SetConstraint, SetFeedback, SetItem, SetVersion
 from app.repositories.feature import FeatureRepository
 from app.repositories.playlist import PlaylistRepository

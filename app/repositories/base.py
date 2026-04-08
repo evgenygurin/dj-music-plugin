@@ -5,7 +5,7 @@ from typing import Any, Generic, TypeVar
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.pagination import CursorPage, decode_cursor, encode_cursor
+from app.core.utils.pagination import CursorPage, decode_cursor, encode_cursor
 
 T = TypeVar("T")
 

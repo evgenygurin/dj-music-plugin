@@ -12,7 +12,7 @@ from fastmcp.dependencies import Depends
 from fastmcp.exceptions import ToolError
 from fastmcp.tools import tool
 
-from app.core.parsing import ensure_list
+from app.core.utils.parsing import ensure_list
 from app.mcp.dependencies import get_ym_client
 from app.mcp.tools._shared import (
     ActionDispatcher,

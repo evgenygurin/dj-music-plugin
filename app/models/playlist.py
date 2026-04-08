@@ -10,8 +10,8 @@ import datetime
 from sqlalchemy import DateTime, ForeignKey, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
+from app.core.utils.time import utc_now
 from app.models.base import Base, TimestampMixin
-from app.utils.time import utc_now
 
 
 class Playlist(Base, TimestampMixin):

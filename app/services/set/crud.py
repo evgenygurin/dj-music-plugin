@@ -6,7 +6,7 @@ import json as _json
 from typing import Any
 
 from app.core.errors import NotFoundError, ValidationError
-from app.core.pagination import CursorPage
+from app.core.utils.pagination import CursorPage
 from app.models.set import DjSet, SetConstraint, SetFeedback, SetItem, SetVersion
 from app.repositories.set import SetRepository
 from app.repositories.track import TrackRepository

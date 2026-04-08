@@ -13,7 +13,7 @@ from fastmcp.server.context import Context
 from fastmcp.tools import tool
 
 from app.audio.level_config import AnalysisLevel
-from app.core.parsing import ensure_list
+from app.core.utils.parsing import ensure_list
 from app.mcp.dependencies import get_import_service, get_tiered_pipeline
 from app.mcp.tools._shared import (
     ToolCategory,

@@ -13,7 +13,7 @@ from typing import Any
 
 from fastmcp.server.middleware import Middleware, MiddlewareContext
 
-from app.utils.time import utc_timestamp_iso
+from app.core.utils.time import utc_timestamp_iso
 
 logger = logging.getLogger(__name__)
 

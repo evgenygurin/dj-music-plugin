@@ -10,7 +10,7 @@ from typing import Any
 from fastmcp.dependencies import Depends
 from fastmcp.tools import tool
 
-from app.core.parsing import ensure_dict
+from app.core.utils.parsing import ensure_dict
 from app.mcp.dependencies import get_set_service
 from app.mcp.tools._shared import (
     ANNOTATIONS_READ_ONLY,

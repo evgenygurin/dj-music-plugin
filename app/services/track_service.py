@@ -9,8 +9,8 @@ import re
 from typing import Any
 
 from app.core.errors import NotFoundError, ValidationError
-from app.core.pagination import CursorPage
 from app.core.schemas import TrackBrief, TrackStandard
+from app.core.utils.pagination import CursorPage
 from app.models.audio import TrackAudioFeaturesComputed
 from app.models.track import Track
 from app.repositories.feature import FeatureRepository

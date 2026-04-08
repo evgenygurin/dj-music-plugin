@@ -16,7 +16,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.audio.level_config import AnalysisLevel
-from app.core.parsing import ensure_list
+from app.core.utils.parsing import ensure_list
 from app.mcp.dependencies import (
     get_audio_service,
     get_db_session,
