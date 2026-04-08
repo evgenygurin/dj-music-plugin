@@ -567,27 +567,28 @@ async def call_tool(
 
 from fastapi import Request as _Request
 
+_SIGNED_URL_CACHE: dict[str, tuple[float, str]] = {}
+_SIGNED_URL_TTL = 300.0  # seconds; YM signed URLs are valid for ~1 hour, be conservative
 
-@api.get("/api/audio/stream/{ym_track_id}", tags=["system"])
-async def stream_audio(ym_track_id: str, request: _Request) -> Any:
-    """Proxy-stream a YM track's MP3 bytes to the caller.
 
-    Resolves the signed YM download URL on each call and streams the bytes
-    through without writing to disk. Forwards Range/Content-Length so the
-    browser can show duration and seek.
-    """
-    import httpx
-    from fastapi.responses import StreamingResponse
+async def _get_signed_url_cached(ym_track_id: str) -> str:
+    """Return a cached signed YM download URL, resolving on miss/expiry."""
+    import time
 
     from app.ym.client import APIError
 
-    if _ym_client is None:
-        raise HTTPException(status_code=503, detail="YM client not initialised")
+    now = time.monotonic()
+    cached = _SIGNED_URL_CACHE.get(ym_track_id)
+    if cached and cached[0] > now:
+        return cached[1]
 
+    assert _ym_client is not None
     try:
         infos = await _ym_client.get_download_info(ym_track_id)
     except APIError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"get_download_info failed: {exc}") from exc
     if not infos:
         raise HTTPException(status_code=404, detail=f"No download info for {ym_track_id}")
 
@@ -605,6 +606,28 @@ async def stream_audio(ym_track_id: str, request: _Request) -> Any:
         signed_url = await _ym_client._resolve_download_url(ym_track_id, info_url)
     except APIError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"resolve_download_url failed: {exc}") from exc
+
+    _SIGNED_URL_CACHE[ym_track_id] = (now + _SIGNED_URL_TTL, signed_url)
+    return signed_url
+
+
+@api.get("/api/audio/stream/{ym_track_id}", tags=["system"])
+async def stream_audio(ym_track_id: str, request: _Request) -> Any:
+    """Proxy-stream a YM track's MP3 bytes to the caller.
+
+    Resolves the signed YM download URL (cached for 5 minutes to keep Range
+    refetches fast) and streams the bytes through without writing to disk.
+    Forwards Range/Content-Length so the browser can show duration and seek.
+    """
+    import httpx
+    from fastapi.responses import StreamingResponse
+
+    if _ym_client is None:
+        raise HTTPException(status_code=503, detail="YM client not initialised")
+
+    signed_url = await _get_signed_url_cached(ym_track_id)
 
     # Forward the client's Range header so the YM CDN serves partial content,
     # which lets the browser determine duration up-front and seek freely.
@@ -613,7 +636,9 @@ async def stream_audio(ym_track_id: str, request: _Request) -> Any:
     if range_header:
         upstream_headers["Range"] = range_header
 
-    client = httpx.AsyncClient(timeout=httpx.Timeout(60.0))
+    client = httpx.AsyncClient(
+        timeout=httpx.Timeout(connect=15.0, read=300.0, write=30.0, pool=15.0)
+    )
 
     try:
         upstream = await client.send(
@@ -654,6 +679,11 @@ async def stream_audio(ym_track_id: str, request: _Request) -> Any:
         try:
             async for chunk in upstream.aiter_bytes(chunk_size=65536):
                 yield chunk
+        except (httpx.ReadTimeout, httpx.ReadError, httpx.RemoteProtocolError) as exc:
+            # Upstream dropped mid-stream; end the response cleanly instead of
+            # raising a traceback. The browser will retry via Range if needed.
+            logger.warning("audio stream %s interrupted: %s", ym_track_id, exc)
+            return
         finally:
             await upstream.aclose()
             await client.aclose()

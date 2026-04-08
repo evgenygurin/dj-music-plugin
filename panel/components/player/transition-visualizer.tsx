@@ -25,6 +25,10 @@ export function TransitionVisualizer() {
     current,
     crossfadeStartedAt,
     crossfadeDurationSeconds,
+    outgoingFadeStartPosition,
+    incomingFadeStartPosition,
+    outgoingFadePlaybackRate,
+    incomingFadePlaybackRate,
     recommendedStyle,
     recommendedBars,
   } = audio
@@ -70,6 +74,21 @@ export function TransitionVisualizer() {
   // engine is actually doing — see startCrossfade in audio-player-context).
   const gainOut = Math.cos((progress * Math.PI) / 2)
   const gainIn = Math.sin((progress * Math.PI) / 2)
+
+  // Live per-deck playhead positions during the overlap. Each deck
+  // started at a snapshot position and has been advancing at its own
+  // playbackRate (incoming may be tempo-matched to outgoing). The
+  // visualizer doesn't have raw access to <audio>.currentTime, so we
+  // extrapolate from the snapshot + wall-clock progress to keep the
+  // two waveform cursors driving in real time.
+  const fadeDur = crossfadeDurationSeconds ?? 0
+  const elapsed = progress * fadeDur
+  const outRate = outgoingFadePlaybackRate ?? 1
+  const inRate = incomingFadePlaybackRate ?? 1
+  const outgoingPos =
+    outgoingFadeStartPosition != null ? outgoingFadeStartPosition + elapsed * outRate : 0
+  const incomingPos =
+    incomingFadeStartPosition != null ? incomingFadeStartPosition + elapsed * inRate : 0
 
   // Bass-swap is linear over the FIRST half of the fade (active.low
   // 0dB → -40dB by midpoint, inactive.low -40dB → 0dB by midpoint).
@@ -124,7 +143,7 @@ export function TransitionVisualizer() {
             <div style={{ opacity: 0.3 + gainOut * 0.7 }}>
               <TrackWaveform
                 trackId={outgoing.id}
-                position={0}
+                position={outgoingPos}
                 duration={(outgoing.durationMs ?? 0) / 1000}
                 onSeek={() => undefined}
                 height={32}
@@ -157,7 +176,7 @@ export function TransitionVisualizer() {
             <div style={{ opacity: 0.3 + gainIn * 0.7 }}>
               <TrackWaveform
                 trackId={current.id}
-                position={0}
+                position={incomingPos}
                 duration={(current.durationMs ?? 0) / 1000}
                 onSeek={() => undefined}
                 height={32}

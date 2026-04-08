@@ -296,7 +296,7 @@ export function LibraryTable({
           />
         </div>
         <span className="text-sm text-muted-foreground shrink-0">
-          {tracks.length.toLocaleString('en-US')} / {total.toLocaleString('en-US')} tracks
+          {tracks.length.toLocaleString()} / {total.toLocaleString()} tracks
         </span>
       </div>
 

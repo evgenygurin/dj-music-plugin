@@ -108,20 +108,6 @@ interface AudioPlayerApi extends AudioPlayerState {
   stop: () => void
   next: () => void
   prev: () => void
-  // Kick off a smooth crossfade to the already-planned next track
-  // RIGHT NOW, without waiting for the current track to end. Picks
-  // queue[idx+1] when available, otherwise falls back to the
-  // client-side pickAutoNext. No-op when there's nothing to play.
-  mixNow: () => void
-  // Pick the most compatible track via the backend TransitionScorer
-  // (scoreTransitionCandidates server action) and play it. Async
-  // because it awaits the scoring RPC. Uses the same async picker as
-  // the auto-DJ end-of-track handler, so behaviour is consistent.
-  playRecommendedNext: () => Promise<void>
-  // Next track that would play if the user did nothing. Derived from
-  // queue[idx+1]; null when there's no queued item. Medium/Mini bars
-  // render this as a "→ Artist — Title" peek chip.
-  nextUp: PlayerTrackMeta | null
   seek: (seconds: number) => void
   setVolume: (vol: number) => void
   toggleMute: () => void
@@ -140,6 +126,14 @@ interface AudioPlayerApi extends AudioPlayerState {
   outgoing: PlayerTrackMeta | null
   crossfadeStartedAt: number | null
   crossfadeDurationSeconds: number | null
+  // Per-deck position snapshots taken at the moment the fade was
+  // armed. Visualizer interpolates them with the wall-clock progress
+  // and the matching playbackRate to show real playhead positions on
+  // both tracks during the overlap. Both null outside an active fade.
+  outgoingFadeStartPosition: number | null
+  incomingFadeStartPosition: number | null
+  outgoingFadePlaybackRate: number | null
+  incomingFadePlaybackRate: number | null
   // Backend-recommended style for the active fade. Resolved
   // asynchronously after the crossfade starts (no audio blocking).
   // Visualizer reads these to surface "what the algorithm suggested".
@@ -181,6 +175,18 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
   const [outgoing, setOutgoing] = useState<PlayerTrackMeta | null>(null)
   const [crossfadeStartedAt, setCrossfadeStartedAt] = useState<number | null>(null)
   const [crossfadeDurationSeconds, setCrossfadeDurationSeconds] = useState<number | null>(null)
+  const [outgoingFadeStartPosition, setOutgoingFadeStartPosition] = useState<number | null>(
+    null,
+  )
+  const [incomingFadeStartPosition, setIncomingFadeStartPosition] = useState<number | null>(
+    null,
+  )
+  const [outgoingFadePlaybackRate, setOutgoingFadePlaybackRate] = useState<number | null>(
+    null,
+  )
+  const [incomingFadePlaybackRate, setIncomingFadePlaybackRate] = useState<number | null>(
+    null,
+  )
   const [recommendedStyle, setRecommendedStyle] = useState<TransitionStyle | null>(null)
   const [recommendedBars, setRecommendedBars] = useState<number | null>(null)
   const [position, setPosition] = useState(0)
@@ -188,10 +194,7 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
   const [volume, setVolumeState] = useState(0.85)
   const [muted, setMuted] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  // Default ON: out-of-the-box the user expects tracks to recommend +
-  // auto-advance. `toggleAutoDj` flips this; the Auto-Mix toggle in the
-  // player bar is the visible switch.
-  const [autoDj, setAutoDj] = useState(true)
+  const [autoDj, setAutoDj] = useState(false)
   // Master mix switch — default ON. When false, every transition snaps
   // instantly (useful for preview-style listening).
   const [mixEnabled, setMixEnabled] = useState(true)
@@ -320,17 +323,28 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
   // around outro/intro and match tempos.
   const metaCacheRef = useRef<Map<number, TrackMixMeta>>(new Map())
   const currentMetaRef = useRef<TrackMixMeta | null>(null)
+  // In-flight fetch dedup. Without this, two concurrent loadMixMeta
+  // calls for the same track id (e.g. snap-load → immediately
+  // crossfade) trigger two HTTP fetches because the cache is still
+  // empty. The promise map collapses them into one.
+  const metaInFlightRef = useRef<Map<number, Promise<TrackMixMeta | null>>>(new Map())
 
   const loadMixMeta = useCallback(async (id: number): Promise<TrackMixMeta | null> => {
     const cached = metaCacheRef.current.get(id)
     if (cached) return cached
-    try {
-      const m = await fetchTrackMixMeta(id)
-      if (m) metaCacheRef.current.set(id, m)
-      return m
-    } catch {
-      return null
-    }
+    const inFlight = metaInFlightRef.current.get(id)
+    if (inFlight) return inFlight
+    const promise = fetchTrackMixMeta(id)
+      .then((m) => {
+        if (m) metaCacheRef.current.set(id, m)
+        return m
+      })
+      .catch(() => null)
+      .finally(() => {
+        metaInFlightRef.current.delete(id)
+      })
+    metaInFlightRef.current.set(id, promise)
+    return promise
   }, [])
 
   // ── DJ-style crossfade ─────────────────────────────────────────
@@ -379,6 +393,13 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
       const url = `/api/audio/${track.id}`
       inactive.audio.src = url
       inactive.audio.preservesPitch = false // we want true playback-rate behaviour
+      // Reset any leftover playbackRate from a previous transition —
+      // otherwise a chain of mixes compounds tempo-match ratios.
+      try {
+        inactive.audio.playbackRate = 1
+      } catch {
+        // ignore
+      }
       inactive.gain.gain.cancelScheduledValues(ctx.currentTime)
       inactive.gain.gain.setValueAtTime(0, ctx.currentTime)
 
@@ -386,43 +407,23 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
       historyRef.current = [...historyRef.current, track.id].slice(-50)
       setIsPlaying(true)
 
-      // Plan the transition: pull incoming meta, optionally start at intro
-      // end, optionally apply tempo match.
-      void loadMixMeta(track.id).then((meta) => {
-        if (!meta) return
-        // Start at intro end (drop) for a punchier mix-in. Skip if intro is
-        // empty / longer than 60s (likely a vocal track wrongly tagged).
-        if (meta.introEndSec && meta.introEndSec > 0 && meta.introEndSec < 60) {
-          try {
-            inactive.audio.currentTime = meta.introEndSec
-          } catch {
-            // ignore — currentTime not yet writable
-          }
-        }
-        // Tempo match against the active deck's track if BPMs are within 8%.
-        const activeMeta = currentMetaRef.current
-        if (meta.bpm && activeMeta?.bpm) {
-          const ratio = activeMeta.bpm / meta.bpm
-          if (ratio >= 0.92 && ratio <= 1.08) {
-            try {
-              inactive.audio.playbackRate = ratio
-            } catch {
-              // ignore
-            }
-          }
-        }
-        currentMetaRef.current = meta
-      })
+      // Kick off meta fetch in parallel with audio load. We consume it
+      // inside the play().then() block below where we know the final
+      // crossfade length and can align the seek correctly.
+      const incomingMetaPromise = loadMixMeta(track.id)
 
       inactive.audio
         .play()
         .then(async () => {
-          // Wait for the backend's style recommendation. Worst case it
-          // arrived ~100-300ms ago and resolves instantly; in the cold
-          // path we add up to ~300ms of pre-roll (silent — `inactive`
-          // gain is at 0). The fade hasn't started yet, so this is
-          // imperceptible.
-          const styleResult = await stylePromise
+          // Wait for the backend's style recommendation + incoming meta.
+          // Worst case they arrived ~100-300ms ago and resolve instantly;
+          // in the cold path we add up to ~300ms of pre-roll (silent —
+          // `inactive` gain is at 0). The fade hasn't started yet, so
+          // this is imperceptible.
+          const [styleResult, incomingMeta] = await Promise.all([
+            stylePromise,
+            incomingMetaPromise,
+          ])
 
           const t0 = ctx.currentTime
           // Use the OUTGOING track's BPM (already known from current.bpm /
@@ -440,7 +441,70 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
           const effectiveBars =
             typeof recBars === 'number' && recBars > 0 ? recBars : crossfadeBars
 
-          const cf = Math.max(2, computeCrossfadeSeconds(effectiveBars, outgoingBpm))
+          let cf = Math.max(2, computeCrossfadeSeconds(effectiveBars, outgoingBpm))
+
+          // ── DJ-correct mix-point alignment ─────────────────────
+          // Classic 32-bar bass swap (Vande Veire & De Bie JASMP 2018,
+          // Pioneer DJ DJ.Studio reference):
+          //   t=0      outgoing enters OUTRO (drums only, melody gone)
+          //            incoming plays INTRO (drums only, no bass/melody)
+          //   t=mid    bass swap midpoint; equal-power crossfade at 50%
+          //   t=cf     outgoing silent; incoming reaches its DROP exactly
+          //
+          // The previous implementation seeked the incoming to `introEnd`
+          // (the drop) at t=0, which meant the drop hit way before the
+          // crossfade finished. We instead start the incoming deep enough
+          // into its intro that after `cf` seconds of playback it lands
+          // exactly on the drop:
+          //   seekTarget = max(introStart, introEnd - cf)
+          // When the intro is SHORTER than the requested fade we shrink
+          // the fade to match, so the drop still lands at fade end.
+          // Outgoing-track guard: never schedule a fade longer than the
+          // remaining audio on the active deck. Without this, calling
+          // mixNow() near end-of-track means setValueCurveAtTime
+          // outlives the actual sample data and the fade keeps running
+          // over silence.
+          if (active.audio.duration && active.audio.currentTime >= 0) {
+            const outgoingRemaining = active.audio.duration - active.audio.currentTime
+            if (outgoingRemaining > 1) {
+              cf = Math.max(2, Math.min(cf, outgoingRemaining))
+            }
+          }
+
+          if (
+            incomingMeta?.introEndSec != null &&
+            incomingMeta.introEndSec > 0 &&
+            incomingMeta.introEndSec < 120
+          ) {
+            const introEnd = incomingMeta.introEndSec
+            const introStart = Math.max(0, incomingMeta.introStartSec ?? 0)
+            const introLen = Math.max(0, introEnd - introStart)
+            if (introLen > 1) {
+              cf = Math.max(2, Math.min(cf, introLen))
+            }
+            const seekTarget = Math.max(introStart, introEnd - cf)
+            try {
+              inactive.audio.currentTime = seekTarget
+            } catch {
+              // ignore — currentTime not yet writable
+            }
+          }
+
+          // Tempo match against the active deck's track if BPMs are
+          // within 8%. Applied AFTER the seek so it doesn't interfere
+          // with currentTime.
+          const activeMeta = currentMetaRef.current
+          if (incomingMeta?.bpm && activeMeta?.bpm) {
+            const ratio = activeMeta.bpm / incomingMeta.bpm
+            if (ratio >= 0.92 && ratio <= 1.08) {
+              try {
+                inactive.audio.playbackRate = ratio
+              } catch {
+                // ignore
+              }
+            }
+          }
+          if (incomingMeta) currentMetaRef.current = incomingMeta
           const t1 = t0 + cf
           const tMid = t0 + cf / 2
           const vol = volumeRef.current
@@ -449,6 +513,14 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
           // currentTime, not wall clock — same units the engine uses).
           setCrossfadeStartedAt(t0)
           setCrossfadeDurationSeconds(cf)
+          // Snapshot per-deck playhead positions and the playback rates
+          // they're locked into. Visualizer extrapolates real positions
+          // = startPos + progress*cf*rate, so it can drive both
+          // waveforms with the actual sample positions instead of 0.
+          setOutgoingFadeStartPosition(active.audio.currentTime || 0)
+          setIncomingFadeStartPosition(inactive.audio.currentTime || 0)
+          setOutgoingFadePlaybackRate(active.audio.playbackRate || 1)
+          setIncomingFadePlaybackRate(inactive.audio.playbackRate || 1)
 
           // Equal-power crossfade — `cos(t·π/2)` for the outgoing deck and
           // `sin(t·π/2)` for the incoming deck. Linear ramps drop the
@@ -502,10 +574,32 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
             setOutgoing(null)
             setCrossfadeStartedAt(null)
             setCrossfadeDurationSeconds(null)
+            setOutgoingFadeStartPosition(null)
+            setIncomingFadeStartPosition(null)
+            setOutgoingFadePlaybackRate(null)
+            setIncomingFadePlaybackRate(null)
             const newActive = getActiveDeck()
             if (newActive) {
               setPosition(newActive.audio.currentTime || 0)
               setDuration(newActive.audio.duration || 0)
+              // Continuous-mix tempo bookkeeping: the just-faded-in deck
+              // may be running at a non-1.0 playbackRate from the
+              // previous transition's tempo match. Don't reset the
+              // rate (would cause an audible speed bump), but patch
+              // currentMetaRef.bpm to the *effective* BPM so the NEXT
+              // crossfade computes its tempo-match ratio against
+              // reality, not the file's tagged BPM. Without this,
+              // chained mixes compound speed ratios.
+              const settledRate = newActive.audio.playbackRate
+              if (
+                currentMetaRef.current?.bpm &&
+                Math.abs(settledRate - 1) > 0.001
+              ) {
+                currentMetaRef.current = {
+                  ...currentMetaRef.current,
+                  bpm: currentMetaRef.current.bpm * settledRate,
+                }
+              }
             }
           }, cf * 1000 + 50)
         })
@@ -562,6 +656,10 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
       setOutgoing(null)
       setCrossfadeStartedAt(null)
       setCrossfadeDurationSeconds(null)
+      setOutgoingFadeStartPosition(null)
+      setIncomingFadeStartPosition(null)
+      setOutgoingFadePlaybackRate(null)
+      setIncomingFadePlaybackRate(null)
       setRecommendedStyle(null)
       setRecommendedBars(null)
       setError(null)
@@ -791,10 +889,13 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     const cfSec = computeCrossfadeSeconds(crossfadeBars, current.bpm)
     if (duration < cfSec * 1.5) return
     const meta = currentMetaRef.current
+    // Latest we can safely start the fade so it finishes before the
+    // outgoing track runs out of audio.
+    const latestSafe = Math.max(0, duration - cfSec)
     const sectionTrigger =
       meta && meta.outroStartSec && meta.outroStartSec > 0
-        ? meta.outroStartSec
-        : duration - cfSec
+        ? Math.min(meta.outroStartSec, latestSafe)
+        : latestSafe
     if (position >= sectionTrigger) {
       autoDjPickInFlight.current = true
       void pickNextTrackAsync(current, queue, historyRef.current)
@@ -936,40 +1037,6 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     }
   }, [current, duration, position])
 
-  // "Next up" peek — the track a linear `next()` would play. Null when
-  // the queue is exhausted. Medium/Mini bars render this as a chip so
-  // the user can see what's coming before hitting MIX NOW.
-  const nextUp: PlayerTrackMeta | null = useMemo(() => {
-    if (queueIndex < 0) return null
-    return queue[queueIndex + 1] ?? null
-  }, [queue, queueIndex])
-
-  // MIX NOW — start a crossfade to the already-planned next track
-  // right now, without waiting for `ended`. Source priority:
-  //   1. queue[idx+1] (what `next()` would walk to)
-  //   2. pickAutoNext (client heuristic) when there's no queued item
-  // No-op when we can't find a target or nothing is currently playing.
-  const mixNow = useCallback(() => {
-    if (!current) return
-    const queued = queueIndex >= 0 ? queue[queueIndex + 1] : undefined
-    const target =
-      queued ?? pickAutoNext(current, queue, historyRef.current) ?? null
-    if (!target) return
-    play(target)
-  }, [current, queue, queueIndex, play])
-
-  // RECOMMENDED NEXT — run the backend TransitionScorer for the
-  // current track and play the winner. Same picker as the auto-DJ
-  // end-of-track handler, so recommendations are consistent across
-  // the UI. Returns silently when there's nothing playing or the
-  // backend fails AND the fallback finds no candidate.
-  const playRecommendedNext = useCallback(async () => {
-    if (!current) return
-    const target = await pickNextTrackAsync(current, queue, historyRef.current)
-    if (!target) return
-    play(target)
-  }, [current, queue, pickNextTrackAsync, play])
-
   const api = useMemo<AudioPlayerApi>(
     () => ({
       current,
@@ -992,17 +1059,18 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
       outgoing,
       crossfadeStartedAt,
       crossfadeDurationSeconds,
+      outgoingFadeStartPosition,
+      incomingFadeStartPosition,
+      outgoingFadePlaybackRate,
+      incomingFadePlaybackRate,
       recommendedStyle,
       recommendedBars,
-      nextUp,
       play,
       toggle,
       pause,
       stop,
       next,
       prev,
-      mixNow,
-      playRecommendedNext,
       seek,
       setVolume,
       toggleMute,
@@ -1031,17 +1099,18 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
       outgoing,
       crossfadeStartedAt,
       crossfadeDurationSeconds,
+      outgoingFadeStartPosition,
+      incomingFadeStartPosition,
+      outgoingFadePlaybackRate,
+      incomingFadePlaybackRate,
       recommendedStyle,
       recommendedBars,
-      nextUp,
       play,
       toggle,
       pause,
       stop,
       next,
       prev,
-      mixNow,
-      playRecommendedNext,
       seek,
       setVolume,
       toggleMute,
