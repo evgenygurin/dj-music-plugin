@@ -14,8 +14,8 @@ logger = logging.getLogger(__name__)
 if TYPE_CHECKING:
     from app.audio.pipeline import AnalysisPipeline
     from app.audio.timeseries import TimeseriesStorage
-    from app.repositories.audio import AudioRepository
-    from app.repositories.track import TrackRepository
+    from app.db.repositories.audio import AudioRepository
+    from app.db.repositories.track import TrackRepository
     from app.ym.client import YandexMusicClient
 
 

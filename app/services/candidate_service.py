@@ -14,11 +14,11 @@ from typing import TYPE_CHECKING
 
 from app.config import settings
 from app.core.camelot import camelot_distance
+from app.db.models.transition import TransitionCandidate
 from app.domain.transition import TransitionScorer
-from app.models.transition import TransitionCandidate
 
 if TYPE_CHECKING:
-    from app.repositories.candidate import CandidateRepository
+    from app.db.repositories.candidate import CandidateRepository
 
 
 @dataclass

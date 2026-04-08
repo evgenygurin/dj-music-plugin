@@ -56,7 +56,7 @@ async def resolve_track_refs(
 
     Returns list of resolved DB track IDs. Unresolvable refs are logged and skipped.
     """
-    from app.models.track import Track
+    from app.db.models.track import Track
 
     resolved: list[int] = []
     for ref in refs:
@@ -101,7 +101,7 @@ async def resolve_track_refs(
 
 async def _resolve_ym_id(ym_id: str, session: AsyncSession) -> int | None:
     """Look up local track_id by YM external ID."""
-    from app.models.track import TrackExternalId
+    from app.db.models.track import TrackExternalId
 
     stmt = select(TrackExternalId.track_id).where(
         TrackExternalId.platform == "yandex_music",

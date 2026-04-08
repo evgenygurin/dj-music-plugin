@@ -15,15 +15,15 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.constants import Provider
-from app.mcp.dependencies import get_db_session
-from app.models.audio import TrackAudioFeaturesComputed
-from app.models.platform import (
+from app.db.models.audio import TrackAudioFeaturesComputed
+from app.db.models.platform import (
     BeatportMetadata,
     SoundcloudMetadata,
     SpotifyMetadata,
     YandexMetadata,
 )
-from app.models.track import Track
+from app.db.models.track import Track
+from app.mcp.dependencies import get_db_session
 
 
 @resource(

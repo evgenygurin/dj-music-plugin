@@ -23,7 +23,7 @@ async def test_list_tracks_with_data(client: Client, async_engine):
     """list_tracks returns paginated tracks after seeding data."""
     from sqlalchemy.ext.asyncio import async_sessionmaker
 
-    from app.models.track import Track
+    from app.db.models.track import Track
 
     factory = async_sessionmaker(async_engine, expire_on_commit=False)
     async with factory() as session:
@@ -45,7 +45,7 @@ async def test_get_track_by_id(client: Client, async_engine):
     """get_track returns track details by id."""
     from sqlalchemy.ext.asyncio import async_sessionmaker
 
-    from app.models.track import Track
+    from app.db.models.track import Track
 
     factory = async_sessionmaker(async_engine, expire_on_commit=False)
     async with factory() as session:
@@ -65,7 +65,7 @@ async def test_get_track_by_query(client: Client, async_engine):
     """get_track finds track by text query."""
     from sqlalchemy.ext.asyncio import async_sessionmaker
 
-    from app.models.track import Track
+    from app.db.models.track import Track
 
     factory = async_sessionmaker(async_engine, expire_on_commit=False)
     async with factory() as session:
@@ -105,7 +105,7 @@ async def test_manage_tracks_archive(client: Client, async_engine):
     """manage_tracks archive sets status to 1."""
     from sqlalchemy.ext.asyncio import async_sessionmaker
 
-    from app.models.track import Track
+    from app.db.models.track import Track
 
     factory = async_sessionmaker(async_engine, expire_on_commit=False)
     async with factory() as session:
@@ -127,7 +127,7 @@ async def test_manage_tracks_update(client: Client, async_engine):
     """manage_tracks update modifies track fields."""
     from sqlalchemy.ext.asyncio import async_sessionmaker
 
-    from app.models.track import Track
+    from app.db.models.track import Track
 
     factory = async_sessionmaker(async_engine, expire_on_commit=False)
     async with factory() as session:
@@ -209,7 +209,7 @@ async def test_get_track_features_no_features(client: Client, async_engine):
     """get_track_features returns has_features=False when no analysis done."""
     from sqlalchemy.ext.asyncio import async_sessionmaker
 
-    from app.models.track import Track
+    from app.db.models.track import Track
 
     factory = async_sessionmaker(async_engine, expire_on_commit=False)
     async with factory() as session:

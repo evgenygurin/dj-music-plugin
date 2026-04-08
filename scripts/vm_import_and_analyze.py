@@ -203,9 +203,9 @@ async def _process_refs(
     from app.audio.level_config import AnalysisLevel
     from app.audio.pipeline import AnalysisPipeline
     from app.audio.timeseries import TimeseriesStorage
-    from app.repositories.audio import AudioRepository
-    from app.repositories.ingestion import IngestionRepository
-    from app.repositories.track import TrackRepository
+    from app.db.repositories.audio import AudioRepository
+    from app.db.repositories.ingestion import IngestionRepository
+    from app.db.repositories.track import TrackRepository
     from app.services.import_service import ImportService
     from app.services.tiered_pipeline import TieredPipeline
 

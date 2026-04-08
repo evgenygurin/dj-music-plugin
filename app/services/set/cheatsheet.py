@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 from app.core.errors import NotFoundError
-from app.repositories.feature import FeatureRepository
-from app.repositories.set import SetRepository
-from app.repositories.track import TrackRepository
+from app.db.repositories.feature import FeatureRepository
+from app.db.repositories.set import SetRepository
+from app.db.repositories.track import TrackRepository
 
 
 class SetCheatSheetService:

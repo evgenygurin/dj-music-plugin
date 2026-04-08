@@ -388,9 +388,9 @@ async def _gate_stage(
     from app.audio.level_config import AnalysisLevel
     from app.audio.pipeline import AnalysisPipeline
     from app.audio.timeseries import TimeseriesStorage
-    from app.repositories.audio import AudioRepository
-    from app.repositories.ingestion import IngestionRepository
-    from app.repositories.track import TrackRepository
+    from app.db.repositories.audio import AudioRepository
+    from app.db.repositories.ingestion import IngestionRepository
+    from app.db.repositories.track import TrackRepository
     from app.services.audio_service import AudioService
     from app.services.import_service import ImportService
     from app.services.tiered_pipeline import TieredPipeline
@@ -578,8 +578,8 @@ async def _load_orphan_ym_ids(session_factory: Any) -> list[str]:
     """
     from sqlalchemy import select
 
-    from app.models.audio import TrackAudioFeaturesComputed
-    from app.models.track import Track, TrackExternalId
+    from app.db.models.audio import TrackAudioFeaturesComputed
+    from app.db.models.track import Track, TrackExternalId
 
     async with session_factory() as session:
         rows = await session.execute(
@@ -604,7 +604,7 @@ async def _load_seen_from_db(session_factory: Any) -> set[str]:
     """Load ALL YM external IDs currently in DB for BFS dedup."""
     from sqlalchemy import select
 
-    from app.models.track import TrackExternalId
+    from app.db.models.track import TrackExternalId
 
     async with session_factory() as session:
         rows = await session.execute(
@@ -622,8 +622,8 @@ async def _count_techno_in_db(session_factory: Any) -> int:
     """
     from sqlalchemy import func, select
 
-    from app.models.audio import TrackAudioFeaturesComputed
-    from app.models.track import Track
+    from app.db.models.audio import TrackAudioFeaturesComputed
+    from app.db.models.track import Track
 
     async with session_factory() as session:
         result = await session.execute(
@@ -656,7 +656,7 @@ async def _archive_failed_in_db(
 
     from sqlalchemy import select, update
 
-    from app.models.track import Track, TrackExternalId
+    from app.db.models.track import Track, TrackExternalId
 
     async with session_factory() as session:
         rows = await session.execute(

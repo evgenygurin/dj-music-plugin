@@ -16,8 +16,8 @@ import numpy as np
 from app.core.errors import NotFoundError, ValidationError
 
 if TYPE_CHECKING:
-    from app.models.audio import Embedding
-    from app.repositories.embedding import EmbeddingRepository
+    from app.db.models.audio import Embedding
+    from app.db.repositories.embedding import EmbeddingRepository
 
 
 class EmbeddingService:

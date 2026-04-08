@@ -7,12 +7,12 @@ from typing import Any
 from app.core.errors import ValidationError
 from app.core.schemas import SetSummary
 from app.core.utils.pagination import CursorPage
-from app.models.set import DjSet, SetConstraint, SetFeedback, SetItem, SetVersion
-from app.repositories.feature import FeatureRepository
-from app.repositories.playlist import PlaylistRepository
-from app.repositories.set import SetRepository
-from app.repositories.track import TrackRepository
-from app.repositories.transition import TransitionRepository
+from app.db.models.set import DjSet, SetConstraint, SetFeedback, SetItem, SetVersion
+from app.db.repositories.feature import FeatureRepository
+from app.db.repositories.playlist import PlaylistRepository
+from app.db.repositories.set import SetRepository
+from app.db.repositories.track import TrackRepository
+from app.db.repositories.transition import TransitionRepository
 from app.services.set.builder import SetBuilderService
 from app.services.set.cheatsheet import SetCheatSheetService
 from app.services.set.crud import SetCrudService

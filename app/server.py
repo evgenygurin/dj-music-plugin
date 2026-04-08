@@ -99,7 +99,7 @@ async def db_lifespan(server):  # type: ignore[no-untyped-def]
     session_factory = async_sessionmaker(engine, expire_on_commit=False)
 
     # Seed reference data (idempotent — skips if already populated)
-    from app.infrastructure.seed import seed_reference_data
+    from app.db.seed import seed_reference_data
 
     await seed_reference_data(session_factory)
 

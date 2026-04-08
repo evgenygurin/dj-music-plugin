@@ -210,7 +210,7 @@ async def test_filter_features_serializes_vectors():
     """filter_features() JSON-serializes vector column values."""
     import json
 
-    from app.models.audio import TrackAudioFeaturesComputed
+    from app.db.models.audio import TrackAudioFeaturesComputed
 
     features = {
         "bpm": 130.0,

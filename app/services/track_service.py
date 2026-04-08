@@ -11,10 +11,10 @@ from typing import Any
 from app.core.errors import NotFoundError, ValidationError
 from app.core.schemas import TrackBrief, TrackStandard
 from app.core.utils.pagination import CursorPage
-from app.models.audio import TrackAudioFeaturesComputed
-from app.models.track import Track
-from app.repositories.feature import FeatureRepository
-from app.repositories.track import TrackRepository
+from app.db.models.audio import TrackAudioFeaturesComputed
+from app.db.models.track import Track
+from app.db.repositories.feature import FeatureRepository
+from app.db.repositories.track import TrackRepository
 
 _LEADING_ARTICLES = re.compile(r"^(the|a|an)\s+", re.IGNORECASE)
 _NON_ALNUM_PREFIX = re.compile(r"^[^a-z0-9\u00C0-\u024F]+")

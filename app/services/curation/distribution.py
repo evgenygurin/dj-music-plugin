@@ -7,9 +7,9 @@ from typing import Any
 from app.audio.classification import MoodClassifier
 from app.core.constants import TechnoSubgenre
 from app.core.errors import ValidationError
-from app.repositories.feature import FeatureRepository
-from app.repositories.playlist import PlaylistRepository
-from app.repositories.track import TrackRepository
+from app.db.repositories.feature import FeatureRepository
+from app.db.repositories.playlist import PlaylistRepository
+from app.db.repositories.track import TrackRepository
 
 
 class DistributionService:

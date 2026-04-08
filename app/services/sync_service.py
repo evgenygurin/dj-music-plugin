@@ -10,9 +10,9 @@ from typing import Any
 
 from app.config import settings
 from app.core.errors import NotFoundError, ValidationError
-from app.repositories.playlist import PlaylistRepository
-from app.repositories.set import SetRepository
-from app.repositories.track import TrackRepository
+from app.db.repositories.playlist import PlaylistRepository
+from app.db.repositories.set import SetRepository
+from app.db.repositories.track import TrackRepository
 from app.ym.client import YandexMusicClient
 
 

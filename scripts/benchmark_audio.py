@@ -24,11 +24,11 @@ async def make_session() -> AsyncSession:
 async def main() -> None:
     session = await make_session()
 
-    from app.repositories.feature import FeatureRepository
-    from app.repositories.playlist import PlaylistRepository
-    from app.repositories.set import SetRepository
-    from app.repositories.track import TrackRepository
-    from app.repositories.transition import TransitionRepository
+    from app.db.repositories.feature import FeatureRepository
+    from app.db.repositories.playlist import PlaylistRepository
+    from app.db.repositories.set import SetRepository
+    from app.db.repositories.track import TrackRepository
+    from app.db.repositories.transition import TransitionRepository
     from app.services.set.facade import SetService
     from app.services.track_service import TrackService
 
@@ -64,7 +64,7 @@ async def main() -> None:
     # Find library item for track 1
     from sqlalchemy import select
 
-    from app.models.library import DjLibraryItem
+    from app.db.models.library import DjLibraryItem
 
     lib_item = (
         await session.execute(select(DjLibraryItem).where(DjLibraryItem.track_id == 1))

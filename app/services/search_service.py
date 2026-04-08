@@ -11,11 +11,11 @@ from app.core.camelot import camelot_to_key_code, is_compatible, key_code_to_cam
 from app.core.constants import KEY_CODE_MAX, KEY_CODE_MIN
 from app.core.errors import ValidationError
 from app.core.utils.pagination import CursorPage
-from app.models.track import Track
-from app.repositories.feature import FeatureRepository
-from app.repositories.playlist import PlaylistRepository
-from app.repositories.set import SetRepository
-from app.repositories.track import TrackRepository
+from app.db.models.track import Track
+from app.db.repositories.feature import FeatureRepository
+from app.db.repositories.playlist import PlaylistRepository
+from app.db.repositories.set import SetRepository
+from app.db.repositories.track import TrackRepository
 
 
 class SearchService:

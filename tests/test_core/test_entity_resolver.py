@@ -48,7 +48,7 @@ async def test_resolve_ym_ids(seeded_db) -> None:  # type: ignore[no-untyped-def
     """Large IDs (> 1M) are looked up as YM external IDs."""
 
     from app.core.entity_resolver import resolve_track_refs
-    from app.models.track import Track, TrackExternalId
+    from app.db.models.track import Track, TrackExternalId
 
     # Create track with YM external ID
     track = Track(title="Test Track", status=0, duration_ms=300000)
@@ -67,7 +67,7 @@ async def test_resolve_ym_ids(seeded_db) -> None:  # type: ignore[no-untyped-def
 async def test_resolve_ym_prefix(seeded_db) -> None:  # type: ignore[no-untyped-def]
     """'ym:12345' prefix resolves via TrackExternalId."""
     from app.core.entity_resolver import resolve_track_refs
-    from app.models.track import Track, TrackExternalId
+    from app.db.models.track import Track, TrackExternalId
 
     track = Track(title="Prefixed Track", status=0, duration_ms=200000)
     seeded_db.add(track)
@@ -92,7 +92,7 @@ async def test_resolve_missing_ym_id_skipped(seeded_db) -> None:  # type: ignore
 async def test_resolve_mixed_refs(seeded_db) -> None:  # type: ignore[no-untyped-def]
     """Mix of local IDs and YM IDs resolves correctly."""
     from app.core.entity_resolver import resolve_track_refs
-    from app.models.track import Track, TrackExternalId
+    from app.db.models.track import Track, TrackExternalId
 
     track = Track(title="Mixed Test", status=0, duration_ms=300000)
     seeded_db.add(track)

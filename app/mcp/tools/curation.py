@@ -21,6 +21,7 @@ from fastmcp.tools import tool
 
 from app.audio.level_config import AnalysisLevel
 from app.core.utils.parsing import ensure_list
+from app.db.repositories.playlist import PlaylistRepository
 from app.mcp.dependencies import (
     get_curation_service,
     get_playlist_repo,
@@ -35,7 +36,6 @@ from app.mcp.tools._shared import (
     ensure_reference,
     map_domain_errors,
 )
-from app.repositories.playlist import PlaylistRepository
 from app.services.curation.facade import CurationService
 from app.services.tiered_pipeline import TieredPipeline
 

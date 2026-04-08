@@ -5,10 +5,10 @@ import json
 import pytest
 
 from app.core.constants import Provider
+from app.db.models.audio import TrackAudioFeaturesComputed
+from app.db.models.platform import YandexMetadata
+from app.db.models.track import Track
 from app.mcp.resources.status import library_status, platforms_status
-from app.models.audio import TrackAudioFeaturesComputed
-from app.models.platform import YandexMetadata
-from app.models.track import Track
 
 
 @pytest.mark.asyncio

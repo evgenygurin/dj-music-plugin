@@ -13,16 +13,16 @@ import pytest
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
+from app.db.models.track import Track
+from app.db.repositories.playlist import PlaylistRepository
+from app.db.repositories.set import SetRepository
+from app.db.repositories.track import TrackRepository
 from app.mcp.dependencies import (
     get_db_session,
     get_playlist_repo,
     get_set_repo,
     get_track_repo,
 )
-from app.models.track import Track
-from app.repositories.playlist import PlaylistRepository
-from app.repositories.set import SetRepository
-from app.repositories.track import TrackRepository
 
 
 @pytest.mark.asyncio

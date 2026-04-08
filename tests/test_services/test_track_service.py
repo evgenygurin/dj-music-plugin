@@ -5,8 +5,8 @@ from __future__ import annotations
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.repositories.feature import FeatureRepository
-from app.repositories.track import TrackRepository
+from app.db.repositories.feature import FeatureRepository
+from app.db.repositories.track import TrackRepository
 from app.services.track_service import TrackService, generate_sort_title
 
 # ── Unit tests for generate_sort_title ────────────────

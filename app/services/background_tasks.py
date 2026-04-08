@@ -12,9 +12,9 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.track_features import TrackFeatures
+from app.db.models.audio import TrackAudioFeaturesComputed
+from app.db.models.track import Track
 from app.domain.transition import TransitionScorer
-from app.models.audio import TrackAudioFeaturesComputed
-from app.models.track import Track
 
 
 async def score_track_transitions(

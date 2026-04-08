@@ -3,9 +3,9 @@
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.audio import TrackAudioFeaturesComputed
-from app.models.track import Track
-from app.repositories.candidate import CandidateRepository
+from app.db.models.audio import TrackAudioFeaturesComputed
+from app.db.models.track import Track
+from app.db.repositories.candidate import CandidateRepository
 from app.services.candidate_service import CandidateService
 
 # ── Fixtures ────────────────────────────────────────────

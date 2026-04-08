@@ -17,6 +17,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.audio.level_config import AnalysisLevel
 from app.core.utils.parsing import ensure_list
+from app.db.models.playlist import PlaylistItem
 from app.mcp.dependencies import (
     get_audio_service,
     get_db_session,
@@ -31,7 +32,6 @@ from app.mcp.tools._shared import (
     map_domain_errors,
     resolve_track_id,
 )
-from app.models.playlist import PlaylistItem
 from app.services.audio_service import AudioService
 from app.services.tiered_pipeline import TieredPipeline
 from app.services.track_service import TrackService

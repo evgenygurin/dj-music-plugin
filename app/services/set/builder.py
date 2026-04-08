@@ -6,10 +6,10 @@ import json as _json
 from typing import Any
 
 from app.core.errors import NotFoundError, ValidationError
-from app.models.set import DjSet, SetVersion
-from app.repositories.feature import FeatureRepository
-from app.repositories.playlist import PlaylistRepository
-from app.repositories.set import SetRepository
+from app.db.models.set import DjSet, SetVersion
+from app.db.repositories.feature import FeatureRepository
+from app.db.repositories.playlist import PlaylistRepository
+from app.db.repositories.set import SetRepository
 from app.services.transition import TrackFeatures, TransitionScorer
 
 

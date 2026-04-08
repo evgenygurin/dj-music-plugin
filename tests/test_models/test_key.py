@@ -5,7 +5,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
 from app.core.constants import CAMELOT_KEYS
-from app.models.key import Key, KeyEdge
+from app.db.models.key import Key, KeyEdge
 
 
 class TestKey:

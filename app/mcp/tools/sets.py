@@ -13,6 +13,7 @@ from fastmcp.server.context import Context
 from fastmcp.tools import tool
 
 from app.audio.level_config import AnalysisLevel
+from app.db.repositories.playlist import PlaylistRepository
 from app.mcp.dependencies import get_playlist_repo, get_set_service, get_tiered_pipeline
 from app.mcp.tools._shared import (
     ANNOTATIONS_READ_ONLY,
@@ -22,7 +23,6 @@ from app.mcp.tools._shared import (
     ToolTimeout,
     map_domain_errors,
 )
-from app.repositories.playlist import PlaylistRepository
 from app.services.set.facade import SetService
 from app.services.tiered_pipeline import TieredPipeline
 

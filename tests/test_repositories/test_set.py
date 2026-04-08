@@ -2,9 +2,9 @@
 
 import pytest
 
-from app.models.set import DjSet, SetItem, SetVersion
-from app.models.track import Track
-from app.repositories.set import SetRepository
+from app.db.models.set import DjSet, SetItem, SetVersion
+from app.db.models.track import Track
+from app.db.repositories.set import SetRepository
 
 
 @pytest.fixture

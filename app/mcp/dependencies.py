@@ -21,16 +21,16 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.audio.analyzers import AnalyzerRegistry
 from app.audio.timeseries import TimeseriesStorage
 from app.core.utils.cache import TransitionCache
-from app.repositories.audio import AudioRepository
-from app.repositories.candidate import CandidateRepository
-from app.repositories.embedding import EmbeddingRepository
-from app.repositories.export import ExportRepository
-from app.repositories.feature import FeatureRepository
-from app.repositories.ingestion import IngestionRepository
-from app.repositories.playlist import PlaylistRepository
-from app.repositories.set import SetRepository
-from app.repositories.track import TrackRepository
-from app.repositories.transition import TransitionRepository
+from app.db.repositories.audio import AudioRepository
+from app.db.repositories.candidate import CandidateRepository
+from app.db.repositories.embedding import EmbeddingRepository
+from app.db.repositories.export import ExportRepository
+from app.db.repositories.feature import FeatureRepository
+from app.db.repositories.ingestion import IngestionRepository
+from app.db.repositories.playlist import PlaylistRepository
+from app.db.repositories.set import SetRepository
+from app.db.repositories.track import TrackRepository
+from app.db.repositories.transition import TransitionRepository
 from app.services.audio_service import AudioService
 from app.services.candidate_service import CandidateService
 from app.services.curation.facade import CurationService
@@ -214,7 +214,7 @@ def get_discovery_service(
 def get_metadata_service(
     session: AsyncSession = Depends(get_db_session),  # noqa: B008
 ) -> MetadataService:
-    from app.repositories.metadata import MetadataRepository
+    from app.db.repositories.metadata import MetadataRepository
 
     return MetadataService(MetadataRepository(session))
 
