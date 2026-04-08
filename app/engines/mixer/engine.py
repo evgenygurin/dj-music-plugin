@@ -41,7 +41,7 @@ class MixerEngine(BaseEngine):
         if deck_id not in self.decks:
             from app.core.errors import NotFoundError
 
-            raise NotFoundError(f"Deck {deck_id} not registered")
+            raise NotFoundError("Deck", deck_id)
         self._channel_gain[deck_id] = max(0.0, min(value, 1.5))
 
 

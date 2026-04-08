@@ -22,10 +22,10 @@ from app.schemas.deck import DeckStateRead
 
 
 def _get_deck(ctx: Context, deck_id: int) -> DeckEngine:
-    decks: dict[int, DeckEngine] = ctx.request_context.lifespan_context["decks"]
+    decks: dict[int, DeckEngine] = ctx.lifespan_context["decks"]
     deck = decks.get(deck_id)
     if deck is None:
-        raise NotFoundError(f"Deck {deck_id} not registered (valid: {sorted(decks)})")
+        raise NotFoundError("Deck", deck_id)
     return deck
 
 

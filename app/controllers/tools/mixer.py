@@ -5,6 +5,8 @@ Reads MixerEngine singleton from `ctx.lifespan_context["mixer"]`.
 
 from __future__ import annotations
 
+from typing import Any
+
 from fastmcp import Context
 from fastmcp.tools import tool
 
@@ -15,10 +17,11 @@ from app.schemas.mixer import MixerStateRead
 
 
 def _get_mixer(ctx: Context) -> MixerEngine:
-    return ctx.request_context.lifespan_context["mixer"]
+    mixer: MixerEngine = ctx.lifespan_context["mixer"]
+    return mixer
 
 
-def _to_read(snapshot: dict) -> MixerStateRead:
+def _to_read(snapshot: dict[str, Any]) -> MixerStateRead:
     return MixerStateRead.model_validate(
         {
             "crossfader": snapshot["crossfader"],

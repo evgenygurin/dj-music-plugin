@@ -28,7 +28,8 @@ MAX_DURATION_S = 600.0
 
 
 def _get_mixer(ctx: Context) -> MixerEngine:
-    return ctx.request_context.lifespan_context["mixer"]
+    mixer: MixerEngine = ctx.lifespan_context["mixer"]
+    return mixer
 
 
 @tool(tags={ToolCategory.CORE.value, "monitoring"}, timeout=None)
