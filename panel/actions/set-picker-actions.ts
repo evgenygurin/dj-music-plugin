@@ -1,81 +1,144 @@
 'use server'
 
 import { callTool } from '@/lib/mcp-client'
-import { slotFitScore, varietyPenalty, getAlpha, weightedRandomPick } from '@/lib/set-narrative/scoring'
-import { PICKER_TOP_N, BACKEND_CANDIDATES_TOP_N } from '@/lib/set-narrative/constants'
-import type { SetTemplate, ScoredCandidate, HistoryEntry, CurrentSlot } from '@/lib/set-narrative/types'
+import { createClient } from '@/lib/supabase/server'
+import {
+  BACKEND_CANDIDATES_TOP_N,
+  PICKER_TOP_N,
+} from '@/lib/set-narrative/constants'
+import {
+  getAlpha,
+  getCurrentSlot,
+  slotFitScore,
+  varietyPenalty,
+} from '@/lib/set-narrative/scoring'
+import type {
+  HistoryEntry,
+  ScoredCandidate,
+  SetTemplate,
+} from '@/lib/set-narrative/types'
 
-interface PickNextTrackOptions {
-  currentSlot: CurrentSlot
+export interface PickerInput {
+  currentTrackId: number
   template: SetTemplate
+  elapsedSec: number
+  totalDurationSec: number
   history: HistoryEntry[]
   varietyTier: 0 | 1 | 2
-  playlistId?: number
+}
+
+interface RawTransitionCandidate {
+  to_track_id: number
+  overall_quality: number
+}
+
+interface CandidateFeatures {
+  title: string
+  bpm: number | null
+  lufs: number | null
+  mood: string | null
+  camelot: string | null
+  artistIds: number[]
 }
 
 export async function pickNextSetTrack(
-  options: PickNextTrackOptions,
-): Promise<ScoredCandidate | null> {
-  const { currentSlot, template, history, varietyTier, playlistId } = options
+  input: PickerInput,
+): Promise<ScoredCandidate[]> {
+  // 1. Resolve current slot + dynamic alpha from template + elapsed
+  const current = getCurrentSlot(
+    input.template,
+    input.elapsedSec,
+    input.totalDurationSec,
+  )
+  const alpha = getAlpha(current.slot, current.positionInSlot)
 
-  // Call backend tool to get candidates (top 30 by transition score + basic fit)
-  const response = await callTool('score_transitions', {
+  // 2. Ask backend TransitionScorer for top-N candidates from current track
+  const scoreResult = await callTool('score_transitions', {
     mode: 'track_candidates',
-    track_id: history.length > 0 ? history[history.length - 1].trackId : null,
+    track_id: input.currentTrackId,
     top_n: BACKEND_CANDIDATES_TOP_N,
-    playlist_id: playlistId,
+  })
+  const sc = scoreResult?.structured_content as
+    | { candidates?: RawTransitionCandidate[]; transitions?: RawTransitionCandidate[] }
+    | undefined
+  const rawList = sc?.candidates ?? sc?.transitions ?? []
+  if (rawList.length === 0) return []
+
+  // 3. Fetch features + artist ids for candidate tracks in one query
+  const trackIds = rawList.map((c) => c.to_track_id)
+  const supabase = await createClient()
+  const { data: featureRows } = await supabase
+    .from('tracks')
+    .select(
+      `
+      id,
+      title,
+      track_audio_features_computed!inner(bpm, mood, integrated_lufs, key_code),
+      track_artists(artist_id)
+    `,
+    )
+    .in('id', trackIds)
+
+  const featureMap = new Map<number, CandidateFeatures>()
+  for (const row of featureRows ?? []) {
+    const f = Array.isArray(row.track_audio_features_computed)
+      ? row.track_audio_features_computed[0]
+      : row.track_audio_features_computed
+    const artistRefs = Array.isArray(row.track_artists) ? row.track_artists : []
+    featureMap.set(row.id, {
+      title: row.title,
+      bpm: f?.bpm ?? null,
+      lufs: f?.integrated_lufs ?? null,
+      mood: f?.mood ?? null,
+      camelot: null, // resolved at UI layer via camelotNotation if needed
+      artistIds: artistRefs.map((a: { artist_id: number }) => a.artist_id),
+    })
+  }
+
+  // 4. Apply hard rejects per variety tier
+  const recentIds = new Set(input.history.slice(-50).map((h) => h.trackId))
+  const previous = input.history[input.history.length - 1]
+  const filtered = rawList.filter((c) => {
+    if (!featureMap.has(c.to_track_id)) return false
+    if (c.overall_quality <= 0) return false
+    if (recentIds.has(c.to_track_id)) return false
+    if (input.varietyTier === 0 && previous) {
+      const cand = featureMap.get(c.to_track_id)!
+      if (cand.artistIds.some((a) => previous.artistIds.includes(a))) return false
+    }
+    return true
   })
 
-  if (response.is_error) {
-    throw new Error(`MCP error: ${response.content?.[0]?.text ?? 'unknown error'}`)
-  }
-
-  const candidates = response.structured_content as any
-
-  if (!candidates || !Array.isArray(candidates)) {
-    return null
-  }
-
-  // Map backend response to typed ScoredCandidate with slot fit + variety penalty
-  const scored: ScoredCandidate[] = candidates.map((c: any) => {
+  // 5. Score each candidate: combined = α·transition + (1-α)·slotFit, × variety
+  const scoredCandidates: ScoredCandidate[] = filtered.map((c) => {
+    const feat = featureMap.get(c.to_track_id)!
     const slotFit = slotFitScore(
-      {
-        bpm: c.bpm,
-        lufs: c.lufs,
-        mood: c.mood,
-      },
-      currentSlot.slot,
+      { bpm: feat.bpm, lufs: feat.lufs, mood: feat.mood },
+      current.slot,
     )
-
-    const variety = varietyPenalty({ trackId: c.id, artistIds: c.artist_ids || [], mood: c.mood }, history)
-
-    // Alpha: blending weight between transition and slot fit
-    const alpha = getAlpha(currentSlot.slot, currentSlot.positionInSlot)
-
-    // Composite score: weighted average of transition (via alpha) and slot fit
-    const combinedScore = alpha * (c.transition_score || 0.5) + (1 - alpha) * slotFit * variety
+    const variety = varietyPenalty(
+      { id: c.to_track_id, artistIds: feat.artistIds, mood: feat.mood },
+      input.history,
+    )
+    const combinedScore =
+      (alpha * c.overall_quality + (1 - alpha) * slotFit) * variety
 
     return {
-      trackId: c.id,
-      title: c.title,
-      artists: c.artists?.join(', ') || 'Unknown',
-      bpm: c.bpm,
-      camelot: c.camelot,
-      mood: c.mood,
-      lufs: c.lufs,
-      transitionScore: c.transition_score || 0.5,
+      trackId: c.to_track_id,
+      title: feat.title,
+      artists: '',
+      bpm: feat.bpm,
+      camelot: feat.camelot,
+      mood: feat.mood,
+      lufs: feat.lufs,
+      transitionScore: c.overall_quality,
       slotFit,
       varietyPenalty: variety,
       combinedScore,
-      rationale: `Transition ${(c.transition_score * 100).toFixed(0)}% + Slot fit ${(slotFit * 100).toFixed(0)}% = ${(combinedScore * 100).toFixed(0)}%`,
+      rationale: `slot ${slotFit.toFixed(2)} · transition ${c.overall_quality.toFixed(2)} · variety ×${variety.toFixed(2)}`,
     }
   })
 
-  // Sort by combined score and take top N
-  const topN = scored.sort((a, b) => b.combinedScore - a.combinedScore).slice(0, PICKER_TOP_N)
-
-  if (topN.length === 0) return null
-
-  // Weighted random pick from top N
-  return weightedRandomPick(topN)
+  scoredCandidates.sort((a, b) => b.combinedScore - a.combinedScore)
+  return scoredCandidates.slice(0, PICKER_TOP_N)
 }
