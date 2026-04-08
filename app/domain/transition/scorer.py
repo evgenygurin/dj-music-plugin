@@ -25,7 +25,9 @@ from app.domain.transition.components import (
 )
 from app.domain.transition.hard_constraints import check_hard_constraints
 from app.domain.transition.score import TransitionScore
+from app.domain.transition.section_context import SectionContext
 from app.domain.transition.style import recommend_style, style_profile
+from app.domain.transition.weights import DRUM_ONLY_WEIGHT_OVERRIDE
 
 __all__ = [
     "TransitionScore",
@@ -55,6 +57,7 @@ class TransitionScorer:
         to_t: TrackFeatures,
         *,
         intent: TransitionIntent | None = None,
+        section_context: SectionContext | None = None,
     ) -> TransitionScore:
         """Compute the full 6-component score.
 
@@ -63,13 +66,25 @@ class TransitionScorer:
             to_t: Features of the incoming track.
             intent: Optional context-aware intent for weight modifiers.
                 When provided, per-intent weights override instance defaults.
+            section_context: Optional structural context for the mix
+                windows. When both sides are percussion-only sections,
+                ``DRUM_ONLY_WEIGHT_OVERRIDE`` is used for the weighted
+                sum and ``score_harmonic`` applies its drum-only floor.
+                Drum-only override takes precedence over ``intent``.
         """
         rejection = check_hard_constraints(from_t, to_t)
         if rejection is not None:
             return rejection
 
-        weights = INTENT_WEIGHT_MODIFIERS[intent] if intent is not None else None
-        return self._compute_score(from_t, to_t, weights=weights)
+        # Pick weight set: drum-only > intent override > instance default
+        if section_context is not None and section_context.is_drum_only_pair:
+            weights: dict[str, float] | None = DRUM_ONLY_WEIGHT_OVERRIDE
+        elif intent is not None:
+            weights = INTENT_WEIGHT_MODIFIERS[intent]
+        else:
+            weights = None
+
+        return self._compute_score(from_t, to_t, weights=weights, section_context=section_context)
 
     def score_with_candidates(
         self,
@@ -106,11 +121,12 @@ class TransitionScorer:
         from_t: TrackFeatures,
         to_t: TrackFeatures,
         weights: dict[str, float] | None = None,
+        section_context: SectionContext | None = None,
     ) -> TransitionScore:
         """Run all 6 component functions and combine them with weights."""
         w = weights or self.weights
         bpm = score_bpm(from_t, to_t)
-        harmonic = score_harmonic(from_t, to_t)
+        harmonic = score_harmonic(from_t, to_t, section_context=section_context)
         energy = score_energy(from_t, to_t)
         spectral = score_spectral(from_t, to_t)
         groove = score_groove(from_t, to_t)

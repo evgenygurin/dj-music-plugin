@@ -104,3 +104,23 @@ class StyleRules:
 
 
 DEFAULT_STYLE_RULES = StyleRules()
+
+# ── Section-aware modifiers (commit 5) ───────────────────
+# When both the mix-out and mix-in windows fall on percussion-only
+# sections (intro/outro/sustain/ambient), key compatibility loses
+# perceptual relevance — Pioneer DJ blog, Vande Veire & De Bie 2018.
+# `score_harmonic` applies the floor; `TransitionScorer.score` swaps to
+# the override weight set for the weighted sum.
+DRUM_ONLY_HARMONIC_FLOOR: float = 0.85
+
+# Sums to 1.0. Harmonic collapsed, groove boosted relative to the
+# default — the structural rationale is in
+# docs/research/2026-04-08-techno-transitions-research.md §4.1.
+DRUM_ONLY_WEIGHT_OVERRIDE: dict[str, float] = {
+    "bpm": 0.22,
+    "harmonic": 0.05,
+    "energy": 0.18,
+    "spectral": 0.20,
+    "groove": 0.20,
+    "timbral": 0.15,
+}

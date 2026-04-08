@@ -7,8 +7,10 @@ from app.domain.transition.scorer import (
     recommend_style,
     style_profile,
 )
+from app.domain.transition.section_context import SectionContext
 
 __all__ = [
+    "SectionContext",
     "TransitionScore",
     "TransitionScorer",
     "bpm_distance",

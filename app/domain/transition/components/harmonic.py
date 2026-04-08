@@ -9,9 +9,11 @@ from __future__ import annotations
 from app.core.camelot import camelot_distance
 from app.core.track_features import TrackFeatures
 from app.domain.transition.math_helpers import cosine_similarity
+from app.domain.transition.section_context import SectionContext
 from app.domain.transition.weights import (
     ATONAL_RELAX_FLOOR,
     CAMELOT_BASE_SCORES,
+    DRUM_ONLY_HARMONIC_FLOOR,
     HNR_NORM_FLOOR,
     HNR_NORM_HIGH_DB,
     HNR_NORM_LOW_DB,
@@ -20,8 +22,21 @@ from app.domain.transition.weights import (
 )
 
 
-def score_harmonic(from_t: TrackFeatures, to_t: TrackFeatures) -> float:
-    """Score harmonic compatibility. Range [0, 1]."""
+def score_harmonic(
+    from_t: TrackFeatures,
+    to_t: TrackFeatures,
+    *,
+    section_context: SectionContext | None = None,
+) -> float:
+    """Score harmonic compatibility. Range [0, 1].
+
+    When ``section_context`` is provided and both the mix-out and
+    mix-in windows fall on percussion-only sections
+    (intro/outro/sustain/ambient), the score is floored at
+    ``DRUM_ONLY_HARMONIC_FLOOR`` — Pioneer DJ blog and Vande Veire &
+    De Bie (JASMP 2018) both note that key compatibility loses
+    perceptual relevance on drum-only material.
+    """
     if from_t.key_code is None or to_t.key_code is None:
         return 0.5
     dist = camelot_distance(from_t.key_code, to_t.key_code)
@@ -52,5 +67,9 @@ def score_harmonic(from_t: TrackFeatures, to_t: TrackFeatures) -> float:
         if min_conf < KEY_CONFIDENCE_BLEND_THRESHOLD:
             blend = min_conf / KEY_CONFIDENCE_BLEND_THRESHOLD
             score = score * blend + 0.5 * (1.0 - blend)
+
+    # Section-aware relaxation: drum-only mix region → harmonic floor.
+    if section_context is not None and section_context.is_drum_only_pair:
+        score = max(score, DRUM_ONLY_HARMONIC_FLOOR)
 
     return score
