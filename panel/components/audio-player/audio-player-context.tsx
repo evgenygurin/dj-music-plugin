@@ -18,15 +18,14 @@ import {
 } from '@/actions/transition-actions'
 import type { TrackMixMeta } from '@/lib/queries/mix-meta'
 
-export interface PlayerTrackMeta {
-  id: number
-  title: string
-  artists?: string | null
-  durationMs?: number | null
-  bpm?: number | null
-  camelot?: string | null
-  mood?: string | null
-}
+// `PlayerTrackMeta` and `ManualTransitionStyle` are defined in a
+// separate type-only module (`./audio-player-types`) so that mixing
+// them with component / hook exports in THIS file doesn't break
+// Fast Refresh (which requires a component module to export *only*
+// components / hooks for incremental HMR). They're imported here
+// for internal use but NOT re-exported — consumers should import
+// from `./audio-player-types` directly.
+import type { ManualTransitionStyle, PlayerTrackMeta } from './audio-player-types'
 
 // ── Auto-DJ scoring (client-side compatibility heuristic) ─────────
 
@@ -130,6 +129,12 @@ interface AudioPlayerApi extends AudioPlayerState {
   toggleMixEnabled: () => void
   crossfadeBars: number // length of mix in BARS (DJ-native unit)
   setCrossfadeBars: (b: number) => void
+  // Manual transition-style override. When `'auto'` (default) the
+  // dispatcher follows the backend's recommendation. Any other value
+  // forces that style on the next crossfade regardless of what the
+  // scorer thinks. Lets the DJ test / override styles by ear.
+  manualStyle: ManualTransitionStyle
+  setManualStyle: (s: ManualTransitionStyle) => void
   crossfadeSeconds: number // derived from bars + current BPM (read-only)
   isCrossfading: boolean
   // During an active crossfade these mirror the OUTGOING track + the
@@ -260,6 +265,16 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
   // Default 32 bars — long, smooth, professional DJ-style mix.
   // 32 bars at 124 BPM = 32*4/124*60 ≈ 62 seconds.
   const [crossfadeBars, setCrossfadeBars] = useState(32)
+  // Manual transition-style override. 'auto' = follow backend scorer.
+  // Any other value forces that style on the next crossfade.
+  const [manualStyle, setManualStyle] = useState<ManualTransitionStyle>('auto')
+  // Ref mirror so startCrossfade's async body (which captures state
+  // by value at the call site) still picks up the latest choice
+  // made right before the crossfade actually fires.
+  const manualStyleRef = useRef<ManualTransitionStyle>('auto')
+  useEffect(() => {
+    manualStyleRef.current = manualStyle
+  }, [manualStyle])
   const historyRef = useRef<number[]>([])
 
   // Compute crossfade duration in seconds from bars + active track BPM.
@@ -838,7 +853,16 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
           //             backend has no recommendation.
           const recommendedStyle: string | null | undefined = styleResult?.recommendedStyle
           type RuntimeStyle = 'cut' | 'swap' | 'harmonic' | 'fade'
+          // Manual override wins over the backend scorer. Read from
+          // the ref — `startCrossfade` captures state at call time,
+          // but the user might have clicked a chip between call and
+          // fade-start (we're still inside the `.then()` after
+          // network + audio load), so the ref is fresher.
+          const manualOverride = manualStyleRef.current
           const resolvedStyle: RuntimeStyle = ((): RuntimeStyle => {
+            if (manualOverride !== 'auto') {
+              return manualOverride
+            }
             switch (recommendedStyle) {
               case 'cut':
                 return 'cut'
@@ -1641,6 +1665,8 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
       toggleAutoDj,
       toggleMixEnabled,
       setCrossfadeBars,
+      manualStyle,
+      setManualStyle,
     }),
     [
       current,
@@ -1683,6 +1709,7 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
       toggleMute,
       toggleAutoDj,
       toggleMixEnabled,
+      manualStyle,
     ],
   )
 

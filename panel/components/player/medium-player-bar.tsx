@@ -7,6 +7,8 @@ import {
   Music,
   Pause,
   Play,
+  Scissors,
+  Shuffle,
   SkipBack,
   SkipForward,
   Sparkles,
@@ -18,6 +20,7 @@ import {
   Waves,
 } from 'lucide-react'
 
+import type { ManualTransitionStyle } from '@/components/audio-player/audio-player-types'
 import { MoodBadge } from '@/components/mood-badge'
 import { Button } from '@/components/ui/button'
 import { Slider } from '@/components/ui/slider'
@@ -37,6 +40,95 @@ function formatTime(seconds: number): string {
   const m = Math.floor(seconds / 60)
   const s = Math.floor(seconds % 60)
   return `${m}:${s.toString().padStart(2, '0')}`
+}
+
+// ── Transition-style chip group ──────────────────────────────────
+//
+// Five mutually exclusive chips bound to `manualStyle`. `auto` is
+// the default and means "follow the backend scorer's
+// recommendation". The four concrete values force the dispatcher
+// onto that runtime style regardless of what the scorer said.
+const STYLE_OPTIONS: ReadonlyArray<{
+  value: ManualTransitionStyle
+  short: string
+  label: string
+  title: string
+  Icon: typeof Sparkles | null
+}> = [
+  {
+    value: 'auto',
+    short: 'AUTO',
+    label: 'Auto (backend scorer)',
+    title: 'Auto — follow the backend scorer recommendation',
+    Icon: Sparkles,
+  },
+  {
+    value: 'cut',
+    short: 'CUT',
+    label: 'Cut',
+    title: 'Cut — hard 50 ms cut on the downbeat, no overlap',
+    Icon: Scissors,
+  },
+  {
+    value: 'swap',
+    short: 'SWAP',
+    label: 'Swap',
+    title: 'Swap — equal-power crossfade + LR4 kick kill',
+    Icon: Shuffle,
+  },
+  {
+    value: 'harmonic',
+    short: 'HARM',
+    label: 'Harmonic',
+    title: 'Harmonic — equal-power blend, no bass kill',
+    Icon: Music,
+  },
+  {
+    value: 'fade',
+    short: 'FADE',
+    label: 'Fade',
+    title: 'Fade — linear gain crossfade, no EQ tricks',
+    Icon: Waves,
+  },
+]
+
+function TransitionStyleChips({
+  value,
+  onChange,
+}: {
+  value: ManualTransitionStyle
+  onChange: (s: ManualTransitionStyle) => void
+}) {
+  return (
+    <div
+      role="radiogroup"
+      aria-label="Transition style override"
+      className="hidden items-center gap-0.5 rounded-full border border-border/60 bg-muted/30 p-0.5 xl:flex"
+    >
+      {STYLE_OPTIONS.map(({ value: v, short, label, title }) => {
+        const selected = value === v
+        return (
+          <button
+            key={v}
+            type="button"
+            role="radio"
+            aria-checked={selected}
+            aria-label={`Transition style: ${label}`}
+            title={title}
+            onClick={() => onChange(v)}
+            className={cn(
+              'rounded-full px-2.5 py-1 text-[10px] font-medium tracking-wide transition-colors',
+              selected
+                ? 'bg-primary text-primary-foreground'
+                : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground',
+            )}
+          >
+            {short}
+          </button>
+        )
+      })}
+    </div>
+  )
 }
 
 /**
@@ -272,6 +364,17 @@ export function MediumPlayerBar({ onCollapse, onOpenControlPanel }: Props) {
             <Wand2 className="size-3.5" />
             <span>AUTO</span>
           </Button>
+
+          {/* Manual transition-style override — 5 chips: auto / cut /
+              swap / harmonic / fade. `auto` means follow the backend
+              scorer's recommendation. The other four force the
+              dispatcher onto a specific runtime style regardless of
+              what the scorer said. Lets you audition the styles by
+              ear and compare. */}
+          <TransitionStyleChips
+            value={audio.manualStyle}
+            onChange={audio.setManualStyle}
+          />
 
           <MixButton />
           <Button

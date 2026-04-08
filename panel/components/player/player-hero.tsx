@@ -5,7 +5,7 @@ import { Play, X } from 'lucide-react'
 
 import { pickDefaultFirstTrack } from '@/actions/default-first-picker-actions'
 import { Button } from '@/components/ui/button'
-import type { PlayerTrackMeta } from '@/components/audio-player/audio-player-context'
+import type { PlayerTrackMeta } from '@/components/audio-player/audio-player-types'
 import type { TrackRow } from '@/lib/queries/tracks'
 
 import { usePlayer } from './player-provider'

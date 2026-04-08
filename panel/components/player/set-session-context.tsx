@@ -20,7 +20,8 @@ import type {
 } from '@/lib/set-narrative/types'
 import { getCurrentSlot } from '@/lib/set-narrative/scoring'
 
-import { useAudioPlayer, type PlayerTrackMeta } from '@/components/audio-player/audio-player-context'
+import { useAudioPlayer } from '@/components/audio-player/audio-player-context'
+import type { PlayerTrackMeta } from '@/components/audio-player/audio-player-types'
 
 interface SetSessionApi extends SetSessionState {
   templates: SetTemplate[]
