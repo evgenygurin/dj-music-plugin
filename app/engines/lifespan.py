@@ -11,8 +11,9 @@ the sounddevice driver.
 from __future__ import annotations
 
 from collections.abc import AsyncIterator
-from contextlib import asynccontextmanager
 from typing import Any
+
+from fastmcp.server.lifespan import lifespan
 
 from app.engines.deck.engine import DeckEngine
 from app.engines.mixer.engine import MixerEngine
@@ -20,7 +21,7 @@ from app.engines.mixer.engine import MixerEngine
 NUM_DECKS = 4
 
 
-@asynccontextmanager
+@lifespan
 async def audio_lifespan(server: Any) -> AsyncIterator[dict[str, Any]]:
     """Construct decks + mixer, start them, yield via lifespan_context."""
     decks = {i: DeckEngine(deck_id=i) for i in range(1, NUM_DECKS + 1)}

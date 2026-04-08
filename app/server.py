@@ -23,6 +23,7 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from app.config import settings
 from app.core.utils.cache import TransitionCache
+from app.engines.lifespan import audio_lifespan
 
 # ── Observability Setup ──────────────────────────────
 
@@ -237,7 +238,7 @@ mcp = FastMCP(
     ),
     providers=[FileSystemProvider(mcp_dir)],
     transforms=server_transforms,
-    lifespan=db_lifespan | ym_lifespan | analyzer_lifespan | cache_lifespan,
+    lifespan=db_lifespan | ym_lifespan | analyzer_lifespan | cache_lifespan | audio_lifespan,
     list_page_size=settings.pagination_size,
     on_duplicate="warn",
     mask_error_details=not settings.debug,  # hide stack traces in production
