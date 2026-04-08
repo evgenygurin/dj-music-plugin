@@ -8,7 +8,6 @@ import {
   Play,
   SkipBack,
   SkipForward,
-  SlidersHorizontal,
   Sparkles,
   Square,
   Volume1,
@@ -37,12 +36,18 @@ interface PlayerBarProps {
 }
 
 /**
- * Single persistent player bar — Spotify/Apple Music style.
+ * Persistent player bar — Spotify/Apple Music layout.
+ *
+ * Layout (from top to bottom):
+ *   1. Edge-to-edge seek slider (h-1, full width, hover thumb)
+ *   2. Three-column body:
+ *      - Left:    cover + title + meta line
+ *      - Center:  prev / play-pause / next / stop  ·  0:23 / 5:24
+ *      - Right:   Mix popover · Set mode · Volume slider
  *
  * Always visible at the bottom of the viewport regardless of page or
- * track state. Uses lucide icons (shadcn convention). When no track
- * is loaded, shows a placeholder with disabled controls so users
- * always know where playback lives.
+ * track state. Uses shadcn primitives only (Slider, Switch, Popover,
+ * Button) and lucide icons. Safe to render with no current track.
  */
 export function PlayerBar({ onOpenControlPanel, onOpenSetPlanner }: PlayerBarProps) {
   const player = usePlayer()
@@ -70,113 +75,127 @@ export function PlayerBar({ onOpenControlPanel, onOpenSetPlanner }: PlayerBarPro
       role="region"
       aria-label="Audio player"
     >
-      <div className="mx-auto grid max-w-screen-2xl grid-cols-[1fr_auto_1fr] items-center gap-4 px-4 py-3 lg:px-6">
-        {/* Left: cover + track meta */}
+      {/* ─── Seek slider — edge to edge, sits on top edge of the bar ─────────── */}
+      <div className="group relative h-1.5 px-3 -mt-px">
+        <Slider
+          value={[progressPct]}
+          min={0}
+          max={100}
+          step={0.1}
+          disabled={!hasTrack}
+          onValueChange={(v) => {
+            if (hasTrack && duration > 0) audio.seek((v[0] / 100) * duration)
+          }}
+          className={cn(
+            'absolute inset-x-3 top-0',
+            // Slim default + bigger thumb on hover
+            '[&_[data-slot=slider-track]]:h-1 [&_[data-slot=slider-thumb]]:size-3 [&_[data-slot=slider-thumb]]:opacity-0 group-hover:[&_[data-slot=slider-thumb]]:opacity-100 transition',
+          )}
+          aria-label="Seek"
+        />
+      </div>
+
+      {/* ─── Body row ──────────────────────────────────────────────────────── */}
+      <div className="mx-auto grid max-w-screen-2xl grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-6 px-4 py-3 lg:px-6">
+        {/* Left: cover + meta */}
         <div className="flex min-w-0 items-center gap-3">
-          <div className="grid size-12 shrink-0 place-items-center rounded-md border border-border/60 bg-muted/40">
-            <Music className="size-5 text-muted-foreground" />
+          <div
+            className={cn(
+              'relative grid size-14 shrink-0 place-items-center overflow-hidden rounded-md border border-border/60 bg-muted/40',
+              hasTrack && 'bg-gradient-to-br from-muted/60 to-muted/20',
+            )}
+          >
+            <Music className={cn('size-6', hasTrack ? 'text-primary/70' : 'text-muted-foreground')} />
           </div>
           <div className="min-w-0 flex-1">
             {hasTrack ? (
               <>
                 <div className="flex items-center gap-2">
-                  <span className="truncate text-sm font-medium">{current.title}</span>
+                  <span className="truncate text-sm font-semibold leading-tight">
+                    {current.title}
+                  </span>
                   {current.mood && <MoodBadge mood={current.mood} />}
                 </div>
-                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                   <span className="truncate">{current.artists || '—'}</span>
                   {current.bpm && (
                     <>
-                      <span>·</span>
+                      <span className="text-muted-foreground/40">·</span>
                       <span className="tabular-nums">{current.bpm.toFixed(1)} BPM</span>
                     </>
                   )}
                   {current.camelot && (
                     <>
-                      <span>·</span>
+                      <span className="text-muted-foreground/40">·</span>
                       <span className="font-mono">{current.camelot}</span>
                     </>
                   )}
                 </div>
               </>
             ) : (
-              <div className="text-sm italic text-muted-foreground">Ничего не играет</div>
+              <div>
+                <div className="text-sm font-medium text-muted-foreground">Ничего не играет</div>
+                <div className="text-xs text-muted-foreground/70">Нажмите ▶ на треке в библиотеке</div>
+              </div>
             )}
           </div>
         </div>
 
-        {/* Center: transport + seek */}
-        <div className="flex min-w-[360px] flex-col items-center gap-1.5">
-          <div className="flex items-center gap-1">
-            <Button
-              size="icon"
-              variant="ghost"
-              className="h-8 w-8"
-              onClick={() => audio.prev()}
-              disabled={!hasTrack || !audio.hasPrev}
-              aria-label="Previous track"
-            >
-              <SkipBack className="size-3.5" />
-            </Button>
-            <Button
-              size="icon"
-              className="h-10 w-10 rounded-full"
-              onClick={() => audio.toggle()}
-              disabled={!hasTrack && !isLoading}
-              aria-label={isPlaying ? 'Pause' : 'Play'}
-            >
-              {isLoading ? (
-                <Loader2 className="size-4 animate-spin" />
-              ) : isPlaying ? (
-                <Pause className="size-4" />
-              ) : (
-                <Play className="size-4 translate-x-[1px]" />
-              )}
-            </Button>
-            <Button
-              size="icon"
-              variant="ghost"
-              className="h-8 w-8"
-              onClick={() => audio.next()}
-              disabled={!hasTrack || !audio.hasNext}
-              aria-label="Next track"
-            >
-              <SkipForward className="size-3.5" />
-            </Button>
-            <Button
-              size="icon"
-              variant="ghost"
-              className="h-8 w-8"
-              onClick={() => audio.stop()}
-              disabled={!hasTrack}
-              aria-label="Stop"
-            >
-              <Square className="size-3.5" />
-            </Button>
-          </div>
-          <div className="flex w-full items-center gap-2">
-            <span className="w-10 text-right text-[10px] tabular-nums text-muted-foreground">
-              {formatTime(position)}
-            </span>
-            <Slider
-              value={[progressPct]}
-              min={0}
-              max={100}
-              step={0.1}
-              onValueChange={(v) => {
-                if (hasTrack && duration > 0) audio.seek((v[0] / 100) * duration)
-              }}
-              disabled={!hasTrack}
-              className="flex-1"
-              aria-label="Seek"
-            />
-            <span className="w-10 text-[10px] tabular-nums text-muted-foreground">
-              {formatTime(duration)}
-            </span>
+        {/* Center: transport + time */}
+        <div className="flex items-center gap-3">
+          <Button
+            size="icon"
+            variant="ghost"
+            className="h-9 w-9 text-muted-foreground hover:text-foreground"
+            onClick={() => audio.prev()}
+            disabled={!hasTrack || !audio.hasPrev}
+            aria-label="Previous track"
+          >
+            <SkipBack className="size-4" />
+          </Button>
+          <Button
+            size="icon"
+            className="size-11 rounded-full shadow-sm"
+            onClick={() => audio.toggle()}
+            disabled={!hasTrack && !isLoading}
+            aria-label={isPlaying ? 'Pause' : 'Play'}
+          >
+            {isLoading ? (
+              <Loader2 className="size-5 animate-spin" />
+            ) : isPlaying ? (
+              <Pause className="size-5 fill-current" />
+            ) : (
+              <Play className="size-5 translate-x-[1px] fill-current" />
+            )}
+          </Button>
+          <Button
+            size="icon"
+            variant="ghost"
+            className="h-9 w-9 text-muted-foreground hover:text-foreground"
+            onClick={() => audio.next()}
+            disabled={!hasTrack || !audio.hasNext}
+            aria-label="Next track"
+          >
+            <SkipForward className="size-4" />
+          </Button>
+          <Button
+            size="icon"
+            variant="ghost"
+            className="h-9 w-9 text-muted-foreground hover:text-foreground"
+            onClick={() => audio.stop()}
+            disabled={!hasTrack}
+            aria-label="Stop"
+          >
+            <Square className="size-3.5" />
+          </Button>
+          <div className="hidden min-w-[88px] items-center gap-1 pl-2 text-[11px] tabular-nums text-muted-foreground sm:flex">
+            <span>{formatTime(position)}</span>
+            <span className="text-muted-foreground/40">/</span>
+            <span>{formatTime(duration)}</span>
           </div>
         </div>
 
-        {/* Right: mix + set mode + volume */}
+        {/* Right: mix + set + volume */}
         <div className="flex min-w-0 items-center justify-end gap-2">
           <MixButton />
           {set.active ? (
@@ -188,17 +207,15 @@ export function PlayerBar({ onOpenControlPanel, onOpenSetPlanner }: PlayerBarPro
               aria-label="Open set planner"
               title={`${set.template?.name} — click to open planner`}
             >
-              <Sparkles className="size-3" />
+              <Sparkles className="size-3.5" />
               <span className="font-medium">{set.template?.name}</span>
-              <span className="tabular-nums opacity-80">
-                {formatTime(set.elapsedSec)}
-              </span>
+              <span className="tabular-nums opacity-80">{formatTime(set.elapsedSec)}</span>
             </Button>
           ) : (
             <Button
               size="icon"
               variant="ghost"
-              className="h-8 w-8"
+              className="h-9 w-9 text-muted-foreground hover:text-foreground"
               onClick={onOpenControlPanel}
               aria-label="Set modes"
               title="Choose set mode"
@@ -207,22 +224,11 @@ export function PlayerBar({ onOpenControlPanel, onOpenSetPlanner }: PlayerBarPro
             </Button>
           )}
 
-          <Button
-            size="icon"
-            variant="ghost"
-            className="h-8 w-8"
-            onClick={onOpenControlPanel}
-            aria-label="Player settings"
-            title="Settings"
-          >
-            <SlidersHorizontal className="size-4" />
-          </Button>
-
-          <div className="hidden items-center gap-1 md:flex">
+          <div className="hidden items-center gap-1.5 md:flex">
             <Button
               size="icon"
               variant="ghost"
-              className="h-8 w-8"
+              className="h-9 w-9 text-muted-foreground hover:text-foreground"
               onClick={() => audio.toggleMute()}
               aria-label={muted ? 'Unmute' : 'Mute'}
             >
@@ -234,18 +240,12 @@ export function PlayerBar({ onOpenControlPanel, onOpenSetPlanner }: PlayerBarPro
               max={100}
               step={1}
               onValueChange={(v) => audio.setVolume(v[0] / 100)}
-              className="w-20"
+              className="w-24"
               aria-label="Volume"
             />
           </div>
         </div>
       </div>
-
-      {/* Ambient progress strip at the very bottom */}
-      <div
-        className="absolute bottom-0 left-0 h-0.5 bg-primary/70 transition-[width] duration-100"
-        style={{ width: `${progressPct}%` }}
-      />
     </div>
   )
 }
@@ -268,11 +268,8 @@ function MixButton() {
       <PopoverTrigger asChild>
         <Button
           size="sm"
-          variant={enabled ? 'default' : 'ghost'}
-          className={cn(
-            'h-8 gap-1.5 rounded-full px-3 text-[11px] font-medium',
-            !enabled && 'border border-border/60',
-          )}
+          variant={enabled ? 'default' : 'outline'}
+          className="h-8 gap-1.5 rounded-full px-3 text-[11px] font-medium"
           aria-label="Mix settings"
           title={enabled ? `Mix: ${bars} bars (~${Math.round(seconds)}s)` : 'Mix: off'}
         >
@@ -280,51 +277,56 @@ function MixButton() {
           <span className="hidden sm:inline">{enabled ? `${bars} bars` : 'Off'}</span>
         </Button>
       </PopoverTrigger>
-      <PopoverContent align="end" sideOffset={8} className="w-64 p-3">
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="text-sm font-medium">Crossfade mix</div>
+      <PopoverContent align="end" sideOffset={12} className="w-72 p-4">
+        <div className="space-y-4">
+          <div className="flex items-start justify-between gap-3">
+            <div className="space-y-0.5">
+              <div className="text-sm font-semibold leading-none">Crossfade mix</div>
               <div className="text-[11px] text-muted-foreground">
                 {enabled
                   ? `Auto · ~${Math.round(seconds)}s @ current BPM`
-                  : 'Snap transitions'}
+                  : 'Snap transitions — no crossfade'}
               </div>
             </div>
             <button
               type="button"
               role="switch"
               aria-checked={enabled}
+              aria-label="Toggle mixing"
               onClick={() => audio.toggleMixEnabled()}
               className={cn(
-                'relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors',
+                'relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full transition-colors',
                 enabled ? 'bg-primary' : 'bg-muted',
               )}
             >
               <span
                 className={cn(
-                  'inline-block size-4 transform rounded-full bg-background transition-transform',
+                  'inline-block size-4 transform rounded-full bg-background shadow transition-transform',
                   enabled ? 'translate-x-[18px]' : 'translate-x-0.5',
                 )}
               />
             </button>
           </div>
-          <div className="grid grid-cols-5 gap-1.5">
-            {[4, 8, 16, 32, 64].map((b) => (
-              <Button
-                key={b}
-                size="sm"
-                variant={bars === b ? 'default' : 'outline'}
-                className="h-7 px-0 text-[11px]"
-                disabled={!enabled}
-                onClick={() => audio.setCrossfadeBars(b)}
-              >
-                {b}
-              </Button>
-            ))}
-          </div>
-          <div className="text-[10px] text-muted-foreground text-center">
-            Bars · 1 bar = 4 beats
+
+          <div>
+            <div className="mb-1.5 text-[11px] uppercase tracking-wide text-muted-foreground">
+              Length
+            </div>
+            <div className="grid grid-cols-5 gap-1.5">
+              {[4, 8, 16, 32, 64].map((b) => (
+                <Button
+                  key={b}
+                  size="sm"
+                  variant={bars === b ? 'default' : 'outline'}
+                  className="h-8 px-0 text-xs"
+                  disabled={!enabled}
+                  onClick={() => audio.setCrossfadeBars(b)}
+                >
+                  {b}
+                </Button>
+              ))}
+            </div>
+            <div className="mt-1.5 text-[10px] text-muted-foreground">1 bar = 4 beats</div>
           </div>
         </div>
       </PopoverContent>
