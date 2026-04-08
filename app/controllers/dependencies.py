@@ -31,6 +31,7 @@ from app.db.repositories.playlist import PlaylistRepository
 from app.db.repositories.set import SetRepository
 from app.db.repositories.track import TrackRepository
 from app.db.repositories.transition import TransitionRepository
+from app.db.repositories.unit_of_work import UnitOfWork
 from app.services.audio_service import AudioService
 from app.services.candidate_service import CandidateService
 from app.services.curation.facade import CurationService
@@ -104,6 +105,22 @@ def get_embedding_repo(session: AsyncSession = Depends(get_db_session)) -> Embed
 
 def get_candidate_repo(session: AsyncSession = Depends(get_db_session)) -> CandidateRepository:  # noqa: B008
     return CandidateRepository(session)
+
+
+# ── Unit of Work — single aggregate over all repositories ────
+# Prefer this over individual get_*_repo factories for new code:
+#
+#     async def my_tool(uow: UnitOfWork = Depends(get_uow)) -> ...:
+#         track = await uow.tracks.get_by_id(42)
+#         features = await uow.features.get_by_track(42)
+#
+# All accesses go through one shared session, so commit/rollback
+# behaviour matches the existing get_db_session contract.
+
+
+def get_uow(session: AsyncSession = Depends(get_db_session)) -> UnitOfWork:  # noqa: B008
+    """Build a UnitOfWork bound to the current request session."""
+    return UnitOfWork(session)
 
 
 # ── Lifespan context accessors ───────────────────────
