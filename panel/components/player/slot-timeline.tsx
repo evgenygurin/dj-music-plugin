@@ -1,6 +1,8 @@
 // panel/components/player/slot-timeline.tsx
 'use client'
 
+import { Check, Play } from 'lucide-react'
+
 import { cn } from '@/lib/utils'
 import type { CurrentSlot, SetTemplate } from '@/lib/set-narrative/types'
 
@@ -32,9 +34,14 @@ export function SlotTimeline({ template, current }: Props) {
               {Math.round((slot.durationMs / 1000 / 60) * 10) / 10} min
             </div>
             {status === 'playing' && (
-              <div className="mt-1 text-[10px] text-primary">▶ playing</div>
+              <div className="mt-1 flex items-center gap-1 text-[10px] text-primary">
+                <Play className="size-2.5 fill-primary" />
+                playing
+              </div>
             )}
-            {status === 'played' && <div className="mt-1 text-[10px]">✓</div>}
+            {status === 'played' && (
+              <Check className="mt-1 size-2.5 text-muted-foreground" />
+            )}
           </div>
         )
       })}

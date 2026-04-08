@@ -1,7 +1,7 @@
 // panel/components/player/set-indicator-chip.tsx
 'use client'
 
-import { IconSparkles } from '@tabler/icons-react'
+import { Sparkles } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { usePlayer } from './player-provider'
 
@@ -30,7 +30,7 @@ export function SetIndicatorChip({ onOpen }: { onOpen: () => void }) {
       aria-label="Open set planner"
       title={`Set: ${set.template.name}`}
     >
-      <IconSparkles className="size-3" />
+      <Sparkles className="size-3" />
       <span className="font-medium">{set.template.name}</span>
       <span className="tabular-nums">
         {formatMmSs(set.elapsedSec)}/{formatMmSs(totalSec)}

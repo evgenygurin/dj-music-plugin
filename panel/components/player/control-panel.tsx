@@ -1,7 +1,19 @@
 // panel/components/player/control-panel.tsx
 'use client'
 
-import { IconX } from '@tabler/icons-react'
+import {
+  Activity,
+  Disc3,
+  Flame,
+  Infinity as InfinityIcon,
+  Moon,
+  Sparkles,
+  Sunrise,
+  TrendingUp,
+  Waves,
+  X,
+  type LucideIcon,
+} from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
@@ -11,15 +23,17 @@ import type { SetTemplate } from '@/lib/set-narrative/types'
 
 const COMPATIBILITY_MODE_NAME = '__compatibility__'
 
-const MODE_ICONS: Record<string, string> = {
-  warm_up_30: '☀',
-  classic_60: '✨',
-  peak_hour_60: '🔥',
-  roller_90: '🌊',
-  progressive_120: '📈',
-  wave_120: '🌊',
-  closing_60: '🌙',
-  full_library: '∞',
+// Each template gets a distinct lucide icon so the popover feels like
+// a real mode picker (sunrise → flame → moon) rather than a flat list.
+const MODE_ICONS: Record<string, LucideIcon> = {
+  warm_up_30: Sunrise,
+  classic_60: Disc3,
+  peak_hour_60: Flame,
+  roller_90: Activity,
+  progressive_120: TrendingUp,
+  wave_120: Waves,
+  closing_60: Moon,
+  full_library: InfinityIcon,
 }
 
 function SparklineArc({ template }: { template: SetTemplate }) {
@@ -67,7 +81,7 @@ export function ControlPanel({ open, onClose }: { open: boolean; onClose: () => 
           <div className="flex items-center justify-between border-b border-border/60 px-4 py-2">
             <span className="text-sm font-medium">Set mode</span>
             <button type="button" onClick={onClose} aria-label="Close" className="rounded-md p-1 hover:bg-muted/40">
-              <IconX className="size-4" />
+              <X className="size-4" />
             </button>
           </div>
 
@@ -80,31 +94,34 @@ export function ControlPanel({ open, onClose }: { open: boolean; onClose: () => 
                 activeName === COMPATIBILITY_MODE_NAME && 'bg-primary/10 border border-primary/40',
               )}
             >
-              <span className="text-base">∞</span>
+              <InfinityIcon className="size-4 shrink-0 text-muted-foreground" />
               <div className="flex-1">
                 <div className="font-medium">Compatibility</div>
-                <div className="text-xs text-muted-foreground">Endless · next compatible track</div>
+                <div className="text-xs text-muted-foreground">Endless — next compatible track</div>
               </div>
             </button>
 
-            {set.templates.map((tpl) => (
-              <button
-                key={tpl.name}
-                type="button"
-                onClick={() => selectMode(tpl.name)}
-                className={cn(
-                  'flex w-full items-center gap-3 rounded-md px-3 py-2 text-left text-sm hover:bg-muted/40',
-                  activeName === tpl.name && 'bg-primary/10 border border-primary/40',
-                )}
-              >
-                <span className="text-base">{MODE_ICONS[tpl.name] ?? '✨'}</span>
-                <div className="flex-1">
-                  <div className="font-medium">{humanName(tpl)}</div>
-                  <div className="text-xs text-muted-foreground">{tpl.description}</div>
-                </div>
-                <SparklineArc template={tpl} />
-              </button>
-            ))}
+            {set.templates.map((tpl) => {
+              const Icon = MODE_ICONS[tpl.name] ?? Sparkles
+              return (
+                <button
+                  key={tpl.name}
+                  type="button"
+                  onClick={() => selectMode(tpl.name)}
+                  className={cn(
+                    'flex w-full items-center gap-3 rounded-md px-3 py-2 text-left text-sm hover:bg-muted/40',
+                    activeName === tpl.name && 'bg-primary/10 border border-primary/40',
+                  )}
+                >
+                  <Icon className="size-4 shrink-0 text-muted-foreground" />
+                  <div className="flex-1">
+                    <div className="font-medium">{humanName(tpl)}</div>
+                    <div className="text-xs text-muted-foreground">{tpl.description}</div>
+                  </div>
+                  <SparklineArc template={tpl} />
+                </button>
+              )
+            })}
           </div>
 
           <div className="flex items-center gap-2 border-t border-border/60 px-4 py-2 text-xs text-muted-foreground">

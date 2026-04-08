@@ -1,19 +1,19 @@
 'use client'
 
 import {
-  IconAdjustmentsHorizontal,
-  IconLoader2,
-  IconMusic,
-  IconPlayerPauseFilled,
-  IconPlayerPlayFilled,
-  IconPlayerSkipBackFilled,
-  IconPlayerSkipForwardFilled,
-  IconPlayerStopFilled,
-  IconSparkles,
-  IconVolume,
-  IconVolume2,
-  IconVolumeOff,
-} from '@tabler/icons-react'
+  Loader2,
+  Music,
+  Pause,
+  Play,
+  SkipBack,
+  SkipForward,
+  SlidersHorizontal,
+  Sparkles,
+  Square,
+  Volume1,
+  Volume2,
+  VolumeX,
+} from 'lucide-react'
 
 import { MoodBadge } from '@/components/mood-badge'
 import { Button } from '@/components/ui/button'
@@ -37,9 +37,9 @@ interface PlayerBarProps {
 /**
  * Single persistent player bar — Spotify/Apple Music style.
  *
- * Always visible at the bottom of the viewport regardless of layer,
- * page, or track state. When no track is loaded, it shows a subtle
- * placeholder but keeps the transport controls visible so users
+ * Always visible at the bottom of the viewport regardless of page or
+ * track state. Uses lucide icons (shadcn convention). When no track
+ * is loaded, shows a placeholder with disabled controls so users
  * always know where playback lives.
  */
 export function PlayerBar({ onOpenControlPanel, onOpenSetPlanner }: PlayerBarProps) {
@@ -57,7 +57,7 @@ export function PlayerBar({ onOpenControlPanel, onOpenSetPlanner }: PlayerBarPro
 
   const hasTrack = current !== null
   const progressPct = hasTrack && duration > 0 ? (position / duration) * 100 : 0
-  const VolumeIcon = muted ? IconVolumeOff : volume > 0.5 ? IconVolume : IconVolume2
+  const VolumeIcon = muted ? VolumeX : volume > 0.5 ? Volume2 : Volume1
 
   return (
     <div
@@ -72,7 +72,7 @@ export function PlayerBar({ onOpenControlPanel, onOpenSetPlanner }: PlayerBarPro
         {/* Left: cover + track meta */}
         <div className="flex min-w-0 items-center gap-3">
           <div className="grid size-12 shrink-0 place-items-center rounded-md border border-border/60 bg-muted/40">
-            <IconMusic className="size-5 text-muted-foreground" />
+            <Music className="size-5 text-muted-foreground" />
           </div>
           <div className="min-w-0 flex-1">
             {hasTrack ? (
@@ -98,7 +98,7 @@ export function PlayerBar({ onOpenControlPanel, onOpenSetPlanner }: PlayerBarPro
                 </div>
               </>
             ) : (
-              <div className="text-sm text-muted-foreground italic">Ничего не играет</div>
+              <div className="text-sm italic text-muted-foreground">Ничего не играет</div>
             )}
           </div>
         </div>
@@ -114,7 +114,7 @@ export function PlayerBar({ onOpenControlPanel, onOpenSetPlanner }: PlayerBarPro
               disabled={!hasTrack || !audio.hasPrev}
               aria-label="Previous track"
             >
-              <IconPlayerSkipBackFilled className="size-3.5" />
+              <SkipBack className="size-3.5" />
             </Button>
             <Button
               size="icon"
@@ -124,11 +124,11 @@ export function PlayerBar({ onOpenControlPanel, onOpenSetPlanner }: PlayerBarPro
               aria-label={isPlaying ? 'Pause' : 'Play'}
             >
               {isLoading ? (
-                <IconLoader2 className="size-4 animate-spin" />
+                <Loader2 className="size-4 animate-spin" />
               ) : isPlaying ? (
-                <IconPlayerPauseFilled className="size-4" />
+                <Pause className="size-4" />
               ) : (
-                <IconPlayerPlayFilled className="size-4" />
+                <Play className="size-4 translate-x-[1px]" />
               )}
             </Button>
             <Button
@@ -139,7 +139,7 @@ export function PlayerBar({ onOpenControlPanel, onOpenSetPlanner }: PlayerBarPro
               disabled={!hasTrack || !audio.hasNext}
               aria-label="Next track"
             >
-              <IconPlayerSkipForwardFilled className="size-3.5" />
+              <SkipForward className="size-3.5" />
             </Button>
             <Button
               size="icon"
@@ -149,7 +149,7 @@ export function PlayerBar({ onOpenControlPanel, onOpenSetPlanner }: PlayerBarPro
               disabled={!hasTrack}
               aria-label="Stop"
             >
-              <IconPlayerStopFilled className="size-3.5" />
+              <Square className="size-3.5" />
             </Button>
           </div>
           <div className="flex w-full items-center gap-2">
@@ -183,9 +183,9 @@ export function PlayerBar({ onOpenControlPanel, onOpenSetPlanner }: PlayerBarPro
               className="h-8 gap-1.5 rounded-full px-3 text-[11px]"
               onClick={onOpenSetPlanner}
               aria-label="Open set planner"
-              title={`${set.template?.name} · click to open planner`}
+              title={`${set.template?.name} — click to open planner`}
             >
-              <IconSparkles className="size-3" />
+              <Sparkles className="size-3" />
               <span className="font-medium">{set.template?.name}</span>
               <span className="tabular-nums opacity-80">
                 {formatTime(set.elapsedSec)}
@@ -200,7 +200,7 @@ export function PlayerBar({ onOpenControlPanel, onOpenSetPlanner }: PlayerBarPro
               aria-label="Set modes"
               title="Choose set mode"
             >
-              <IconSparkles className="size-4" />
+              <Sparkles className="size-4" />
             </Button>
           )}
 
@@ -212,7 +212,7 @@ export function PlayerBar({ onOpenControlPanel, onOpenSetPlanner }: PlayerBarPro
             aria-label="Player settings"
             title="Settings"
           >
-            <IconAdjustmentsHorizontal className="size-4" />
+            <SlidersHorizontal className="size-4" />
           </Button>
 
           <div className="hidden items-center gap-1 md:flex">

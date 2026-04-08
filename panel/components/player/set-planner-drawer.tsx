@@ -1,7 +1,7 @@
 // panel/components/player/set-planner-drawer.tsx
 'use client'
 
-import { IconX } from '@tabler/icons-react'
+import { Play, X } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
@@ -44,7 +44,7 @@ export function SetPlannerDrawer({ open, onClose }: { open: boolean; onClose: ()
             Stop set
           </Button>
           <button type="button" onClick={onClose} aria-label="Close" className="rounded-md p-1 hover:bg-muted/40">
-            <IconX className="size-4" />
+            <X className="size-4" />
           </button>
         </div>
       </div>
@@ -97,7 +97,7 @@ export function SetPlannerDrawer({ open, onClose }: { open: boolean; onClose: ()
               >
                 <div className="flex-1 truncate">
                   <div className="flex items-center gap-2">
-                    {i === 0 && <span>▶</span>}
+                    {i === 0 && <Play className="size-3 shrink-0 fill-primary text-primary" />}
                     <span className="font-medium truncate">{c.title}</span>
                     <span className="text-xs text-muted-foreground">
                       {c.bpm?.toFixed(1) ?? '—'} BPM · {c.camelot ?? '—'}
