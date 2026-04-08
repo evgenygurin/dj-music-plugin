@@ -108,6 +108,20 @@ interface AudioPlayerApi extends AudioPlayerState {
   stop: () => void
   next: () => void
   prev: () => void
+  // Kick off a smooth crossfade to the already-planned next track
+  // RIGHT NOW, without waiting for the current track to end. Picks
+  // queue[idx+1] when available, otherwise falls back to the
+  // client-side pickAutoNext. No-op when there's nothing to play.
+  mixNow: () => void
+  // Pick the most compatible track via the backend TransitionScorer
+  // (scoreTransitionCandidates server action) and play it. Async
+  // because it awaits the scoring RPC. Uses the same async picker as
+  // the auto-DJ end-of-track handler, so behaviour is consistent.
+  playRecommendedNext: () => Promise<void>
+  // Next track that would play if the user did nothing. Derived from
+  // queue[idx+1]; null when there's no queued item. Medium/Mini bars
+  // render this as a "→ Artist — Title" peek chip.
+  nextUp: PlayerTrackMeta | null
   seek: (seconds: number) => void
   setVolume: (vol: number) => void
   toggleMute: () => void
@@ -174,7 +188,10 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
   const [volume, setVolumeState] = useState(0.85)
   const [muted, setMuted] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [autoDj, setAutoDj] = useState(false)
+  // Default ON: out-of-the-box the user expects tracks to recommend +
+  // auto-advance. `toggleAutoDj` flips this; the Auto-Mix toggle in the
+  // player bar is the visible switch.
+  const [autoDj, setAutoDj] = useState(true)
   // Master mix switch — default ON. When false, every transition snaps
   // instantly (useful for preview-style listening).
   const [mixEnabled, setMixEnabled] = useState(true)
@@ -919,6 +936,40 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     }
   }, [current, duration, position])
 
+  // "Next up" peek — the track a linear `next()` would play. Null when
+  // the queue is exhausted. Medium/Mini bars render this as a chip so
+  // the user can see what's coming before hitting MIX NOW.
+  const nextUp: PlayerTrackMeta | null = useMemo(() => {
+    if (queueIndex < 0) return null
+    return queue[queueIndex + 1] ?? null
+  }, [queue, queueIndex])
+
+  // MIX NOW — start a crossfade to the already-planned next track
+  // right now, without waiting for `ended`. Source priority:
+  //   1. queue[idx+1] (what `next()` would walk to)
+  //   2. pickAutoNext (client heuristic) when there's no queued item
+  // No-op when we can't find a target or nothing is currently playing.
+  const mixNow = useCallback(() => {
+    if (!current) return
+    const queued = queueIndex >= 0 ? queue[queueIndex + 1] : undefined
+    const target =
+      queued ?? pickAutoNext(current, queue, historyRef.current) ?? null
+    if (!target) return
+    play(target)
+  }, [current, queue, queueIndex, play])
+
+  // RECOMMENDED NEXT — run the backend TransitionScorer for the
+  // current track and play the winner. Same picker as the auto-DJ
+  // end-of-track handler, so recommendations are consistent across
+  // the UI. Returns silently when there's nothing playing or the
+  // backend fails AND the fallback finds no candidate.
+  const playRecommendedNext = useCallback(async () => {
+    if (!current) return
+    const target = await pickNextTrackAsync(current, queue, historyRef.current)
+    if (!target) return
+    play(target)
+  }, [current, queue, pickNextTrackAsync, play])
+
   const api = useMemo<AudioPlayerApi>(
     () => ({
       current,
@@ -943,12 +994,15 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
       crossfadeDurationSeconds,
       recommendedStyle,
       recommendedBars,
+      nextUp,
       play,
       toggle,
       pause,
       stop,
       next,
       prev,
+      mixNow,
+      playRecommendedNext,
       seek,
       setVolume,
       toggleMute,
@@ -979,12 +1033,15 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
       crossfadeDurationSeconds,
       recommendedStyle,
       recommendedBars,
+      nextUp,
       play,
       toggle,
       pause,
       stop,
       next,
       prev,
+      mixNow,
+      playRecommendedNext,
       seek,
       setVolume,
       toggleMute,

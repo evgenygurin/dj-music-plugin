@@ -1,6 +1,7 @@
 'use client'
 
 import {
+  ArrowRight,
   ChevronDown,
   Loader2,
   Music,
@@ -13,6 +14,8 @@ import {
   Volume1,
   Volume2,
   VolumeX,
+  Wand2,
+  Waves,
 } from 'lucide-react'
 
 import { MoodBadge } from '@/components/mood-badge'
@@ -47,9 +50,32 @@ export function MediumPlayerBar({ onCollapse, onOpenControlPanel }: Props) {
   if (player.layer < 2) return null
 
   const { audio } = player
-  const { current, isPlaying, isLoading, position, duration, volume, muted } = audio
+  const {
+    current,
+    isPlaying,
+    isLoading,
+    position,
+    duration,
+    volume,
+    muted,
+    autoDj,
+    mixEnabled,
+    nextUp,
+  } = audio
   const hasTrack = current !== null
   const VolumeIcon = muted ? VolumeX : volume > 0.5 ? Volume2 : Volume1
+  // Auto-Mix master switch: treat autoDj + mixEnabled as one
+  // user-facing concept. Toggling the AUTO button flips both so the
+  // "ON" state is the obvious out-of-the-box default.
+  const autoMixOn = autoDj && mixEnabled
+  const handleToggleAutoMix = () => {
+    if (autoMixOn) {
+      audio.toggleAutoDj() // → autoDj=false; mix stays on
+    } else {
+      if (!autoDj) audio.toggleAutoDj()
+      if (!mixEnabled) audio.toggleMixEnabled()
+    }
+  }
 
   return (
     <div
@@ -133,14 +159,15 @@ export function MediumPlayerBar({ onCollapse, onOpenControlPanel }: Props) {
               className="h-8 w-8 text-muted-foreground hover:text-foreground"
               onClick={() => audio.next()}
               disabled={!hasTrack || !audio.hasNext}
-              aria-label="Next track"
+              aria-label="Next track (hard cut)"
+              title="Next (hard cut)"
             >
               <SkipForward className="size-4" />
             </Button>
             <Button
               size="icon"
               variant="ghost"
-              className="h-8 w-8 text-muted-foreground hover:text-foreground"
+              className="hidden h-8 w-8 text-muted-foreground hover:text-foreground lg:inline-flex"
               onClick={() => audio.stop()}
               disabled={!hasTrack}
               aria-label="Stop"
@@ -178,8 +205,74 @@ export function MediumPlayerBar({ onCollapse, onOpenControlPanel }: Props) {
           </div>
         </div>
 
-        {/* Right: mix + set + collapse + volume */}
+        {/* Right: next-up peek + auto-mix + mix settings + set + collapse + volume */}
         <div className="flex min-w-0 flex-1 items-center justify-end gap-2">
+          {/* Next Up peek chip — shows what would play next */}
+          {nextUp && (
+            <div
+              className="hidden min-w-0 max-w-[180px] items-center gap-1 rounded-full border border-border/60 bg-muted/30 px-2.5 py-1 text-[10px] text-muted-foreground md:flex"
+              title={`Next: ${nextUp.title}${nextUp.artists ? ` — ${nextUp.artists}` : ''}`}
+            >
+              <ArrowRight className="size-3 shrink-0 text-primary/70" />
+              <span className="truncate">
+                <span className="font-medium text-foreground/90">{nextUp.title}</span>
+                {nextUp.artists && (
+                  <span className="text-muted-foreground"> — {nextUp.artists}</span>
+                )}
+              </span>
+            </div>
+          )}
+
+          {/* Recommended Next — scorer pick, not shuffle. Explicit
+              action kept in the mix-decisions cluster so the center
+              transport stays a clean classical prev/play/next. */}
+          <Button
+            size="icon"
+            variant="ghost"
+            className="h-8 w-8 text-primary/80 hover:bg-primary/10 hover:text-primary"
+            onClick={() => {
+              void audio.playRecommendedNext()
+            }}
+            disabled={!hasTrack}
+            aria-label="Play recommended next track"
+            title="Recommended next (scorer)"
+          >
+            <Sparkles className="size-4" />
+          </Button>
+
+          {/* Mix Now — immediate smooth crossfade without waiting */}
+          <Button
+            size="icon"
+            variant="ghost"
+            className="h-8 w-8 text-primary/80 hover:bg-primary/10 hover:text-primary"
+            onClick={() => audio.mixNow()}
+            disabled={!hasTrack}
+            aria-label="Mix now (smooth crossfade)"
+            title="Mix now"
+          >
+            <Waves className="size-4" />
+          </Button>
+
+          {/* Auto-Mix master switch — toggles autoDj + mixEnabled together.
+              ON means tracks recommend themselves and smoothly crossfade
+              on end of track. Default ON out of the box. */}
+          <Button
+            size="sm"
+            variant={autoMixOn ? 'default' : 'outline'}
+            className="h-8 gap-1.5 rounded-full px-3 text-[11px] font-medium"
+            onClick={handleToggleAutoMix}
+            aria-label={autoMixOn ? 'Turn Auto-Mix off' : 'Turn Auto-Mix on'}
+            aria-pressed={autoMixOn}
+            title={
+              autoMixOn
+                ? 'Auto-Mix ON — tracks pick + crossfade automatically'
+                : 'Auto-Mix OFF — manual transport'
+            }
+          >
+            <Wand2 className="size-3.5" />
+            <span>AUTO</span>
+          </Button>
+
           <MixButton />
           <Button
             size="icon"
