@@ -1,4 +1,7 @@
-const MCP_HTTP_URL = process.env.MCP_HTTP_URL ?? 'http://localhost:8000'
+// MCP_HTTP_URL may point at the native MCP transport (`.../mcp`); strip the
+// trailing `/mcp` so we hit the FastAPI REST root for tool discovery/calls.
+const RAW_MCP_URL = process.env.MCP_HTTP_URL ?? 'http://localhost:8000'
+const MCP_HTTP_URL = RAW_MCP_URL.replace(/\/+mcp\/?$/, '').replace(/\/+$/, '')
 
 export interface ToolInfo {
   name: string

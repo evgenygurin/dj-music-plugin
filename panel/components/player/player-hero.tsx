@@ -15,7 +15,9 @@ export function PlayerHero() {
   const [dismissed, setDismissed] = useState(false)
   const [loading, setLoading] = useState(false)
 
-  if (player.layer > 0 || player.audio.current !== null) return null
+  // Hide only when a track is actively playing — layer alone is not enough,
+  // otherwise users who stopped playback would be stranded with no UI.
+  if (player.audio.current !== null) return null
   if (dismissed) return null
 
   const handlePlay = async () => {
