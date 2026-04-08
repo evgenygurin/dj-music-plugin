@@ -522,16 +522,29 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
           }
 
           // Outgoing next-downbeat delay (0..outBar seconds).
+          // Reads the REAL firstDownbeatSec from the beatgrid join in
+          // getTrackMixMeta, with a 0 fallback when no beatgrid exists
+          // (still correct for 4/4 techno that starts on a downbeat).
           const DOWNBEAT_EPSILON = 0.03 // 30 ms — already-on-beat snap
           let delaySec = 0
           if (outgoingBpm && outgoingBpm > 0) {
             const outBar = 240 / outgoingBpm // 4 beats / bar
+            const outFirstDownbeat = Math.max(
+              0,
+              currentMetaRef.current?.firstDownbeatSec ?? 0,
+            )
             const currentOutPos = active.audio.currentTime || 0
-            const toNext = outBar - (currentOutPos % outBar)
+            // Distance from current position to the next downbeat of
+            // outgoing: `(currentOut - firstDownbeat) mod outBar` gives
+            // how far we are past the last downbeat; subtract from outBar.
+            const sincePrev =
+              ((currentOutPos - outFirstDownbeat) % outBar + outBar) % outBar
+            const toNext = outBar - sincePrev
             // If we're within epsilon of a downbeat already, fire now.
-            delaySec = toNext < DOWNBEAT_EPSILON || toNext > outBar - DOWNBEAT_EPSILON
-              ? 0
-              : toNext
+            delaySec =
+              toNext < DOWNBEAT_EPSILON || toNext > outBar - DOWNBEAT_EPSILON
+                ? 0
+                : toNext
             // Never delay past end-of-track.
             if (active.audio.duration) {
               const room = active.audio.duration - currentOutPos - cf
@@ -543,7 +556,46 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
 
           // Compute + snap incoming seek, with pre-roll compensation so
           // at wall-clock t0 the audio element is exactly on the snap.
+          //
+          // Seek target strategy:
+          //   1. Measured intro from track_sections:
+          //        seek = max(introStart, introEnd - cf)
+          //      so incoming's DROP lands exactly at fade end.
+          //   2. No measured sections (most tracks today — detection
+          //      hasn't run yet): fall back to a CANONICAL 32-bar intro
+          //      assumption. Techno tracks ship with a drum-led 32-bar
+          //      intro almost universally, so we pretend introEnd =
+          //      32 bars × bar_seconds and re-use the same "arrive at
+          //      drop by fade end" rule. This is what stops incoming
+          //      from always starting at 0.
+          //   3. Then snap to a downbeat (using the real
+          //      firstDownbeatSec from the beatgrid) and bump forward
+          //      until pre-roll ≥ 0.
+          const DEFAULT_INTRO_BARS = 32 // typical techno drum-led intro
           let snappedSeekTarget: number | null = null
+          const incomingFirstDownbeat = Math.max(
+            0,
+            incomingMeta?.firstDownbeatSec ?? 0,
+          )
+          const inBar =
+            incomingMeta?.bpm && incomingMeta.bpm > 0 ? 240 / incomingMeta.bpm : null
+
+          const snapToIncomingDownbeat = (t: number): number => {
+            if (inBar == null) return Math.max(0, t)
+            const offset = t - incomingFirstDownbeat
+            const snapped = incomingFirstDownbeat + Math.round(offset / inBar) * inBar
+            return Math.max(0, snapped)
+          }
+
+          const bumpForPreRoll = (t: number): number => {
+            if (inBar == null) return Math.max(0, t)
+            const needed = delaySec * ratio
+            let out = t
+            while (out < needed) out += inBar
+            return out
+          }
+
+          // Case 1 — measured intro sections.
           if (
             incomingMeta?.introEndSec != null &&
             incomingMeta.introEndSec > 0 &&
@@ -556,36 +608,35 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
               cf = Math.max(2, Math.min(cf, introLen))
             }
             let seekTarget = Math.max(introStart, introEnd - cf)
-            // Snap to nearest incoming downbeat (firstDownbeatSec = 0).
-            if (incomingMeta.bpm && incomingMeta.bpm > 0) {
-              const inBar = 240 / incomingMeta.bpm
-              seekTarget = Math.max(0, Math.round(seekTarget / inBar) * inBar)
-              // Pre-roll must be ≥ 0 — we can't seek the <audio> element
-              // to negative time. If the snap lands too early for the
-              // delay-compensation to work, bump it forward by whole
-              // bars until pre-roll is non-negative. This still lands
-              // on a downbeat, just a later one.
-              const preRollNeeded = delaySec * ratio
-              while (seekTarget < preRollNeeded) {
-                seekTarget += inBar
-              }
-            }
+            seekTarget = snapToIncomingDownbeat(seekTarget)
+            seekTarget = bumpForPreRoll(seekTarget)
             snappedSeekTarget = seekTarget
-            const preRollCompensated = Math.max(0, seekTarget - delaySec * ratio)
             try {
-              inactive.audio.currentTime = preRollCompensated
+              inactive.audio.currentTime = Math.max(0, seekTarget - delaySec * ratio)
             } catch {
               // ignore — currentTime not yet writable
             }
-          } else if (delaySec > 0) {
-            // No intro meta but we still need to start incoming from 0
-            // at wall-clock t0. Pre-roll is impossible (can't seek
-            // negative), so let the incoming simply start silent at
-            // currentTime=0; it'll be delaySec*ratio seconds into the
-            // track by the time the fade begins. Phase alignment
-            // degrades to "whatever it was" — the delay is small
-            // (<2s at techno BPM) so the mis-alignment is likewise
-            // small, and better than the original no-delay behaviour.
+          }
+          // Case 2 — no measured intro, assumed 32-bar intro fallback.
+          else if (inBar != null) {
+            const assumedIntroLen = DEFAULT_INTRO_BARS * inBar
+            // Cap cf to the assumed intro length so the drop lands at
+            // fade end (same rule as measured case).
+            if (cf > assumedIntroLen) {
+              cf = Math.max(2, assumedIntroLen)
+            }
+            let seekTarget = Math.max(0, assumedIntroLen - cf)
+            seekTarget = snapToIncomingDownbeat(seekTarget)
+            seekTarget = bumpForPreRoll(seekTarget)
+            snappedSeekTarget = seekTarget
+            try {
+              inactive.audio.currentTime = Math.max(0, seekTarget - delaySec * ratio)
+            } catch {
+              // ignore
+            }
+          }
+          // Case 3 — no BPM either: legacy default, just start at 0.
+          else {
             try {
               inactive.audio.currentTime = 0
             } catch {
