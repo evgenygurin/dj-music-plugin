@@ -12,18 +12,14 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from app.core.constants import DEFAULT_TRANSITION_WEIGHTS
+
 # ── Component weights (sum = 1.0) ────────────────────────
-# Identical to ``app.core.constants.DEFAULT_TRANSITION_WEIGHTS`` for now;
-# commit 6 rebalances both files together via a shared single source of
-# truth.
-DEFAULT_WEIGHTS: dict[str, float] = {
-    "bpm": 0.22,
-    "harmonic": 0.20,
-    "energy": 0.23,
-    "spectral": 0.15,
-    "groove": 0.10,
-    "timbral": 0.10,
-}
+# Single source of truth lives in ``app/core/constants.py`` so the core
+# layer doesn't depend on the domain layer. This module re-exports it
+# as ``DEFAULT_WEIGHTS`` for ergonomic imports inside the transition
+# package.
+DEFAULT_WEIGHTS: dict[str, float] = DEFAULT_TRANSITION_WEIGHTS
 
 # ── BPM scoring ──────────────────────────────────────────
 BPM_GAUSS_SIGMA: float = 3.0  # ~2.5% on 124 BPM
