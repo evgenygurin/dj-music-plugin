@@ -36,8 +36,21 @@ export function MiniPlayerBar() {
   const { audio } = player
   if (player.layer !== 1) return null
 
-  const { current, isPlaying, isLoading, position, duration, autoDj, mixEnabled } = audio
+  const {
+    current,
+    isPlaying,
+    isLoading,
+    position,
+    duration,
+    autoDj,
+    mixEnabled,
+    isCrossfading,
+    lastResolvedStyle,
+    lastResolvedStyleWasManual,
+    recommendedStyle,
+  } = audio
   const hasTrack = current !== null
+  const activeStyle = lastResolvedStyle ?? recommendedStyle
   const progressPct = hasTrack && duration > 0 ? (position / duration) * 100 : 0
   const autoMixOn = autoDj && mixEnabled
   const handleToggleAutoMix = () => {
@@ -156,6 +169,26 @@ export function MiniPlayerBar() {
             <Wand2 className="size-3.5" />
           </Button>
         </div>
+
+        {/* Resolved style badge — visible only during active crossfade */}
+        {isCrossfading && activeStyle && (
+          <span
+            className={cn(
+              'hidden rounded-full border px-2 py-0.5 font-mono text-[9px] uppercase tracking-wider md:inline',
+              lastResolvedStyleWasManual
+                ? 'border-amber-400/50 bg-amber-400/10 text-amber-300'
+                : 'border-primary/40 bg-primary/10 text-primary',
+            )}
+            title={
+              lastResolvedStyleWasManual
+                ? 'Manual override — user picked this style'
+                : 'Backend-recommended transition style'
+            }
+          >
+            {activeStyle.replace(/_/g, ' ')}
+            {lastResolvedStyleWasManual ? ' · manual' : ''}
+          </span>
+        )}
 
         {/* Right: time */}
         <span className="hidden tabular-nums text-[10px] text-muted-foreground sm:inline">
