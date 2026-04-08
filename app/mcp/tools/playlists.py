@@ -12,7 +12,6 @@ from fastmcp.exceptions import ToolError
 from fastmcp.tools import tool
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.entity_resolver import resolve_track_refs
 from app.core.utils.parsing import ensure_dict, ensure_list
 from app.mcp.dependencies import (
     get_db_session,
@@ -26,6 +25,7 @@ from app.mcp.tools._shared import (
     map_domain_errors,
     resolve_entity,
 )
+from app.mcp.tools._shared.entity_resolver import resolve_track_refs
 from app.schemas import PaginatedResponse, PlaylistSummary
 from app.services.playlist_service import PlaylistService
 from app.services.track_service import TrackService
