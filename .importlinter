@@ -7,13 +7,13 @@ include_external_packages = True
 # Services orchestrate domain logic and must not depend on transport (mcp)
 # or HTTP frameworks (fastmcp). Reactivated for Phase 7 enforcement.
 [importlinter:contract:services-no-mcp]
-name = Services must be framework-agnostic (no fastmcp / app.mcp imports)
+name = Services must be framework-agnostic (no fastmcp / app.controllers imports)
 type = forbidden
 source_modules =
     app.services
 forbidden_modules =
     fastmcp
-    app.mcp
+    app.controllers
 
 # ── Contract 2: domain layer (transition scoring) is pure ──────────
 # Pure mathematical scoring must not touch persistence or framework.
@@ -26,7 +26,7 @@ source_modules =
 forbidden_modules =
     app.repositories
     app.models
-    app.mcp
+    app.controllers
     app.services
     fastmcp
     sqlalchemy
@@ -41,7 +41,7 @@ source_modules =
 forbidden_modules =
     app.repositories
     app.models
-    app.mcp
+    app.controllers
     app.services
     fastmcp
     sqlalchemy
@@ -57,7 +57,7 @@ forbidden_modules =
     app.models
     app.repositories
     app.services
-    app.mcp
+    app.controllers
     app.audio
     app.ym
     app.transition

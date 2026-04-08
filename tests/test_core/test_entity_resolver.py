@@ -1,6 +1,6 @@
 import pytest
 
-from app.mcp.tools._shared.entity_resolver import parse_entity_ref
+from app.controllers.tools._shared.entity_resolver import parse_entity_ref
 
 
 def test_parse_int() -> None:
@@ -38,7 +38,7 @@ def test_parse_whitespace_raises() -> None:
 
 async def test_resolve_small_ids(seeded_db) -> None:  # type: ignore[no-untyped-def]
     """Small IDs (< 1M) pass through as local DB IDs."""
-    from app.mcp.tools._shared.entity_resolver import resolve_track_refs
+    from app.controllers.tools._shared.entity_resolver import resolve_track_refs
 
     result = await resolve_track_refs([1, 2, 3], seeded_db)
     assert result == [1, 2, 3]
@@ -47,8 +47,8 @@ async def test_resolve_small_ids(seeded_db) -> None:  # type: ignore[no-untyped-
 async def test_resolve_ym_ids(seeded_db) -> None:  # type: ignore[no-untyped-def]
     """Large IDs (> 1M) are looked up as YM external IDs."""
 
+    from app.controllers.tools._shared.entity_resolver import resolve_track_refs
     from app.db.models.track import Track, TrackExternalId
-    from app.mcp.tools._shared.entity_resolver import resolve_track_refs
 
     # Create track with YM external ID
     track = Track(title="Test Track", status=0, duration_ms=300000)
@@ -66,8 +66,8 @@ async def test_resolve_ym_ids(seeded_db) -> None:  # type: ignore[no-untyped-def
 
 async def test_resolve_ym_prefix(seeded_db) -> None:  # type: ignore[no-untyped-def]
     """'ym:12345' prefix resolves via TrackExternalId."""
+    from app.controllers.tools._shared.entity_resolver import resolve_track_refs
     from app.db.models.track import Track, TrackExternalId
-    from app.mcp.tools._shared.entity_resolver import resolve_track_refs
 
     track = Track(title="Prefixed Track", status=0, duration_ms=200000)
     seeded_db.add(track)
@@ -83,7 +83,7 @@ async def test_resolve_ym_prefix(seeded_db) -> None:  # type: ignore[no-untyped-
 
 async def test_resolve_missing_ym_id_skipped(seeded_db) -> None:  # type: ignore[no-untyped-def]
     """Unresolvable YM IDs are skipped (not raised)."""
-    from app.mcp.tools._shared.entity_resolver import resolve_track_refs
+    from app.controllers.tools._shared.entity_resolver import resolve_track_refs
 
     result = await resolve_track_refs([999999999], seeded_db)
     assert result == []
@@ -91,8 +91,8 @@ async def test_resolve_missing_ym_id_skipped(seeded_db) -> None:  # type: ignore
 
 async def test_resolve_mixed_refs(seeded_db) -> None:  # type: ignore[no-untyped-def]
     """Mix of local IDs and YM IDs resolves correctly."""
+    from app.controllers.tools._shared.entity_resolver import resolve_track_refs
     from app.db.models.track import Track, TrackExternalId
-    from app.mcp.tools._shared.entity_resolver import resolve_track_refs
 
     track = Track(title="Mixed Test", status=0, duration_ms=300000)
     seeded_db.add(track)

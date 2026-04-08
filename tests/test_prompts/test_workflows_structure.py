@@ -12,13 +12,13 @@ import pytest
 
 def test_workflows_file_exists():
     """The workflows.py file should exist."""
-    workflows_file = Path("app/mcp/prompts/workflows.py")
+    workflows_file = Path("app/controllers/prompts/workflows.py")
     assert workflows_file.exists()
 
 
 def test_workflows_syntax():
     """The workflows.py file should be valid Python."""
-    workflows_file = Path("app/mcp/prompts/workflows.py")
+    workflows_file = Path("app/controllers/prompts/workflows.py")
     code = workflows_file.read_text()
     try:
         ast.parse(code)
@@ -28,7 +28,7 @@ def test_workflows_syntax():
 
 def test_prompt_functions_defined():
     """All 5 workflow prompt functions should be defined."""
-    workflows_file = Path("app/mcp/prompts/workflows.py")
+    workflows_file = Path("app/controllers/prompts/workflows.py")
     code = workflows_file.read_text()
     tree = ast.parse(code)
 
@@ -49,7 +49,7 @@ def test_prompt_functions_defined():
 
 def test_prompt_functions_have_docstrings():
     """All prompt functions should have docstrings."""
-    workflows_file = Path("app/mcp/prompts/workflows.py")
+    workflows_file = Path("app/controllers/prompts/workflows.py")
     code = workflows_file.read_text()
     tree = ast.parse(code)
 
@@ -68,7 +68,7 @@ def test_prompt_functions_have_docstrings():
 
 def test_prompt_functions_have_mcp_decorator():
     """All prompt functions should have @mcp.prompt decorator."""
-    workflows_file = Path("app/mcp/prompts/workflows.py")
+    workflows_file = Path("app/controllers/prompts/workflows.py")
     code = workflows_file.read_text()
     tree = ast.parse(code)
 
@@ -102,7 +102,7 @@ def test_prompt_functions_have_mcp_decorator():
 
 def test_prompt_return_annotations():
     """All prompt functions should return list[Message]."""
-    workflows_file = Path("app/mcp/prompts/workflows.py")
+    workflows_file = Path("app/controllers/prompts/workflows.py")
     code = workflows_file.read_text()
     tree = ast.parse(code)
 
@@ -125,7 +125,7 @@ def test_prompt_return_annotations():
 
 def test_build_set_workflow_parameters():
     """build_set_workflow should have correct parameters."""
-    workflows_file = Path("app/mcp/prompts/workflows.py")
+    workflows_file = Path("app/controllers/prompts/workflows.py")
     code = workflows_file.read_text()
     tree = ast.parse(code)
 
@@ -139,7 +139,7 @@ def test_build_set_workflow_parameters():
 
 def test_expand_playlist_workflow_parameters():
     """expand_playlist_workflow should have correct parameters."""
-    workflows_file = Path("app/mcp/prompts/workflows.py")
+    workflows_file = Path("app/controllers/prompts/workflows.py")
     code = workflows_file.read_text()
     tree = ast.parse(code)
 
@@ -152,7 +152,7 @@ def test_expand_playlist_workflow_parameters():
 
 def test_improve_set_workflow_parameters():
     """improve_set_workflow should have correct parameters."""
-    workflows_file = Path("app/mcp/prompts/workflows.py")
+    workflows_file = Path("app/controllers/prompts/workflows.py")
     code = workflows_file.read_text()
     tree = ast.parse(code)
 
@@ -164,7 +164,7 @@ def test_improve_set_workflow_parameters():
 
 def test_deliver_set_workflow_parameters():
     """deliver_set_workflow should have correct parameters."""
-    workflows_file = Path("app/mcp/prompts/workflows.py")
+    workflows_file = Path("app/controllers/prompts/workflows.py")
     code = workflows_file.read_text()
     tree = ast.parse(code)
 
@@ -177,7 +177,7 @@ def test_deliver_set_workflow_parameters():
 
 def test_full_expansion_pipeline_parameters():
     """full_expansion_pipeline should have correct parameters."""
-    workflows_file = Path("app/mcp/prompts/workflows.py")
+    workflows_file = Path("app/controllers/prompts/workflows.py")
     code = workflows_file.read_text()
     tree = ast.parse(code)
 
@@ -190,7 +190,7 @@ def test_full_expansion_pipeline_parameters():
 
 def test_imports_message_from_fastmcp():
     """Should import Message from fastmcp.prompts."""
-    workflows_file = Path("app/mcp/prompts/workflows.py")
+    workflows_file = Path("app/controllers/prompts/workflows.py")
     code = workflows_file.read_text()
     tree = ast.parse(code)
 
@@ -207,7 +207,7 @@ def test_imports_message_from_fastmcp():
 
 def test_imports_mcp_server():
     """Should import mcp from app.server."""
-    workflows_file = Path("app/mcp/prompts/workflows.py")
+    workflows_file = Path("app/controllers/prompts/workflows.py")
     code = workflows_file.read_text()
     tree = ast.parse(code)
 

@@ -4,18 +4,18 @@ import json
 
 import pytest
 
+from app.controllers.resources.templates import (
+    catalog_stats,
+    playlist_status,
+    set_summary,
+    track_features,
+)
 from app.core.errors import NotFoundError
 from app.db.models.audio import TrackAudioFeaturesComputed
 from app.db.models.playlist import Playlist
 from app.db.models.set import DjSet as DJSet
 from app.db.models.set import SetVersion as DJSetVersion
 from app.db.models.track import Track
-from app.mcp.resources.templates import (
-    catalog_stats,
-    playlist_status,
-    set_summary,
-    track_features,
-)
 
 
 @pytest.mark.asyncio

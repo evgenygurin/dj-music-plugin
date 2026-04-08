@@ -51,7 +51,7 @@ ignore = [
 "app/audio/**" = ["RUF012"]  # mutable class defaults OK for analyzer ABC pattern
 "app/ym/**" = ["E501"]  # long URLs and API paths
 "app/services/**" = ["E501"]  # long f-strings in error messages
-"app/mcp/tools/**" = ["E501"]  # tool descriptions and f-strings
+"app/controllers/tools/**" = ["E501"]  # tool descriptions and f-strings
 "tests/**" = ["E501", "RUF012"]  # test assertions can be long, mock classes OK
 
 [tool.ruff.lint.isort]

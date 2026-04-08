@@ -37,7 +37,7 @@ class MockMiddlewareContext:
 
 
 # Import middleware (all classes in one file now)
-from app.mcp.middleware import (
+from app.controllers.middleware import (
     DetailedTimingMiddleware,
     StructuredLoggingMiddleware,
     YMRateLimitMiddleware,

@@ -13,16 +13,16 @@ import pytest
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
-from app.db.models.track import Track
-from app.db.repositories.playlist import PlaylistRepository
-from app.db.repositories.set import SetRepository
-from app.db.repositories.track import TrackRepository
-from app.mcp.dependencies import (
+from app.controllers.dependencies import (
     get_db_session,
     get_playlist_repo,
     get_set_repo,
     get_track_repo,
 )
+from app.db.models.track import Track
+from app.db.repositories.playlist import PlaylistRepository
+from app.db.repositories.set import SetRepository
+from app.db.repositories.track import TrackRepository
 
 
 @pytest.mark.asyncio
@@ -41,10 +41,10 @@ async def test_repo_factory_returns_repo_instance(async_engine):
     class MockContext:
         lifespan_context = {"db_session_factory": session_factory}
 
-    import app.mcp.dependencies
+    import app.controllers.dependencies
 
-    original_get_context = app.mcp.dependencies.get_context
-    app.mcp.dependencies.get_context = lambda: MockContext()
+    original_get_context = app.controllers.dependencies.get_context
+    app.controllers.dependencies.get_context = lambda: MockContext()
 
     try:
         async with get_db_session() as session:
@@ -61,7 +61,7 @@ async def test_repo_factory_returns_repo_instance(async_engine):
             assert playlist_repo.session is session
             assert set_repo.session is session
     finally:
-        app.mcp.dependencies.get_context = original_get_context
+        app.controllers.dependencies.get_context = original_get_context
 
 
 @pytest.mark.asyncio
@@ -72,10 +72,10 @@ async def test_session_commits_on_success(async_engine):
     class MockContext:
         lifespan_context = {"db_session_factory": session_factory}
 
-    import app.mcp.dependencies
+    import app.controllers.dependencies
 
-    original_get_context = app.mcp.dependencies.get_context
-    app.mcp.dependencies.get_context = lambda: MockContext()
+    original_get_context = app.controllers.dependencies.get_context
+    app.controllers.dependencies.get_context = lambda: MockContext()
 
     try:
         async with get_db_session() as session:
@@ -92,7 +92,7 @@ async def test_session_commits_on_success(async_engine):
             assert persisted is not None
             assert persisted.title == "Test Track"
     finally:
-        app.mcp.dependencies.get_context = original_get_context
+        app.controllers.dependencies.get_context = original_get_context
 
 
 @pytest.mark.asyncio
@@ -103,10 +103,10 @@ async def test_session_rolls_back_on_error(async_engine):
     class MockContext:
         lifespan_context = {"db_session_factory": session_factory}
 
-    import app.mcp.dependencies
+    import app.controllers.dependencies
 
-    original_get_context = app.mcp.dependencies.get_context
-    app.mcp.dependencies.get_context = lambda: MockContext()
+    original_get_context = app.controllers.dependencies.get_context
+    app.controllers.dependencies.get_context = lambda: MockContext()
 
     try:
         track_id = None
@@ -126,7 +126,7 @@ async def test_session_rolls_back_on_error(async_engine):
                 persisted = result.scalar_one_or_none()
                 assert persisted is None  # Rolled back
     finally:
-        app.mcp.dependencies.get_context = original_get_context
+        app.controllers.dependencies.get_context = original_get_context
 
 
 @pytest.mark.asyncio

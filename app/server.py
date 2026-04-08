@@ -202,8 +202,8 @@ else:
     )
 
 # FileSystemProvider auto-discovers @tool, @resource, @prompt decorated functions
-# from all Python files in app/mcp/ — no manual imports needed.
-mcp_dir = Path(__file__).parent / "mcp"
+# from all Python files in app/controllers/ — no manual imports needed.
+mcp_dir = Path(__file__).parent / "controllers"
 
 # ── Pre-constructor Transforms ───────────────────────
 # BM25SearchTransform goes into the constructor via transforms= kwarg.
@@ -214,7 +214,7 @@ try:
     from fastmcp.server.transforms.search import BM25SearchTransform
 
     # NOTE: call_tool_name points at an internal stub that we immediately
-    # disable below. Our own `run_tool` (app/mcp/tools/run_tool.py) takes
+    # disable below. Our own `run_tool` (app/controllers/tools/run_tool.py) takes
     # over — it accepts `arguments` as dict OR JSON string, which the
     # upstream proxy refuses.
     server_transforms.append(
@@ -257,7 +257,7 @@ except ImportError:
 
 # ── Middleware Pipeline ──────────────────────────────
 try:
-    from app.mcp.middleware import (
+    from app.controllers.middleware import (
         DetailedTimingMiddleware,
         StructuredLoggingMiddleware,
         YMRateLimitMiddleware,
@@ -310,6 +310,6 @@ except ImportError:
 mcp.disable(tags={"atomic"})
 
 # Hide the upstream BM25 call_tool stub — our custom `run_tool`
-# (app/mcp/tools/run_tool.py) replaces it with a version that accepts
+# (app/controllers/tools/run_tool.py) replaces it with a version that accepts
 # `arguments` as either a dict or a JSON string.
 mcp.disable(names={"_bm25_call_tool"})

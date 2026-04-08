@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from app.mcp.tools._shared.taxonomy import (
+from app.controllers.tools._shared.taxonomy import (
     ANNOTATIONS_READ_ONLY,
     ANNOTATIONS_READ_ONLY_OPEN_WORLD,
     ANNOTATIONS_WRITE,
