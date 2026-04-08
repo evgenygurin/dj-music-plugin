@@ -27,11 +27,15 @@ export function MiniPlayerBar() {
   const player = usePlayer()
   const { audio, layer } = player
 
-  // Persistent bar: render whenever we're at layer 1 (the baseline tier).
-  // The bar stays visible even without a track so users always know where
-  // playback controls live — an empty placeholder is better than nothing.
-  // Higher layers (2+) take over the baseline with MediumPlayerBar.
-  if (layer !== 1) return null
+  // Persistent baseline bar: renders at layer 0 AND layer 1. Covers two
+  // cases with one component:
+  //   - layer 0 + no track  → hero shows instead (this bar is hidden)
+  //   - layer 0 + has track → user clicked ▶ in a list; bar appears
+  //                           without needing an explicit "promote"
+  //   - layer 1             → same bar, regardless of track state
+  // Higher layers (2+) take over via MediumPlayerBar.
+  if (layer >= 2) return null
+  if (layer === 0 && !audio.current) return null
 
   const { isPlaying, isLoading, current, position, duration } = audio
   const progressPct =

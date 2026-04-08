@@ -1,41 +1,33 @@
-// panel/components/player/player.tsx
 'use client'
 
 import { useState } from 'react'
 
 import { ControlPanel } from './control-panel'
-import { MediumPlayerBar } from './medium-player-bar'
-import { MiniPlayerBar } from './mini-player-bar'
-import { PlayerHero } from './player-hero'
-import { SetIndicatorChip } from './set-indicator-chip'
+import { PlayerBar } from './player-bar'
 import { SetPlannerDrawer } from './set-planner-drawer'
-import { usePlayer } from './player-provider'
 
+/**
+ * Top-level player composition.
+ *
+ * One persistent bar (PlayerBar) always rendered at the bottom of the
+ * viewport on every page and in every state. Two overlays open from it
+ * on demand:
+ *   - ControlPanel popover (set mode picker + mix length)
+ *   - SetPlannerDrawer (energy arc graph, slot timeline, upcoming picks)
+ *
+ * The old layered PlayerHero / MiniPlayerBar / MediumPlayerBar split
+ * was replaced after it caused the bar to disappear in several states.
+ */
 export function Player() {
-  const player = usePlayer()
   const [controlPanelOpen, setControlPanelOpen] = useState(false)
   const [drawerOpen, setDrawerOpen] = useState(false)
 
-  const openControlPanel = () => {
-    if (player.layer < 3) player.jumpToLayer(3)
-    setControlPanelOpen(true)
-  }
-
   return (
     <>
-      {/* Layer 0 splash — only at very start before any interaction */}
-      <PlayerHero />
-      {/* Baseline bar — exactly one of these renders for layers 1..4 */}
-      <MiniPlayerBar />
-      <MediumPlayerBar onOpenControlPanel={openControlPanel} />
-      {/* Layer 3+ adds the set indicator chip above the bar */}
-      {player.layer >= 3 && (
-        <div className="pointer-events-none fixed bottom-24 left-1/2 z-40 -translate-x-1/2">
-          <div className="pointer-events-auto">
-            <SetIndicatorChip onOpen={() => setDrawerOpen(true)} />
-          </div>
-        </div>
-      )}
+      <PlayerBar
+        onOpenControlPanel={() => setControlPanelOpen(true)}
+        onOpenSetPlanner={() => setDrawerOpen(true)}
+      />
       <ControlPanel open={controlPanelOpen} onClose={() => setControlPanelOpen(false)} />
       <SetPlannerDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} />
     </>
