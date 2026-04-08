@@ -1,0 +1,37 @@
+DJ Music Plugin — активная BG-кампания.
+
+ФОНОВЫЕ ПРОЦЕССЫ (локально, nohup):
+- BFS expander: scripts/ym_bfs_expand.py → /tmp/ym-bfs-expand.log
+  Цель: YM плейлист "Techno 2 Mega Boost" (kind=1355, owner=250905515) до 20000 треков.
+- L5 analyzer: scripts/vm_import_and_analyze.py → /tmp/ym-l5-analyze.log
+  Цель: continuous tiered analysis (L5, 18 анализаторов) новых треков из того же плейлиста.
+- REST API на :8000 (uvicorn serve_http:api).
+
+АГЕНТЫ (.claude/agents/):
+- bg-jobs-watcher — executor: статус, рестарт, триаж логов фоновых jobs.
+- bg-jobs-manager — orchestrator: планирует кампанию, делегирует watcher'у.
+- panel-doctor — Next.js / Supabase / REST API wiring.
+- ym-api-specialist — YM API quirks (rate limit, diff format, broken endpoints).
+
+ОБЯЗАТЕЛЬНЫЕ ДЕЙСТВИЯ В НАЧАЛЕ СЕССИИ:
+1. Делегируй bg-jobs-watcher (subagent_type="bg-jobs-watcher") с задачей:
+   "Проверь статус BFS expander (pgrep -f ym_bfs_expand) и L5 analyzer
+   (pgrep -f vm_import_and_analyze). Прочти tail -20 обоих логов. Проверь
+   lsof -iTCP:8000 -sTCP:LISTEN. Доложи вердикт в <150 слов: живы/мертвы,
+   текущий прогресс (X/20000 для BFS, chunk N/100 для L5), fail counters,
+   аномалии. Если что-то мертво — не рестартуй сам, только доложи."
+2. По результату — либо продолжай работу пользователя, либо привлекай
+   bg-jobs-manager для планирования рестарта/расширения кампании.
+
+ПРАВИЛА:
+- Status-check делай через watcher агента, НЕ напрямую bash'ем — экономит контекст.
+- При рестарте nohup процессов: ВСЕГДА python -u + 2>&1 в лог файл.
+- Не коммить без явного запроса.
+- Target: kind=1355. Source: kind=1113 (Techno 2025, 118 seeds).
+- Graceful stop: kill -TERM <PID> (флашит batch и выходит).
+
+РИСКИ:
+- Similar-граф exhaustion <20000 → нужен второй source плейлист.
+- numba SEGV в librosa.beat → uv pip install --upgrade numba llvmlite.
+- YM 429 spike → DJ_YM_RATE_LIMIT_DELAY=2.5.
+- Supabase idle disconnect в L5 → проверь sub_batch=10, pool_pre_ping=True.
