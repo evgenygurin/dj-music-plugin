@@ -27,11 +27,15 @@ export function MiniPlayerBar() {
   const player = usePlayer()
   const { audio, layer } = player
 
+  // Persistent bar: render whenever we're at layer 1 (the baseline tier).
+  // The bar stays visible even without a track so users always know where
+  // playback controls live — an empty placeholder is better than nothing.
+  // Higher layers (2+) take over the baseline with MediumPlayerBar.
   if (layer !== 1) return null
-  if (!audio.current) return null
 
   const { isPlaying, isLoading, current, position, duration } = audio
-  const progressPct = duration > 0 ? Math.min(100, (position / duration) * 100) : 0
+  const progressPct =
+    current && duration > 0 ? Math.min(100, (position / duration) * 100) : 0
 
   return (
     <div
@@ -50,10 +54,18 @@ export function MiniPlayerBar() {
           aria-label="Expand player"
         >
           <IconMusic className="size-4 shrink-0 text-muted-foreground" />
-          <span className="truncate text-sm font-medium">{current.title}</span>
-          {current.artists && (
-            <span className="truncate text-xs text-muted-foreground">
-              — {current.artists}
+          {current ? (
+            <>
+              <span className="truncate text-sm font-medium">{current.title}</span>
+              {current.artists && (
+                <span className="truncate text-xs text-muted-foreground">
+                  — {current.artists}
+                </span>
+              )}
+            </>
+          ) : (
+            <span className="truncate text-sm text-muted-foreground italic">
+              Ничего не играет
             </span>
           )}
         </button>

@@ -23,13 +23,12 @@ export function Player() {
 
   return (
     <>
+      {/* Layer 0 splash — only at very start before any interaction */}
       <PlayerHero />
+      {/* Baseline bar — exactly one of these renders for layers 1..4 */}
       <MiniPlayerBar />
       <MediumPlayerBar onOpenControlPanel={openControlPanel} />
-      {/* Layer 3 inline bits: show medium bar structure + set chip */}
-      {player.layer >= 3 && player.audio.current && (
-        <MediumPlayerBar onOpenControlPanel={openControlPanel} />
-      )}
+      {/* Layer 3+ adds the set indicator chip above the bar */}
       {player.layer >= 3 && (
         <div className="pointer-events-none fixed bottom-24 left-1/2 z-40 -translate-x-1/2">
           <div className="pointer-events-auto">

@@ -35,8 +35,9 @@ export function MediumPlayerBar({ onOpenControlPanel }: { onOpenControlPanel: ()
   const player = usePlayer()
   const { audio, layer } = player
 
-  if (layer !== 2) return null
-  if (!audio.current) return null
+  // Render whenever we're at layer 2+, with or without a track. Empty
+  // state keeps the bar visible as a persistent affordance.
+  if (layer < 2) return null
 
   const { isPlaying, isLoading, current, position, duration, volume, muted } = audio
   const VolumeIcon = muted ? IconVolumeOff : volume > 0.5 ? IconVolume : IconVolume2
@@ -56,25 +57,31 @@ export function MediumPlayerBar({ onOpenControlPanel }: { onOpenControlPanel: ()
             <IconMusic className="size-5 text-muted-foreground" />
           </div>
           <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2">
-              <span className="truncate text-sm font-medium">{current.title}</span>
-              {current.mood && <MoodBadge mood={current.mood} />}
-            </div>
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <span className="truncate">{current.artists ?? '—'}</span>
-              {current.bpm && (
-                <>
-                  <span>·</span>
-                  <span className="tabular-nums">{current.bpm.toFixed(1)} BPM</span>
-                </>
-              )}
-              {current.camelot && (
-                <>
-                  <span>·</span>
-                  <span className="font-mono">{current.camelot}</span>
-                </>
-              )}
-            </div>
+            {current ? (
+              <>
+                <div className="flex items-center gap-2">
+                  <span className="truncate text-sm font-medium">{current.title}</span>
+                  {current.mood && <MoodBadge mood={current.mood} />}
+                </div>
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <span className="truncate">{current.artists ?? '—'}</span>
+                  {current.bpm && (
+                    <>
+                      <span>·</span>
+                      <span className="tabular-nums">{current.bpm.toFixed(1)} BPM</span>
+                    </>
+                  )}
+                  {current.camelot && (
+                    <>
+                      <span>·</span>
+                      <span className="font-mono">{current.camelot}</span>
+                    </>
+                  )}
+                </div>
+              </>
+            ) : (
+              <div className="text-sm text-muted-foreground italic">Ничего не играет</div>
+            )}
           </div>
         </div>
 

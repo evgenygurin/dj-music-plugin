@@ -15,8 +15,11 @@ export function PlayerHero() {
   const [dismissed, setDismissed] = useState(false)
   const [loading, setLoading] = useState(false)
 
-  // Hide only when a track is actively playing — layer alone is not enough,
-  // otherwise users who stopped playback would be stranded with no UI.
+  // Splash shows ONLY on layer 0 (never interacted yet). Once the user
+  // has ever promoted past layer 0 — even without a track currently
+  // playing — the persistent bar takes over as the always-visible entry
+  // point, so the splash never re-appears mid-session.
+  if (player.layer > 0) return null
   if (player.audio.current !== null) return null
   if (dismissed) return null
 
