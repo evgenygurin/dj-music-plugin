@@ -710,34 +710,44 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
           inactive.gain.gain.setValueAtTime(0, t0)
           inactive.gain.gain.setValueCurveAtTime(fadeIn, t0, cf)
 
-          // Bass swap — HARD step at tSwap (downbeat-aligned).
+          // Bass swap — 1-4 BAR CROSS-RAMP centered on tSwap.
           //
-          // Previous behaviour linearly ramped outgoing low 0 → -40
-          // and incoming low -40 → 0 across the entire first half.
-          // That left both kicks audible at ~-20 dB around the 25%
-          // mark — the exact "two kicks fighting" overlap a bass
-          // swap is supposed to prevent. Classic DJ practice is an
-          // instant swap on a downbeat: until tSwap only outgoing's
-          // bass plays; at tSwap outgoing's low end is killed and
-          // incoming's unmutes in a single bar. We use a 20 ms
-          // linear ramp around the swap point to avoid a digital
-          // click, which is short enough to still sound like a
-          // hard cut to the ear.
+          // Evolution of this envelope:
+          //   v1: linear ramp over the entire first half. Muddy —
+          //       at 25% of the fade both decks sat around -20 dB
+          //       on their lowshelf, kicks fighting each other.
+          //   v2: 20 ms hard step at tSwap. Clean but perceived as
+          //       a CUT, not a swap — incoming bass "slammed in"
+          //       with no organic handover, wrong feel for
+          //       BASS_SWAP_LONG.
+          //   v3 (this): cross-ramp over 1..4 bars, length scaled
+          //       to cf. Feels like a swap (there's a short window
+          //       where both basses are present at reduced level,
+          //       matching how a DJ rolls two EQ knobs on a real
+          //       mixer), while being short enough that the muddy
+          //       overlap is only ~1 bar wide at worst.
           //
-          // Envelope shape (outgoing.low):
-          //   t0            →  0 dB (full bass)
-          //   tSwap - 10 ms →  0 dB (held)
-          //   tSwap + 10 ms → -40 dB (killed, 20 ms ramp)
-          //   stays at -40 dB through the rest of the fade
+          // Swap duration = clamp(1, 4, cfBars / 8) — that's
+          // ~12.5% of the fade length, min 1 bar, max 4 bars:
+          //   32-bar fade → 4 bars (~7.5 s at 127 BPM)
+          //   16-bar fade → 2 bars (~3.8 s)
+          //    8-bar fade → 1 bar  (~1.9 s)
+          //    4-bar fade → 1 bar  (min)
           //
-          // Envelope shape (incoming.low):
-          //   t0            → -40 dB (muted)
-          //   tSwap - 10 ms → -40 dB (held)
-          //   tSwap + 10 ms →   0 dB (full bass, 20 ms ramp)
-          //   stays at 0 dB through the rest of the fade
-          const SWAP_RAMP_SEC = 0.02
-          const tSwapStart = Math.max(t0, tSwap - SWAP_RAMP_SEC / 2)
-          const tSwapEnd = tSwap + SWAP_RAMP_SEC / 2
+          // The linear ramp on the lowshelf gain in dB is
+          // perceptually exponential in linear amplitude, so the
+          // perceived handover is weighted toward the beginning
+          // and end rather than the middle — the "mud" is mostly
+          // at the exact centre (tSwap) where both decks are at
+          // -20 dB for a single sample-frame. Kicks at that point
+          // are effectively −26 dB after the equal-power gain
+          // envelope, quiet enough to blend.
+          const outBarForSwap = outgoingBpm ? 240 / outgoingBpm : 1.88
+          const cfBars = cf / outBarForSwap
+          const swapBars = Math.max(1, Math.min(4, cfBars / 8))
+          const swapDurationSec = swapBars * outBarForSwap
+          const tSwapStart = Math.max(t0, tSwap - swapDurationSec / 2)
+          const tSwapEnd = Math.min(t0 + cf, tSwap + swapDurationSec / 2)
 
           active.low.gain.cancelScheduledValues(t0)
           active.low.gain.setValueAtTime(0, t0)
