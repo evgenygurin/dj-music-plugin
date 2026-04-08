@@ -314,11 +314,20 @@ function Deck({
   track,
   isPlaying,
   onTogglePlay,
+  positionMs,
 }: {
   side: 'A' | 'B'
   track: TrackDetail | null
   isPlaying: boolean
   onTogglePlay: () => void
+  /**
+   * Current playback position in milliseconds, sourced from the
+   * shared audio engine when this deck is the active track, or 0
+   * when it's the inactive/unloaded deck. Kept in ms so it lines
+   * up with `duration_ms` and can be passed to `formatDuration`
+   * without conversion.
+   */
+  positionMs: number
 }) {
   const isA = side === 'A'
   const color = isA ? '#22d3ee' : '#e879f9'
@@ -358,7 +367,9 @@ function Deck({
             {artists && <div className="truncate text-xs text-muted-foreground">{artists}</div>}
           </div>
           <div className="shrink-0 text-right">
-            <div className={cn('text-xs font-mono font-bold tabular-nums', accentCls)}>0:00</div>
+            <div className={cn('text-xs font-mono font-bold tabular-nums', accentCls)}>
+              {formatDuration(positionMs)}
+            </div>
             <div className="text-[10px] text-muted-foreground font-mono tabular-nums">
               {duration ? formatDuration(duration) : '—:——'}
             </div>
@@ -838,8 +849,17 @@ export function DjPlayer({
   // `isPlaying` until the engine updates `current` at fade finalise.
   const deck1Meta = useMemo(() => toPlayerMeta(deck1), [deck1])
   const deck2Meta = useMemo(() => toPlayerMeta(deck2), [deck2])
-  const isPlaying1 = player.current?.id === deck1?.id && player.isPlaying
-  const isPlaying2 = player.current?.id === deck2?.id && player.isPlaying
+  const isDeck1Current = player.current?.id === deck1?.id
+  const isDeck2Current = player.current?.id === deck2?.id
+  const isPlaying1 = isDeck1Current && player.isPlaying
+  const isPlaying2 = isDeck2Current && player.isPlaying
+
+  // Engine reports position/duration in seconds; the Deck header
+  // formats ms, so convert here. A deck that isn't the engine's
+  // current track reads 0 — its timeline is paused at the top until
+  // it becomes the active track via a PLAY click or crossfade.
+  const position1Ms = isDeck1Current ? player.position * 1000 : 0
+  const position2Ms = isDeck2Current ? player.position * 1000 : 0
 
   // Unified transport for a deck:
   //   - If this deck isn't current → play it. The other loaded deck
@@ -872,7 +892,13 @@ export function DjPlayer({
 
         {/* Player section */}
         <div className="grid gap-3" style={{ gridTemplateColumns: '1fr 148px 1fr' }}>
-          <Deck side="A" track={deck1} isPlaying={isPlaying1} onTogglePlay={onTogglePlay1} />
+          <Deck
+            side="A"
+            track={deck1}
+            isPlaying={isPlaying1}
+            onTogglePlay={onTogglePlay1}
+            positionMs={position1Ms}
+          />
           <Mixer
             deck1={deck1} deck2={deck2}
             crossfader={crossfader} onCrossfaderChange={setCrossfader}
@@ -880,7 +906,13 @@ export function DjPlayer({
             onToggleSync1={() => setSync1((s) => !s)}
             onToggleSync2={() => setSync2((s) => !s)}
           />
-          <Deck side="B" track={deck2} isPlaying={isPlaying2} onTogglePlay={onTogglePlay2} />
+          <Deck
+            side="B"
+            track={deck2}
+            isPlaying={isPlaying2}
+            onTogglePlay={onTogglePlay2}
+            positionMs={position2Ms}
+          />
         </div>
 
         {/* Library */}
