@@ -3,31 +3,33 @@
 import { useState } from 'react'
 
 import { ControlPanel } from './control-panel'
-import { PlayerBar } from './player-bar'
+import { MediumPlayerBar } from './medium-player-bar'
+import { MiniPlayerBar } from './mini-player-bar'
+import { PlayerHero } from './player-hero'
+import { SetIndicatorChip } from './set-indicator-chip'
 import { SetPlannerDrawer } from './set-planner-drawer'
+import { usePlayer } from './player-provider'
 
-/**
- * Top-level player composition.
- *
- * One persistent bar (PlayerBar) always rendered at the bottom of the
- * viewport on every page and in every state. Two overlays open from it
- * on demand:
- *   - ControlPanel popover (set mode picker + mix length)
- *   - SetPlannerDrawer (energy arc graph, slot timeline, upcoming picks)
- *
- * The old layered PlayerHero / MiniPlayerBar / MediumPlayerBar split
- * was replaced after it caused the bar to disappear in several states.
- */
 export function Player() {
+  const player = usePlayer()
   const [controlPanelOpen, setControlPanelOpen] = useState(false)
   const [drawerOpen, setDrawerOpen] = useState(false)
 
   return (
     <>
-      <PlayerBar
+      <PlayerHero />
+      <MiniPlayerBar />
+      <MediumPlayerBar
+        onCollapse={() => player.jumpToLayer(1)}
         onOpenControlPanel={() => setControlPanelOpen(true)}
-        onOpenSetPlanner={() => setDrawerOpen(true)}
       />
+      {player.set.active && (
+        <div className="pointer-events-none fixed bottom-[88px] left-1/2 z-40 -translate-x-1/2">
+          <div className="pointer-events-auto">
+            <SetIndicatorChip onOpen={() => setDrawerOpen(true)} />
+          </div>
+        </div>
+      )}
       <ControlPanel open={controlPanelOpen} onClose={() => setControlPanelOpen(false)} />
       <SetPlannerDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} />
     </>
