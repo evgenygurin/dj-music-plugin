@@ -278,7 +278,15 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
   const [crossfadeBars, setCrossfadeBars] = useState(32)
   // Manual transition-style override. 'auto' = follow backend scorer.
   // Any other value forces that style on the next crossfade.
-  const [manualStyle, setManualStyle] = useState<ManualTransitionStyle>('auto')
+  //
+  // Persisted to localStorage so the DJ's chosen override survives a
+  // page reload during a live session. We initialise with 'auto' on
+  // the server (SSR has no window) and hydrate from storage in a
+  // useEffect to avoid an SSR/CSR markup mismatch.
+  const MANUAL_STYLE_STORAGE_KEY = 'dj.player.manualStyle'
+  const isValidManualStyle = (v: unknown): v is ManualTransitionStyle =>
+    v === 'auto' || v === 'cut' || v === 'swap' || v === 'harmonic' || v === 'fade'
+  const [manualStyle, setManualStyleState] = useState<ManualTransitionStyle>('auto')
   // Ref mirror so startCrossfade's async body (which captures state
   // by value at the call site) still picks up the latest choice
   // made right before the crossfade actually fires.
@@ -286,6 +294,30 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
   useEffect(() => {
     manualStyleRef.current = manualStyle
   }, [manualStyle])
+  // Hydrate from localStorage once on mount.
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    try {
+      const raw = window.localStorage.getItem(MANUAL_STYLE_STORAGE_KEY)
+      if (raw && isValidManualStyle(raw)) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setManualStyleState(raw)
+      }
+    } catch {
+      // localStorage may be disabled (private mode, SSR) — ignore.
+    }
+    // Intentionally empty deps: hydrate once on mount.
+  }, [])
+  // Setter that also writes through to localStorage.
+  const setManualStyle = useCallback((s: ManualTransitionStyle) => {
+    setManualStyleState(s)
+    if (typeof window === 'undefined') return
+    try {
+      window.localStorage.setItem(MANUAL_STYLE_STORAGE_KEY, s)
+    } catch {
+      // ignore
+    }
+  }, [])
   const historyRef = useRef<number[]>([])
 
   // Compute crossfade duration in seconds from bars + active track BPM.
@@ -1731,6 +1763,7 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
       toggleAutoDj,
       toggleMixEnabled,
       manualStyle,
+      setManualStyle,
     ],
   )
 
