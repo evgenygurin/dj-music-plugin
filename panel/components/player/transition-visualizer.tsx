@@ -43,7 +43,6 @@ export function TransitionVisualizer() {
       setProgress(0)
       return
     }
-    const t0 = crossfadeStartedAt * 1000 // AudioContext.currentTime → ms
     const dur = crossfadeDurationSeconds * 1000
     // Anchor wall-clock to a sample taken right after the fade started
     // so we don't drift even if the AudioContext clock differs from

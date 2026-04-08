@@ -20,7 +20,6 @@ import { ANALYSIS_LEVELS } from '@/lib/constants'
 interface LibraryTableProps {
   initialTracks: TrackRow[]
   total: number
-  currentPage: number
   currentSearch: string
   currentSortBy: string
   currentSortDir: string
@@ -162,7 +161,6 @@ const PAGE_SIZE = 50
 export function LibraryTable({
   initialTracks,
   total,
-  currentPage,
   currentSearch,
 }: LibraryTableProps) {
   const router = useRouter()

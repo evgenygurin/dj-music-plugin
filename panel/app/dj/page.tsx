@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
@@ -149,10 +149,18 @@ function Deck({
   const accentBg = id === "A" ? "bg-emerald-500" : "bg-cyan-500";
   const knobColor = id === "A" ? "green" : "cyan";
 
-  // waveform bars
-  const bars = useRef<number[]>(
-    Array.from({ length: 80 }, () => 0.3 + Math.random() * 0.7)
-  ).current;
+  // waveform bars — deterministic mock pattern (id-seeded LCG). Held
+  // in useMemo (not useRef) so the React Compiler sees a pure value
+  // instead of a mutable .current access during render. Switch to
+  // real WaveSurfer peaks when /api/audio/[id]/peaks is wired up.
+  const bars = useMemo<number[]>(
+    () =>
+      Array.from({ length: 80 }, (_, i) => {
+        const seed = (id === "A" ? 1 : 2) * 1103515245 + i * 12345;
+        return 0.3 + (((seed >>> 16) & 0xff) / 255) * 0.7;
+      }),
+    [id],
+  );
 
   return (
     <Card className="bg-zinc-950/80 border-zinc-800 p-4 flex flex-col gap-4">

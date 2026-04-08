@@ -197,7 +197,7 @@ async def test_get_tracks_paginates_by_default() -> None:
     big_playlist = [YMTrack(id=str(i), title=f"Track {i}") for i in range(1377)]
     ym_mock.get_playlist_tracks = AsyncMock(return_value=big_playlist)
 
-    result = await ym_playlists(action="get_tracks", kind=10, ym=ym_mock, ctx=None)
+    result = await ym_playlists(action="get_tracks", kind=10, ym=ym_mock)
 
     # Total still reported, but tracks are paged
     assert result["count"] == 1377
@@ -224,7 +224,6 @@ async def test_get_tracks_respects_limit_and_offset() -> None:
         limit=10,
         offset=20,
         ym=ym_mock,
-        ctx=None,
     )
 
     assert result["count"] == 50
@@ -251,7 +250,6 @@ async def test_get_tracks_last_page_marks_not_truncated() -> None:
         limit=10,
         offset=10,
         ym=ym_mock,
-        ctx=None,
     )
 
     assert result["count"] == 15
@@ -276,7 +274,6 @@ async def test_get_tracks_caps_limit_to_max() -> None:
         kind=10,
         limit=10_000,  # absurdly large
         ym=ym_mock,
-        ctx=None,
     )
 
     assert result["limit"] == MAX_PLAYLIST_TRACKS_PAGE
@@ -297,5 +294,4 @@ async def test_get_tracks_rejects_negative_offset() -> None:
             kind=10,
             offset=-1,
             ym=ym_mock,
-            ctx=None,
         )
