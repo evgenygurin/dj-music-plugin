@@ -362,6 +362,13 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
       const url = `/api/audio/${track.id}`
       inactive.audio.src = url
       inactive.audio.preservesPitch = false // we want true playback-rate behaviour
+      // Reset any leftover playbackRate from a previous transition —
+      // otherwise a chain of mixes compounds tempo-match ratios.
+      try {
+        inactive.audio.playbackRate = 1
+      } catch {
+        // ignore
+      }
       inactive.gain.gain.cancelScheduledValues(ctx.currentTime)
       inactive.gain.gain.setValueAtTime(0, ctx.currentTime)
 
@@ -369,43 +376,23 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
       historyRef.current = [...historyRef.current, track.id].slice(-50)
       setIsPlaying(true)
 
-      // Plan the transition: pull incoming meta, optionally start at intro
-      // end, optionally apply tempo match.
-      void loadMixMeta(track.id).then((meta) => {
-        if (!meta) return
-        // Start at intro end (drop) for a punchier mix-in. Skip if intro is
-        // empty / longer than 60s (likely a vocal track wrongly tagged).
-        if (meta.introEndSec && meta.introEndSec > 0 && meta.introEndSec < 60) {
-          try {
-            inactive.audio.currentTime = meta.introEndSec
-          } catch {
-            // ignore — currentTime not yet writable
-          }
-        }
-        // Tempo match against the active deck's track if BPMs are within 8%.
-        const activeMeta = currentMetaRef.current
-        if (meta.bpm && activeMeta?.bpm) {
-          const ratio = activeMeta.bpm / meta.bpm
-          if (ratio >= 0.92 && ratio <= 1.08) {
-            try {
-              inactive.audio.playbackRate = ratio
-            } catch {
-              // ignore
-            }
-          }
-        }
-        currentMetaRef.current = meta
-      })
+      // Kick off meta fetch in parallel with audio load. We consume it
+      // inside the play().then() block below where we know the final
+      // crossfade length and can align the seek correctly.
+      const incomingMetaPromise = loadMixMeta(track.id)
 
       inactive.audio
         .play()
         .then(async () => {
-          // Wait for the backend's style recommendation. Worst case it
-          // arrived ~100-300ms ago and resolves instantly; in the cold
-          // path we add up to ~300ms of pre-roll (silent — `inactive`
-          // gain is at 0). The fade hasn't started yet, so this is
-          // imperceptible.
-          const styleResult = await stylePromise
+          // Wait for the backend's style recommendation + incoming meta.
+          // Worst case they arrived ~100-300ms ago and resolve instantly;
+          // in the cold path we add up to ~300ms of pre-roll (silent —
+          // `inactive` gain is at 0). The fade hasn't started yet, so
+          // this is imperceptible.
+          const [styleResult, incomingMeta] = await Promise.all([
+            stylePromise,
+            incomingMetaPromise,
+          ])
 
           const t0 = ctx.currentTime
           // Use the OUTGOING track's BPM (already known from current.bpm /
@@ -423,7 +410,58 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
           const effectiveBars =
             typeof recBars === 'number' && recBars > 0 ? recBars : crossfadeBars
 
-          const cf = Math.max(2, computeCrossfadeSeconds(effectiveBars, outgoingBpm))
+          let cf = Math.max(2, computeCrossfadeSeconds(effectiveBars, outgoingBpm))
+
+          // ── DJ-correct mix-point alignment ─────────────────────
+          // Classic 32-bar bass swap (Vande Veire & De Bie JASMP 2018,
+          // Pioneer DJ DJ.Studio reference):
+          //   t=0      outgoing enters OUTRO (drums only, melody gone)
+          //            incoming plays INTRO (drums only, no bass/melody)
+          //   t=mid    bass swap midpoint; equal-power crossfade at 50%
+          //   t=cf     outgoing silent; incoming reaches its DROP exactly
+          //
+          // The previous implementation seeked the incoming to `introEnd`
+          // (the drop) at t=0, which meant the drop hit way before the
+          // crossfade finished. We instead start the incoming deep enough
+          // into its intro that after `cf` seconds of playback it lands
+          // exactly on the drop:
+          //   seekTarget = max(introStart, introEnd - cf)
+          // When the intro is SHORTER than the requested fade we shrink
+          // the fade to match, so the drop still lands at fade end.
+          if (
+            incomingMeta?.introEndSec != null &&
+            incomingMeta.introEndSec > 0 &&
+            incomingMeta.introEndSec < 120
+          ) {
+            const introEnd = incomingMeta.introEndSec
+            const introStart = Math.max(0, incomingMeta.introStartSec ?? 0)
+            const introLen = Math.max(0, introEnd - introStart)
+            if (introLen > 1) {
+              cf = Math.max(2, Math.min(cf, introLen))
+            }
+            const seekTarget = Math.max(introStart, introEnd - cf)
+            try {
+              inactive.audio.currentTime = seekTarget
+            } catch {
+              // ignore — currentTime not yet writable
+            }
+          }
+
+          // Tempo match against the active deck's track if BPMs are
+          // within 8%. Applied AFTER the seek so it doesn't interfere
+          // with currentTime.
+          const activeMeta = currentMetaRef.current
+          if (incomingMeta?.bpm && activeMeta?.bpm) {
+            const ratio = activeMeta.bpm / incomingMeta.bpm
+            if (ratio >= 0.92 && ratio <= 1.08) {
+              try {
+                inactive.audio.playbackRate = ratio
+              } catch {
+                // ignore
+              }
+            }
+          }
+          if (incomingMeta) currentMetaRef.current = incomingMeta
           const t1 = t0 + cf
           const tMid = t0 + cf / 2
           const vol = volumeRef.current
@@ -774,10 +812,13 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     const cfSec = computeCrossfadeSeconds(crossfadeBars, current.bpm)
     if (duration < cfSec * 1.5) return
     const meta = currentMetaRef.current
+    // Latest we can safely start the fade so it finishes before the
+    // outgoing track runs out of audio.
+    const latestSafe = Math.max(0, duration - cfSec)
     const sectionTrigger =
       meta && meta.outroStartSec && meta.outroStartSec > 0
-        ? meta.outroStartSec
-        : duration - cfSec
+        ? Math.min(meta.outroStartSec, latestSafe)
+        : latestSafe
     if (position >= sectionTrigger) {
       autoDjPickInFlight.current = true
       void pickNextTrackAsync(current, queue, historyRef.current)
