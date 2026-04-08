@@ -39,6 +39,11 @@
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
+  /* DJ semantic deck accents — cyan for deck A, magenta for deck B. */
+  /* Used by the DjPlayer on /player for transport/markers only; the */
+  /* rest of the panel sticks to the neutral base palette. */
+  --color-deck-a: var(--deck-a);
+  --color-deck-b: var(--deck-b);
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
@@ -81,6 +86,8 @@
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.55 0.18 250);
+  --deck-a: oklch(0.78 0.14 200);
+  --deck-b: oklch(0.72 0.24 330);
 }
 
 .dark {
@@ -115,6 +122,8 @@
   --sidebar-accent-foreground: oklch(0.95 0 0);
   --sidebar-border: oklch(0.2 0 0);
   --sidebar-ring: oklch(0.55 0.18 250);
+  --deck-a: oklch(0.78 0.14 200);
+  --deck-b: oklch(0.72 0.24 330);
 }
 
 @layer base {
