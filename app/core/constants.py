@@ -94,6 +94,57 @@ class SetTemplate(StrEnum):
     FULL_LIBRARY = "full_library"
 
 
+class TransitionStyle(StrEnum):
+    """Recommended *type* of transition for an A→B pair.
+
+    Picked by ``TransitionScorer.recommend_style()`` from the 6-component
+    score plus the hard-reject status. The DJ engine consumes this to
+    choose its mix length and automation pattern (length in bars, EQ
+    automation, optional FX). Style only encodes *how* to play the
+    transition — *whether* to play it at all is decided by the score
+    upstream.
+
+    Ordered roughly from most-confident-blend to last-resort.
+    """
+
+    # Bars / behaviour are advisory; the engine maps each style to its
+    # own parameters in TRANSITION_STYLE_PROFILES below.
+    CUT = "cut"
+    """Hard cut on the bar — perfect BPM/key/groove match, no overlap needed."""
+
+    BASS_SWAP_SHORT = "bass_swap_short"
+    """8-bar bass-swap blend — good match, just enough overlap to swap kicks."""
+
+    BASS_SWAP_LONG = "bass_swap_long"
+    """32-bar bass-swap blend — DJ default, room for breathing and EQ work."""
+
+    LONG_BLEND = "long_blend"
+    """64-bar tonal blend — slow harmonic shift, useful when energy matches but key drifts."""
+
+    ECHO_OUT = "echo_out"
+    """Outgoing track tail-stops with an echo/reverb hold — for big energy gaps."""
+
+    FILTER_SWEEP = "filter_sweep"
+    """Outgoing HPF-swept upward to free spectrum — last resort for collisions."""
+
+
+# Per-style mix length (bars) + a short reason. The engine looks these
+# up by style; tests assert the table covers every style. Bars stay in
+# DJ-native units so the audio engine can still convert them via the
+# active deck's BPM at runtime.
+TRANSITION_STYLE_PROFILES: dict[TransitionStyle, dict[str, float | str]] = {
+    TransitionStyle.CUT: {"bars": 0, "reason": "perfect match — drop on the bar"},
+    TransitionStyle.BASS_SWAP_SHORT: {"bars": 8, "reason": "good match — quick bass swap"},
+    TransitionStyle.BASS_SWAP_LONG: {
+        "bars": 32,
+        "reason": "default blend — bass swap with breathing room",
+    },
+    TransitionStyle.LONG_BLEND: {"bars": 64, "reason": "key shift — slow harmonic blend"},
+    TransitionStyle.ECHO_OUT: {"bars": 16, "reason": "energy gap — tail outgoing with echo"},
+    TransitionStyle.FILTER_SWEEP: {"bars": 16, "reason": "spectral collision — HPF the outgoing"},
+}
+
+
 # Camelot wheel: 24 keys, static reference data
 # key_code -> (camelot_notation, key_name)
 CAMELOT_KEYS: dict[int, tuple[str, str]] = {
@@ -139,12 +190,16 @@ HOTCUE_INDEX_MAX: int = 15
 KEY_CODE_MIN: int = 0
 KEY_CODE_MAX: int = 23
 
-# Transition scoring weights (default, overridable per-template)
+# Transition scoring weights (default, overridable per-template).
+# Rebalanced from research §4.4 (Kim ISMIR 2020): MFCC #1, key
+# overrated, structural / groove undervalued. Sums to 1.0.
+# Re-exported from ``app/domain/transition/weights.py:DEFAULT_WEIGHTS``
+# for the domain layer; this dict is the single source of truth.
 DEFAULT_TRANSITION_WEIGHTS: dict[str, float] = {
-    "bpm": 0.22,
-    "harmonic": 0.20,
-    "energy": 0.23,
-    "spectral": 0.15,
-    "groove": 0.10,
-    "timbral": 0.10,
+    "bpm": 0.20,  # was 0.22
+    "harmonic": 0.12,  # was 0.20
+    "energy": 0.18,  # was 0.23
+    "spectral": 0.20,  # was 0.15 — MFCC is #1 in real mixes
+    "groove": 0.15,  # was 0.10
+    "timbral": 0.15,  # was 0.10
 }

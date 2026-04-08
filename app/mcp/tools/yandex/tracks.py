@@ -6,7 +6,6 @@ from typing import Any
 
 from fastmcp.dependencies import Depends
 from fastmcp.exceptions import ToolError
-from fastmcp.server.context import Context
 from fastmcp.tools import tool
 
 from app.core.parsing import ensure_list
@@ -25,7 +24,6 @@ async def ym_get_tracks(
     track_ids: Any = None,
     fields: str = "id,title,artists,albums,duration_ms",
     ym: YandexMusicClient = Depends(get_ym_client),  # noqa: B008
-    ctx: Context | None = None,
 ) -> dict[str, Any]:
     """Batch get tracks from Yandex Music by IDs (up to 100)."""
     ids = ensure_list(track_ids)
@@ -49,7 +47,6 @@ async def ym_artist_tracks(
     page: int = 0,
     sort_by: str = "date",
     ym: YandexMusicClient = Depends(get_ym_client),  # noqa: B008
-    ctx: Context | None = None,
 ) -> dict[str, Any]:
     """Get paginated tracks by artist from Yandex Music.
 

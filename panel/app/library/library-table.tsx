@@ -1,10 +1,13 @@
 'use client'
 
 import { type ColumnDef } from '@tanstack/react-table'
+import { IconLoader2, IconPlayerPauseFilled, IconPlayerPlayFilled } from '@tabler/icons-react'
 import { Search } from 'lucide-react'
 import { useRouter, usePathname, useSearchParams } from 'next/navigation'
 import { useCallback, useEffect, useRef, useState } from 'react'
 
+import { loadMoreTracks } from '@/actions/library-actions'
+import { useAudioPlayer } from '@/components/audio-player/audio-player-context'
 import { DataTable } from '@/components/data-table'
 import { MoodBadge } from '@/components/mood-badge'
 import { Badge } from '@/components/ui/badge'
@@ -17,13 +20,49 @@ import { ANALYSIS_LEVELS } from '@/lib/constants'
 interface LibraryTableProps {
   initialTracks: TrackRow[]
   total: number
-  currentPage: number
   currentSearch: string
   currentSortBy: string
   currentSortDir: string
 }
 
-const columns: ColumnDef<TrackRow>[] = [
+function buildColumns(
+  currentId: number | null,
+  isPlaying: boolean,
+  isLoading: boolean,
+  onToggle: (row: TrackRow) => void,
+): ColumnDef<TrackRow>[] {
+  return [
+  {
+    id: 'play',
+    header: '',
+    cell: ({ row }) => {
+      const id = row.original.id
+      const active = currentId === id
+      const showSpinner = active && isLoading
+      const showPause = active && isPlaying && !isLoading
+      return (
+        <Button
+          variant={active ? 'default' : 'ghost'}
+          size="icon"
+          className="h-7 w-7 rounded-full"
+          onClick={(e) => {
+            e.stopPropagation()
+            onToggle(row.original)
+          }}
+          aria-label={showPause ? 'Pause' : 'Play'}
+        >
+          {showSpinner ? (
+            <IconLoader2 className="h-4 w-4 animate-spin" />
+          ) : showPause ? (
+            <IconPlayerPauseFilled className="h-3.5 w-3.5" />
+          ) : (
+            <IconPlayerPlayFilled className="h-3.5 w-3.5" />
+          )}
+        </Button>
+      )
+    },
+    enableSorting: false,
+  },
   {
     accessorKey: 'id',
     header: '#',
@@ -114,14 +153,14 @@ const columns: ColumnDef<TrackRow>[] = [
       </span>
     ),
   },
-]
+  ]
+}
 
 const PAGE_SIZE = 50
 
 export function LibraryTable({
   initialTracks,
   total,
-  currentPage,
   currentSearch,
 }: LibraryTableProps) {
   const router = useRouter()
@@ -129,6 +168,86 @@ export function LibraryTable({
   const searchParams = useSearchParams()
   const [searchInput, setSearchInput] = useState(currentSearch)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // ── Infinite scroll state ─────────────────────────────────────
+  const [tracks, setTracks] = useState<TrackRow[]>(initialTracks)
+  const [nextPage, setNextPage] = useState(2)
+  const [hasMore, setHasMore] = useState(initialTracks.length < total)
+  const [isLoadingMore, setIsLoadingMore] = useState(false)
+  const sentinelRef = useRef<HTMLDivElement | null>(null)
+
+  // Reset when the underlying server query changes (search/sort).
+  useEffect(() => {
+    setTracks(initialTracks)
+    setNextPage(2)
+    setHasMore(initialTracks.length < total)
+  }, [initialTracks, total])
+
+  const loadMore = useCallback(async () => {
+    if (isLoadingMore || !hasMore) return
+    setIsLoadingMore(true)
+    try {
+      const result = await loadMoreTracks({
+        page: nextPage,
+        pageSize: PAGE_SIZE,
+        search: currentSearch || undefined,
+      })
+      setTracks((prev) => {
+        // Dedupe just in case the user toggled filters mid-flight.
+        const seen = new Set(prev.map((t) => t.id))
+        const merged = [...prev]
+        for (const t of result.tracks) {
+          if (!seen.has(t.id)) merged.push(t)
+        }
+        return merged
+      })
+      setNextPage((p) => p + 1)
+      setHasMore(result.hasMore)
+    } finally {
+      setIsLoadingMore(false)
+    }
+  }, [isLoadingMore, hasMore, nextPage, currentSearch])
+
+  // IntersectionObserver-driven auto-load when sentinel scrolls into view.
+  useEffect(() => {
+    const node = sentinelRef.current
+    if (!node) return
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) loadMore()
+      },
+      { rootMargin: '600px' },
+    )
+    io.observe(node)
+    return () => io.disconnect()
+  }, [loadMore])
+
+  const player = useAudioPlayer()
+
+  const handleTogglePlay = useCallback(
+    (row: TrackRow) => {
+      // Whole loaded list is the queue — auto-DJ and prev/next traverse it.
+      const queue = tracks.map((t) => ({
+        id: t.id,
+        title: t.title,
+        artists: t.artists,
+        durationMs: t.duration_ms,
+        bpm: t.bpm,
+        camelot: t.camelot,
+        mood: t.mood,
+      }))
+      const meta = queue.find((t) => t.id === row.id)!
+      player.toggle(meta, queue)
+    },
+    [player, tracks],
+  )
+
+  const columns = buildColumns(
+    player.current?.id ?? null,
+    player.isPlaying,
+    player.isLoading,
+    handleTogglePlay,
+  )
 
   const createQueryString = useCallback(
     (updates: Record<string, string | undefined>) => {
@@ -145,7 +264,9 @@ export function LibraryTable({
     [searchParams]
   )
 
+  // Search edits trigger a fresh server-side query (resets scroll).
   useEffect(() => {
+    if (searchInput === currentSearch) return
     if (debounceRef.current) clearTimeout(debounceRef.current)
     debounceRef.current = setTimeout(() => {
       router.push(`${pathname}?${createQueryString({ search: searchInput, page: '1' })}`)
@@ -154,23 +275,7 @@ export function LibraryTable({
       if (debounceRef.current) clearTimeout(debounceRef.current)
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchInput])
-
-  const totalPages = Math.ceil(total / PAGE_SIZE)
-  const pageStart = (currentPage - 1) * PAGE_SIZE + 1
-  const pageEnd = Math.min(currentPage * PAGE_SIZE, total)
-
-  const handlePrev = () => {
-    if (currentPage > 1) {
-      router.push(`${pathname}?${createQueryString({ page: String(currentPage - 1) })}`)
-    }
-  }
-
-  const handleNext = () => {
-    if (currentPage < totalPages) {
-      router.push(`${pathname}?${createQueryString({ page: String(currentPage + 1) })}`)
-    }
-  }
+  }, [searchInput, currentSearch])
 
   const handleRowClick = (row: TrackRow) => {
     router.push(`/library/${row.id}`)
@@ -189,33 +294,30 @@ export function LibraryTable({
           />
         </div>
         <span className="text-sm text-muted-foreground shrink-0">
-          {total.toLocaleString()} tracks
+          {tracks.length.toLocaleString()} / {total.toLocaleString()} tracks
         </span>
       </div>
 
       <DataTable
         columns={columns}
-        data={initialTracks}
+        data={tracks}
         onRowClick={handleRowClick}
       />
 
-      <div className="flex items-center justify-between">
-        <span className="text-sm text-muted-foreground">
-          {total > 0 ? `${pageStart}–${pageEnd} of ${total.toLocaleString()}` : '0 tracks'}
-        </span>
-        <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={handlePrev} disabled={currentPage <= 1}>
-            Previous
+      <div ref={sentinelRef} className="flex items-center justify-center py-6">
+        {isLoadingMore && (
+          <span className="text-sm text-muted-foreground">Загружаю ещё…</span>
+        )}
+        {!hasMore && tracks.length > 0 && (
+          <span className="text-sm text-muted-foreground">
+            Это все треки ({total.toLocaleString()})
+          </span>
+        )}
+        {hasMore && !isLoadingMore && (
+          <Button variant="outline" size="sm" onClick={() => loadMore()}>
+            Загрузить ещё
           </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleNext}
-            disabled={currentPage >= totalPages}
-          >
-            Next
-          </Button>
-        </div>
+        )}
       </div>
     </div>
   )

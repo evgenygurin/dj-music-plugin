@@ -12,8 +12,9 @@ from fastmcp.exceptions import ToolError
 from fastmcp.server.context import Context
 from fastmcp.tools import tool
 
+from app.audio.level_config import AnalysisLevel
 from app.core.parsing import ensure_list
-from app.mcp.dependencies import get_import_service
+from app.mcp.dependencies import get_import_service, get_tiered_pipeline
 from app.mcp.tools._shared import (
     ToolCategory,
     ToolContext,
@@ -21,37 +22,55 @@ from app.mcp.tools._shared import (
     map_domain_errors,
 )
 from app.services.import_service import ImportService
+from app.services.tiered_pipeline import TieredPipeline
 
 _IMPORT_ANNOTATIONS: dict[str, bool] = {"readOnlyHint": False, "idempotentHint": True}
 _DOWNLOAD_ANNOTATIONS: dict[str, bool] = {"readOnlyHint": False, "openWorldHint": True}
 
 
-@tool(tags={ToolCategory.DISCOVERY.value}, annotations=_IMPORT_ANNOTATIONS)
+@tool(
+    tags={ToolCategory.DISCOVERY.value},
+    annotations=_IMPORT_ANNOTATIONS,
+    timeout=ToolTimeout.BATCH,
+)
 @map_domain_errors
 async def import_tracks(
     track_refs: Any = None,
     playlist_id: int | None = None,
     auto_analyze: bool = False,
     svc: ImportService = Depends(get_import_service),  # noqa: B008
+    tiered: TieredPipeline = Depends(get_tiered_pipeline),  # noqa: B008
     ctx: Context | None = None,
 ) -> dict[str, Any]:
-    """Import YM track IDs into local DB. Idempotent — skips existing."""
+    """Import YM track IDs into local DB. Idempotent — skips existing.
+
+    Returns ``id_mapping`` (ym_id → local_id) for all refs. If
+    ``playlist_id`` is given, tracks are appended to that playlist.
+    If ``auto_analyze=True``, runs L3 tiered analysis on imported tracks.
+    """
     log = ToolContext(ctx)
     refs = ensure_list(track_refs)
     if not refs:
         raise ToolError("track_refs is required (list of YM track IDs)")
 
-    result = await svc.import_tracks(track_refs=[str(ref) for ref in refs])
+    result = await svc.import_tracks(
+        track_refs=[str(ref) for ref in refs],
+        playlist_id=playlist_id,
+    )
 
     await log.info(
         f"Import complete: {result['imported']} new, "
         f"{result['skipped']} skipped, {result['enriched']} enriched"
     )
+    if playlist_id is not None:
+        await log.info(f"Added {result['playlist_added']} tracks to playlist {playlist_id}")
 
-    if playlist_id:
-        result["playlist_note"] = "Use manage_playlist(add_tracks) to add to playlist"
-    if auto_analyze:
-        result["auto_analyze_note"] = "Use analyze_batch to trigger audio analysis"
+    if auto_analyze and result["id_mapping"]:
+        local_ids = list(result["id_mapping"].values())
+        await log.info(f"Running L3 tiered analysis on {len(local_ids)} tracks...")
+        analysis = await tiered.ensure_level(local_ids, AnalysisLevel.SCORING)
+        result["analysis"] = analysis
+
     return result
 
 

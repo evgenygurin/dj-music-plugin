@@ -29,20 +29,17 @@ function formatMs(ms: number): string {
   return `${m}:${sec.toString().padStart(2, '0')}`
 }
 
-function extractTracks(data: unknown): YmTrack[] {
-  if (!data || typeof data !== 'object') return []
-  const d = data as Record<string, unknown>
+function extractTracks(structured: Record<string, unknown> | null): YmTrack[] {
+  if (!structured) return []
 
-  if (Array.isArray(d)) return d as YmTrack[]
-
-  const result = d.result as Record<string, unknown> | undefined
+  const result = structured.result as Record<string, unknown> | undefined
   if (result) {
     const tracks = result.tracks as { results?: YmTrack[] } | undefined
     if (tracks?.results) return tracks.results
     if (Array.isArray(result)) return result as YmTrack[]
   }
 
-  if (Array.isArray(d.tracks)) return d.tracks as YmTrack[]
+  if (Array.isArray(structured.tracks)) return structured.tracks as YmTrack[]
 
   return []
 }
@@ -61,9 +58,13 @@ export function YmSearch() {
     setError(null)
     startSearch(async () => {
       try {
-        const data = await ymSearch(query.trim(), searchType)
-        const tracks = extractTracks(data)
-        setResults(tracks)
+        const result = await ymSearch(query.trim(), searchType)
+        if (result.is_error) {
+          setError(result.content[0]?.text ?? 'Search failed')
+          setResults([])
+          return
+        }
+        setResults(extractTracks(result.structured_content))
       } catch (e) {
         setError(e instanceof Error ? e.message : 'Search failed')
         setResults([])

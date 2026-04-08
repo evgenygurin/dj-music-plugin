@@ -260,6 +260,7 @@ class ToolListResponse(BaseModel):
 
 mcp_app = mcp.http_app(path="/")
 _mcp_ready = False
+_ym_client: Any = None  # YandexMusicClient — populated in lifespan
 
 
 @asynccontextmanager
@@ -269,7 +270,26 @@ async def lifespan(app: FastAPI):  # type: ignore[no-untyped-def]
     If MCP lifespan fails (e.g., DB unreachable), the REST API still works
     for tool discovery. Only /api/tools/{name}/call requires a running MCP server.
     """
-    global _mcp_ready
+    global _mcp_ready, _ym_client
+
+    # Dedicated YM client for the audio-stream endpoint (the MCP lifespan one
+    # is scoped to MCP request context and not reachable from raw FastAPI
+    # routes). Reuses the same settings.
+    from app.config import settings
+    from app.ym.client import YandexMusicClient
+    from app.ym.rate_limiter import RateLimiter
+
+    _ym_client = YandexMusicClient(
+        token=settings.ym_token,
+        user_id=settings.ym_user_id,
+        base_url=settings.ym_base_url,
+        rate_limiter=RateLimiter(
+            delay=settings.ym_rate_limit_delay,
+            max_retries=settings.ym_retry_attempts,
+            backoff_factor=settings.ym_retry_backoff_factor,
+        ),
+    )
+
     try:
         async with mcp_app.router.lifespan_context(mcp_app):
             _mcp_ready = True
@@ -282,6 +302,10 @@ async def lifespan(app: FastAPI):  # type: ignore[no-untyped-def]
         )
         _mcp_ready = False
         yield
+    finally:
+        if _ym_client is not None:
+            await _ym_client.close()
+            _ym_client = None
 
 
 # ── FastAPI App ─────────────────────────────────────
@@ -535,6 +559,140 @@ async def call_tool(
         content=content,
         structured_content=structured,
         is_error=False,
+    )
+
+
+# ── Audio streaming (ephemeral, no disk) ───────────
+
+
+from fastapi import Request as _Request
+
+_SIGNED_URL_CACHE: dict[str, tuple[float, str]] = {}
+_SIGNED_URL_TTL = 300.0  # seconds; YM signed URLs are valid for ~1 hour, be conservative
+
+
+async def _get_signed_url_cached(ym_track_id: str) -> str:
+    """Return a cached signed YM download URL, resolving on miss/expiry."""
+    import time
+
+    from app.ym.client import APIError
+
+    now = time.monotonic()
+    cached = _SIGNED_URL_CACHE.get(ym_track_id)
+    if cached and cached[0] > now:
+        return cached[1]
+
+    assert _ym_client is not None
+    try:
+        infos = await _ym_client.get_download_info(ym_track_id)
+    except APIError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"get_download_info failed: {exc}") from exc
+    if not infos:
+        raise HTTPException(status_code=404, detail=f"No download info for {ym_track_id}")
+
+    best = infos[0]
+    for info in infos:
+        if info.get("codec") == "mp3":
+            best = info
+            break
+
+    info_url = best.get("downloadInfoUrl")
+    if not info_url:
+        raise HTTPException(status_code=404, detail="downloadInfoUrl missing")
+
+    try:
+        signed_url = await _ym_client._resolve_download_url(ym_track_id, info_url)
+    except APIError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"resolve_download_url failed: {exc}") from exc
+
+    _SIGNED_URL_CACHE[ym_track_id] = (now + _SIGNED_URL_TTL, signed_url)
+    return signed_url
+
+
+@api.get("/api/audio/stream/{ym_track_id}", tags=["system"])
+async def stream_audio(ym_track_id: str, request: _Request) -> Any:
+    """Proxy-stream a YM track's MP3 bytes to the caller.
+
+    Resolves the signed YM download URL (cached for 5 minutes to keep Range
+    refetches fast) and streams the bytes through without writing to disk.
+    Forwards Range/Content-Length so the browser can show duration and seek.
+    """
+    import httpx
+    from fastapi.responses import StreamingResponse
+
+    if _ym_client is None:
+        raise HTTPException(status_code=503, detail="YM client not initialised")
+
+    signed_url = await _get_signed_url_cached(ym_track_id)
+
+    # Forward the client's Range header so the YM CDN serves partial content,
+    # which lets the browser determine duration up-front and seek freely.
+    upstream_headers: dict[str, str] = {}
+    range_header = request.headers.get("range")
+    if range_header:
+        upstream_headers["Range"] = range_header
+
+    client = httpx.AsyncClient(
+        timeout=httpx.Timeout(connect=15.0, read=300.0, write=30.0, pool=15.0)
+    )
+
+    try:
+        upstream = await client.send(
+            client.build_request("GET", signed_url, headers=upstream_headers),
+            stream=True,
+        )
+    except httpx.HTTPError as exc:
+        await client.aclose()
+        raise HTTPException(status_code=502, detail=f"Upstream fetch failed: {exc}") from exc
+
+    if upstream.status_code >= 400:
+        body = await upstream.aread()
+        await upstream.aclose()
+        await client.aclose()
+        raise HTTPException(
+            status_code=upstream.status_code,
+            detail=f"Upstream {upstream.status_code}: {body[:200]!r}",
+        )
+
+    # Forward all headers the browser cares about for media playback.
+    forward_keys = (
+        "content-length",
+        "content-range",
+        "accept-ranges",
+        "content-type",
+        "last-modified",
+        "etag",
+    )
+    response_headers: dict[str, str] = {"Cache-Control": "no-store"}
+    for key in forward_keys:
+        val = upstream.headers.get(key)
+        if val is not None:
+            response_headers[key] = val
+    response_headers.setdefault("Accept-Ranges", "bytes")
+    response_headers.setdefault("Content-Type", "audio/mpeg")
+
+    async def _iter() -> Any:
+        try:
+            async for chunk in upstream.aiter_bytes(chunk_size=65536):
+                yield chunk
+        except (httpx.ReadTimeout, httpx.ReadError, httpx.RemoteProtocolError) as exc:
+            # Upstream dropped mid-stream; end the response cleanly instead of
+            # raising a traceback. The browser will retry via Range if needed.
+            logger.warning("audio stream %s interrupted: %s", ym_track_id, exc)
+            return
+        finally:
+            await upstream.aclose()
+            await client.aclose()
+
+    return StreamingResponse(
+        _iter(),
+        status_code=upstream.status_code,
+        media_type=response_headers.get("Content-Type", "audio/mpeg"),
+        headers=response_headers,
     )
 
 

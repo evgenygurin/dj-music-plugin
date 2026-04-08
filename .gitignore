@@ -20,6 +20,10 @@ build/
 
 # Worktrees
 .worktrees/
+.claude/worktrees/
+
+# Plugin build artifact
+*.plugin
 
 # Testing
 .pytest_cache/
@@ -35,6 +39,8 @@ htmlcov/
 # Claude Code local
 CLAUDE.local.md
 .claude/settings.local.json
+.claude/scheduled_tasks.lock
+.claude/scheduled_tasks.json
 
 # Override global .gitignore: track .claude/rules/, settings.json, and .mcp.json
 !.claude/

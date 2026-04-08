@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "panel",
+      "runtimeExecutable": "/bin/bash",
+      "runtimeArgs": ["scripts/preview-panel.sh"],
+      "port": 3000
+    },
+    {
+      "name": "rest-api",
+      "runtimeExecutable": "/bin/bash",
+      "runtimeArgs": ["scripts/preview-rest-api.sh"],
+      "port": 8000
+    }
+  ]
+}

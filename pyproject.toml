@@ -16,7 +16,16 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-audio = ["librosa>=0.10", "soundfile>=0.12", "scipy>=1.12", "essentia>=2.1b6.dev1389"]
+audio = [
+    "librosa>=0.10",
+    "soundfile>=0.12",
+    "scipy>=1.12",
+    "essentia>=2.1b6.dev1389",
+    # numba 0.64 + numpy 2.x segfaults inside librosa.beat.beat_track gufunc
+    # (single-threaded, on first call). 0.65+ ships the fix. See docs/vm-deployment.md.
+    "numba>=0.65",
+    "llvmlite>=0.47",
+]
 stems = ["demucs>=4.0", "torch>=2.0"]
 postgres = ["pgvector>=0.3"]
 http = ["fastapi>=0.115", "uvicorn[standard]>=0.34"]
@@ -25,13 +34,6 @@ otel = [
     "opentelemetry-exporter-otlp",
 ]
 sentry = ["sentry-sdk>=2.0"]
-dev = [
-    "pytest>=8.0",
-    "pytest-asyncio>=0.24",
-    "ruff>=0.8",
-    "mypy>=1.13",
-    "alembic>=1.14",
-]
 
 [tool.ruff]
 line-length = 99
@@ -90,5 +92,10 @@ build-backend = "hatchling.build"
 
 [dependency-groups]
 dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.24",
     "pytest-xdist>=3.8.0",
+    "ruff>=0.8",
+    "mypy>=1.13",
+    "alembic>=1.14",
 ]

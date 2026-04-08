@@ -25,23 +25,37 @@ class BPMDetector(BaseAnalyzer):
     clip_duration_s: ClassVar[float | None] = 60.0
 
     def _extract(self, ctx: AnalysisContext) -> dict[str, Any]:
-        """Detect BPM, confidence, and stability."""
+        """Detect BPM, confidence, and stability.
+
+        BPM is computed via onset-strength autocorrelation with parabolic
+        peak interpolation for sub-frame precision. With ``sr=22050`` and
+        ``hop_length=512``, ``librosa.beat.beat_track`` and
+        ``librosa.feature.tempo`` both round tempo to integer
+        frames-per-beat, collapsing the techno range (120-140 BPM) into
+        ~4 discrete values (123.05, 129.20, 136.00, ...). Parabolic
+        interpolation around the autocorrelation peak recovers
+        fractional-frame precision.
+        """
         import librosa
 
-        samples = ctx.samples
         sr = ctx.sr
+        hop_length = ctx.params.hop_length
 
-        # Primary tempo detection
-        tempo, beat_frames = librosa.beat.beat_track(y=samples, sr=sr, units="frames")
-        bpm = float(np.atleast_1d(tempo)[0])
-
-        # Beat times for stability analysis
-        beat_times = librosa.frames_to_time(beat_frames, sr=sr)
-
-        # Confidence from onset strength (shared with beat/tempogram via ctx)
+        # Onset envelope (cached, shared with beat/tempogram analyzers)
         onset_env = ctx.get_onset_env()
-        pulse = librosa.beat.plp(onset_envelope=onset_env, sr=sr)
-        confidence = float(np.max(pulse)) if len(pulse) > 0 else 0.5
+
+        # Sub-frame BPM via autocorrelation peak interpolation
+        bpm = _bpm_from_onset_autocorrelation(onset_env=onset_env, sr=sr, hop_length=hop_length)
+
+        # Beat positions for stability metric (frame-quantized but fine here)
+        _, beat_frames = librosa.beat.beat_track(
+            onset_envelope=onset_env, sr=sr, hop_length=hop_length, units="frames"
+        )
+        beat_times = librosa.frames_to_time(beat_frames, sr=sr, hop_length=hop_length)
+
+        # Confidence from PLP mean (max is ~always 1.0 — meaningless as a signal)
+        pulse = librosa.beat.plp(onset_envelope=onset_env, sr=sr, hop_length=hop_length)
+        confidence = float(np.mean(pulse)) if len(pulse) > 0 else 0.5
 
         # Stability: how consistent are inter-beat intervals
         stability = 0.0
@@ -59,3 +73,56 @@ class BPMDetector(BaseAnalyzer):
             "bpm_stability": round(stability, 4),
             "variable_tempo": variable_tempo,
         }
+
+
+def _bpm_from_onset_autocorrelation(
+    onset_env: np.ndarray,
+    sr: int,
+    hop_length: int,
+    min_bpm: float = 80.0,
+    max_bpm: float = 200.0,
+) -> float:
+    """Compute BPM from onset envelope autocorrelation with sub-frame precision.
+
+    Steps:
+    1. Autocorrelate onset envelope (positive lags only)
+    2. Restrict to lag range corresponding to ``[min_bpm, max_bpm]``
+    3. Find peak lag (integer frames)
+    4. Parabolic interpolation around the peak for sub-frame refinement
+    5. Convert refined lag → BPM
+    """
+    if len(onset_env) < 4:
+        return 0.0
+
+    # Mean-center to keep autocorrelation peak at the actual rhythm period
+    centered = onset_env - float(np.mean(onset_env))
+    ac = np.correlate(centered, centered, mode="full")
+    ac = ac[len(ac) // 2 :]  # keep positive lags
+
+    frames_per_sec = sr / hop_length
+    min_lag = max(1, int(np.floor(60.0 * frames_per_sec / max_bpm)))
+    max_lag = min(len(ac) - 2, int(np.ceil(60.0 * frames_per_sec / min_bpm)))
+
+    if max_lag <= min_lag + 1:
+        return 0.0
+
+    region = ac[min_lag : max_lag + 1]
+    peak_offset = int(np.argmax(region))
+    peak_idx = min_lag + peak_offset
+
+    # Parabolic interpolation for sub-frame precision
+    refined_lag = float(peak_idx)
+    if 0 < peak_idx < len(ac) - 1:
+        y_minus = float(ac[peak_idx - 1])
+        y_zero = float(ac[peak_idx])
+        y_plus = float(ac[peak_idx + 1])
+        denom = y_minus - 2.0 * y_zero + y_plus
+        if abs(denom) > 1e-12:
+            offset = 0.5 * (y_minus - y_plus) / denom
+            # Clamp interpolation offset to [-1, 1] for stability
+            offset = max(-1.0, min(1.0, offset))
+            refined_lag = peak_idx + offset
+
+    if refined_lag <= 0:
+        return 0.0
+    return float(60.0 * frames_per_sec / refined_lag)

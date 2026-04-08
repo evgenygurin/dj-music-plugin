@@ -1,11 +1,13 @@
 import type { Metadata } from 'next'
 import localFont from 'next/font/local'
 import { ThemeProvider } from 'next-themes'
-import { Analytics } from '@vercel/analytics/next'
+import { Analytics } from '@vercel/analytics/react'
 import { Toaster } from '@/components/ui/sonner'
 import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar'
 import { AppSidebar } from '@/components/app-sidebar'
 import { CommandPalette } from '@/components/command-palette'
+import { PlayerProvider } from '@/components/player/player-provider'
+import { Player } from '@/components/player/player'
 import './globals.css'
 
 const geistSans = localFont({
@@ -70,18 +72,21 @@ export default function RootLayout({
           enableSystem={false}
           disableTransitionOnChange
         >
-          <SidebarProvider
-            style={
-              {
-                '--sidebar-width': 'calc(var(--spacing) * 72)',
-                '--header-height': 'calc(var(--spacing) * 12)',
-              } as React.CSSProperties
-            }
-          >
-            <AppSidebar variant="inset" />
-            <SidebarInset>{children}</SidebarInset>
-            <CommandPalette />
-          </SidebarProvider>
+          <PlayerProvider>
+            <SidebarProvider
+              style={
+                {
+                  '--sidebar-width': 'calc(var(--spacing) * 72)',
+                  '--header-height': 'calc(var(--spacing) * 12)',
+                } as React.CSSProperties
+              }
+            >
+              <AppSidebar variant="inset" />
+              <SidebarInset className="pb-24">{children}</SidebarInset>
+              <CommandPalette />
+            </SidebarProvider>
+            <Player />
+          </PlayerProvider>
           <Toaster />
         </ThemeProvider>
         <Analytics />

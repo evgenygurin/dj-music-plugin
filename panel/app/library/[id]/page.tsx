@@ -1,9 +1,8 @@
 import { notFound } from 'next/navigation'
 import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { SiteHeader } from '@/components/site-header'
+import { PageShell } from '@/components/page-shell'
 import { MoodBadge } from '@/components/mood-badge'
 import { TrackFeatures } from '@/components/track-features'
 import { SectionsTimeline } from '@/components/sections-timeline'
@@ -69,48 +68,43 @@ export default async function TrackDetailPage({ params }: TrackDetailPageProps) 
     : null
 
   return (
-    <>
-      <SiteHeader title={track.title} parent={{ label: 'Library', href: '/library' }} />
-      <div className="flex flex-1 flex-col">
-        <div className="@container/main flex flex-1 flex-col gap-2">
-          <div className="flex flex-col gap-4 px-4 py-4 md:gap-6 md:py-6 lg:px-6">
+    <PageShell title={track.title} parent={{ label: 'Library', href: '/library' }}>
+      {/* Hero header */}
+      <div className="flex items-start justify-between gap-4">
+        <div className="min-w-0 flex-1">
+          <h1 className="text-2xl font-semibold truncate">{track.title}</h1>
+          {artistNames && (
+            <p className="text-muted-foreground mt-0.5">{artistNames}</p>
+          )}
+          <div className="flex flex-wrap items-center gap-2 mt-3">
+            {track.duration_ms !== null && (
+              <Badge variant="secondary">{formatDuration(track.duration_ms)}</Badge>
+            )}
+            {f?.bpm !== null && f?.bpm !== undefined && (
+              <Badge variant="secondary">{formatBpm(f.bpm)} BPM</Badge>
+            )}
+            {f?.key_code !== null && f?.key_code !== undefined && (
+              <Badge variant="secondary">{camelotNotation(f.key_code)}</Badge>
+            )}
+            {f?.integrated_lufs !== null && f?.integrated_lufs !== undefined && (
+              <Badge variant="secondary">{formatLufs(f.integrated_lufs)}</Badge>
+            )}
+            {f?.mood && <MoodBadge mood={f.mood} />}
+            {f?.mood_confidence !== null && f?.mood_confidence !== undefined && (
+              <Badge variant="outline" className="text-xs">
+                {Math.round((f.mood_confidence as number) * 100)}% conf
+              </Badge>
+            )}
+          </div>
+        </div>
+        <div className="shrink-0">
+          <TrackActionsMenu trackId={trackId} />
+        </div>
+      </div>
 
-            {/* Hero header */}
-            <div className="flex items-start justify-between gap-4">
-              <div className="min-w-0 flex-1">
-                <h1 className="text-2xl font-semibold truncate">{track.title}</h1>
-                {artistNames && (
-                  <p className="text-muted-foreground mt-0.5">{artistNames}</p>
-                )}
-                <div className="flex flex-wrap items-center gap-2 mt-3">
-                  {track.duration_ms !== null && (
-                    <Badge variant="secondary">{formatDuration(track.duration_ms)}</Badge>
-                  )}
-                  {f?.bpm !== null && f?.bpm !== undefined && (
-                    <Badge variant="secondary">{formatBpm(f.bpm)} BPM</Badge>
-                  )}
-                  {f?.key_code !== null && f?.key_code !== undefined && (
-                    <Badge variant="secondary">{camelotNotation(f.key_code)}</Badge>
-                  )}
-                  {f?.integrated_lufs !== null && f?.integrated_lufs !== undefined && (
-                    <Badge variant="secondary">{formatLufs(f.integrated_lufs)}</Badge>
-                  )}
-                  {f?.mood && <MoodBadge mood={f.mood} />}
-                  {f?.mood_confidence !== null && f?.mood_confidence !== undefined && (
-                    <Badge variant="outline" className="text-xs">
-                      {Math.round((f.mood_confidence as number) * 100)}% conf
-                    </Badge>
-                  )}
-                </div>
-              </div>
-              <div className="shrink-0">
-                <TrackActionsMenu trackId={trackId} />
-              </div>
-            </div>
-
-            {/* Tabs */}
-            <Tabs defaultValue="overview">
-              <TabsList>
+      {/* Tabs */}
+      <Tabs defaultValue="overview">
+        <TabsList>
                 <TabsTrigger value="overview">Overview</TabsTrigger>
                 <TabsTrigger value="features">Audio Features</TabsTrigger>
                 <TabsTrigger value="sections">Sections</TabsTrigger>
@@ -348,10 +342,6 @@ export default async function TrackDetailPage({ params }: TrackDetailPageProps) 
                 </TabsContent>
               )}
             </Tabs>
-
-          </div>
-        </div>
-      </div>
-    </>
+    </PageShell>
   )
 }

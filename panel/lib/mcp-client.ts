@@ -1,36 +1,7 @@
-import { Client } from '@modelcontextprotocol/sdk/client/index.js'
-import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js'
-
-const MCP_URL = process.env.MCP_HTTP_URL ?? 'http://localhost:8000/mcp'
-const MCP_HTTP_URL = process.env.MCP_HTTP_URL ?? 'http://localhost:8000'
-
-export async function mcpCall(
-  tool: string,
-  args: Record<string, unknown>
-): Promise<unknown> {
-  const client = new Client({ name: 'dj-panel', version: '1.0.0' })
-  const transport = new StreamableHTTPClientTransport(new URL(MCP_URL))
-  await client.connect(transport)
-  try {
-    const result = await client.callTool({ name: tool, arguments: args })
-    if (result.isError) {
-      throw new Error(
-        `MCP tool ${tool} failed: ${JSON.stringify(result.content)}`
-      )
-    }
-    const structured = result.structuredContent
-    if (structured) return structured
-    const textParts = (result.content as Array<{ type: string; text?: string }>)
-      ?.filter((c) => c.type === 'text')
-      .map((c) => c.text)
-      .join('')
-    return textParts ? JSON.parse(textParts) : result.content
-  } finally {
-    await client.close()
-  }
-}
-
-// ── Tool UI types ──
+// MCP_HTTP_URL may point at the native MCP transport (`.../mcp`); strip the
+// trailing `/mcp` so we hit the FastAPI REST root for tool discovery/calls.
+const RAW_MCP_URL = process.env.MCP_HTTP_URL ?? 'http://localhost:8000'
+const MCP_HTTP_URL = RAW_MCP_URL.replace(/\/+mcp\/?$/, '').replace(/\/+$/, '')
 
 export interface ToolInfo {
   name: string
@@ -48,45 +19,67 @@ export interface ToolCallResult {
   is_error: boolean
 }
 
-// ── Tool UI functions (REST API) ──
-
 export async function fetchTools(tag?: string): Promise<ToolInfo[]> {
   const url = tag
     ? `${MCP_HTTP_URL}/api/tools?tag=${tag}`
     : `${MCP_HTTP_URL}/api/tools`
-  const res = await fetch(url, { next: { revalidate: 60 } })
-  if (!res.ok) return []
-  const data = await res.json()
-  return data.tools || []
+  try {
+    const res = await fetch(url, { next: { revalidate: 60 } })
+    if (!res.ok) return []
+    const data = await res.json()
+    return data.tools || []
+  } catch {
+    // Backend unavailable (e.g. during `next build` with MCP server down).
+    // Pages render in their empty state instead of crashing the build.
+    return []
+  }
 }
 
 export async function fetchToolSchema(
   name: string
 ): Promise<Record<string, unknown> | null> {
-  const res = await fetch(`${MCP_HTTP_URL}/api/tools/${name}/schema`, {
-    next: { revalidate: 60 },
-  })
-  if (!res.ok) return null
-  return res.json()
+  try {
+    const res = await fetch(`${MCP_HTTP_URL}/api/tools/${name}/schema`, {
+      next: { revalidate: 60 },
+    })
+    if (!res.ok) return null
+    return res.json()
+  } catch {
+    return null
+  }
 }
 
 export async function callTool(
   name: string,
   args: Record<string, unknown>
 ): Promise<ToolCallResult> {
-  const res = await fetch(`${MCP_HTTP_URL}/api/tools/${name}/call`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ arguments: args }),
-  })
-  if (!res.ok) {
-    const error = await res.text()
+  try {
+    const res = await fetch(`${MCP_HTTP_URL}/api/tools/${name}/call`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ arguments: args }),
+    })
+    if (!res.ok) {
+      const error = await res.text()
+      return {
+        tool_name: name,
+        content: [{ type: 'text', text: error }],
+        structured_content: null,
+        is_error: true,
+      }
+    }
+    return res.json()
+  } catch (err) {
     return {
       tool_name: name,
-      content: [{ type: 'text', text: error }],
+      content: [
+        {
+          type: 'text',
+          text: err instanceof Error ? err.message : 'MCP backend unreachable',
+        },
+      ],
       structured_content: null,
       is_error: true,
     }
   }
-  return res.json()
 }
