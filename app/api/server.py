@@ -58,7 +58,7 @@ def _discover_tools_static() -> list[dict[str, Any]]:
     from fastmcp.server.providers.filesystem_discovery import discover_and_import
     from fastmcp.tools import Tool
 
-    mcp_dir = Path(__file__).parent / "app" / "mcp"
+    mcp_dir = Path(__file__).parent.parent / "controllers"
     result = discover_and_import(mcp_dir)
 
     tools: list[dict[str, Any]] = []
