@@ -1,12 +1,12 @@
 ---
 description: SQLAlchemy model patterns for DJ Music Plugin
-globs: app/models/**/*.py
+globs: app/db/models/**/*.py
 ---
 
 # SQLAlchemy Models
 
 - Use SQLAlchemy 2.0 `mapped_column()` style, not legacy `Column()`
-- All models inherit from `Base` (defined in `app/models/base.py`)
+- All models inherit from `Base` (defined in `app/db/models/base.py`)
 - `__tablename__` = snake_case plural (e.g., `tracks`, `dj_sets`, `track_audio_features_computed`)
 - Always add `created_at` and `updated_at` with server defaults
 - Use `CheckConstraint` for domain ranges from `app/core/constants.py`:

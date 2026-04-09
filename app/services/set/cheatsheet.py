@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 from app.core.errors import NotFoundError
-from app.repositories.feature import FeatureRepository
-from app.repositories.set import SetRepository
-from app.repositories.track import TrackRepository
+from app.db.repositories.feature import FeatureRepository
+from app.db.repositories.set import SetRepository
+from app.db.repositories.track import TrackRepository
 
 
 class SetCheatSheetService:
@@ -23,7 +23,7 @@ class SetCheatSheetService:
 
     async def get_cheat_sheet(self, set_id: int, version: str | None = None) -> str:
         """Generate human-readable cheat sheet with BPM, key, energy, transitions."""
-        from app.core.camelot import key_code_to_camelot
+        from app.camelot.wheel import key_code_to_camelot
 
         dj_set = await self._sets.get_by_id(set_id)
         if dj_set is None:

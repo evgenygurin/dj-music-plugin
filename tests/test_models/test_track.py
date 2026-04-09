@@ -5,7 +5,7 @@ import datetime
 import pytest
 from sqlalchemy.exc import IntegrityError
 
-from app.models.track import (
+from app.db.models.track import (
     Artist,
     Genre,
     Label,

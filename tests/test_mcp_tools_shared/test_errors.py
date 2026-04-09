@@ -1,6 +1,6 @@
 """Unit tests for domain-error → FastMCP-native error mapping.
 
-Mapping contract (see ``app/mcp/tools/_shared/errors.py`` module docstring):
+Mapping contract (see ``app/controllers/tools/_shared/errors.py`` module docstring):
 
 | Domain error        | Raised as                            | MCP code            |
 |---------------------|--------------------------------------|---------------------|
@@ -15,11 +15,11 @@ import pytest
 from fastmcp.exceptions import NotFoundError as FastMCPNotFoundError
 from fastmcp.exceptions import ToolError
 
-from app.core.errors import ConflictError, NotFoundError, ValidationError
-from app.mcp.tools._shared.errors import (
+from app.controllers.tools._shared.errors import (
     domain_errors_as_tool_error,
     map_domain_errors,
 )
+from app.core.errors import ConflictError, NotFoundError, ValidationError
 
 
 async def test_not_found_mapped_to_fastmcp_not_found() -> None:

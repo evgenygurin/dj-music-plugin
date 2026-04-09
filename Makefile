@@ -1,4 +1,4 @@
-.PHONY: install test lint typecheck check migrate dev clean
+.PHONY: install test lint typecheck arch check migrate dev clean
 
 install:
 	uv sync --all-extras
@@ -17,7 +17,10 @@ format:
 typecheck:
 	uv run mypy app/
 
-check: lint typecheck test
+arch:
+	uv run lint-imports
+
+check: lint typecheck arch test
 
 migrate:
 	uv run alembic upgrade head

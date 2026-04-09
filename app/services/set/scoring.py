@@ -5,12 +5,12 @@ from __future__ import annotations
 from typing import Any
 
 from app.core.errors import NotFoundError
-from app.domain.transition import TransitionScore, recommend_style, style_profile
-from app.models.transition import Transition
-from app.repositories.feature import FeatureRepository
-from app.repositories.set import SetRepository
-from app.repositories.transition import TransitionRepository
+from app.db.models.transition import Transition
+from app.db.repositories.feature import FeatureRepository
+from app.db.repositories.set import SetRepository
+from app.db.repositories.transition import TransitionRepository
 from app.services.transition import TransitionScorer
+from app.transition import TransitionScore, recommend_style, style_profile
 
 
 class SetScoringService:

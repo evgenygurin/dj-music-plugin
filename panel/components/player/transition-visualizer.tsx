@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 
 import { useAudioPlayer } from '@/components/audio-player/audio-player-context'
+import { cn } from '@/lib/utils'
 
 import { TrackWaveform } from './track-waveform'
 
@@ -31,6 +32,8 @@ export function TransitionVisualizer() {
     incomingFadePlaybackRate,
     recommendedStyle,
     recommendedBars,
+    lastResolvedStyle,
+    lastResolvedStyleWasManual,
   } = audio
 
   // Wall-clock progress 0..1 across the crossfade. Driven by rAF so it
@@ -43,7 +46,6 @@ export function TransitionVisualizer() {
       setProgress(0)
       return
     }
-    const t0 = crossfadeStartedAt * 1000 // AudioContext.currentTime → ms
     const dur = crossfadeDurationSeconds * 1000
     // Anchor wall-clock to a sample taken right after the fade started
     // so we don't drift even if the AudioContext clock differs from
@@ -90,11 +92,22 @@ export function TransitionVisualizer() {
   const incomingPos =
     incomingFadeStartPosition != null ? incomingFadeStartPosition + elapsed * inRate : 0
 
-  // Bass-swap is linear over the FIRST half of the fade (active.low
-  // 0dB → -40dB by midpoint, inactive.low -40dB → 0dB by midpoint).
-  const halfP = Math.min(1, progress * 2)
-  const bassOut = 1 - halfP // 1 → 0
-  const bassIn = halfP // 0 → 1
+  // Bass swap is a short cross-ramp centered on the midpoint. The
+  // audio engine ramps over 1..4 bars depending on cf; we don't have
+  // cf in bars here, so we use a fixed 12.5 % window (matches the
+  // engine's swapBars = cfBars / 8 rule). Outgoing bass drops from
+  // 1 → 0 and incoming rises from 0 → 1 linearly over that window.
+  const SWAP_WINDOW = 0.125 // 12.5 % of fade width
+  const swapStart = 0.5 - SWAP_WINDOW / 2
+  const swapEnd = 0.5 + SWAP_WINDOW / 2
+  const swapProgress =
+    progress <= swapStart
+      ? 0
+      : progress >= swapEnd
+        ? 1
+        : (progress - swapStart) / SWAP_WINDOW
+  const bassOut = 1 - swapProgress
+  const bassIn = swapProgress
 
   return (
     <div
@@ -107,13 +120,30 @@ export function TransitionVisualizer() {
           <span className="font-mono uppercase tracking-wider text-primary/80">
             Transition · {(progress * 100).toFixed(0)}%
           </span>
-          {recommendedStyle && (
+          {/* Runtime style badge: prefer the RESOLVED style (what
+              the dispatcher actually ran, after applying the manual
+              override chip) over the backend's raw recommendation.
+              Falls back to `recommendedStyle` when the dispatcher
+              hasn't fired yet. */}
+          {(lastResolvedStyle ?? recommendedStyle) && (
             <span
-              className="rounded-full border border-primary/40 bg-primary/10 px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider text-primary"
-              title="Backend-recommended transition style"
+              className={cn(
+                'rounded-full border px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider',
+                lastResolvedStyleWasManual
+                  ? 'border-amber-400/50 bg-amber-400/10 text-amber-300'
+                  : 'border-primary/40 bg-primary/10 text-primary',
+              )}
+              title={
+                lastResolvedStyleWasManual
+                  ? 'Manual override — user picked this style'
+                  : 'Backend-recommended transition style'
+              }
             >
-              {recommendedStyle.replace(/_/g, ' ')}
-              {recommendedBars != null && recommendedBars > 0 ? ` · ${recommendedBars}b` : ''}
+              {(lastResolvedStyle ?? recommendedStyle ?? '').replace(/_/g, ' ')}
+              {recommendedBars != null && recommendedBars > 0
+                ? ` · ${recommendedBars}b`
+                : ''}
+              {lastResolvedStyleWasManual ? ' · manual' : ''}
             </span>
           )}
           <span className="tabular-nums text-muted-foreground">

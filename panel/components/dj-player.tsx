@@ -2,7 +2,7 @@
 
 import { useMemo, useRef, useState, useCallback, useEffect } from 'react'
 import { useRouter, usePathname, useSearchParams } from 'next/navigation'
-import { Search } from 'lucide-react'
+import { AlertTriangle, RotateCw, Search, X } from 'lucide-react'
 import {
   IconPlayerPlay,
   IconPlayerPause,
@@ -26,8 +26,31 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip'
 import { MoodBadge } from '@/components/mood-badge'
+import { useAudioPlayer } from '@/components/audio-player/audio-player-context'
+import type { PlayerTrackMeta } from '@/components/audio-player/audio-player-types'
 import { cn, formatBpm, formatDuration, formatLufs } from '@/lib/utils'
 import type { TrackDetail, TrackRow } from '@/lib/queries/tracks'
+
+// ─── Audio engine adapter ──────────────────────────────────────────────────
+
+/**
+ * Convert a server-loaded `TrackDetail` into the minimal
+ * `PlayerTrackMeta` shape expected by `useAudioPlayer().play()`.
+ * Returns `null` for an empty deck so callers can spread without
+ * conditional branches.
+ */
+function toPlayerMeta(t: TrackDetail | null): PlayerTrackMeta | null {
+  if (!t) return null
+  return {
+    id: t.id,
+    title: t.title,
+    artists: t.artists.map((a) => a.name).join(', ') || null,
+    durationMs: t.duration_ms,
+    bpm: t.features?.bpm ?? null,
+    camelot: t.features?.camelot ?? null,
+    mood: t.features?.mood ?? null,
+  }
+}
 
 // ─── Constants ─────────────────────────────────────────────────────────────
 
@@ -288,16 +311,29 @@ function Deck({
   track,
   isPlaying,
   onTogglePlay,
+  positionMs,
 }: {
   side: 'A' | 'B'
   track: TrackDetail | null
   isPlaying: boolean
   onTogglePlay: () => void
+  /**
+   * Current playback position in milliseconds, sourced from the
+   * shared audio engine when this deck is the active track, or 0
+   * when it's the inactive/unloaded deck. Kept in ms so it lines
+   * up with `duration_ms` and can be passed to `formatDuration`
+   * without conversion.
+   */
+  positionMs: number
 }) {
   const isA = side === 'A'
+  // Waveform/JumpBar/Vinyl primitives still read a raw hex for
+  // canvas-style rendering (alpha suffix tricks like `color + '18'`
+  // don't survive a CSS variable swap), so keep the literal hex here.
+  // Card-level chrome uses the token-backed classes instead.
   const color = isA ? '#22d3ee' : '#e879f9'
-  const borderCls = isA ? 'border-cyan-500/25' : 'border-fuchsia-500/25'
-  const accentCls = isA ? 'text-cyan-400' : 'text-fuchsia-400'
+  const borderCls = isA ? 'border-deck-a/25' : 'border-deck-b/25'
+  const accentCls = isA ? 'text-deck-a' : 'text-deck-b'
 
   const bpm = track?.features?.bpm ?? null
   const camelot = track?.features?.camelot ?? null
@@ -308,22 +344,28 @@ function Deck({
   const artists = track?.artists.map((a) => a.name).join(', ') ?? ''
 
   return (
-    <Card className={cn('gap-2 py-3 border bg-[#0a0a0c]', borderCls)}>
+    <Card className={cn('gap-2 py-3 border bg-card', borderCls)}>
       <CardContent className="px-3 flex flex-col gap-2">
 
         {/* Header */}
         <div className="flex items-start gap-2">
-          <div
-            className="shrink-0 flex items-center justify-center rounded text-[10px] font-bold"
-            style={{ width: 22, height: 22, background: color + '18', color, border: `1px solid ${color}40` }}
+          <Badge
+            variant="outline"
+            className={cn(
+              'size-[22px] shrink-0 justify-center rounded p-0 text-[10px] font-bold',
+              accentCls,
+              isA ? 'border-deck-a/40 bg-deck-a/10' : 'border-deck-b/40 bg-deck-b/10',
+            )}
           >
             {side}
-          </div>
+          </Badge>
           <div
-            className="shrink-0 rounded flex items-center justify-center bg-black/40"
-            style={{ width: 34, height: 34, border: `1px solid ${color}18` }}
+            className={cn(
+              'shrink-0 flex size-[34px] items-center justify-center rounded bg-muted/40 border',
+              isA ? 'border-deck-a/10' : 'border-deck-b/10',
+            )}
           >
-            <IconMusic className="text-muted-foreground" style={{ width: 14, height: 14 }} />
+            <IconMusic className="size-3.5 text-muted-foreground" />
           </div>
           <div className="flex-1 min-w-0">
             <div className="truncate text-sm font-semibold leading-tight">
@@ -332,7 +374,9 @@ function Deck({
             {artists && <div className="truncate text-xs text-muted-foreground">{artists}</div>}
           </div>
           <div className="shrink-0 text-right">
-            <div className={cn('text-xs font-mono font-bold tabular-nums', accentCls)}>0:00</div>
+            <div className={cn('text-xs font-mono font-bold tabular-nums', accentCls)}>
+              {formatDuration(positionMs)}
+            </div>
             <div className="text-[10px] text-muted-foreground font-mono tabular-nums">
               {duration ? formatDuration(duration) : '—:——'}
             </div>
@@ -353,9 +397,11 @@ function Deck({
         </div>
 
         {/* Jump bar */}
-        {track
-          ? <JumpBar trackId={track.id} color={color} />
-          : <div className="w-full rounded-sm bg-black/30" style={{ height: 18 }} />}
+        {track ? (
+          <JumpBar trackId={track.id} color={color} />
+        ) : (
+          <div className="h-[18px] w-full rounded-sm bg-muted/30" />
+        )}
 
         {/* Main waveform */}
         {track ? (
@@ -367,8 +413,8 @@ function Deck({
             color={color}
           />
         ) : (
-          <div className="w-full rounded bg-black/40 flex items-center justify-center" style={{ height: 52 }}>
-            <span className="text-[10px] text-muted-foreground italic">No track loaded</span>
+          <div className="flex h-[52px] w-full items-center justify-center rounded bg-muted/40">
+            <span className="text-[10px] italic text-muted-foreground">No track loaded</span>
           </div>
         )}
 
@@ -433,21 +479,21 @@ function Deck({
         <div className="flex items-center gap-1">
           <Tooltip>
             <TooltipTrigger asChild>
-              <button className="rounded p-1 bg-white/5 border border-white/10 hover:bg-white/10">
-                <IconArrowLeft className="size-3 text-muted-foreground" />
-              </button>
+              <Button variant="outline" size="icon-xs" aria-label="Jump back">
+                <IconArrowLeft />
+              </Button>
             </TooltipTrigger>
             <TooltipContent>Jump back</TooltipContent>
           </Tooltip>
-          <button className="flex items-center gap-1 rounded px-2 py-0.5 text-xs bg-white/5 border border-white/10 hover:bg-white/10">
-            <IconRepeat className="size-3" />
+          <Button variant="outline" size="xs" aria-label="Loop 8 bars">
+            <IconRepeat />
             <span className="font-mono">8</span>
-          </button>
+          </Button>
           <Tooltip>
             <TooltipTrigger asChild>
-              <button className="rounded p-1 bg-white/5 border border-white/10 hover:bg-white/10">
-                <IconArrowRight className="size-3 text-muted-foreground" />
-              </button>
+              <Button variant="outline" size="icon-xs" aria-label="Jump forward">
+                <IconArrowRight />
+              </Button>
             </TooltipTrigger>
             <TooltipContent>Jump forward</TooltipContent>
           </Tooltip>
@@ -455,28 +501,33 @@ function Deck({
 
         {/* CUE + PLAY */}
         <div className="flex gap-2">
-          <button
+          <Button
+            variant="outline"
+            size="sm"
             className={cn(
-              'flex-1 rounded py-1.5 text-xs font-semibold border transition-colors',
+              'flex-1',
               isA
-                ? 'border-cyan-500/40 text-cyan-400 hover:bg-cyan-500/10'
-                : 'border-fuchsia-500/40 text-fuchsia-400 hover:bg-fuchsia-500/10'
+                ? 'border-deck-a/40 text-deck-a hover:bg-deck-a/10'
+                : 'border-deck-b/40 text-deck-b hover:bg-deck-b/10',
             )}
           >
             CUE
-          </button>
-          <button
+          </Button>
+          <Button
             onClick={onTogglePlay}
+            size="sm"
+            variant={isPlaying ? 'default' : 'secondary'}
+            aria-label={isPlaying ? `Pause deck ${side}` : `Play deck ${side}`}
             className={cn(
-              'flex-1 rounded py-1.5 flex items-center justify-center gap-1.5 text-xs font-semibold transition-colors',
-              isPlaying
-                ? isA ? 'bg-cyan-500 text-black hover:bg-cyan-400' : 'bg-fuchsia-500 text-black hover:bg-fuchsia-400'
-                : 'bg-white/10 text-white hover:bg-white/20'
+              'flex-1',
+              isPlaying && (isA
+                ? 'bg-deck-a text-background hover:bg-deck-a/90'
+                : 'bg-deck-b text-background hover:bg-deck-b/90'),
             )}
           >
-            {isPlaying ? <IconPlayerPause className="size-3.5" /> : <IconPlayerPlay className="size-3.5" />}
+            {isPlaying ? <IconPlayerPause /> : <IconPlayerPlay />}
             {isPlaying ? 'PAUSE' : 'PLAY'}
-          </button>
+          </Button>
         </div>
 
       </CardContent>
@@ -510,21 +561,24 @@ function Mixer({
   const masterBpm = sync1 ? bpm1 : sync2 ? bpm2 : bpm1
 
   return (
-    <Card className="gap-2 py-3 border border-white/10 bg-[#0a0a0c]">
+    <Card className="gap-2 py-3 border bg-card">
       <CardContent className="px-3 flex flex-col items-center gap-3">
 
         {/* Sync A */}
-        <button
+        <Button
           onClick={onToggleSync1}
+          size="sm"
+          variant={sync1 ? 'default' : 'outline'}
+          aria-pressed={sync1}
           className={cn(
-            'w-full rounded text-xs font-semibold py-1 border transition-colors',
+            'w-full',
             sync1
-              ? 'bg-cyan-500 text-black border-cyan-500'
-              : 'border-cyan-500/30 text-cyan-400/50 hover:text-cyan-400 hover:border-cyan-500/60'
+              ? 'bg-deck-a text-background hover:bg-deck-a/90'
+              : 'border-deck-a/30 text-deck-a/60 hover:border-deck-a/60 hover:text-deck-a',
           )}
         >
           SYNC A
-        </button>
+        </Button>
 
         {/* BPM */}
         <div className="flex flex-col items-center gap-0.5 w-full">
@@ -540,8 +594,10 @@ function Mixer({
           {[0, 1, 2, 3].map((i) => (
             <div
               key={i}
-              className="rounded-sm transition-colors"
-              style={{ width: 8, height: 8, background: i === 0 ? '#4ade80' : '#1f2937' }}
+              className={cn(
+                'size-2 rounded-sm transition-colors',
+                i === 0 ? 'bg-primary' : 'bg-muted',
+              )}
             />
           ))}
         </div>
@@ -549,8 +605,8 @@ function Mixer({
         {/* Crossfader using shadcn Slider */}
         <div className="w-full flex flex-col gap-1">
           <div className="flex justify-between text-[9px] text-muted-foreground font-mono px-0.5">
-            <span className="text-cyan-400">A</span>
-            <span className="text-fuchsia-400">B</span>
+            <span className="text-deck-a">A</span>
+            <span className="text-deck-b">B</span>
           </div>
           <Slider
             min={0}
@@ -568,34 +624,47 @@ function Mixer({
         <div className="flex gap-1.5 w-full">
           <Tooltip>
             <TooltipTrigger asChild>
-              <button className="flex-1 rounded py-0.5 text-xs bg-white/5 border border-white/10 hover:bg-white/10 flex items-center justify-center">
-                <IconArrowLeft className="size-3 text-cyan-400" />
-              </button>
+              <Button
+                variant="outline"
+                size="xs"
+                aria-label="Fade to deck A"
+                className="flex-1 text-deck-a"
+              >
+                <IconArrowLeft />
+              </Button>
             </TooltipTrigger>
             <TooltipContent>Fade to A</TooltipContent>
           </Tooltip>
           <Tooltip>
             <TooltipTrigger asChild>
-              <button className="flex-1 rounded py-0.5 text-xs bg-white/5 border border-white/10 hover:bg-white/10 flex items-center justify-center">
-                <IconArrowRight className="size-3 text-fuchsia-400" />
-              </button>
+              <Button
+                variant="outline"
+                size="xs"
+                aria-label="Fade to deck B"
+                className="flex-1 text-deck-b"
+              >
+                <IconArrowRight />
+              </Button>
             </TooltipTrigger>
             <TooltipContent>Fade to B</TooltipContent>
           </Tooltip>
         </div>
 
         {/* Sync B */}
-        <button
+        <Button
           onClick={onToggleSync2}
+          size="sm"
+          variant={sync2 ? 'default' : 'outline'}
+          aria-pressed={sync2}
           className={cn(
-            'w-full rounded text-xs font-semibold py-1 border transition-colors mt-auto',
+            'w-full mt-auto',
             sync2
-              ? 'bg-fuchsia-500 text-black border-fuchsia-500'
-              : 'border-fuchsia-500/30 text-fuchsia-400/50 hover:text-fuchsia-400 hover:border-fuchsia-500/60'
+              ? 'bg-deck-b text-background hover:bg-deck-b/90'
+              : 'border-deck-b/30 text-deck-b/60 hover:border-deck-b/60 hover:text-deck-b',
           )}
         >
           SYNC B
-        </button>
+        </Button>
 
       </CardContent>
     </Card>
@@ -669,16 +738,16 @@ function LibraryBrowser({
         </div>
         <span className="text-xs text-muted-foreground">{total.toLocaleString()} tracks</span>
         <span className="text-xs text-muted-foreground ml-auto">
-          Click <span className="text-cyan-400 font-semibold">A</span> or{' '}
-          <span className="text-fuchsia-400 font-semibold">B</span> to load to deck
+          Click <span className="text-deck-a font-semibold">A</span> or{' '}
+          <span className="text-deck-b font-semibold">B</span> to load to deck
         </span>
       </div>
 
       {/* Table inside ScrollArea */}
-      <ScrollArea className="h-[320px] rounded-lg border border-white/10">
+      <ScrollArea className="h-[320px] rounded-lg border">
         <table className="w-full text-sm">
           <thead className="sticky top-0 z-10">
-            <tr className="border-b border-white/10 bg-[#0a0a0c]">
+            <tr className="border-b bg-card">
               {['#', 'Title / Artist', 'BPM', 'Key', 'Mood', 'LUFS', 'Duration', 'Load'].map((h) => (
                 <th key={h} className="px-3 py-2 text-left text-xs font-medium text-muted-foreground whitespace-nowrap">
                   {h}
@@ -694,9 +763,9 @@ function LibraryBrowser({
                 <tr
                   key={track.id}
                   className={cn(
-                    'border-b border-white/[0.04] hover:bg-white/[0.03] transition-colors',
-                    onA && 'bg-cyan-500/[0.06]',
-                    onB && 'bg-fuchsia-500/[0.06]'
+                    'border-b border-border/40 hover:bg-muted/40 transition-colors',
+                    onA && 'bg-deck-a/[0.06]',
+                    onB && 'bg-deck-b/[0.06]',
                   )}
                 >
                   <td className="px-3 py-1.5 text-xs text-muted-foreground tabular-nums w-8">
@@ -704,8 +773,8 @@ function LibraryBrowser({
                   </td>
                   <td className="px-3 py-1.5 max-w-[260px]">
                     <div className="flex items-center gap-1.5">
-                      {onA && <span className="text-[9px] font-bold text-cyan-400 bg-cyan-400/10 rounded px-1 shrink-0">A</span>}
-                      {onB && <span className="text-[9px] font-bold text-fuchsia-400 bg-fuchsia-400/10 rounded px-1 shrink-0">B</span>}
+                      {onA && <span className="text-[9px] font-bold text-deck-a bg-deck-a/10 rounded px-1 shrink-0">A</span>}
+                      {onB && <span className="text-[9px] font-bold text-deck-b bg-deck-b/10 rounded px-1 shrink-0">B</span>}
                       <div className="min-w-0">
                         <div className="font-medium truncate">{track.title}</div>
                         {track.artists && (
@@ -731,24 +800,36 @@ function LibraryBrowser({
                   </td>
                   <td className="px-3 py-1.5">
                     <div className="flex gap-1 justify-center">
-                      <button
+                      <Button
                         onClick={() => loadToDeck('deck1', track.id)}
+                        size="xs"
+                        variant={onA ? 'default' : 'outline'}
+                        aria-label={`Load "${track.title}" to deck A`}
+                        aria-pressed={onA}
                         className={cn(
-                          'rounded px-1.5 py-0.5 text-[10px] font-semibold border transition-colors',
+                          'font-semibold',
                           onA
-                            ? 'bg-cyan-500 text-black border-cyan-500'
-                            : 'border-cyan-500/30 text-cyan-400/60 hover:bg-cyan-500/10 hover:text-cyan-400'
+                            ? 'bg-deck-a text-background hover:bg-deck-a/90'
+                            : 'border-deck-a/30 text-deck-a/60 hover:bg-deck-a/10 hover:text-deck-a',
                         )}
-                      >A</button>
-                      <button
+                      >
+                        A
+                      </Button>
+                      <Button
                         onClick={() => loadToDeck('deck2', track.id)}
+                        size="xs"
+                        variant={onB ? 'default' : 'outline'}
+                        aria-label={`Load "${track.title}" to deck B`}
+                        aria-pressed={onB}
                         className={cn(
-                          'rounded px-1.5 py-0.5 text-[10px] font-semibold border transition-colors',
+                          'font-semibold',
                           onB
-                            ? 'bg-fuchsia-500 text-black border-fuchsia-500'
-                            : 'border-fuchsia-500/30 text-fuchsia-400/60 hover:bg-fuchsia-500/10 hover:text-fuchsia-400'
+                            ? 'bg-deck-b text-background hover:bg-deck-b/90'
+                            : 'border-deck-b/30 text-deck-b/60 hover:bg-deck-b/10 hover:text-deck-b',
                         )}
-                      >B</button>
+                      >
+                        B
+                      </Button>
                     </div>
                   </td>
                 </tr>
@@ -801,19 +882,67 @@ interface DjPlayerProps {
 export function DjPlayer({
   deck1, deck2, library, libraryTotal, currentPage, currentSearch,
 }: DjPlayerProps) {
-  const [playing1, setPlaying1] = useState(false)
-  const [playing2, setPlaying2] = useState(false)
+  const player = useAudioPlayer()
   const [crossfader, setCrossfader] = useState(50)
   const [sync1, setSync1] = useState(false)
   const [sync2, setSync2] = useState(false)
 
+  // Derived "is this deck playing right now" — a deck is considered
+  // playing when it matches `player.current` AND the engine is not
+  // paused. Either deck being crossfaded away still reads as
+  // `isPlaying` until the engine updates `current` at fade finalise.
+  const deck1Meta = useMemo(() => toPlayerMeta(deck1), [deck1])
+  const deck2Meta = useMemo(() => toPlayerMeta(deck2), [deck2])
+  const isDeck1Current = player.current?.id === deck1?.id
+  const isDeck2Current = player.current?.id === deck2?.id
+  const isPlaying1 = isDeck1Current && player.isPlaying
+  const isPlaying2 = isDeck2Current && player.isPlaying
+
+  // Engine reports position/duration in seconds; the Deck header
+  // formats ms, so convert here. A deck that isn't the engine's
+  // current track reads 0 — its timeline is paused at the top until
+  // it becomes the active track via a PLAY click or crossfade.
+  const position1Ms = isDeck1Current ? player.position * 1000 : 0
+  const position2Ms = isDeck2Current ? player.position * 1000 : 0
+
+  // Unified transport for a deck:
+  //   - If this deck isn't current → play it. The other loaded deck
+  //     becomes the single-entry queue, so the engine's auto-DJ can
+  //     pick it up for crossfade on end-of-track, and `mixNow()`
+  //     targets the correct "other" track.
+  //   - If this deck is already current → toggle pause/resume.
+  // Empty decks are no-ops.
+  const makeToggle = useCallback(
+    (meta: PlayerTrackMeta | null, other: PlayerTrackMeta | null) => () => {
+      if (!meta) return
+      if (player.current?.id === meta.id) {
+        player.toggle()
+        return
+      }
+      const queue = other ? [other] : []
+      player.play(meta, queue)
+    },
+    [player],
+  )
+
+  const onTogglePlay1 = makeToggle(deck1Meta, deck2Meta)
+  const onTogglePlay2 = makeToggle(deck2Meta, deck1Meta)
+
   return (
     <TooltipProvider>
-      <div className="flex flex-1 flex-col gap-4 py-4 px-4 lg:px-6">
+      <div data-player-root="true" className="flex flex-1 flex-col gap-4 py-4 px-4 lg:px-6">
+
+        {player.error && <DjPlayerErrorBanner key={player.error} message={player.error} />}
 
         {/* Player section */}
         <div className="grid gap-3" style={{ gridTemplateColumns: '1fr 148px 1fr' }}>
-          <Deck side="A" track={deck1} isPlaying={playing1} onTogglePlay={() => setPlaying1((p) => !p)} />
+          <Deck
+            side="A"
+            track={deck1}
+            isPlaying={isPlaying1}
+            onTogglePlay={onTogglePlay1}
+            positionMs={position1Ms}
+          />
           <Mixer
             deck1={deck1} deck2={deck2}
             crossfader={crossfader} onCrossfaderChange={setCrossfader}
@@ -821,7 +950,13 @@ export function DjPlayer({
             onToggleSync1={() => setSync1((s) => !s)}
             onToggleSync2={() => setSync2((s) => !s)}
           />
-          <Deck side="B" track={deck2} isPlaying={playing2} onTogglePlay={() => setPlaying2((p) => !p)} />
+          <Deck
+            side="B"
+            track={deck2}
+            isPlaying={isPlaying2}
+            onTogglePlay={onTogglePlay2}
+            positionMs={position2Ms}
+          />
         </div>
 
         {/* Library */}
@@ -897,5 +1032,60 @@ export function DjPlayer({
 
       </div>
     </TooltipProvider>
+  )
+}
+
+// ─── Error banner ──────────────────────────────────────────────────────────
+
+/**
+ * Inline error banner shown at the top of the DJ player grid when
+ * the audio engine reports a failure. Offers a one-click Retry
+ * (re-plays the current track, which clears the error on success
+ * inside the engine) and a local Dismiss that hides the banner
+ * through a `dismissed` flag. The parent keys this component on
+ * `message`, so a distinct subsequent failure remounts a fresh
+ * banner and the dismiss state resets automatically.
+ */
+function DjPlayerErrorBanner({ message }: { message: string }) {
+  const player = useAudioPlayer()
+  const [dismissed, setDismissed] = useState(false)
+
+  if (dismissed) return null
+
+  return (
+    <Card role="alert" className="border-destructive/40 bg-destructive/5 py-2">
+      <CardContent className="flex items-center gap-3 px-4">
+        <AlertTriangle className="size-4 shrink-0 text-destructive" />
+        <div className="flex-1 min-w-0">
+          <div className="text-xs font-semibold text-destructive">Playback error</div>
+          <div className="truncate text-xs text-destructive/80">{message}</div>
+        </div>
+        <Button
+          variant="destructive"
+          size="xs"
+          disabled={!player.current}
+          aria-label="Retry playback"
+          onClick={() => {
+            if (player.current) player.play(player.current)
+          }}
+        >
+          <RotateCw />
+          Retry
+        </Button>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon-xs"
+              aria-label="Dismiss error"
+              onClick={() => setDismissed(true)}
+            >
+              <X />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>Dismiss</TooltipContent>
+        </Tooltip>
+      </CardContent>
+    </Card>
   )
 }

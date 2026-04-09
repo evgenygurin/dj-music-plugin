@@ -751,13 +751,13 @@ class TestNewProfileFeatures:
 
     def test_classifier_fields_includes_dominant_phrase_bars(self) -> None:
         """_CLASSIFIER_FIELDS must include dominant_phrase_bars."""
-        from app.models.audio import TrackAudioFeaturesComputed
+        from app.db.models.audio import TrackAudioFeaturesComputed
 
         assert "dominant_phrase_bars" in TrackAudioFeaturesComputed._CLASSIFIER_FIELDS
 
     def test_classifier_fields_includes_all_new_features(self) -> None:
         """_CLASSIFIER_FIELDS must include all features used in profiles."""
-        from app.models.audio import TrackAudioFeaturesComputed
+        from app.db.models.audio import TrackAudioFeaturesComputed
 
         fields = set(TrackAudioFeaturesComputed._CLASSIFIER_FIELDS)
         required = {

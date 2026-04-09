@@ -8,28 +8,28 @@ from sqlalchemy import event
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.pool import StaticPool
 
-from app.models.audio import (  # noqa: F401
+from app.db.models.audio import (  # noqa: F401
     Embedding,
     FeatureExtractionRun,
     TimeseriesReference,
     TrackAudioFeaturesComputed,
     TrackSection,
 )
-from app.models.base import Base
-from app.models.export import AppExport  # noqa: F401
-from app.models.ingestion import ProviderModel, RawProviderResponse  # noqa: F401
-from app.models.key import Key, KeyEdge  # noqa: F401
-from app.models.library import (  # noqa: F401
+from app.db.models.base import Base
+from app.db.models.export import AppExport  # noqa: F401
+from app.db.models.ingestion import ProviderModel, RawProviderResponse  # noqa: F401
+from app.db.models.key import Key, KeyEdge  # noqa: F401
+from app.db.models.library import (  # noqa: F401
     DjBeatgrid,
     DjBeatgridChangePoint,
     DjCuePoint,
     DjLibraryItem,
     DjSavedLoop,
 )
-from app.models.playlist import Playlist, PlaylistItem  # noqa: F401
-from app.models.set import DjSet, SetConstraint, SetFeedback, SetItem, SetVersion  # noqa: F401
-from app.models.track import Track  # noqa: F401
-from app.models.transition import Transition, TransitionCandidate  # noqa: F401
+from app.db.models.playlist import Playlist, PlaylistItem  # noqa: F401
+from app.db.models.set import DjSet, SetConstraint, SetFeedback, SetItem, SetVersion  # noqa: F401
+from app.db.models.track import Track  # noqa: F401
+from app.db.models.transition import Transition, TransitionCandidate  # noqa: F401
 
 
 def _set_sqlite_pragma(dbapi_conn, _connection_record):
@@ -74,7 +74,7 @@ async def seeded_db(db):  # type: ignore[no-untyped-def]
 
     # Lazy import — models may not exist yet during early tasks
     try:
-        from app.models.key import Key
+        from app.db.models.key import Key
 
         for code, (camelot, name) in CAMELOT_KEYS.items():
             mode = 1 if camelot.endswith("B") else 0
@@ -128,7 +128,7 @@ async def client(async_engine):  # type: ignore[no-untyped-def]
     from unittest.mock import AsyncMock
 
     from app.audio.analyzers import AnalyzerRegistry
-    from app.core.cache import TransitionCache
+    from app.core.utils.cache import TransitionCache
 
     # Provide all lifespan context keys that tools may need
     registry = AnalyzerRegistry()

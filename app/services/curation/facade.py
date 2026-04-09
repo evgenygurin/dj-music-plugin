@@ -4,11 +4,11 @@ from __future__ import annotations
 
 from typing import Any
 
-from app.repositories.feature import FeatureRepository
-from app.repositories.playlist import PlaylistRepository
-from app.repositories.set import SetRepository
-from app.repositories.track import TrackRepository
-from app.repositories.transition import TransitionRepository
+from app.db.repositories.feature import FeatureRepository
+from app.db.repositories.playlist import PlaylistRepository
+from app.db.repositories.set import SetRepository
+from app.db.repositories.track import TrackRepository
+from app.db.repositories.transition import TransitionRepository
 from app.services.curation.audit import PlaylistAuditService
 from app.services.curation.distribution import DistributionService
 from app.services.curation.mood import MoodClassificationService

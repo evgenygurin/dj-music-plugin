@@ -3,7 +3,7 @@
 import pytest
 from sqlalchemy.exc import IntegrityError
 
-from app.models.platform import (
+from app.db.models.platform import (
     BeatportMetadata,
     SoundcloudMetadata,
     SpotifyAlbumMetadata,
@@ -13,7 +13,7 @@ from app.models.platform import (
     SpotifyPlaylistMetadata,
     YandexMetadata,
 )
-from app.models.track import Track
+from app.db.models.track import Track
 
 
 async def _make_track(db, title: str = "Test Track") -> Track:

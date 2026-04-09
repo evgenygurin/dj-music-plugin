@@ -108,10 +108,10 @@ Models → Repositories → Services → MCP Tools (@tool)
 ```
 
 **Слои:**
-- `app/models/` — SQLAlchemy 2.0 async (44 tables)
-- `app/repositories/` — data access (flush only, never commit)
+- `app/db/models/` — SQLAlchemy 2.0 async (44 tables)
+- `app/db/repositories/` — data access (flush only, never commit)
 - `app/services/` — business logic (TrackService, PlaylistService, TransitionScorer + `TrackFeatures.from_db()`, GA/Greedy optimizer)
-- `app/mcp/tools/` — thin MCP wrappers with Depends() DI
+- `app/controllers/tools/` — thin MCP wrappers with Depends() DI
 - `app/audio/` — layered audio analysis (see below)
 - `app/ym/` — async Yandex Music client (httpx, rate limiting)
 

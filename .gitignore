@@ -41,6 +41,8 @@ CLAUDE.local.md
 .claude/settings.local.json
 .claude/scheduled_tasks.lock
 .claude/scheduled_tasks.json
+# DJ Music Plugin per-project settings (template committed as *.example)
+.claude/dj-music.local.md
 
 # Override global .gitignore: track .claude/rules/, settings.json, and .mcp.json
 !.claude/

@@ -12,13 +12,13 @@ import itertools
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
+from app.camelot.wheel import camelot_distance
 from app.config import settings
-from app.core.camelot import camelot_distance
-from app.domain.transition import TransitionScorer
-from app.models.transition import TransitionCandidate
+from app.db.models.transition import TransitionCandidate
+from app.transition import TransitionScorer
 
 if TYPE_CHECKING:
-    from app.repositories.candidate import CandidateRepository
+    from app.db.repositories.candidate import CandidateRepository
 
 
 @dataclass
@@ -166,7 +166,7 @@ class CandidateService:
     @staticmethod
     def _bpm_distance(bpm_a: float | None, bpm_b: float | None) -> float | None:
         """BPM distance with double/half-time awareness, or None if data missing."""
-        from app.domain.transition.math_helpers import bpm_distance
+        from app.transition.math_helpers import bpm_distance
 
         if bpm_a is None or bpm_b is None:
             return None

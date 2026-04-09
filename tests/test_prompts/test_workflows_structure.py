@@ -1,7 +1,9 @@
-"""Structural tests for workflow prompts (without fastmcp runtime).
+"""Structural tests for workflow prompts (Phase 10 split — directory layout).
 
-These tests verify the prompt structure and parameters without needing
-to import and run FastMCP, which has dependency issues in this environment.
+After Phase 10, workflows.py was split into per-prompt modules under
+app/controllers/prompts/workflows/. These tests verify each module has
+the expected @prompt-decorated function with correct parameters and
+docstrings, without importing fastmcp at runtime.
 """
 
 import ast
@@ -9,214 +11,91 @@ from pathlib import Path
 
 import pytest
 
+WORKFLOWS_DIR = Path("app/controllers/prompts/workflows")
 
-def test_workflows_file_exists():
-    """The workflows.py file should exist."""
-    workflows_file = Path("app/mcp/prompts/workflows.py")
-    assert workflows_file.exists()
-
-
-def test_workflows_syntax():
-    """The workflows.py file should be valid Python."""
-    workflows_file = Path("app/mcp/prompts/workflows.py")
-    code = workflows_file.read_text()
-    try:
-        ast.parse(code)
-    except SyntaxError as e:
-        pytest.fail(f"Syntax error in workflows.py: {e}")
-
-
-def test_prompt_functions_defined():
-    """All 5 workflow prompt functions should be defined."""
-    workflows_file = Path("app/mcp/prompts/workflows.py")
-    code = workflows_file.read_text()
-    tree = ast.parse(code)
-
-    function_names = {node.name for node in ast.walk(tree) if isinstance(node, ast.FunctionDef)}
-
-    expected_prompts = {
-        "build_set_workflow",
-        "expand_playlist_workflow",
-        "improve_set_workflow",
-        "deliver_set_workflow",
-        "full_expansion_pipeline",
-    }
-
-    assert expected_prompts.issubset(function_names), (
-        f"Missing prompts: {expected_prompts - function_names}"
-    )
+EXPECTED = {
+    "build_set.py": {
+        "function": "build_set_workflow",
+        "params": {"playlist_name", "template", "duration_min"},
+    },
+    "expand_playlist.py": {
+        "function": "expand_playlist_workflow",
+        "params": {"playlist_name", "target_count"},
+    },
+    "improve_set.py": {
+        "function": "improve_set_workflow",
+        "params": {"set_name"},
+    },
+    "deliver_set.py": {
+        "function": "deliver_set_workflow",
+        "params": {"set_name", "sync_ym"},
+    },
+    "full_pipeline.py": {
+        "function": "full_expansion_pipeline",
+        "params": {"source_playlist", "target_per_subgenre"},
+    },
+    "llm_discovery.py": {
+        "function": "llm_discovery_workflow",
+        "params": set(),  # any
+    },
+}
 
 
-def test_prompt_functions_have_docstrings():
-    """All prompt functions should have docstrings."""
-    workflows_file = Path("app/mcp/prompts/workflows.py")
-    code = workflows_file.read_text()
-    tree = ast.parse(code)
+def _parse(filename: str) -> ast.Module:
+    path = WORKFLOWS_DIR / filename
+    assert path.exists(), f"missing module: {path}"
+    return ast.parse(path.read_text())
 
-    expected_prompts = {
-        "build_set_workflow",
-        "expand_playlist_workflow",
-        "improve_set_workflow",
-        "deliver_set_workflow",
-        "full_expansion_pipeline",
-    }
 
+def _find_func(tree: ast.Module, name: str) -> ast.FunctionDef:
     for node in ast.walk(tree):
-        if isinstance(node, ast.FunctionDef) and node.name in expected_prompts:
-            assert ast.get_docstring(node) is not None, f"Function {node.name} missing docstring"
+        if isinstance(node, ast.FunctionDef) and node.name == name:
+            return node
+    pytest.fail(f"function {name} not found")
 
 
-def test_prompt_functions_have_mcp_decorator():
-    """All prompt functions should have @mcp.prompt decorator."""
-    workflows_file = Path("app/mcp/prompts/workflows.py")
-    code = workflows_file.read_text()
+@pytest.mark.parametrize("filename, spec", EXPECTED.items())
+def test_workflow_module_exists(filename: str, spec: dict) -> None:
+    tree = _parse(filename)
+    fn = _find_func(tree, spec["function"])
+    assert ast.get_docstring(fn) is not None, f"{spec['function']} missing docstring"
+    if spec["params"]:
+        param_names = {arg.arg for arg in fn.args.args}
+        missing = spec["params"] - param_names
+        assert not missing, f"{spec['function']} missing params: {missing}"
+    decorator_names = []
+    for dec in fn.decorator_list:
+        if isinstance(dec, ast.Call) and isinstance(dec.func, ast.Name):
+            decorator_names.append(dec.func.id)
+        elif isinstance(dec, ast.Name):
+            decorator_names.append(dec.id)
+    assert "prompt" in decorator_names, f"{spec['function']} missing @prompt decorator"
+
+
+def test_init_reexports_all_workflows() -> None:
+    init = WORKFLOWS_DIR / "__init__.py"
+    code = init.read_text()
     tree = ast.parse(code)
-
-    expected_prompts = {
-        "build_set_workflow",
-        "expand_playlist_workflow",
-        "improve_set_workflow",
-        "deliver_set_workflow",
-        "full_expansion_pipeline",
-    }
-
+    reexported = set()
     for node in ast.walk(tree):
-        if isinstance(node, ast.FunctionDef) and node.name in expected_prompts:
-            # Check for @prompt or @prompt(...) decorator
-            decorator_names = []
-            for dec in node.decorator_list:
-                if isinstance(dec, ast.Attribute):
-                    decorator_names.append(f"{dec.value.id}.{dec.attr}")
-                elif isinstance(dec, ast.Name):
-                    decorator_names.append(dec.id)
-                elif isinstance(dec, ast.Call):
-                    # @prompt(...) with arguments
-                    func = dec.func
-                    if isinstance(func, ast.Name):
-                        decorator_names.append(func.id)
-                    elif isinstance(func, ast.Attribute):
-                        decorator_names.append(f"{func.value.id}.{func.attr}")
-
-            assert "prompt" in decorator_names, f"Function {node.name} missing @prompt decorator"
+        if isinstance(node, ast.ImportFrom) and node.module and "workflows." in node.module:
+            for alias in node.names:
+                reexported.add(alias.name)
+    expected_funcs = {spec["function"] for spec in EXPECTED.values()}
+    missing = expected_funcs - reexported
+    assert not missing, f"__init__ missing re-exports: {missing}"
 
 
-def test_prompt_return_annotations():
-    """All prompt functions should return list[Message]."""
-    workflows_file = Path("app/mcp/prompts/workflows.py")
-    code = workflows_file.read_text()
-    tree = ast.parse(code)
-
-    expected_prompts = {
-        "build_set_workflow",
-        "expand_playlist_workflow",
-        "improve_set_workflow",
-        "deliver_set_workflow",
-        "full_expansion_pipeline",
-    }
-
-    for node in ast.walk(tree):
-        if isinstance(node, ast.FunctionDef) and node.name in expected_prompts:
-            # Check return annotation
-            assert node.returns is not None, f"Function {node.name} missing return type annotation"
-            # The annotation should be list[Message]
-            # We can't easily check this statically without importing,
-            # but we can check it's present
-
-
-def test_build_set_workflow_parameters():
-    """build_set_workflow should have correct parameters."""
-    workflows_file = Path("app/mcp/prompts/workflows.py")
-    code = workflows_file.read_text()
-    tree = ast.parse(code)
-
-    for node in ast.walk(tree):
-        if isinstance(node, ast.FunctionDef) and node.name == "build_set_workflow":
-            param_names = [arg.arg for arg in node.args.args]
-            assert "playlist_name" in param_names
-            assert "template" in param_names
-            assert "duration_min" in param_names
-
-
-def test_expand_playlist_workflow_parameters():
-    """expand_playlist_workflow should have correct parameters."""
-    workflows_file = Path("app/mcp/prompts/workflows.py")
-    code = workflows_file.read_text()
-    tree = ast.parse(code)
-
-    for node in ast.walk(tree):
-        if isinstance(node, ast.FunctionDef) and node.name == "expand_playlist_workflow":
-            param_names = [arg.arg for arg in node.args.args]
-            assert "playlist_name" in param_names
-            assert "target_count" in param_names
-
-
-def test_improve_set_workflow_parameters():
-    """improve_set_workflow should have correct parameters."""
-    workflows_file = Path("app/mcp/prompts/workflows.py")
-    code = workflows_file.read_text()
-    tree = ast.parse(code)
-
-    for node in ast.walk(tree):
-        if isinstance(node, ast.FunctionDef) and node.name == "improve_set_workflow":
-            param_names = [arg.arg for arg in node.args.args]
-            assert "set_name" in param_names
-
-
-def test_deliver_set_workflow_parameters():
-    """deliver_set_workflow should have correct parameters."""
-    workflows_file = Path("app/mcp/prompts/workflows.py")
-    code = workflows_file.read_text()
-    tree = ast.parse(code)
-
-    for node in ast.walk(tree):
-        if isinstance(node, ast.FunctionDef) and node.name == "deliver_set_workflow":
-            param_names = [arg.arg for arg in node.args.args]
-            assert "set_name" in param_names
-            assert "sync_ym" in param_names
-
-
-def test_full_expansion_pipeline_parameters():
-    """full_expansion_pipeline should have correct parameters."""
-    workflows_file = Path("app/mcp/prompts/workflows.py")
-    code = workflows_file.read_text()
-    tree = ast.parse(code)
-
-    for node in ast.walk(tree):
-        if isinstance(node, ast.FunctionDef) and node.name == "full_expansion_pipeline":
-            param_names = [arg.arg for arg in node.args.args]
-            assert "source_playlist" in param_names
-            assert "target_per_subgenre" in param_names
-
-
-def test_imports_message_from_fastmcp():
-    """Should import Message from fastmcp.prompts."""
-    workflows_file = Path("app/mcp/prompts/workflows.py")
-    code = workflows_file.read_text()
-    tree = ast.parse(code)
-
-    has_message_import = False
-    for node in ast.walk(tree):
-        if isinstance(node, ast.ImportFrom) and node.module == "fastmcp.prompts":
-            names = [alias.name for alias in node.names]
-            if "Message" in names:
-                has_message_import = True
-                break
-
-    assert has_message_import, "Missing 'from fastmcp.prompts import Message'"
-
-
-def test_imports_mcp_server():
-    """Should import mcp from app.server."""
-    workflows_file = Path("app/mcp/prompts/workflows.py")
-    code = workflows_file.read_text()
-    tree = ast.parse(code)
-
-    has_mcp_import = False
-    for node in ast.walk(tree):
-        if isinstance(node, ast.ImportFrom) and node.module == "fastmcp.prompts":
-            names = [alias.name for alias in node.names]
-            if "prompt" in names:
-                has_mcp_import = True
-                break
-
-    assert has_mcp_import, "Missing 'from fastmcp.prompts import prompt'"
+def test_imports_message_and_prompt_from_fastmcp() -> None:
+    for filename in EXPECTED:
+        tree = _parse(filename)
+        has_message = has_prompt = False
+        for node in ast.walk(tree):
+            if isinstance(node, ast.ImportFrom) and node.module == "fastmcp.prompts":
+                names = {alias.name for alias in node.names}
+                if "Message" in names:
+                    has_message = True
+                if "prompt" in names:
+                    has_prompt = True
+        assert has_message, f"{filename} missing 'from fastmcp.prompts import Message'"
+        assert has_prompt, f"{filename} missing 'from fastmcp.prompts import prompt'"

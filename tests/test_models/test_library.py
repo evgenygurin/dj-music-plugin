@@ -3,14 +3,14 @@
 import pytest
 from sqlalchemy.exc import IntegrityError
 
-from app.models.library import (
+from app.db.models.library import (
     DjBeatgrid,
     DjBeatgridChangePoint,
     DjCuePoint,
     DjLibraryItem,
     DjSavedLoop,
 )
-from app.models.track import Track
+from app.db.models.track import Track
 
 
 async def _make_track(db, title="Test Track"):

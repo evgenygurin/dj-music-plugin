@@ -35,7 +35,7 @@ READ path (dashboard, listings):
 
 WRITE path (mutations):
   User action → Server action (actions/*.ts) → lib/mcp-client.ts
-    → HTTP POST /api/tools/{name}/call → serve_http.py → MCP Server → DB
+    → HTTP POST /api/tools/{name}/call → app/api/server.py → MCP Server → DB
 ```
 
 ## Server Actions
@@ -95,4 +95,4 @@ bun install
 bun dev                        # http://localhost:3000
 ```
 
-Requires running backend: `uv run uvicorn serve_http:api --port 8000`
+Requires running backend: `uv run uvicorn app.api.server:api --port 8000`

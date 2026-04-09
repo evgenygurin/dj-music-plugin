@@ -2,7 +2,7 @@
 
 import pytest
 
-from app.core.camelot import (
+from app.camelot.wheel import (
     camelot_distance,
     camelot_to_key_code,
     is_compatible,

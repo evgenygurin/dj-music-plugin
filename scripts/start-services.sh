@@ -127,7 +127,7 @@ rotate_log "$PANEL_LOG"
   # shellcheck disable=SC1091
   . .env 2>/dev/null || true
   set +a
-  nohup uv run --extra http uvicorn serve_http:api \
+  nohup uv run --extra http uvicorn app.api.server:api \
     --host 127.0.0.1 --port "$BACKEND_PORT" \
     >"$BACKEND_LOG" 2>&1 &
   disown

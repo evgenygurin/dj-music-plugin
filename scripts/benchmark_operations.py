@@ -59,12 +59,12 @@ async def make_session():
 @asynccontextmanager
 async def make_services():
     """Create all services with a shared session."""
-    from app.repositories.feature import FeatureRepository
-    from app.repositories.playlist import PlaylistRepository
-    from app.repositories.set import SetRepository
-    from app.repositories.track import TrackRepository
-    from app.repositories.transition import TransitionRepository
-    from app.services.set_service import SetService
+    from app.db.repositories.feature import FeatureRepository
+    from app.db.repositories.playlist import PlaylistRepository
+    from app.db.repositories.set import SetRepository
+    from app.db.repositories.track import TrackRepository
+    from app.db.repositories.transition import TransitionRepository
+    from app.services.set.facade import SetService
     from app.services.track_service import TrackService
 
     async with make_session() as session:
@@ -123,7 +123,7 @@ async def bench_get_features_batch(track_svc: Any) -> TimingResult:
 
 
 async def bench_list_playlists(session: Any) -> TimingResult:
-    from app.repositories.playlist import PlaylistRepository
+    from app.db.repositories.playlist import PlaylistRepository
 
     repo = PlaylistRepository(session)
     with Timer("list_all(playlists)") as t:
@@ -133,7 +133,7 @@ async def bench_list_playlists(session: Any) -> TimingResult:
 
 
 async def bench_get_playlist_with_tracks(session: Any) -> TimingResult:
-    from app.repositories.playlist import PlaylistRepository
+    from app.db.repositories.playlist import PlaylistRepository
 
     repo = PlaylistRepository(session)
     track_count = 0
@@ -242,7 +242,7 @@ async def bench_ym_get_tracks() -> TimingResult:
 
 async def bench_import_tracks(session: Any, track_svc: Any) -> TimingResult:
     """Measure import of already-existing tracks (idempotent skip)."""
-    from app.repositories.track import TrackRepository
+    from app.db.repositories.track import TrackRepository
 
     repo = TrackRepository(session)
     with Timer("import_tracks(5 existing — skip check)") as t:

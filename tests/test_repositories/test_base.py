@@ -2,8 +2,8 @@
 
 import pytest
 
-from app.models.track import Track
-from app.repositories.base import BaseRepository
+from app.db.models.track import Track
+from app.db.repositories.base import BaseRepository
 
 
 @pytest.fixture

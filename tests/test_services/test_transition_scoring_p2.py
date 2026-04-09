@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import pytest
 
-from app.core.track_features import TrackFeatures
+from app.entities.audio.features import TrackFeatures
 from app.services.transition import TransitionScorer
 
 
@@ -96,7 +96,9 @@ class TestTimbralComponent:
         from app.core.constants import DEFAULT_TRANSITION_WEIGHTS
 
         assert "timbral" in DEFAULT_TRANSITION_WEIGHTS
-        assert DEFAULT_TRANSITION_WEIGHTS["timbral"] == pytest.approx(0.10)
+        # Rebalanced 0.10 → 0.15 in commit 6 of the transition redesign.
+        # See docs/research/2026-04-08-techno-transitions-research.md §4.4
+        assert DEFAULT_TRANSITION_WEIGHTS["timbral"] == pytest.approx(0.15)
 
     def test_weights_sum_to_one(self) -> None:
         """All default weights must sum to 1.0."""
@@ -388,39 +390,39 @@ class TestTransitionIntent:
     """Tests for TransitionIntent enum, weight modifiers, and infer_intent."""
 
     def test_infer_ramp_up_early_position(self) -> None:
-        from app.core.transition_intent import TransitionIntent, infer_intent
+        from app.transition.intent import TransitionIntent, infer_intent
 
         assert infer_intent(0.1, 0.0) == TransitionIntent.RAMP_UP
 
     def test_infer_cool_down_late_position(self) -> None:
-        from app.core.transition_intent import TransitionIntent, infer_intent
+        from app.transition.intent import TransitionIntent, infer_intent
 
         assert infer_intent(0.9, 0.0) == TransitionIntent.COOL_DOWN
 
     def test_infer_ramp_up_energy_delta(self) -> None:
-        from app.core.transition_intent import TransitionIntent, infer_intent
+        from app.transition.intent import TransitionIntent, infer_intent
 
         assert infer_intent(0.5, 3.0) == TransitionIntent.RAMP_UP
 
     def test_infer_cool_down_energy_delta(self) -> None:
-        from app.core.transition_intent import TransitionIntent, infer_intent
+        from app.transition.intent import TransitionIntent, infer_intent
 
         assert infer_intent(0.5, -3.0) == TransitionIntent.COOL_DOWN
 
     def test_infer_maintain_default(self) -> None:
-        from app.core.transition_intent import TransitionIntent, infer_intent
+        from app.transition.intent import TransitionIntent, infer_intent
 
         assert infer_intent(0.5, 0.5) == TransitionIntent.MAINTAIN
 
     def test_all_intents_weights_sum_to_one(self) -> None:
-        from app.core.transition_intent import INTENT_WEIGHT_MODIFIERS
+        from app.transition.intent import INTENT_WEIGHT_MODIFIERS
 
         for intent, weights in INTENT_WEIGHT_MODIFIERS.items():
             total = sum(weights.values())
             assert abs(total - 1.0) < 0.01, f"{intent}: weights sum to {total}"
 
     def test_scorer_with_intent_produces_valid_score(self) -> None:
-        from app.core.transition_intent import TransitionIntent
+        from app.transition.intent import TransitionIntent
 
         scorer = TransitionScorer()
         a = _base_features()

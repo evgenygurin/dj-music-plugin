@@ -16,9 +16,9 @@ from unittest.mock import AsyncMock
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.playlist import Playlist
-from app.repositories.playlist import PlaylistRepository
-from app.repositories.track import TrackRepository
+from app.db.models.playlist import Playlist
+from app.db.repositories.playlist import PlaylistRepository
+from app.db.repositories.track import TrackRepository
 from app.services.import_service import ImportService
 
 

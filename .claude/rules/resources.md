@@ -1,6 +1,6 @@
 ---
 description: MCP resource implementation patterns
-globs: app/mcp/resources/**/*.py
+globs: app/controllers/resources/**/*.py
 ---
 
 # MCP Resources

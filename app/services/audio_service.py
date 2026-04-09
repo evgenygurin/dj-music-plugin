@@ -15,8 +15,8 @@ from app.audio.pipeline import AnalysisPipeline
 
 if TYPE_CHECKING:
     from app.audio.analyzers import AnalyzerRegistry
-    from app.models.audio import TrackAudioFeaturesComputed
-    from app.repositories.audio import AudioRepository
+    from app.db.models.audio import TrackAudioFeaturesComputed
+    from app.db.repositories.audio import AudioRepository
 
 logger = logging.getLogger(__name__)
 
@@ -72,7 +72,7 @@ class AudioService:
             }
 
         # 4. Check iCloud stub
-        from app.utils.files import is_icloud_stub
+        from app.core.utils.files import is_icloud_stub
 
         if is_icloud_stub(file_path):
             return {
@@ -100,7 +100,7 @@ class AudioService:
         if force:
             await self._repo.delete_features(track_id)
 
-        from app.models.audio import TrackAudioFeaturesComputed
+        from app.db.models.audio import TrackAudioFeaturesComputed
 
         features = await self._repo.create_features_from_pipeline(
             track_id=track_id,

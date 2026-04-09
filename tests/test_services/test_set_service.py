@@ -5,14 +5,14 @@ from __future__ import annotations
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.playlist import Playlist, PlaylistItem
-from app.models.track import Track
-from app.repositories.feature import FeatureRepository
-from app.repositories.playlist import PlaylistRepository
-from app.repositories.set import SetRepository
-from app.repositories.track import TrackRepository
-from app.repositories.transition import TransitionRepository
-from app.services.set_service import SetService
+from app.db.models.playlist import Playlist, PlaylistItem
+from app.db.models.track import Track
+from app.db.repositories.feature import FeatureRepository
+from app.db.repositories.playlist import PlaylistRepository
+from app.db.repositories.set import SetRepository
+from app.db.repositories.track import TrackRepository
+from app.db.repositories.transition import TransitionRepository
+from app.services.set.facade import SetService
 
 
 def _make_set_service(db: AsyncSession) -> SetService:

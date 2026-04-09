@@ -25,7 +25,6 @@ export default async function LibraryPage({ searchParams }: LibraryPageProps) {
       <LibraryTable
         initialTracks={result.tracks}
         total={result.total}
-        currentPage={1}
         currentSearch={search ?? ''}
         currentSortBy={sortBy}
         currentSortDir={sortDir}

@@ -4,8 +4,8 @@ import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import NotFoundError, ValidationError
-from app.models.track import Track
-from app.repositories.embedding import EmbeddingRepository
+from app.db.models.track import Track
+from app.db.repositories.embedding import EmbeddingRepository
 from app.services.embedding_service import (
     EmbeddingService,
     _deserialize_vector,

@@ -1,0 +1,27 @@
+---
+# Panel dev overrides — consumed by /panel-setup → writes panel/.env.local
+supabase_url: https://your-project.supabase.co
+supabase_anon_key: your-anon-key
+mcp_http_url: http://localhost:8000/mcp
+
+# Feature flags
+enable_echo_out_style: true
+enable_filter_sweep_style: true
+
+# Default set-building behaviour
+default_template: peak_hour_60
+default_crossfade_bars: 32
+default_analysis_level: 3
+
+# VM background jobs
+vm_host: root@your-vm-host
+vm_workers: 12
+vm_sleep_sec: 600
+---
+
+# DJ Music Plugin — per-project settings
+
+Copy this file to `.claude/dj-music.local.md` and customise. The copy
+is gitignored — safe for tokens and host addresses.
+
+See `docs/plugin-settings.md` for the field reference.

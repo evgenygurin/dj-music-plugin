@@ -3,10 +3,10 @@
 import pytest
 from sqlalchemy.exc import IntegrityError
 
-from app.models.playlist import Playlist
-from app.models.set import DjSet, SetConstraint, SetFeedback, SetItem, SetVersion
-from app.models.track import Track
-from app.models.transition import Transition
+from app.db.models.playlist import Playlist
+from app.db.models.set import DjSet, SetConstraint, SetFeedback, SetItem, SetVersion
+from app.db.models.track import Track
+from app.db.models.transition import Transition
 
 
 async def _make_track(db, title: str = "Test Track") -> Track:

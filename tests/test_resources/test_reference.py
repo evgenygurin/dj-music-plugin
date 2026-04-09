@@ -4,12 +4,12 @@ import json
 
 import pytest
 
-from app.core.constants import CAMELOT_KEYS, SetTemplate, TechnoSubgenre
-from app.mcp.resources.reference import (
+from app.controllers.resources.reference import (
     camelot_reference,
     subgenres_reference,
     templates_reference,
 )
+from app.core.constants import CAMELOT_KEYS, SetTemplate, TechnoSubgenre
 
 
 @pytest.mark.asyncio

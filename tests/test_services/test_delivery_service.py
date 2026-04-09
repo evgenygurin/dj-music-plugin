@@ -8,12 +8,12 @@ import pytest
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.export import AppExport
-from app.repositories.export import ExportRepository
-from app.repositories.feature import FeatureRepository
-from app.repositories.set import SetRepository
-from app.repositories.track import TrackRepository
-from app.repositories.transition import TransitionRepository
+from app.db.models.export import AppExport
+from app.db.repositories.export import ExportRepository
+from app.db.repositories.feature import FeatureRepository
+from app.db.repositories.set import SetRepository
+from app.db.repositories.track import TrackRepository
+from app.db.repositories.transition import TransitionRepository
 from app.services.delivery_service import DeliveryService
 from app.services.export import ExportTrack, SetExportData
 

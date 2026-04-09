@@ -8,6 +8,9 @@ import {
   Play,
   SkipBack,
   SkipForward,
+  Sparkles,
+  Wand2,
+  Waves,
 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
@@ -33,9 +36,31 @@ export function MiniPlayerBar() {
   const { audio } = player
   if (player.layer !== 1) return null
 
-  const { current, isPlaying, isLoading, position, duration } = audio
+  const {
+    current,
+    isPlaying,
+    isLoading,
+    position,
+    duration,
+    autoDj,
+    mixEnabled,
+    isCrossfading,
+    lastResolvedStyle,
+    lastResolvedStyleWasManual,
+    recommendedStyle,
+  } = audio
   const hasTrack = current !== null
+  const activeStyle = lastResolvedStyle ?? recommendedStyle
   const progressPct = hasTrack && duration > 0 ? (position / duration) * 100 : 0
+  const autoMixOn = autoDj && mixEnabled
+  const handleToggleAutoMix = () => {
+    if (autoMixOn) {
+      audio.toggleAutoDj()
+    } else {
+      if (!autoDj) audio.toggleAutoDj()
+      if (!mixEnabled) audio.toggleMixEnabled()
+    }
+  }
 
   return (
     <div
@@ -100,11 +125,70 @@ export function MiniPlayerBar() {
             className="h-8 w-8 text-muted-foreground hover:text-foreground"
             onClick={() => audio.next()}
             disabled={!hasTrack || !audio.hasNext}
-            aria-label="Next track"
+            aria-label="Next track (hard cut)"
+            title="Next (hard cut)"
           >
             <SkipForward className="size-3.5" />
           </Button>
+          {/* Recommended next — scorer pick, not random */}
+          <Button
+            size="icon"
+            variant="ghost"
+            className="h-8 w-8 text-primary/80 hover:bg-primary/10 hover:text-primary"
+            onClick={() => {
+              void audio.playRecommendedNext()
+            }}
+            disabled={!hasTrack}
+            aria-label="Play recommended next track"
+            title="Recommended next"
+          >
+            <Sparkles className="size-3.5" />
+          </Button>
+          {/* Mix now — immediate crossfade to next */}
+          <Button
+            size="icon"
+            variant="ghost"
+            className="h-8 w-8 text-primary/80 hover:bg-primary/10 hover:text-primary"
+            onClick={() => audio.mixNow()}
+            disabled={!hasTrack}
+            aria-label="Mix now"
+            title="Mix now"
+          >
+            <Waves className="size-3.5" />
+          </Button>
+          {/* Auto-Mix master switch (compact) */}
+          <Button
+            size="icon"
+            variant={autoMixOn ? 'default' : 'ghost'}
+            className="h-8 w-8"
+            onClick={handleToggleAutoMix}
+            aria-label={autoMixOn ? 'Turn Auto-Mix off' : 'Turn Auto-Mix on'}
+            aria-pressed={autoMixOn}
+            title={autoMixOn ? 'Auto-Mix ON' : 'Auto-Mix OFF'}
+          >
+            <Wand2 className="size-3.5" />
+          </Button>
         </div>
+
+        {/* Resolved style badge — visible only during active crossfade */}
+        {isCrossfading && activeStyle && (
+          <span
+            className={cn(
+              'hidden rounded-full border px-2 py-0.5 font-mono text-[9px] uppercase tracking-wider md:inline',
+              lastResolvedStyleWasManual
+                ? 'border-amber-400/50 bg-amber-400/10 text-amber-300'
+                : 'border-primary/40 bg-primary/10 text-primary',
+            )}
+            title={
+              lastResolvedStyleWasManual
+                ? 'Manual override — user picked this style'
+                : 'Backend-recommended transition style'
+            }
+          >
+            {activeStyle.replace(/_/g, ' ')}
+            {lastResolvedStyleWasManual ? ' · manual' : ''}
+          </span>
+        )}
 
         {/* Right: time */}
         <span className="hidden tabular-nums text-[10px] text-muted-foreground sm:inline">

@@ -2,9 +2,9 @@
 
 import pytest
 
-from app.models.playlist import Playlist, PlaylistItem
-from app.models.track import Track
-from app.repositories.playlist import PlaylistRepository
+from app.db.models.playlist import Playlist, PlaylistItem
+from app.db.models.track import Track
+from app.db.repositories.playlist import PlaylistRepository
 
 
 @pytest.fixture

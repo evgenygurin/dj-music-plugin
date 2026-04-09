@@ -18,6 +18,16 @@ export interface TrackMixMeta {
   introEndSec: number | null // optimal end of mix-in zone
   introStartSec: number | null // start of intro (where to "drop" the next track in)
   sections: TrackSection[]
+  // ── Loudness (for LUFS normalization during crossfade) ────
+  integratedLufs: number | null
+  truePeakDb: number | null
+  // ── Kick / bass character (for adaptive bass swap) ────────
+  kickProminence: number | null // 0..1 — how much the kick stands out
+  hpRatio: number | null // harmonic-to-percussive ratio
+  // ── Low-band energy (for swap-depth adaptation) ───────────
+  energySub: number | null // ~20-60 Hz
+  energyLow: number | null // ~60-250 Hz
+  energyLowmid: number | null // ~250-500 Hz (kick click region)
 }
 
 const SECTION_INTRO = 0
@@ -27,21 +37,76 @@ const SECTION_OUTRO = 7
 export async function getTrackMixMeta(trackId: number): Promise<TrackMixMeta | null> {
   const supabase = await createClient()
 
-  const [trackResult, featuresResult, sectionsResult] = await Promise.all([
-    supabase.from('tracks').select('id, duration_ms').eq('id', trackId).maybeSingle(),
-    supabase
-      .from('track_audio_features_computed')
-      .select('bpm')
-      .eq('track_id', trackId)
-      .maybeSingle(),
-    supabase
-      .from('track_sections')
-      .select('section_type, start_ms, end_ms, energy, confidence')
-      .eq('track_id', trackId)
-      .order('start_ms', { ascending: true }),
-  ])
+  // Four parallel fetches. Beatgrid is a 2-step join through
+  // `dj_library_items` because `dj_beatgrids.library_item_id` points
+  // at library items, not tracks directly. We pick the canonical row
+  // (tracks may have multiple beatgrid attempts) and fall back to
+  // max(created_at) when nothing is flagged canonical.
+  const [trackResult, featuresResult, sectionsResult, libraryItemResult] =
+    await Promise.all([
+      supabase.from('tracks').select('id, duration_ms').eq('id', trackId).maybeSingle(),
+      supabase
+        .from('track_audio_features_computed')
+        .select(
+          'bpm, integrated_lufs, true_peak_db, kick_prominence, hp_ratio, energy_sub, energy_low, energy_lowmid',
+        )
+        .eq('track_id', trackId)
+        .maybeSingle(),
+      supabase
+        .from('track_sections')
+        .select('section_type, start_ms, end_ms, energy, confidence')
+        .eq('track_id', trackId)
+        .order('start_ms', { ascending: true }),
+      supabase
+        .from('dj_library_items')
+        .select('id')
+        .eq('track_id', trackId)
+        .order('id', { ascending: true })
+        .limit(1)
+        .maybeSingle(),
+    ])
 
   if (!trackResult.data) return null
+
+  // Beatgrid is best-effort: if the library item exists we try to
+  // pull the canonical grid, else fall back to the latest one. Any
+  // failure silently leaves the fields as null and the crossfade
+  // engine keeps its "firstDownbeat = 0" assumption.
+  let beatgridBpm: number | null = null
+  let firstDownbeatMs: number | null = null
+  if (libraryItemResult.data?.id) {
+    // Try canonical first.
+    const canonical = await supabase
+      .from('dj_beatgrids')
+      .select('bpm, first_downbeat_ms, grid_offset_ms, canonical')
+      .eq('library_item_id', libraryItemResult.data.id)
+      .eq('canonical', true)
+      .maybeSingle()
+    let row = canonical.data
+    if (!row) {
+      // Fall back to any beatgrid — most recent first.
+      const latest = await supabase
+        .from('dj_beatgrids')
+        .select('bpm, first_downbeat_ms, grid_offset_ms, canonical')
+        .eq('library_item_id', libraryItemResult.data.id)
+        .order('id', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+      row = latest.data ?? null
+    }
+    if (row) {
+      beatgridBpm = typeof row.bpm === 'number' ? row.bpm : null
+      // grid_offset_ms is an alternate name some importers use for
+      // the same quantity (distance from sample 0 to first downbeat).
+      // Prefer first_downbeat_ms, fall back to grid_offset_ms.
+      firstDownbeatMs =
+        typeof row.first_downbeat_ms === 'number'
+          ? row.first_downbeat_ms
+          : typeof row.grid_offset_ms === 'number'
+            ? row.grid_offset_ms
+            : null
+    }
+  }
 
   const sections: TrackSection[] = (sectionsResult.data ?? []).map((s) => ({
     type: s.section_type,
@@ -61,14 +126,31 @@ export async function getTrackMixMeta(trackId: number): Promise<TrackMixMeta | n
   const introStart = intros.length ? intros[0].startMs : null
   const introEnd = intros.length ? intros[0].endMs : null
 
+  const features = featuresResult.data
+  const pickNumber = (v: unknown): number | null =>
+    typeof v === 'number' && Number.isFinite(v) ? v : null
+
   return {
     trackId,
     durationMs: trackResult.data.duration_ms,
-    bpm: featuresResult.data?.bpm ?? null,
-    firstDownbeatSec: 0, // unknown without beatgrid; assumed 0 for techno
+    // Prefer beatgrid BPM (measured on the audio itself) over the
+    // features row, which may come from a different analyzer pass.
+    // Both are reliable for techno but the beatgrid is what the
+    // downbeat math uses, so use the same source for both.
+    bpm: beatgridBpm ?? pickNumber(features?.bpm),
+    // Real first downbeat from the beatgrid, or 0 as fallback for
+    // 4/4 techno with no measured grid (previous assumption).
+    firstDownbeatSec: firstDownbeatMs != null ? firstDownbeatMs / 1000 : 0,
     outroStartSec: outroStart != null ? outroStart / 1000 : null,
     introEndSec: introEnd != null ? introEnd / 1000 : null,
     introStartSec: introStart != null ? introStart / 1000 : null,
     sections,
+    integratedLufs: pickNumber(features?.integrated_lufs),
+    truePeakDb: pickNumber(features?.true_peak_db),
+    kickProminence: pickNumber(features?.kick_prominence),
+    hpRatio: pickNumber(features?.hp_ratio),
+    energySub: pickNumber(features?.energy_sub),
+    energyLow: pickNumber(features?.energy_low),
+    energyLowmid: pickNumber(features?.energy_lowmid),
   }
 }

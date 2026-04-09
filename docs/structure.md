@@ -16,7 +16,7 @@ dj-music-plugin/
 ├── alembic.ini                     # Alembic config
 ├── pyproject.toml
 ├── start.sh                        # Backend + Panel dev runner
-├── serve_http.py                   # FastAPI REST wrapper над MCP
+├── app/api/server.py                   # FastAPI REST wrapper над MCP
 │
 ├── .claude/
 │   ├── settings.json

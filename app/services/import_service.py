@@ -13,11 +13,11 @@ from typing import Any
 
 from app.config import settings
 from app.core.errors import ValidationError
-from app.models.library import DjLibraryItem
-from app.models.track import Track
-from app.repositories.ingestion import IngestionRepository
-from app.repositories.playlist import PlaylistRepository
-from app.repositories.track import TrackRepository
+from app.db.models.library import DjLibraryItem
+from app.db.models.track import Track
+from app.db.repositories.ingestion import IngestionRepository
+from app.db.repositories.playlist import PlaylistRepository
+from app.db.repositories.track import TrackRepository
 from app.ym.client import YandexMusicClient
 
 

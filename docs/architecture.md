@@ -77,7 +77,7 @@ External:
         ▼                    ▼
 ┌───────────────┐  ┌─────────────────────────┐
 │ Supabase      │  │ REST API (FastAPI)       │
-│ PostgreSQL    │  │ serve_http.py            │
+│ PostgreSQL    │  │ app/api/server.py            │
 │ (direct SQL)  │  │ http://localhost:8000    │
 └───────────────┘  │ ┌─────────────────────┐ │
                    │ │ /api/tools — list    │ │
@@ -113,7 +113,7 @@ External:
 
 ```text
 ./start.sh
-├── Backend: uv run uvicorn serve_http:api --port 8000
+├── Backend: uv run uvicorn app.api.server:api --port 8000
 │   └── MCP lifespan: DB connection, YM client, analyzer registry
 └── Panel: cd panel && bun dev --port 3000
     └── Connects to Supabase + MCP_HTTP_URL

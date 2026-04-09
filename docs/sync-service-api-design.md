@@ -88,7 +88,7 @@ class ProgressCallback(Protocol):
 ### Адаптеры (создаются в tool-слое, передаются в сервис):
 
 ```python
-# app/mcp/adapters.py
+# app/controllers/adapters.py
 
 class MCPProgressAdapter:
     """Wraps FastMCP Context into ProgressCallback."""
@@ -381,7 +381,7 @@ class SetPushService:
 
 ## 6. DI Chain
 
-### Новые DI-фабрики в `app/mcp/dependencies.py`:
+### Новые DI-фабрики в `app/controllers/dependencies.py`:
 
 ```python
 from app.services.sync import PlaylistSyncService, SetPushService
@@ -494,7 +494,7 @@ class SetPushService:
 Как tools используют сервисы (псевдокод, не реализация):
 
 ```python
-# app/mcp/tools/sync.py
+# app/controllers/tools/sync.py
 
 @mcp.tool(tags={"sync"}, annotations={"readOnlyHint": False, "openWorldHint": True})
 async def sync_playlist(
@@ -562,10 +562,10 @@ class PlatformRepository:
 |-----------|------|-------------|
 | `SyncError` hierarchy | `app/core/errors.py` | -- |
 | `ProgressCallback` protocol | `app/core/progress.py` | -- |
-| `MCPProgressAdapter` | `app/mcp/adapters.py` | `fastmcp.Context` |
+| `MCPProgressAdapter` | `app/controllers/adapters.py` | `fastmcp.Context` |
 | `NullProgress` | `app/core/progress.py` | -- |
 | Sync data types | `app/services/sync_types.py` | `pydantic` |
 | `PlaylistSyncService` | `app/services/sync.py` | `PlaylistRepo`, `TrackRepo`, `YMClient` |
 | `SetPushService` | `app/services/sync.py` | `SetRepo`, `TrackRepo`, `PlaylistRepo`, `YMClient` |
-| DI factories | `app/mcp/dependencies.py` | existing + `get_ym_client` |
-| Tool wrappers | `app/mcp/tools/sync.py` | services via `Depends` |
+| DI factories | `app/controllers/dependencies.py` | existing + `get_ym_client` |
+| Tool wrappers | `app/controllers/tools/sync.py` | services via `Depends` |
