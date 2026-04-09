@@ -90,7 +90,7 @@ unlock_tools(action="unlock", category="audio")
 
 ### 6-компонентный transition score
 ```text
-score = 0.22*BPM + 0.20*harmonic + 0.23*energy + 0.15*spectral + 0.10*groove + 0.10*timbral
+score = 0.20*BPM + 0.12*harmonic + 0.18*energy + 0.20*spectral + 0.15*groove + 0.15*timbral
 ```
 
 **Hard rejects** (score = 0.0):
@@ -99,6 +99,11 @@ score = 0.22*BPM + 0.20*harmonic + 0.23*energy + 0.15*spectral + 0.10*groove + 0
 - Energy gap > 6 LUFS
 
 Хороший переход: BPM ±3, Camelot ≤1, energy step ≤3 LUFS.
+
+### Context-aware особенности scoring
+- `TransitionIntent` зависит от шаблона сета (`warm_up_30`, `peak_hour_60`, `closing_60` и т.д.), не только от позиции.
+- Если есть section context (`out_section_id/in_section_id` или `mix_in/out` + `track_sections`), harmonic для drum-only пар релаксируется, и веса смещаются в сторону groove/spectral.
+- Если section context отсутствует, scorer работает в backward-compatible режиме.
 
 ### Техно-критерии (audit_playlist)
 BPM 120-155, LUFS -20..-4, HP ratio ≤8, centroid 300-10000 Hz, kick_prominence ≥0.05.
@@ -116,8 +121,9 @@ BPM 120-155, LUFS -20..-4, HP ratio ≤8, centroid 300-10000 Hz, kick_prominence
 ### Улучшить существующий сет
 1. `get_set(id, view="transitions")` + `score_transitions(mode="set", set_id=...)`
 2. Для каждого weak: `explain_transition(from, to)` → понять компонент
-3. `find_replacement` или `suggest_next_track`
-4. `rebuild_set` с pin/swap/exclude
+3. Смотри `used_section_context`: если `false`, при спорных переходах попроси user сделать `deliver_set`/re-score после заполнения mix points
+4. `find_replacement` или `suggest_next_track`
+5. `rebuild_set` с pin/swap/exclude
 
 ### Expand playlist новыми треками
 1. `audit_playlist` — текущее состояние
