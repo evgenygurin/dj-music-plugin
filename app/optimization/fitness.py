@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import math
 
+from app.core.constants import SetTemplate
 from app.entities.audio.features import TrackFeatures
 from app.templates.models import SetTemplateDefinition
 from app.transition.intent import infer_intent
@@ -26,10 +27,18 @@ def transition_quality(
     tracks: list[TrackFeatures],
     order: list[int],
     idx_map: dict[int, int],
+    template: SetTemplateDefinition | None = None,
 ) -> float:
     """Average transition score across consecutive pairs, using intent-aware weights."""
     if len(order) < 2:
         return 1.0
+    template_enum: SetTemplate | None = None
+    if template is not None:
+        try:
+            template_enum = SetTemplate(template.name)
+        except ValueError:
+            template_enum = None
+
     total = 0.0
     n = len(order)
     for i in range(n - 1):
@@ -37,7 +46,7 @@ def transition_quality(
         b = tracks[idx_map[order[i + 1]]]
         position = i / max(1, n - 2)
         energy_delta = (b.integrated_lufs or -8.0) - (a.integrated_lufs or -8.0)
-        intent = infer_intent(position, energy_delta)
+        intent = infer_intent(position, energy_delta, template=template_enum)
         score = scorer.score(a, b, intent=intent)
         total += 0.0 if score.hard_reject else score.overall
     return total / (n - 1)
@@ -166,7 +175,7 @@ def compute_fitness(
     """Weighted fitness for a track ordering. Returns 0-1."""
     w = _FITNESS_WEIGHTS
 
-    trans = transition_quality(scorer, tracks, order, idx_map)
+    trans = transition_quality(scorer, tracks, order, idx_map, template=template)
     bpm = bpm_smoothness(tracks, order, idx_map)
     energy = energy_arc_score(tracks, order, idx_map)
     variety = subgenre_variety(tracks, order, idx_map, moods)

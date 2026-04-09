@@ -173,6 +173,23 @@ Phase boundaries are now per-template (`_TEMPLATE_PHASE_TABLE`):
 
 When `template=None`, the historical 0.20 / 0.85 cutoffs are used — backward compatible.
 
+## Runtime Wiring (Template + Mood + Section Context)
+
+Transition math is only useful if it is wired into set runtime paths. Current runtime flow:
+
+1. `app/services/set/builder.py` now resolves `template_name` into a real template definition and passes both:
+   - `template=<SetTemplateDefinition>` and
+   - `moods=<track_id -> mood>`
+   into GA/greedy optimizers.
+2. `app/optimization/fitness.py:transition_quality` now calls
+   `infer_intent(..., template=<SetTemplate|None>)`, so transition intent follows the selected set template phase table.
+3. `app/services/set/scoring.py:score_set_transitions` now resolves optional `SectionContext` per pair:
+   - first from explicit set item section ids (`out_section_id` / `in_section_id`),
+   - fallback via `mix_in_point_ms` / `mix_out_point_ms` + `track_sections` through `build_section_context`,
+   - fallback to no-context scoring when neither path has enough data.
+
+This keeps MCP response shapes backward compatible while enabling section-aware scoring whenever context exists.
+
 ## Camelot Wheel
 
 24 keys arranged in a circle. Adjacent keys are harmonically compatible.
