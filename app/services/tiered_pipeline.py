@@ -154,9 +154,11 @@ class TieredPipeline:
                 logger.warning("No features extracted for track %s at level %s", track_id, level)
                 return False
 
-            # Extract sections before saving features (not a DB column)
+            # Extract non-column fields before saving features
             sections = result.features.pop("sections", None)
             result.features.pop("section_count", None)
+            beat_times: list[float] | None = result.features.pop("beat_times", None)
+            result.features.pop("beats_intervals", None)
 
             # Create pipeline run record for traceability
             run = await self._audio.create_pipeline_run(
@@ -179,6 +181,22 @@ class TieredPipeline:
             # Persist sections to track_sections table
             if sections:
                 await self._audio.save_sections(track_id, sections)
+
+            # Persist beatgrid from detected beat positions
+            if beat_times and len(beat_times) >= 2:
+                bpm = result.features.get("bpm")
+                if bpm and bpm > 0:
+                    # first_downbeat = first detected beat position
+                    first_downbeat_ms = beat_times[0] * 1000.0
+                    bpm_confidence = result.features.get("bpm_confidence")
+                    variable_tempo = bool(result.features.get("variable_tempo", False))
+                    await self._audio.save_beatgrid(
+                        track_id=track_id,
+                        bpm=bpm,
+                        first_downbeat_ms=first_downbeat_ms,
+                        confidence=bpm_confidence,
+                        variable_tempo=variable_tempo,
+                    )
 
             # Save frame-level timeseries data (if collected)
             save_ts = self._timeseries is not None and level >= AnalysisLevel.SCORING

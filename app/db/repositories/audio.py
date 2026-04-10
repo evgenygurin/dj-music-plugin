@@ -13,7 +13,7 @@ from app.db.models.audio import (
     TrackAudioFeaturesComputed,
     TrackSection,
 )
-from app.db.models.library import DjLibraryItem
+from app.db.models.library import DjBeatgrid, DjLibraryItem
 from app.db.models.track import Track
 from app.db.repositories.base import BaseRepository
 
@@ -166,6 +166,51 @@ class AudioRepository(BaseRepository[TrackAudioFeaturesComputed]):
             )
             self.session.add(section)
         await self.session.flush()
+
+    async def save_beatgrid(
+        self,
+        track_id: int,
+        bpm: float,
+        first_downbeat_ms: float,
+        confidence: float | None = None,
+        variable_tempo: bool = False,
+    ) -> DjBeatgrid | None:
+        """Create or update a canonical beatgrid for the track's library item.
+
+        Returns the beatgrid row, or None if no library item exists.
+        """
+        lib_item = await self.get_library_item_by_track_id(track_id)
+        if lib_item is None:
+            return None
+
+        # Check for existing canonical beatgrid
+        stmt = (
+            select(DjBeatgrid)
+            .where(DjBeatgrid.library_item_id == lib_item.id)
+            .where(DjBeatgrid.canonical.is_(True))
+        )
+        result = await self.session.execute(stmt)
+        existing = result.scalar_one_or_none()
+
+        if existing:
+            existing.bpm = bpm
+            existing.first_downbeat_ms = first_downbeat_ms
+            existing.confidence = confidence
+            existing.variable_tempo = variable_tempo
+            await self.session.flush()
+            return existing
+
+        beatgrid = DjBeatgrid(
+            library_item_id=lib_item.id,
+            bpm=bpm,
+            first_downbeat_ms=first_downbeat_ms,
+            confidence=confidence,
+            variable_tempo=variable_tempo,
+            canonical=True,
+        )
+        self.session.add(beatgrid)
+        await self.session.flush()
+        return beatgrid
 
     async def save_timeseries_reference(
         self, track_id: int, metadata: dict[str, Any]
