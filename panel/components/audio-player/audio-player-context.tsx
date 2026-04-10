@@ -963,11 +963,11 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
           const extraCleanup: Array<() => void> = []
 
           if (resolvedStyle === 'cut') {
-            // Drum cut: 50 ms linear fade on outgoing, instant snap
-            // on incoming. On the bar, just like a DJ hitting the
-            // fader. No overlap, no equal-power curve needed.
+            // Drum cut: 50 ms linear fade on outgoing, 5 ms micro-ramp
+            // on incoming to avoid click from MP3 decoder seek artifact.
             active.gain.gain.linearRampToValueAtTime(0, t0 + CUT_FADE_SEC)
-            inactive.gain.gain.setValueAtTime(vol, t0)
+            inactive.gain.gain.setValueAtTime(0, t0)
+            inactive.gain.gain.linearRampToValueAtTime(vol, t0 + 0.005)
           } else if (resolvedStyle === 'echo_out') {
             // ECHO_OUT: outgoing leaves on a dub-delay tail.
             //
