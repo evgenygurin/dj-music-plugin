@@ -607,6 +607,8 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
 
       setCurrent(track)
       historyRef.current = [...historyRef.current, track.id].slice(-50)
+      preloadFiredRef.current = false
+      preloadedNextRef.current = null
       setIsPlaying(true)
 
       // Kick off meta fetch in parallel with audio load. We consume it
@@ -1712,35 +1714,68 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     [],
   )
 
+  // ── Pre-load next track 30s before crossfade trigger ────────────
+  // Picks the next track early and starts loading its audio on the
+  // inactive deck so the crossfade begins instantly (no network wait).
+  const preloadedNextRef = useRef<PlayerTrackMeta | null>(null)
+  const preloadFiredRef = useRef(false)
+
   // Pre-emptive auto-DJ crossfade: prefer OUTRO section start as the
   // trigger so we mix during the outgoing track's designed mix-out zone.
   // Picker is async so we guard with a ref to avoid duplicate fires.
   const autoDjPickInFlight = useRef(false)
   useEffect(() => {
-    if (!autoDj || fadingRef.current || autoDjPickInFlight.current || !current) return
+    if (!autoDj || fadingRef.current || !current) return
     if (!duration) return
     const cfSec = computeCrossfadeSeconds(crossfadeBars, current.bpm)
     if (duration < cfSec * 1.5) return
     const meta = currentMetaRef.current
-    // Latest we can safely start the fade so it finishes before the
-    // outgoing track runs out of audio.
     const latestSafe = Math.max(0, duration - cfSec)
     const sectionTrigger =
       meta && meta.outroStartSec && meta.outroStartSec > 0
         ? Math.min(meta.outroStartSec, latestSafe)
         : latestSafe
-    if (position >= sectionTrigger) {
+
+    // Phase 1: Pre-load — 30s before trigger, pick next and start loading
+    const preloadTrigger = Math.max(0, sectionTrigger - 30)
+    if (position >= preloadTrigger && !preloadFiredRef.current && !autoDjPickInFlight.current) {
+      preloadFiredRef.current = true
+      void pickNextTrackAsync(current, queue, historyRef.current).then((next) => {
+        if (!next) return
+        preloadedNextRef.current = next
+        // Start loading audio on the inactive deck (silent, gain=0)
+        const inactive = getInactiveDeck()
+        if (inactive) {
+          const url = `/api/audio/${next.id}`
+          inactive.audio.src = url
+          inactive.audio.preload = 'auto'
+          inactive.audio.load()
+        }
+      })
+    }
+
+    // Phase 2: Crossfade trigger — use preloaded track if available
+    if (position >= sectionTrigger && !autoDjPickInFlight.current) {
       autoDjPickInFlight.current = true
-      void pickNextTrackAsync(current, queue, historyRef.current)
-        .then((nextTrack) => {
-          if (nextTrack && !fadingRef.current) startCrossfade(nextTrack)
-        })
-        .finally(() => {
-          // Release after a short delay so we don't refire mid-fade.
-          setTimeout(() => {
-            autoDjPickInFlight.current = false
-          }, 2000)
-        })
+      const preloaded = preloadedNextRef.current
+      if (preloaded && !fadingRef.current) {
+        // Track already preloaded — instant crossfade
+        preloadedNextRef.current = null
+        preloadFiredRef.current = false
+        startCrossfade(preloaded)
+        setTimeout(() => { autoDjPickInFlight.current = false }, 2000)
+      } else {
+        // Fallback: pick and crossfade (original path)
+        void pickNextTrackAsync(current, queue, historyRef.current)
+          .then((nextTrack) => {
+            if (nextTrack && !fadingRef.current) startCrossfade(nextTrack)
+          })
+          .finally(() => {
+            preloadedNextRef.current = null
+            preloadFiredRef.current = false
+            setTimeout(() => { autoDjPickInFlight.current = false }, 2000)
+          })
+      }
     }
   }, [
     position,
@@ -1752,6 +1787,7 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     startCrossfade,
     pickNextTrackAsync,
     computeCrossfadeSeconds,
+    getInactiveDeck,
   ])
 
   // Auto-advance when current track finishes:
