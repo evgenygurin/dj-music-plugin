@@ -49,24 +49,31 @@ function camelotDistance(a?: string | null, b?: string | null): number | null {
 
 // Max BPM delta per transition — techno best practice: ±3 BPM.
 const MAX_BPM_DELTA = 3
+// Max Camelot key distance — ≤2 = harmonic, 3+ = key clash.
+// 0 = same key, 1 = adjacent (perfect mix), 2 = usable, 3+ = clash.
+const MAX_KEY_DISTANCE = 2
 
 function compatibilityScore(a: PlayerTrackMeta, b: PlayerTrackMeta): number {
+  // Hard reject: BPM too far
   if (a.bpm != null && b.bpm != null) {
     let diff = Math.abs(a.bpm - b.bpm)
     diff = Math.min(diff, Math.abs(a.bpm - b.bpm * 2), Math.abs(a.bpm - b.bpm / 2))
     if (diff > MAX_BPM_DELTA) return 0
   }
+  // Hard reject: key too far (when both keys known)
+  const cd = camelotDistance(a.camelot, b.camelot)
+  if (cd !== null && cd > MAX_KEY_DISTANCE) return 0
+
   let bpmScore = 0.5
   if (a.bpm != null && b.bpm != null) {
     let diff = Math.abs(a.bpm - b.bpm)
     diff = Math.min(diff, Math.abs(a.bpm - b.bpm * 2), Math.abs(a.bpm - b.bpm / 2))
     bpmScore = Math.exp(-(diff * diff) / (2 * 1.5 * 1.5))
   }
-  let harmonic = 0.5
-  const cd = camelotDistance(a.camelot, b.camelot)
-  if (cd !== null) harmonic = Math.max(0, 1 - cd / 4)
+  // cd ≤ 2 guaranteed here (or null). 0=1.0, 1=0.75, 2=0.5
+  const harmonic = cd !== null ? Math.max(0, 1 - cd / 4) : 0.5
   const mood = a.mood && b.mood && a.mood === b.mood ? 1 : 0.5
-  return bpmScore * 0.5 + harmonic * 0.35 + mood * 0.15
+  return bpmScore * 0.45 + harmonic * 0.40 + mood * 0.15
 }
 
 function pickAutoNext(
