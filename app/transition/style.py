@@ -29,7 +29,11 @@ Decision tree (in priority order):
 
 from __future__ import annotations
 
+from typing import Any
+
 from app.core.constants import TRANSITION_STYLE_PROFILES, TransitionStyle
+from app.entities.audio.features import TrackFeatures
+from app.transition.recipe import DjayTransition, EQPlan, TransitionRecipe, TransitionType
 from app.transition.score import TransitionScore
 from app.transition.weights import DEFAULT_STYLE_RULES, StyleRules
 
@@ -97,3 +101,35 @@ def style_profile(style: TransitionStyle) -> dict[str, float | str]:
     (covered by tests).
     """
     return TRANSITION_STYLE_PROFILES[style]
+
+
+def recommend_recipe(
+    score: TransitionScore,
+    features_a: TrackFeatures | None = None,
+    features_b: TrackFeatures | None = None,
+    **kwargs: Any,
+) -> TransitionRecipe:
+    """Generate full transition recipe. Falls back to style-based if no features."""
+    if features_a is not None and features_b is not None:
+        from app.transition.recipe_engine import TransitionRecipeEngine
+
+        engine = TransitionRecipeEngine()
+        return engine.generate(score, features_a, features_b, **kwargs)
+    # Fallback: convert old style to basic recipe
+    style = recommend_style(score)
+    profile = style_profile(style)
+    return TransitionRecipe(
+        transition_type=TransitionType(style.value),
+        bars=int(profile["bars"]),
+        djay_transition=DjayTransition.NONE,
+        djay_tempo_adjust="sync",
+        steps=(),
+        eq_plan=EQPlan(low="keep", mid="keep", high="keep"),
+        mix_in_section=None,
+        mix_out_section=None,
+        phrase_align=True,
+        warnings=(),
+        confidence=0.5,
+        subgenre_modifier=None,
+        rescue_move="filter sweep + hard cut",
+    )
