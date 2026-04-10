@@ -1011,8 +1011,17 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
             // routing it straight to destination bypasses the limiter.
             // Accept that: feedback=0.55 + wetCeiling=0.7 keeps the
             // signal well below clipping on any realistic master.
+            // LPF in feedback loop: each repeat loses highs, like a
+            // real analog dub delay. Without this, hi-hats and clicks
+            // repeat at full brightness = harsh.
+            const echoLpf = ctx.createBiquadFilter()
+            echoLpf.type = 'lowpass'
+            echoLpf.frequency.setValueAtTime(3500, t0)
+            echoLpf.Q.setValueAtTime(0.7, t0)
+
             active.preGain.connect(echoDelay)
-            echoDelay.connect(echoFb)
+            echoDelay.connect(echoLpf)
+            echoLpf.connect(echoFb)
             echoFb.connect(echoDelay)
             echoDelay.connect(echoWet)
             echoWet.connect(ctx.destination)
@@ -1046,6 +1055,7 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
               }
               try {
                 echoDelay.disconnect()
+                echoLpf.disconnect()
                 echoFb.disconnect()
                 echoWet.disconnect()
               } catch {
