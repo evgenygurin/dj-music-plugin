@@ -22,6 +22,8 @@ import sys
 import time
 from typing import Any
 
+import numpy as np
+
 with contextlib.suppress(Exception):
     sys.stdout.reconfigure(line_buffering=True)  # type: ignore[attr-defined]
 
@@ -46,10 +48,9 @@ def detect_first_downbeat_ms(
     it to the nearest beat grid position derived from BPM.
     """
     try:
-        import librosa
         import soundfile as sf
     except ImportError:
-        log.error("librosa/soundfile not installed — run: uv sync --extra audio")
+        log.error("soundfile not installed — run: uv sync --extra audio")
         return None
 
     # Decode audio from bytes
@@ -61,31 +62,47 @@ def detect_first_downbeat_ms(
     if y.ndim > 1:
         y = y.mean(axis=1)
 
+    # Simple resample by decimation if needed (no librosa — avoids numba SEGV)
     if actual_sr != sr:
-        y = librosa.resample(y, orig_sr=actual_sr, target_sr=sr)
+        ratio = actual_sr / sr
+        indices = np.arange(0, len(y), ratio).astype(int)
+        indices = indices[indices < len(y)]
+        y = y[indices]
 
     if len(y) < sr:  # less than 1 second
         return None
 
-    # Detect onsets in first 5 seconds
+    # Use first 5 seconds
     clip = y[: sr * 5]
-    onset_env = librosa.onset.onset_strength(y=clip, sr=sr)
-    onsets = librosa.onset.onset_detect(
-        y=clip, sr=sr, onset_envelope=onset_env, units="time", backtrack=True
+
+    # Energy envelope: RMS in short windows (hop ~23ms = 512 samples)
+    hop = 512
+    frame_count = len(clip) // hop
+    if frame_count < 2:
+        return 0.0
+
+    energy = np.array(
+        [np.sqrt(np.mean(clip[i * hop : (i + 1) * hop] ** 2)) for i in range(frame_count)]
     )
 
-    if len(onsets) == 0:
-        return 0.0  # no onsets detected, assume start
+    # Onset detection: first-order difference of energy, positive peaks
+    diff = np.diff(energy)
+    diff = np.maximum(diff, 0)
 
-    # First strong onset
-    first_onset_sec = float(onsets[0])
+    # Threshold: 30% of max energy rise
+    max_diff = float(np.max(diff)) if len(diff) > 0 else 0.0
+    threshold = max_diff * 0.3
+    onset_frames = np.where(diff > threshold)[0]
+
+    if len(onset_frames) == 0:
+        return 0.0
+
+    # First onset in seconds
+    first_onset_sec = float(onset_frames[0] * hop) / sr
 
     # Snap to nearest beat grid position
-    beat_interval = 60.0 / bpm  # seconds per beat
-    beat_interval * 4  # seconds per bar (4/4)
+    beat_interval = 60.0 / bpm
 
-    # The first downbeat is the nearest grid position to the first onset
-    # that makes musical sense (within half a beat of the onset)
     grid_pos = round(first_onset_sec / beat_interval) * beat_interval
 
     # If grid_pos is more than half a beat away, use raw onset
@@ -115,27 +132,30 @@ async def get_tracks_needing_beatgrid(session: Any) -> list[dict[str, Any]]:
 async def download_audio_clip(
     ym_client: Any, ym_track_id: str, max_bytes: int = 200_000
 ) -> bytes | None:
-    """Download first ~5 seconds of audio from YM (partial Range request)."""
+    """Download first ~5 seconds of audio from YM (partial Range request).
+
+    Uses YM's two-step download: get_download_info → resolve URL → Range GET.
+    At 320kbps, 200KB ≈ 5 seconds of audio.
+    """
+    import httpx
+
     try:
-        # Get download info
-        info = await ym_client.get_download_info(ym_track_id)
-        if not info:
+        infos = await ym_client.get_download_info(str(ym_track_id))
+        if not infos:
             return None
 
-        # Pick highest bitrate
-        best = max(info, key=lambda x: x.get("bitrateInKbps", 0))
-        url = best.get("url") or best.get("directUrl")
-        if not url:
-            # Build URL from codec/bitrate info
-            url = await ym_client.build_download_url(best)
-        if not url:
+        # Pick best MP3 option (infos already sorted by bitrate desc)
+        best = infos[0]
+        download_info_url = best.get("downloadInfoUrl")
+        if not download_info_url:
             return None
 
-        # Range request: first max_bytes (~5 sec at 320kbps ≈ 200KB)
-        import httpx
+        # Resolve signed download URL
+        download_url = await ym_client._resolve_download_url(str(ym_track_id), download_info_url)
 
-        async with httpx.AsyncClient(timeout=10.0) as http:
-            resp = await http.get(url, headers={"Range": f"bytes=0-{max_bytes}"})
+        # Range request: first max_bytes only
+        async with httpx.AsyncClient(timeout=15.0) as http:
+            resp = await http.get(download_url, headers={"Range": f"bytes=0-{max_bytes}"})
             if resp.status_code in (200, 206):
                 return resp.content
             return None
@@ -242,16 +262,25 @@ async def main() -> None:
 
     from app.config import settings
 
+    # Use direct connection (port 5432) instead of PgBouncer (6543)
+    # to avoid prepared statement and search_path issues.
+    db_url = settings.database_url.replace(":6543/", ":5432/")
     engine = create_async_engine(
-        settings.database_url,
-        connect_args={"statement_cache_size": 0},  # PgBouncer compat
+        db_url,
+        connect_args={"statement_cache_size": 0},
     )
     async_session = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
-    # Initialize YM client
+    # Initialize YM client with settings
     from app.ym.client import YandexMusicClient
+    from app.ym.rate_limiter import RateLimiter
 
-    ym = YandexMusicClient()
+    ym = YandexMusicClient(
+        token=settings.ym_token,
+        user_id=settings.ym_user_id,
+        base_url=settings.ym_base_url,
+        rate_limiter=RateLimiter(delay=settings.ym_rate_limit_delay),
+    )
 
     async with async_session() as session:
         tracks = await get_tracks_needing_beatgrid(session)
