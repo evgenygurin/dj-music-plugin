@@ -72,6 +72,9 @@ class TrackFeatures:
     # P3 enrichment: Timbral
     dynamic_complexity: float | None = None
 
+    # Beatgrid phase (first downbeat position in ms from track start)
+    first_downbeat_ms: float | None = None
+
     # Mood classification (used by reasoning / filtering, not by TransitionScorer)
     mood: str | None = None
 
@@ -171,4 +174,6 @@ class TrackFeatures:
             dynamic_complexity=getattr(row, "dynamic_complexity", None),
             # Mood classification (optional)
             mood=getattr(row, "mood", None),
+            # Beatgrid phase
+            first_downbeat_ms=getattr(row, "first_downbeat_ms", None),
         )

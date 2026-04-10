@@ -48,7 +48,7 @@ export async function getTrackMixMeta(trackId: number): Promise<TrackMixMeta | n
       supabase
         .from('track_audio_features_computed')
         .select(
-          'bpm, integrated_lufs, true_peak_db, kick_prominence, hp_ratio, energy_sub, energy_low, energy_lowmid',
+          'bpm, integrated_lufs, true_peak_db, kick_prominence, hp_ratio, energy_sub, energy_low, energy_lowmid, first_downbeat_ms',
         )
         .eq('track_id', trackId)
         .maybeSingle(),
@@ -138,9 +138,14 @@ export async function getTrackMixMeta(trackId: number): Promise<TrackMixMeta | n
     // Both are reliable for techno but the beatgrid is what the
     // downbeat math uses, so use the same source for both.
     bpm: beatgridBpm ?? pickNumber(features?.bpm),
-    // Real first downbeat from the beatgrid, or 0 as fallback for
-    // 4/4 techno with no measured grid (previous assumption).
-    firstDownbeatSec: firstDownbeatMs != null ? firstDownbeatMs / 1000 : 0,
+    // Prefer first_downbeat_ms from features (populated by pipeline beat
+    // detection), then beatgrid, then 0 as fallback for 4/4 techno.
+    firstDownbeatSec:
+      pickNumber(features?.first_downbeat_ms) != null
+        ? (pickNumber(features?.first_downbeat_ms) as number) / 1000
+        : firstDownbeatMs != null
+          ? firstDownbeatMs / 1000
+          : 0,
     outroStartSec: outroStart != null ? outroStart / 1000 : null,
     introEndSec: introEnd != null ? introEnd / 1000 : null,
     introStartSec: introStart != null ? introStart / 1000 : null,

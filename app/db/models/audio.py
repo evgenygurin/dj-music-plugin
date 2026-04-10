@@ -137,6 +137,9 @@ class TrackAudioFeaturesComputed(Base, TimestampMixin):
     phrase_boundaries_ms: Mapped[str | None] = mapped_column(String(2000), nullable=True)
     dominant_phrase_bars: Mapped[int | None] = mapped_column(SmallInteger, nullable=True)
 
+    # --- Beatgrid (first downbeat phase for crossfade alignment) ---
+    first_downbeat_ms: Mapped[float | None] = mapped_column(nullable=True)
+
     # --- Classification ---
     mood: Mapped[str | None] = mapped_column(String(30), nullable=True, index=True)
     mood_confidence: Mapped[float | None] = mapped_column(nullable=True)
