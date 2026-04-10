@@ -1,5 +1,8 @@
+import json
+
 from app.entities.audio.features import TrackFeatures
 from app.transition import TransitionRecipe, TransitionType, recommend_recipe
+from app.transition.recipe import DjayTransition, EQPlan
 from app.transition.score import TransitionScore
 
 
@@ -67,6 +70,118 @@ def test_format_pair_response_none_overall():
     )
     assert response["transition_type"] is None
     assert response["transition_bars"] is None
+
+
+def test_format_pair_response_uses_persisted_recipe_json():
+    from app.services.set.scoring import SetScoringService
+
+    persisted = TransitionRecipe(
+        transition_type=TransitionType.CUT,
+        bars=4,
+        djay_transition=DjayTransition.FILTER,
+        djay_tempo_adjust="sync",
+        steps=(),
+        eq_plan=EQPlan(low="keep", mid="keep", high="keep"),
+        mix_in_section=None,
+        mix_out_section=None,
+        phrase_align=True,
+        warnings=(),
+        confidence=0.91,
+        subgenre_modifier=None,
+        rescue_move="hard cut",
+    )
+
+    response = SetScoringService._format_pair_response(
+        from_id=1,
+        to_id=2,
+        overall=0.82,
+        bpm=0.9,
+        harmonic=0.8,
+        energy=0.8,
+        spectral=0.7,
+        groove=0.7,
+        timbral=0.7,
+        hard_reject=False,
+        reject_reason=None,
+        cached=True,
+        persisted_recipe_json=persisted.to_json(),
+    )
+
+    assert response["transition_type"] == "cut"
+    assert response["transition_bars"] == 4
+    assert response["djay_transition"] == "filter"
+    assert response["recipe_confidence"] == 0.91
+
+
+def test_format_pair_response_falls_back_for_wrong_shaped_persisted_recipe_json():
+    from app.services.set.scoring import SetScoringService
+
+    score = TransitionScore(
+        bpm=0.9, harmonic=0.8, energy=0.8, spectral=0.7, groove=0.7, timbral=0.7, overall=0.82
+    )
+    expected = recommend_recipe(score)
+
+    response = SetScoringService._format_pair_response(
+        from_id=1,
+        to_id=2,
+        overall=score.overall,
+        bpm=score.bpm,
+        harmonic=score.harmonic,
+        energy=score.energy,
+        spectral=score.spectral,
+        groove=score.groove,
+        timbral=score.timbral,
+        hard_reject=score.hard_reject,
+        reject_reason=score.reject_reason,
+        cached=True,
+        persisted_recipe_json="[]",
+    )
+
+    assert response["transition_type"] == expected.transition_type.value
+    assert response["transition_bars"] == expected.bars
+    assert response["djay_transition"] == expected.djay_transition.value
+    assert response["recipe_confidence"] == expected.confidence
+
+
+def test_format_pair_response_falls_back_for_malformed_nested_recipe_json():
+    from app.services.set.scoring import SetScoringService
+
+    score = TransitionScore(
+        bpm=0.9, harmonic=0.8, energy=0.8, spectral=0.7, groove=0.7, timbral=0.7, overall=0.82
+    )
+    expected = recommend_recipe(score)
+    malformed = json.dumps(
+        {
+            "transition_type": "cut",
+            "bars": 4,
+            "djay_transition": "none",
+            "steps": [{"bar": 0, "deck": "B", "action": "ok"}],
+            "eq_plan": [],
+            "confidence": 0.99,
+            "rescue_move": "hard cut",
+        }
+    )
+
+    response = SetScoringService._format_pair_response(
+        from_id=1,
+        to_id=2,
+        overall=score.overall,
+        bpm=score.bpm,
+        harmonic=score.harmonic,
+        energy=score.energy,
+        spectral=score.spectral,
+        groove=score.groove,
+        timbral=score.timbral,
+        hard_reject=score.hard_reject,
+        reject_reason=score.reject_reason,
+        cached=True,
+        persisted_recipe_json=malformed,
+    )
+
+    assert response["transition_type"] == expected.transition_type.value
+    assert response["transition_bars"] == expected.bars
+    assert response["djay_transition"] == expected.djay_transition.value
+    assert response["recipe_confidence"] == expected.confidence
 
 
 def test_format_recipe_box():

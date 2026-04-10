@@ -49,6 +49,16 @@ class _FakeFeatureRepo:
     async def get_sections(self, track_id: int) -> list[SimpleNamespace]:
         return self._sections.get(track_id, [])
 
+    async def get_all_track_ids_with_features(self) -> list[int]:
+        return list(self._features.keys())
+
+    async def get_scoring_features_batch(self, track_ids: list[int]) -> dict[int, TrackFeatures]:
+        return {
+            track_id: features
+            for track_id, features in self._features.items()
+            if track_id in track_ids
+        }
+
 
 class _FakeTransitionRepo:
     def __init__(self) -> None:
@@ -243,3 +253,64 @@ async def test_score_set_transitions_keeps_fallback_without_context(monkeypatch)
     assert result["transitions"][0]["used_section_context"] is False
     assert result["transitions"][0]["from_section_id"] is None
     assert result["transitions"][0]["to_section_id"] is None
+
+
+@pytest.mark.asyncio
+async def test_get_transition_candidates_scores_full_library() -> None:
+    current = _track()
+    close_match = _track()
+    close_match.bpm = 133.0
+    close_match.key_code = 14
+    close_match.integrated_lufs = -8.5
+    close_match.mood = "driving"
+
+    decent_match = _track()
+    decent_match.bpm = 130.0
+    decent_match.key_code = 12
+    decent_match.integrated_lufs = -9.0
+    decent_match.mood = "hypnotic"
+
+    hard_reject = _track()
+    hard_reject.bpm = 148.0
+    hard_reject.key_code = 14
+    hard_reject.integrated_lufs = -8.0
+
+    svc = SetScoringService(
+        set_repo=_FakeSetRepo([]),  # type: ignore[arg-type]
+        feature_repo=_FakeFeatureRepo(  # type: ignore[arg-type]
+            {
+                10: current,
+                11: close_match,
+                12: decent_match,
+                13: hard_reject,
+            }
+        ),
+        transition_repo=_FakeTransitionRepo(),  # type: ignore[arg-type]
+    )
+
+    result = await svc.get_transition_candidates(track_id=10, top_n=5)
+
+    assert result["track_id"] == 10
+    assert result["pool_size"] == 3
+    assert result["scored"] == 2
+    assert [candidate["to_track_id"] for candidate in result["candidates"]] == [11, 12]
+    assert result["candidates"][0]["overall_quality"] >= result["candidates"][1]["overall_quality"]
+    assert result["candidates"][0]["bpm_distance"] == pytest.approx(1.0, abs=0.01)
+    assert result["candidates"][0]["camelot"] == "8A"
+    assert result["candidates"][1]["key_distance"] == 1
+
+
+@pytest.mark.asyncio
+async def test_get_transition_candidates_requires_features() -> None:
+    svc = SetScoringService(
+        set_repo=_FakeSetRepo([]),  # type: ignore[arg-type]
+        feature_repo=_FakeFeatureRepo({}),  # type: ignore[arg-type]
+        transition_repo=_FakeTransitionRepo(),  # type: ignore[arg-type]
+    )
+
+    result = await svc.get_transition_candidates(track_id=404, top_n=5)
+
+    assert result["track_id"] == 404
+    assert result["candidates"] == []
+    assert result["scored"] == 0
+    assert "analyze first" in result["note"].lower()

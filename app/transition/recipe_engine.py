@@ -48,6 +48,8 @@ _RESCUE_MOVES: dict[TransitionType, str] = {
 def _snap_to_phrase(bars: int) -> int:
     if bars == 0:
         return 0
+    if bars <= 4:
+        return 4
     return max(8, round(bars / 8) * 8)
 
 

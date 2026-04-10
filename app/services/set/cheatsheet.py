@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from app.core.errors import NotFoundError
 from app.db.repositories.feature import FeatureRepository
 from app.db.repositories.set import SetRepository
@@ -9,6 +11,9 @@ from app.db.repositories.track import TrackRepository
 from app.transition.recipe import TransitionRecipe
 from app.transition.score import TransitionScore
 from app.transition.style import recommend_recipe
+
+if TYPE_CHECKING:
+    from app.db.repositories.transition import TransitionRepository
 
 
 def _format_recipe_box(recipe: TransitionRecipe, score: float | None = None) -> str:
@@ -45,10 +50,12 @@ class SetCheatSheetService:
         set_repo: SetRepository,
         track_repo: TrackRepository,
         feature_repo: FeatureRepository,
+        transition_repo: TransitionRepository | None = None,
     ) -> None:
         self._sets = set_repo
         self._tracks = track_repo
         self._features = feature_repo
+        self._transitions = transition_repo
 
     async def get_cheat_sheet(self, set_id: int, version: str | None = None) -> str:
         """Generate human-readable cheat sheet with BPM, key, energy, transitions."""
@@ -75,6 +82,7 @@ class SetCheatSheetService:
             "",
         ]
 
+        prev_item = None
         prev_feat = None
         for i, item in enumerate(items, 1):
             track = await self._tracks.get_by_id(item.track_id)
@@ -97,7 +105,7 @@ class SetCheatSheetService:
             lines.append(line)
 
             # Transition info from previous track
-            if prev_feat and feat and i > 1:
+            if prev_feat and feat and prev_item is not None and i > 1:
                 bpm_delta = (feat.bpm - prev_feat.bpm) if feat.bpm and prev_feat.bpm else None
                 prev_key = (
                     key_code_to_camelot(prev_feat.key_code)
@@ -117,25 +125,58 @@ class SetCheatSheetService:
                     f"    -> {bpm_delta_str} BPM | key: {prev_key}->{cur_key} | energy: {energy_dir}"
                 )
 
-                # Generate recipe box
-                synthetic = TransitionScore(
-                    bpm=0.5,
-                    harmonic=0.5,
-                    energy=0.5,
-                    spectral=0.5,
-                    groove=0.5,
-                    timbral=0.5,
-                    overall=0.5,
-                )
-                recipe = recommend_recipe(
-                    synthetic,
-                    prev_feat,
-                    feat,
-                    mood_a=prev_feat.mood if prev_feat else None,
-                    mood_b=feat.mood if feat else None,
-                )
-                lines.append(_format_recipe_box(recipe))
+                # Try to load persisted transition + recipe; fall back to live generation
+                transition = None
+                if self._transitions is not None:
+                    transition = await self._transitions.get_score(
+                        prev_item.track_id, item.track_id
+                    )
 
+                overall_score: float | None = None
+                recipe: TransitionRecipe | None = None
+
+                if transition is not None and transition.overall_quality is not None:
+                    overall_score = transition.overall_quality
+
+                    # Prefer persisted recipe (section-aware, from score_transitions)
+                    if transition.transition_recipe_json:
+                        recipe = TransitionRecipe.from_json(transition.transition_recipe_json)
+
+                if recipe is None:
+                    # Recompute from score + features
+                    if transition is not None and transition.overall_quality is not None:
+                        score = TransitionScore(
+                            bpm=transition.bpm_score or 0.0,
+                            harmonic=transition.harmonic_score or 0.0,
+                            energy=transition.energy_score or 0.0,
+                            spectral=transition.spectral_score or 0.0,
+                            groove=transition.groove_score or 0.0,
+                            timbral=transition.timbral_score or 0.0,
+                            overall=transition.overall_quality,
+                            hard_reject=bool(transition.hard_reject),
+                            reject_reason=transition.reject_reason,
+                        )
+                    else:
+                        score = TransitionScore(
+                            bpm=0.5,
+                            harmonic=0.5,
+                            energy=0.5,
+                            spectral=0.5,
+                            groove=0.5,
+                            timbral=0.5,
+                            overall=0.5,
+                        )
+                    recipe = recommend_recipe(
+                        score,
+                        prev_feat,
+                        feat,
+                        mood_a=prev_feat.mood if prev_feat else None,
+                        mood_b=feat.mood if feat else None,
+                    )
+
+                lines.append(_format_recipe_box(recipe, score=overall_score))
+
+            prev_item = item
             prev_feat = feat
 
         return "\n".join(lines)

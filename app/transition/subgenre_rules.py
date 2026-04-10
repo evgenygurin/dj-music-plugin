@@ -33,8 +33,14 @@ def classify_pair(
     if mood_a is None or mood_b is None:
         return SubgenrePairType.MIXED_PAIR
 
-    a = TechnoSubgenre(mood_a) if isinstance(mood_a, str) else mood_a
-    b = TechnoSubgenre(mood_b) if isinstance(mood_b, str) else mood_b
+    try:
+        a = TechnoSubgenre(mood_a) if isinstance(mood_a, str) else mood_a
+    except ValueError:
+        return SubgenrePairType.MIXED_PAIR
+    try:
+        b = TechnoSubgenre(mood_b) if isinstance(mood_b, str) else mood_b
+    except ValueError:
+        return SubgenrePairType.MIXED_PAIR
 
     if a in _AMBIENT and b in _AMBIENT:
         return SubgenrePairType.AMBIENT_PAIR

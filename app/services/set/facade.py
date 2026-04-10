@@ -41,7 +41,9 @@ class SetService:
         self._crud = SetCrudService(set_repo, track_repo)
         self._builder = SetBuilderService(set_repo, playlist_repo, feature_repo)
         self._scoring = SetScoringService(set_repo, feature_repo, transition_repo)
-        self._cheatsheet = SetCheatSheetService(set_repo, track_repo, feature_repo)
+        self._cheatsheet = SetCheatSheetService(
+            set_repo, track_repo, feature_repo, transition_repo=transition_repo
+        )
 
     # ── Read — delegated to _crud ─────────────────────
 

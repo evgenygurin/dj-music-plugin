@@ -86,3 +86,55 @@ def test_recipe_to_dict():
     assert d["transition_type"] == "cut"
     assert d["bars"] == 0
     json.dumps(d)  # Must be JSON-serializable
+
+
+def test_recipe_from_json_round_trip():
+    recipe = TransitionRecipe(
+        transition_type=TransitionType.BASS_SWAP_SHORT,
+        bars=8,
+        djay_transition=DjayTransition.NEURAL_MIX,
+        djay_tempo_adjust="gradual",
+        steps=(
+            RecipeStep(
+                bar=4,
+                deck="both",
+                action="Swap bass",
+                stem="bass",
+                stem_action=StemAction.SWAP,
+                eq_band="low",
+                eq_value=0.0,
+                effect="echo",
+                effect_param=0.5,
+            ),
+        ),
+        eq_plan=EQPlan(low="swap", mid="gradual", high="keep"),
+        mix_in_section="intro",
+        mix_out_section="outro",
+        phrase_align=True,
+        warnings=("watch vocals",),
+        confidence=0.83,
+        subgenre_modifier="hard_pair",
+        rescue_move="hard cut",
+    )
+
+    assert TransitionRecipe.from_json(recipe.to_json()) == recipe
+
+
+def test_recipe_from_json_returns_none_for_wrong_shaped_payload():
+    assert TransitionRecipe.from_json("[]") is None
+
+
+def test_recipe_from_json_returns_none_for_malformed_nested_payload():
+    payload = json.dumps(
+        {
+            "transition_type": "cut",
+            "bars": 4,
+            "djay_transition": "none",
+            "steps": [[]],
+            "eq_plan": {"low": "keep", "mid": "keep", "high": "keep"},
+            "confidence": 0.8,
+            "rescue_move": "hard cut",
+        }
+    )
+
+    assert TransitionRecipe.from_json(payload) is None

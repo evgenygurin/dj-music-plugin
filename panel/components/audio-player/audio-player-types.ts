@@ -33,3 +33,32 @@ export interface PlayerTrackMeta {
  * dispatcher that consumes this value.
  */
 export type ManualTransitionStyle = 'auto' | 'cut' | 'swap' | 'harmonic' | 'fade'
+
+/**
+ * Structured log emitted after every completed crossfade transition.
+ * Captures the full picture of what happened — scoring, alignment,
+ * LUFS normalization, style dispatch — in one object.
+ */
+export interface TransitionLog {
+  timestamp: string
+  from: { id: number; title: string; bpm: number | null; key: string | null; lufs: number | null; mood: string | null }
+  to: { id: number; title: string; bpm: number | null; key: string | null; lufs: number | null; mood: string | null }
+  overallScore: number | null
+  hardReject: boolean
+  recommendedStyle: string | null
+  resolvedStyle: string
+  wasManualOverride: boolean
+  bars: number
+  durationSec: number
+  tempoMatchRatio: number
+  outgoingDownbeatDelaySec: number
+  incomingSeekTargetSec: number | null
+  incomingHasFirstDownbeat: boolean
+  outgoingLufs: number | null
+  incomingLufs: number | null
+  lufsAdjustmentDb: { outDb: number; inDb: number }
+  outgoingSection: string | null
+  incomingSection: string | null
+  phaseAligned: boolean
+  bpmDelta: number | null
+}

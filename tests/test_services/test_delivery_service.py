@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import AsyncMock
 
 import pytest
 from sqlalchemy import select
@@ -149,3 +151,61 @@ async def test_export_single_logs_to_db(db: AsyncSession, tmp_path: Path) -> Non
     records = list(result.scalars().all())
     assert len(records) == 1
     assert records[0].export_format == "m3u8"
+
+
+@pytest.mark.asyncio
+async def test_build_export_data_ignores_malformed_persisted_recipe_json() -> None:
+    """Malformed transition_recipe_json should not break export generation."""
+    track_repo = SimpleNamespace(
+        get_by_id=AsyncMock(
+            side_effect=[
+                SimpleNamespace(id=1, title="Track A", duration_ms=300000),
+                SimpleNamespace(id=2, title="Track B", duration_ms=300000),
+            ]
+        ),
+        get_artist_names=AsyncMock(return_value="Artist"),
+        get_library_file_path=AsyncMock(return_value="/music/test.mp3"),
+    )
+    feature_repo = SimpleNamespace(
+        get_features=AsyncMock(
+            side_effect=[
+                SimpleNamespace(bpm=128.0, key_code=1, integrated_lufs=-8.0, mood="driving"),
+                SimpleNamespace(bpm=130.0, key_code=2, integrated_lufs=-7.0, mood="peak_time"),
+            ]
+        ),
+        get_sections=AsyncMock(return_value=[]),
+    )
+    transition_repo = SimpleNamespace(
+        get_score=AsyncMock(
+            return_value=SimpleNamespace(
+                overall_quality=0.82,
+                transition_type="cut",
+                transition_recipe_json="[]",
+            )
+        )
+    )
+    svc = DeliveryService(
+        set_repo=SimpleNamespace(),
+        track_repo=track_repo,
+        feature_repo=feature_repo,
+        transition_repo=transition_repo,
+        export_repo=None,
+    )
+
+    data = await svc.build_export_data(
+        dj_set=SimpleNamespace(name="Test Set"),
+        version=SimpleNamespace(label="v1", quality_score=0.82),
+        items=[
+            SimpleNamespace(track_id=1, sort_index=0, notes=None),
+            SimpleNamespace(track_id=2, sort_index=1, notes=None),
+        ],
+    )
+
+    assert len(data.transitions) == 1
+    transition = data.transitions[0]
+    assert transition.transition_type is None
+    assert transition.transition_bars is None
+    assert transition.djay_transition is None
+    assert transition.recipe_steps is None
+    assert transition.eq_plan is None
+    assert transition.rescue_move is None

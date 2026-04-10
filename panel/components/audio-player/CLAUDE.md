@@ -47,3 +47,19 @@ This module exports components AND hooks — mixing type exports in would trigge
 ## `manualStyle` persistence
 
 Persisted to `localStorage['dj.player.manualStyle']`. Initialised to `'auto'` on mount (SSR-safe), hydrated in a mount effect with `isValidManualStyle` type-guard. `setManualStyle` writes through. Both sides wrapped in try/catch for private-mode / quota errors. Both `manualStyle` and `setManualStyle` must stay in the `useMemo` deps of the `api` object.
+
+
+<claude-mem-context>
+# Recent Activity
+
+### Apr 10, 2026
+
+| ID | Time | T | Title | Read |
+|----|------|---|-------|------|
+| #2334 | 11:35 PM | ✅ | Snap-Load Playback Rate Adjusted to Master BPM | ~323 |
+| #2333 | 11:33 PM | ✅ | Tempo Matching Refactored to Use Master BPM Instead of Track-to-Track | ~385 |
+| #2332 | 11:31 PM | 🟣 | Master BPM Auto-Initialization on First Track Load | ~321 |
+| #2330 | 11:29 PM | 🟣 | Master BPM State Added to Audio Player Context | ~346 |
+| #2329 | 11:28 PM | 🔵 | Crossfade Duration Controlled by Bar Count Parameter | ~193 |
+| #2325 | 11:26 PM | 🔵 | Audio Player Context Manages Playback Rate Tempo Matching During Transitions | ~297 |
+</claude-mem-context>

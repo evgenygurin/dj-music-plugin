@@ -12,7 +12,7 @@
       "name": "rest-api",
       "runtimeExecutable": "/bin/bash",
       "runtimeArgs": ["scripts/preview-rest-api.sh"],
-      "port": 8000
+      "port": 8001
     }
   ]
 }

@@ -13,4 +13,4 @@ if [[ -f .env ]]; then
   source .env
   set +a
 fi
-exec uv run --extra http uvicorn app.api.server:api --host 0.0.0.0 --port 8000 --reload
+exec uv run --extra http uvicorn app.api.server:api --host 0.0.0.0 --port 8001 --reload

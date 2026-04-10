@@ -61,7 +61,19 @@ def detect_first_downbeat_ms(
         return None
 
     try:
-        y, actual_sr = sf.read(io.BytesIO(audio_bytes), dtype="float32")
+        # Suppress libsndfile "Xing stream size off" C-level warning
+        # from partial MP3 Range downloads (stderr redirect)
+        import os
+
+        devnull = os.open(os.devnull, os.O_WRONLY)
+        old_stderr = os.dup(2)
+        os.dup2(devnull, 2)
+        try:
+            y, actual_sr = sf.read(io.BytesIO(audio_bytes), dtype="float32")
+        finally:
+            os.dup2(old_stderr, 2)
+            os.close(devnull)
+            os.close(old_stderr)
     except Exception:
         return None
 
@@ -177,31 +189,47 @@ async def download_audio_clip(
     At 320kbps, 200KB ≈ 5 seconds of audio.
     Uses a shared httpx client to avoid per-request connection overhead.
     """
-    try:
-        infos = await ym_client.get_download_info(str(ym_track_id))
-        if not infos:
+    max_retries = 3
+    for attempt in range(max_retries):
+        try:
+            infos = await ym_client.get_download_info(str(ym_track_id))
+            if not infos:
+                return None
+
+            best = infos[0]
+            download_info_url = best.get("downloadInfoUrl")
+            if not download_info_url:
+                return None
+
+            download_url = await ym_client._resolve_download_url(
+                str(ym_track_id), download_info_url
+            )
+
+            client = http_client
+            if client is None:
+                import httpx
+
+                client = httpx.AsyncClient(timeout=15.0)
+            resp = await client.get(download_url, headers={"Range": f"bytes=0-{max_bytes}"})
+            if resp.status_code in (200, 206):
+                return resp.content
             return None
-
-        best = infos[0]
-        download_info_url = best.get("downloadInfoUrl")
-        if not download_info_url:
+        except Exception as e:
+            err_str = str(e)
+            is_rate_limit = "Rate limited" in err_str or "429" in err_str
+            is_no_rights = "no-rights" in err_str or "403" in err_str
+            if is_no_rights:
+                return None  # permanent, no retry
+            if is_rate_limit and attempt < max_retries - 1:
+                wait = 2.0 * (attempt + 1)  # 2s, 4s
+                await asyncio.sleep(wait)
+                continue
+            if attempt == max_retries - 1:
+                log.warning(
+                    "Download failed for ym=%s after %d attempts: %s", ym_track_id, max_retries, e
+                )
             return None
-
-        download_url = await ym_client._resolve_download_url(str(ym_track_id), download_info_url)
-
-        # Range request: first max_bytes only
-        client = http_client
-        if client is None:
-            import httpx
-
-            client = httpx.AsyncClient(timeout=15.0)
-        resp = await client.get(download_url, headers={"Range": f"bytes=0-{max_bytes}"})
-        if resp.status_code in (200, 206):
-            return resp.content
-        return None
-    except Exception as e:
-        log.debug("Download failed for %s: %s", ym_track_id, e)
-        return None
+    return None
 
 
 async def process_batch(
@@ -210,6 +238,7 @@ async def process_batch(
     tracks: list[dict[str, Any]],
     workers: int,
     dry_run: bool = False,
+    http_client: Any = None,
 ) -> tuple[int, int]:
     """Process a batch of tracks. Returns (success, failed)."""
     from sqlalchemy import text
@@ -226,7 +255,7 @@ async def process_batch(
             ym_id = track["ym_track_id"]
             bpm = track["bpm"]
 
-            audio = await download_audio_clip(ym_client, str(ym_id))
+            audio = await download_audio_clip(ym_client, str(ym_id), http_client=http_client)
             if audio is None:
                 async with lock:
                     counters["done"] += 1
@@ -256,16 +285,18 @@ async def process_batch(
                     )
                 return
 
-            if not dry_run:
-                await session.execute(
-                    text(
-                        "UPDATE track_audio_features_computed "
-                        "SET first_downbeat_ms = :val WHERE track_id = :tid"
-                    ),
-                    {"val": round(downbeat_ms, 2), "tid": track_id},
-                )
-
+            # Serialize DB writes behind lock — asyncpg connection state
+            # machine is not safe for concurrent commands on one session.
             async with lock:
+                if not dry_run:
+                    await session.execute(
+                        text(
+                            "UPDATE track_audio_features_computed "
+                            "SET first_downbeat_ms = :val WHERE track_id = :tid"
+                        ),
+                        {"val": round(downbeat_ms, 2), "tid": track_id},
+                    )
+
                 counters["done"] += 1
                 counters["ok"] += 1
                 if counters["done"] % 50 == 0 or counters["done"] == total:
@@ -281,7 +312,14 @@ async def process_batch(
                     )
 
     tasks = [_process_one(t) for t in tracks]
-    await asyncio.gather(*tasks, return_exceptions=True)
+    results = await asyncio.gather(*tasks, return_exceptions=True)
+
+    # Surface unexpected exceptions that slipped past per-track handling
+    for idx, res in enumerate(results):
+        if isinstance(res, BaseException):
+            track_id = tracks[idx]["track_id"]
+            log.error("    Unexpected error for track=%d: %s", track_id, res)
+            counters["fail"] += 1
 
     if not dry_run:
         await session.commit()
@@ -295,6 +333,9 @@ async def main() -> None:
     parser.add_argument("--workers", type=int, default=8, help="Concurrent downloads")
     parser.add_argument("--dry-run", action="store_true", help="Don't write to DB")
     parser.add_argument("--test-one", action="store_true", help="Process one track and exit")
+    parser.add_argument(
+        "--delay", type=float, default=0.2, help="YM rate limiter delay in seconds"
+    )
     args = parser.parse_args()
 
     from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
@@ -319,10 +360,13 @@ async def main() -> None:
         token=settings.ym_token,
         user_id=settings.ym_user_id,
         base_url=settings.ym_base_url,
-        rate_limiter=RateLimiter(delay=0.3),  # fast mode for migration (not 1.5s)
+        rate_limiter=RateLimiter(delay=args.delay),
     )
+    log.info("YM rate limiter delay: %.2fs", args.delay)
 
-    async with async_session() as session:
+    import httpx
+
+    async with httpx.AsyncClient(timeout=15.0) as shared_http, async_session() as session:
         tracks = await get_tracks_needing_beatgrid(session)
         log.info("Found %d tracks needing beatgrid migration", len(tracks))
 
@@ -344,7 +388,9 @@ async def main() -> None:
                 (len(tracks) + args.batch - 1) // args.batch,
                 len(batch),
             )
-            ok, fail = await process_batch(session, ym, batch, args.workers, args.dry_run)
+            ok, fail = await process_batch(
+                session, ym, batch, args.workers, args.dry_run, http_client=shared_http
+            )
             total_ok += ok
             total_fail += fail
 

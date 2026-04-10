@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from app.camelot.wheel import camelot_distance, key_code_to_camelot
 from app.core.constants import SectionType
 from app.core.errors import NotFoundError
 from app.db.models.transition import Transition
@@ -14,11 +15,13 @@ from app.services.mix_point_service import TrackSectionRow, build_section_contex
 from app.services.transition import TransitionScorer
 from app.transition import (
     SectionContext,
+    TransitionRecipe,
     TransitionScore,
     recommend_recipe,
     recommend_style,
     style_profile,
 )
+from app.transition.math_helpers import bpm_distance
 
 
 class SetScoringService:
@@ -137,6 +140,7 @@ class SetScoringService:
         hard_reject: bool | None,
         reject_reason: str | None,
         cached: bool,
+        persisted_recipe_json: str | None = None,
     ) -> dict[str, Any]:
         """Build the canonical pair-score response envelope.
 
@@ -144,15 +148,9 @@ class SetScoringService:
         ``reject_reason`` so cache hits and fresh scores are
         indistinguishable to callers.
         """
-
         def _round(v: float | None) -> float | None:
             return round(v, 4) if v is not None else None
 
-        # Reconstruct a TransitionScore from the persisted/computed
-        # numbers so the style decision uses the SAME logic for cache
-        # hits and fresh scores. Missing components default to 0 — they
-        # only land in the response when the recommendation is genuine
-        # (we hide style entirely when overall is None).
         recommended_style: str | None = None
         recommended_bars: float | int | None = None
         transition_type: str | None = None
@@ -175,12 +173,19 @@ class SetScoringService:
             recommended_style = style.value
             profile_bars = style_profile(style)["bars"]
             recommended_bars = profile_bars if isinstance(profile_bars, int | float) else None
-            # Recipe (enhanced transition instructions)
-            recipe = recommend_recipe(synthetic)
-            transition_type = recipe.transition_type.value
-            transition_bars = recipe.bars
-            djay_transition = recipe.djay_transition.value
-            recipe_confidence = recipe.confidence
+
+            persisted_recipe = TransitionRecipe.from_json(persisted_recipe_json)
+            if persisted_recipe is not None:
+                transition_type = persisted_recipe.transition_type.value
+                transition_bars = persisted_recipe.bars
+                djay_transition = persisted_recipe.djay_transition.value
+                recipe_confidence = persisted_recipe.confidence
+            else:
+                recipe = recommend_recipe(synthetic)
+                transition_type = recipe.transition_type.value
+                transition_bars = recipe.bars
+                djay_transition = recipe.djay_transition.value
+                recipe_confidence = recipe.confidence
 
         return {
             "from_track_id": from_id,
@@ -247,6 +252,7 @@ class SetScoringService:
                 hard_reject=existing.hard_reject,
                 reject_reason=existing.reject_reason,
                 cached=True,
+                persisted_recipe_json=existing.transition_recipe_json,
             )
 
         ft_from = await self._features.get_scoring_features(from_id)
@@ -265,6 +271,16 @@ class SetScoringService:
 
         final_quality = 0.0 if score.hard_reject else score.overall
 
+        # Generate recipe with real features
+        recipe = recommend_recipe(
+            score,
+            ft_from,
+            ft_to,
+            mood_a=ft_from.mood,
+            mood_b=ft_to.mood,
+            section_context=section_context,
+        )
+
         transition = existing or Transition(from_track_id=from_id, to_track_id=to_id)
         transition.from_section_id = from_section_id
         transition.to_section_id = to_section_id
@@ -278,6 +294,9 @@ class SetScoringService:
         transition.timbral_score = score.timbral
         transition.hard_reject = score.hard_reject
         transition.reject_reason = score.reject_reason
+        transition.transition_type = recipe.transition_type.value
+        transition.transition_bars = recipe.bars
+        transition.transition_recipe_json = recipe.to_json()
         await self._transitions.save_score(transition)
 
         return self._format_pair_response(
@@ -293,6 +312,7 @@ class SetScoringService:
             hard_reject=score.hard_reject,
             reject_reason=score.reject_reason,
             cached=False,
+            persisted_recipe_json=recipe.to_json(),
         )
 
     async def score_set_transitions(self, set_id: int) -> dict[str, Any]:
@@ -351,9 +371,103 @@ class SetScoringService:
         }
 
     async def get_transition_candidates(self, track_id: int, top_n: int = 10) -> dict[str, Any]:
-        """Get best transition candidates for a track. Stub — returns empty list."""
+        """Get best transition candidates for a track across the analyzed library.
+
+        The panel's "recommended next" and set-mode picker expect the backend
+        to search broadly first, then rank by the full TransitionScorer. This
+        method therefore scores the current track against every analyzed track
+        in the library (excluding itself), drops hard rejects, and returns the
+        strongest matches with a few explanatory fields for the UI.
+        """
+        current = await self._features.get_scoring_features(track_id)
+        if current is None or current.bpm is None:
+            return {
+                "track_id": track_id,
+                "candidates": [],
+                "pool_size": 0,
+                "scored": 0,
+                "note": "Current track has no audio features — analyze first",
+            }
+
+        pool_ids = await self._features.get_all_track_ids_with_features()
+        pool_ids = [tid for tid in pool_ids if tid != track_id]
+        if not pool_ids:
+            return {
+                "track_id": track_id,
+                "candidates": [],
+                "pool_size": 0,
+                "scored": 0,
+                "note": "No analyzed tracks available in the library",
+            }
+
+        features_map = await self._features.get_scoring_features_batch(pool_ids)
+        scorer = TransitionScorer()
+        candidates: list[dict[str, Any]] = []
+
+        for candidate_id, candidate in features_map.items():
+            if candidate.bpm is None:
+                continue
+
+            score = scorer.score(current, candidate)
+            if score.hard_reject:
+                continue
+
+            candidate_bpm_distance = (
+                bpm_distance(current.bpm, candidate.bpm)
+                if current.bpm is not None and candidate.bpm is not None
+                else None
+            )
+            candidate_key_distance = (
+                camelot_distance(current.key_code, candidate.key_code)
+                if current.key_code is not None and candidate.key_code is not None
+                else None
+            )
+            energy_step = (
+                candidate.integrated_lufs - current.integrated_lufs
+                if current.integrated_lufs is not None and candidate.integrated_lufs is not None
+                else None
+            )
+
+            candidates.append(
+                {
+                    "to_track_id": candidate_id,
+                    "overall_quality": round(score.overall, 4),
+                    "bpm_distance": round(candidate_bpm_distance, 4)
+                    if candidate_bpm_distance is not None
+                    else None,
+                    "energy_step": round(energy_step, 4) if energy_step is not None else None,
+                    "energy_delta": round(abs(energy_step), 4) if energy_step is not None else None,
+                    "groove_similarity": round(score.groove, 4),
+                    "harmonic_score": round(score.harmonic, 4),
+                    "key_distance": candidate_key_distance,
+                    "key_distance_weighted": round(score.harmonic, 4),
+                    "camelot": key_code_to_camelot(candidate.key_code)
+                    if candidate.key_code is not None
+                    else None,
+                    "bpm": candidate.bpm,
+                    "mood": candidate.mood,
+                    "lufs": candidate.integrated_lufs,
+                }
+            )
+
+        candidates.sort(
+            key=lambda candidate: (
+                -float(candidate["overall_quality"]),
+                float(candidate["bpm_distance"])
+                if candidate["bpm_distance"] is not None
+                else float("inf"),
+                int(candidate["key_distance"])
+                if candidate["key_distance"] is not None
+                else 99,
+                abs(float(candidate["energy_step"]))
+                if candidate["energy_step"] is not None
+                else float("inf"),
+            )
+        )
+
         return {
             "track_id": track_id,
-            "candidates": [],
-            "note": "Transition candidate search not yet implemented",
+            "pool_size": len(pool_ids),
+            "scored": len(candidates),
+            "candidates": candidates[:top_n],
         }

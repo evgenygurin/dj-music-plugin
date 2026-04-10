@@ -26,6 +26,7 @@ from app.export import (
     write_m3u8,
     write_rekordbox_xml,
 )
+from app.transition.recipe import TransitionRecipe
 
 
 class DeliveryService:
@@ -144,6 +145,10 @@ class DeliveryService:
         export_transitions: list[ExportTransition] = []
         for i in range(len(items) - 1):
             score = await self._transitions.get_score(items[i].track_id, items[i + 1].track_id)
+            recipe = None
+            if score and score.transition_recipe_json:
+                recipe = TransitionRecipe.from_json(score.transition_recipe_json)
+
             export_transitions.append(
                 ExportTransition(
                     from_position=items[i].sort_index,
@@ -156,7 +161,12 @@ class DeliveryService:
                         score.key_distance if score and hasattr(score, "key_distance") else None
                     ),
                     energy_delta=None,
-                    transition_type=None,
+                    transition_type=recipe.transition_type.value if recipe else None,
+                    transition_bars=recipe.bars if recipe else None,
+                    djay_transition=recipe.djay_transition.value if recipe else None,
+                    recipe_steps=[step.to_dict() for step in recipe.steps] if recipe else None,
+                    eq_plan=recipe.eq_plan.to_dict() if recipe else None,
+                    rescue_move=recipe.rescue_move if recipe else None,
                 )
             )
 
