@@ -1,10 +1,13 @@
-.PHONY: install test lint typecheck arch check migrate dev clean
+.PHONY: install test lint typecheck arch check migrate dev clean panel api upgrade
 
 install:
 	uv sync --all-extras
 
 test:
 	uv run pytest -v
+
+test-fast:
+	uv run pytest -x -q
 
 lint:
 	uv run ruff check app/ tests/
@@ -29,10 +32,20 @@ migrate-new:
 	uv run alembic revision --autogenerate -m "$(msg)"
 
 dev:
-	uv run fastmcp dev app/server.py --reload
+	uv run fastmcp run app/server.py --reload
 
 run:
 	uv run fastmcp run app/server.py
+
+api:
+	uv run --extra http uvicorn app.api.server:api --host 0.0.0.0 --port 8000 --reload
+
+panel:
+	cd panel && bun dev
+
+upgrade:
+	uv lock --upgrade && uv sync --all-extras
+	cd panel && bun update
 
 clean:
 	find . -type d -name __pycache__ -exec rm -rf {} +
