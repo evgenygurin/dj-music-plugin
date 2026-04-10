@@ -242,6 +242,18 @@ strict = StyleRules(spectral_collision_cutoff=0.55, harmonic_drift_cutoff=0.65)
 recommend_style(score, rules=strict)
 ```
 
+## Transition Recipe Engine (v0.7.0)
+
+`app/transition/recipe_engine.py:TransitionRecipeEngine.generate()` extends style recommendation with **12 djay Pro AI transition types** and step-by-step stem/EQ/effect instructions.
+
+See `docs/superpowers/specs/2026-04-10-transition-recipe-engine-design.md` for the full spec.
+
+12 types: CUT, BASS_SWAP_SHORT, BASS_SWAP_LONG, EQ_BLEND, FILTER_SWEEP, ECHO_OUT, LONG_BLEND, RISER, DROP_SWAP, NEURAL_MIX_BLEND, DISSOLVE, STEMS_CREATIVE.
+
+Decision tree uses scores + features + subgenre pair classification (ambient, hard, acid, melodic, hypnotic, mixed) + section context. Each recipe includes bar-by-bar steps, EQ plan, djay FX mapping, and rescue move.
+
+`recommend_recipe(score, features_a, features_b)` — public API in `app/transition/style.py`, falls back to `recommend_style()` when features unavailable.
+
 ## Feature Loading
 
 `TrackFeatures.from_db(row)` classmethod constructs the dataclass from a `TrackAudioFeaturesComputed` DB row — single source of truth for field mapping.

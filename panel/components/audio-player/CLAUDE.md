@@ -1,6 +1,17 @@
 # Audio Player Context
 
-Single-file Web Audio engine (`audio-player-context.tsx`, ~1800 LOC). Handles dual-deck crossfade, LUFS normalization, bass-kick kill, and 6-style transition dispatch.
+Single-file Web Audio engine (`audio-player-context.tsx`, ~2000 LOC). Handles dual-deck crossfade, LUFS normalization, bass-kick kill, and 6-style transition dispatch.
+
+## v0.7.0 Additions
+
+- **Smart Next**: `pickAutoNext` uses BPM ±3 + Camelot ≤2 + mood scoring (not sequential)
+- **Auto-DJ preload**: picks next track 30s before crossfade trigger, starts loading on inactive deck
+- **DJ queue expansion**: on Play, background-loads 500 BPM-compatible tracks from Supabase
+- **Echo-out LPF**: 3.5kHz lowpass in feedback loop (darkens repeats like analog dub delay)
+- **CUT click fix**: 5ms micro-ramp on incoming gain instead of instant jump
+- **Effective BPM ratio**: uses `activeMeta.bpm * playbackRate` to prevent compound drift
+- **Transition logging**: `console.info('[TRANSITION]', ...)` with full details after each crossfade
+- **Beatgrid alignment**: `firstDownbeatSec` from DB (23,755 tracks migrated) for phase-accurate kicks
 
 ## Deck signal chain
 
@@ -47,7 +58,6 @@ This module exports components AND hooks — mixing type exports in would trigge
 ## `manualStyle` persistence
 
 Persisted to `localStorage['dj.player.manualStyle']`. Initialised to `'auto'` on mount (SSR-safe), hydrated in a mount effect with `isValidManualStyle` type-guard. `setManualStyle` writes through. Both sides wrapped in try/catch for private-mode / quota errors. Both `manualStyle` and `setManualStyle` must stay in the `useMemo` deps of the `api` object.
-
 
 <claude-mem-context>
 # Recent Activity

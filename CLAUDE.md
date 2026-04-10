@@ -172,4 +172,4 @@ cd panel && bun install && bun dev         # http://localhost:3000
 
 ## Версия
 
-Plugin v0.6.0, 50 tools (46 visible + 4 atomic hidden), 20 audio analyzers (8 core + 6 P1 + 4 P2 essentia/librosa + phrase + bpm_histogram), two-phase pipeline, context-aware 6-component scoring, tiered analysis (L1-L4), FileSystemProvider, modular bootstrap/api/di/workflows architecture.
+Plugin v0.7.0, 50 tools (46 visible + 4 atomic hidden), 20 audio analyzers (8 core + 6 P1 + 4 P2 essentia/librosa + phrase + bpm_histogram), two-phase pipeline, context-aware 6-component scoring, tiered analysis (L1-L4), FileSystemProvider, modular bootstrap/api/di/workflows architecture. **New in 0.7.0**: Transition Recipe Engine (12 djay Pro AI transition types with stem-level instructions), beatgrid migration (23,755 tracks), auto-DJ with smart track selection (BPM ±3, Camelot ≤2), preload next track, echo-out LPF, click fix, transition logging, Selectel VM deployment.
