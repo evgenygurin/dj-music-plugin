@@ -172,4 +172,4 @@ cd panel && bun install && bun dev         # http://localhost:3000
 
 ## Версия
 
-Plugin v0.5.0, 50 tools (46 visible + 4 atomic hidden), 18 audio analyzers (8 core + 6 P1 + 4 P2 essentia/librosa), two-phase pipeline, context-aware 6-component scoring, tiered analysis (L1-L4), FileSystemProvider.
+Plugin v0.6.0, 50 tools (46 visible + 4 atomic hidden), 20 audio analyzers (8 core + 6 P1 + 4 P2 essentia/librosa + phrase + bpm_histogram), two-phase pipeline, context-aware 6-component scoring, tiered analysis (L1-L4), FileSystemProvider, modular bootstrap/api/di/workflows architecture.

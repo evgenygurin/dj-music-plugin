@@ -10,7 +10,7 @@
     {
       "name": "dj-music",
       "description": "DJ techno music library management — 50 MCP tools for set building, audio analysis, and Yandex Music integration",
-      "version": "0.5.0",
+      "version": "0.6.0",
       "source": "./",
       "author": {
         "name": "Evgeny Gurin"
