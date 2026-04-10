@@ -1364,6 +1364,28 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
                 }
               }
             }
+            // ── Transition log ──────────────────────────────────
+            // Structured log for analyzing transition quality.
+            // Visible in DevTools console.
+            try {
+              const outMeta = activeMeta
+              const inMeta = incomingMeta
+              console.info('[TRANSITION]', JSON.stringify({
+                from: { id: outgoing?.id, title: outgoing?.title, bpm: outMeta?.bpm, key: outgoing?.camelot },
+                to: { id: track.id, title: track.title, bpm: inMeta?.bpm, key: track.camelot },
+                style: resolvedStyle,
+                recommended: recommendedStyle,
+                manual: manualOverride !== 'auto',
+                bars: effectiveBars,
+                durationSec: Math.round(effectiveFadeSec * 10) / 10,
+                tempoRatio: Math.round(ratio * 1000) / 1000,
+                downbeatDelaySec: Math.round(delaySec * 100) / 100,
+                seekTarget: snappedSeekTarget != null ? Math.round(snappedSeekTarget * 100) / 100 : null,
+                outLufs: outMeta?.integratedLufs ?? null,
+                inLufs: inMeta?.integratedLufs ?? null,
+              }))
+            } catch { /* ignore logging errors */ }
+
             // Include the downbeat-alignment delay — fade starts at
             // delaySec into the future, so the finaliser must wait
             // (delaySec + effectiveFadeSec) wall-seconds for the
