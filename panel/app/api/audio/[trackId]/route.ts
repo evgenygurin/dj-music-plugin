@@ -42,10 +42,23 @@ export async function GET(
   const upstreamHeaders: Record<string, string> = {}
   if (range) upstreamHeaders.range = range
 
-  const upstream = await fetch(
-    `${REST_BASE}/api/audio/stream/${data.yandex_track_id}`,
-    { cache: 'no-store', headers: upstreamHeaders },
-  )
+  let upstream: Response
+  try {
+    upstream = await fetch(
+      `${REST_BASE}/api/audio/stream/${data.yandex_track_id}`,
+      {
+        cache: 'no-store',
+        headers: upstreamHeaders,
+        signal: AbortSignal.timeout(15_000),
+      },
+    )
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err)
+    return NextResponse.json(
+      { error: 'upstream timeout or connection failed', detail: msg },
+      { status: 504 },
+    )
+  }
 
   if (!upstream.ok && upstream.status !== 206) {
     const text = await upstream.text().catch(() => '')
