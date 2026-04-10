@@ -47,18 +47,30 @@ function camelotDistance(a?: string | null, b?: string | null): number | null {
   return numDiff + letterPenalty
 }
 
+// Max BPM change per transition — techno best practice: ±3 BPM (≈2.3% at 130).
+// "BPM creep" of +1-2 BPM per track builds energy imperceptibly over a set.
+// Anything over ±3 sounds like a tempo jump and breaks the groove.
+const MAX_BPM_DELTA = 3
+
 function compatibilityScore(a: PlayerTrackMeta, b: PlayerTrackMeta): number {
+  if (a.bpm != null && b.bpm != null) {
+    let diff = Math.abs(a.bpm - b.bpm)
+    diff = Math.min(diff, Math.abs(a.bpm - b.bpm * 2), Math.abs(a.bpm - b.bpm / 2))
+    // Hard reject: BPM delta > MAX_BPM_DELTA
+    if (diff > MAX_BPM_DELTA) return 0
+  }
   let bpmScore = 0.5
   if (a.bpm != null && b.bpm != null) {
     let diff = Math.abs(a.bpm - b.bpm)
     diff = Math.min(diff, Math.abs(a.bpm - b.bpm * 2), Math.abs(a.bpm - b.bpm / 2))
-    bpmScore = Math.exp(-(diff * diff) / (2 * 4 * 4))
+    // Tight gaussian: sigma=1.5 — strongly prefer ±1 BPM, tolerate ±3
+    bpmScore = Math.exp(-(diff * diff) / (2 * 1.5 * 1.5))
   }
   let harmonic = 0.5
   const cd = camelotDistance(a.camelot, b.camelot)
   if (cd !== null) harmonic = Math.max(0, 1 - cd / 4)
   const mood = a.mood && b.mood && a.mood === b.mood ? 1 : 0.5
-  return bpmScore * 0.6 + harmonic * 0.3 + mood * 0.1
+  return bpmScore * 0.5 + harmonic * 0.35 + mood * 0.15
 }
 
 function pickAutoNext(
@@ -1609,7 +1621,9 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
             (c) =>
               poolIds.has(c.to_track_id) &&
               !recent.has(c.to_track_id) &&
-              c.overall_quality > 0,
+              c.overall_quality > 0 &&
+              // Techno best practice: ±3 BPM max per transition
+              (c.bpm_distance == null || c.bpm_distance <= MAX_BPM_DELTA),
           )
           .slice(0, 8)
         if (matches.length > 0) {
@@ -1725,7 +1739,9 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
               (c) =>
                 poolIds.has(c.to_track_id) &&
                 !recent.has(c.to_track_id) &&
-                c.overall_quality > 0,
+                c.overall_quality > 0 &&
+                // Techno best practice: ±3 BPM max per transition
+                (c.bpm_distance == null || c.bpm_distance <= MAX_BPM_DELTA),
             )
             .slice(0, 8)
           if (matches.length > 0) {
