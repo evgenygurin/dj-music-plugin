@@ -127,7 +127,7 @@ interface AudioPlayerState {
 }
 
 interface AudioPlayerApi extends AudioPlayerState {
-  play: (track: PlayerTrackMeta, queue?: PlayerTrackMeta[]) => void
+  play: (track: PlayerTrackMeta, queue?: PlayerTrackMeta[]) => void | Promise<void>
   toggle: (track?: PlayerTrackMeta, queue?: PlayerTrackMeta[]) => void
   pause: () => void
   stop: () => void
@@ -620,8 +620,28 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
         setRecommendedBars(res.recommendedBars)
       })
 
-      const url = `/api/audio/${track.id}`
-      inactive.audio.src = url
+      // Pre-fetch the entire audio file into a Blob URL so playback
+      // is from local memory, not a network stream. Eliminates crackling
+      // and buffer underruns caused by network latency/jitter.
+      // Starts streaming immediately as fallback, replaces with blob
+      // when download completes (before crossfade envelopes start).
+      const streamUrl = `/api/audio/${track.id}`
+      // Revoke previous blob URL if any (prevent memory leak)
+      if (inactive.audio.src.startsWith('blob:')) {
+        URL.revokeObjectURL(inactive.audio.src)
+      }
+      const blobPromise = fetch(streamUrl)
+        .then((r) => (r.ok ? r.blob() : null))
+        .then((blob) => {
+          if (blob) {
+            const bu = URL.createObjectURL(blob)
+            inactive.audio.src = bu
+            return bu
+          }
+          return null
+        })
+        .catch(() => null)
+      inactive.audio.src = streamUrl
       inactive.audio.preservesPitch = false // we want true playback-rate behaviour
       // Reset any leftover playbackRate from a previous transition —
       // otherwise a chain of mixes compounds tempo-match ratios.
@@ -660,6 +680,9 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
             stylePromise,
             incomingMetaPromise,
           ])
+          // Wait for blob pre-fetch to complete so playback is from
+          // local memory, not network stream (eliminates crackling).
+          await blobPromise
 
           // Use the OUTGOING track's BPM (already known from current.bpm /
           // currentMetaRef) to convert bars→seconds. This locks the mix
@@ -1511,7 +1534,7 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
   )
 
   const play = useCallback(
-    (track: PlayerTrackMeta, nextQueue?: PlayerTrackMeta[]) => {
+    async (track: PlayerTrackMeta, nextQueue?: PlayerTrackMeta[]) => {
       const env = ensureContext()
       if (!env) return
       const { ctx } = env
@@ -1557,9 +1580,15 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
       setError(null)
       setCurrent(track)
       historyRef.current = [...historyRef.current, track.id].slice(-50)
-      const url = `/api/audio/${track.id}`
-      if (!active.audio.src.endsWith(url)) {
-        active.audio.src = url
+      // Pre-fetch entire file into blob for glitch-free playback.
+      const snapUrl = `/api/audio/${track.id}`
+      if (!active.audio.src.endsWith(snapUrl)) {
+        let snapBlobUrl: string | null = null
+        try {
+          const r = await fetch(snapUrl)
+          if (r.ok) snapBlobUrl = URL.createObjectURL(await r.blob())
+        } catch { /* fall back to stream */ }
+        active.audio.src = snapBlobUrl ?? snapUrl
       }
       // Set playback rate to master tempo (not native BPM)
       const snapMasterBpm = masterBpmRef.current
