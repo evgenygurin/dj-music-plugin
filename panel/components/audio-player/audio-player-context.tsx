@@ -991,33 +991,27 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
             const echoDelay = ctx.createDelay(1.5)
             echoDelay.delayTime.setValueAtTime(delayTime, t0)
             const echoFb = ctx.createGain()
-            echoFb.gain.setValueAtTime(0.55, t0)
+            echoFb.gain.setValueAtTime(0.45, t0) // reduced from 0.55 — fewer repeats, cleaner tail
             const echoWet = ctx.createGain()
-            echoWet.gain.setValueAtTime(0.7 * vol, t0)
-            // Parallel tap from preGain (post-LUFS-normalization,
-            // pre-dry/wet split). We re-use the existing masterLimiter
-            // on the graph by terminating at the deck's fadeGain
-            // output node via a fresh sum — simpler: connect directly
-            // to ctx.destination's upstream limiter via the master
-            // path. Since every deck.gain → masterLimiter already, we
-            // just land our wet on `active.gain`'s output target,
-            // which is the masterLimiter input. `active.gain` is a
-            // GainNode — we can connect `echoWet → active.gain` so
-            // the wet signal rides through the same gain envelope,
-            // BUT that would also scale the wet by the fast dry
-            // fade-out. We want the wet independent. So instead we
-            // grab the master limiter off the Deck's known downstream
-            // chain by letting echoWet → ctx.destination directly.
-            // The master limiter lives upstream of destination already
-            // in the main graph, but echoWet is a separate branch —
-            // routing it straight to destination bypasses the limiter.
-            // Accept that: feedback=0.55 + wetCeiling=0.7 keeps the
-            // signal well below clipping on any realistic master.
+            echoWet.gain.setValueAtTime(0.45 * vol, t0) // reduced from 0.7 — less harsh initial echo
+            // LPF in feedback loop: each repeat loses highs, like a
+            // real analog dub delay. Without this, harsh transients
+            // (hi-hats, clicks) repeat at full brightness.
+            const echoLpf = ctx.createBiquadFilter()
+            echoLpf.type = 'lowpass'
+            echoLpf.frequency.setValueAtTime(3000, t0) // darken each repeat
+            echoLpf.Q.setValueAtTime(0.7, t0)
+            // Signal chain: preGain → delay → LPF → feedback → delay
+            //                                    └→ wet → masterLimiter
+            // Route through masterLimiter (not ctx.destination) to
+            // prevent clipping on loud echo tails.
+            const masterLimiter = env.masterLimiter
             active.preGain.connect(echoDelay)
-            echoDelay.connect(echoFb)
+            echoDelay.connect(echoLpf)
+            echoLpf.connect(echoFb)
             echoFb.connect(echoDelay)
-            echoDelay.connect(echoWet)
-            echoWet.connect(ctx.destination)
+            echoLpf.connect(echoWet)
+            echoWet.connect(masterLimiter)
 
             // Fast dry fade-out on outgoing — 2 bars, matches what
             // a DJ does pulling the channel fader while the echo
@@ -1037,7 +1031,7 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
             echoWet.gain.linearRampToValueAtTime(0, t0 + cf)
             // Kill feedback hard at fade end to silence any residual
             // loop before we disconnect.
-            echoFb.gain.setValueAtTime(0.55, t0 + cf - 0.1)
+            echoFb.gain.setValueAtTime(0.45, t0 + cf - 0.1)
             echoFb.gain.linearRampToValueAtTime(0, t0 + cf)
 
             extraCleanup.push(() => {
@@ -1048,6 +1042,7 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
               }
               try {
                 echoDelay.disconnect()
+                echoLpf.disconnect()
                 echoFb.disconnect()
                 echoWet.disconnect()
               } catch {
