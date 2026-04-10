@@ -43,7 +43,6 @@ export function TransitionVisualizer() {
 
   useEffect(() => {
     if (!isCrossfading || crossfadeStartedAt == null || !crossfadeDurationSeconds) {
-      setProgress(0)
       return
     }
     const dur = crossfadeDurationSeconds * 1000
@@ -72,10 +71,12 @@ export function TransitionVisualizer() {
     return null
   }
 
+  const displayProgress = Math.max(0, Math.min(1, progress))
+
   // Equal-power gain at the current progress (matches what the audio
   // engine is actually doing — see startCrossfade in audio-player-context).
-  const gainOut = Math.cos((progress * Math.PI) / 2)
-  const gainIn = Math.sin((progress * Math.PI) / 2)
+  const gainOut = Math.cos((displayProgress * Math.PI) / 2)
+  const gainIn = Math.sin((displayProgress * Math.PI) / 2)
 
   // Live per-deck playhead positions during the overlap. Each deck
   // started at a snapshot position and has been advancing at its own
@@ -84,7 +85,7 @@ export function TransitionVisualizer() {
   // extrapolate from the snapshot + wall-clock progress to keep the
   // two waveform cursors driving in real time.
   const fadeDur = crossfadeDurationSeconds ?? 0
-  const elapsed = progress * fadeDur
+  const elapsed = displayProgress * fadeDur
   const outRate = outgoingFadePlaybackRate ?? 1
   const inRate = incomingFadePlaybackRate ?? 1
   const outgoingPos =
@@ -101,11 +102,11 @@ export function TransitionVisualizer() {
   const swapStart = 0.5 - SWAP_WINDOW / 2
   const swapEnd = 0.5 + SWAP_WINDOW / 2
   const swapProgress =
-    progress <= swapStart
+    displayProgress <= swapStart
       ? 0
-      : progress >= swapEnd
+      : displayProgress >= swapEnd
         ? 1
-        : (progress - swapStart) / SWAP_WINDOW
+        : (displayProgress - swapStart) / SWAP_WINDOW
   const bassOut = 1 - swapProgress
   const bassIn = swapProgress
 
@@ -117,8 +118,8 @@ export function TransitionVisualizer() {
     >
       <div className="pointer-events-auto rounded-xl border border-primary/40 bg-background/95 p-4 shadow-2xl backdrop-blur supports-[backdrop-filter]:bg-background/85">
         <div className="mb-2 flex items-center justify-between gap-3 text-[11px]">
-          <span className="font-mono uppercase tracking-wider text-primary/80">
-            Transition · {(progress * 100).toFixed(0)}%
+            <span className="font-mono uppercase tracking-wider text-primary/80">
+            Transition · {(displayProgress * 100).toFixed(0)}%
           </span>
           {/* Runtime style badge: prefer the RESOLVED style (what
               the dispatcher actually ran, after applying the manual

@@ -27,6 +27,7 @@ import numpy as np
 
 from app.audio.analyzers.base import BaseAnalyzer, register_analyzer
 from app.audio.core.context import AnalysisContext
+from app.audio.core.rhythm import find_beat_times, tempo_from_onset_autocorrelation
 
 
 def _autocorrelation_peak(onset_env: np.ndarray, min_lag: int, max_lag: int) -> float:
@@ -68,14 +69,15 @@ class BeatDetector(BaseAnalyzer):
 
     def _extract(self, ctx: AnalysisContext) -> dict[str, Any]:
         """Analyze rhythmic features from the shared analysis context."""
-        import librosa
+        import librosa  # noqa: F401
 
         sr = ctx.sr
         analysis_duration = ctx.duration
 
         # Onset envelope shared via ctx (bpm/tempogram reuse it)
         onset_env = ctx.get_onset_env()
-        onsets = librosa.onset.onset_detect(onset_envelope=onset_env, sr=sr, units="time")
+        bpm_hint = tempo_from_onset_autocorrelation(onset_env, sr, ctx.params.hop_length).bpm
+        onsets = find_beat_times(onset_env, sr, ctx.params.hop_length, bpm_hint=bpm_hint)
         onset_rate = float(len(onsets) / analysis_duration) if analysis_duration > 0 else 0.0
 
         # ── Pulse clarity via FFT autocorrelation of the onset envelope ──
@@ -89,23 +91,24 @@ class BeatDetector(BaseAnalyzer):
         else:
             pulse_clarity = 0.0
 
-        # ── HPSS on the precomputed magnitude (no STFT, no ISTFT) ──
-        # librosa.decompose.hpss accepts a real-valued spectrogram and
-        # returns harmonic/percussive spectrograms of the same shape.
-        # We never reconstruct the time-domain signals — energies via
-        # Parseval (sum of |X|^2) are equivalent to time-domain RMS for
-        # the ratio we care about.
-        h_mag, p_mag = librosa.decompose.hpss(ctx.magnitude)
-        h_energy = float(np.sum(h_mag**2))
-        p_energy = float(np.sum(p_mag**2))
+        steady_mag = np.mean(ctx.magnitude, axis=1)
+        transient_mag = np.maximum(
+            np.diff(ctx.magnitude, axis=1, prepend=ctx.magnitude[:, :1]),
+            0.0,
+        )
+        h_energy = float(np.sum(steady_mag**2) * max(1, ctx.magnitude.shape[1]))
+        p_energy = float(np.sum(transient_mag**2))
         hp_ratio = float(np.sqrt(h_energy / (p_energy + 1e-10)))
 
         # ── Kick prominence: low-band fraction of percussive energy ──
-        # No second STFT — we already have the percussive magnitude.
         low_mask = ctx.freqs < 200.0
-        if np.any(low_mask) and p_energy > 0:
-            low_perc_energy = float(np.sum(p_mag[low_mask, :] ** 2))
-            kick_prominence = low_perc_energy / p_energy
+        onset_weight_sum = float(np.sum(onset_env))
+        if np.any(low_mask) and onset_weight_sum > 0:
+            onset_weights = onset_env / onset_weight_sum
+            weighted_power = (ctx.magnitude**2) * onset_weights[np.newaxis, :]
+            weighted_total = float(np.sum(weighted_power))
+            low_perc_energy = float(np.sum(weighted_power[low_mask, :]))
+            kick_prominence = low_perc_energy / max(weighted_total, 1e-10)
         else:
             kick_prominence = 0.0
 

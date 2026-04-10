@@ -53,8 +53,12 @@ async def test_unknown_action_raises() -> None:
     async def _known() -> int:
         return 0
 
-    with pytest.raises(UnknownActionError, match="unknown action 'missing'"):
+    try:
         await d.dispatch("missing")
+    except UnknownActionError as exc:
+        assert str(exc) == "unknown action 'missing'; known: known"
+    else:
+        pytest.fail("Expected UnknownActionError")
 
 
 def test_actions_property_returns_frozen_set() -> None:

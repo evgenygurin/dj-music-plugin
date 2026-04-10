@@ -87,7 +87,7 @@ DJ_DB_ACCESS_TOKEN="..."   # personal access token
 ## Разработка
 
 ```bash
-uv run pytest -v                           # Тесты (923+)
+uv run pytest -v                           # Тесты (1200+)
 uv run ruff check && uv run ruff format --check  # Линтер
 uv run mypy app/                           # Типы
 uv run alembic upgrade head                # Миграции
@@ -102,15 +102,20 @@ uv run python scripts/verify_audio_pipeline.py [path/to/track.mp3]
 FastMCP v3.1 + FileSystemProvider (standalone `@tool`, auto-discovery):
 
 ```text
-Models → Repositories → Services → MCP Tools (@tool)
-                                 → MCP Resources (@resource)
-                                 → MCP Prompts (@prompt)
+Band 0  Core         config · constants · errors · utils · middleware
+Band 1  Controllers  MCP tools/prompts/resources + REST routes + schemas
+Band 2A Services     request-scoped use cases (UoW, workflows, services)
+Band 2B Engines      long-lived runtime singletons (DeckEngine, MixerEngine)
+Band 3  Pure logic   entities · transition · optimization · templates · camelot · audit
+Band 4  Persistence  mappers ⇆ repositories ⇆ ORM models ⇆ Alembic
+Band 5  Infra        YM client · audio analyzers · sounddevice · storage
 ```
 
-**Слои:**
-- `app/db/models/` — SQLAlchemy 2.0 async (44 tables)
-- `app/db/repositories/` — data access (flush only, never commit)
-- `app/services/` — business logic (TrackService, PlaylistService, TransitionScorer + `TrackFeatures.from_db()`, GA/Greedy optimizer)
+**Ключевые модули:**
+- `app/bootstrap/` — MCP server assembly (server_builder, lifespans, middleware, transforms, visibility)
+- `app/api/` — FastAPI REST wrapper (routes/, services/, state, lifespan, schemas)
+- `app/controllers/dependencies/` — DI factories split by concern (db, repos, services, audio, external, uow)
+- `app/services/workflows/` — orchestration (import, analyze, build_set, deliver, sync)
 - `app/controllers/tools/` — thin MCP wrappers with Depends() DI
 - `app/audio/` — layered audio analysis (see below)
 - `app/ym/` — async Yandex Music client (httpx, rate limiting)
@@ -194,5 +199,5 @@ import_tracks → download_tracks → analyze_track    → classify_mood → bui
 
 - Python 3.12+
 - uv (менеджер пакетов)
-- SQLite (по умолчанию) или PostgreSQL 16+ (prod)
+- Supabase PostgreSQL 16+ (prod), SQLite in-memory (tests only)
 - Опционально: librosa (audio analysis), demucs (stem separation), fastmcp[tasks] (background tasks)

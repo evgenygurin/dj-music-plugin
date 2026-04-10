@@ -10,6 +10,7 @@ from app.db.models.set import DjSet, SetVersion
 from app.db.repositories.feature import FeatureRepository
 from app.db.repositories.playlist import PlaylistRepository
 from app.db.repositories.set import SetRepository
+from app.services.templates import get_template
 from app.services.transition import TrackFeatures, TransitionScorer
 
 
@@ -53,6 +54,7 @@ class SetBuilderService:
             track_ids,
             track_features_list,
             algorithm,
+            template_name=template,
         )
 
         dj_set = DjSet(
@@ -107,6 +109,7 @@ class SetBuilderService:
             track_ids,
             track_features_list,
             algorithm,
+            template_name=template,
         )
 
         return {
@@ -132,6 +135,8 @@ class SetBuilderService:
             raise NotFoundError("SetVersion", f"set_id={set_id}")
 
         current_ids = [item.track_id for item in await self._sets.get_version_items(latest.id)]
+        dj_set = await self._sets.get_by_id(set_id)
+        template_name = dj_set.template_name if dj_set is not None else None
 
         exclude_set = set(exclude_tracks or [])
         filtered = [tid for tid in current_ids if tid not in exclude_set]
@@ -144,6 +149,7 @@ class SetBuilderService:
             filtered,
             track_features_list,
             algorithm,
+            template_name=template_name,
         )
 
         pinned_set = set(pin_tracks or [])
@@ -172,21 +178,43 @@ class SetBuilderService:
         track_ids: list[int],
         track_features_list: list[TrackFeatures],
         algorithm: str,
+        template_name: str | None = None,
     ) -> tuple[list[int], float | None, str]:
         """Run optimizer and return (ordered_ids, quality_score, algorithm_used)."""
         from app.services.optimizer import GeneticAlgorithm, GreedyChainBuilder
 
         scorer = TransitionScorer()
         has_features = any(f.bpm is not None for f in track_features_list)
+        moods = {
+            tid: features.mood
+            for tid, features in zip(track_ids, track_features_list, strict=False)
+        }
+
+        template = None
+        if template_name:
+            try:
+                template = get_template(template_name)
+            except KeyError:
+                template = None
 
         if not has_features:
             return track_ids, None, "playlist_order"
 
         if algorithm in ("ga", "genetic"):
             ga = GeneticAlgorithm(scorer)
-            opt_result = ga.optimize(track_features_list, track_ids)
+            opt_result = ga.optimize(
+                track_features_list,
+                track_ids,
+                template=template,
+                moods=moods,
+            )
         else:
             builder = GreedyChainBuilder(scorer)
-            opt_result = builder.build(track_features_list, track_ids)
+            opt_result = builder.optimize(
+                track_features_list,
+                track_ids,
+                template=template,
+                moods=moods,
+            )
 
         return opt_result.track_order, opt_result.quality_score, algorithm

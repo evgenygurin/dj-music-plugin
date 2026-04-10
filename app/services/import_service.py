@@ -75,7 +75,7 @@ class ImportService:
             existing = await self._tracks.get_by_external_id("yandex_music", ym_id)
             if existing is not None:
                 skipped += 1
-                id_mapping[ym_id] = existing.id
+                id_mapping[ym_id] = existing.track_id
                 continue
 
             track = await self._tracks.create(Track(title=f"YM:{ym_id}", status=0))

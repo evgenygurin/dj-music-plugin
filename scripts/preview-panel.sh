@@ -8,4 +8,4 @@ set -euo pipefail
 export PATH="/opt/homebrew/bin:/usr/local/bin:${PATH:-}"
 ROOT="${CLAUDE_PLUGIN_ROOT:-$(cd "$(dirname "$0")/.." && pwd)}"
 cd "$ROOT/panel"
-exec node ./node_modules/next/dist/bin/next dev --port 3000
+exec node ./node_modules/next/dist/bin/next dev --port "${PORT:-3000}"

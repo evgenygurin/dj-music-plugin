@@ -130,10 +130,15 @@
   * {
     @apply border-border outline-ring/50;
   }
-  body {
-    @apply bg-background text-foreground;
-  }
   html {
     @apply font-sans;
+    color-scheme: dark;
+  }
+  body {
+    @apply bg-background text-foreground;
+    background-image:
+      radial-gradient(circle at top, oklch(0.56 0.16 255 / 0.14), transparent 42%),
+      linear-gradient(180deg, oklch(0.12 0.01 255) 0%, oklch(0.1 0 0) 32%);
+    background-attachment: fixed;
   }
 }

@@ -11,6 +11,7 @@ import numpy as np
 
 from app.audio.analyzers.base import BaseAnalyzer, register_analyzer
 from app.audio.core.context import AnalysisContext
+from app.audio.core.rhythm import find_beat_times, tempo_from_onset_autocorrelation
 
 
 @register_analyzer
@@ -36,7 +37,7 @@ class BPMDetector(BaseAnalyzer):
         interpolation around the autocorrelation peak recovers
         fractional-frame precision.
         """
-        import librosa
+        import librosa  # noqa: F401
 
         sr = ctx.sr
         hop_length = ctx.params.hop_length
@@ -44,18 +45,10 @@ class BPMDetector(BaseAnalyzer):
         # Onset envelope (cached, shared with beat/tempogram analyzers)
         onset_env = ctx.get_onset_env()
 
-        # Sub-frame BPM via autocorrelation peak interpolation
-        bpm = _bpm_from_onset_autocorrelation(onset_env=onset_env, sr=sr, hop_length=hop_length)
-
-        # Beat positions for stability metric (frame-quantized but fine here)
-        _, beat_frames = librosa.beat.beat_track(
-            onset_envelope=onset_env, sr=sr, hop_length=hop_length, units="frames"
-        )
-        beat_times = librosa.frames_to_time(beat_frames, sr=sr, hop_length=hop_length)
-
-        # Confidence from PLP mean (max is ~always 1.0 — meaningless as a signal)
-        pulse = librosa.beat.plp(onset_envelope=onset_env, sr=sr, hop_length=hop_length)
-        confidence = float(np.mean(pulse)) if len(pulse) > 0 else 0.5
+        estimate = tempo_from_onset_autocorrelation(onset_env, sr, hop_length)
+        bpm = estimate.bpm
+        confidence = estimate.confidence
+        beat_times = find_beat_times(onset_env, sr, hop_length, bpm_hint=bpm)
 
         # Stability: how consistent are inter-beat intervals
         stability = 0.0
@@ -104,38 +97,11 @@ def _bpm_from_onset_autocorrelation(
     tracks locked to 80-84 BPM out of 5702 total — ~19% of the corpus
     was being misdetected as half-tempo before this fix.
     """
-    if len(onset_env) < 4:
-        return 0.0
-
-    # Mean-center to keep autocorrelation peak at the actual rhythm period
-    centered = onset_env - float(np.mean(onset_env))
-    ac = np.correlate(centered, centered, mode="full")
-    ac = ac[len(ac) // 2 :]  # keep positive lags
-
-    frames_per_sec = sr / hop_length
-    min_lag = max(1, int(np.floor(60.0 * frames_per_sec / max_bpm)))
-    max_lag = min(len(ac) - 2, int(np.ceil(60.0 * frames_per_sec / min_bpm)))
-
-    if max_lag <= min_lag + 1:
-        return 0.0
-
-    region = ac[min_lag : max_lag + 1]
-    peak_offset = int(np.argmax(region))
-    peak_idx = min_lag + peak_offset
-
-    # Parabolic interpolation for sub-frame precision
-    refined_lag = float(peak_idx)
-    if 0 < peak_idx < len(ac) - 1:
-        y_minus = float(ac[peak_idx - 1])
-        y_zero = float(ac[peak_idx])
-        y_plus = float(ac[peak_idx + 1])
-        denom = y_minus - 2.0 * y_zero + y_plus
-        if abs(denom) > 1e-12:
-            offset = 0.5 * (y_minus - y_plus) / denom
-            # Clamp interpolation offset to [-1, 1] for stability
-            offset = max(-1.0, min(1.0, offset))
-            refined_lag = peak_idx + offset
-
-    if refined_lag <= 0:
-        return 0.0
-    return float(60.0 * frames_per_sec / refined_lag)
+    estimate = tempo_from_onset_autocorrelation(
+        onset_env,
+        sr,
+        hop_length,
+        min_bpm=min_bpm,
+        max_bpm=max_bpm,
+    )
+    return estimate.bpm

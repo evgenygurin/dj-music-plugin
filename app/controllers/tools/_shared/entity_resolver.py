@@ -4,8 +4,9 @@ import logging
 from dataclasses import dataclass
 from typing import Any, Literal
 
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.db.repositories.track import TrackRepository
 
 logger = logging.getLogger(__name__)
 
@@ -56,9 +57,8 @@ async def resolve_track_refs(
 
     Returns list of resolved DB track IDs. Unresolvable refs are logged and skipped.
     """
-    from app.db.models.track import Track
-
     resolved: list[int] = []
+    track_repo = TrackRepository(session)
     for ref in refs:
         parsed = parse_entity_ref(ref)
 
@@ -84,15 +84,9 @@ async def resolve_track_refs(
                 logger.warning("Cannot resolve ym:%s to local DB", parsed.value)
 
         elif parsed.type == "query":
-            stmt = (
-                select(Track.id)
-                .where(Track.title.ilike(f"%{parsed.value}%"), Track.status == 0)
-                .limit(1)
-            )
-            result = await session.execute(stmt)
-            row = result.scalar_one_or_none()
-            if row is not None:
-                resolved.append(row)
+            matches = await track_repo.search_by_text(parsed.value, limit=1)
+            if matches:
+                resolved.append(matches[0].id)
             else:
                 logger.warning("Cannot resolve query '%s' to local track", parsed.value)
 
@@ -101,11 +95,6 @@ async def resolve_track_refs(
 
 async def _resolve_ym_id(ym_id: str, session: AsyncSession) -> int | None:
     """Look up local track_id by YM external ID."""
-    from app.db.models.track import TrackExternalId
-
-    stmt = select(TrackExternalId.track_id).where(
-        TrackExternalId.platform == "yandex_music",
-        TrackExternalId.external_id == ym_id,
-    )
-    result = await session.execute(stmt)
-    return result.scalar_one_or_none()
+    track_repo = TrackRepository(session)
+    ext = await track_repo.get_by_external_id("yandex_music", ym_id)
+    return ext.track_id if ext is not None else None

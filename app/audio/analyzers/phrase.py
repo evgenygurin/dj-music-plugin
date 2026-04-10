@@ -8,6 +8,7 @@ import numpy as np
 
 from app.audio.analyzers.base import BaseAnalyzer, register_analyzer
 from app.audio.core.context import AnalysisContext
+from app.audio.core.tonal import compute_pitch_class_chroma
 
 
 @register_analyzer
@@ -22,7 +23,7 @@ class PhraseAnalyzer(BaseAnalyzer):
     def _extract(
         self, ctx: AnalysisContext, *, prior_results: dict[str, Any] | None = None
     ) -> dict[str, Any]:
-        import librosa
+        import librosa  # noqa: F401
 
         beat_times = (prior_results or {}).get("beat_times", [])
         if len(beat_times) < 16:
@@ -34,14 +35,16 @@ class PhraseAnalyzer(BaseAnalyzer):
         if n_bars < 8:
             return {"phrase_boundaries_ms": [], "dominant_phrase_bars": 16}
 
-        # Compute chroma
-        chroma = librosa.feature.chroma_cqt(y=ctx.samples, sr=ctx.sr)
+        chroma = compute_pitch_class_chroma(ctx.magnitude, ctx.freqs)
 
         # Guard against empty chroma (very short or silent signals)
         if chroma.shape[1] == 0:
             return {"phrase_boundaries_ms": [], "dominant_phrase_bars": 16}
 
-        bar_frames = librosa.time_to_frames(bar_times, sr=ctx.sr)
+        hop_seconds = ctx.params.hop_length / ctx.sr
+        if hop_seconds <= 0:
+            return {"phrase_boundaries_ms": [], "dominant_phrase_bars": 16}
+        bar_frames = [round(t / hop_seconds) for t in bar_times]
 
         # Mean chroma per bar
         chroma_bars_list = []
@@ -56,31 +59,36 @@ class PhraseAnalyzer(BaseAnalyzer):
         if len(chroma_bars_list) < 4:
             return {"phrase_boundaries_ms": [], "dominant_phrase_bars": 16}
 
-        chroma_bars = np.array(chroma_bars_list).T  # shape: (12, n_bars-1)
+        chroma_bars = np.array(chroma_bars_list)
+        bar_changes = (
+            np.linalg.norm(np.diff(chroma_bars, axis=0), axis=1)
+            if len(chroma_bars) > 1
+            else np.array([], dtype=np.float64)
+        )
 
-        # Determine number of segments: k must be >= 2 and <= n_samples
-        n_samples = chroma_bars.shape[1]
-        k = max(2, min(n_samples, max(4, min(n_samples // 4, 64))))
+        candidates = [size for size in (8, 16, 32) if size < len(bar_times)]
+        dominant = (
+            max(candidates, key=lambda size: _phrase_length_score(bar_changes, size))
+            if candidates
+            else 16
+        )
 
-        boundaries = librosa.segment.agglomerative(chroma_bars, k=k)
-
-        # Convert bar indices to ms
-        phrase_boundaries_ms = [
-            int(bar_times[min(b, len(bar_times) - 1)] * 1000) for b in boundaries
-        ]
-
-        # Dominant phrase length (mode of segment lengths, quantized to 8/16/32)
-        segment_lengths = np.diff(boundaries)
-        if len(segment_lengths) > 0:
-            quantized = [
-                min([8, 16, 32], key=lambda x, sl=int(sl): abs(x - sl))  # type: ignore[misc]
-                for sl in segment_lengths
-            ]
-            dominant = max(set(quantized), key=quantized.count)
-        else:
-            dominant = 16
+        boundaries = list(range(0, len(bar_times), dominant))
+        if boundaries[-1] != len(bar_times) - 1:
+            boundaries.append(len(bar_times) - 1)
+        phrase_boundaries_ms = [int(bar_times[idx] * 1000) for idx in boundaries]
 
         return {
             "phrase_boundaries_ms": phrase_boundaries_ms,
             "dominant_phrase_bars": int(dominant),
         }
+
+
+def _phrase_length_score(bar_changes: np.ndarray, phrase_bars: int) -> float:
+    if len(bar_changes) == 0:
+        return 0.0
+
+    boundary_positions = [idx - 1 for idx in range(phrase_bars, len(bar_changes) + 1, phrase_bars)]
+    if not boundary_positions:
+        return 0.0
+    return float(np.mean(bar_changes[boundary_positions]))

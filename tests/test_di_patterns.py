@@ -25,6 +25,19 @@ from app.db.repositories.set import SetRepository
 from app.db.repositories.track import TrackRepository
 
 
+def _patch_dependency_context(monkeypatch: pytest.MonkeyPatch, session_factory) -> None:  # type: ignore[no-untyped-def]
+    class MockContext:
+        lifespan_context = {"db_session_factory": session_factory}
+
+    import app.controllers.dependencies
+
+    monkeypatch.setattr(
+        app.controllers.dependencies,
+        "get_context",
+        lambda: MockContext(),
+    )
+
+
 @pytest.mark.asyncio
 async def test_get_db_session_context_manager(seeded_db):
     """Verify get_db_session is an async context manager."""
@@ -34,99 +47,69 @@ async def test_get_db_session_context_manager(seeded_db):
 
 
 @pytest.mark.asyncio
-async def test_repo_factory_returns_repo_instance(async_engine):
+async def test_repo_factory_returns_repo_instance(async_engine, monkeypatch: pytest.MonkeyPatch):
     """Verify repo factories return repository instances."""
     session_factory = async_sessionmaker(async_engine, expire_on_commit=False)
+    _patch_dependency_context(monkeypatch, session_factory)
 
-    class MockContext:
-        lifespan_context = {"db_session_factory": session_factory}
+    async with get_db_session() as session:
+        track_repo = get_track_repo(session)
+        playlist_repo = get_playlist_repo(session)
+        set_repo = get_set_repo(session)
 
-    import app.controllers.dependencies
+        assert isinstance(track_repo, TrackRepository)
+        assert isinstance(playlist_repo, PlaylistRepository)
+        assert isinstance(set_repo, SetRepository)
 
-    original_get_context = app.controllers.dependencies.get_context
-    app.controllers.dependencies.get_context = lambda: MockContext()
-
-    try:
-        async with get_db_session() as session:
-            track_repo = get_track_repo(session)
-            playlist_repo = get_playlist_repo(session)
-            set_repo = get_set_repo(session)
-
-            assert isinstance(track_repo, TrackRepository)
-            assert isinstance(playlist_repo, PlaylistRepository)
-            assert isinstance(set_repo, SetRepository)
-
-            # All repos should have the SAME session instance
-            assert track_repo.session is session
-            assert playlist_repo.session is session
-            assert set_repo.session is session
-    finally:
-        app.controllers.dependencies.get_context = original_get_context
+        # All repos should have the SAME session instance
+        assert track_repo.session is session
+        assert playlist_repo.session is session
+        assert set_repo.session is session
 
 
 @pytest.mark.asyncio
-async def test_session_commits_on_success(async_engine):
+async def test_session_commits_on_success(async_engine, monkeypatch: pytest.MonkeyPatch):
     """Verify session auto-commits on successful operation."""
     session_factory = async_sessionmaker(async_engine, expire_on_commit=False)
+    _patch_dependency_context(monkeypatch, session_factory)
 
-    class MockContext:
-        lifespan_context = {"db_session_factory": session_factory}
+    async with get_db_session() as session:
+        track = Track(title="Test Track", status=0, duration_ms=180000)
+        session.add(track)
+        await session.flush()
+        track_id = track.id
 
-    import app.controllers.dependencies
+    # After context exit, verify track was committed
+    async with session_factory() as verification_session:
+        stmt = select(Track).where(Track.id == track_id)
+        result = await verification_session.execute(stmt)
+        persisted = result.scalar_one_or_none()
+        assert persisted is not None
+        assert persisted.title == "Test Track"
 
-    original_get_context = app.controllers.dependencies.get_context
-    app.controllers.dependencies.get_context = lambda: MockContext()
 
-    try:
+@pytest.mark.asyncio
+async def test_session_rolls_back_on_error(async_engine, monkeypatch: pytest.MonkeyPatch):
+    """Verify session auto-rolls back on error."""
+    session_factory = async_sessionmaker(async_engine, expire_on_commit=False)
+    _patch_dependency_context(monkeypatch, session_factory)
+
+    track_id = None
+    with pytest.raises(ValueError, match="Intentional error"):
         async with get_db_session() as session:
-            track = Track(title="Test Track", status=0, duration_ms=180000)
+            track = Track(title="Rollback Test", status=0, duration_ms=180000)
             session.add(track)
             await session.flush()
             track_id = track.id
+            raise ValueError("Intentional error")
 
-        # After context exit, verify track was committed
+    # After rollback, track should NOT exist
+    if track_id:
         async with session_factory() as verification_session:
             stmt = select(Track).where(Track.id == track_id)
             result = await verification_session.execute(stmt)
             persisted = result.scalar_one_or_none()
-            assert persisted is not None
-            assert persisted.title == "Test Track"
-    finally:
-        app.controllers.dependencies.get_context = original_get_context
-
-
-@pytest.mark.asyncio
-async def test_session_rolls_back_on_error(async_engine):
-    """Verify session auto-rolls back on error."""
-    session_factory = async_sessionmaker(async_engine, expire_on_commit=False)
-
-    class MockContext:
-        lifespan_context = {"db_session_factory": session_factory}
-
-    import app.controllers.dependencies
-
-    original_get_context = app.controllers.dependencies.get_context
-    app.controllers.dependencies.get_context = lambda: MockContext()
-
-    try:
-        track_id = None
-        with pytest.raises(ValueError, match="Intentional error"):
-            async with get_db_session() as session:
-                track = Track(title="Rollback Test", status=0, duration_ms=180000)
-                session.add(track)
-                await session.flush()
-                track_id = track.id
-                raise ValueError("Intentional error")
-
-        # After rollback, track should NOT exist
-        if track_id:
-            async with session_factory() as verification_session:
-                stmt = select(Track).where(Track.id == track_id)
-                result = await verification_session.execute(stmt)
-                persisted = result.scalar_one_or_none()
-                assert persisted is None  # Rolled back
-    finally:
-        app.controllers.dependencies.get_context = original_get_context
+            assert persisted is None  # Rolled back
 
 
 @pytest.mark.asyncio
@@ -151,10 +134,10 @@ async def test_repo_never_commits():
     import ast
     from pathlib import Path
 
-    repo_dir = Path(__file__).parent.parent / "app" / "repositories"
-    for repo_file in repo_dir.glob("*.py"):
-        if repo_file.name == "__init__.py":
-            continue
+    repo_dir = Path(__file__).parent.parent / "app" / "db" / "repositories"
+    repo_files = [repo_file for repo_file in repo_dir.glob("*.py") if repo_file.name != "__init__.py"]
+    assert repo_files, f"No repository files found under {repo_dir}"
+    for repo_file in repo_files:
 
         source = repo_file.read_text()
         tree = ast.parse(source)

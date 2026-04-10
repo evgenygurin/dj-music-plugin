@@ -43,7 +43,7 @@ export function useSetSession(): SetSessionApi {
 const SESSION_STORAGE_KEY = 'dj-set-session'
 
 export function SetSessionProvider({ children }: { children: React.ReactNode }) {
-  const player = useAudioPlayer()
+  const { current: currentTrack, play: playTrack } = useAudioPlayer()
   const [templates, setTemplates] = useState<SetTemplate[]>([])
   const [active, setActive] = useState(false)
   const [template, setTemplate] = useState<SetTemplate | null>(null)
@@ -111,24 +111,24 @@ export function SetSessionProvider({ children }: { children: React.ReactNode }) 
   // Record history when current track changes
   const lastCurrentId = useRef<number | null>(null)
   useEffect(() => {
-    if (!active || !player.current) return
-    if (lastCurrentId.current === player.current.id) return
-    lastCurrentId.current = player.current.id
+    if (!active || !currentTrack) return
+    if (lastCurrentId.current === currentTrack.id) return
+    lastCurrentId.current = currentTrack.id
     setHistory((h) => [
       ...h,
       {
-        trackId: player.current!.id,
+        trackId: currentTrack.id,
         artistIds: [], // resolved by picker via Supabase
-        mood: player.current!.mood ?? null,
+        mood: currentTrack.mood ?? null,
         lufs: null,
         playedAtSec: elapsedSec,
       },
     ])
-  }, [active, player.current, elapsedSec])
+  }, [active, currentTrack, elapsedSec])
 
   // Refresh upcoming periodically (every 30s) when active
   useEffect(() => {
-    if (!active || !template || !player.current) {
+    if (!active || !template || !currentTrack) {
       setUpcoming([])
       return
     }
@@ -138,7 +138,7 @@ export function SetSessionProvider({ children }: { children: React.ReactNode }) 
       pickInFlight.current = true
       try {
         const picks = await pickNextSetTrack({
-          currentTrackId: player.current!.id,
+          currentTrackId: currentTrack.id,
           template,
           elapsedSec,
           totalDurationSec: template.durationMin * 60,
@@ -156,7 +156,7 @@ export function SetSessionProvider({ children }: { children: React.ReactNode }) 
       cancelled = true
       window.clearInterval(id)
     }
-  }, [active, template, player.current, elapsedSec, history, varietyTier])
+  }, [active, currentTrack, elapsedSec, history, template, varietyTier])
 
   const startTemplate = useCallback(
     (templateName: string) => {
@@ -190,9 +190,9 @@ export function SetSessionProvider({ children }: { children: React.ReactNode }) 
   }, [template, currentSlot])
 
   const rebuildRemainder = useCallback(async () => {
-    if (!active || !template || !player.current) return
+    if (!active || !template || !currentTrack) return
     const picks = await pickNextSetTrack({
-      currentTrackId: player.current.id,
+      currentTrackId: currentTrack.id,
       template,
       elapsedSec,
       totalDurationSec: template.durationMin * 60,
@@ -200,13 +200,13 @@ export function SetSessionProvider({ children }: { children: React.ReactNode }) 
       varietyTier,
     })
     setUpcoming(picks)
-  }, [active, template, player.current, elapsedSec, history, varietyTier])
+  }, [active, currentTrack, elapsedSec, history, template, varietyTier])
 
   const overridePick = useCallback(
     (track: PlayerTrackMeta) => {
-      player.play(track)
+      playTrack(track)
     },
-    [player],
+    [playTrack],
   )
 
   const api = useMemo<SetSessionApi>(

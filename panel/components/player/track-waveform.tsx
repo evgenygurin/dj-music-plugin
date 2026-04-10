@@ -46,6 +46,8 @@ const SECTION_LABELS: Record<number, string> = {
   11: 'ambient',
 }
 
+const EMPTY_SECTIONS: TrackSection[] = []
+
 interface Props {
   trackId: number
   position: number // seconds (driven by external AudioPlayer)
@@ -53,6 +55,11 @@ interface Props {
   onSeek: (seconds: number) => void
   className?: string
   height?: number
+}
+
+interface SectionsState {
+  trackId: number | null
+  values: TrackSection[]
 }
 
 /**
@@ -79,8 +86,14 @@ export function TrackWaveform({
   const wavesurferRef = useRef<WaveSurfer | null>(null)
   const regionsRef = useRef<ReturnType<typeof RegionsPlugin.create> | null>(null)
   const onSeekRef = useRef(onSeek)
-  const [sections, setSections] = useState<TrackSection[]>([])
-  const [ready, setReady] = useState(false)
+  const [sectionsState, setSectionsState] = useState<SectionsState>({
+    trackId: null,
+    values: [],
+  })
+  const [readyTrackId, setReadyTrackId] = useState<number | null>(null)
+  const sections =
+    sectionsState.trackId === trackId ? sectionsState.values : EMPTY_SECTIONS
+  const ready = readyTrackId === trackId
 
   useEffect(() => {
     onSeekRef.current = onSeek
@@ -89,11 +102,13 @@ export function TrackWaveform({
   // Load section metadata whenever the track changes.
   useEffect(() => {
     let cancelled = false
-    setSections([])
     fetchTrackMixMeta(trackId)
       .then((meta) => {
         if (cancelled) return
-        if (meta) setSections(meta.sections)
+        setSectionsState({
+          trackId,
+          values: meta?.sections ?? [],
+        })
       })
       .catch(() => undefined)
     return () => {
@@ -107,7 +122,6 @@ export function TrackWaveform({
     const el = containerRef.current
     if (!el) return
 
-    setReady(false)
     const regions = RegionsPlugin.create()
     const ws = WaveSurfer.create({
       container: el,
@@ -139,7 +153,7 @@ export function TrackWaveform({
     }
 
     ws.on('ready', () => {
-      setReady(true)
+      setReadyTrackId(trackId)
     })
 
     ws.on('interaction', (newTime: number) => {
@@ -162,6 +176,7 @@ export function TrackWaveform({
       } catch {
         // ignore
       }
+      setReadyTrackId((current) => (current === trackId ? null : current))
       wavesurferRef.current = null
       regionsRef.current = null
     }

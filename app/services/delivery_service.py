@@ -45,14 +45,20 @@ class DeliveryService:
         self._transitions = transition_repo
         self._exports = export_repo
 
-    async def load_set_for_delivery(self, set_id: int) -> dict[str, Any]:
+    async def load_set_for_delivery(
+        self,
+        set_id: int,
+        version_label: str | None = None,
+    ) -> dict[str, Any]:
         """Load set, version, and items. Returns dict with loaded data."""
         dj_set = await self._sets.get_by_id(set_id)
         if dj_set is None:
             raise NotFoundError("Set", set_id)
 
-        result = await self._sets.load_version_with_items(set_id)
+        result = await self._sets.load_version_with_items(set_id, version_label)
         if result is None:
+            if version_label:
+                raise NotFoundError("SetVersion", f"set_id={set_id}, label={version_label}")
             raise NotFoundError("SetVersion", f"set_id={set_id}")
         version, items = result
 

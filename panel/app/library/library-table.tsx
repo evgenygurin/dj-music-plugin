@@ -1,10 +1,10 @@
 'use client'
 
-import { type ColumnDef } from '@tanstack/react-table'
+import { type ColumnDef, type OnChangeFn, type SortingState } from '@tanstack/react-table'
 import { IconLoader2, IconPlayerPauseFilled, IconPlayerPlayFilled } from '@tabler/icons-react'
 import { Search } from 'lucide-react'
 import { useRouter, usePathname, useSearchParams } from 'next/navigation'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { startTransition, useCallback, useEffect, useMemo, useRef, useState, useTransition } from 'react'
 
 import { loadMoreTracks } from '@/actions/library-actions'
 import { useAudioPlayer } from '@/components/audio-player/audio-player-context'
@@ -23,6 +23,9 @@ interface LibraryTableProps {
   currentSearch: string
   currentSortBy: string
   currentSortDir: string
+  currentBpmMin?: number
+  currentBpmMax?: number
+  currentMood?: string
 }
 
 function buildColumns(
@@ -162,11 +165,17 @@ export function LibraryTable({
   initialTracks,
   total,
   currentSearch,
+  currentSortBy,
+  currentSortDir,
+  currentBpmMin,
+  currentBpmMax,
+  currentMood,
 }: LibraryTableProps) {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
   const [searchInput, setSearchInput] = useState(currentSearch)
+  const [isPending, startNavigation] = useTransition()
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // ── Infinite scroll state ─────────────────────────────────────
@@ -175,6 +184,10 @@ export function LibraryTable({
   const [hasMore, setHasMore] = useState(initialTracks.length < total)
   const [isLoadingMore, setIsLoadingMore] = useState(false)
   const sentinelRef = useRef<HTMLDivElement | null>(null)
+  const sorting = useMemo<SortingState>(
+    () => [{ id: currentSortBy, desc: currentSortDir === 'desc' }],
+    [currentSortBy, currentSortDir]
+  )
 
   // Reset when the underlying server query changes (search/sort).
   useEffect(() => {
@@ -182,6 +195,10 @@ export function LibraryTable({
     setNextPage(2)
     setHasMore(initialTracks.length < total)
   }, [initialTracks, total])
+
+  useEffect(() => {
+    setSearchInput(currentSearch)
+  }, [currentSearch])
 
   const loadMore = useCallback(async () => {
     if (isLoadingMore || !hasMore) return
@@ -191,6 +208,11 @@ export function LibraryTable({
         page: nextPage,
         pageSize: PAGE_SIZE,
         search: currentSearch || undefined,
+        sortBy: currentSortBy as 'title' | 'bpm' | 'integrated_lufs' | 'energy_mean' | 'duration_ms' | 'mood_confidence',
+        sortDir: currentSortDir as 'asc' | 'desc',
+        bpmMin: currentBpmMin,
+        bpmMax: currentBpmMax,
+        mood: currentMood,
       })
       setTracks((prev) => {
         // Dedupe just in case the user toggled filters mid-flight.
@@ -206,7 +228,17 @@ export function LibraryTable({
     } finally {
       setIsLoadingMore(false)
     }
-  }, [isLoadingMore, hasMore, nextPage, currentSearch])
+  }, [
+    currentBpmMax,
+    currentBpmMin,
+    currentMood,
+    currentSearch,
+    currentSortBy,
+    currentSortDir,
+    hasMore,
+    isLoadingMore,
+    nextPage,
+  ])
 
   // IntersectionObserver-driven auto-load when sentinel scrolls into view.
   useEffect(() => {
@@ -269,28 +301,57 @@ export function LibraryTable({
     if (searchInput === currentSearch) return
     if (debounceRef.current) clearTimeout(debounceRef.current)
     debounceRef.current = setTimeout(() => {
-      router.push(`${pathname}?${createQueryString({ search: searchInput, page: '1' })}`)
+      startNavigation(() => {
+        router.push(`${pathname}?${createQueryString({ search: searchInput, page: '1' })}`)
+      })
     }, 300)
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current)
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchInput, currentSearch])
+  }, [createQueryString, currentSearch, pathname, router, searchInput, startNavigation])
+
+  const handleSortingChange = useCallback<OnChangeFn<SortingState>>(
+    (updater) => {
+      const nextSorting = typeof updater === 'function' ? updater(sorting) : updater
+      const primary = nextSorting[0]
+      const sortBy = primary?.id ?? 'title'
+      const sortDir = primary?.desc ? 'desc' : 'asc'
+
+      startTransition(() => {
+        router.push(
+          `${pathname}?${createQueryString({
+            sortBy,
+            sortDir,
+            page: '1',
+          })}`
+        )
+      })
+    },
+    [createQueryString, pathname, router, sorting]
+  )
 
   const handleRowClick = (row: TrackRow) => {
-    router.push(`/library/${row.id}`)
+    startTransition(() => {
+      router.push(`/library/${row.id}`)
+    })
   }
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-4">
         <div className="relative flex-1 max-w-sm">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          {isPending ? (
+            <IconLoader2 className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-muted-foreground" />
+          ) : null}
           <Input
-            placeholder="Search tracks..."
+            aria-label="Search tracks"
+            autoComplete="off"
+            name="track-search"
+            placeholder="Search Tracks…"
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
-            className="pl-9"
+            className="pl-9 pr-9"
           />
         </div>
         <span className="text-sm text-muted-foreground shrink-0">
@@ -302,20 +363,23 @@ export function LibraryTable({
         columns={columns}
         data={tracks}
         onRowClick={handleRowClick}
+        sorting={sorting}
+        onSortingChange={handleSortingChange}
+        manualSorting
       />
 
       <div ref={sentinelRef} className="flex items-center justify-center py-6">
         {isLoadingMore && (
-          <span className="text-sm text-muted-foreground">Загружаю ещё…</span>
+          <span className="text-sm text-muted-foreground">Loading More…</span>
         )}
         {!hasMore && tracks.length > 0 && (
           <span className="text-sm text-muted-foreground">
-            Это все треки ({total.toLocaleString()})
+            That’s the Full Library ({total.toLocaleString()})
           </span>
         )}
         {hasMore && !isLoadingMore && (
           <Button variant="outline" size="sm" onClick={() => loadMore()}>
-            Загрузить ещё
+            Load More
           </Button>
         )}
       </div>

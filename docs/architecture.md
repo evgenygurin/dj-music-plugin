@@ -76,20 +76,22 @@ External:
         │                    │
         ▼                    ▼
 ┌───────────────┐  ┌─────────────────────────┐
-│ Supabase      │  │ REST API (FastAPI)       │
-│ PostgreSQL    │  │ app/api/server.py            │
-│ (direct SQL)  │  │ http://localhost:8000    │
+│ Supabase      │  │ REST API (FastAPI)      │
+│ PostgreSQL    │  │ app/api/server.py       │
+│ (direct SQL)  │  │ http://localhost:8000   │
 └───────────────┘  │ ┌─────────────────────┐ │
-                   │ │ /api/tools — list    │ │
-                   │ │ /api/tools/N/call    │ │
-                   │ │ /mcp — native MCP    │ │
+                   │ │ routes/*.py         │ │
+                   │ │ state.py            │ │
+                   │ │ openapi.py          │ │
+                   │ │ lifespan.py         │ │
                    │ └────────┬────────────┘ │
                    └──────────┼──────────────┘
                               │ mcp.call_tool()
                    ┌──────────▼──────────────┐
-                   │  FastMCP Server          │
-                   │  (same as above)         │
-                   └──────────────────────────┘
+                   │ FastMCP Server          │
+                   │ app/server.py           │
+                   │ -> bootstrap/builder    │
+                   └─────────────────────────┘
 ```
 
 ## Data Flow: Tool Call Lifecycle
@@ -99,7 +101,8 @@ External:
 2. Middleware pipeline: log → timing → rate limit → response limit → retry → error masking
 3. FastMCP resolves tool via FileSystemProvider
 4. DI chain activates:
-   get_db_session() → get_*_repo() → get_*_service()
+   controllers/dependencies/db.py
+   → repos.py / services.py / audio.py / external.py / uow.py
    (all cached per-request, same session across all repos)
 5. Tool function executes with injected services
 6. On success: session.commit() (in get_db_session finally)
@@ -114,7 +117,8 @@ External:
 ```text
 ./start.sh
 ├── Backend: uv run uvicorn app.api.server:api --port 8000
-│   └── MCP lifespan: DB connection, YM client, analyzer registry
+│   ├── FastAPI lifespan: dedicated YM client + MCP mount readiness
+│   └── MCP lifespan: bootstrap/lifespans.py composes DB + YM + analyzer + cache + audio
 └── Panel: cd panel && bun dev --port 3000
     └── Connects to Supabase + MCP_HTTP_URL
 ```

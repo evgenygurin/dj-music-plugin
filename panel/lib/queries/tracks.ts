@@ -21,7 +21,7 @@ export interface TrackRow {
 export interface TrackListParams {
   page?: number
   pageSize?: number
-  sortBy?: 'title' | 'bpm' | 'integrated_lufs' | 'energy_mean' | 'duration_ms'
+  sortBy?: 'title' | 'bpm' | 'integrated_lufs' | 'energy_mean' | 'duration_ms' | 'mood_confidence'
   sortDir?: 'asc' | 'desc'
   bpmMin?: number
   bpmMax?: number

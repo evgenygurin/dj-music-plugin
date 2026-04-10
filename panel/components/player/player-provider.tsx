@@ -38,6 +38,7 @@ export interface PlayerApi {
 
 export function usePlayer(): PlayerApi {
   const audio = useAudioPlayer()
+  const currentTrack = audio.current
   const set = useSetSession()
   const { level, promote, collapse, jumpTo } = usePlayerInteractionLevel()
 
@@ -46,10 +47,10 @@ export function usePlayer(): PlayerApi {
   // a library row sets `audio.current` but the Layer 1 mini bar's gate
   // (`if (layer !== 1) return null`) keeps it hidden.
   useEffect(() => {
-    if (audio.current !== null && level === 0) {
+    if (currentTrack !== null && level === 0) {
       jumpTo(1)
     }
-  }, [audio.current, level, jumpTo])
+  }, [currentTrack, level, jumpTo])
 
   return {
     audio,

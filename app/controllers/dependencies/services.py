@@ -1,27 +1,24 @@
-"""FastMCP dependency injection factories.
-
-All dependencies use Depends() — hidden from tool schemas.
-DB session is cached per-request: multiple repos share one transaction.
-
-Key patterns:
-- get_db_session() is an async context manager with auto-commit/rollback
-- FastMCP's Depends() caches per-request → same session across all repos
-- Repos ONLY flush, never commit (transaction boundary = tool boundary)
-"""
+"""Service and workflow dependency factories."""
 
 from __future__ import annotations
 
-from collections.abc import AsyncIterator
-from contextlib import asynccontextmanager
-
 from fastmcp.dependencies import Depends
-from fastmcp.server.dependencies import get_context
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.audio.analyzers import AnalyzerRegistry
-from app.audio.timeseries import TimeseriesStorage
-from app.core.utils.cache import TransitionCache
-from app.db.repositories.audio import AudioRepository
+from app.controllers.dependencies.audio import get_audio_service, get_tiered_pipeline
+from app.controllers.dependencies.db import get_db_session
+from app.controllers.dependencies.external import get_ym_client
+from app.controllers.dependencies.repos import (
+    get_candidate_repo,
+    get_embedding_repo,
+    get_export_repo,
+    get_feature_repo,
+    get_ingestion_repo,
+    get_playlist_repo,
+    get_set_repo,
+    get_track_repo,
+    get_transition_repo,
+)
 from app.db.repositories.candidate import CandidateRepository
 from app.db.repositories.embedding import EmbeddingRepository
 from app.db.repositories.export import ExportRepository
@@ -31,7 +28,6 @@ from app.db.repositories.playlist import PlaylistRepository
 from app.db.repositories.set import SetRepository
 from app.db.repositories.track import TrackRepository
 from app.db.repositories.transition import TransitionRepository
-from app.db.repositories.unit_of_work import UnitOfWork
 from app.services.audio_service import AudioService
 from app.services.candidate_service import CandidateService
 from app.services.curation.facade import CurationService
@@ -47,107 +43,14 @@ from app.services.set.facade import SetService
 from app.services.sync_service import SyncService
 from app.services.tiered_pipeline import TieredPipeline
 from app.services.track_service import TrackService
+from app.services.workflows import (
+    AnalyzeTrackWorkflow,
+    BuildSetWorkflow,
+    DeliverSetWorkflow,
+    ImportTracksWorkflow,
+    SyncPlaylistWorkflow,
+)
 from app.ym.client import YandexMusicClient
-
-
-@asynccontextmanager
-async def get_db_session() -> AsyncIterator[AsyncSession]:
-    """Scoped async DB session — auto-commit on success, rollback on error."""
-    ctx = get_context()
-    factory = ctx.lifespan_context["db_session_factory"]
-    async with factory() as session:
-        try:
-            yield session
-            await session.commit()
-        except Exception:
-            await session.rollback()
-            raise
-
-
-# ── Repository factories ─────────────────────────────
-
-
-def get_track_repo(session: AsyncSession = Depends(get_db_session)) -> TrackRepository:  # noqa: B008
-    return TrackRepository(session)
-
-
-def get_playlist_repo(session: AsyncSession = Depends(get_db_session)) -> PlaylistRepository:  # noqa: B008
-    return PlaylistRepository(session)
-
-
-def get_set_repo(session: AsyncSession = Depends(get_db_session)) -> SetRepository:  # noqa: B008
-    return SetRepository(session)
-
-
-def get_feature_repo(session: AsyncSession = Depends(get_db_session)) -> FeatureRepository:  # noqa: B008
-    return FeatureRepository(session)
-
-
-def get_transition_repo(session: AsyncSession = Depends(get_db_session)) -> TransitionRepository:  # noqa: B008
-    return TransitionRepository(session)
-
-
-def get_export_repo(session: AsyncSession = Depends(get_db_session)) -> ExportRepository:  # noqa: B008
-    return ExportRepository(session)
-
-
-def get_ingestion_repo(session: AsyncSession = Depends(get_db_session)) -> IngestionRepository:  # noqa: B008
-    return IngestionRepository(session)
-
-
-def get_audio_repo(session: AsyncSession = Depends(get_db_session)) -> AudioRepository:  # noqa: B008
-    return AudioRepository(session)
-
-
-def get_embedding_repo(session: AsyncSession = Depends(get_db_session)) -> EmbeddingRepository:  # noqa: B008
-    return EmbeddingRepository(session)
-
-
-def get_candidate_repo(session: AsyncSession = Depends(get_db_session)) -> CandidateRepository:  # noqa: B008
-    return CandidateRepository(session)
-
-
-# ── Unit of Work — single aggregate over all repositories ────
-# Prefer this over individual get_*_repo factories for new code:
-#
-#     async def my_tool(uow: UnitOfWork = Depends(get_uow)) -> ...:
-#         track = await uow.tracks.get_by_id(42)
-#         features = await uow.features.get_by_track(42)
-#
-# All accesses go through one shared session, so commit/rollback
-# behaviour matches the existing get_db_session contract.
-
-
-def get_uow(session: AsyncSession = Depends(get_db_session)) -> UnitOfWork:  # noqa: B008
-    """Build a UnitOfWork bound to the current request session."""
-    return UnitOfWork(session)
-
-
-# ── Lifespan context accessors ───────────────────────
-
-
-def get_ym_client() -> YandexMusicClient:
-    """Get YM client from lifespan context."""
-    ctx = get_context()
-    client: YandexMusicClient = ctx.lifespan_context["ym_client"]
-    return client
-
-
-def get_analyzer_registry() -> AnalyzerRegistry:
-    """Get analyzer registry from lifespan context."""
-    ctx = get_context()
-    result: AnalyzerRegistry = ctx.lifespan_context["analyzer_registry"]
-    return result
-
-
-def get_transition_cache() -> TransitionCache:
-    """Get in-memory transition cache from lifespan context."""
-    ctx = get_context()
-    cache: TransitionCache = ctx.lifespan_context["transition_cache"]
-    return cache
-
-
-# ── Service factories ────────────────────────────────
 
 
 def get_track_service(
@@ -245,42 +148,50 @@ def get_import_service(
     return ImportService(track_repo, ym, metadata, ingestion_repo)
 
 
-def get_audio_service(
-    repo: AudioRepository = Depends(get_audio_repo),  # noqa: B008
-    registry: AnalyzerRegistry = Depends(get_analyzer_registry),  # noqa: B008
-) -> AudioService:
-    """Get AudioService with repository and analyzer registry."""
-    return AudioService(repo, registry)
-
-
 def get_candidate_service(
     repo: CandidateRepository = Depends(get_candidate_repo),  # noqa: B008
 ) -> CandidateService:
-    """Get CandidateService for transition candidate pruning."""
     return CandidateService(repo)
 
 
 def get_embedding_service(
     repo: EmbeddingRepository = Depends(get_embedding_repo),  # noqa: B008
 ) -> EmbeddingService:
-    """Get EmbeddingService for vector embedding storage."""
     return EmbeddingService(repo)
 
 
-def get_timeseries_storage() -> TimeseriesStorage:
-    """Get TimeseriesStorage for frame-level audio data."""
-    return TimeseriesStorage()
+def get_import_tracks_workflow(
+    import_service: ImportService = Depends(get_import_service),  # noqa: B008
+    tiered_pipeline: TieredPipeline = Depends(get_tiered_pipeline),  # noqa: B008
+) -> ImportTracksWorkflow:
+    return ImportTracksWorkflow(import_service, tiered_pipeline)
 
 
-def get_tiered_pipeline(
-    audio_repo: AudioRepository = Depends(get_audio_repo),  # noqa: B008
-    track_repo: TrackRepository = Depends(get_track_repo),  # noqa: B008
-    registry: AnalyzerRegistry = Depends(get_analyzer_registry),  # noqa: B008
-    ym: YandexMusicClient = Depends(get_ym_client),  # noqa: B008
-    timeseries: TimeseriesStorage = Depends(get_timeseries_storage),  # noqa: B008
-) -> TieredPipeline:
-    """Get TieredPipeline for level-aware audio analysis."""
-    from app.audio.pipeline import AnalysisPipeline
+def get_analyze_track_workflow(
+    audio_service: AudioService = Depends(get_audio_service),  # noqa: B008
+    tiered_pipeline: TieredPipeline = Depends(get_tiered_pipeline),  # noqa: B008
+    playlist_repo: PlaylistRepository = Depends(get_playlist_repo),  # noqa: B008
+) -> AnalyzeTrackWorkflow:
+    return AnalyzeTrackWorkflow(audio_service, tiered_pipeline, playlist_repo)
 
-    pipeline = AnalysisPipeline(registry)
-    return TieredPipeline(audio_repo, track_repo, pipeline, ym, timeseries=timeseries)
+
+def get_build_set_workflow(
+    set_service: SetService = Depends(get_set_service),  # noqa: B008
+    tiered_pipeline: TieredPipeline = Depends(get_tiered_pipeline),  # noqa: B008
+    playlist_repo: PlaylistRepository = Depends(get_playlist_repo),  # noqa: B008
+) -> BuildSetWorkflow:
+    return BuildSetWorkflow(set_service, tiered_pipeline, playlist_repo)
+
+
+def get_sync_playlist_workflow(
+    sync_service: SyncService = Depends(get_sync_service),  # noqa: B008
+) -> SyncPlaylistWorkflow:
+    return SyncPlaylistWorkflow(sync_service)
+
+
+def get_deliver_set_workflow(
+    delivery_service: DeliveryService = Depends(get_delivery_service),  # noqa: B008
+    tiered_pipeline: TieredPipeline = Depends(get_tiered_pipeline),  # noqa: B008
+    sync_workflow: SyncPlaylistWorkflow = Depends(get_sync_playlist_workflow),  # noqa: B008
+) -> DeliverSetWorkflow:
+    return DeliverSetWorkflow(delivery_service, tiered_pipeline, sync_workflow)

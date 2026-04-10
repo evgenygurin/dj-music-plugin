@@ -8,7 +8,7 @@ Why eager, not lazy:
     create check-then-act race conditions. Eager computation makes
     context immutable after construction — thread-safe by design.
 
-Optional shared intermediates (e.g. ``librosa_onset_env``) are computed
+Optional shared intermediates (e.g. onset envelopes) are computed
 on first access under a lock so concurrent analyzers don't recompute
 them. They're still safe to read after computation.
 
@@ -22,6 +22,7 @@ import threading
 import numpy as np
 
 from app.audio.core.framing import compute_frame_energies
+from app.audio.core.rhythm import spectral_flux_onset_envelope
 from app.audio.core.spectral import compute_stft
 from app.audio.core.types import AudioSignal, FrameParams
 
@@ -107,22 +108,21 @@ class AnalysisContext:
         return self._frame_energies
 
     def get_onset_env(self) -> np.ndarray:
-        """Lazily compute and cache librosa onset envelope.
+        """Lazily compute and cache the shared onset envelope.
 
-        Three analyzers (bpm, beat, tempogram) all need the same
-        ``librosa.onset.onset_strength`` output. Computing it once on the
-        context (under a lock for thread-safety) saves ~2x ~1.5s per track.
-
-        Returns the onset envelope array. Requires librosa to be installed —
-        callers should ensure their analyzer's ``required_packages`` includes it.
+        Three analyzers (bpm, beat, tempogram) all need the same onset
+        envelope. We keep the librosa availability contract, but compute the
+        envelope from the already-materialized STFT to avoid unstable
+        numba-accelerated librosa paths.
         """
         if self._onset_env is not None:
             return self._onset_env
         with self._lock:
             if self._onset_env is None:
-                import librosa
+                import librosa  # noqa: F401
 
-                self._onset_env = librosa.onset.onset_strength(
-                    y=self._signal.samples, sr=self._signal.sample_rate
+                self._onset_env = spectral_flux_onset_envelope(
+                    self._magnitude,
+                    frame_energies=self._frame_energies,
                 )
         return self._onset_env

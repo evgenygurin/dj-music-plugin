@@ -1,3 +1,6 @@
+'use client'
+
+import Link from 'next/link'
 import { Separator } from '@/components/ui/separator'
 import {
   Breadcrumb,
@@ -10,6 +13,7 @@ import {
 import { SidebarTrigger } from '@/components/ui/sidebar'
 import { Button } from '@/components/ui/button'
 import { IconSearch } from '@tabler/icons-react'
+import { OPEN_COMMAND_PALETTE_EVENT } from '@/components/command-palette'
 
 interface SiteHeaderProps {
   title: string
@@ -30,7 +34,9 @@ export function SiteHeader({ title, parent }: SiteHeaderProps) {
             {parent ? (
               <>
                 <BreadcrumbItem>
-                  <BreadcrumbLink href={parent.href}>{parent.label}</BreadcrumbLink>
+                  <BreadcrumbLink render={<Link href={parent.href} />}>
+                    {parent.label}
+                  </BreadcrumbLink>
                 </BreadcrumbItem>
                 <BreadcrumbSeparator />
                 <BreadcrumbItem>
@@ -48,10 +54,12 @@ export function SiteHeader({ title, parent }: SiteHeaderProps) {
           <Button
             variant="outline"
             size="sm"
-            className="text-muted-foreground gap-2"
+            className="gap-2 text-muted-foreground"
+            onClick={() => window.dispatchEvent(new Event(OPEN_COMMAND_PALETTE_EVENT))}
+            aria-label="Open Command Palette"
           >
             <IconSearch className="h-4 w-4" />
-            <span className="hidden md:inline">Search...</span>
+            <span className="hidden md:inline">Search…</span>
             <kbd className="pointer-events-none hidden h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium opacity-100 md:inline-flex">
               <span className="text-xs">⌘</span>K
             </kbd>

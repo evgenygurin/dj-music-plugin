@@ -1,3 +1,4 @@
+import { cache } from 'react'
 import { createClient } from '@/lib/supabase/server'
 
 export interface LibraryStats {
@@ -33,34 +34,76 @@ export interface AnalysisLevelCount {
   count: number
 }
 
+interface DashboardFeatureRow {
+  bpm: number | null
+  mood: string | null
+  key_code: number | null
+  integrated_lufs: number | null
+  analysis_level: number | null
+  danceability: number | null
+  hp_ratio: number | null
+  dominant_phrase_bars: number | null
+  variable_tempo: boolean | null
+  atonality: boolean | null
+  bpm_confidence: number | null
+}
+
+const getDashboardFeatureRows = cache(async (): Promise<DashboardFeatureRow[]> => {
+  const supabase = await createClient()
+  const { data, error } = await supabase.from('track_audio_features_computed').select(
+    'bpm, mood, key_code, integrated_lufs, analysis_level, danceability, hp_ratio, dominant_phrase_bars, variable_tempo, atonality, bpm_confidence'
+  )
+
+  if (error) throw error
+  return data ?? []
+})
+
+const getKeyLookup = cache(async (): Promise<Map<number, string>> => {
+  const supabase = await createClient()
+  const { data, error } = await supabase.from('keys').select('key_code, camelot')
+
+  if (error) throw error
+
+  const keyMap = new Map<number, string>()
+  for (const item of data ?? []) {
+    keyMap.set(item.key_code, item.camelot)
+  }
+  return keyMap
+})
+
+const getSetQualityScores = cache(async (): Promise<number[]> => {
+  const supabase = await createClient()
+  const { data, error } = await supabase.from('dj_set_versions').select('quality_score')
+
+  if (error) throw error
+
+  return (data ?? [])
+    .map((version) => version.quality_score)
+    .filter((score): score is number => score !== null && score !== undefined)
+})
+
 export async function getLibraryStats(): Promise<LibraryStats> {
   const supabase = await createClient()
+  const [features, qualityScores] = await Promise.all([
+    getDashboardFeatureRows(),
+    getSetQualityScores(),
+  ])
 
-  const [tracksResult, analyzedResult, setsResult, libraryResult, qualityResult] =
+  const [tracksResult, setsResult, libraryResult] =
     await Promise.all([
       supabase.from('tracks').select('*', { count: 'exact', head: true }),
-      supabase
-        .from('track_audio_features_computed')
-        .select('*', { count: 'exact', head: true })
-        .not('bpm', 'is', null),
       supabase.from('dj_sets').select('*', { count: 'exact', head: true }),
       supabase.from('dj_library_items').select('*', { count: 'exact', head: true }),
-      supabase.from('dj_set_versions').select('quality_score'),
     ])
 
-  let avgSetQuality: number | null = null
-  if (qualityResult.data && qualityResult.data.length > 0) {
-    const scores = qualityResult.data
-      .map((v) => v.quality_score)
-      .filter((s): s is number => s !== null && s !== undefined)
-    if (scores.length > 0) {
-      avgSetQuality = scores.reduce((a, b) => a + b, 0) / scores.length
-    }
-  }
+  const avgSetQuality =
+    qualityScores.length > 0
+      ? qualityScores.reduce((sum, score) => sum + score, 0) / qualityScores.length
+      : null
 
   return {
     totalTracks: tracksResult.count ?? 0,
-    analyzedTracks: analyzedResult.count ?? 0,
+    analyzedTracks: features.filter((row) => row.bpm !== null).length,
     totalSets: setsResult.count ?? 0,
     libraryItems: libraryResult.count ?? 0,
     avgSetQuality,
@@ -68,16 +111,11 @@ export async function getLibraryStats(): Promise<LibraryStats> {
 }
 
 export async function getBpmDistribution(): Promise<BpmBin[]> {
-  const supabase = await createClient()
+  const data = (await getDashboardFeatureRows()).filter(
+    (row) => row.bpm !== null && row.bpm >= 80 && row.bpm <= 200
+  )
 
-  const { data } = await supabase
-    .from('track_audio_features_computed')
-    .select('bpm')
-    .not('bpm', 'is', null)
-    .gte('bpm', 80)
-    .lte('bpm', 200)
-
-  if (!data || data.length === 0) return []
+  if (data.length === 0) return []
 
   const binSize = 5
   const binMap = new Map<number, number>()
@@ -94,14 +132,8 @@ export async function getBpmDistribution(): Promise<BpmBin[]> {
 }
 
 export async function getMoodDistribution(): Promise<MoodCount[]> {
-  const supabase = await createClient()
-
-  const { data } = await supabase
-    .from('track_audio_features_computed')
-    .select('mood')
-    .not('mood', 'is', null)
-
-  if (!data || data.length === 0) return []
+  const data = await getDashboardFeatureRows()
+  if (data.length === 0) return []
 
   const moodMap = new Map<string, number>()
 
@@ -116,27 +148,15 @@ export async function getMoodDistribution(): Promise<MoodCount[]> {
 }
 
 export async function getKeyDistribution(): Promise<KeyCount[]> {
-  const supabase = await createClient()
-
-  const [featuresResult, keysResult] = await Promise.all([
-    supabase
-      .from('track_audio_features_computed')
-      .select('key_code')
-      .not('key_code', 'is', null),
-    supabase.from('keys').select('key_code, camelot'),
+  const [features, keyCodeMap] = await Promise.all([
+    getDashboardFeatureRows(),
+    getKeyLookup(),
   ])
 
-  if (!featuresResult.data || featuresResult.data.length === 0) return []
-
-  const keyCodeMap = new Map<number, string>()
-  if (keysResult.data) {
-    for (const k of keysResult.data) {
-      keyCodeMap.set(k.key_code, k.camelot)
-    }
-  }
+  if (features.length === 0) return []
 
   const countMap = new Map<number, number>()
-  for (const row of featuresResult.data) {
+  for (const row of features) {
     if (row.key_code === null || row.key_code === undefined) continue
     countMap.set(row.key_code, (countMap.get(row.key_code) ?? 0) + 1)
   }
@@ -150,16 +170,11 @@ export async function getKeyDistribution(): Promise<KeyCount[]> {
 }
 
 export async function getLufsDistribution(): Promise<LufsBin[]> {
-  const supabase = await createClient()
+  const data = (await getDashboardFeatureRows()).filter(
+    (row) => row.integrated_lufs !== null && row.integrated_lufs >= -30 && row.integrated_lufs <= 0
+  )
 
-  const { data } = await supabase
-    .from('track_audio_features_computed')
-    .select('integrated_lufs')
-    .not('integrated_lufs', 'is', null)
-    .gte('integrated_lufs', -30)
-    .lte('integrated_lufs', 0)
-
-  if (!data || data.length === 0) return []
+  if (data.length === 0) return []
 
   const lufsMap = new Map<number, number>()
 
@@ -175,13 +190,8 @@ export async function getLufsDistribution(): Promise<LufsBin[]> {
 }
 
 export async function getAnalysisCoverage(): Promise<AnalysisLevelCount[]> {
-  const supabase = await createClient()
-
-  const { data } = await supabase
-    .from('track_audio_features_computed')
-    .select('analysis_level')
-
-  if (!data || data.length === 0) return []
+  const data = await getDashboardFeatureRows()
+  if (data.length === 0) return []
 
   const levelMap = new Map<number, number>()
 
@@ -201,14 +211,8 @@ export interface DanceabilityBin {
 }
 
 export async function getDanceabilityDistribution(): Promise<DanceabilityBin[]> {
-  const supabase = await createClient()
-
-  const { data } = await supabase
-    .from('track_audio_features_computed')
-    .select('danceability')
-    .not('danceability', 'is', null)
-
-  if (!data || data.length === 0) return []
+  const data = await getDashboardFeatureRows()
+  if (data.length === 0) return []
 
   const binMap = new Map<number, number>()
 
@@ -229,14 +233,8 @@ export interface HpRatioBin {
 }
 
 export async function getHpRatioDistribution(): Promise<HpRatioBin[]> {
-  const supabase = await createClient()
-
-  const { data } = await supabase
-    .from('track_audio_features_computed')
-    .select('hp_ratio')
-    .not('hp_ratio', 'is', null)
-
-  if (!data || data.length === 0) return []
+  const data = await getDashboardFeatureRows()
+  if (data.length === 0) return []
 
   const binMap = new Map<number, number>()
 
@@ -257,14 +255,8 @@ export interface PhraseCount {
 }
 
 export async function getPhraseDistribution(): Promise<PhraseCount[]> {
-  const supabase = await createClient()
-
-  const { data } = await supabase
-    .from('track_audio_features_computed')
-    .select('dominant_phrase_bars')
-    .not('dominant_phrase_bars', 'is', null)
-
-  if (!data || data.length === 0) return []
+  const data = await getDashboardFeatureRows()
+  if (data.length === 0) return []
 
   const groups = new Map<number, number>()
 
@@ -286,13 +278,9 @@ export interface QualityFlags {
 }
 
 export async function getQualityFlags(): Promise<QualityFlags> {
-  const supabase = await createClient()
+  const data = await getDashboardFeatureRows()
 
-  const { data } = await supabase
-    .from('track_audio_features_computed')
-    .select('variable_tempo, atonality, bpm_confidence')
-
-  if (!data || data.length === 0) {
+  if (data.length === 0) {
     return { variable_tempo_count: 0, atonality_count: 0, avg_bpm_confidence: 0 }
   }
 
