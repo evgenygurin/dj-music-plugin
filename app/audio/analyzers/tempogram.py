@@ -13,6 +13,7 @@ import numpy as np
 
 from app.audio.analyzers.base import BaseAnalyzer, register_analyzer
 from app.audio.core.context import AnalysisContext
+from app.audio.core.rhythm import sample_interpolated, tempo_from_onset_autocorrelation
 
 
 @register_analyzer
@@ -30,33 +31,25 @@ class TempogramAnalyzer(BaseAnalyzer):
     _BPM_RATIOS: ClassVar[tuple[float, ...]] = (0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0)
 
     def _extract(self, ctx: AnalysisContext) -> dict[str, Any]:
-        import librosa
+        import librosa  # noqa: F401
 
         # Onset envelope shared via ctx (bpm/beat reuse it)
         onset_env = ctx.get_onset_env()
-        tempogram = librosa.feature.tempogram(onset_envelope=onset_env, sr=ctx.sr)
+        estimate = tempo_from_onset_autocorrelation(onset_env, ctx.sr, ctx.params.hop_length)
+        base_bpm = estimate.bpm if estimate.bpm > 0 else 120.0
+        base_lag = estimate.lag_frames
+        if base_lag <= 0:
+            base_lag = 60.0 * (ctx.sr / ctx.params.hop_length) / base_bpm
 
-        # Estimate dominant tempo
-        tempo = librosa.feature.rhythm.tempo(onset_envelope=onset_env, sr=ctx.sr)
-        base_bpm = float(tempo[0]) if len(tempo) > 0 else 120.0
-
-        # Sample tempogram at BPM ratio positions
-        # tempogram rows correspond to BPM values via lag
-        freqs = librosa.tempo_frequencies(tempogram.shape[0], sr=ctx.sr)
-
-        # Mean across time
-        acf = np.mean(tempogram, axis=1)
-
-        # Normalize
-        acf_max = float(np.max(acf)) if np.max(acf) > 0 else 1.0
+        acf = estimate.autocorrelation
+        acf_max = float(np.max(acf)) if len(acf) and float(np.max(acf)) > 0 else 1.0
         acf_norm = acf / acf_max
 
         # Sample at ratio positions
         ratios: list[float] = []
         for ratio in self._BPM_RATIOS:
-            target_bpm = base_bpm * ratio
-            # Find closest frequency bin
-            idx = int(np.argmin(np.abs(freqs - target_bpm)))
-            ratios.append(round(float(acf_norm[idx]), 4))
+            target_lag = base_lag / ratio if ratio > 0 else base_lag
+            value = sample_interpolated(acf_norm, target_lag)
+            ratios.append(round(float(np.clip(value, 0.0, 1.0)), 4))
 
         return {"tempogram_ratio_vector": ratios}

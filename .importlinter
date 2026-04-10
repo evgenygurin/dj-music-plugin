@@ -24,10 +24,13 @@ type = forbidden
 source_modules =
     app.transition
 forbidden_modules =
+    app.db.repositories
+    app.db.models
     app.repositories
     app.models
     app.controllers
     app.services
+    app.ym
     fastmcp
     sqlalchemy
     httpx
@@ -39,10 +42,13 @@ type = forbidden
 source_modules =
     app.optimization
 forbidden_modules =
+    app.db.repositories
+    app.db.models
     app.repositories
     app.models
     app.controllers
     app.services
+    app.ym
     fastmcp
     sqlalchemy
     httpx
@@ -65,3 +71,25 @@ forbidden_modules =
     app.templates
     app.audit
     app.export
+
+# ── Contract 5: API stays above persistence ────────────────────────
+[importlinter:contract:api-no-db]
+name = API layer must not depend on DB models or repositories
+type = forbidden
+source_modules =
+    app.api
+forbidden_modules =
+    app.db.models
+    app.db.repositories
+ignore_imports =
+    app.api.server -> app.server
+
+# ── Contract 6: Engines stay below transport ───────────────────────
+[importlinter:contract:engines-no-transport]
+name = Engines must not depend on API or controllers
+type = forbidden
+source_modules =
+    app.engines
+forbidden_modules =
+    app.api
+    app.controllers

@@ -11,6 +11,7 @@ import numpy as np
 
 from app.audio.analyzers.base import BaseAnalyzer, register_analyzer
 from app.audio.core.context import AnalysisContext
+from app.audio.core.tonal import compute_mfcc
 from app.config import settings
 
 
@@ -27,14 +28,16 @@ class MFCCExtractor(BaseAnalyzer):
 
     def _extract(self, ctx: AnalysisContext) -> dict[str, Any]:
         """Extract MFCC features."""
-        import librosa
-
-        samples = ctx.samples
-        sr = ctx.sr
+        import librosa  # noqa: F401
 
         n_mfcc = settings.audio_mfcc_n_coeffs  # default 13
 
-        mfcc = librosa.feature.mfcc(y=samples, sr=sr, n_mfcc=n_mfcc)
+        mfcc = compute_mfcc(
+            ctx.magnitude,
+            ctx.freqs,
+            ctx.sr,
+            n_mfcc=n_mfcc,
+        )
         mfcc_mean = np.mean(mfcc, axis=1).tolist()
 
         return {

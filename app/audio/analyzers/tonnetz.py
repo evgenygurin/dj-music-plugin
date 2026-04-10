@@ -13,6 +13,7 @@ import numpy as np
 
 from app.audio.analyzers.base import BaseAnalyzer, register_analyzer
 from app.audio.core.context import AnalysisContext
+from app.audio.core.tonal import compute_pitch_class_chroma, tonal_centroid
 
 
 @register_analyzer
@@ -27,9 +28,8 @@ class TonnetzAnalyzer(BaseAnalyzer):
     clip_duration_s: ClassVar[float | None] = 60.0
 
     def _extract(self, ctx: AnalysisContext) -> dict[str, Any]:
-        import librosa
+        import librosa  # noqa: F401
 
-        tonnetz = librosa.feature.tonnetz(y=ctx.samples, sr=ctx.sr)
-        # Mean across time → 6D vector
-        mean_tonnetz = np.mean(tonnetz, axis=1)
+        chroma = compute_pitch_class_chroma(ctx.magnitude, ctx.freqs)
+        mean_tonnetz = tonal_centroid(np.mean(chroma, axis=1))
         return {"tonnetz_vector": [round(float(v), 4) for v in mean_tonnetz]}

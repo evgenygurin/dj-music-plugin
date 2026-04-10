@@ -137,6 +137,8 @@ async def client(async_engine):  # type: ignore[no-untyped-def]
 
     # Mock YM client
     ym_mock = AsyncMock()
+    ym_mock.__aenter__.return_value = ym_mock
+    ym_mock.__aexit__.return_value = None
     ym_mock.search = AsyncMock(
         return_value=AsyncMock(tracks=[], albums=[], artists=[], playlists=[])
     )
@@ -156,6 +158,8 @@ async def client(async_engine):  # type: ignore[no-untyped-def]
         }
 
     mcp._lifespan = _test_lifespan
+    mcp._lifespan_result = None
+    mcp._lifespan_result_set = False
 
     try:
         async with Client(mcp) as c:

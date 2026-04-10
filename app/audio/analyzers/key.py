@@ -11,36 +11,28 @@ import numpy as np
 
 from app.audio.analyzers.base import BaseAnalyzer, register_analyzer
 from app.audio.core.context import AnalysisContext
+from app.audio.core.tonal import compute_pitch_class_chroma
+from app.core.constants import CAMELOT_KEYS
 
-# Key mapping: index → (pitch_class, mode)
-# 0-11: minor keys (A♭m, E♭m, B♭m, Fm, Cm, Gm, Dm, Am, Em, Bm, F♯m, D♭m)
-# 12-23: major keys (B, F♯, D♭, A♭, E♭, B♭, F, C, G, D, A, E)
-KEY_NAMES = [
-    "A♭ minor",
-    "E♭ minor",
-    "B♭ minor",
-    "F minor",
-    "C minor",
-    "G minor",
-    "D minor",
-    "A minor",
-    "E minor",
-    "B minor",
-    "F♯ minor",
-    "D♭ minor",
-    "B major",
-    "F♯ major",
-    "D♭ major",
-    "A♭ major",
-    "E♭ major",
-    "B♭ major",
-    "F major",
-    "C major",
-    "G major",
-    "D major",
-    "A major",
-    "E major",
-]
+_ROOT_TO_PITCH_CLASS = {
+    "C": 0,
+    "D♭": 1,
+    "D": 2,
+    "E♭": 3,
+    "E": 4,
+    "F": 5,
+    "F♯": 6,
+    "G": 7,
+    "A♭": 8,
+    "A": 9,
+    "B♭": 10,
+    "B": 11,
+}
+_PITCH_CLASS_MODE_TO_KEY_CODE: dict[tuple[int, int], int] = {}
+for _code, (_camelot, _name) in CAMELOT_KEYS.items():
+    _root, _mode_name = _name.split()[:2]
+    _mode = 0 if _mode_name == "minor" else 1
+    _PITCH_CLASS_MODE_TO_KEY_CODE[(_ROOT_TO_PITCH_CLASS[_root], _mode)] = _code
 
 
 def _compute_hnr_autocorrelation(samples: np.ndarray, sr: int) -> float:
@@ -113,13 +105,12 @@ class KeyDetector(BaseAnalyzer):
 
     def _extract(self, ctx: AnalysisContext) -> dict[str, Any]:
         """Detect musical key using CQT chroma."""
-        import librosa
+        import librosa  # noqa: F401
 
         samples = ctx.samples
         sr = ctx.sr
 
-        # Compute chroma CQT
-        chroma = librosa.feature.chroma_cqt(y=samples, sr=sr)
+        chroma = compute_pitch_class_chroma(ctx.magnitude, ctx.freqs)
         chroma_mean = np.mean(chroma, axis=1)
 
         # Krumhansl-Kessler key profiles
@@ -139,14 +130,14 @@ class KeyDetector(BaseAnalyzer):
 
             # Test major
             corr_major = float(np.corrcoef(rotated, major_profile)[0, 1])
-            key_code = pitch_class + 12  # major keys: 12-23
+            key_code = _PITCH_CLASS_MODE_TO_KEY_CODE.get((pitch_class, 1), 15)
             if corr_major > best_corr:
                 best_corr = corr_major
                 best_key = key_code
 
             # Test minor
             corr_minor = float(np.corrcoef(rotated, minor_profile)[0, 1])
-            key_code = pitch_class  # minor keys: 0-11
+            key_code = _PITCH_CLASS_MODE_TO_KEY_CODE.get((pitch_class, 0), 14)
             if corr_minor > best_corr:
                 best_corr = corr_minor
                 best_key = key_code

@@ -12,14 +12,9 @@ from fastmcp.dependencies import Depends, Progress
 from fastmcp.exceptions import ToolError
 from fastmcp.server.context import Context
 from fastmcp.tools import tool
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.audio.level_config import AnalysisLevel
 from app.controllers.dependencies import (
-    get_audio_service,
-    get_db_session,
-    get_tiered_pipeline,
+    get_analyze_track_workflow,
     get_track_service,
 )
 from app.controllers.tools._shared import (
@@ -31,23 +26,11 @@ from app.controllers.tools._shared import (
     resolve_track_id,
 )
 from app.core.utils.parsing import ensure_list
-from app.db.models.playlist import PlaylistItem
-from app.services.audio_service import AudioService
-from app.services.tiered_pipeline import TieredPipeline
 from app.services.track_service import TrackService
+from app.services.workflows.analyze_track_workflow import AnalyzeTrackWorkflow
 
 _ANALYSIS_IDEMPOTENT: dict[str, bool] = {"idempotentHint": True}
 _VALID_STEMS = frozenset({"vocals", "drums", "bass", "other"})
-_VALID_LEVELS = tuple(lv.value for lv in AnalysisLevel if lv != AnalysisLevel.NONE)
-
-
-def _resolve_level(level: int) -> AnalysisLevel:
-    if level not in _VALID_LEVELS:
-        raise ToolError(
-            f"Invalid level: {level}. Valid levels: {list(_VALID_LEVELS)} "
-            "(TRIAGE=2, SCORING=3, TRANSITION=4, ADVANCED=5)"
-        )
-    return AnalysisLevel(level)
 
 
 @tool(
@@ -62,10 +45,8 @@ async def analyze_track(
     analyzers: Any = None,
     force: bool = False,
     level: int = 3,
-    svc: AudioService = Depends(get_audio_service),  # noqa: B008
+    workflow: AnalyzeTrackWorkflow = Depends(get_analyze_track_workflow),  # noqa: B008
     track_svc: TrackService = Depends(get_track_service),  # noqa: B008
-    tiered: TieredPipeline = Depends(get_tiered_pipeline),  # noqa: B008
-    session: AsyncSession = Depends(get_db_session),  # noqa: B008
     ctx: Context | None = None,
 ) -> dict[str, Any]:
     """Run audio analysis on a track. Default: L3 SCORING via TieredPipeline.
@@ -79,31 +60,13 @@ async def analyze_track(
     resolved_id = await resolve_track_id(
         entity_id=track_id, query=track_query, search=track_svc.search
     )
-
-    # Custom analyzers → use local file pipeline (legacy path)
-    if analyzers_list is not None:
-        await log.info(f"Analyzing track {resolved_id} with custom analyzers...")
-        result = await svc.analyze_track(resolved_id, analyzers=analyzers_list, force=force)
-        if result.get("error") == "No audio file linked":
-            await log.info("No local file — falling back to tiered pipeline...")
-            analysis = await tiered.ensure_level([resolved_id], AnalysisLevel.SCORING, force=force)
-            return {
-                "track_id": resolved_id,
-                "level": int(AnalysisLevel.SCORING),
-                "status": "analyzed" if analysis["analyzed"] > 0 else "error",
-                **analysis,
-            }
-        return result
-
-    target = _resolve_level(level)
-    await log.info(f"Tiered analysis L{level} for track {resolved_id}...")
-    analysis = await tiered.ensure_level([resolved_id], target, force=force)
-    return {
-        "track_id": resolved_id,
-        "level": level,
-        "status": "analyzed" if analysis["analyzed"] > 0 else "skipped",
-        **analysis,
-    }
+    return await workflow.analyze_track(
+        track_id=resolved_id,
+        analyzers=analyzers_list,
+        force=force,
+        level=level,
+        log=log,
+    )
 
 
 @tool(
@@ -120,9 +83,7 @@ async def analyze_batch(
     analyzers: Any = None,
     level: int = 3,
     force: bool = False,
-    svc: AudioService = Depends(get_audio_service),  # noqa: B008
-    tiered: TieredPipeline = Depends(get_tiered_pipeline),  # noqa: B008
-    session: AsyncSession = Depends(get_db_session),  # noqa: B008
+    workflow: AnalyzeTrackWorkflow = Depends(get_analyze_track_workflow),  # noqa: B008
     progress: Progress = Progress(),  # noqa: B008
     ctx: Context | None = None,
 ) -> dict[str, Any]:
@@ -133,71 +94,16 @@ async def analyze_batch(
     If ``analyzers`` is set explicitly, uses the local file pipeline
     instead of the tiered path.
     """
-    ids_list: list[int] | None = ensure_list(track_ids) or None
-    analyzers_list = ensure_list(analyzers) or None
-    if ids_list is None and playlist_id is None:
-        raise ToolError("Provide track_ids or playlist_id")
-    if ids_list is not None and playlist_id is not None:
-        raise ToolError("Provide track_ids or playlist_id, not both")
-
-    if playlist_id is not None:
-        stmt = (
-            select(PlaylistItem.track_id)
-            .where(PlaylistItem.playlist_id == playlist_id)
-            .order_by(PlaylistItem.sort_index)
-        )
-        db_result = await session.execute(stmt)
-        ids_list = [r[0] for r in db_result.all()]
-
-    if not ids_list:
-        raise ToolError("No tracks to analyze")
-
-    ids_list = ids_list[:batch_size]
-    total = len(ids_list)
-    await progress.set_total(total)
-
-    target = _resolve_level(level)
-
-    # Custom analyzers → per-track local file pipeline (legacy path)
-    if analyzers_list is not None:
-        completed = 0
-        failed = 0
-        skipped = 0
-        await progress.set_message(f"Analyzing {total} tracks with custom analyzers...")
-
-        for i, tid in enumerate(ids_list):
-            await progress.set_message(f"Track {i + 1}/{total} (id={tid})")
-            result = await svc.analyze_track(tid, analyzers=analyzers_list, force=force)
-            if result.get("error") == "No audio file linked":
-                tr = await tiered.ensure_level([tid], target, force=force)
-                result = {"status": "analyzed" if tr["analyzed"] > 0 else "error"}
-            status = result.get("status", "error")
-            if status == "analyzed":
-                completed += 1
-            elif status == "cached":
-                skipped += 1
-            else:
-                failed += 1
-            await progress.increment()
-
-        return {
-            "total_tracks": total,
-            "completed": completed,
-            "failed": failed,
-            "skipped": skipped,
-        }
-
-    # Tiered pipeline (default path)
-    await progress.set_message(f"Tiered batch L{level}: {total} tracks")
-    analysis = await tiered.ensure_level(ids_list, target, force=force)
-    await progress.increment(total)
-    return {
-        "total_tracks": total,
-        "completed": analysis["analyzed"],
-        "failed": analysis["failed"],
-        "skipped": analysis["skipped"],
-        "level": level,
-    }
+    del ctx
+    return await workflow.analyze_batch(
+        track_ids=ensure_list(track_ids) or None,
+        playlist_id=playlist_id,
+        batch_size=batch_size,
+        analyzers=ensure_list(analyzers) or None,
+        level=level,
+        force=force,
+        progress=progress,
+    )
 
 
 @tool(tags={ToolCategory.AUDIO.value}, timeout=ToolTimeout.BATCH)

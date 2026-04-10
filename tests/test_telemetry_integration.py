@@ -55,20 +55,24 @@ class TestTelemetryModules:
 
 
 class TestServerConfiguration:
-    """Test server.py has telemetry configured."""
+    """Test bootstrap/server assembly keeps telemetry and middleware configured."""
 
     def test_server_has_observability_section(self):
-        """Server.py includes observability setup."""
+        """Thin server entrypoint still documents OTEL and delegates Sentry bootstrap."""
         with open("app/server.py") as f:
-            content = f.read()
+            server_content = f.read()
+        with open("app/bootstrap/observability.py") as f:
+            observability_content = f.read()
 
-        assert "OpenTelemetry" in content
-        assert "Sentry" in content
-        assert "opentelemetry-instrument" in content
+        assert "OpenTelemetry" in server_content
+        assert "opentelemetry-instrument" in server_content
+        assert "build_mcp_server" in server_content
+        assert "Sentry" in observability_content
+        assert "sentry_sdk.init" in observability_content
 
     def test_middleware_registered(self):
-        """Server registers timing and logging middleware."""
-        with open("app/server.py") as f:
+        """Middleware registration moved into bootstrap/middleware.py."""
+        with open("app/bootstrap/middleware.py") as f:
             content = f.read()
 
         assert "DetailedTimingMiddleware" in content

@@ -7,7 +7,7 @@ from typing import Any
 import httpx
 import pytest
 
-from app.core.errors import AuthFailedError, RateLimitedError
+from app.core.errors import APIError, AuthFailedError, RateLimitedError
 from app.ym.client import YandexMusicClient
 from app.ym.rate_limiter import RateLimiter
 
@@ -271,8 +271,9 @@ async def test_auth_failed_403() -> None:
         return httpx.Response(status_code=403, text="Forbidden")
 
     ym = _make_client(handler)
-    with pytest.raises(AuthFailedError):
+    with pytest.raises(APIError) as exc_info:
         await ym.get_tracks(["1"])
+    assert exc_info.value.status_code == 403
     await ym.close()
 
 

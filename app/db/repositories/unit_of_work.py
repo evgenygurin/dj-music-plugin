@@ -2,8 +2,8 @@
 
 Lets services request one object instead of 12 separate ``Depends()``
 factories. The session boundary is still owned by the DI provider
-(``get_db_session`` in controllers/dependencies.py), so commit/rollback
-behaviour is unchanged.
+(``get_db_session`` in ``app/controllers/dependencies/db.py``), so
+commit/rollback behaviour is unchanged.
 
 Usage::
 
@@ -37,7 +37,7 @@ class UnitOfWork:
 
     The session lifecycle (commit / rollback / close) is managed by
     the dependency-injection provider that constructs the UoW —
-    typically ``get_db_session`` in ``app/controllers/dependencies.py``.
+    typically ``get_db_session`` in ``app/controllers/dependencies/db.py``.
     """
 
     __slots__ = (

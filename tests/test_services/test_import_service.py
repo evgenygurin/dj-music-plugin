@@ -17,6 +17,7 @@ import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models.playlist import Playlist
+from app.db.models.track import Track
 from app.db.repositories.playlist import PlaylistRepository
 from app.db.repositories.track import TrackRepository
 from app.services.import_service import ImportService
@@ -48,11 +49,15 @@ async def test_import_returns_id_mapping_for_new_tracks(db: AsyncSession) -> Non
 @pytest.mark.asyncio
 async def test_import_returns_id_mapping_for_existing_tracks(db: AsyncSession) -> None:
     """Re-import of existing tracks must still return their local IDs."""
+    db.add(Track(title="seed-track", status=0))
+    await db.flush()
+
     svc = _make_service(db)
 
     first = await svc.import_tracks(track_refs=["333"])
     assert first["imported"] == 1
     new_local_id = first["id_mapping"]["333"]
+    assert new_local_id != 1, "test setup must decouple track.id from external_id.id"
 
     second = await svc.import_tracks(track_refs=["333"])
     assert second["imported"] == 0
