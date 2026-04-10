@@ -4,10 +4,12 @@ import { createClient } from '@/lib/supabase/server'
 
 export const dynamic = 'force-dynamic'
 
-// MCP_HTTP_URL points at the native MCP transport (often `.../mcp`); strip
-// the trailing /mcp segment so we hit the FastAPI REST root.
-const RAW = process.env.MCP_HTTP_URL ?? 'http://localhost:8000'
+const RAW = process.env.MCP_HTTP_URL ?? 'http://localhost:8001'
 const REST_BASE = RAW.replace(/\/+mcp\/?$/, '').replace(/\/+$/, '')
+
+// Total timeout for the entire request (connect + stream body).
+// Backend read timeout is 15s per chunk; this covers the full transfer.
+const TOTAL_TIMEOUT_MS = 45_000
 
 export async function GET(
   request: Request,
@@ -37,10 +39,13 @@ export async function GET(
     )
   }
 
-  // Forward Range so the browser can request partial bytes for seek/duration.
   const range = request.headers.get('range')
   const upstreamHeaders: Record<string, string> = {}
   if (range) upstreamHeaders.range = range
+
+  // Single AbortController governs connect + entire body stream.
+  const ac = new AbortController()
+  const timer = setTimeout(() => ac.abort(), TOTAL_TIMEOUT_MS)
 
   let upstream: Response
   try {
@@ -49,10 +54,11 @@ export async function GET(
       {
         cache: 'no-store',
         headers: upstreamHeaders,
-        signal: AbortSignal.timeout(15_000),
+        signal: ac.signal,
       },
     )
   } catch (err) {
+    clearTimeout(timer)
     const msg = err instanceof Error ? err.message : String(err)
     return NextResponse.json(
       { error: 'upstream timeout or connection failed', detail: msg },
@@ -61,6 +67,7 @@ export async function GET(
   }
 
   if (!upstream.ok && upstream.status !== 206) {
+    clearTimeout(timer)
     const text = await upstream.text().catch(() => '')
     return NextResponse.json(
       { error: 'upstream failed', status: upstream.status, body: text },
@@ -68,7 +75,6 @@ export async function GET(
     )
   }
 
-  // Forward media headers so <audio> can determine duration and seek.
   const headers = new Headers()
   headers.set('Cache-Control', 'no-store')
   for (const key of ['content-type', 'content-length', 'content-range', 'accept-ranges']) {
@@ -78,7 +84,18 @@ export async function GET(
   if (!headers.has('content-type')) headers.set('content-type', 'audio/mpeg')
   if (!headers.has('accept-ranges')) headers.set('accept-ranges', 'bytes')
 
-  return new NextResponse(upstream.body, {
+  // Wrap body in a stream that clears the timeout on completion.
+  const body = upstream.body
+    ? upstream.body.pipeThrough(
+        new TransformStream({
+          flush() {
+            clearTimeout(timer)
+          },
+        }),
+      )
+    : null
+
+  return new NextResponse(body, {
     status: upstream.status,
     headers,
   })
