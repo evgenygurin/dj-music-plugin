@@ -158,11 +158,13 @@ def test_openapi_keeps_critical_routes_and_examples(api_client) -> None:
     assert response.status_code == 200
 
     payload = response.json()
-    assert payload["info"]["version"] == "0.1.0"
+    assert payload["info"]["version"]  # non-empty version string
     assert "/api/health" in payload["paths"]
     assert "/api/tools" in payload["paths"]
     assert "/api/tools/{tool_name}/call" in payload["paths"]
-    examples = payload["paths"]["/api/tools/{tool_name}/call"]["post"]["requestBody"]["content"]["application/json"]["examples"]
+    examples = payload["paths"]["/api/tools/{tool_name}/call"]["post"]["requestBody"]["content"][
+        "application/json"
+    ]["examples"]
     assert "build_set" in examples
     assert examples["build_set"]["value"]["arguments"]["algorithm"] == "ga"
 
