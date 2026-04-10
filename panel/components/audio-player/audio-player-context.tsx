@@ -1542,6 +1542,13 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
 
   const next = useCallback(() => {
     if (!current) return
+    // Smart pick: use BPM/key/mood compatibility scoring.
+    // Falls back to sequential if no compatible track found.
+    const smart = pickAutoNext(current, queue, historyRef.current)
+    if (smart) {
+      play(smart)
+      return
+    }
     const idx = queue.findIndex((t) => t.id === current.id)
     if (idx >= 0 && idx < queue.length - 1) {
       play(queue[idx + 1])
