@@ -691,9 +691,16 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
           //      (incoming's bar = inBar / ratio = outBar), all
           //      subsequent beats stay aligned for the whole fade.
           const activeMeta = currentMetaRef.current
+          // Master tempo: use the outgoing track's EFFECTIVE BPM (which
+          // may already be pitch-shifted from previous transitions) so
+          // incoming matches what's currently playing, not the file's
+          // native BPM. This prevents compound drift across chained mixes.
+          const effectiveOutBpm = activeMeta?.bpm
+            ? activeMeta.bpm * (active.audio.playbackRate || 1)
+            : null
           let ratio = 1
-          if (incomingMeta?.bpm && activeMeta?.bpm) {
-            const candidate = activeMeta.bpm / incomingMeta.bpm
+          if (incomingMeta?.bpm && effectiveOutBpm) {
+            const candidate = effectiveOutBpm / incomingMeta.bpm
             if (candidate >= 0.92 && candidate <= 1.08) {
               ratio = candidate
             }
