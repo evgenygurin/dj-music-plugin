@@ -6,16 +6,15 @@ import {
   ChartContainer,
   ChartTooltip,
   ChartTooltipContent,
-  type ChartConfig,
 } from '@/components/ui/chart'
+import {
+  chartBarFill,
+  chartCursorFill,
+  chartGridStroke,
+  chartTickColor,
+  monoChartConfig,
+} from '@/lib/chart-theme'
 import type { BpmBin } from '@/lib/queries/dashboard'
-
-const chartConfig = {
-  count: {
-    label: 'Tracks',
-    color: 'hsl(var(--foreground) / 0.35)',
-  },
-} satisfies ChartConfig
 
 export function BpmDistributionChart({ data }: { data: BpmBin[] }) {
   if (data.length === 0) {
@@ -27,33 +26,29 @@ export function BpmDistributionChart({ data }: { data: BpmBin[] }) {
   }
 
   return (
-    <ChartContainer config={chartConfig} className="min-h-[200px] w-full">
+    <ChartContainer config={monoChartConfig} className="min-h-[200px] w-full">
       <ResponsiveContainer width="100%" height="100%">
         <BarChart data={data} margin={{ top: 4, right: 4, left: -16, bottom: 0 }}>
-          <CartesianGrid vertical={false} stroke="hsl(var(--border))" strokeOpacity={0.5} />
+          <CartesianGrid vertical={false} stroke={chartGridStroke} strokeOpacity={0.5} />
           <XAxis
             dataKey="bin"
             tickLine={false}
             axisLine={false}
             tickMargin={8}
-            tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }}
+            tick={{ fontSize: 11, fill: chartTickColor }}
           />
           <YAxis
             tickLine={false}
             axisLine={false}
             tickMargin={8}
             width={32}
-            tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }}
+            tick={{ fontSize: 11, fill: chartTickColor }}
           />
           <ChartTooltip
             content={<ChartTooltipContent hideLabel={false} />}
-            cursor={{ fill: 'hsl(var(--muted))' }}
+            cursor={{ fill: chartCursorFill }}
           />
-          <Bar
-            dataKey="count"
-            fill="hsl(var(--foreground) / 0.35)"
-            radius={[3, 3, 0, 0]}
-          />
+          <Bar dataKey="count" fill={chartBarFill} fillOpacity={0.72} radius={[3, 3, 0, 0]} />
         </BarChart>
       </ResponsiveContainer>
     </ChartContainer>

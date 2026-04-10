@@ -11,7 +11,7 @@ interface LibraryPageProps {
 export default async function LibraryPage({ searchParams }: LibraryPageProps) {
   const params = await searchParams
 
-  const sortBy = (params.sortBy as 'title' | 'bpm' | 'integrated_lufs' | 'energy_mean' | 'duration_ms') ?? 'title'
+  const sortBy = (params.sortBy as 'title' | 'bpm' | 'integrated_lufs' | 'energy_mean' | 'duration_ms' | 'mood_confidence') ?? 'title'
   const sortDir = (params.sortDir as 'asc' | 'desc') ?? 'asc'
   const bpmMin = params.bpmMin ? parseFloat(params.bpmMin) : undefined
   const bpmMax = params.bpmMax ? parseFloat(params.bpmMax) : undefined
@@ -28,6 +28,9 @@ export default async function LibraryPage({ searchParams }: LibraryPageProps) {
         currentSearch={search ?? ''}
         currentSortBy={sortBy}
         currentSortDir={sortDir}
+        currentBpmMin={bpmMin}
+        currentBpmMax={bpmMax}
+        currentMood={mood}
       />
     </PageShell>
   )
