@@ -24,6 +24,8 @@ const NAV_ITEMS = [
   { name: "Admin", href: "/admin" },
 ]
 
+export const OPEN_COMMAND_PALETTE_EVENT = "dj-panel:open-command-palette"
+
 export function CommandPalette() {
   const [open, setOpen] = useState(false)
   const router = useRouter()
@@ -39,9 +41,15 @@ export function CommandPalette() {
     return () => document.removeEventListener("keydown", down)
   }, [])
 
+  useEffect(() => {
+    const openPalette = () => setOpen(true)
+    window.addEventListener(OPEN_COMMAND_PALETTE_EVENT, openPalette)
+    return () => window.removeEventListener(OPEN_COMMAND_PALETTE_EVENT, openPalette)
+  }, [])
+
   return (
     <CommandDialog open={open} onOpenChange={setOpen}>
-      <CommandInput placeholder="Search pages, tools..." />
+      <CommandInput placeholder="Search Pages, Tools…" />
       <CommandList>
         <CommandEmpty>No results found.</CommandEmpty>
         <CommandGroup heading="Pages">

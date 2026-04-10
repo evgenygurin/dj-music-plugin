@@ -21,6 +21,19 @@ interface InteractionLevelApi {
 
 const Ctx = createContext<InteractionLevelApi | null>(null)
 
+function readStoredPlayerLayer(): PlayerLayer | null {
+  if (typeof window === 'undefined') return null
+  const stored = window.localStorage.getItem(STORAGE_KEY)
+  if (!stored) return null
+  const parsed = Number.parseInt(stored, 10)
+  return parsed >= 0 && parsed <= 4 ? (parsed as PlayerLayer) : null
+}
+
+function persistPlayerLayer(next: PlayerLayer) {
+  if (typeof window === 'undefined') return
+  window.localStorage.setItem(STORAGE_KEY, String(next))
+}
+
 export function PlayerInteractionLevelProvider({
   children,
 }: {
@@ -29,27 +42,23 @@ export function PlayerInteractionLevelProvider({
   const [level, setLevel] = useState<PlayerLayer>(0)
 
   useEffect(() => {
-    if (typeof window === 'undefined') return
-    const stored = window.localStorage.getItem(STORAGE_KEY)
-    if (stored) {
-      const parsed = Number.parseInt(stored, 10)
-      if (parsed >= 0 && parsed <= 4) setLevel(parsed as PlayerLayer)
-    }
+    const storedLevel = readStoredPlayerLayer()
+    if (storedLevel === null) return
+    const frame = window.requestAnimationFrame(() => {
+      setLevel(storedLevel)
+    })
+    return () => window.cancelAnimationFrame(frame)
   }, [])
 
   const persist = useCallback((next: PlayerLayer) => {
     setLevel(next)
-    if (typeof window !== 'undefined') {
-      window.localStorage.setItem(STORAGE_KEY, String(next))
-    }
+    persistPlayerLayer(next)
   }, [])
 
   const promote = useCallback(() => {
     setLevel((cur) => {
       const next = Math.min(4, cur + 1) as PlayerLayer
-      if (typeof window !== 'undefined') {
-        window.localStorage.setItem(STORAGE_KEY, String(next))
-      }
+      persistPlayerLayer(next)
       return next
     })
   }, [])
@@ -57,9 +66,7 @@ export function PlayerInteractionLevelProvider({
   const collapse = useCallback(() => {
     setLevel((cur) => {
       const next = Math.max(0, cur - 1) as PlayerLayer
-      if (typeof window !== 'undefined') {
-        window.localStorage.setItem(STORAGE_KEY, String(next))
-      }
+      persistPlayerLayer(next)
       return next
     })
   }, [])

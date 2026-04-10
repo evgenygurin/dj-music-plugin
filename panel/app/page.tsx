@@ -1,4 +1,5 @@
-import { PageShell } from '@/components/page-shell'
+import Link from 'next/link'
+import { PageHeader, PageShell } from '@/components/page-shell'
 import { SectionCards } from '@/components/section-cards'
 import { BpmDistributionChart } from '@/components/charts/bpm-distribution'
 import { MoodDistributionChart } from '@/components/charts/mood-distribution'
@@ -7,6 +8,8 @@ import { LufsRangeChart } from '@/components/charts/lufs-range'
 import { DanceabilityDistributionChart } from '@/components/charts/danceability-distribution'
 import { HpRatioDistributionChart } from '@/components/charts/hp-ratio-distribution'
 import { PhraseDistributionChart } from '@/components/charts/phrase-distribution'
+import { Badge } from '@/components/ui/badge'
+import { buttonVariants } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
 import {
@@ -51,9 +54,27 @@ export default async function DashboardPage() {
   ])
 
   const totalAnalyzed = stats.totalTracks > 0 ? stats.analyzedTracks : 0
+  const coveragePct =
+    stats.totalTracks > 0 ? Math.round((stats.analyzedTracks / stats.totalTracks) * 100) : 0
 
   return (
     <PageShell title="Dashboard">
+      <PageHeader
+        title="Library Command Center"
+        description="Track analysis coverage, curation signals, and mix-readiness in one view."
+        badge={<Badge variant="secondary">{coveragePct}% analyzed</Badge>}
+        actions={
+          <>
+            <Link href="/discover" className={buttonVariants({ variant: 'outline' })}>
+              Discover Tracks
+            </Link>
+            <Link href="/library" className={buttonVariants()}>
+              Open Library
+            </Link>
+          </>
+        }
+      />
+
       <SectionCards stats={stats} />
 
       {/* BPM Distribution — full width */}

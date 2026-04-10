@@ -23,7 +23,8 @@ export function PageShell({ title, parent, children, className }: PageShellProps
     <>
       <SiteHeader title={title} parent={parent} />
       <div className="flex flex-1 flex-col">
-        <div className="@container/main flex flex-1 flex-col gap-2">
+        <main id="main-content" className="@container/main flex flex-1 flex-col gap-2">
+          <h1 className="sr-only">{title}</h1>
           <div
             className={cn(
               'flex flex-col gap-4 px-4 py-4 md:gap-6 md:py-6 lg:px-6',
@@ -32,7 +33,7 @@ export function PageShell({ title, parent, children, className }: PageShellProps
           >
             {children}
           </div>
-        </div>
+        </main>
       </div>
     </>
   )
@@ -65,9 +66,9 @@ export function PageHeader({
     <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
       <div className="flex flex-col gap-1">
         <div className="flex flex-wrap items-center gap-3">
-          <h1 className={cn('text-2xl font-semibold tracking-tight', titleClassName)}>
+          <h2 className={cn('text-2xl font-semibold tracking-tight text-balance', titleClassName)}>
             {title}
-          </h1>
+          </h2>
           {badge}
         </div>
         {description && (
