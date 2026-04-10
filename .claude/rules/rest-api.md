@@ -1,6 +1,6 @@
 ---
-description: REST API wrapper patterns (app/api/server.py)
-globs: app/api/server.py
+description: REST API wrapper patterns
+globs: app/api/**/*.py
 ---
 
 # REST API (FastAPI Wrapper)
@@ -18,9 +18,25 @@ globs: app/api/server.py
 - `POST /api/tools/{name}/call` — execute tool with `{"arguments": {...}}`
 - `POST /mcp` — native MCP StreamableHTTP transport
 
+## Module Structure
+
+- `app/api/server.py` — app creation, CORS, router inclusion, `/mcp` mount. NEVER add route logic here
+- `app/api/state.py` — `ApiRuntimeState` dataclass (tool cache, MCP readiness, YM client, URL cache)
+- `app/api/lifespan.py` — MCP startup, degraded-mode fallback
+- `app/api/schemas.py` — Pydantic request/response models
+- `app/api/openapi.py` — OpenAPI tags, examples, version lookup
+- `app/api/routes/health.py` — `/api/health`
+- `app/api/routes/discovery.py` — `/api/tools`, `/api/tools/{name}`, `/api/tools/{name}/schema`
+- `app/api/routes/execution.py` — `POST /api/tools/{name}/call`
+- `app/api/routes/audio.py` — `GET /api/audio/stream/{ym_track_id}`
+- `app/api/services/tool_registry.py` — `ToolRegistry` (static tool metadata cache)
+- `app/api/services/signed_url_cache.py` — `SignedUrlCache` (YM download URL TTL cache)
+- `app/api/services/ym_audio_proxy.py` — `YmAudioProxy` (stream YM audio)
+
 ## Patterns
 
 - Tool discovery is static (at import time via FileSystemProvider) — no DB needed for Swagger
 - MCP lifespan failure is graceful: discovery works, execution returns 503
 - CORS allows `localhost:3000` (panel dev) and `*.vercel.app` (production)
-- Pydantic models: `ToolCallRequest`, `ToolCallResponse`, `ToolInfo`, `ToolListResponse`
+- Route handlers access runtime via `request.app.state.runtime: ApiRuntimeState`
+- NEVER import `app.db.models` or `app.db.repositories` from `app.api` — enforced by import-linter
