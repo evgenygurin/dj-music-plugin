@@ -25,7 +25,7 @@ import type { TrackMixMeta } from '@/lib/queries/mix-meta'
 // components / hooks for incremental HMR). They're imported here
 // for internal use but NOT re-exported — consumers should import
 // from `./audio-player-types` directly.
-import type { ManualTransitionStyle, PlayerTrackMeta } from './audio-player-types'
+import type { ManualTransitionStyle, PlayerTrackMeta, TransitionLog } from './audio-player-types'
 
 // ── Auto-DJ scoring (client-side compatibility heuristic) ─────────
 
@@ -319,6 +319,7 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     }
   }, [])
   const historyRef = useRef<number[]>([])
+  const transitionHistoryRef = useRef<TransitionLog[]>([])
 
   // Compute crossfade duration in seconds from bars + active track BPM.
   // 1 bar = 4 beats; (bars * 4) beats / (bpm) bpm * 60 = seconds.
@@ -1005,7 +1006,7 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
             //                                    └→ wet → masterLimiter
             // Route through masterLimiter (not ctx.destination) to
             // prevent clipping on loud echo tails.
-            const masterLimiter = env.masterLimiter
+            const masterLimiter = masterLimiterRef.current ?? ctx.destination
             active.preGain.connect(echoDelay)
             echoDelay.connect(echoLpf)
             echoLpf.connect(echoFb)
@@ -1293,6 +1294,63 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
           scheduleSwap(inactive.wetGain, tSwapStart, inWetCurve, swapDur)
           }
           // ── end of `if (resolvedStyle === 'swap')` ─────────────
+
+          // ── Structured transition log ────────────────────────
+          // Assemble the full transition picture from all data
+          // sources available in this closure. Logged to console
+          // and kept in a bounded history ref for UI access.
+          const outMeta = activeMeta // snapshot before currentMetaRef was overwritten
+          const transitionLog: TransitionLog = {
+            timestamp: new Date().toISOString(),
+            from: {
+              id: current?.id ?? fromId ?? -1,
+              title: current?.title ?? '?',
+              bpm: outMeta?.bpm ?? current?.bpm ?? null,
+              key: current?.camelot ?? null,
+              lufs: outMeta?.integratedLufs ?? null,
+              mood: current?.mood ?? null,
+            },
+            to: {
+              id: track.id,
+              title: track.title,
+              bpm: incomingMeta?.bpm ?? track.bpm ?? null,
+              key: track.camelot ?? null,
+              lufs: incomingMeta?.integratedLufs ?? null,
+              mood: track.mood ?? null,
+            },
+            overallScore: styleResult?.overall ?? null,
+            hardReject: styleResult?.hardReject ?? false,
+            recommendedStyle: recommendedStyle ?? null,
+            resolvedStyle,
+            wasManualOverride: manualOverride !== 'auto',
+            bars: effectiveBars,
+            durationSec: effectiveFadeSec,
+            tempoMatchRatio: ratio,
+            outgoingDownbeatDelaySec: delaySec,
+            incomingSeekTargetSec: snappedSeekTarget,
+            incomingHasFirstDownbeat: (incomingMeta?.firstDownbeatSec ?? 0) > 0,
+            outgoingLufs: outLufs,
+            incomingLufs: inLufs,
+            lufsAdjustmentDb: {
+              outDb: outLufs != null && inLufs != null
+                ? Math.min(outLufs, inLufs) - 0.5 - outLufs
+                : 0,
+              inDb: outLufs != null && inLufs != null
+                ? Math.min(outLufs, inLufs) - 0.5 - inLufs
+                : 0,
+            },
+            outgoingSection: outMeta?.outroStartSec != null ? 'outro' : null,
+            incomingSection: incomingMeta?.introEndSec != null ? 'intro' : null,
+            phaseAligned: delaySec > 0 || snappedSeekTarget != null,
+            bpmDelta: (outMeta?.bpm ?? current?.bpm ?? null) != null && (incomingMeta?.bpm ?? track.bpm ?? null) != null
+              ? Math.abs((outMeta?.bpm ?? current?.bpm ?? 0) - (incomingMeta?.bpm ?? track.bpm ?? 0))
+              : null,
+          }
+          console.info('[TRANSITION]', JSON.stringify(transitionLog, null, 2))
+          transitionHistoryRef.current = [
+            ...transitionHistoryRef.current.slice(-19),
+            transitionLog,
+          ]
 
           fadeTimeoutRef.current = setTimeout(() => {
             // Drain any per-style transient-node cleanup registered
