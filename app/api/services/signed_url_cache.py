@@ -29,6 +29,10 @@ class SignedUrlCache:
         """Store a signed URL."""
         self._entries[ym_track_id] = (time.monotonic() + self.ttl_seconds, signed_url)
 
+    def delete(self, ym_track_id: str) -> None:
+        """Remove a single entry (e.g. on upstream failure / expired URL)."""
+        self._entries.pop(ym_track_id, None)
+
     def clear(self) -> None:
         """Clear the cache."""
         self._entries.clear()

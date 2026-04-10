@@ -48,7 +48,9 @@ class YmAudioProxy:
         except APIError as exc:
             raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
         except Exception as exc:
-            raise HTTPException(status_code=502, detail=f"get_download_info failed: {exc}") from exc
+            raise HTTPException(
+                status_code=502, detail=f"get_download_info failed: {exc}"
+            ) from exc
         if not infos:
             raise HTTPException(status_code=404, detail=f"No download info for {ym_track_id}")
 
@@ -67,32 +69,31 @@ class YmAudioProxy:
         except APIError as exc:
             raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
         except Exception as exc:
-            raise HTTPException(status_code=502, detail=f"resolve_download_url failed: {exc}") from exc
+            raise HTTPException(
+                status_code=502, detail=f"resolve_download_url failed: {exc}"
+            ) from exc
 
         self._signed_url_cache.set(ym_track_id, signed_url)
         return signed_url
 
-    async def stream(self, ym_track_id: str, range_header: str | None = None) -> StreamingResponse:
-        """Proxy-stream an audio file from YM to the browser."""
-        signed_url = await self.get_signed_url(ym_track_id)
-
-        upstream_headers: dict[str, str] = {}
-        if range_header:
-            upstream_headers["Range"] = range_header
-
+    async def _open_upstream(
+        self,
+        signed_url: str,
+        upstream_headers: dict[str, str],
+    ) -> tuple[httpx.AsyncClient, httpx.Response]:
+        """Open a streaming connection to the YM CDN."""
         client = httpx.AsyncClient(
-            timeout=httpx.Timeout(connect=15.0, read=300.0, write=30.0, pool=15.0)
+            timeout=httpx.Timeout(connect=10.0, read=60.0, write=10.0, pool=10.0),
+            follow_redirects=True,
         )
-
         try:
             upstream = await client.send(
                 client.build_request("GET", signed_url, headers=upstream_headers),
                 stream=True,
             )
-        except httpx.HTTPError as exc:
+        except httpx.HTTPError:
             await client.aclose()
-            raise HTTPException(status_code=502, detail=f"Upstream fetch failed: {exc}") from exc
-
+            raise
         if upstream.status_code >= 400:
             body = await upstream.aread()
             await upstream.aclose()
@@ -101,6 +102,32 @@ class YmAudioProxy:
                 status_code=upstream.status_code,
                 detail=f"Upstream {upstream.status_code}: {body[:200]!r}",
             )
+        return client, upstream
+
+    async def stream(self, ym_track_id: str, range_header: str | None = None) -> StreamingResponse:
+        """Proxy-stream an audio file from YM to the browser.
+
+        On upstream failure, invalidates the signed URL cache and retries
+        once with a fresh URL (handles expired CDN links).
+        """
+        upstream_headers: dict[str, str] = {}
+        if range_header:
+            upstream_headers["Range"] = range_header
+
+        signed_url = await self.get_signed_url(ym_track_id)
+
+        try:
+            client, upstream = await self._open_upstream(signed_url, upstream_headers)
+        except (httpx.HTTPError, HTTPException):
+            # First attempt failed — URL may have expired. Invalidate and retry.
+            self._signed_url_cache.delete(ym_track_id)
+            signed_url = await self.get_signed_url(ym_track_id)
+            try:
+                client, upstream = await self._open_upstream(signed_url, upstream_headers)
+            except httpx.HTTPError as exc:
+                raise HTTPException(
+                    status_code=502, detail=f"Upstream fetch failed after retry: {exc}"
+                ) from exc
 
         forward_keys = (
             "content-length",
@@ -123,8 +150,11 @@ class YmAudioProxy:
                 async for chunk in upstream.aiter_bytes(chunk_size=65536):
                     yield chunk
             except (httpx.ReadTimeout, httpx.ReadError, httpx.RemoteProtocolError) as exc:
+                # Re-raise so Starlette sends a proper error instead of
+                # silently closing the socket (which causes "other side closed"
+                # in the Next.js panel proxy).
                 logger.warning("audio stream %s interrupted: %s", ym_track_id, exc)
-                return
+                raise
             finally:
                 await upstream.aclose()
                 await client.aclose()
