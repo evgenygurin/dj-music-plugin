@@ -12,7 +12,13 @@ from app.db.repositories.set import SetRepository
 from app.db.repositories.transition import TransitionRepository
 from app.services.mix_point_service import TrackSectionRow, build_section_context
 from app.services.transition import TransitionScorer
-from app.transition import SectionContext, TransitionScore, recommend_style, style_profile
+from app.transition import (
+    SectionContext,
+    TransitionScore,
+    recommend_recipe,
+    recommend_style,
+    style_profile,
+)
 
 
 class SetScoringService:
@@ -149,6 +155,10 @@ class SetScoringService:
         # (we hide style entirely when overall is None).
         recommended_style: str | None = None
         recommended_bars: float | int | None = None
+        transition_type: str | None = None
+        transition_bars: int | None = None
+        djay_transition: str | None = None
+        recipe_confidence: float | None = None
         if overall is not None:
             synthetic = TransitionScore(
                 bpm=bpm or 0.0,
@@ -165,6 +175,12 @@ class SetScoringService:
             recommended_style = style.value
             profile_bars = style_profile(style)["bars"]
             recommended_bars = profile_bars if isinstance(profile_bars, int | float) else None
+            # Recipe (enhanced transition instructions)
+            recipe = recommend_recipe(synthetic)
+            transition_type = recipe.transition_type.value
+            transition_bars = recipe.bars
+            djay_transition = recipe.djay_transition.value
+            recipe_confidence = recipe.confidence
 
         return {
             "from_track_id": from_id,
@@ -181,6 +197,10 @@ class SetScoringService:
             "cached": cached,
             "recommended_style": recommended_style,
             "recommended_bars": recommended_bars,
+            "transition_type": transition_type if overall is not None else None,
+            "transition_bars": transition_bars if overall is not None else None,
+            "djay_transition": djay_transition if overall is not None else None,
+            "recipe_confidence": recipe_confidence if overall is not None else None,
         }
 
     async def score_pair(
