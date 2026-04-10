@@ -7,6 +7,8 @@ from app.db.repositories.feature import FeatureRepository
 from app.db.repositories.set import SetRepository
 from app.db.repositories.track import TrackRepository
 from app.transition.recipe import TransitionRecipe
+from app.transition.score import TransitionScore
+from app.transition.style import recommend_recipe
 
 
 def _format_recipe_box(recipe: TransitionRecipe, score: float | None = None) -> str:

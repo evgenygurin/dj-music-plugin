@@ -51,8 +51,8 @@ class RecipeStep:
     effect: str | None = None
     effect_param: float | None = None
 
-    def to_dict(self) -> dict:
-        d: dict = {"bar": self.bar, "deck": self.deck, "action": self.action}
+    def to_dict(self) -> dict[str, object]:
+        d: dict[str, object] = {"bar": self.bar, "deck": self.deck, "action": self.action}
         if self.stem is not None:
             d["stem"] = self.stem
         if self.stem_action is not None:
@@ -74,7 +74,7 @@ class EQPlan:
     mid: str
     high: str
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> dict[str, object]:
         return {"low": self.low, "mid": self.mid, "high": self.high}
 
 
@@ -94,8 +94,8 @@ class TransitionRecipe:
     subgenre_modifier: str | None
     rescue_move: str
 
-    def to_dict(self) -> dict:
-        d: dict = {
+    def to_dict(self) -> dict[str, object]:
+        d: dict[str, object] = {
             "transition_type": str(self.transition_type),
             "bars": self.bars,
             "djay_transition": str(self.djay_transition),
