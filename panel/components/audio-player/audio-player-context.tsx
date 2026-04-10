@@ -137,6 +137,7 @@ interface AudioPlayerApi extends AudioPlayerState {
   toggleMixEnabled: () => void
   crossfadeBars: number // length of mix in BARS (DJ-native unit)
   setCrossfadeBars: (b: number) => void
+  setQueue: (q: PlayerTrackMeta[]) => void // expand queue for auto-DJ pool
   // Manual transition-style override. When `'auto'` (default) the
   // dispatcher follows the backend's recommendation. Any other value
   // forces that style on the next crossfade regardless of what the
@@ -1939,6 +1940,7 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
       toggleAutoDj,
       toggleMixEnabled,
       setCrossfadeBars,
+      setQueue,
       manualStyle,
       setManualStyle,
     }),

@@ -6,7 +6,7 @@ import { Search } from 'lucide-react'
 import { useRouter, usePathname, useSearchParams } from 'next/navigation'
 import { startTransition, useCallback, useEffect, useMemo, useRef, useState, useTransition } from 'react'
 
-import { loadMoreTracks } from '@/actions/library-actions'
+import { loadDjQueue, loadMoreTracks } from '@/actions/library-actions'
 import { useAudioPlayer } from '@/components/audio-player/audio-player-context'
 import { DataTable } from '@/components/data-table'
 import { MoodBadge } from '@/components/mood-badge'
@@ -258,18 +258,40 @@ export function LibraryTable({
 
   const handleTogglePlay = useCallback(
     (row: TrackRow) => {
-      // Whole loaded list is the queue — auto-DJ and prev/next traverse it.
-      const queue = tracks.map((t) => ({
-        id: t.id,
-        title: t.title,
-        artists: t.artists,
-        durationMs: t.duration_ms,
-        bpm: t.bpm,
-        camelot: t.camelot,
-        mood: t.mood,
+      const meta = {
+        id: row.id,
+        title: row.title,
+        artists: row.artists,
+        durationMs: row.duration_ms,
+        bpm: row.bpm,
+        camelot: row.camelot,
+        mood: row.mood,
+      }
+      // Start with visible tracks as queue, then async-expand with
+      // 500 BPM-compatible tracks for auto-DJ to pick from.
+      const visibleQueue = tracks.map((t) => ({
+        id: t.id, title: t.title, artists: t.artists,
+        durationMs: t.duration_ms, bpm: t.bpm,
+        camelot: t.camelot, mood: t.mood,
       }))
-      const meta = queue.find((t) => t.id === row.id)!
-      player.toggle(meta, queue)
+      player.toggle(meta, visibleQueue)
+
+      // Background: load 500 tracks with ±5 BPM for better auto-DJ pool.
+      // Uses setQueue to expand without restarting playback.
+      if (row.bpm) {
+        void loadDjQueue(row.bpm).then((djTracks) => {
+          if (djTracks.length > 0) {
+            const expanded = djTracks.map((t) => ({
+              id: t.id, title: t.title, artists: t.artists,
+              durationMs: t.duration_ms, bpm: t.bpm,
+              camelot: t.camelot, mood: t.mood,
+            }))
+            const ids = new Set(visibleQueue.map((t) => t.id))
+            const merged = [...visibleQueue, ...expanded.filter((t) => !ids.has(t.id))]
+            player.setQueue(merged)
+          }
+        })
+      }
     },
     [player, tracks],
   )
