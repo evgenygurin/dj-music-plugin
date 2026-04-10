@@ -42,10 +42,17 @@ def detect_first_downbeat_ms(
     bpm: float,
     sr: int = 22050,
 ) -> float | None:
-    """Detect the first downbeat position from raw audio bytes.
+    """Detect the beat grid phase (first downbeat offset) from audio.
 
-    Uses onset strength to find the first strong transient, then snaps
-    it to the nearest beat grid position derived from BPM.
+    Strategy (autocorrelation-based, not first-onset):
+      1. Decode audio, skip first 2 seconds (MP3 padding + possible silence)
+      2. Compute energy envelope in short frames
+      3. Build an autocorrelation at the expected beat interval
+      4. Find the phase offset where kicks align best
+      5. Extrapolate back to get the first downbeat position from sample 0
+
+    This gives the PHASE of the beat grid, not the position of the
+    first audible transient — which is what crossfade alignment needs.
     """
     try:
         import soundfile as sf
@@ -53,7 +60,6 @@ def detect_first_downbeat_ms(
         log.error("soundfile not installed — run: uv sync --extra audio")
         return None
 
-    # Decode audio from bytes
     try:
         y, actual_sr = sf.read(io.BytesIO(audio_bytes), dtype="float32")
     except Exception:
@@ -62,54 +68,84 @@ def detect_first_downbeat_ms(
     if y.ndim > 1:
         y = y.mean(axis=1)
 
-    # Simple resample by decimation if needed (no librosa — avoids numba SEGV)
+    # Resample to target sr by decimation
     if actual_sr != sr:
         ratio = actual_sr / sr
         indices = np.arange(0, len(y), ratio).astype(int)
         indices = indices[indices < len(y)]
         y = y[indices]
 
-    if len(y) < sr:  # less than 1 second
+    duration = len(y) / sr
+    if duration < 3.0:
         return None
 
-    # Use first 5 seconds
-    clip = y[: sr * 5]
+    # --- Step 1: Find a "loud" region (skip silence/intro) ---
+    # Use the loudest 4-second window for beat phase detection.
+    # This avoids MP3 padding, fade-ins, and ambient intros.
+    hop = 256
+    n_frames = len(y) // hop
+    frame_energy = np.array([np.sum(y[i * hop : (i + 1) * hop] ** 2) for i in range(n_frames)])
 
-    # Energy envelope: RMS in short windows (hop ~23ms = 512 samples)
-    hop = 512
-    frame_count = len(clip) // hop
-    if frame_count < 2:
+    # Sliding window RMS over 4 seconds
+    win_frames = int(4.0 * sr / hop)
+    if win_frames >= n_frames:
+        win_frames = n_frames - 1
+    cum = np.cumsum(frame_energy)
+    win_sums = cum[win_frames:] - cum[:-win_frames]
+    best_start_frame = int(np.argmax(win_sums))
+    analysis_start = best_start_frame * hop
+    analysis_end = min(len(y), analysis_start + int(4.0 * sr))
+    clip = y[analysis_start:analysis_end]
+
+    if len(clip) < sr * 2:
         return 0.0
 
-    energy = np.array(
-        [np.sqrt(np.mean(clip[i * hop : (i + 1) * hop] ** 2)) for i in range(frame_count)]
-    )
+    # --- Step 2: Compute per-sample energy envelope (rectify + smooth) ---
+    rect = np.abs(clip)
+    # Smooth with a ~5ms window for kick detection
+    smooth_len = max(1, int(0.005 * sr))
+    kernel = np.ones(smooth_len) / smooth_len
+    env = np.convolve(rect, kernel, mode="same")
 
-    # Onset detection: first-order difference of energy, positive peaks
-    diff = np.diff(energy)
-    diff = np.maximum(diff, 0)
-
-    # Threshold: 30% of max energy rise
-    max_diff = float(np.max(diff)) if len(diff) > 0 else 0.0
-    threshold = max_diff * 0.3
-    onset_frames = np.where(diff > threshold)[0]
-
-    if len(onset_frames) == 0:
+    # --- Step 3: Find beat phase via template matching ---
+    # Create a comb template at BPM interval and slide it across
+    # one beat period to find the offset that maximizes correlation.
+    beat_samples = int(60.0 / bpm * sr)
+    if beat_samples < 10 or beat_samples >= len(env):
         return 0.0
 
-    # First onset in seconds
-    first_onset_sec = float(onset_frames[0] * hop) / sr
+    # Number of beats that fit in the clip
+    n_beats = len(env) // beat_samples
+    if n_beats < 3:
+        return 0.0
 
-    # Snap to nearest beat grid position
-    beat_interval = 60.0 / bpm
+    # For each candidate phase (0..beat_samples), sum energy at
+    # all beat positions. The phase with highest sum = the grid offset.
+    # This is equivalent to folding the signal at beat period.
+    usable = n_beats * beat_samples
+    folded = env[:usable].reshape(n_beats, beat_samples)
+    phase_profile = np.sum(folded, axis=0)
 
-    grid_pos = round(first_onset_sec / beat_interval) * beat_interval
+    # The peak of phase_profile = the within-beat offset where kicks land
+    peak_offset_samples = int(np.argmax(phase_profile))
 
-    # If grid_pos is more than half a beat away, use raw onset
-    if abs(grid_pos - first_onset_sec) > beat_interval / 2:
-        grid_pos = first_onset_sec
+    # --- Step 4: Convert to absolute position and extrapolate to sample 0 ---
+    # The detected phase is relative to analysis_start.
+    # Absolute position of the nearest beat: analysis_start + peak_offset
+    abs_phase_sample = analysis_start + peak_offset_samples
 
-    return grid_pos * 1000.0  # convert to ms
+    # Extrapolate backwards to find the first beat at or after sample 0:
+    # first_downbeat = abs_phase % beat_samples
+    first_downbeat_sample = abs_phase_sample % beat_samples
+
+    first_downbeat_ms = float(first_downbeat_sample) / sr * 1000.0
+
+    # Sanity: must be within one beat interval
+    beat_interval_ms = 60_000.0 / bpm
+    if first_downbeat_ms >= beat_interval_ms:
+        first_downbeat_ms = first_downbeat_ms % beat_interval_ms
+
+    return round(first_downbeat_ms, 2)
 
 
 async def get_tracks_needing_beatgrid(session: Any) -> list[dict[str, Any]]:
@@ -130,35 +166,39 @@ async def get_tracks_needing_beatgrid(session: Any) -> list[dict[str, Any]]:
 
 
 async def download_audio_clip(
-    ym_client: Any, ym_track_id: str, max_bytes: int = 200_000
+    ym_client: Any,
+    ym_track_id: str,
+    max_bytes: int = 200_000,
+    http_client: Any = None,
 ) -> bytes | None:
     """Download first ~5 seconds of audio from YM (partial Range request).
 
     Uses YM's two-step download: get_download_info → resolve URL → Range GET.
     At 320kbps, 200KB ≈ 5 seconds of audio.
+    Uses a shared httpx client to avoid per-request connection overhead.
     """
-    import httpx
-
     try:
         infos = await ym_client.get_download_info(str(ym_track_id))
         if not infos:
             return None
 
-        # Pick best MP3 option (infos already sorted by bitrate desc)
         best = infos[0]
         download_info_url = best.get("downloadInfoUrl")
         if not download_info_url:
             return None
 
-        # Resolve signed download URL
         download_url = await ym_client._resolve_download_url(str(ym_track_id), download_info_url)
 
         # Range request: first max_bytes only
-        async with httpx.AsyncClient(timeout=15.0) as http:
-            resp = await http.get(download_url, headers={"Range": f"bytes=0-{max_bytes}"})
-            if resp.status_code in (200, 206):
-                return resp.content
-            return None
+        client = http_client
+        if client is None:
+            import httpx
+
+            client = httpx.AsyncClient(timeout=15.0)
+        resp = await client.get(download_url, headers={"Range": f"bytes=0-{max_bytes}"})
+        if resp.status_code in (200, 206):
+            return resp.content
+        return None
     except Exception as e:
         log.debug("Download failed for %s: %s", ym_track_id, e)
         return None
@@ -279,7 +319,7 @@ async def main() -> None:
         token=settings.ym_token,
         user_id=settings.ym_user_id,
         base_url=settings.ym_base_url,
-        rate_limiter=RateLimiter(delay=settings.ym_rate_limit_delay),
+        rate_limiter=RateLimiter(delay=0.3),  # fast mode for migration (not 1.5s)
     )
 
     async with async_session() as session:
