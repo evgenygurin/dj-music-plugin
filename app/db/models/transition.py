@@ -8,6 +8,8 @@ from __future__ import annotations
 from sqlalchemy import (
     CheckConstraint,
     ForeignKey,
+    String,
+    Text,
     UniqueConstraint,
 )
 from sqlalchemy.orm import Mapped, mapped_column
@@ -69,6 +71,10 @@ class Transition(Base, TimestampMixin):
     key_distance_weighted: Mapped[float | None] = mapped_column(nullable=True)
     low_conflict_score: Mapped[float | None] = mapped_column(nullable=True)
     overall_quality: Mapped[float | None] = mapped_column(nullable=True)
+
+    transition_type: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    transition_bars: Mapped[int | None] = mapped_column(nullable=True)
+    transition_recipe_json: Mapped[str | None] = mapped_column(Text, nullable=True)
 
 
 class TransitionCandidate(Base, TimestampMixin):
