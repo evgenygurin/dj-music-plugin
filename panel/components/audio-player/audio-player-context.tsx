@@ -586,8 +586,14 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
       } catch {
         // ignore
       }
-      inactive.gain.gain.cancelScheduledValues(ctx.currentTime)
+      inactive.gain.gain.cancelScheduledValues(0)
+      inactive.gain.gain.value = 0
       inactive.gain.gain.setValueAtTime(0, ctx.currentTime)
+
+      // Also mute the audio element volume as a belt-and-suspenders
+      // guard against the MediaElementSource leaking a few samples
+      // before the Web Audio gain scheduler kicks in.
+      inactive.audio.volume = 0
 
       setCurrent(track)
       historyRef.current = [...historyRef.current, track.id].slice(-50)
@@ -942,6 +948,10 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
           const CUT_FADE_SEC = 0.05
           const effectiveFadeSec = resolvedStyle === 'cut' ? CUT_FADE_SEC : cf
 
+          // Restore element volume (muted pre-play to prevent click).
+          // Web Audio gain node controls the actual level from here on.
+          inactive.audio.volume = 1
+
           // Dispatch the gain envelope.
           active.gain.gain.cancelScheduledValues(t0)
           active.gain.gain.setValueAtTime(active.gain.gain.value, t0)
@@ -955,11 +965,11 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
           const extraCleanup: Array<() => void> = []
 
           if (resolvedStyle === 'cut') {
-            // Drum cut: 50 ms linear fade on outgoing, instant snap
-            // on incoming. On the bar, just like a DJ hitting the
-            // fader. No overlap, no equal-power curve needed.
+            // Drum cut: 50 ms linear fade on outgoing, 5 ms micro-ramp
+            // on incoming to avoid click from MP3 decoder seek glitch.
             active.gain.gain.linearRampToValueAtTime(0, t0 + CUT_FADE_SEC)
-            inactive.gain.gain.setValueAtTime(vol, t0)
+            inactive.gain.gain.setValueAtTime(0, t0)
+            inactive.gain.gain.linearRampToValueAtTime(vol, t0 + 0.005)
           } else if (resolvedStyle === 'echo_out') {
             // ECHO_OUT: outgoing leaves on a dub-delay tail.
             //
