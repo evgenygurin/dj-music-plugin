@@ -105,7 +105,7 @@ interface AudioPlayerApi extends AudioPlayerState {
   toggle: (track?: PlayerTrackMeta, queue?: PlayerTrackMeta[]) => void
   pause: () => void
   stop: () => void
-  next: () => void
+  next: () => Promise<void> | void
   prev: () => void
   // Kick off a smooth crossfade to the already-planned next track
   // RIGHT NOW, without waiting for the current track to end. Picks
@@ -1595,8 +1595,44 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
   const hasPrev = queueIndex > 0
   const hasNext = queueIndex >= 0 && queueIndex < queue.length - 1
 
-  const next = useCallback(() => {
+  const next = useCallback(async () => {
     if (!current) return
+    // Use scoring to pick the best next track (same as Sparkles / Auto-DJ).
+    // Falls back to sequential queue order if scoring fails.
+    try {
+      const scored = await scoreTransitionCandidates(current.id, 30)
+      if (scored && scored.length > 0) {
+        const poolIds = new Set(queue.map((t) => t.id))
+        const recent = new Set(historyRef.current.slice(-30))
+        const matches = scored
+          .filter(
+            (c) =>
+              poolIds.has(c.to_track_id) &&
+              !recent.has(c.to_track_id) &&
+              c.overall_quality > 0,
+          )
+          .slice(0, 8)
+        if (matches.length > 0) {
+          const total = matches.reduce((acc, c) => acc + c.overall_quality, 0)
+          let r = Math.random() * total
+          for (const c of matches) {
+            r -= c.overall_quality
+            if (r <= 0) {
+              const target = queue.find((t) => t.id === c.to_track_id)
+              if (target) { play(target); return }
+            }
+          }
+          const fallbackTarget = queue.find((t) => t.id === matches[0].to_track_id)
+          if (fallbackTarget) { play(fallbackTarget); return }
+        }
+      }
+    } catch {
+      // scoring failed — fall through to client heuristic
+    }
+    // Client-side fallback
+    const auto = pickAutoNext(current, queue, historyRef.current)
+    if (auto) { play(auto); return }
+    // Final fallback: sequential
     const idx = queue.findIndex((t) => t.id === current.id)
     if (idx >= 0 && idx < queue.length - 1) {
       play(queue[idx + 1])
