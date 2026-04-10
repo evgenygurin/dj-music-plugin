@@ -139,13 +139,29 @@ export async function getTrackMixMeta(trackId: number): Promise<TrackMixMeta | n
     // downbeat math uses, so use the same source for both.
     bpm: beatgridBpm ?? pickNumber(features?.bpm),
     // Prefer first_downbeat_ms from features (populated by pipeline beat
-    // detection), then beatgrid, then 0 as fallback for 4/4 techno.
-    firstDownbeatSec:
-      pickNumber(features?.first_downbeat_ms) != null
-        ? (pickNumber(features?.first_downbeat_ms) as number) / 1000
-        : firstDownbeatMs != null
-          ? firstDownbeatMs / 1000
-          : 0,
+    // detection), then beatgrid, then compute on-the-fly via backend.
+    // TODO: Remove on-the-fly computation after beatgrid migration completes
+    // and all tracks have first_downbeat_ms populated in DB.
+    firstDownbeatSec: await (async () => {
+      const fromFeatures = pickNumber(features?.first_downbeat_ms)
+      if (fromFeatures != null) return fromFeatures / 1000
+      if (firstDownbeatMs != null) return firstDownbeatMs / 1000
+      // On-the-fly: ask backend to compute and cache
+      try {
+        const REST_BASE = (process.env.MCP_HTTP_URL ?? 'http://localhost:8001')
+          .replace(/\/+mcp\/?$/, '').replace(/\/+$/, '')
+        const r = await fetch(`${REST_BASE}/api/audio/downbeat/${trackId}`, {
+          cache: 'no-store',
+          signal: AbortSignal.timeout(10_000),
+        })
+        if (r.ok) {
+          const d = await r.json()
+          const ms = typeof d.first_downbeat_ms === 'number' ? d.first_downbeat_ms : 0
+          return ms / 1000
+        }
+      } catch { /* ignore — fallback to 0 */ }
+      return 0
+    })(),
     outroStartSec: outroStart != null ? outroStart / 1000 : null,
     introEndSec: introEnd != null ? introEnd / 1000 : null,
     introStartSec: introStart != null ? introStart / 1000 : null,

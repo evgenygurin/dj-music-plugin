@@ -83,7 +83,7 @@ class YmAudioProxy:
     ) -> tuple[httpx.AsyncClient, httpx.Response]:
         """Open a streaming connection to the YM CDN."""
         client = httpx.AsyncClient(
-            timeout=httpx.Timeout(connect=10.0, read=60.0, write=10.0, pool=10.0),
+            timeout=httpx.Timeout(connect=10.0, read=15.0, write=10.0, pool=10.0),
             follow_redirects=True,
         )
         try:
