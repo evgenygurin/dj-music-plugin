@@ -6,6 +6,33 @@ from app.core.errors import NotFoundError
 from app.db.repositories.feature import FeatureRepository
 from app.db.repositories.set import SetRepository
 from app.db.repositories.track import TrackRepository
+from app.transition.recipe import TransitionRecipe
+
+
+def _format_recipe_box(recipe: TransitionRecipe, score: float | None = None) -> str:
+    """Format a transition recipe as a text box for cheat sheet."""
+    type_label = recipe.transition_type.value.upper().replace("_", " ")
+    header = f"{type_label} · {recipe.bars} bars"
+    if recipe.djay_transition.value != "none":
+        header += f" ─── djay: {recipe.djay_transition.value.replace('_', ' ').title()}"
+    else:
+        header += " ─── djay: Manual EQ"
+
+    lines = [f"     ┌── {header} ──┐"]
+    lines.append("     │")
+    for step in recipe.steps:
+        deck_label = step.deck.upper()
+        lines.append(f"     │  bar {step.bar:<3}  {deck_label}: {step.action}")
+    lines.append("     │")
+    eq = recipe.eq_plan
+    lines.append(f"     │  EQ: low={eq.low} · mid={eq.mid} · high={eq.high}")
+    for w in recipe.warnings:
+        lines.append(f"     │  ⚠ {w}")
+    lines.append(f"     │  Rescue: {recipe.rescue_move}")
+    if score is not None:
+        lines.append(f"     │  Score: {score:.2f} · Confidence: {recipe.confidence:.2f}")
+    lines.append("     └" + "─" * 50 + "┘")
+    return "\n".join(lines)
 
 
 class SetCheatSheetService:
@@ -87,6 +114,25 @@ class SetCheatSheetService:
                 lines.append(
                     f"    -> {bpm_delta_str} BPM | key: {prev_key}->{cur_key} | energy: {energy_dir}"
                 )
+
+                # Generate recipe box
+                synthetic = TransitionScore(
+                    bpm=0.5,
+                    harmonic=0.5,
+                    energy=0.5,
+                    spectral=0.5,
+                    groove=0.5,
+                    timbral=0.5,
+                    overall=0.5,
+                )
+                recipe = recommend_recipe(
+                    synthetic,
+                    prev_feat,
+                    feat,
+                    mood_a=prev_feat.mood if prev_feat else None,
+                    mood_b=feat.mood if feat else None,
+                )
+                lines.append(_format_recipe_box(recipe))
 
             prev_feat = feat
 

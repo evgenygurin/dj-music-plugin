@@ -48,6 +48,11 @@ class ExportTransition:
     energy_delta: float | None = None
     transition_type: str | None = None
     notes: str | None = None
+    transition_bars: int | None = None
+    djay_transition: str | None = None
+    recipe_steps: list[dict[str, Any]] | None = None
+    eq_plan: dict[str, Any] | None = None
+    rescue_move: str | None = None
 
 
 @dataclass

@@ -67,6 +67,30 @@ def write_cheat_sheet(data: SetExportData, output_path: Path) -> Path:
                 f"  Energy Δ{trans.energy_delta or 0:+.1f}"
                 + (f"  ⚠ {', '.join(problems)}" if problems else "")
             )
+            # Recipe details
+            if trans and trans.recipe_steps:
+                type_label = (trans.transition_type or "blend").upper().replace("_", " ")
+                bars_str = f"{trans.transition_bars} bars" if trans.transition_bars else ""
+                djay_str = ""
+                if trans.djay_transition and trans.djay_transition != "none":
+                    djay_str = f" ─── djay: {trans.djay_transition.replace('_', ' ').title()}"
+                else:
+                    djay_str = " ─── djay: Manual EQ"
+                lines.append(f"    ┌── {type_label} · {bars_str}{djay_str} ──┐")
+                for step in trans.recipe_steps:
+                    bar = step.get("bar", 0)
+                    deck = step.get("deck", "?").upper()
+                    action = step.get("action", "")
+                    lines.append(f"    │  bar {bar:<3}  {deck}: {action}")
+                if trans.eq_plan:
+                    eq = trans.eq_plan
+                    lines.append(
+                        f"    │  EQ: low={eq.get('low', '?')} · "
+                        f"mid={eq.get('mid', '?')} · high={eq.get('high', '?')}"
+                    )
+                if trans.rescue_move:
+                    lines.append(f"    │  Rescue: {trans.rescue_move}")
+                lines.append("    └" + "─" * 50 + "┘")
         lines.append("")
 
     output_path.write_text("\n".join(lines), encoding="utf-8")
