@@ -54,6 +54,16 @@ const geistMono = localFont({
 export const metadata: Metadata = {
   title: 'DJ Music Panel',
   description: 'Techno library management dashboard',
+  manifest: '/manifest.json',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'black-translucent',
+    title: 'DJ Music',
+  },
+  other: {
+    'apple-mobile-web-app-capable': 'yes',
+    'mobile-web-app-capable': 'yes',
+  },
 }
 
 export default function RootLayout({
@@ -63,6 +73,10 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" suppressHydrationWarning className="dark">
+      <head>
+        <link rel="apple-touch-icon" href="/icon-192.png" />
+        <meta name="theme-color" content="#09090b" />
+      </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
