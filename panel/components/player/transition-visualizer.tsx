@@ -7,17 +7,6 @@ import { cn } from '@/lib/utils'
 
 import { TrackWaveform } from './track-waveform'
 
-/**
- * Fixed overlay that materialises during a crossfade and renders a
- * "from → to" pair of waveforms with the equal-power gain envelopes,
- * the bass-swap automation, and a progress bar that walks across the
- * fade in real time.
- *
- * The audio engine itself owns the actual mixing — this is purely a
- * visualization layered on top of the existing AudioPlayer context.
- * Mounted permanently inside <Player>, but renders nothing unless
- * `isCrossfading` is true.
- */
 export function TransitionVisualizer() {
   const audio = useAudioPlayer()
   const {
@@ -36,8 +25,6 @@ export function TransitionVisualizer() {
     lastResolvedStyleWasManual,
   } = audio
 
-  // Wall-clock progress 0..1 across the crossfade. Driven by rAF so it
-  // updates smoothly without re-rendering on every audio sample.
   const [progress, setProgress] = useState(0)
   const rafRef = useRef<number | null>(null)
 
@@ -46,9 +33,6 @@ export function TransitionVisualizer() {
       return
     }
     const dur = crossfadeDurationSeconds * 1000
-    // Anchor wall-clock to a sample taken right after the fade started
-    // so we don't drift even if the AudioContext clock differs from
-    // performance.now() by a few ms.
     const wallStart = performance.now()
     const tick = () => {
       const elapsed = performance.now() - wallStart
@@ -63,8 +47,6 @@ export function TransitionVisualizer() {
       if (rafRef.current != null) cancelAnimationFrame(rafRef.current)
       rafRef.current = null
     }
-    // We intentionally only re-arm when the fade itself changes — `t0`
-    // and `dur` are derived from the deps below.
   }, [isCrossfading, crossfadeStartedAt, crossfadeDurationSeconds])
 
   if (!isCrossfading || !outgoing || !current || outgoing.id === current.id) {
@@ -72,18 +54,9 @@ export function TransitionVisualizer() {
   }
 
   const displayProgress = Math.max(0, Math.min(1, progress))
-
-  // Equal-power gain at the current progress (matches what the audio
-  // engine is actually doing — see startCrossfade in audio-player-context).
   const gainOut = Math.cos((displayProgress * Math.PI) / 2)
   const gainIn = Math.sin((displayProgress * Math.PI) / 2)
 
-  // Live per-deck playhead positions during the overlap. Each deck
-  // started at a snapshot position and has been advancing at its own
-  // playbackRate (incoming may be tempo-matched to outgoing). The
-  // visualizer doesn't have raw access to <audio>.currentTime, so we
-  // extrapolate from the snapshot + wall-clock progress to keep the
-  // two waveform cursors driving in real time.
   const fadeDur = crossfadeDurationSeconds ?? 0
   const elapsed = displayProgress * fadeDur
   const outRate = outgoingFadePlaybackRate ?? 1
@@ -93,12 +66,7 @@ export function TransitionVisualizer() {
   const incomingPos =
     incomingFadeStartPosition != null ? incomingFadeStartPosition + elapsed * inRate : 0
 
-  // Bass swap is a short cross-ramp centered on the midpoint. The
-  // audio engine ramps over 1..4 bars depending on cf; we don't have
-  // cf in bars here, so we use a fixed 12.5 % window (matches the
-  // engine's swapBars = cfBars / 8 rule). Outgoing bass drops from
-  // 1 → 0 and incoming rises from 0 → 1 linearly over that window.
-  const SWAP_WINDOW = 0.125 // 12.5 % of fade width
+  const SWAP_WINDOW = 0.125
   const swapStart = 0.5 - SWAP_WINDOW / 2
   const swapEnd = 0.5 + SWAP_WINDOW / 2
   const swapProgress =
@@ -112,32 +80,28 @@ export function TransitionVisualizer() {
 
   return (
     <div
-      className="pointer-events-none fixed bottom-[88px] left-1/2 z-40 w-[min(960px,calc(100vw-2rem))] -translate-x-1/2"
+      className="pointer-events-none fixed bottom-[100px] left-1/2 z-40 w-[min(960px,calc(100vw-1.5rem))] -translate-x-1/2"
       role="region"
       aria-label="Active transition"
     >
-      <div className="pointer-events-auto rounded-xl border border-primary/40 bg-background/95 p-4 shadow-2xl backdrop-blur supports-[backdrop-filter]:bg-background/85">
-        <div className="mb-2 flex items-center justify-between gap-3 text-[11px]">
-            <span className="font-mono uppercase tracking-wider text-primary/80">
+      <div className="pointer-events-auto glass rounded-2xl p-4 shadow-2xl shadow-black/20">
+        {/* Header */}
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <span className="dj-data text-[10px] uppercase tracking-[0.2em] text-foreground/70">
             Transition · {(displayProgress * 100).toFixed(0)}%
           </span>
-          {/* Runtime style badge: prefer the RESOLVED style (what
-              the dispatcher actually ran, after applying the manual
-              override chip) over the backend's raw recommendation.
-              Falls back to `recommendedStyle` when the dispatcher
-              hasn't fired yet. */}
           {(lastResolvedStyle ?? recommendedStyle) && (
             <span
               className={cn(
-                'rounded-full border px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider',
+                'rounded-full border px-2.5 py-0.5 dj-data text-[10px] uppercase tracking-wider',
                 lastResolvedStyleWasManual
-                  ? 'border-amber-400/50 bg-amber-400/10 text-amber-300'
-                  : 'border-primary/40 bg-primary/10 text-primary',
+                  ? 'border-foreground/20 bg-foreground/5 text-foreground'
+                  : 'border-muted-foreground/30 bg-muted/20 text-muted-foreground',
               )}
               title={
                 lastResolvedStyleWasManual
-                  ? 'Manual override — user picked this style'
-                  : 'Backend-recommended transition style'
+                  ? 'Manual override'
+                  : 'Backend recommendation'
               }
             >
               {(lastResolvedStyle ?? recommendedStyle ?? '').replace(/_/g, ' ')}
@@ -147,15 +111,15 @@ export function TransitionVisualizer() {
               {lastResolvedStyleWasManual ? ' · manual' : ''}
             </span>
           )}
-          <span className="tabular-nums text-muted-foreground">
+          <span className="dj-data text-[10px] text-muted-foreground/60">
             {crossfadeDurationSeconds?.toFixed(1) ?? '?'}s
           </span>
         </div>
 
-        {/* Outgoing deck (A) */}
-        <div className="mb-1 flex items-center gap-2">
+        {/* Outgoing deck */}
+        <div className="mb-1.5 flex items-center gap-2">
           <span
-            className="w-12 shrink-0 text-right font-mono text-[10px] tabular-nums"
+            className="w-10 shrink-0 text-right dj-data text-[10px]"
             style={{ opacity: 0.4 + gainOut * 0.6 }}
           >
             -{(40 * (1 - bassOut)).toFixed(0)}dB
@@ -166,7 +130,7 @@ export function TransitionVisualizer() {
                 {outgoing.title}
               </span>
               {outgoing.bpm && (
-                <span className="font-mono text-[10px] text-muted-foreground tabular-nums">
+                <span className="dj-data text-[10px] text-muted-foreground/60">
                   {outgoing.bpm.toFixed(1)}
                 </span>
               )}
@@ -183,22 +147,28 @@ export function TransitionVisualizer() {
           </div>
         </div>
 
-        {/* Equal-power crossfade indicator (single row, two-tone bar) */}
-        <div className="my-2 flex h-1 w-full overflow-hidden rounded-full bg-muted">
+        {/* Crossfade indicator — deck A (blue) → deck B (orange) */}
+        <div className="my-2.5 flex h-1 w-full overflow-hidden rounded-full bg-muted/20">
           <div
-            className="bg-cyan-400/70 transition-[width] duration-75 ease-linear"
-            style={{ width: `${gainOut * 100}%` }}
+            className="transition-[width] duration-75 ease-linear"
+            style={{
+              width: `${gainOut * 100}%`,
+              background: 'oklch(0.70 0.17 240 / 0.7)',
+            }}
           />
           <div
-            className="bg-fuchsia-500/80 transition-[width] duration-75 ease-linear"
-            style={{ width: `${gainIn * 100}%` }}
+            className="transition-[width] duration-75 ease-linear"
+            style={{
+              width: `${gainIn * 100}%`,
+              background: 'oklch(0.70 0.18 50 / 0.7)',
+            }}
           />
         </div>
 
-        {/* Incoming deck (B) */}
-        <div className="mt-1 flex items-center gap-2">
+        {/* Incoming deck */}
+        <div className="mt-1.5 flex items-center gap-2">
           <span
-            className="w-12 shrink-0 text-right font-mono text-[10px] tabular-nums"
+            className="w-10 shrink-0 text-right dj-data text-[10px]"
             style={{ opacity: 0.4 + gainIn * 0.6 }}
           >
             -{(40 * (1 - bassIn)).toFixed(0)}dB
@@ -221,7 +191,7 @@ export function TransitionVisualizer() {
                 {current.title}
               </span>
               {current.bpm && (
-                <span className="font-mono text-[10px] text-muted-foreground tabular-nums">
+                <span className="dj-data text-[10px] text-muted-foreground/60">
                   {current.bpm.toFixed(1)}
                 </span>
               )}

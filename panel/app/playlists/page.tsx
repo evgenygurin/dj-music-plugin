@@ -17,27 +17,28 @@ export const revalidate = 60
 
 function PlaylistCard({ playlist, indent }: { playlist: PlaylistListItem; indent: number }) {
   const sourceBadge = playlist.source_of_truth ?? playlist.source_app
+  const offsetPx = Math.min(indent * 14, 56)
 
   return (
-    <div style={{ marginLeft: `${indent * 20}px` }}>
+    <div style={{ marginLeft: `${offsetPx}px` }}>
       <Link href={`/playlists/${playlist.id}`}>
-        <Card className="mb-2 transition-colors hover:bg-muted/50 cursor-pointer">
+        <Card className="mb-2 shadow-none border-border/20 bg-card/50 transition-colors hover:bg-muted/50 cursor-pointer">
           <CardHeader className="py-3 px-4">
-            <div className="flex items-center justify-between gap-2 min-w-0">
-              <div className="flex items-center gap-2 min-w-0">
+            <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex min-w-0 items-center gap-2">
                 {indent > 0 && (
                   <div className="h-px w-3 bg-border flex-shrink-0" />
                 )}
-                <CardTitle className="text-sm font-medium line-clamp-1">
+                <CardTitle className="display-heading text-lg line-clamp-1">
                   {playlist.name}
                 </CardTitle>
               </div>
-              <div className="flex items-center gap-1.5 flex-shrink-0">
-                <Badge variant="secondary" className="text-xs tabular-nums">
+              <div className="flex flex-wrap items-center gap-1.5">
+                <Badge variant="secondary" className="dj-data text-[10px]">
                   {playlist.trackCount} tracks
                 </Badge>
                 {sourceBadge && (
-                  <Badge variant="outline" className="text-xs capitalize">
+                  <Badge variant="outline" className="dj-data text-[10px] capitalize">
                     {sourceBadge}
                   </Badge>
                 )}
@@ -80,7 +81,7 @@ export default async function PlaylistsPage() {
         title="Playlists"
         badge={
           playlists.length > 0 && (
-            <Badge variant="secondary" className="tabular-nums">
+            <Badge variant="secondary" className="dj-data text-[10px]">
               {playlists.length}
             </Badge>
           )

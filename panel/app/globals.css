@@ -9,7 +9,9 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
-  --font-heading: var(--font-sans);
+  --font-display: var(--font-instrument-serif);
+  --font-mono-dj: var(--font-jetbrains-mono);
+  --font-heading: var(--font-display);
   --color-card: var(--card);
   --color-card-foreground: var(--card-foreground);
   --color-popover: var(--popover);
@@ -39,9 +41,7 @@
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
-  /* DJ semantic deck accents — cyan for deck A, magenta for deck B. */
-  /* Used by the DjPlayer on /player for transport/markers only; the */
-  /* rest of the panel sticks to the neutral base palette. */
+  /* Pioneer DDJ deck accents — blue for deck A, orange for deck B */
   --color-deck-a: var(--deck-a);
   --color-deck-b: var(--deck-b);
   --radius-sm: calc(var(--radius) * 0.6);
@@ -61,69 +61,71 @@
   --card-foreground: oklch(0.145 0 0);
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
+  --primary: oklch(0.145 0 0);
   --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
+  --secondary: oklch(0.96 0 0);
   --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
+  --muted: oklch(0.96 0 0);
+  --muted-foreground: oklch(0.45 0 0);
+  --accent: oklch(0.96 0 0);
   --accent-foreground: oklch(0.205 0 0);
   --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.55 0.18 250);
-  --chart-1: oklch(0.7 0 0);
-  --chart-2: oklch(0.55 0 0);
-  --chart-3: oklch(0.4 0 0);
-  --chart-4: oklch(0.55 0.18 250);
-  --chart-5: oklch(0.3 0 0);
-  --sidebar: oklch(0.985 0 0);
+  --border: oklch(0.90 0 0);
+  --input: oklch(0.90 0 0);
+  --ring: oklch(0.145 0 0);
+  --chart-1: oklch(0.25 0 0);
+  --chart-2: oklch(0.40 0 0);
+  --chart-3: oklch(0.55 0 0);
+  --chart-4: oklch(0.70 0 0);
+  --chart-5: oklch(0.85 0 0);
+  --sidebar: oklch(0.98 0 0);
   --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
+  --sidebar-primary: oklch(0.145 0 0);
   --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
+  --sidebar-accent: oklch(0.96 0 0);
   --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.55 0.18 250);
-  --deck-a: oklch(0.78 0.14 200);
-  --deck-b: oklch(0.72 0.24 330);
+  --sidebar-border: oklch(0.90 0 0);
+  --sidebar-ring: oklch(0.145 0 0);
+  --deck-a: oklch(0.65 0.15 240);
+  --deck-b: oklch(0.65 0.20 45);
 }
 
 .dark {
-  --background: oklch(0.1 0 0);
-  --foreground: oklch(0.95 0 0);
-  --card: oklch(0.12 0 0);
-  --card-foreground: oklch(0.95 0 0);
-  --popover: oklch(0.12 0 0);
-  --popover-foreground: oklch(0.95 0 0);
-  --primary: oklch(0.95 0 0);
-  --primary-foreground: oklch(0.1 0 0);
-  --secondary: oklch(0.2 0 0);
-  --secondary-foreground: oklch(0.95 0 0);
-  --muted: oklch(0.2 0 0);
-  --muted-foreground: oklch(0.55 0 0);
-  --accent: oklch(0.2 0 0);
-  --accent-foreground: oklch(0.95 0 0);
+  --background: oklch(0.065 0 0);
+  --foreground: oklch(0.93 0 0);
+  --card: oklch(0.09 0 0);
+  --card-foreground: oklch(0.93 0 0);
+  --popover: oklch(0.09 0 0);
+  --popover-foreground: oklch(0.93 0 0);
+  --primary: oklch(0.93 0 0);
+  --primary-foreground: oklch(0.065 0 0);
+  --secondary: oklch(0.14 0 0);
+  --secondary-foreground: oklch(0.85 0 0);
+  --muted: oklch(0.14 0 0);
+  --muted-foreground: oklch(0.45 0 0);
+  --accent: oklch(0.14 0 0);
+  --accent-foreground: oklch(0.85 0 0);
   --destructive: oklch(0.55 0.2 25);
-  --border: oklch(0.2 0 0);
-  --input: oklch(0.2 0 0);
-  --ring: oklch(0.55 0.18 250);
-  --chart-1: oklch(0.7 0 0);
-  --chart-2: oklch(0.55 0 0);
-  --chart-3: oklch(0.4 0 0);
-  --chart-4: oklch(0.55 0.18 250);
-  --chart-5: oklch(0.3 0 0);
-  --sidebar: oklch(0.12 0 0);
-  --sidebar-foreground: oklch(0.95 0 0);
-  --sidebar-primary: oklch(0.95 0 0);
-  --sidebar-primary-foreground: oklch(0.1 0 0);
-  --sidebar-accent: oklch(0.2 0 0);
-  --sidebar-accent-foreground: oklch(0.95 0 0);
-  --sidebar-border: oklch(0.2 0 0);
-  --sidebar-ring: oklch(0.55 0.18 250);
-  --deck-a: oklch(0.78 0.14 200);
-  --deck-b: oklch(0.72 0.24 330);
+  --border: oklch(0.16 0 0);
+  --input: oklch(0.16 0 0);
+  --ring: oklch(0.93 0 0);
+  /* Monochrome chart palette */
+  --chart-1: oklch(0.85 0 0);
+  --chart-2: oklch(0.65 0 0);
+  --chart-3: oklch(0.45 0 0);
+  --chart-4: oklch(0.30 0 0);
+  --chart-5: oklch(0.20 0 0);
+  --sidebar: oklch(0.075 0 0);
+  --sidebar-foreground: oklch(0.93 0 0);
+  --sidebar-primary: oklch(0.93 0 0);
+  --sidebar-primary-foreground: oklch(0.065 0 0);
+  --sidebar-accent: oklch(0.14 0 0);
+  --sidebar-accent-foreground: oklch(0.85 0 0);
+  --sidebar-border: oklch(0.16 0 0);
+  --sidebar-ring: oklch(0.93 0 0);
+  /* Pioneer DDJ: deck A = blue, deck B = orange */
+  --deck-a: oklch(0.70 0.17 240);
+  --deck-b: oklch(0.70 0.18 50);
 }
 
 @layer base {
@@ -136,9 +138,72 @@
   }
   body {
     @apply bg-background text-foreground;
+  }
+  .dark body {
     background-image:
-      radial-gradient(circle at top, oklch(0.56 0.16 255 / 0.14), transparent 42%),
-      linear-gradient(180deg, oklch(0.12 0.01 255) 0%, oklch(0.1 0 0) 32%);
+      radial-gradient(circle at 50% -20%, oklch(1 0 0 / 0.1), transparent 52%),
+      linear-gradient(to bottom, oklch(0.09 0 0), oklch(0.06 0 0) 55%, oklch(0.055 0 0));
     background-attachment: fixed;
   }
+}
+
+/* Glass utility — monochrome */
+.glass {
+  background: oklch(0.08 0 0 / 0.85);
+  backdrop-filter: blur(20px) saturate(1.1);
+  -webkit-backdrop-filter: blur(20px) saturate(1.1);
+  border: 1px solid oklch(0.20 0 0 / 0.5);
+}
+
+/* Hover glow — white edge */
+.glow-warm {
+  box-shadow: 0 0 0 1px oklch(1 0 0 / 0.04);
+  transition: box-shadow 0.2s ease;
+}
+.glow-warm:hover {
+  box-shadow: 0 0 0 1px oklch(1 0 0 / 0.1);
+}
+
+/* Active/playing — white edge */
+.glow-active {
+  box-shadow:
+    0 0 0 1px oklch(1 0 0 / 0.15),
+    0 0 16px oklch(1 0 0 / 0.04);
+}
+
+/* DJ data monospace */
+.dj-data {
+  font-family: var(--font-jetbrains-mono), var(--font-geist-mono), ui-monospace, monospace;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+
+/* Display headings — serif */
+.display-heading {
+  font-family: var(--font-instrument-serif), var(--font-geist-sans), serif;
+  font-weight: 400;
+  letter-spacing: -0.02em;
+}
+
+/* Pioneer accent utilities */
+.text-pioneer-blue { color: oklch(0.70 0.17 240); }
+.text-pioneer-orange { color: oklch(0.70 0.18 50); }
+.bg-pioneer-blue { background-color: oklch(0.70 0.17 240); }
+.bg-pioneer-orange { background-color: oklch(0.70 0.18 50); }
+
+/* Marquee */
+@keyframes marquee {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+.animate-marquee {
+  animation: marquee 12s linear infinite;
+}
+
+/* Safe area for iPhone */
+.safe-bottom {
+  padding-bottom: max(env(safe-area-inset-bottom, 0px), 8px);
+}
+.safe-top {
+  padding-top: env(safe-area-inset-top, 0px);
 }

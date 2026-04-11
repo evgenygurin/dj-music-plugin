@@ -50,10 +50,40 @@ function camelotDistance(a?: string | null, b?: string | null): number | null {
 // Max BPM delta per transition — techno best practice: ±3 BPM.
 const MAX_BPM_DELTA = 3
 // Max Camelot key distance — ≤2 = harmonic, 3+ = key clash.
-// 0 = same key, 1 = adjacent (perfect mix), 2 = usable, 3+ = clash.
 const MAX_KEY_DISTANCE = 2
+// Keep tempo-match inside a DJ-safe window. Outside this range the
+// browser time-stretch artifacts become obvious and the mix feels fake.
+const MIN_TEMPO_MATCH_RATIO = 0.92
+const MAX_TEMPO_MATCH_RATIO = 1.08
 
-function compatibilityScore(a: PlayerTrackMeta, b: PlayerTrackMeta): number {
+// ── Energy arc: mood → energy level mapping ──────────────────────
+// Techno subgenres ordered by energy (0=lowest, 1=highest).
+// Auto-DJ uses set position to prefer moods matching the energy arc.
+const MOOD_ENERGY: Record<string, number> = {
+  ambient_dub: 0.1, dub_techno: 0.15, minimal: 0.2,
+  detroit: 0.35, melodic_deep: 0.3, progressive: 0.4,
+  hypnotic: 0.45, driving: 0.55, tribal: 0.5,
+  breakbeat: 0.55, peak_time: 0.75, acid: 0.7,
+  raw: 0.8, industrial: 0.85, hard_techno: 0.9,
+}
+
+// Energy arc curve: maps set position (0..1) → target energy (0..1).
+// Classic DJ arc: warm up → build → peak at 70% → gentle release.
+function targetEnergy(setPosition: number): number {
+  // Parabola peaking at 0.7 of the set
+  const peak = 0.7
+  const x = setPosition / peak
+  if (setPosition <= peak) return 0.2 + 0.7 * Math.sin((x * Math.PI) / 2)
+  // Release phase
+  const rel = (setPosition - peak) / (1 - peak)
+  return 0.9 - 0.5 * rel
+}
+
+function compatibilityScore(
+  a: PlayerTrackMeta,
+  b: PlayerTrackMeta,
+  tracksPlayed: number = 0,
+): number {
   // Hard reject: BPM too far
   if (a.bpm != null && b.bpm != null) {
     let diff = Math.abs(a.bpm - b.bpm)
@@ -70,10 +100,22 @@ function compatibilityScore(a: PlayerTrackMeta, b: PlayerTrackMeta): number {
     diff = Math.min(diff, Math.abs(a.bpm - b.bpm * 2), Math.abs(a.bpm - b.bpm / 2))
     bpmScore = Math.exp(-(diff * diff) / (2 * 1.5 * 1.5))
   }
-  // cd ≤ 2 guaranteed here (or null). 0=1.0, 1=0.75, 2=0.5
   const harmonic = cd !== null ? Math.max(0, 1 - cd / 4) : 0.5
-  const mood = a.mood && b.mood && a.mood === b.mood ? 1 : 0.5
-  return bpmScore * 0.45 + harmonic * 0.40 + mood * 0.15
+  const moodMatch = a.mood && b.mood && a.mood === b.mood ? 1 : 0.5
+
+  // Energy arc: prefer tracks whose mood energy matches the set position.
+  // Assume ~15 tracks per set (90 min / 6 min avg).
+  let energyScore = 0.5
+  if (b.mood && tracksPlayed > 0) {
+    const candidateEnergy = MOOD_ENERGY[b.mood] ?? 0.5
+    const setPos = Math.min(1, tracksPlayed / 15)
+    const target = targetEnergy(setPos)
+    // Gaussian: closer to target = higher score
+    const diff = Math.abs(candidateEnergy - target)
+    energyScore = Math.exp(-(diff * diff) / (2 * 0.2 * 0.2))
+  }
+
+  return bpmScore * 0.35 + harmonic * 0.30 + energyScore * 0.20 + moodMatch * 0.15
 }
 
 function pickAutoNext(
@@ -81,10 +123,11 @@ function pickAutoNext(
   candidates: PlayerTrackMeta[],
   history: number[],
 ): PlayerTrackMeta | null {
+  const tracksPlayed = history.length
   const recent = new Set(history.slice(-30))
   const scored = candidates
     .filter((t) => t.id !== current.id && !recent.has(t.id))
-    .map((t) => ({ track: t, score: compatibilityScore(current, t) }))
+    .map((t) => ({ track: t, score: compatibilityScore(current, t, tracksPlayed) }))
     .filter((c) => c.score > 0.05)
     .sort((a, b) => b.score - a.score)
     .slice(0, 8)
@@ -97,6 +140,44 @@ function pickAutoNext(
     if (r <= 0) return c.track
   }
   return scored[0]?.track ?? null
+}
+
+function normalizeTempoBpm(bpm: number | null | undefined): number | null {
+  if (bpm == null || !Number.isFinite(bpm)) return null
+  if (bpm < 60 || bpm > 220) return null
+  return bpm
+}
+
+function resolveTempoMatchRatio(
+  targetBpm: number | null | undefined,
+  trackBpm: number | null | undefined,
+): number {
+  const normalizedTarget = normalizeTempoBpm(targetBpm)
+  const normalizedTrack = normalizeTempoBpm(trackBpm)
+  if (normalizedTarget == null || normalizedTrack == null) return 1
+  const ratio = normalizedTarget / normalizedTrack
+  return ratio >= MIN_TEMPO_MATCH_RATIO && ratio <= MAX_TEMPO_MATCH_RATIO ? ratio : 1
+}
+
+function fallbackMixMeta(track: PlayerTrackMeta): TrackMixMeta {
+  return {
+    trackId: track.id,
+    durationMs: track.durationMs ?? null,
+    bpm: normalizeTempoBpm(track.bpm),
+    firstDownbeatSec: 0,
+    outroStartSec: null,
+    introEndSec: null,
+    introStartSec: null,
+    sections: [],
+    cuePoints: [],
+    integratedLufs: null,
+    truePeakDb: null,
+    kickProminence: null,
+    hpRatio: null,
+    energySub: null,
+    energyLow: null,
+    energyLowmid: null,
+  }
 }
 
 interface AudioPlayerState {
@@ -116,6 +197,7 @@ interface AudioPlayerState {
 }
 
 interface AudioPlayerApi extends AudioPlayerState {
+  masterTempoBpm: number | null
   play: (track: PlayerTrackMeta, queue?: PlayerTrackMeta[]) => void
   toggle: (track?: PlayerTrackMeta, queue?: PlayerTrackMeta[]) => void
   pause: () => void
@@ -142,6 +224,8 @@ interface AudioPlayerApi extends AudioPlayerState {
   toggleAutoDj: () => void
   mixEnabled: boolean // master toggle for crossfade mixing — when false transitions snap
   toggleMixEnabled: () => void
+  nudgeMasterTempoBpm: (delta: number) => void
+  resetMasterTempoToCurrentTrack: () => void
   crossfadeBars: number // length of mix in BARS (DJ-native unit)
   setCrossfadeBars: (b: number) => void
   setQueue: (q: PlayerTrackMeta[]) => void // expand queue for auto-DJ pool
@@ -149,6 +233,8 @@ interface AudioPlayerApi extends AudioPlayerState {
   // dispatcher follows the backend's recommendation. Any other value
   // forces that style on the next crossfade regardless of what the
   // scorer thinks. Lets the DJ test / override styles by ear.
+  // Per-band EQ on the active deck. gain: -40 (kill) to +6 (boost), 0 = flat.
+  setDeckEq: (band: 'low' | 'mid' | 'high', gain: number) => void
   manualStyle: ManualTransitionStyle
   setManualStyle: (s: ManualTransitionStyle) => void
   crossfadeSeconds: number // derived from bars + current BPM (read-only)
@@ -226,6 +312,7 @@ interface Deck {
   hp1: BiquadFilterNode
   hp2: BiquadFilterNode
   sum: GainNode
+  low: BiquadFilterNode
   mid: BiquadFilterNode
   high: BiquadFilterNode
   gain: GainNode
@@ -292,6 +379,10 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
   // Default 32 bars — long, smooth, professional DJ-style mix.
   // 32 bars at 124 BPM = 32*4/124*60 ≈ 62 seconds.
   const [crossfadeBars, setCrossfadeBars] = useState(32)
+  // Session / master tempo. Unlike the old "follow the outgoing
+  // track" model this stays stable across chained transitions until
+  // the DJ explicitly nudges or resets it.
+  const [masterTempoBpm, setMasterTempoBpmState] = useState<number | null>(null)
   // Manual transition-style override. 'auto' = follow backend scorer.
   // Any other value forces that style on the next crossfade.
   //
@@ -316,7 +407,6 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     try {
       const raw = window.localStorage.getItem(MANUAL_STYLE_STORAGE_KEY)
       if (raw && isValidManualStyle(raw)) {
-        // eslint-disable-next-line react-hooks/set-state-in-effect
         setManualStyleState(raw)
       }
     } catch {
@@ -335,6 +425,14 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     }
   }, [])
   const historyRef = useRef<number[]>([])
+  const masterTempoRef = useRef<number | null>(null)
+  useEffect(() => {
+    masterTempoRef.current = masterTempoBpm
+  }, [masterTempoBpm])
+  const currentTrackIdRef = useRef<number | null>(null)
+  useEffect(() => {
+    currentTrackIdRef.current = current?.id ?? null
+  }, [current])
 
   // Compute crossfade duration in seconds from bars + active track BPM.
   // 1 bar = 4 beats; (bars * 4) beats / (bpm) bpm * 60 = seconds.
@@ -349,7 +447,7 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
   // For UI display: derived from bars and the current track's BPM.
   const crossfadeSeconds = computeCrossfadeSeconds(
     crossfadeBars,
-    current?.bpm,
+    masterTempoBpm ?? current?.bpm,
   )
 
   // Refs for fresh values inside event listeners (which capture closures).
@@ -429,8 +527,12 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
       const sum = ctx.createGain()
       sum.gain.value = 1.0
 
-      // Mid / high bands stay in the chain so we can add per-band
-      // adjustments later, but they're neutral for now.
+      // 3-band DJ EQ: low shelf + mid peak + high shelf.
+      // Exposed via setDeckEq() for per-band gain control (-40..+6 dB).
+      const low = ctx.createBiquadFilter()
+      low.type = 'lowshelf'
+      low.frequency.value = 320
+      low.gain.value = 0
       const mid = ctx.createBiquadFilter()
       mid.type = 'peaking'
       mid.frequency.value = 1000
@@ -438,7 +540,7 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
       mid.gain.value = 0
       const high = ctx.createBiquadFilter()
       high.type = 'highshelf'
-      high.frequency.value = 4000
+      high.frequency.value = 3200
       high.gain.value = 0
 
       const gain = ctx.createGain()
@@ -455,7 +557,7 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
       hp2.connect(wetGain)
       dryGain.connect(sum)
       wetGain.connect(sum)
-      sum.connect(mid).connect(high).connect(gain).connect(masterLimiter)
+      sum.connect(low).connect(mid).connect(high).connect(gain).connect(masterLimiter)
 
       audio.addEventListener('play', () => {
         if (activeDeckRef.current === id) setIsPlaying(true)
@@ -505,6 +607,7 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
         hp1,
         hp2,
         sum,
+        low,
         mid,
         high,
         gain,
@@ -549,6 +652,69 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     return promise
   }, [])
 
+  const updateMasterTempoBpm = useCallback((bpm: number | null | undefined) => {
+    const normalized = normalizeTempoBpm(bpm)
+    masterTempoRef.current = normalized
+    setMasterTempoBpmState(normalized)
+    return normalized
+  }, [])
+
+  const applyTempoMatchToDeck = useCallback(
+    (
+      deck: Deck | null,
+      trackBpm: number | null | undefined,
+      targetBpm: number | null | undefined,
+    ): number => {
+      const ratio = resolveTempoMatchRatio(targetBpm, trackBpm)
+      if (!deck) return ratio
+      try {
+        deck.audio.playbackRate = ratio
+      } catch {
+        // ignore
+      }
+      return ratio
+    },
+    [],
+  )
+
+  const syncActiveDeckToMasterTempo = useCallback(
+    (targetBpm: number | null | undefined) => {
+      const active = getActiveDeck()
+      const nativeTrackBpm = currentMetaRef.current?.bpm ?? current?.bpm ?? null
+      return applyTempoMatchToDeck(active, nativeTrackBpm, targetBpm)
+    },
+    [applyTempoMatchToDeck, current, getActiveDeck],
+  )
+
+  const nudgeMasterTempoBpm = useCallback(
+    (delta: number) => {
+      const baseTempo =
+        masterTempoRef.current ??
+        normalizeTempoBpm(currentMetaRef.current?.bpm ?? current?.bpm ?? null)
+      if (baseTempo == null) return
+      const nextTempo = Math.round((baseTempo + delta) * 10) / 10
+      updateMasterTempoBpm(nextTempo)
+      if (!fadingRef.current) syncActiveDeckToMasterTempo(nextTempo)
+    },
+    [current, syncActiveDeckToMasterTempo, updateMasterTempoBpm],
+  )
+
+  const resetMasterTempoToCurrentTrack = useCallback(() => {
+    const nativeTempo = normalizeTempoBpm(currentMetaRef.current?.bpm ?? current?.bpm ?? null)
+    if (nativeTempo == null) return
+    updateMasterTempoBpm(nativeTempo)
+    if (!fadingRef.current) syncActiveDeckToMasterTempo(nativeTempo)
+  }, [current, syncActiveDeckToMasterTempo, updateMasterTempoBpm])
+
+  // ── Pre-load next track 30s before crossfade trigger ────────────
+  // Picks the next track early and starts loading its audio on the
+  // inactive deck so the crossfade begins instantly (no network wait).
+  const [preloadedNext, setPreloadedNext] = useState<PlayerTrackMeta | null>(null)
+  const [preloadFired, setPreloadFired] = useState(false)
+  // Pre-emptive auto-DJ crossfade: prefer OUTRO section start as the
+  // trigger so we mix during the outgoing track's designed mix-out zone.
+  const [autoDjPickInFlight, setAutoDjPickInFlight] = useState(false)
+
   // ── DJ-style crossfade ─────────────────────────────────────────
   // Builds on:
   //  - Web Audio bass swap (lowshelf gain ramp on both decks)
@@ -571,9 +737,10 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
       if (fadeTimeoutRef.current) clearTimeout(fadeTimeoutRef.current)
       fadingRef.current = true
       setIsCrossfading(true)
+      const outgoingTrack = current
       // Snapshot the OUTGOING track BEFORE we mutate `current`. The
       // <TransitionVisualizer> needs both endpoints of the fade.
-      setOutgoing(current)
+      setOutgoing(outgoingTrack)
       setRecommendedStyle(null)
       setRecommendedBars(null)
       setError(null)
@@ -607,8 +774,8 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
 
       setCurrent(track)
       historyRef.current = [...historyRef.current, track.id].slice(-50)
-      preloadFiredRef.current = false
-      preloadedNextRef.current = null
+      setPreloadFired(false)
+      setPreloadedNext(null)
       setIsPlaying(true)
 
       // Kick off meta fetch in parallel with audio load. We consume it
@@ -628,12 +795,23 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
             stylePromise,
             incomingMetaPromise,
           ])
+          const resolvedIncomingMeta = incomingMeta ?? fallbackMixMeta(track)
+          const activeMeta = currentMetaRef.current ?? (current ? fallbackMixMeta(current) : null)
+          const sessionTempo =
+            masterTempoRef.current ??
+            normalizeTempoBpm(activeMeta?.bpm ?? current?.bpm ?? track.bpm ?? null)
+          if (masterTempoRef.current == null && sessionTempo != null) {
+            updateMasterTempoBpm(sessionTempo)
+          }
 
           // Use the OUTGOING track's BPM (already known from current.bpm /
           // currentMetaRef) to convert bars→seconds. This locks the mix
           // duration to musical time, not wall-clock time.
+          const outgoingNativeBpm = normalizeTempoBpm(activeMeta?.bpm ?? current?.bpm ?? null)
           const outgoingBpm =
-            currentMetaRef.current?.bpm ?? current?.bpm ?? track.bpm ?? null
+            outgoingNativeBpm != null
+              ? outgoingNativeBpm * (active.audio.playbackRate || 1)
+              : sessionTempo
 
           // Pick the bar count: if the backend recommended a non-zero
           // value, use it; CUT (0 bars) collapses to a 2s minimum so
@@ -700,21 +878,7 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
           //      a downbeat. Since wall-clock bar interval matches
           //      (incoming's bar = inBar / ratio = outBar), all
           //      subsequent beats stay aligned for the whole fade.
-          const activeMeta = currentMetaRef.current
-          // Master tempo: use the outgoing track's EFFECTIVE BPM (which
-          // may already be pitch-shifted from previous transitions) so
-          // incoming matches what's currently playing, not the file's
-          // native BPM. This prevents compound drift across chained mixes.
-          const effectiveOutBpm = activeMeta?.bpm
-            ? activeMeta.bpm * (active.audio.playbackRate || 1)
-            : null
-          let ratio = 1
-          if (incomingMeta?.bpm && effectiveOutBpm) {
-            const candidate = effectiveOutBpm / incomingMeta.bpm
-            if (candidate >= 0.92 && candidate <= 1.08) {
-              ratio = candidate
-            }
-          }
+          const ratio = resolveTempoMatchRatio(sessionTempo, resolvedIncomingMeta.bpm)
 
           // Outgoing next-downbeat delay (0..outBar seconds).
           // Reads the REAL firstDownbeatSec from the beatgrid join in
@@ -726,7 +890,7 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
             const outBar = 240 / outgoingBpm // 4 beats / bar
             const outFirstDownbeat = Math.max(
               0,
-              currentMetaRef.current?.firstDownbeatSec ?? 0,
+              activeMeta?.firstDownbeatSec ?? 0,
             )
             const currentOutPos = active.audio.currentTime || 0
             // Distance from current position to the next downbeat of
@@ -770,10 +934,12 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
           let snappedSeekTarget: number | null = null
           const incomingFirstDownbeat = Math.max(
             0,
-            incomingMeta?.firstDownbeatSec ?? 0,
+            resolvedIncomingMeta.firstDownbeatSec ?? 0,
           )
           const inBar =
-            incomingMeta?.bpm && incomingMeta.bpm > 0 ? 240 / incomingMeta.bpm : null
+            resolvedIncomingMeta.bpm && resolvedIncomingMeta.bpm > 0
+              ? 240 / resolvedIncomingMeta.bpm
+              : null
 
           const snapToIncomingDownbeat = (t: number): number => {
             if (inBar == null) return Math.max(0, t)
@@ -792,12 +958,12 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
 
           // Case 1 — measured intro sections.
           if (
-            incomingMeta?.introEndSec != null &&
-            incomingMeta.introEndSec > 0 &&
-            incomingMeta.introEndSec < 120
+            resolvedIncomingMeta.introEndSec != null &&
+            resolvedIncomingMeta.introEndSec > 0 &&
+            resolvedIncomingMeta.introEndSec < 120
           ) {
-            const introEnd = incomingMeta.introEndSec
-            const introStart = Math.max(0, incomingMeta.introStartSec ?? 0)
+            const introEnd = resolvedIncomingMeta.introEndSec
+            const introStart = Math.max(0, resolvedIncomingMeta.introStartSec ?? 0)
             const introLen = Math.max(0, introEnd - introStart)
             if (introLen > 1) {
               cf = Math.max(2, Math.min(cf, introLen))
@@ -842,13 +1008,8 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
           // Apply tempo match AFTER seek so it doesn't race with the
           // currentTime write.
           if (ratio !== 1) {
-            try {
-              inactive.audio.playbackRate = ratio
-            } catch {
-              // ignore
-            }
+            applyTempoMatchToDeck(inactive, resolvedIncomingMeta.bpm, sessionTempo)
           }
-          if (incomingMeta) currentMetaRef.current = incomingMeta
           // Bass-swap moment — the instant at which outgoing's kick/
           // bass is killed and incoming's kick/bass unmutes. Should
           // land on an OUTGOING downbeat to feel tight. For whole-bar
@@ -1185,8 +1346,8 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
           // preGain node at t0; they hold for the entire fade
           // duration and only reset on the next play() / crossfade
           // start.
-          const outLufs = currentMetaRef.current?.integratedLufs ?? null
-          const inLufs = incomingMeta?.integratedLufs ?? null
+          const outLufs = activeMeta?.integratedLufs ?? null
+          const inLufs = resolvedIncomingMeta.integratedLufs ?? null
           let outPreGain = 1.0
           let inPreGain = 1.0
           if (outLufs != null && inLufs != null) {
@@ -1238,8 +1399,8 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
           if (resolvedStyle === 'swap') {
 
           const avgHpRatio = (() => {
-            const a = currentMetaRef.current?.hpRatio
-            const b = incomingMeta?.hpRatio
+            const a = activeMeta?.hpRatio
+            const b = resolvedIncomingMeta.hpRatio
             if (a == null && b == null) return 1.0
             if (a == null) return b!
             if (b == null) return a
@@ -1253,8 +1414,8 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
           const tSwapEnd = Math.min(t0 + cf, tSwap + swapDurationSec / 2)
 
           const avgKickProm = (() => {
-            const a = currentMetaRef.current?.kickProminence
-            const b = incomingMeta?.kickProminence
+            const a = activeMeta?.kickProminence
+            const b = resolvedIncomingMeta.kickProminence
             if (a == null && b == null) return 0.5
             if (a == null) return b!
             if (b == null) return a
@@ -1368,41 +1529,25 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
             setIncomingFadeStartPosition(null)
             setOutgoingFadePlaybackRate(null)
             setIncomingFadePlaybackRate(null)
+            currentMetaRef.current = resolvedIncomingMeta
             const newActive = getActiveDeck()
             if (newActive) {
               setPosition(newActive.audio.currentTime || 0)
               setDuration(newActive.audio.duration || 0)
-              // Continuous-mix tempo bookkeeping: the just-faded-in deck
-              // may be running at a non-1.0 playbackRate from the
-              // previous transition's tempo match. Don't reset the
-              // rate (would cause an audible speed bump), but patch
-              // currentMetaRef.bpm to the *effective* BPM so the NEXT
-              // crossfade computes its tempo-match ratio against
-              // reality, not the file's tagged BPM. Without this,
-              // chained mixes compound speed ratios.
-              const settledRate = newActive.audio.playbackRate
-              if (
-                currentMetaRef.current?.bpm &&
-                Math.abs(settledRate - 1) > 0.001
-              ) {
-                currentMetaRef.current = {
-                  ...currentMetaRef.current,
-                  bpm: currentMetaRef.current.bpm * settledRate,
-                }
-              }
             }
             // ── Transition log ──────────────────────────────────
             // Structured log for analyzing transition quality.
             // Visible in DevTools console.
             try {
               const outMeta = activeMeta
-              const inMeta = incomingMeta
+              const inMeta = resolvedIncomingMeta
               console.info('[TRANSITION]', JSON.stringify({
-                from: { id: outgoing?.id, title: outgoing?.title, bpm: outMeta?.bpm, key: outgoing?.camelot },
+                from: { id: outgoingTrack?.id, title: outgoingTrack?.title, bpm: outMeta?.bpm, key: outgoingTrack?.camelot },
                 to: { id: track.id, title: track.title, bpm: inMeta?.bpm, key: track.camelot },
                 style: resolvedStyle,
                 recommended: recommendedStyle,
                 manual: manualOverride !== 'auto',
+                masterTempoBpm: sessionTempo,
                 bars: effectiveBars,
                 durationSec: Math.round(effectiveFadeSec * 10) / 10,
                 tempoRatio: Math.round(ratio * 1000) / 1000,
@@ -1410,7 +1555,14 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
                 seekTarget: snappedSeekTarget != null ? Math.round(snappedSeekTarget * 100) / 100 : null,
                 outLufs: outMeta?.integratedLufs ?? null,
                 inLufs: inMeta?.integratedLufs ?? null,
+                setPosition: historyRef.current.length,
+                targetEnergy: Math.round(targetEnergy(Math.min(1, historyRef.current.length / 15)) * 100) / 100,
+                trackEnergy: track.mood ? (MOOD_ENERGY[track.mood] ?? null) : null,
               }))
+              // Persist to transition_history DB (fire-and-forget, non-blocking)
+              import('@/actions/transition-log-actions').then(mod => {
+                void mod.logTransition(transitionLog)
+              }).catch(() => { /* non-fatal — DB logging must never break playback */ })
             } catch { /* ignore logging errors */ }
 
             // Include the downbeat-alignment delay — fade starts at
@@ -1429,6 +1581,8 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
         })
     },
     [
+      applyTempoMatchToDeck,
+      updateMasterTempoBpm,
       ensureContext,
       getActiveDeck,
       getInactiveDeck,
@@ -1482,11 +1636,14 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
       setError(null)
       setCurrent(track)
       historyRef.current = [...historyRef.current, track.id].slice(-50)
+      currentMetaRef.current = fallbackMixMeta(track)
       const url = `/api/audio/${track.id}`
       if (!active.audio.src.endsWith(url)) {
         active.audio.src = url
       }
-      active.audio.playbackRate = 1
+      const sessionTempo =
+        masterTempoRef.current ?? updateMasterTempoBpm(track.bpm)
+      applyTempoMatchToDeck(active, track.bpm, sessionTempo)
       active.gain.gain.cancelScheduledValues(ctx.currentTime)
       active.gain.gain.setValueAtTime(volumeRef.current, ctx.currentTime)
       // Reset remaining EQ bands (mid/high) to neutral.
@@ -1513,7 +1670,12 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
       }
       // Async load mix metadata for upcoming transitions.
       void loadMixMeta(track.id).then((m) => {
-        currentMetaRef.current = m
+        const resolvedMeta = m ?? fallbackMixMeta(track)
+        if (currentTrackIdRef.current !== track.id || fadingRef.current) return
+        currentMetaRef.current = resolvedMeta
+        const resolvedSessionTempo =
+          masterTempoRef.current ?? updateMasterTempoBpm(resolvedMeta.bpm)
+        syncActiveDeckToMasterTempo(resolvedSessionTempo)
       })
       setPosition(0)
       setDuration(0)
@@ -1526,6 +1688,7 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
       })
     },
     [
+      applyTempoMatchToDeck,
       ensureContext,
       getActiveDeck,
       getInactiveDeck,
@@ -1534,6 +1697,8 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
       startCrossfade,
       loadMixMeta,
       mixEnabled,
+      syncActiveDeckToMasterTempo,
+      updateMasterTempoBpm,
     ],
   )
 
@@ -1714,20 +1879,10 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     [],
   )
 
-  // ── Pre-load next track 30s before crossfade trigger ────────────
-  // Picks the next track early and starts loading its audio on the
-  // inactive deck so the crossfade begins instantly (no network wait).
-  const preloadedNextRef = useRef<PlayerTrackMeta | null>(null)
-  const preloadFiredRef = useRef(false)
-
-  // Pre-emptive auto-DJ crossfade: prefer OUTRO section start as the
-  // trigger so we mix during the outgoing track's designed mix-out zone.
-  // Picker is async so we guard with a ref to avoid duplicate fires.
-  const autoDjPickInFlight = useRef(false)
   useEffect(() => {
-    if (!autoDj || fadingRef.current || !current) return
+    if (!autoDj || fadingRef.current || !current || autoDjPickInFlight) return
     if (!duration) return
-    const cfSec = computeCrossfadeSeconds(crossfadeBars, current.bpm)
+    const cfSec = computeCrossfadeSeconds(crossfadeBars, masterTempoBpm ?? current.bpm)
     if (duration < cfSec * 1.5) return
     const meta = currentMetaRef.current
     const latestSafe = Math.max(0, duration - cfSec)
@@ -1738,11 +1893,11 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
 
     // Phase 1: Pre-load — 30s before trigger, pick next and start loading
     const preloadTrigger = Math.max(0, sectionTrigger - 30)
-    if (position >= preloadTrigger && !preloadFiredRef.current && !autoDjPickInFlight.current) {
-      preloadFiredRef.current = true
+    if (position >= preloadTrigger && !preloadFired) {
+      setPreloadFired(true)
       void pickNextTrackAsync(current, queue, historyRef.current).then((next) => {
         if (!next) return
-        preloadedNextRef.current = next
+        setPreloadedNext(next)
         // Start loading audio on the inactive deck (silent, gain=0)
         const inactive = getInactiveDeck()
         if (inactive) {
@@ -1755,15 +1910,17 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     }
 
     // Phase 2: Crossfade trigger — use preloaded track if available
-    if (position >= sectionTrigger && !autoDjPickInFlight.current) {
-      autoDjPickInFlight.current = true
-      const preloaded = preloadedNextRef.current
+    if (position >= sectionTrigger) {
+      setAutoDjPickInFlight(true)
+      const preloaded = preloadedNext
       if (preloaded && !fadingRef.current) {
         // Track already preloaded — instant crossfade
-        preloadedNextRef.current = null
-        preloadFiredRef.current = false
+        setPreloadedNext(null)
+        setPreloadFired(false)
         startCrossfade(preloaded)
-        setTimeout(() => { autoDjPickInFlight.current = false }, 2000)
+        setTimeout(() => {
+          setAutoDjPickInFlight(false)
+        }, 2000)
       } else {
         // Fallback: pick and crossfade (original path)
         void pickNextTrackAsync(current, queue, historyRef.current)
@@ -1771,9 +1928,11 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
             if (nextTrack && !fadingRef.current) startCrossfade(nextTrack)
           })
           .finally(() => {
-            preloadedNextRef.current = null
-            preloadFiredRef.current = false
-            setTimeout(() => { autoDjPickInFlight.current = false }, 2000)
+            setPreloadedNext(null)
+            setPreloadFired(false)
+            setTimeout(() => {
+              setAutoDjPickInFlight(false)
+            }, 2000)
           })
       }
     }
@@ -1781,9 +1940,13 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     position,
     duration,
     autoDj,
+    autoDjPickInFlight,
     current,
+    preloadedNext,
+    preloadFired,
     queue,
     crossfadeBars,
+    masterTempoBpm,
     startCrossfade,
     pickNextTrackAsync,
     computeCrossfadeSeconds,
@@ -1906,6 +2069,63 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     }
   }, [current, duration, position])
 
+  // ── iOS background playback ─────────────────────────────────────
+  // WebKit PR #17812 (March 2024) added navigator.audioSession.type
+  // = "playback" which tells iOS to NOT suspend AudioContext when
+  // the page goes to background / screen locks. This is the official
+  // WebKit-sanctioned way to enable background audio for Web Audio.
+  //
+  // Combined with MediaSession API (already set up above) this gives
+  // full lock screen controls + continuous background playback.
+  //
+  // Fallback: silent <audio> keepalive for older iOS versions, plus
+  // visibilitychange resume for returning from background.
+  const silenceRef = useRef<HTMLAudioElement | null>(null)
+  useEffect(() => {
+    if (typeof document === 'undefined') return
+
+    // Set audioSession type to "playback" (WebKit 275558, iOS 17.4+)
+    try {
+      const nav = navigator as Navigator & { audioSession?: { type: string } }
+      if (nav.audioSession) {
+        nav.audioSession.type = 'playback'
+      }
+    } catch { /* not supported — fall through to silent keepalive */ }
+
+    if (!isPlaying) {
+      if (silenceRef.current) silenceRef.current.pause()
+      return
+    }
+
+    // Silent keepalive for older iOS (< 17.4) that don't support audioSession
+    if (!silenceRef.current) {
+      const el = document.createElement('audio')
+      el.src = '/silence.mp3'
+      el.loop = true
+      el.volume = 0.01
+      el.setAttribute('playsinline', 'true')
+      silenceRef.current = el
+    }
+    void silenceRef.current.play().catch(() => undefined)
+
+    // Visibility change: resume ctx + re-kick audio on return
+    const handler = () => {
+      if (document.visibilityState === 'visible') {
+        const ctx = ctxRef.current
+        if (ctx && ctx.state === 'suspended') void ctx.resume()
+        const active = activeDeckRef.current === 'A' ? deckARef.current : deckBRef.current
+        if (active && active.audio.paused && isPlaying) {
+          void active.audio.play().catch(() => undefined)
+        }
+        if (silenceRef.current?.paused) {
+          void silenceRef.current.play().catch(() => undefined)
+        }
+      }
+    }
+    document.addEventListener('visibilitychange', handler)
+    return () => document.removeEventListener('visibilitychange', handler)
+  }, [isPlaying])
+
   // "Next up" peek — what a linear `next()` would walk to. Null when
   // the queue is exhausted. Medium/Mini bars render this as a chip
   // so the user can see what's coming before hitting MIX NOW.
@@ -1938,6 +2158,17 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     play(target)
   }, [current, queue, pickNextTrackAsync, play])
 
+  // ── Per-band EQ control ──────────────────────────────────────
+  // Sets gain on the active deck's low/mid/high BiquadFilterNode.
+  // gain range: -40 (kill) to +6 (boost), 0 = flat.
+  const setDeckEq = useCallback((band: 'low' | 'mid' | 'high', gain: number) => {
+    const deck = activeDeckRef.current === 'A' ? deckARef.current : deckBRef.current
+    if (!deck) return
+    const clamped = Math.max(-40, Math.min(6, gain))
+    const node = band === 'low' ? deck.low : band === 'mid' ? deck.mid : deck.high
+    node.gain.setTargetAtTime(clamped, node.context.currentTime, 0.02)
+  }, [])
+
   const api = useMemo<AudioPlayerApi>(
     () => ({
       current,
@@ -1953,6 +2184,7 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
       muted,
       error,
       autoDj,
+      masterTempoBpm,
       mixEnabled,
       crossfadeBars,
       crossfadeSeconds,
@@ -1982,8 +2214,11 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
       toggleMute,
       toggleAutoDj,
       toggleMixEnabled,
+      nudgeMasterTempoBpm,
+      resetMasterTempoToCurrentTrack,
       setCrossfadeBars,
       setQueue,
+      setDeckEq,
       manualStyle,
       setManualStyle,
     }),
@@ -2001,6 +2236,7 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
       muted,
       error,
       autoDj,
+      masterTempoBpm,
       mixEnabled,
       crossfadeBars,
       crossfadeSeconds,
@@ -2030,6 +2266,9 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
       toggleMute,
       toggleAutoDj,
       toggleMixEnabled,
+      nudgeMasterTempoBpm,
+      resetMasterTempoToCurrentTrack,
+      setDeckEq,
       manualStyle,
       setManualStyle,
     ],

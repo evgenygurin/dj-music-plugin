@@ -27,19 +27,19 @@ export default async function PlaylistDetailPage({ params }: PlaylistDetailPageP
       <PageHeader
         title={playlist.name}
         badge={
-          <div className="flex flex-wrap items-center gap-2">
-            <Badge variant="secondary" className="tabular-nums">
+          <div className="flex flex-wrap items-center gap-1.5">
+            <Badge variant="secondary" className="dj-data text-[10px]">
               {playlist.tracks.length} tracks
             </Badge>
             {playlist.source_of_truth && (
-              <Badge variant="outline" className="capitalize">
+              <Badge variant="outline" className="dj-data text-[10px] capitalize">
                 {playlist.source_of_truth}
               </Badge>
             )}
             {playlist.platform_ids &&
               Object.entries(playlist.platform_ids).map(([platform, extId]) => (
-                <Badge key={platform} variant="outline" className="text-xs font-mono">
-                  {platform}: {extId}
+                <Badge key={platform} variant="outline" className="dj-data max-w-[220px] truncate text-[10px] font-mono">
+                  {platform}:{String(extId)}
                 </Badge>
               ))}
           </div>
@@ -48,9 +48,9 @@ export default async function PlaylistDetailPage({ params }: PlaylistDetailPageP
       />
 
       {playlist.moodCounts.length > 0 && (
-        <Card>
+        <Card className="shadow-none border-border/20 bg-card/50">
           <CardHeader>
-            <CardTitle className="text-sm font-medium">Mood Distribution</CardTitle>
+            <CardTitle className="display-heading text-lg">Mood Distribution</CardTitle>
           </CardHeader>
           <CardContent>
             <MoodDistributionChart data={playlist.moodCounts} />
@@ -58,9 +58,9 @@ export default async function PlaylistDetailPage({ params }: PlaylistDetailPageP
         </Card>
       )}
 
-      <Card>
+      <Card className="shadow-none border-border/20 bg-card/50">
         <CardHeader>
-          <CardTitle className="text-sm font-medium">Tracks</CardTitle>
+          <CardTitle className="display-heading text-lg">Tracks</CardTitle>
         </CardHeader>
         <CardContent className="p-0">
           <TrackOrderTable

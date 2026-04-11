@@ -9,6 +9,15 @@ export interface TrackSection {
   confidence: number | null
 }
 
+export interface TrackCuePoint {
+  id: number
+  positionMs: number
+  kind: number // 0=cue, 1-7=hot cue 1-7
+  hotcueIndex: number | null
+  label: string | null
+  color: string | null
+}
+
 export interface TrackMixMeta {
   trackId: number
   durationMs: number | null
@@ -18,6 +27,7 @@ export interface TrackMixMeta {
   introEndSec: number | null // optimal end of mix-in zone
   introStartSec: number | null // start of intro (where to "drop" the next track in)
   sections: TrackSection[]
+  cuePoints: TrackCuePoint[]
   // ── Loudness (for LUFS normalization during crossfade) ────
   integratedLufs: number | null
   truePeakDb: number | null
@@ -42,7 +52,7 @@ export async function getTrackMixMeta(trackId: number): Promise<TrackMixMeta | n
   // at library items, not tracks directly. We pick the canonical row
   // (tracks may have multiple beatgrid attempts) and fall back to
   // max(created_at) when nothing is flagged canonical.
-  const [trackResult, featuresResult, sectionsResult, libraryItemResult] =
+  const [trackResult, featuresResult, sectionsResult, libraryItemResult, cueResult] =
     await Promise.all([
       supabase.from('tracks').select('id, duration_ms').eq('id', trackId).maybeSingle(),
       supabase
@@ -64,6 +74,11 @@ export async function getTrackMixMeta(trackId: number): Promise<TrackMixMeta | n
         .order('id', { ascending: true })
         .limit(1)
         .maybeSingle(),
+      supabase
+        .from('dj_cue_points')
+        .select('id, position_ms, kind, hotcue_index, label, color')
+        .eq('track_id', trackId)
+        .order('position_ms', { ascending: true }),
     ])
 
   if (!trackResult.data) return null
@@ -166,6 +181,14 @@ export async function getTrackMixMeta(trackId: number): Promise<TrackMixMeta | n
     introEndSec: introEnd != null ? introEnd / 1000 : null,
     introStartSec: introStart != null ? introStart / 1000 : null,
     sections,
+    cuePoints: (cueResult.data ?? []).map((c) => ({
+      id: c.id as number,
+      positionMs: c.position_ms as number,
+      kind: c.kind as number,
+      hotcueIndex: (c.hotcue_index as number | null) ?? null,
+      label: (c.label as string | null) ?? null,
+      color: (c.color as string | null) ?? null,
+    })),
     integratedLufs: pickNumber(features?.integrated_lufs),
     truePeakDb: pickNumber(features?.true_peak_db),
     kickProminence: pickNumber(features?.kick_prominence),

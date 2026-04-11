@@ -122,9 +122,9 @@ export function SetActionsPanel({
       {actions.map((action) => (
         <div
           key={action.key}
-          className="flex items-center justify-between gap-4 py-2 border-b last:border-0"
+          className="flex flex-col gap-3 border-b py-2 last:border-0 sm:flex-row sm:items-center sm:justify-between"
         >
-          <div>
+          <div className="flex flex-col gap-1">
             <div className="text-sm font-medium">{action.label}</div>
             <div className="text-xs text-muted-foreground">{action.description}</div>
           </div>
@@ -133,7 +133,7 @@ export function SetActionsPanel({
             size="sm"
             onClick={action.hook.run}
             disabled={anyLoading || action.disabled}
-            className="gap-1.5 flex-shrink-0"
+            className="w-full flex-shrink-0 gap-1.5 sm:w-auto"
           >
             {action.hook.loading ? (
               <IconRefresh className="h-4 w-4 animate-spin" />

@@ -24,13 +24,13 @@ export function PlaylistActionsBar({ playlistId }: PlaylistActionsBarProps) {
   })
 
   return (
-    <div className="flex flex-wrap gap-2">
+    <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap">
       <Button
         variant="outline"
         size="sm"
         onClick={audit.run}
         disabled={audit.loading}
-        className="gap-1.5"
+        className="w-full gap-1.5 sm:w-auto"
       >
         <IconRefresh className={`h-4 w-4 ${audit.loading ? 'animate-spin' : ''}`} />
         {audit.loading ? 'Auditing…' : 'Audit Playlist'}
@@ -40,7 +40,7 @@ export function PlaylistActionsBar({ playlistId }: PlaylistActionsBarProps) {
         size="sm"
         onClick={sync.run}
         disabled={sync.loading}
-        className="gap-1.5"
+        className="w-full gap-1.5 sm:w-auto"
       >
         <IconCloudUpload className={`h-4 w-4 ${sync.loading ? 'animate-bounce' : ''}`} />
         {sync.loading ? 'Syncing…' : 'Sync to YM'}

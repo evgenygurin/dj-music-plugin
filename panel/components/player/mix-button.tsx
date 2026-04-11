@@ -20,6 +20,7 @@ export function MixButton() {
   const enabled = audio.mixEnabled
   const bars = audio.crossfadeBars
   const seconds = audio.crossfadeSeconds
+  const masterTempo = audio.masterTempoBpm
 
   return (
     <Popover>
@@ -42,7 +43,7 @@ export function MixButton() {
               <div className="text-sm font-semibold leading-none">Crossfade mix</div>
               <div className="text-[11px] text-muted-foreground">
                 {enabled
-                  ? `Auto · ~${Math.round(seconds)}s @ current BPM`
+                  ? `Auto · ~${Math.round(seconds)}s @ ${masterTempo?.toFixed(1) ?? 'track'} BPM`
                   : 'Snap transitions'}
               </div>
             </div>
@@ -85,6 +86,54 @@ export function MixButton() {
               ))}
             </div>
             <div className="mt-1.5 text-[10px] text-muted-foreground">1 bar = 4 beats</div>
+          </div>
+
+          <div>
+            <div className="mb-1.5 text-[11px] uppercase tracking-wide text-muted-foreground">
+              Master Tempo
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-8 px-2.5 text-xs"
+                onClick={() => audio.nudgeMasterTempoBpm(-0.5)}
+                disabled={masterTempo === null}
+              >
+                -0.5
+              </Button>
+              <div className="flex-1 rounded-md border border-border/60 bg-muted/20 px-3 py-2 text-center">
+                <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                  Session
+                </div>
+                <div className="font-mono text-sm tabular-nums">
+                  {masterTempo !== null ? `${masterTempo.toFixed(1)} BPM` : '—'}
+                </div>
+              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-8 px-2.5 text-xs"
+                onClick={() => audio.nudgeMasterTempoBpm(0.5)}
+                disabled={masterTempo === null}
+              >
+                +0.5
+              </Button>
+            </div>
+            <div className="mt-1.5 flex gap-1.5">
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-8 flex-1 text-xs"
+                onClick={() => audio.resetMasterTempoToCurrentTrack()}
+                disabled={audio.current?.bpm == null}
+              >
+                From current track
+              </Button>
+            </div>
+            <div className="mt-1.5 text-[10px] text-muted-foreground">
+              Locked session tempo. Incoming tracks follow this BPM instead of dragging the mix.
+            </div>
           </div>
         </div>
       </PopoverContent>

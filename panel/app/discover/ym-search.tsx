@@ -4,7 +4,12 @@ import { useState, useTransition } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Input } from '@/components/ui/input'
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupInput,
+  InputGroupText,
+} from '@/components/ui/input-group'
 import {
   Select,
   SelectContent,
@@ -12,6 +17,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { Search } from 'lucide-react'
 import { ymSearch, importTracks } from '@/actions/discovery-actions'
 
 interface YmTrack {
@@ -94,22 +100,29 @@ export function YmSearch() {
   }
 
   return (
-    <Card>
+    <Card className="shadow-none border-border/20 bg-card/50">
       <CardHeader>
-        <CardTitle className="text-sm font-medium">Search Yandex Music</CardTitle>
+        <CardTitle className="display-heading text-lg">Search Yandex Music</CardTitle>
         <CardDescription>Search for tracks, albums, artists, and playlists on Yandex Music.</CardDescription>
       </CardHeader>
       <CardContent className="grid gap-4">
-        <div className="flex items-center gap-2">
-          <Input
-            placeholder="Search Yandex Music..."
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            onKeyDown={handleKeyDown}
-            className="flex-1"
-          />
+        <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_140px_auto]">
+          <InputGroup className="h-10 rounded-xl border-border/30 bg-muted/20">
+            <InputGroupAddon>
+              <InputGroupText>
+                <Search />
+              </InputGroupText>
+            </InputGroupAddon>
+            <InputGroupInput
+              placeholder="Search Yandex Music..."
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              onKeyDown={handleKeyDown}
+            />
+          </InputGroup>
+
           <Select value={searchType} onValueChange={(v) => v !== null && setSearchType(v)}>
-            <SelectTrigger className="w-32">
+            <SelectTrigger className="h-10 w-full rounded-xl border-border/30 bg-muted/20 text-sm sm:w-[140px]">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -120,7 +133,7 @@ export function YmSearch() {
               <SelectItem value="all">All</SelectItem>
             </SelectContent>
           </Select>
-          <Button onClick={handleSearch} disabled={isSearching || !query.trim()}>
+          <Button onClick={handleSearch} disabled={isSearching || !query.trim()} className="h-10 w-full sm:w-auto">
             {isSearching ? 'Searching...' : 'Search'}
           </Button>
         </div>
@@ -142,10 +155,10 @@ export function YmSearch() {
               return (
                 <div
                   key={id}
-                  className="flex items-center justify-between rounded-lg border px-3 py-2"
+                  className="flex flex-col gap-2 rounded-xl border border-border/20 bg-muted/10 px-3 py-2 sm:flex-row sm:items-center sm:justify-between"
                 >
-                  <div className="flex-1 min-w-0 mr-4">
-                    <div className="font-medium text-sm truncate">{track.title}</div>
+                  <div className="min-w-0 flex-1 sm:mr-4">
+                    <div className="font-medium text-sm text-foreground truncate">{track.title}</div>
                     <div className="text-xs text-muted-foreground truncate">
                       {[artistNames, albumTitle].filter(Boolean).join(' · ')}
                       {track.durationMs ? (
@@ -153,7 +166,7 @@ export function YmSearch() {
                       ) : null}
                     </div>
                   </div>
-                  <div className="flex items-center gap-2 flex-shrink-0">
+                  <div className="flex w-full items-center justify-between gap-2 sm:w-auto sm:flex-shrink-0 sm:justify-end">
                     <Badge variant="outline" className="text-xs font-mono">{id}</Badge>
                     {isImported ? (
                       <Badge variant="secondary" className="text-xs">Imported</Badge>
@@ -163,6 +176,7 @@ export function YmSearch() {
                         variant="outline"
                         onClick={() => handleImport(track)}
                         disabled={isImporting}
+                        className="min-w-24"
                       >
                         {isImporting ? 'Importing...' : 'Import'}
                       </Button>

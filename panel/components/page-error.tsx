@@ -14,8 +14,8 @@ interface PageErrorProps {
 export function PageError({ error, reset }: PageErrorProps) {
   return (
     <div className="flex min-h-[50vh] flex-col items-center justify-center gap-4">
-      <h2 className="text-lg font-medium">Something went wrong</h2>
-      <p className="text-sm text-muted-foreground">{error.message}</p>
+      <h2 className="display-heading text-lg">Something went wrong</h2>
+      <p className="text-[10px] uppercase tracking-wider text-muted-foreground/50">{error.message}</p>
       <Button onClick={reset} variant="outline">
         Try again
       </Button>

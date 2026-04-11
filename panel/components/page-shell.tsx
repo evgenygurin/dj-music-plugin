@@ -23,11 +23,11 @@ export function PageShell({ title, parent, children, className }: PageShellProps
     <>
       <SiteHeader title={title} parent={parent} />
       <div className="flex flex-1 flex-col">
-        <main id="main-content" className="@container/main flex flex-1 flex-col gap-2">
+        <main id="main-content" className="@container/main flex flex-1 flex-col gap-2 pb-2">
           <h1 className="sr-only">{title}</h1>
           <div
             className={cn(
-              'flex flex-col gap-4 px-4 py-4 md:gap-6 md:py-6 lg:px-6',
+              'mx-auto flex w-full max-w-[1300px] flex-col gap-3 px-3 py-3 sm:px-4 sm:py-4 md:gap-6 md:py-6 lg:px-6',
               className
             )}
           >
@@ -66,16 +66,16 @@ export function PageHeader({
     <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
       <div className="flex flex-col gap-1">
         <div className="flex flex-wrap items-center gap-3">
-          <h2 className={cn('text-2xl font-semibold tracking-tight text-balance', titleClassName)}>
+          <h1 className={cn('display-heading text-2xl tracking-tight text-balance', titleClassName)}>
             {title}
-          </h2>
+          </h1>
           {badge}
         </div>
         {description && (
-          <p className="text-sm text-muted-foreground">{description}</p>
+          <p className="text-xs text-muted-foreground/60 md:text-[10px] md:uppercase md:tracking-wider md:text-muted-foreground/50">{description}</p>
         )}
       </div>
-      {actions && <div className="flex flex-shrink-0 items-center gap-2">{actions}</div>}
+      {actions && <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:flex-shrink-0 sm:justify-end">{actions}</div>}
     </div>
   )
 }
