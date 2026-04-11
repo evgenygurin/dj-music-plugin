@@ -271,6 +271,18 @@ class SetScoringService:
 
         final_quality = 0.0 if score.hard_reject else score.overall
 
+        # Apply transition history bonus (Phase 1 AI intelligence)
+        try:
+            from app.db.repositories.transition_history import TransitionHistoryRepository
+            from app.services.transition_history import TransitionHistoryService
+
+            history_svc = TransitionHistoryService(
+                TransitionHistoryRepository(self._transitions.session)
+            )
+            final_quality = await history_svc.apply_history_bonus(from_id, to_id, final_quality)
+        except Exception:
+            pass  # History bonus is non-critical; scoring works without it
+
         # Generate recipe with real features
         recipe = recommend_recipe(
             score,

@@ -118,8 +118,19 @@ class ReasoningService:
             pool_ids = await self._playlists.get_track_ids(dj_set.source_playlist_id)
             pool_ids = [tid for tid in pool_ids if tid not in set_track_ids]
         else:
-            pool_ids = await self._features.get_all_track_ids_with_features()
-            pool_ids = [tid for tid in pool_ids if tid not in set_track_ids]
+            pool_ids_raw = await self._features.get_all_track_ids_with_features()
+            pool_ids = [tid for tid in pool_ids_raw if tid not in set_track_ids]
+
+        # Exclude banned tracks (Phase 3 AI intelligence)
+        try:
+            from app.db.repositories.track_feedback import TrackFeedbackRepository
+
+            feedback_repo = TrackFeedbackRepository(self._tracks.session)
+            banned_ids = set(await feedback_repo.get_banned_ids())
+            if banned_ids:
+                pool_ids = [tid for tid in pool_ids if tid not in banned_ids]
+        except Exception:
+            pass  # Feedback is non-critical
 
         features_map = await self._features.get_scoring_features_batch(pool_ids[:100])
 

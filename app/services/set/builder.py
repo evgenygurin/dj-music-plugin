@@ -47,6 +47,17 @@ class SetBuilderService:
         if not track_ids:
             raise ValidationError("Playlist is empty")
 
+        # Exclude banned tracks (Phase 3 AI intelligence)
+        try:
+            from app.db.repositories.track_feedback import TrackFeedbackRepository
+
+            feedback_repo = TrackFeedbackRepository(self._playlists.session)
+            banned = set(await feedback_repo.get_banned_ids())
+            if banned:
+                track_ids = [tid for tid in track_ids if tid not in banned]
+        except Exception:
+            pass  # Feedback exclusion is non-critical
+
         features_map = await self._features.get_scoring_features_batch(track_ids)
         track_features_list = [features_map.get(tid, TrackFeatures()) for tid in track_ids]
 
