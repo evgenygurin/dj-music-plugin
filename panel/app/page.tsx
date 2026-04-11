@@ -145,20 +145,23 @@ function DeckQuadrant({
 
         {/* Waveform */}
         <div className="flex-1 min-h-0 flex items-center">
-          {useRealWaveform && track ? (
-            <TrackWaveform
-              trackId={track.id}
-              position={position ?? 0}
-              duration={duration ?? 0}
-              onSeek={onSeek ?? (() => {})}
-              height={48}
-              className="w-full"
-            />
-          ) : (
-            <div className="w-full h-full max-h-12">
-              <StaticWaveform index={index} active={active} progress={progress} color={color} />
-            </div>
-          )}
+          {/* Always show static bars as instant fallback */}
+          <div className="w-full h-full max-h-12 relative">
+            <StaticWaveform index={index} active={active} progress={progress} color={color} />
+            {/* Real waveform overlays on top once loaded */}
+            {useRealWaveform && track && (
+              <div className="absolute inset-0">
+                <TrackWaveform
+                  trackId={track.id}
+                  position={position ?? 0}
+                  duration={duration ?? 0}
+                  onSeek={onSeek ?? (() => {})}
+                  height={48}
+                  className="w-full"
+                />
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Track info */}
@@ -217,12 +220,15 @@ function MasterView({ track, isPlaying, progress, position, duration, masterBpm,
         </div>
       ) : null}
 
-      {/* Real waveform */}
-      {track && (
-        <div className="rounded-lg border border-foreground/5 bg-foreground/[0.02] p-1.5 mb-4">
-          <TrackWaveform trackId={track.id} position={position} duration={duration} onSeek={onSeek} height={72} />
-        </div>
-      )}
+      {/* Waveform — static instant + real overlay */}
+      <div className="rounded-lg border border-foreground/5 bg-foreground/[0.02] p-1.5 mb-4 relative h-20">
+        <StaticWaveform index={0} active={isPlaying} progress={progress} color="oklch(0.9 0 0 / 0.5)" />
+        {track && (
+          <div className="absolute inset-0 p-1.5">
+            <TrackWaveform trackId={track.id} position={position} duration={duration} onSeek={onSeek} height={72} />
+          </div>
+        )}
+      </div>
 
       {/* Time */}
       <div className="flex items-center gap-3">
