@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import WaveSurfer from 'wavesurfer.js'
 import RegionsPlugin from 'wavesurfer.js/dist/plugins/regions.esm.js'
 import MinimapPlugin from 'wavesurfer.js/dist/plugins/minimap.esm.js'
@@ -112,6 +112,7 @@ export function TrackWaveform({
     if (!el) return
 
     const regions = RegionsPlugin.create()
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- wavesurfer plugin types are heterogeneous
     const plugins: any[] = [regions]
 
     if (showMinimap) {

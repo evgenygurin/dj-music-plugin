@@ -169,6 +169,7 @@ function fallbackMixMeta(track: PlayerTrackMeta): TrackMixMeta {
     introEndSec: null,
     introStartSec: null,
     sections: [],
+    cuePoints: [],
     integratedLufs: null,
     truePeakDb: null,
     kickProminence: null,

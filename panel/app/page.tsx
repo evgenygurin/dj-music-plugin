@@ -11,7 +11,7 @@ import {
 
 import { loadDjQueue } from '@/actions/library-actions'
 import { recordTrackFeedback } from '@/actions/feedback-actions'
-import { setEq, killEq, resetEq, setFilter } from '@/actions/mixer-actions'
+import { setEq, resetEq, setFilter } from '@/actions/mixer-actions'
 import { useAudioPlayer } from '@/components/audio-player/audio-player-context'
 import type { PlayerTrackMeta } from '@/components/audio-player/audio-player-types'
 import { TrackWaveform } from '@/components/player/track-waveform'
@@ -110,7 +110,7 @@ function EqStrip() {
 function PlayingScreen({ audio, count, elapsed, history }: {
   audio: ReturnType<typeof useAudioPlayer>; count: number; elapsed: number; history: PlayerTrackMeta[]
 }) {
-  const { current, isPlaying, isLoading, position, duration, nextUp, outgoing, isCrossfading,
+  const { current, isPlaying, isLoading, position, duration, nextUp, isCrossfading,
     lastResolvedStyle, recommendedStyle, volume, crossfadeBars, masterTempoBpm } = audio
   const progress = current && duration > 0 ? position / duration : 0
   const style = lastResolvedStyle ?? recommendedStyle
@@ -306,13 +306,17 @@ export default function PlayerPage() {
   const lastRef = useRef<number | null>(null)
   const { current, isLoading, outgoing } = audio
 
-  if (current && current.id !== lastRef.current) {
-    if (lastRef.current !== null) {
-      setCount(n => n + 1)
-      if (outgoing) setHistory(h => [outgoing, ...h].slice(0, 20))
+  useEffect(() => {
+    if (!current) return
+    if (current.id !== lastRef.current) {
+      if (lastRef.current !== null) {
+        setCount(n => n + 1)
+        if (outgoing) setHistory(h => [outgoing, ...h].slice(0, 20))
+      }
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      lastRef.current = current.id
     }
-    lastRef.current = current.id
-  }
+  }, [current, outgoing])
 
   useEffect(() => {
     if (!start) return
