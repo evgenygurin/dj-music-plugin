@@ -7,7 +7,7 @@ import MinimapPlugin from 'wavesurfer.js/dist/plugins/minimap.esm.js'
 import TimelinePlugin from 'wavesurfer.js/dist/plugins/timeline.esm.js'
 
 import { fetchTrackMixMeta } from '@/actions/mix-meta-actions'
-import type { TrackSection } from '@/lib/queries/mix-meta'
+import type { TrackSection, TrackCuePoint } from '@/lib/queries/mix-meta'
 import { cn } from '@/lib/utils'
 
 const SECTION_COLORS: Record<number, string> = {
@@ -32,6 +32,18 @@ const SECTION_LABELS: Record<number, string> = {
 }
 
 const EMPTY_SECTIONS: TrackSection[] = []
+const EMPTY_CUES: TrackCuePoint[] = []
+
+const CUE_COLORS: Record<number, string> = {
+  0: '#ffffff',   // main cue — white
+  1: '#ef4444',   // hot cue 1 — red
+  2: '#f97316',   // hot cue 2 — orange
+  3: '#eab308',   // hot cue 3 — yellow
+  4: '#22c55e',   // hot cue 4 — green
+  5: '#3b82f6',   // hot cue 5 — blue
+  6: '#a855f7',   // hot cue 6 — purple
+  7: '#ec4899',   // hot cue 7 — pink
+}
 
 interface Props {
   trackId: number
@@ -75,8 +87,10 @@ export function TrackWaveform({
   const pinchStartRef = useRef(0)
   const pinchZoomRef = useRef(80)
   const [sectionsState, setSectionsState] = useState<SectionsState>({ trackId: null, values: [] })
+  const [cuesState, setCuesState] = useState<{ trackId: number | null; values: TrackCuePoint[] }>({ trackId: null, values: [] })
   const [readyTrackId, setReadyTrackId] = useState<number | null>(null)
   const sections = sectionsState.trackId === trackId ? sectionsState.values : EMPTY_SECTIONS
+  const cues = cuesState.trackId === trackId ? cuesState.values : EMPTY_CUES
   const ready = readyTrackId === trackId
 
   useEffect(() => { onSeekRef.current = onSeek }, [onSeek])
@@ -85,7 +99,9 @@ export function TrackWaveform({
   useEffect(() => {
     let cancelled = false
     fetchTrackMixMeta(trackId).then(meta => {
-      if (!cancelled) setSectionsState({ trackId, values: meta?.sections ?? [] })
+      if (cancelled) return
+      setSectionsState({ trackId, values: meta?.sections ?? [] })
+      setCuesState({ trackId, values: meta?.cuePoints ?? [] })
     }).catch(() => undefined)
     return () => { cancelled = true }
   }, [trackId])
@@ -170,11 +186,12 @@ export function TrackWaveform({
     } catch {}
   }, [position, ready])
 
-  // Draw section regions
+  // Draw section regions + cue point markers
   useEffect(() => {
     const regions = regionsRef.current
-    if (!regions || !ready || sections.length === 0) return
+    if (!regions || !ready) return
     regions.clearRegions()
+    // Sections (colored background ranges)
     for (const s of sections) {
       const start = s.startMs / 1000
       const end = s.endMs / 1000
@@ -186,7 +203,19 @@ export function TrackWaveform({
         content: SECTION_LABELS[s.type] ?? '',
       })
     }
-  }, [sections, ready])
+    // Cue point markers (vertical lines with color)
+    for (const c of cues) {
+      const time = c.positionMs / 1000
+      const color = c.color ?? CUE_COLORS[c.kind] ?? CUE_COLORS[0]
+      regions.addRegion({
+        start: time,
+        color,
+        drag: false,
+        resize: false,
+        content: c.label ?? (c.kind === 0 ? 'CUE' : `${c.kind}`),
+      })
+    }
+  }, [sections, cues, ready])
 
   // Pinch-to-zoom (touch)
   useEffect(() => {
