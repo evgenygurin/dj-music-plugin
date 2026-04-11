@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import logging
-import os
 from pathlib import Path
 
 from fastmcp import FastMCP
@@ -23,14 +22,8 @@ from app.config import settings
 logger = logging.getLogger(__name__)
 
 
-def _configure_background_task_environment() -> None:
-    os.environ.setdefault("FASTMCP_DOCKET_URL", settings.docket_url)
-    os.environ.setdefault("FASTMCP_DOCKET_CONCURRENCY", str(settings.docket_concurrency))
-
-
 def build_mcp_server() -> FastMCP:
     """Build the production FastMCP server instance."""
-    _configure_background_task_environment()
     observability = setup_observability(logger)
     sampling_handler, sampling_handler_behavior = build_sampling_handler(logger)
 

@@ -43,9 +43,9 @@ class GreedyChainBuilder:
         remaining = set(active_ids)
 
         def _opener_score(tid: int) -> float:
-            t = tracks[idx_map[tid]]
-            lufs = t.integrated_lufs if t.integrated_lufs is not None else -10.0
-            bpm = t.bpm if t.bpm is not None else 130.0
+            feat = tracks[idx_map[tid]]
+            lufs = feat.integrated_lufs if feat.integrated_lufs is not None else -10.0
+            bpm = feat.bpm if feat.bpm is not None else 130.0
             return lufs + (bpm - 120.0) * 0.1
 
         order: list[int] = []
@@ -61,9 +61,9 @@ class GreedyChainBuilder:
                     tracks[idx_map[current]],
                     tracks[idx_map[candidate]],
                 )
-                s = 0.0 if result.hard_reject else result.overall
-                if s > best_score:
-                    best_score = s
+                score = 0.0 if result.hard_reject else result.overall
+                if score > best_score:
+                    best_score = score
                     best_tid = candidate
             if best_tid is None:
                 best_tid = next(iter(remaining))

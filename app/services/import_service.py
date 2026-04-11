@@ -7,7 +7,10 @@ from __future__ import annotations
 
 import contextlib
 import hashlib
+import logging
 import re
+
+logger = logging.getLogger(__name__)
 from pathlib import Path
 from typing import Any
 
@@ -263,7 +266,7 @@ class ImportService:
                 artists = ", ".join(str(a.get("name", "?")) for a in (t.artists or []))
                 return f"{_sanitize_filename(artists)} - {_sanitize_filename(t.title)}.mp3"
         except Exception:
-            pass
+            logger.debug("Failed to resolve filename for ym=%s, using fallback", ym_id)
         return f"ym_{ym_id}.mp3"
 
     async def _enrich_from_ym(

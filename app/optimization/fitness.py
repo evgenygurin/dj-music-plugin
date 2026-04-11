@@ -83,14 +83,14 @@ def energy_arc_score(
     n = len(order)
     total = 0.0
     for i, tid in enumerate(order):
-        t = tracks[idx_map[tid]]
-        if t.integrated_lufs is None:
+        feat = tracks[idx_map[tid]]
+        if feat.integrated_lufs is None:
             continue
         pos = i / (n - 1)
         ideal_peak_pos = 0.7
         arc = -(4.0 * (pos - ideal_peak_pos) ** 2) + 1.0
         ideal_lufs = -14.0 + arc * 8.0
-        diff = abs(t.integrated_lufs - ideal_lufs)
+        diff = abs(feat.integrated_lufs - ideal_lufs)
         total += math.exp(-(diff**2) / 18.0)
     return total / n
 
@@ -129,21 +129,21 @@ def template_fitness(
     for slot in template.slots:
         track_idx = min(n - 1, max(0, int(slot.position * n)))
         tid = order[track_idx]
-        t = tracks[idx_map[tid]]
+        feat = tracks[idx_map[tid]]
 
         score = 0.0
         components = 0
 
-        if t.bpm is not None:
-            if slot.bpm_min <= t.bpm <= slot.bpm_max:
+        if feat.bpm is not None:
+            if slot.bpm_min <= feat.bpm <= slot.bpm_max:
                 score += 1.0
             else:
-                dist = min(abs(t.bpm - slot.bpm_min), abs(t.bpm - slot.bpm_max))
+                dist = min(abs(feat.bpm - slot.bpm_min), abs(feat.bpm - slot.bpm_max))
                 score += max(0.0, 1.0 - dist / 10.0)
             components += 1
 
-        if t.integrated_lufs is not None:
-            lufs_diff = abs(t.integrated_lufs - slot.energy_lufs)
+        if feat.integrated_lufs is not None:
+            lufs_diff = abs(feat.integrated_lufs - slot.energy_lufs)
             score += math.exp(-(lufs_diff**2) / 8.0)
             components += 1
 
