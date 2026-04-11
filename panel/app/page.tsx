@@ -10,6 +10,7 @@ import {
 } from '@tabler/icons-react'
 
 import { loadDjQueue } from '@/actions/library-actions'
+import { setEq, killEq, resetEq, setFilter } from '@/actions/mixer-actions'
 import { useAudioPlayer } from '@/components/audio-player/audio-player-context'
 import type { PlayerTrackMeta } from '@/components/audio-player/audio-player-types'
 import { TrackWaveform } from '@/components/player/track-waveform'
@@ -48,6 +49,48 @@ function IdleScreen({ onStart, loading }: { onStart: (bpm: number) => void; load
           {loading ? <IconLoader2 className="size-10 animate-spin" /> : <IconPlayerPlayFilled className="size-10 translate-x-[2px]" />}
         </button>
       </div>
+    </div>
+  )
+}
+
+/* ── EQ Strip (LOW / MID / HIGH + FILTER) — horizontal sliders ── */
+function EqStrip() {
+  const [lo, setLo] = useState(50)
+  const [mid, setMid] = useState(50)
+  const [hi, setHi] = useState(50)
+  const [fil, setFil] = useState(100)
+
+  const applyEq = useCallback((band: string, pct: number) => {
+    const gain = pct <= 50 ? -40 + (pct / 50) * 40 : ((pct - 50) / 50) * 6
+    void setEq(1, band, gain)
+  }, [])
+
+  const applyFilter = useCallback((pct: number) => {
+    void setFilter(1, 20 * Math.pow(1000, pct / 100))
+  }, [])
+
+  return (
+    <div className="px-3 py-1.5 border-t border-foreground/[0.03] space-y-1">
+      <div className="flex items-center justify-between">
+        <span className="dj-data text-[7px] uppercase tracking-[0.2em] text-muted-foreground/15">EQ</span>
+        <button type="button" onClick={() => { setLo(50); setMid(50); setHi(50); setFil(100); void resetEq(1) }}
+          className="dj-data text-[7px] text-muted-foreground/10 active:text-muted-foreground/30">RESET</button>
+      </div>
+      {[
+        { label: 'LOW', value: lo, set: setLo, apply: (v: number) => applyEq('low', v) },
+        { label: 'MID', value: mid, set: setMid, apply: (v: number) => applyEq('mid', v) },
+        { label: 'HIGH', value: hi, set: setHi, apply: (v: number) => applyEq('high', v) },
+        { label: 'FLT', value: fil, set: setFil, apply: applyFilter },
+      ].map(({ label, value, set, apply }) => (
+        <div key={label} className="flex items-center gap-2">
+          <span className="dj-data text-[7px] text-muted-foreground/15 w-6">{label}</span>
+          <Slider value={[value]} min={0} max={100} step={1}
+            onValueChange={v => { set(v[0]); apply(v[0]) }} className="flex-1" />
+          <button type="button"
+            onClick={() => { set(0); apply(0) }}
+            className="dj-data text-[6px] text-muted-foreground/8 active:text-foreground/30 w-4">K</button>
+        </div>
+      ))}
     </div>
   )
 }
@@ -125,6 +168,9 @@ function PlayingScreen({ audio, count, elapsed }: {
           <span className="dj-data text-[9px] text-muted-foreground/10">{fmt(elapsed)}</span>
         </div>
       </div>
+
+      {/* ── EQ ── */}
+      <EqStrip />
 
       {/* ── TRANSPORT BAR — djay style ── */}
       <div className="px-3 pb-1 pt-0.5">
