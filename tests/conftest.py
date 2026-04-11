@@ -27,6 +27,7 @@ from app.db.models.library import (  # noqa: F401
     DjSavedLoop,
 )
 from app.db.models.playlist import Playlist, PlaylistItem  # noqa: F401
+from app.db.models.scoring_profile import ScoringProfile  # noqa: F401
 from app.db.models.set import DjSet, SetConstraint, SetFeedback, SetItem, SetVersion  # noqa: F401
 from app.db.models.track import Track  # noqa: F401
 from app.db.models.track_affinity import TrackAffinity  # noqa: F401
