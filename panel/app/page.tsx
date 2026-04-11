@@ -224,7 +224,10 @@ function FxPanel() {
 
 /* ══════ PLAYING ══════ */
 function PlayingScreen({ audio }: { audio: ReturnType<typeof useAudioPlayer> }) {
-  const { current, isPlaying, isLoading, position, duration, masterTempoBpm, isCrossfading } = audio
+  const { current, isPlaying, isLoading, position, duration, masterTempoBpm, isCrossfading,
+    outgoing, crossfadeDurationSeconds, crossfadeStartedAt,
+    outgoingFadeStartPosition, incomingFadeStartPosition,
+    outgoingFadePlaybackRate, incomingFadePlaybackRate } = audio
   const progress = current && duration > 0 ? position / duration : 0
   const [panel, setPanel] = useState<Panel>('eq')
   const [activeDeck, setActiveDeck] = useState(1)
@@ -264,17 +267,37 @@ function PlayingScreen({ audio }: { audio: ReturnType<typeof useAudioPlayer> }) 
         <button className="text-muted-foreground/15 active:text-foreground/30"><IconArrowRight className="size-3.5" /></button>
       </div>
 
-      {/* ══ WAVEFORM ══ */}
-      <div className="flex-[2] min-h-0 border-b border-foreground/[0.04] relative">
-        <TrackWaveform trackId={current.id} position={position} duration={duration}
-          onSeek={s => audio.seek(s)} height={160} zoomable showTimeline className="w-full h-full" />
-        <div className="absolute right-1 top-1/2 -translate-y-1/2 flex flex-col gap-1">
-          <div className="size-5 rounded border border-foreground/[0.06] bg-black/80 grid place-items-center text-foreground/20 text-[10px]">+</div>
-          <div className="size-5 rounded border border-foreground/[0.06] bg-black/80 grid place-items-center text-foreground/20 text-[10px]">−</div>
+      {/* ══ WAVEFORM (dual during crossfade) ══ */}
+      {isCrossfading && outgoing ? (
+        <div className="flex-[2] min-h-0 flex flex-col border-b border-foreground/[0.04]">
+          {/* Deck 1 — outgoing */}
+          <div className="flex-1 min-h-0 relative border-b border-foreground/[0.03]">
+            <TrackWaveform trackId={outgoing.id}
+              position={outgoingFadeStartPosition ?? 0} duration={(outgoing.durationMs ?? 0) / 1000}
+              onSeek={() => {}} height={75} zoomable className="w-full h-full" />
+            <span className="absolute left-1 top-0.5 dj-data text-[8px] text-blue-400/40">1</span>
+            <span className="absolute right-1 top-0.5 text-[8px] text-muted-foreground/15 truncate max-w-[50%]">{outgoing.title}</span>
+          </div>
+          {/* Deck 2 — incoming */}
+          <div className="flex-1 min-h-0 relative">
+            <TrackWaveform trackId={current.id}
+              position={incomingFadeStartPosition ?? position} duration={duration}
+              onSeek={s => audio.seek(s)} height={75} zoomable className="w-full h-full" />
+            <span className="absolute left-1 top-0.5 dj-data text-[8px] text-green-400/40">2</span>
+            <span className="absolute right-1 top-0.5 text-[8px] text-muted-foreground/15 truncate max-w-[50%]">{current.title}</span>
+          </div>
         </div>
-        {/* Deck number */}
-        <span className="absolute left-1 top-1 dj-data text-[9px] text-foreground/15">{activeDeck}</span>
-      </div>
+      ) : (
+        <div className="flex-[2] min-h-0 border-b border-foreground/[0.04] relative">
+          <TrackWaveform trackId={current.id} position={position} duration={duration}
+            onSeek={s => audio.seek(s)} height={160} zoomable showTimeline className="w-full h-full" />
+          <div className="absolute right-1 top-1/2 -translate-y-1/2 flex flex-col gap-1">
+            <div className="size-5 rounded border border-foreground/[0.06] bg-black/80 grid place-items-center text-foreground/20 text-[10px]">+</div>
+            <div className="size-5 rounded border border-foreground/[0.06] bg-black/80 grid place-items-center text-foreground/20 text-[10px]">−</div>
+          </div>
+          <span className="absolute left-1 top-1 dj-data text-[9px] text-foreground/15">{activeDeck}</span>
+        </div>
+      )}
 
       {/* ══ PANEL SELECTOR ══ */}
       <div className="flex items-center border-b border-foreground/[0.04]">
@@ -291,12 +314,32 @@ function PlayingScreen({ audio }: { audio: ReturnType<typeof useAudioPlayer> }) 
         ))}
       </div>
 
-      {/* ══ PANEL CONTENT ══ */}
-      <div className="flex-[1.5] min-h-0 overflow-hidden">
+      {/* ══ PANEL CONTENT + VU ══ */}
+      <div className="flex-[1.5] min-h-0 overflow-hidden flex">
+        <div className="flex-1 overflow-hidden">
         {panel === 'eq' && <EqPanel />}
         {panel === 'mix' && <NeuralMixPanel />}
         {panel === 'pads' && <CuePadsPanel position={position} onSeek={s => audio.seek(s)} />}
         {panel === 'fx' && <FxPanel />}
+        </div>
+        {/* VU Meter */}
+        <div className="w-5 shrink-0 flex flex-col items-center justify-end py-2 gap-px border-l border-foreground/[0.03]">
+          {Array.from({ length: 16 }).map((_, i) => {
+            const level = isPlaying ? Math.min(16, Math.floor(audio.volume * 14) + Math.floor(Math.random() * 4)) : 0
+            const lit = i < level
+            const isRed = i >= 13
+            const isYellow = i >= 10 && i < 13
+            return (
+              <div key={i} className="w-3 rounded-sm transition-colors"
+                style={{
+                  height: '4px',
+                  backgroundColor: lit
+                    ? isRed ? 'oklch(0.65 0.2 25)' : isYellow ? 'oklch(0.75 0.15 85)' : 'oklch(0.65 0.15 145)'
+                    : 'oklch(0.15 0 0)',
+                }} />
+            )
+          }).reverse()}
+        </div>
       </div>
 
       {/* ══ LIKE / BAN ══ */}
