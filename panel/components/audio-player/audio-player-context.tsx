@@ -1559,6 +1559,10 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
                 targetEnergy: Math.round(targetEnergy(Math.min(1, historyRef.current.length / 15)) * 100) / 100,
                 trackEnergy: track.mood ? (MOOD_ENERGY[track.mood] ?? null) : null,
               }))
+              // Persist to transition_history DB (fire-and-forget, non-blocking)
+              import('@/actions/transition-log-actions').then(mod => {
+                void mod.logTransition(transitionLog)
+              }).catch(() => { /* non-fatal — DB logging must never break playback */ })
             } catch { /* ignore logging errors */ }
 
             // Include the downbeat-alignment delay — fade starts at
