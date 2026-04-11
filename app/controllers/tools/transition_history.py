@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
+from fastmcp.dependencies import Depends
 from fastmcp.tools import tool
 
-# Task 5 (DI factories): get_transition_history_service will be in dependencies/services.py
-# from app.controllers.dependencies.services import get_transition_history_service
+from app.controllers.dependencies.services import get_transition_history_service
 from app.controllers.tools._shared.errors import map_domain_errors
 from app.controllers.tools._shared.taxonomy import ANNOTATIONS_READ_ONLY, ToolCategory
 from app.schemas.transition_history import BestPairRead, TransitionHistoryRead
@@ -29,8 +29,7 @@ async def log_transition(
     tempo_match_ratio: float | None = None,
     user_reaction: str | None = None,
     session_id: str | None = None,
-    # Task 5: svc will come from get_transition_history_service() DI factory
-    svc: TransitionHistoryService = None,  # type: ignore[assignment]
+    svc: TransitionHistoryService = Depends(get_transition_history_service),  # noqa: B008
 ) -> TransitionHistoryRead:
     """Record a completed crossfade transition for learning."""
     entry = await svc.log_transition(
@@ -59,7 +58,7 @@ async def get_transition_history(
     to_track_id: int | None = None,
     limit: int = 20,
     min_score: float | None = None,
-    svc: TransitionHistoryService = None,  # type: ignore[assignment]
+    svc: TransitionHistoryService = Depends(get_transition_history_service),  # noqa: B008
 ) -> list[TransitionHistoryRead]:
     """Query past transitions with optional filters."""
     entries = await svc.get_history(from_track_id, to_track_id, limit, min_score)
@@ -71,7 +70,7 @@ async def get_transition_history(
 async def get_best_pairs(
     track_id: int,
     limit: int = 10,
-    svc: TransitionHistoryService = None,  # type: ignore[assignment]
+    svc: TransitionHistoryService = Depends(get_transition_history_service),  # noqa: B008
 ) -> list[BestPairRead]:
     """Top-N best historical transition partners for a track."""
     pairs = await svc.get_best_pairs(track_id, limit)
@@ -83,7 +82,7 @@ async def get_best_pairs(
 async def update_reaction(
     entry_id: int,
     reaction: str,
-    svc: TransitionHistoryService = None,  # type: ignore[assignment]
+    svc: TransitionHistoryService = Depends(get_transition_history_service),  # noqa: B008
 ) -> dict[str, str]:
     """Add user feedback (like/ban/skip/listened) to a transition."""
     await svc.update_reaction(entry_id, reaction)

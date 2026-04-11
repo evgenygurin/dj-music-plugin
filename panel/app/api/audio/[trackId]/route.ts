@@ -4,7 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 
 export const dynamic = 'force-dynamic'
 
-const RAW = process.env.MCP_HTTP_URL ?? 'http://localhost:8001'
+const RAW = process.env.MCP_HTTP_URL ?? 'http://localhost:8000'
 const REST_BASE = RAW.replace(/\/+mcp\/?$/, '').replace(/\/+$/, '')
 
 // Total timeout for the entire request (connect + stream body).

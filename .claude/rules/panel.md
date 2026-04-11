@@ -33,3 +33,9 @@ globs: panel/**/*
 - `NEXT_PUBLIC_SUPABASE_URL` — Supabase endpoint
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY` — Supabase anon JWT
 - `MCP_HTTP_URL` — MCP REST API (default: http://localhost:8000)
+
+## Порты (КРИТИЧНО!)
+
+- REST API fallback в TS-коде: **всегда `http://localhost:8000`** (не 8001, не другой)
+- Читай из `process.env.MCP_HTTP_URL`, fallback `'http://localhost:8000'`
+- Порт 8001 — только для `.claude/launch.json` preview, НЕ для panel кода

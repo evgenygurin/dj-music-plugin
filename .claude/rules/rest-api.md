@@ -40,3 +40,17 @@ globs: app/api/**/*.py
 - CORS allows `localhost:3000` (panel dev) and `*.vercel.app` (production)
 - Route handlers access runtime via `request.app.state.runtime: ApiRuntimeState`
 - NEVER import `app.db.models` or `app.db.repositories` from `app.api` — enforced by import-linter
+
+## Порты (КРИТИЧНО — не менять!)
+
+| Сервис | Порт | Назначение |
+|--------|------|-----------|
+| REST API (production/dev) | **8000** | `uvicorn app.api.server:api --port 8000` |
+| REST API (preview) | **8001** | `.claude/launch.json` preview only |
+| Panel (Next.js) | **3000** | `bun dev --port 3000` |
+
+- **Panel `.env`**: `MCP_HTTP_URL=http://localhost:8000` — единственный source of truth
+- **Все fallback'и в panel TS-коде** (`?? 'http://localhost:...'`) ДОЛЖНЫ использовать порт **8000**
+- Порт 8001 используется ТОЛЬКО в `.claude/launch.json` для Claude Preview (чтобы не конфликтовать с основным сервером)
+- **НЕ hardcode порты в panel коде** — всегда читай из `process.env.MCP_HTTP_URL`, fallback `8000`
+- **Preview связка**: `scripts/preview-panel.sh` экспортирует `MCP_HTTP_URL=http://localhost:8001` → panel preview ходит на preview rest-api. Если меняешь порт в `launch.json` — меняй и в `preview-panel.sh`

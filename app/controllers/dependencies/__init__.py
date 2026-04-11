@@ -27,6 +27,7 @@ from app.controllers.dependencies.repos import (
     get_playlist_repo,
     get_set_repo,
     get_track_repo,
+    get_transition_history_repo,
     get_transition_repo,
 )
 from app.controllers.dependencies.services import (
@@ -49,6 +50,7 @@ from app.controllers.dependencies.services import (
     get_sync_playlist_workflow,
     get_sync_service,
     get_track_service,
+    get_transition_history_service,
 )
 from app.controllers.dependencies.uow import get_uow
 
@@ -88,6 +90,8 @@ __all__ = [
     "get_track_repo",
     "get_track_service",
     "get_transition_cache",
+    "get_transition_history_repo",
+    "get_transition_history_service",
     "get_transition_repo",
     "get_uow",
     "get_ym_client",

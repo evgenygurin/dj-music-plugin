@@ -163,7 +163,7 @@ export async function getTrackMixMeta(trackId: number): Promise<TrackMixMeta | n
       if (firstDownbeatMs != null) return firstDownbeatMs / 1000
       // On-the-fly: ask backend to compute and cache
       try {
-        const REST_BASE = (process.env.MCP_HTTP_URL ?? 'http://localhost:8001')
+        const REST_BASE = (process.env.MCP_HTTP_URL ?? 'http://localhost:8000')
           .replace(/\/+mcp\/?$/, '').replace(/\/+$/, '')
         const r = await fetch(`${REST_BASE}/api/audio/downbeat/${trackId}`, {
           cache: 'no-store',
