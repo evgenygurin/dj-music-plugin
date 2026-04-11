@@ -1,230 +1,190 @@
-import Link from 'next/link'
-import { PageHeader, PageShell } from '@/components/page-shell'
-import { SectionCards } from '@/components/section-cards'
-import { BpmDistributionChart } from '@/components/charts/bpm-distribution'
-import { MoodDistributionChart } from '@/components/charts/mood-distribution'
-import { CamelotWheelChart } from '@/components/charts/camelot-wheel'
-import { LufsRangeChart } from '@/components/charts/lufs-range'
-import { DanceabilityDistributionChart } from '@/components/charts/danceability-distribution'
-import { HpRatioDistributionChart } from '@/components/charts/hp-ratio-distribution'
-import { PhraseDistributionChart } from '@/components/charts/phrase-distribution'
-import { Badge } from '@/components/ui/badge'
-import { buttonVariants } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Progress } from '@/components/ui/progress'
-import {
-  getLibraryStats,
-  getBpmDistribution,
-  getMoodDistribution,
-  getKeyDistribution,
-  getLufsDistribution,
-  getAnalysisCoverage,
-  getDanceabilityDistribution,
-  getHpRatioDistribution,
-  getPhraseDistribution,
-  getQualityFlags,
-} from '@/lib/queries/dashboard'
-import { ANALYSIS_LEVELS } from '@/lib/constants'
+'use client'
 
-export const revalidate = 30
+import { useCallback, useRef } from 'react'
+import { IconLoader2, IconPlayerPauseFilled, IconPlayerPlayFilled, IconPlayerSkipForwardFilled } from '@tabler/icons-react'
 
-export default async function DashboardPage() {
-  const [
-    stats,
-    bpmData,
-    moodData,
-    keyData,
-    lufsData,
-    coverageData,
-    danceabilityData,
-    hpRatioData,
-    phraseData,
-    qualityFlags,
-  ] = await Promise.all([
-    getLibraryStats(),
-    getBpmDistribution(),
-    getMoodDistribution(),
-    getKeyDistribution(),
-    getLufsDistribution(),
-    getAnalysisCoverage(),
-    getDanceabilityDistribution(),
-    getHpRatioDistribution(),
-    getPhraseDistribution(),
-    getQualityFlags(),
-  ])
+import { loadDjQueue } from '@/actions/library-actions'
+import { useAudioPlayer } from '@/components/audio-player/audio-player-context'
+import type { PlayerTrackMeta } from '@/components/audio-player/audio-player-types'
+import { TrackWaveform } from '@/components/player/track-waveform'
+import { TransitionVisualizer } from '@/components/player/transition-visualizer'
 
-  const totalAnalyzed = stats.totalTracks > 0 ? stats.analyzedTracks : 0
-  const coveragePct =
-    stats.totalTracks > 0 ? Math.round((stats.analyzedTracks / stats.totalTracks) * 100) : 0
+function formatTime(seconds: number): string {
+  if (!Number.isFinite(seconds) || seconds < 0) return '0:00'
+  const m = Math.floor(seconds / 60)
+  const s = Math.floor(seconds % 60)
+  return `${m}:${s.toString().padStart(2, '0')}`
+}
+
+export default function PlayerPage() {
+  const audio = useAudioPlayer()
+  const queueLoadedRef = useRef(false)
+
+  const {
+    current,
+    isPlaying,
+    isLoading,
+    position,
+    duration,
+    masterTempoBpm,
+    nextUp,
+    isCrossfading,
+    lastResolvedStyle,
+    recommendedStyle,
+  } = audio
+
+  const progressPct = current && duration > 0 ? (position / duration) * 100 : 0
+  const activeStyle = lastResolvedStyle ?? recommendedStyle
+
+  // First play — load queue at ~128 BPM and start
+  const handleStart = useCallback(async () => {
+    if (queueLoadedRef.current && current) {
+      audio.toggle()
+      return
+    }
+    const tracks = await loadDjQueue(128)
+    if (tracks.length === 0) return
+    const queue: PlayerTrackMeta[] = tracks.map((t) => ({
+      id: t.id,
+      title: t.title,
+      artists: t.artists,
+      durationMs: t.duration_ms,
+      bpm: t.bpm,
+      camelot: t.camelot,
+      mood: t.mood,
+    }))
+    if (!audio.autoDj) audio.toggleAutoDj()
+    if (!audio.mixEnabled) audio.toggleMixEnabled()
+    audio.play(queue[0], queue)
+    queueLoadedRef.current = true
+  }, [audio, current])
+
+  // Next — score transitions, pick best, crossfade
+  const handleNext = useCallback(() => {
+    void audio.playRecommendedNext()
+  }, [audio])
 
   return (
-    <PageShell title="Dashboard">
-      <PageHeader
-        title="Command Center"
-        description="Analysis coverage, curation signals, and mix-readiness."
-        badge={
-          <Badge variant="secondary" className="dj-data text-[10px]">
-            {coveragePct}% analyzed
-          </Badge>
-        }
-        actions={
-          <>
-            <Link href="/discover" className={buttonVariants({ variant: 'outline', className: 'rounded-xl border-border/30' })}>
-              Discover
-            </Link>
-            <Link href="/library" className={buttonVariants({ className: 'rounded-xl' })}>
-              Library
-            </Link>
-          </>
-        }
-      />
+    <div className="flex min-h-dvh flex-col safe-top safe-bottom">
 
-      <SectionCards stats={stats} />
+      {/* Current track — center of screen */}
+      <div className="flex-1 flex flex-col items-center justify-center px-6">
+        {current ? (
+          <div className="w-full max-w-md space-y-8">
+            {/* Track info */}
+            <div className="text-center">
+              <h1 className="display-heading text-3xl leading-tight truncate">{current.title}</h1>
+              <p className="text-sm text-muted-foreground/60 mt-1 truncate">{current.artists || ''}</p>
+            </div>
 
-      {/* BPM — full width */}
-      <Card className="shadow-none border-border/20 bg-card/50">
-        <CardHeader className="pb-2">
-          <CardTitle className="display-heading text-lg">BPM Distribution</CardTitle>
-          <CardDescription className="text-xs text-muted-foreground/60">Tempo spread across the library</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <BpmDistributionChart data={bpmData} />
-        </CardContent>
-      </Card>
+            {/* BPM · Key · Mood */}
+            <div className="flex items-center justify-center gap-4">
+              {current.bpm && (
+                <span className="dj-data text-sm text-foreground/70">{current.bpm.toFixed(1)}</span>
+              )}
+              {current.camelot && (
+                <span className="dj-data text-sm text-muted-foreground/50">{current.camelot}</span>
+              )}
+              {current.mood && (
+                <span className="text-xs text-muted-foreground/40">{current.mood.replace(/_/g, ' ')}</span>
+              )}
+            </div>
 
-      {/* Mood + Camelot */}
-      <div className="grid gap-4 md:grid-cols-2">
-        <Card className="shadow-none border-border/20 bg-card/50">
-          <CardHeader className="pb-2">
-            <CardTitle className="display-heading text-lg">Mood</CardTitle>
-            <CardDescription className="text-xs text-muted-foreground/60">Subgenre classification</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <MoodDistributionChart data={moodData} />
-          </CardContent>
-        </Card>
+            {/* Waveform */}
+            <TrackWaveform
+              trackId={current.id}
+              position={position}
+              duration={duration}
+              onSeek={(s) => audio.seek(s)}
+              height={56}
+            />
 
-        <Card className="shadow-none border-border/20 bg-card/50">
-          <CardHeader className="pb-2">
-            <CardTitle className="display-heading text-lg">Camelot</CardTitle>
-            <CardDescription className="text-xs text-muted-foreground/60">Harmonic mixing wheel</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <CamelotWheelChart data={keyData} />
-          </CardContent>
-        </Card>
-      </div>
+            {/* Time */}
+            <div className="flex items-center justify-between">
+              <span className="dj-data text-xs text-muted-foreground/40">{formatTime(position)}</span>
+              <div className="flex-1 mx-4 h-px bg-foreground/5">
+                <div className="h-full bg-foreground/20" style={{ width: `${progressPct}%` }} />
+              </div>
+              <span className="dj-data text-xs text-muted-foreground/40">{formatTime(duration)}</span>
+            </div>
 
-      {/* LUFS + Coverage */}
-      <div className="grid gap-4 md:grid-cols-2">
-        <Card className="shadow-none border-border/20 bg-card/50">
-          <CardHeader className="pb-2">
-            <CardTitle className="display-heading text-lg">Loudness</CardTitle>
-            <CardDescription className="text-xs text-muted-foreground/60">LUFS distribution</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <LufsRangeChart data={lufsData} />
-          </CardContent>
-        </Card>
+            {/* === TWO BUTTONS === */}
+            <div className="flex items-center justify-center gap-8">
+              {/* PLAY / PAUSE */}
+              <button
+                type="button"
+                onClick={() => audio.toggle()}
+                disabled={isLoading}
+                className="size-20 rounded-full bg-foreground text-background flex items-center justify-center hover:bg-foreground/90 active:scale-95 transition-transform shadow-2xl"
+                aria-label={isPlaying ? 'Pause' : 'Play'}
+              >
+                {isLoading ? (
+                  <IconLoader2 className="size-8 animate-spin" />
+                ) : isPlaying ? (
+                  <IconPlayerPauseFilled className="size-8" />
+                ) : (
+                  <IconPlayerPlayFilled className="size-8 translate-x-[2px]" />
+                )}
+              </button>
 
-        <Card className="shadow-none border-border/20 bg-card/50">
-          <CardHeader className="pb-2">
-            <CardTitle className="display-heading text-lg">Analysis</CardTitle>
-            <CardDescription className="text-xs text-muted-foreground/60">
-              {totalAnalyzed > 0
-                ? `${totalAnalyzed.toLocaleString()} tracks with features`
-                : 'No tracks analyzed yet'}
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {coverageData.length === 0 ? (
-              <p className="text-sm text-muted-foreground/60">
-                Run <code className="rounded bg-muted/30 px-1.5 py-0.5 dj-data text-[11px]">classify_mood</code> to start.
+              {/* NEXT — analyze & crossfade */}
+              <button
+                type="button"
+                onClick={handleNext}
+                disabled={!current}
+                className="size-14 rounded-full border border-foreground/15 text-foreground/70 flex items-center justify-center hover:bg-foreground/5 active:scale-95 transition-all disabled:opacity-20"
+                aria-label="Next track"
+              >
+                <IconPlayerSkipForwardFilled className="size-5" />
+              </button>
+            </div>
+
+            {/* Transition style during crossfade */}
+            {isCrossfading && activeStyle && (
+              <p className="text-center dj-data text-[10px] uppercase tracking-[0.2em] text-muted-foreground/40">
+                {activeStyle.replace(/_/g, ' ')}
               </p>
-            ) : (
-              coverageData.map((item) => {
-                const pct =
-                  totalAnalyzed > 0 ? Math.round((item.count / totalAnalyzed) * 100) : 0
-                const label = ANALYSIS_LEVELS[item.level] ?? `Level ${item.level}`
-                return (
-                  <div key={item.level} className="space-y-1.5">
-                    <div className="flex justify-between text-xs">
-                      <span className="text-muted-foreground/70">{label}</span>
-                      <span className="dj-data text-muted-foreground/50">
-                        {item.count.toLocaleString()} ({pct}%)
-                      </span>
-                    </div>
-                    <Progress value={pct} className="h-1" />
-                  </div>
-                )
-              })
             )}
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Danceability + HP Ratio + Phrase */}
-      <div className="grid gap-4 md:grid-cols-3">
-        <Card className="shadow-none border-border/20 bg-card/50">
-          <CardHeader className="pb-2">
-            <CardTitle className="display-heading text-lg">Danceability</CardTitle>
-            <CardDescription className="text-xs text-muted-foreground/60">Rhythmic score</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <DanceabilityDistributionChart data={danceabilityData} />
-          </CardContent>
-        </Card>
-
-        <Card className="shadow-none border-border/20 bg-card/50">
-          <CardHeader className="pb-2">
-            <CardTitle className="display-heading text-lg">HP Ratio</CardTitle>
-            <CardDescription className="text-xs text-muted-foreground/60">Harmonic vs percussive</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <HpRatioDistributionChart data={hpRatioData} />
-          </CardContent>
-        </Card>
-
-        <Card className="shadow-none border-border/20 bg-card/50">
-          <CardHeader className="pb-2">
-            <CardTitle className="display-heading text-lg">Phrases</CardTitle>
-            <CardDescription className="text-xs text-muted-foreground/60">Dominant phrase length</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <PhraseDistributionChart data={phraseData} />
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Quality flags */}
-      <Card className="shadow-none border-border/20 bg-card/50">
-        <CardHeader className="pb-2">
-          <CardTitle className="display-heading text-lg">Quality Flags</CardTitle>
-          <CardDescription className="text-xs text-muted-foreground/60">Notable audio characteristics</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid gap-6 sm:grid-cols-3">
-            <div className="space-y-1">
-              <p className="text-xs text-muted-foreground/60 uppercase tracking-wider">Variable Tempo</p>
-              <p className="display-heading text-3xl text-foreground">
-                {qualityFlags.variable_tempo_count.toLocaleString()}
-              </p>
-            </div>
-            <div className="space-y-1">
-              <p className="text-xs text-muted-foreground/60 uppercase tracking-wider">Atonal</p>
-              <p className="display-heading text-3xl text-foreground">
-                {qualityFlags.atonality_count.toLocaleString()}
-              </p>
-            </div>
-            <div className="space-y-1">
-              <p className="text-xs text-muted-foreground/60 uppercase tracking-wider">Avg BPM Confidence</p>
-              <p className="display-heading text-3xl text-foreground">
-                {(qualityFlags.avg_bpm_confidence * 100).toFixed(1)}%
-              </p>
-            </div>
           </div>
-        </CardContent>
-      </Card>
-    </PageShell>
+        ) : (
+          /* Nothing playing — big play button */
+          <div className="text-center space-y-8">
+            <h1 className="display-heading text-5xl">Mix</h1>
+            <button
+              type="button"
+              onClick={handleStart}
+              disabled={isLoading}
+              className="size-24 rounded-full bg-foreground text-background flex items-center justify-center mx-auto hover:bg-foreground/90 active:scale-95 transition-transform shadow-2xl"
+              aria-label="Start mixing"
+            >
+              {isLoading ? (
+                <IconLoader2 className="size-10 animate-spin" />
+              ) : (
+                <IconPlayerPlayFilled className="size-10 translate-x-[3px]" />
+              )}
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Bottom: master BPM + next up */}
+      <div className="px-6 pb-4 space-y-2">
+        {masterTempoBpm && (
+          <div className="flex items-center justify-center gap-2">
+            <span className="dj-data text-2xl text-foreground">{Math.round(masterTempoBpm)}</span>
+            <span className="dj-data text-[10px] uppercase tracking-wider text-muted-foreground/30">BPM</span>
+          </div>
+        )}
+        {nextUp && (
+          <p className="text-center text-xs text-muted-foreground/30 truncate">
+            next: {nextUp.title}
+            {nextUp.bpm ? ` · ${nextUp.bpm.toFixed(0)}` : ''}
+            {nextUp.camelot ? ` · ${nextUp.camelot}` : ''}
+          </p>
+        )}
+      </div>
+
+      <TransitionVisualizer />
+    </div>
   )
 }
