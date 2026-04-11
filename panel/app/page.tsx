@@ -55,15 +55,22 @@ function IdleScreen({ onStart, loading }: { onStart: (bpm: number) => void; load
 
 /* ── EQ Strip (LOW / MID / HIGH + FILTER) — horizontal sliders ── */
 function EqStrip() {
+  const audio = useAudioPlayer()
   const [lo, setLo] = useState(50)
   const [mid, setMid] = useState(50)
   const [hi, setHi] = useState(50)
   const [fil, setFil] = useState(100)
 
-  const applyEq = useCallback((band: string, pct: number) => {
-    const gain = pct <= 50 ? -40 + (pct / 50) * 40 : ((pct - 50) / 50) * 6
+  // Map 0-100 slider → -40..+6 dB. Center (50) = 0 dB.
+  const pctToDb = (pct: number) => pct <= 50 ? -40 + (pct / 50) * 40 : ((pct - 50) / 50) * 6
+
+  const applyEq = useCallback((band: 'low' | 'mid' | 'high', pct: number) => {
+    const gain = pctToDb(pct)
+    // Real-time: Web Audio BiquadFilterNode
+    audio.setDeckEq(band, gain)
+    // Persist to backend state (fire-and-forget)
     void setEq(1, band, gain)
-  }, [])
+  }, [audio])
 
   const applyFilter = useCallback((pct: number) => {
     void setFilter(1, 20 * Math.pow(1000, pct / 100))
@@ -73,8 +80,11 @@ function EqStrip() {
     <div className="px-3 py-1.5 border-t border-foreground/[0.03] space-y-1">
       <div className="flex items-center justify-between">
         <span className="dj-data text-[7px] uppercase tracking-[0.2em] text-muted-foreground/15">EQ</span>
-        <button type="button" onClick={() => { setLo(50); setMid(50); setHi(50); setFil(100); void resetEq(1) }}
-          className="dj-data text-[7px] text-muted-foreground/10 active:text-muted-foreground/30">RESET</button>
+        <button type="button" onClick={() => {
+          setLo(50); setMid(50); setHi(50); setFil(100)
+          audio.setDeckEq('low', 0); audio.setDeckEq('mid', 0); audio.setDeckEq('high', 0)
+          void resetEq(1)
+        }} className="dj-data text-[7px] text-muted-foreground/10 active:text-muted-foreground/30">RESET</button>
       </div>
       {[
         { label: 'LOW', value: lo, set: setLo, apply: (v: number) => applyEq('low', v) },

@@ -232,6 +232,8 @@ interface AudioPlayerApi extends AudioPlayerState {
   // dispatcher follows the backend's recommendation. Any other value
   // forces that style on the next crossfade regardless of what the
   // scorer thinks. Lets the DJ test / override styles by ear.
+  // Per-band EQ on the active deck. gain: -40 (kill) to +6 (boost), 0 = flat.
+  setDeckEq: (band: 'low' | 'mid' | 'high', gain: number) => void
   manualStyle: ManualTransitionStyle
   setManualStyle: (s: ManualTransitionStyle) => void
   crossfadeSeconds: number // derived from bars + current BPM (read-only)
@@ -309,6 +311,7 @@ interface Deck {
   hp1: BiquadFilterNode
   hp2: BiquadFilterNode
   sum: GainNode
+  low: BiquadFilterNode
   mid: BiquadFilterNode
   high: BiquadFilterNode
   gain: GainNode
@@ -523,8 +526,12 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
       const sum = ctx.createGain()
       sum.gain.value = 1.0
 
-      // Mid / high bands stay in the chain so we can add per-band
-      // adjustments later, but they're neutral for now.
+      // 3-band DJ EQ: low shelf + mid peak + high shelf.
+      // Exposed via setDeckEq() for per-band gain control (-40..+6 dB).
+      const low = ctx.createBiquadFilter()
+      low.type = 'lowshelf'
+      low.frequency.value = 320
+      low.gain.value = 0
       const mid = ctx.createBiquadFilter()
       mid.type = 'peaking'
       mid.frequency.value = 1000
@@ -532,7 +539,7 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
       mid.gain.value = 0
       const high = ctx.createBiquadFilter()
       high.type = 'highshelf'
-      high.frequency.value = 4000
+      high.frequency.value = 3200
       high.gain.value = 0
 
       const gain = ctx.createGain()
@@ -549,7 +556,7 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
       hp2.connect(wetGain)
       dryGain.connect(sum)
       wetGain.connect(sum)
-      sum.connect(mid).connect(high).connect(gain).connect(masterLimiter)
+      sum.connect(low).connect(mid).connect(high).connect(gain).connect(masterLimiter)
 
       audio.addEventListener('play', () => {
         if (activeDeckRef.current === id) setIsPlaying(true)
@@ -599,6 +606,7 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
         hp1,
         hp2,
         sum,
+        low,
         mid,
         high,
         gain,
@@ -2145,6 +2153,17 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     play(target)
   }, [current, queue, pickNextTrackAsync, play])
 
+  // ── Per-band EQ control ──────────────────────────────────────
+  // Sets gain on the active deck's low/mid/high BiquadFilterNode.
+  // gain range: -40 (kill) to +6 (boost), 0 = flat.
+  const setDeckEq = useCallback((band: 'low' | 'mid' | 'high', gain: number) => {
+    const deck = activeDeckRef.current === 'A' ? deckARef.current : deckBRef.current
+    if (!deck) return
+    const clamped = Math.max(-40, Math.min(6, gain))
+    const node = band === 'low' ? deck.low : band === 'mid' ? deck.mid : deck.high
+    node.gain.setTargetAtTime(clamped, node.context.currentTime, 0.02)
+  }, [])
+
   const api = useMemo<AudioPlayerApi>(
     () => ({
       current,
@@ -2194,6 +2213,7 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
       resetMasterTempoToCurrentTrack,
       setCrossfadeBars,
       setQueue,
+      setDeckEq,
       manualStyle,
       setManualStyle,
     }),
@@ -2243,6 +2263,7 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
       toggleMixEnabled,
       nudgeMasterTempoBpm,
       resetMasterTempoToCurrentTrack,
+      setDeckEq,
       manualStyle,
       setManualStyle,
     ],

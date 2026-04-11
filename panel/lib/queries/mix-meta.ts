@@ -9,6 +9,15 @@ export interface TrackSection {
   confidence: number | null
 }
 
+export interface TrackCuePoint {
+  id: number
+  positionMs: number
+  kind: number // 0=cue, 1-7=hot cue 1-7
+  hotcueIndex: number | null
+  label: string | null
+  color: string | null
+}
+
 export interface TrackMixMeta {
   trackId: number
   durationMs: number | null
@@ -18,6 +27,7 @@ export interface TrackMixMeta {
   introEndSec: number | null // optimal end of mix-in zone
   introStartSec: number | null // start of intro (where to "drop" the next track in)
   sections: TrackSection[]
+  cuePoints: TrackCuePoint[]
   // ── Loudness (for LUFS normalization during crossfade) ────
   integratedLufs: number | null
   truePeakDb: number | null
