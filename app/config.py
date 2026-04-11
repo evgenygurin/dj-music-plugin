@@ -108,6 +108,17 @@ class Settings(BaseSettings):
     # worker, which is the realistic upper bound.
     audio_process_worker_cache_size: int = 4
 
+    # ── Speculative Prefetch ──────────────────────────
+    # How many top candidates the speculative prefetch warms after a transition.
+    # Higher values pre-score more pairs but cost more scoring + analysis time.
+    prefetch_top_k: int = 10
+    # Max tracks the speculative prefetch may trigger L3 analysis on per call.
+    # Protects against runaway downloads when the candidate pool is large.
+    prefetch_analysis_budget: int = 10
+    # Whether suggest_next_track auto-triggers speculative prefetch for the top
+    # suggestion. Set False to force the pre-refactor sequential behaviour.
+    prefetch_on_suggest: bool = True
+
     # ── Techno Quality Criteria ───────────────────────
     techno_bpm_min: float = 120.0
     techno_bpm_max: float = 155.0

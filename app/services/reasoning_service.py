@@ -5,9 +5,11 @@ Framework-agnostic: no MCP/FastMCP imports.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
+from app.audio.level_config import AnalysisLevel
 from app.camelot.wheel import camelot_distance, key_code_to_camelot
+from app.config import settings
 from app.core.errors import NotFoundError, ValidationError
 from app.db.models.set import SetVersion
 from app.db.repositories.feature import FeatureRepository
@@ -17,7 +19,15 @@ from app.db.repositories.track import TrackRepository
 from app.db.repositories.transition import TransitionRepository
 from app.transition import TransitionScorer
 
+if TYPE_CHECKING:
+    from app.services.prefetch_service import PrefetchService
+
 _ENERGY_DIRECTIONS: frozenset[str] = frozenset({"any", "up", "down"})
+
+# Hard cap on candidates evaluated per suggest_next_track call. Matches the
+# limit used by the pre-refactor implementation but lifted into module scope
+# so tests and callers can reason about it without hunting through code.
+_SUGGEST_POOL_LIMIT = 100
 
 #: Multiplicative bonus/penalty applied per LUFS delta when the caller
 #: requests a specific energy direction. Tuned so that a +3 LUFS lift
@@ -53,12 +63,14 @@ class ReasoningService:
         playlist_repo: PlaylistRepository,
         feature_repo: FeatureRepository,
         transition_repo: TransitionRepository,
+        prefetch_service: PrefetchService | None = None,
     ) -> None:
         self._sets = set_repo
         self._tracks = track_repo
         self._playlists = playlist_repo
         self._features = feature_repo
         self._transitions = transition_repo
+        self._prefetch = prefetch_service
 
     async def suggest_next_track(
         self,
@@ -69,6 +81,15 @@ class ReasoningService:
         energy_direction: str = "any",
     ) -> dict[str, Any]:
         """Suggest best tracks for a set position, scored against both neighbours.
+
+        Optimised vs. the previous sequential implementation:
+
+        * **Batch track fetch** — candidate ``Track`` rows load in a single
+          ``get_by_ids`` query instead of N per-row ``get_by_id`` awaits.
+        * **Speculative prefetch** — after computing suggestions, triggers a
+          prefetch for the top candidate so the *next* ``suggest_next_track``
+          call (or follow-up ``score_transitions`` / ``build_set``) does not
+          pay for cold feature loads, transition scoring, or L3 analysis.
 
         Parameters
         ----------
@@ -115,13 +136,19 @@ class ReasoningService:
             raise NotFoundError("Set", set_id)
 
         if dj_set.source_playlist_id:
-            pool_ids = await self._playlists.get_track_ids(dj_set.source_playlist_id)
-            pool_ids = [tid for tid in pool_ids if tid not in set_track_ids]
+            pool_ids_raw = await self._playlists.get_track_ids(dj_set.source_playlist_id)
         else:
-            pool_ids = await self._features.get_all_track_ids_with_features()
-            pool_ids = [tid for tid in pool_ids if tid not in set_track_ids]
+            pool_ids_raw = await self._features.get_all_track_ids_with_features()
+        pool_ids = [tid for tid in pool_ids_raw if tid not in set_track_ids]
 
-        features_map = await self._features.get_scoring_features_batch(pool_ids[:100])
+        # Score features for the capped evaluation window. The cap keeps the
+        # tool response bounded; prefetch later warms the rest via top_k.
+        evaluation_window = pool_ids[:_SUGGEST_POOL_LIMIT]
+        features_map = await self._features.get_scoring_features_batch(evaluation_window)
+
+        # Batch-fetch all candidate Track rows in one query (O(1) SQL instead
+        # of one get_by_id per candidate — up to 100x fewer round-trips).
+        tracks_map = await self._tracks.get_by_ids(list(features_map.keys()))
 
         scorer = TransitionScorer()
         current_lufs = current_feat.integrated_lufs
@@ -147,7 +174,7 @@ class ReasoningService:
                 direction=energy_direction,
             )
 
-            track = await self._tracks.get_by_id(tid)
+            track = tracks_map.get(tid)
             candidates.append(
                 {
                     "track_id": tid,
@@ -163,7 +190,30 @@ class ReasoningService:
 
         candidates.sort(key=lambda c: float(str(c["score"])), reverse=True)
 
-        return {
+        # ── Speculative prefetch ────────────────────────
+        # Assume the DJ is most likely to accept the top suggestion. Prepare
+        # the *next* transition now so the follow-up call doesn't pay for
+        # cold feature loads, transition scoring, or L3 audio analysis.
+        prefetch_summary: dict[str, Any] | None = None
+        if self._prefetch is not None and settings.prefetch_on_suggest and candidates:
+            seed_id = int(candidates[0]["track_id"])
+            next_pool = [tid for tid in pool_ids if tid != seed_id]
+            prefetch_result = await self._prefetch.prefetch_after(
+                seed_id,
+                next_pool,
+                top_k=settings.prefetch_top_k,
+                ensure_analysis_level=AnalysisLevel.SCORING,
+            )
+            prefetch_summary = {
+                "seed_track_id": prefetch_result.seed_track_id,
+                "pairs_scored": prefetch_result.pairs_scored,
+                "pairs_cached_hit": prefetch_result.pairs_cached_hit,
+                "hard_rejects": prefetch_result.hard_rejects,
+                "analysis_scheduled": prefetch_result.analysis_scheduled,
+                "top_candidate_ids": prefetch_result.top_candidate_ids,
+            }
+
+        response: dict[str, Any] = {
             "set_id": set_id,
             "after_position": after_position,
             "current_track": current_track.title if current_track else None,
@@ -173,6 +223,9 @@ class ReasoningService:
             "pool_size": len(pool_ids),
             "scored": len(candidates),
         }
+        if prefetch_summary is not None:
+            response["prefetch"] = prefetch_summary
+        return response
 
     async def explain_transition(
         self,
@@ -343,6 +396,9 @@ class ReasoningService:
         pool_ids = [tid for tid in pool_ids if tid not in set_track_ids]
 
         features_map = await self._features.get_scoring_features_batch(pool_ids[:200])
+        # Batch-fetch all candidate Track rows up front instead of N+1
+        # ``get_by_id`` awaits inside the scoring loop.
+        tracks_map = await self._tracks.get_by_ids(list(features_map.keys()))
 
         scorer = TransitionScorer()
         candidates: list[dict[str, Any]] = []
@@ -371,7 +427,7 @@ class ReasoningService:
                 continue
 
             avg = sum(scores) / len(scores)
-            track = await self._tracks.get_by_id(tid)
+            track = tracks_map.get(tid)
             candidates.append(
                 {
                     "track_id": tid,
@@ -406,9 +462,12 @@ class ReasoningService:
             raise NotFoundError("SetVersion", f"set_id={set_id}")
         latest, items = result
 
+        # Batch-fetch all track rows in a single query instead of N get_by_id
+        # round-trips.
+        tracks_map = await self._tracks.get_by_ids([item.track_id for item in items])
         tracks_summary = []
         for item in items:
-            track = await self._tracks.get_by_id(item.track_id)
+            track = tracks_map.get(item.track_id)
             if track:
                 tracks_summary.append(
                     {

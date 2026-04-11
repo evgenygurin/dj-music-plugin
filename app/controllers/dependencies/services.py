@@ -37,6 +37,7 @@ from app.services.embedding_service import EmbeddingService
 from app.services.import_service import ImportService
 from app.services.metadata_service import MetadataService
 from app.services.playlist_service import PlaylistService
+from app.services.prefetch_service import PrefetchService
 from app.services.reasoning_service import ReasoningService
 from app.services.search_service import SearchService
 from app.services.set.facade import SetService
@@ -95,14 +96,36 @@ def get_curation_service(
     return CurationService(track_repo, playlist_repo, set_repo, feature_repo, transition_repo)
 
 
+def get_prefetch_service(
+    feature_repo: FeatureRepository = Depends(get_feature_repo),  # noqa: B008
+    transition_repo: TransitionRepository = Depends(get_transition_repo),  # noqa: B008
+    tiered: TieredPipeline = Depends(get_tiered_pipeline),  # noqa: B008
+) -> PrefetchService:
+    """Get PrefetchService for speculative candidate preparation.
+
+    Shares the same request-scoped DB session as the reasoning / set services
+    so prefetch work commits in the same transaction as the tool call that
+    triggered it.
+    """
+    return PrefetchService(feature_repo, transition_repo, tiered)
+
+
 def get_reasoning_service(
     set_repo: SetRepository = Depends(get_set_repo),  # noqa: B008
     track_repo: TrackRepository = Depends(get_track_repo),  # noqa: B008
     playlist_repo: PlaylistRepository = Depends(get_playlist_repo),  # noqa: B008
     feature_repo: FeatureRepository = Depends(get_feature_repo),  # noqa: B008
     transition_repo: TransitionRepository = Depends(get_transition_repo),  # noqa: B008
+    prefetch_svc: PrefetchService = Depends(get_prefetch_service),  # noqa: B008
 ) -> ReasoningService:
-    return ReasoningService(set_repo, track_repo, playlist_repo, feature_repo, transition_repo)
+    return ReasoningService(
+        set_repo,
+        track_repo,
+        playlist_repo,
+        feature_repo,
+        transition_repo,
+        prefetch_svc,
+    )
 
 
 def get_delivery_service(
