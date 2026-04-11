@@ -2057,22 +2057,44 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
   }, [current, duration, position])
 
   // ── iOS background playback ─────────────────────────────────────
-  // iOS Safari suspends AudioContext when the screen locks or the app
-  // is backgrounded. Resume it when visibility returns so playback
-  // continues seamlessly. Also re-call play() on the active audio
-  // element since iOS may have paused it independently.
+  // iOS Safari kills Web Audio when backgrounded UNLESS there is an
+  // active <audio> element playing. We loop a tiny silent MP3 at
+  // near-zero volume to keep the iOS audio session alive. This makes
+  // iOS treat the page like a music app (shows lock screen controls,
+  // keeps AudioContext running). Also resume ctx on visibility return.
+  const silenceRef = useRef<HTMLAudioElement | null>(null)
   useEffect(() => {
     if (typeof document === 'undefined') return
+    if (!isPlaying) {
+      // Stop silence when not playing
+      if (silenceRef.current) {
+        silenceRef.current.pause()
+      }
+      return
+    }
+    // Start silent keepalive
+    if (!silenceRef.current) {
+      const el = document.createElement('audio')
+      el.src = '/silence.mp3'
+      el.loop = true
+      el.volume = 0.01 // near-silent but nonzero (iOS requires > 0)
+      el.setAttribute('playsinline', 'true')
+      silenceRef.current = el
+    }
+    void silenceRef.current.play().catch(() => undefined)
+
+    // Visibility change: resume AudioContext + re-kick audio on return
     const handler = () => {
       if (document.visibilityState === 'visible') {
         const ctx = ctxRef.current
-        if (ctx && ctx.state === 'suspended') {
-          void ctx.resume()
-        }
-        // Re-kick the active audio element — iOS may have paused it
+        if (ctx && ctx.state === 'suspended') void ctx.resume()
         const active = activeDeckRef.current === 'A' ? deckARef.current : deckBRef.current
         if (active && active.audio.paused && isPlaying) {
           void active.audio.play().catch(() => undefined)
+        }
+        // Re-kick silence keepalive
+        if (silenceRef.current?.paused) {
+          void silenceRef.current.play().catch(() => undefined)
         }
       }
     }
