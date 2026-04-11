@@ -71,15 +71,6 @@ class SetService:
     async def get_version_by_label(self, set_id: int, label: str) -> SetVersion | None:
         return await self._crud.get_version_by_label(set_id, label)
 
-    async def get_two_latest_versions(self, set_id: int) -> list[SetVersion]:
-        return await self._crud.get_two_latest_versions(set_id)
-
-    async def get_version_by_id(self, version_id: int) -> SetVersion | None:
-        return await self._crud.get_version_by_id(version_id)
-
-    async def get_version_track_ids(self, version_id: int) -> list[int]:
-        return await self._crud.get_version_track_ids(version_id)
-
     # ── Write — delegated to _crud ────────────────────
 
     async def create(

@@ -31,12 +31,3 @@ class TrackAffinityService:
 
     async def get_recommendations(self, track_id: int, limit: int = 10) -> list[dict[str, Any]]:
         return await self._repo.get_recommendations(track_id, limit)
-
-    async def get_affinity_bonus(self, track_a: int, track_b: int) -> float:
-        """Return scoring bonus based on affinity. 0 if no data."""
-        row = await self._repo.get_pair(track_a, track_b)
-        if row is None:
-            return 0.0
-        if row.ban_count > 0:
-            return -1.0  # hard reject signal
-        return row.net_sentiment * 0.1  # max ~0.1 bonus
