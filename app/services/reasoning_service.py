@@ -139,7 +139,18 @@ class ReasoningService:
             pool_ids_raw = await self._playlists.get_track_ids(dj_set.source_playlist_id)
         else:
             pool_ids_raw = await self._features.get_all_track_ids_with_features()
-        pool_ids = [tid for tid in pool_ids_raw if tid not in set_track_ids]
+        # Exclude banned tracks (Phase 3 AI intelligence)
+        banned_ids: set[int] = set()
+        try:
+            from app.db.repositories.track_feedback import TrackFeedbackRepository
+
+            feedback_repo = TrackFeedbackRepository(self._tracks.session)
+            banned_ids = set(await feedback_repo.get_banned_ids())
+        except Exception:
+            pass  # Feedback is non-critical
+        pool_ids = [
+            tid for tid in pool_ids_raw if tid not in set_track_ids and tid not in banned_ids
+        ]
 
         # Score features for the capped evaluation window. The cap keeps the
         # tool response bounded; prefetch later warms the rest via top_k.
