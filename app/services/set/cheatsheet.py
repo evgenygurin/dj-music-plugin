@@ -70,9 +70,11 @@ class SetCheatSheetService:
             raise NotFoundError("SetVersion", f"set_id={set_id}")
         latest, items = result
 
-        # Batch-load features for all tracks
+        # Batch-load features AND track rows for all items in one round-trip
+        # each — previously this loop issued one get_by_id per track (N+1).
         track_ids = [item.track_id for item in items]
         features_map = await self._features.get_scoring_features_batch(track_ids)
+        tracks_map = await self._tracks.get_by_ids(track_ids)
 
         lines = [
             f"=== {dj_set.name} ===",
@@ -85,7 +87,7 @@ class SetCheatSheetService:
         prev_item = None
         prev_feat = None
         for i, item in enumerate(items, 1):
-            track = await self._tracks.get_by_id(item.track_id)
+            track = tracks_map.get(item.track_id)
             if not track:
                 continue
 
