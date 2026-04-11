@@ -16,6 +16,7 @@ import {
 
 import { loadDjQueue } from '@/actions/library-actions'
 import { setEq, resetEq, setFilter } from '@/actions/mixer-actions'
+import { likeTrack, banTrack } from '@/actions/track-feedback-actions'
 import { useAudioPlayer } from '@/components/audio-player/audio-player-context'
 import type { PlayerTrackMeta } from '@/components/audio-player/audio-player-types'
 import { TrackWaveform } from '@/components/player/track-waveform'
@@ -296,6 +297,18 @@ function PlayingScreen({ audio }: { audio: ReturnType<typeof useAudioPlayer> }) 
         {panel === 'mix' && <NeuralMixPanel />}
         {panel === 'pads' && <CuePadsPanel position={position} onSeek={s => audio.seek(s)} />}
         {panel === 'fx' && <FxPanel />}
+      </div>
+
+      {/* ══ LIKE / BAN ══ */}
+      <div className="flex items-center justify-center gap-3 py-1 border-t border-foreground/[0.04]">
+        <button type="button" onClick={() => void banTrack(current.id)}
+          className="dj-data text-[8px] text-muted-foreground/15 active:text-red-400/50 px-2.5 py-0.5 rounded border border-foreground/[0.04]">
+          BAN
+        </button>
+        <button type="button" onClick={() => void likeTrack(current.id)}
+          className="dj-data text-[8px] text-muted-foreground/15 active:text-green-400/50 px-2.5 py-0.5 rounded border border-foreground/[0.04]">
+          LIKE
+        </button>
       </div>
 
       {/* ══ BOTTOM BAR ══ */}
