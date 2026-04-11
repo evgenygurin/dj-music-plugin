@@ -22,12 +22,6 @@ function toMeta(row: TrackRow): PlayerTrackMeta {
   }
 }
 
-/**
- * Layer 0 — compact "start a mix" prompt. Shown when nothing is loaded
- * and the interaction level is 0. Pressing the CTA calls
- * `pickDefaultFirstTrack()` and starts the audio player, then promotes
- * the layer to 1 (mini bar).
- */
 export function PlayerHero() {
   const player = usePlayer()
   const [dismissed, setDismissed] = useState(false)
@@ -53,40 +47,64 @@ export function PlayerHero() {
 
   return (
     <div
-      className="fixed inset-x-4 bottom-24 z-30 sm:bottom-28 sm:left-auto sm:right-6 sm:max-w-sm"
+      className="fixed inset-x-4 bottom-24 z-30 md:bottom-28 md:left-auto md:right-6 md:max-w-sm"
       role="region"
       aria-label="Start playback"
     >
-      <div className="relative overflow-hidden rounded-3xl border border-border/80 bg-background/90 p-5 shadow-2xl backdrop-blur-xl">
-        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-cyan-400/90 via-fuchsia-400/45 to-transparent" />
+      <div className="glass relative overflow-hidden rounded-2xl p-6 shadow-2xl">
+        {/* Top accent line */}
+        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-foreground/20 via-foreground/5 to-transparent" />
+
+        {/* Animated waveform decoration */}
+        <div className="absolute inset-0 overflow-hidden opacity-[0.04] pointer-events-none">
+          <svg viewBox="0 0 400 120" className="w-full h-full" preserveAspectRatio="none">
+            <path
+              d="M0,60 Q50,20 100,60 T200,60 T300,60 T400,60"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              className="text-primary"
+            />
+            <path
+              d="M0,60 Q50,90 100,60 T200,60 T300,60 T400,60"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              className="text-primary/60"
+            />
+          </svg>
+        </div>
+
         <button
           type="button"
           onClick={() => setDismissed(true)}
           aria-label="Dismiss"
-          className="absolute right-4 top-4 rounded-md p-2 text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground"
+          className="absolute right-4 top-4 rounded-lg p-2 text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground"
         >
           <X className="size-4" />
         </button>
-        <div className="space-y-4">
-          <div className="space-y-1 pr-10">
-            <p className="text-[11px] font-medium uppercase tracking-[0.24em] text-muted-foreground">
-              Session Preview
+
+        <div className="relative space-y-5">
+          <div className="space-y-2 pr-10">
+            <p className="dj-data text-[10px] uppercase tracking-[0.3em] text-foreground/40">
+              Session
             </p>
-            <h2 className="text-xl font-semibold tracking-tight text-balance">
-              Start a Mix Without Leaving the Dashboard
+            <h2 className="display-heading text-2xl text-foreground">
+              Start a Mix
             </h2>
-            <p className="text-sm text-muted-foreground">
-              Pick a strong opening track from the analyzed library and drop into the player instantly.
+            <p className="text-sm leading-relaxed text-muted-foreground">
+              Auto-select a strong opener from the analyzed library and drop straight into the player.
             </p>
           </div>
+
           <Button
-            className="w-full justify-center gap-2"
+            className="w-full justify-center gap-2.5 h-12 rounded-xl text-sm font-medium"
             onClick={handleStart}
             disabled={loading}
             aria-label="Start playback"
           >
             <Play className="size-4 fill-current" />
-            {loading ? 'Finding a Starting Track…' : 'Start a Preview Mix'}
+            {loading ? 'Finding a Track…' : 'Begin Session'}
           </Button>
         </div>
       </div>

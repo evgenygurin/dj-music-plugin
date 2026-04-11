@@ -28,12 +28,12 @@ export function ToolActionCard({
   buttonLabel,
 }: ToolActionCardProps) {
   return (
-    <Card>
+    <Card className="shadow-none border-border/20 bg-card/50">
       <CardHeader>
-        <CardTitle className="text-sm font-medium">{title}</CardTitle>
+        <CardTitle className="display-heading text-lg">{title}</CardTitle>
         <CardDescription>{description}</CardDescription>
       </CardHeader>
-      <CardContent>
+      <CardContent className="[&_button]:w-full sm:[&_button]:w-auto">
         <ToolDialogButton
           toolName={toolName}
           schema={schema}

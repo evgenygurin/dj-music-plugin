@@ -22,12 +22,12 @@ interface SiteHeaderProps {
 
 export function SiteHeader({ title, parent }: SiteHeaderProps) {
   return (
-    <header className="flex h-(--header-height) shrink-0 items-center gap-2 border-b transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-(--header-height)">
-      <div className="flex w-full items-center gap-1 px-4 lg:gap-2 lg:px-6">
-        <SidebarTrigger className="-ml-1" />
+    <header className="safe-top sticky top-0 z-30 flex h-(--header-height) shrink-0 items-center gap-2 border-b border-border/40 bg-background/70 backdrop-blur-md transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-(--header-height)">
+      <div className="flex w-full items-center gap-1 px-3 md:px-4 lg:gap-2 lg:px-6">
+        <SidebarTrigger className="-ml-1 hidden md:inline-flex" />
         <Separator
           orientation="vertical"
-          className="mx-2 data-[orientation=vertical]:h-4"
+          className="mx-2 hidden md:block data-[orientation=vertical]:h-4"
         />
         <Breadcrumb>
           <BreadcrumbList>
@@ -54,12 +54,12 @@ export function SiteHeader({ title, parent }: SiteHeaderProps) {
           <Button
             variant="outline"
             size="sm"
-            className="gap-2 text-muted-foreground"
+            className="gap-2 rounded-full border-border/30 bg-card/80 px-3 text-muted-foreground"
             onClick={() => window.dispatchEvent(new Event(OPEN_COMMAND_PALETTE_EVENT))}
             aria-label="Open Command Palette"
           >
             <IconSearch className="h-4 w-4" />
-            <span className="hidden md:inline">Search…</span>
+            <span className="hidden sm:inline">Search…</span>
             <kbd className="pointer-events-none hidden h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium opacity-100 md:inline-flex">
               <span className="text-xs">⌘</span>K
             </kbd>

@@ -60,16 +60,20 @@ export default async function DashboardPage() {
   return (
     <PageShell title="Dashboard">
       <PageHeader
-        title="Library Command Center"
-        description="Track analysis coverage, curation signals, and mix-readiness in one view."
-        badge={<Badge variant="secondary">{coveragePct}% analyzed</Badge>}
+        title="Command Center"
+        description="Analysis coverage, curation signals, and mix-readiness."
+        badge={
+          <Badge variant="secondary" className="dj-data text-[10px]">
+            {coveragePct}% analyzed
+          </Badge>
+        }
         actions={
           <>
-            <Link href="/discover" className={buttonVariants({ variant: 'outline' })}>
-              Discover Tracks
+            <Link href="/discover" className={buttonVariants({ variant: 'outline', className: 'rounded-xl border-border/30' })}>
+              Discover
             </Link>
-            <Link href="/library" className={buttonVariants()}>
-              Open Library
+            <Link href="/library" className={buttonVariants({ className: 'rounded-xl' })}>
+              Library
             </Link>
           </>
         }
@@ -77,11 +81,11 @@ export default async function DashboardPage() {
 
       <SectionCards stats={stats} />
 
-      {/* BPM Distribution — full width */}
-      <Card className="shadow-none">
+      {/* BPM — full width */}
+      <Card className="shadow-none border-border/20 bg-card/50">
         <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-medium">BPM Distribution</CardTitle>
-          <CardDescription>Tempo spread across your library</CardDescription>
+          <CardTitle className="display-heading text-lg">BPM Distribution</CardTitle>
+          <CardDescription className="text-xs text-muted-foreground/60">Tempo spread across the library</CardDescription>
         </CardHeader>
         <CardContent>
           <BpmDistributionChart data={bpmData} />
@@ -90,20 +94,20 @@ export default async function DashboardPage() {
 
       {/* Mood + Camelot */}
       <div className="grid gap-4 md:grid-cols-2">
-        <Card className="shadow-none">
+        <Card className="shadow-none border-border/20 bg-card/50">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Mood Distribution</CardTitle>
-            <CardDescription>Subgenre classification breakdown</CardDescription>
+            <CardTitle className="display-heading text-lg">Mood</CardTitle>
+            <CardDescription className="text-xs text-muted-foreground/60">Subgenre classification</CardDescription>
           </CardHeader>
           <CardContent>
             <MoodDistributionChart data={moodData} />
           </CardContent>
         </Card>
 
-        <Card className="shadow-none">
+        <Card className="shadow-none border-border/20 bg-card/50">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Key Distribution</CardTitle>
-            <CardDescription>Camelot wheel — harmonic mixing</CardDescription>
+            <CardTitle className="display-heading text-lg">Camelot</CardTitle>
+            <CardDescription className="text-xs text-muted-foreground/60">Harmonic mixing wheel</CardDescription>
           </CardHeader>
           <CardContent>
             <CamelotWheelChart data={keyData} />
@@ -113,31 +117,29 @@ export default async function DashboardPage() {
 
       {/* LUFS + Coverage */}
       <div className="grid gap-4 md:grid-cols-2">
-        <Card className="shadow-none">
+        <Card className="shadow-none border-border/20 bg-card/50">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">LUFS Distribution</CardTitle>
-            <CardDescription>Loudness levels of analyzed tracks</CardDescription>
+            <CardTitle className="display-heading text-lg">Loudness</CardTitle>
+            <CardDescription className="text-xs text-muted-foreground/60">LUFS distribution</CardDescription>
           </CardHeader>
           <CardContent>
             <LufsRangeChart data={lufsData} />
           </CardContent>
         </Card>
 
-        <Card className="shadow-none">
+        <Card className="shadow-none border-border/20 bg-card/50">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Analysis Coverage</CardTitle>
-            <CardDescription>
+            <CardTitle className="display-heading text-lg">Analysis</CardTitle>
+            <CardDescription className="text-xs text-muted-foreground/60">
               {totalAnalyzed > 0
-                ? `${totalAnalyzed.toLocaleString()} tracks with audio features`
+                ? `${totalAnalyzed.toLocaleString()} tracks with features`
                 : 'No tracks analyzed yet'}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             {coverageData.length === 0 ? (
-              <p className="text-sm text-muted-foreground">
-                Run{' '}
-                <code className="rounded bg-muted px-1 py-0.5 text-xs">classify_mood</code>{' '}
-                to start analyzing your library.
+              <p className="text-sm text-muted-foreground/60">
+                Run <code className="rounded bg-muted/30 px-1.5 py-0.5 dj-data text-[11px]">classify_mood</code> to start.
               </p>
             ) : (
               coverageData.map((item) => {
@@ -147,12 +149,12 @@ export default async function DashboardPage() {
                 return (
                   <div key={item.level} className="space-y-1.5">
                     <div className="flex justify-between text-xs">
-                      <span className="text-muted-foreground">{label}</span>
-                      <span className="tabular-nums text-muted-foreground">
+                      <span className="text-muted-foreground/70">{label}</span>
+                      <span className="dj-data text-muted-foreground/50">
                         {item.count.toLocaleString()} ({pct}%)
                       </span>
                     </div>
-                    <Progress value={pct} className="h-1.5" />
+                    <Progress value={pct} className="h-1" />
                   </div>
                 )
               })
@@ -163,30 +165,30 @@ export default async function DashboardPage() {
 
       {/* Danceability + HP Ratio + Phrase */}
       <div className="grid gap-4 md:grid-cols-3">
-        <Card className="shadow-none">
+        <Card className="shadow-none border-border/20 bg-card/50">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Danceability</CardTitle>
-            <CardDescription>Rhythmic danceability score</CardDescription>
+            <CardTitle className="display-heading text-lg">Danceability</CardTitle>
+            <CardDescription className="text-xs text-muted-foreground/60">Rhythmic score</CardDescription>
           </CardHeader>
           <CardContent>
             <DanceabilityDistributionChart data={danceabilityData} />
           </CardContent>
         </Card>
 
-        <Card className="shadow-none">
+        <Card className="shadow-none border-border/20 bg-card/50">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">HP Ratio</CardTitle>
-            <CardDescription>Harmonic-to-percussive ratio</CardDescription>
+            <CardTitle className="display-heading text-lg">HP Ratio</CardTitle>
+            <CardDescription className="text-xs text-muted-foreground/60">Harmonic vs percussive</CardDescription>
           </CardHeader>
           <CardContent>
             <HpRatioDistributionChart data={hpRatioData} />
           </CardContent>
         </Card>
 
-        <Card className="shadow-none">
+        <Card className="shadow-none border-border/20 bg-card/50">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Phrase Length</CardTitle>
-            <CardDescription>Dominant phrase length in bars</CardDescription>
+            <CardTitle className="display-heading text-lg">Phrases</CardTitle>
+            <CardDescription className="text-xs text-muted-foreground/60">Dominant phrase length</CardDescription>
           </CardHeader>
           <CardContent>
             <PhraseDistributionChart data={phraseData} />
@@ -195,28 +197,28 @@ export default async function DashboardPage() {
       </div>
 
       {/* Quality flags */}
-      <Card className="shadow-none">
+      <Card className="shadow-none border-border/20 bg-card/50">
         <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-medium">Quality Flags</CardTitle>
-          <CardDescription>Tracks with notable audio characteristics</CardDescription>
+          <CardTitle className="display-heading text-lg">Quality Flags</CardTitle>
+          <CardDescription className="text-xs text-muted-foreground/60">Notable audio characteristics</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="grid gap-4 sm:grid-cols-3">
-            <div className="space-y-0.5">
-              <p className="text-sm text-muted-foreground">Variable Tempo</p>
-              <p className="text-2xl font-semibold tabular-nums">
+          <div className="grid gap-6 sm:grid-cols-3">
+            <div className="space-y-1">
+              <p className="text-xs text-muted-foreground/60 uppercase tracking-wider">Variable Tempo</p>
+              <p className="display-heading text-3xl text-foreground">
                 {qualityFlags.variable_tempo_count.toLocaleString()}
               </p>
             </div>
-            <div className="space-y-0.5">
-              <p className="text-sm text-muted-foreground">Atonal</p>
-              <p className="text-2xl font-semibold tabular-nums">
+            <div className="space-y-1">
+              <p className="text-xs text-muted-foreground/60 uppercase tracking-wider">Atonal</p>
+              <p className="display-heading text-3xl text-foreground">
                 {qualityFlags.atonality_count.toLocaleString()}
               </p>
             </div>
-            <div className="space-y-0.5">
-              <p className="text-sm text-muted-foreground">Avg BPM Confidence</p>
-              <p className="text-2xl font-semibold tabular-nums">
+            <div className="space-y-1">
+              <p className="text-xs text-muted-foreground/60 uppercase tracking-wider">Avg BPM Confidence</p>
+              <p className="display-heading text-3xl text-foreground">
                 {(qualityFlags.avg_bpm_confidence * 100).toFixed(1)}%
               </p>
             </div>

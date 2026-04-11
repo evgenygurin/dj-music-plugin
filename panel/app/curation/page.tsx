@@ -6,7 +6,7 @@ export const dynamic = 'force-dynamic'
 
 function SectionTitle({ children }: { children: React.ReactNode }) {
   return (
-    <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
+    <h2 className="text-[10px] uppercase tracking-wider text-muted-foreground/50">
       {children}
     </h2>
   )

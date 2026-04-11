@@ -65,17 +65,17 @@ export default async function ToolsPage() {
         sortedTags.map((tag) => (
           <div key={tag} className="grid gap-3">
             <div className="flex items-center gap-2">
-              <h2 className="text-sm font-medium capitalize">{tag}</h2>
-              <Badge variant="secondary" className="text-xs">
+              <h2 className="text-[10px] uppercase tracking-wider text-muted-foreground/50 capitalize">{tag}</h2>
+              <span className="dj-data text-muted-foreground/50">
                 {grouped[tag].length}
-              </Badge>
+              </span>
             </div>
             <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
               {grouped[tag].map((tool) => (
                 <Link key={tool.name} href={`/tools/${tool.name}`}>
-                  <Card className="hover:bg-accent/50 transition-colors cursor-pointer h-full">
+                  <Card className="shadow-none border-border/20 bg-card/50 hover:bg-accent/50 transition-colors cursor-pointer h-full">
                     <CardHeader className="pb-2">
-                      <CardTitle className="text-sm font-mono">{tool.name}</CardTitle>
+                      <CardTitle className="text-sm font-mono text-foreground">{tool.name}</CardTitle>
                     </CardHeader>
                     <CardContent>
                       <p className="text-xs text-muted-foreground line-clamp-2">

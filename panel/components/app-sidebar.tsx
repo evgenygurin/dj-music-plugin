@@ -14,7 +14,6 @@ import {
   IconPackageExport,
   IconTerminal2,
   IconSettings,
-  IconCommand,
   IconDisc,
 } from '@tabler/icons-react'
 
@@ -63,7 +62,9 @@ function NavGroup({
 }) {
   return (
     <SidebarGroup>
-      <SidebarGroupLabel>{label}</SidebarGroupLabel>
+      <SidebarGroupLabel className="dj-data text-[9px] uppercase tracking-[0.25em] text-muted-foreground/40">
+        {label}
+      </SidebarGroupLabel>
       <SidebarGroupContent>
         <SidebarMenu>
           {items.map((item) => (
@@ -100,22 +101,24 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
               size="lg"
               render={<Link href="/" />}
             >
-              <div className="flex flex-1 items-center justify-between">
-                <span className="font-semibold text-sm">DJ Music</span>
-                <IconCommand className="size-4 text-muted-foreground" />
+              <div className="flex flex-1 items-center gap-2">
+                <div className="grid size-7 place-items-center rounded-lg bg-foreground/5">
+                  <IconDisc className="size-4 text-foreground/70" />
+                </div>
+                <span className="display-heading text-base text-foreground">DJ Music</span>
               </div>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarHeader>
       <SidebarContent>
-        <NavGroup label="MAIN" items={mainItems} pathname={pathname} />
-        <NavGroup label="TOOLS" items={toolsItems} pathname={pathname} />
-        <NavGroup label="SYSTEM" items={systemItems} pathname={pathname} />
+        <NavGroup label="Main" items={mainItems} pathname={pathname} />
+        <NavGroup label="Tools" items={toolsItems} pathname={pathname} />
+        <NavGroup label="System" items={systemItems} pathname={pathname} />
       </SidebarContent>
       <SidebarFooter>
         <div className="px-3 py-2">
-          <p className="text-xs text-muted-foreground">v0.5.0</p>
+          <p className="dj-data text-[10px] text-muted-foreground/30">v0.7.0</p>
         </div>
       </SidebarFooter>
       <SidebarRail />

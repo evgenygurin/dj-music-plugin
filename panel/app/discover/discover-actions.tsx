@@ -22,15 +22,15 @@ export function DiscoverActions({
   expandSchema,
 }: DiscoverActionsProps) {
   return (
-    <Card>
+    <Card className="shadow-none border-border/20 bg-card/50">
       <CardHeader>
-        <CardTitle className="text-sm font-medium">Quick Actions</CardTitle>
+        <CardTitle className="display-heading text-lg">Quick Actions</CardTitle>
         <CardDescription>
           Import tracks, download audio, find similar tracks, or expand a playlist.
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <div className="flex flex-wrap gap-2">
+        <div className="grid gap-2 sm:grid-cols-2 [&_button]:w-full">
           <ToolDialogButton toolName="import_tracks" schema={importSchema} label="Import Tracks" />
           <ToolDialogButton toolName="download_tracks" schema={downloadSchema} label="Download Tracks" />
           <ToolDialogButton toolName="find_similar_tracks" schema={similarSchema} label="Find Similar" />

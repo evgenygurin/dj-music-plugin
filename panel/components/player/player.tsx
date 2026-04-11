@@ -1,10 +1,11 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { usePathname } from 'next/navigation'
 import { IconAlertTriangle, IconRefresh, IconX } from '@tabler/icons-react'
 
 import { useAudioPlayer } from '@/components/audio-player/audio-player-context'
+import { useIsMobile } from '@/hooks/use-mobile'
 import { ControlPanel } from './control-panel'
 import { MediumPlayerBar } from './medium-player-bar'
 import { MiniPlayerBar } from './mini-player-bar'
@@ -17,13 +18,44 @@ import { usePlayer } from './player-provider'
 export function Player() {
   const pathname = usePathname()
   const player = usePlayer()
+  const isMobile = useIsMobile()
+  const autoExpandedLibraryRef = useRef(false)
   const [controlPanelOpen, setControlPanelOpen] = useState(false)
   const [drawerOpen, setDrawerOpen] = useState(false)
+  const isPlayerRoute = pathname === '/player'
+
+  const isLibraryRoute = pathname.startsWith('/library')
+  const currentTrack = player.audio.current
+  const playerLayer = player.layer
+  const jumpToLayer = player.jumpToLayer
+
+  useEffect(() => {
+    if (isPlayerRoute) {
+      autoExpandedLibraryRef.current = false
+      return
+    }
+    if (!isLibraryRoute) {
+      autoExpandedLibraryRef.current = false
+      return
+    }
+    if (!isMobile || !currentTrack) {
+      if (!currentTrack) autoExpandedLibraryRef.current = false
+      return
+    }
+    if (playerLayer >= 2) {
+      autoExpandedLibraryRef.current = true
+      return
+    }
+    if (playerLayer === 1 && !autoExpandedLibraryRef.current) {
+      autoExpandedLibraryRef.current = true
+      jumpToLayer(2)
+    }
+  }, [currentTrack, isLibraryRoute, isMobile, isPlayerRoute, jumpToLayer, playerLayer])
 
   // Hide the global player on /player — that route renders its own
   // <DjPlayer> as the primary transport and doesn't need the fixed
   // mini/medium bars stacking on top.
-  if (pathname === '/player') return null
+  if (isPlayerRoute) return null
 
   const error = player.audio.error
 
@@ -102,4 +134,3 @@ function PlayerErrorBanner({ message }: { message: string }) {
     </div>
   )
 }
-
