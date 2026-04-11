@@ -10,8 +10,9 @@ from app.db.models.set import DjSet, SetVersion
 from app.db.repositories.feature import FeatureRepository
 from app.db.repositories.playlist import PlaylistRepository
 from app.db.repositories.set import SetRepository
-from app.services.templates import get_template
-from app.services.transition import TrackFeatures, TransitionScorer
+from app.entities.audio.features import TrackFeatures
+from app.templates.registry import get_template
+from app.transition.scorer import TransitionScorer
 
 
 class SetBuilderService:
@@ -192,7 +193,8 @@ class SetBuilderService:
         template_name: str | None = None,
     ) -> tuple[list[int], float | None, str]:
         """Run optimizer and return (ordered_ids, quality_score, algorithm_used)."""
-        from app.services.optimizer import GeneticAlgorithm, GreedyChainBuilder
+        from app.optimization.genetic import GeneticAlgorithm
+        from app.optimization.greedy import GreedyChainBuilder
 
         scorer = TransitionScorer()
         has_features = any(f.bpm is not None for f in track_features_list)

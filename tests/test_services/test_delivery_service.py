@@ -16,8 +16,8 @@ from app.db.repositories.feature import FeatureRepository
 from app.db.repositories.set import SetRepository
 from app.db.repositories.track import TrackRepository
 from app.db.repositories.transition import TransitionRepository
+from app.export.models import ExportTrack, SetExportData
 from app.services.delivery_service import DeliveryService
-from app.services.export import ExportTrack, SetExportData
 
 
 def _make_delivery_service(db: AsyncSession) -> DeliveryService:
