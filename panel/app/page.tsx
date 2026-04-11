@@ -10,6 +10,7 @@ import {
 } from '@tabler/icons-react'
 
 import { loadDjQueue } from '@/actions/library-actions'
+import { recordTrackFeedback } from '@/actions/feedback-actions'
 import { setEq, killEq, resetEq, setFilter } from '@/actions/mixer-actions'
 import { useAudioPlayer } from '@/components/audio-player/audio-player-context'
 import type { PlayerTrackMeta } from '@/components/audio-player/audio-player-types'
@@ -106,8 +107,8 @@ function EqStrip() {
 }
 
 /* ══════ PLAYING — djay Pro style ══════ */
-function PlayingScreen({ audio, count, elapsed }: {
-  audio: ReturnType<typeof useAudioPlayer>; count: number; elapsed: number
+function PlayingScreen({ audio, count, elapsed, history }: {
+  audio: ReturnType<typeof useAudioPlayer>; count: number; elapsed: number; history: PlayerTrackMeta[]
 }) {
   const { current, isPlaying, isLoading, position, duration, nextUp, outgoing, isCrossfading,
     lastResolvedStyle, recommendedStyle, volume, crossfadeBars, masterTempoBpm } = audio
@@ -179,6 +180,35 @@ function PlayingScreen({ audio, count, elapsed }: {
         </div>
       </div>
 
+      {/* ── ENERGY DIRECTION ── */}
+      <div className="px-3 py-1 flex items-center justify-center gap-3 border-t border-foreground/[0.03]">
+        <button type="button"
+          onClick={() => audio.nudgeMasterTempoBpm(-1)}
+          className="dj-data text-[8px] text-muted-foreground/12 active:text-foreground/40 px-2.5 py-0.5 rounded-full border border-foreground/[0.03] active:border-foreground/10 transition-colors"
+          aria-label="Softer">↓ SOFTER</button>
+        <span className="dj-data text-[8px] text-muted-foreground/8">energy</span>
+        <button type="button"
+          onClick={() => audio.nudgeMasterTempoBpm(1)}
+          className="dj-data text-[8px] text-muted-foreground/12 active:text-foreground/40 px-2.5 py-0.5 rounded-full border border-foreground/[0.03] active:border-foreground/10 transition-colors"
+          aria-label="Harder">HARDER ↑</button>
+      </div>
+
+      {/* ── LIKE / BAN ── */}
+      <div className="px-3 py-1 flex items-center justify-center gap-4 border-t border-foreground/[0.03]">
+        <button type="button"
+          onClick={() => void recordTrackFeedback(current.id, 'ban')}
+          className="dj-data text-[9px] text-muted-foreground/15 active:text-red-400/60 px-3 py-1 rounded-full border border-foreground/[0.04] active:border-red-400/30 transition-colors"
+          aria-label="Ban track">
+          👎 BAN
+        </button>
+        <button type="button"
+          onClick={() => void recordTrackFeedback(current.id, 'like')}
+          className="dj-data text-[9px] text-muted-foreground/15 active:text-green-400/60 px-3 py-1 rounded-full border border-foreground/[0.04] active:border-green-400/30 transition-colors"
+          aria-label="Like track">
+          ❤️ LIKE
+        </button>
+      </div>
+
       {/* ── EQ ── */}
       <EqStrip />
 
@@ -240,6 +270,22 @@ function PlayingScreen({ audio, count, elapsed }: {
         </div>
       </div>
 
+      {/* ── HISTORY ── */}
+      {history.length > 0 && (
+        <div className="px-3 py-1 border-t border-foreground/[0.03] max-h-20 overflow-y-auto">
+          <span className="dj-data text-[7px] uppercase tracking-[0.2em] text-muted-foreground/10">History</span>
+          <div className="mt-0.5 space-y-px">
+            {history.slice(0, 5).map((t, i) => (
+              <div key={t.id} className="flex items-center gap-2 py-0.5">
+                <span className="dj-data text-[8px] text-muted-foreground/8 w-3">{i + 1}</span>
+                <span className="text-[10px] text-muted-foreground/20 truncate flex-1">{t.title}</span>
+                {t.bpm && <span className="dj-data text-[8px] text-muted-foreground/10">{t.bpm.toFixed(0)}</span>}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Crossfade pulse */}
       {isCrossfading && (
         <div className="absolute top-0 left-0 right-0 h-0.5 bg-foreground/10 animate-pulse" />
@@ -256,11 +302,15 @@ export default function PlayerPage() {
   const [count, setCount] = useState(0)
   const [start, setStart] = useState<number | null>(null)
   const [elapsed, setElapsed] = useState(0)
+  const [history, setHistory] = useState<PlayerTrackMeta[]>([])
   const lastRef = useRef<number | null>(null)
   const { current, isLoading, outgoing } = audio
 
   if (current && current.id !== lastRef.current) {
-    if (lastRef.current !== null) setCount(n => n + 1)
+    if (lastRef.current !== null) {
+      setCount(n => n + 1)
+      if (outgoing) setHistory(h => [outgoing, ...h].slice(0, 20))
+    }
     lastRef.current = current.id
   }
 
@@ -285,7 +335,7 @@ export default function PlayerPage() {
       {!current && !isLoading ? (
         <IdleScreen onStart={handleStart} loading={isLoading} />
       ) : (
-        <PlayingScreen audio={audio} count={count} elapsed={elapsed} />
+        <PlayingScreen audio={audio} count={count} elapsed={elapsed} history={history} />
       )}
     </div>
   )
