@@ -30,6 +30,7 @@ from app.db.models.playlist import Playlist, PlaylistItem  # noqa: F401
 from app.db.models.set import DjSet, SetConstraint, SetFeedback, SetItem, SetVersion  # noqa: F401
 from app.db.models.track import Track  # noqa: F401
 from app.db.models.transition import Transition, TransitionCandidate  # noqa: F401
+from app.db.models.transition_history import TransitionHistory  # noqa: F401
 
 
 def _set_sqlite_pragma(dbapi_conn, _connection_record):
