@@ -23,6 +23,7 @@ export function Player() {
   const [controlPanelOpen, setControlPanelOpen] = useState(false)
   const [drawerOpen, setDrawerOpen] = useState(false)
   const isPlayerRoute = pathname === '/player'
+  const isHomeRoute = pathname === '/'
 
   const isLibraryRoute = pathname.startsWith('/library')
   const currentTrack = player.audio.current
@@ -55,7 +56,7 @@ export function Player() {
   // Hide the global player on /player — that route renders its own
   // <DjPlayer> as the primary transport and doesn't need the fixed
   // mini/medium bars stacking on top.
-  if (isPlayerRoute) return null
+  if (isPlayerRoute || isHomeRoute) return null
 
   const error = player.audio.error
 
