@@ -1,60 +1,53 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import WaveSurfer from 'wavesurfer.js'
 import RegionsPlugin from 'wavesurfer.js/dist/plugins/regions.esm.js'
+import MinimapPlugin from 'wavesurfer.js/dist/plugins/minimap.esm.js'
+import TimelinePlugin from 'wavesurfer.js/dist/plugins/timeline.esm.js'
 
 import { fetchTrackMixMeta } from '@/actions/mix-meta-actions'
 import type { TrackSection } from '@/lib/queries/mix-meta'
 import { cn } from '@/lib/utils'
 
-/**
- * 12-color palette for SectionType (must match `app/core/constants.py`):
- *   0 INTRO, 1 ATTACK, 2 BUILD, 3 PRE_DROP, 4 DROP, 5 PEAK,
- *   6 BREAKDOWN, 7 OUTRO, 8 RISE, 9 VALLEY, 10 SUSTAIN, 11 AMBIENT
- *
- * Hues are picked so adjacent low/high-energy sections are visually distinct
- * and the palette stays inside the panel's cyberpunk neon vocabulary.
- */
 const SECTION_COLORS: Record<number, string> = {
-  0: 'rgba(56, 189, 248, 0.18)', // INTRO — cyan
-  1: 'rgba(250, 204, 21, 0.20)', // ATTACK — yellow
-  2: 'rgba(251, 146, 60, 0.20)', // BUILD — orange
-  3: 'rgba(244, 114, 182, 0.22)', // PRE_DROP — pink
-  4: 'rgba(232, 121, 249, 0.30)', // DROP — magenta
-  5: 'rgba(217, 70, 239, 0.28)', // PEAK — bright magenta
-  6: 'rgba(99, 102, 241, 0.20)', // BREAKDOWN — indigo
-  7: 'rgba(45, 212, 191, 0.20)', // OUTRO — teal
-  8: 'rgba(253, 186, 116, 0.20)', // RISE — soft orange
-  9: 'rgba(148, 163, 184, 0.18)', // VALLEY — slate
-  10: 'rgba(132, 204, 22, 0.18)', // SUSTAIN — lime
-  11: 'rgba(165, 180, 252, 0.16)', // AMBIENT — soft indigo
+  0: 'rgba(56, 189, 248, 0.18)',
+  1: 'rgba(250, 204, 21, 0.20)',
+  2: 'rgba(251, 146, 60, 0.20)',
+  3: 'rgba(244, 114, 182, 0.22)',
+  4: 'rgba(232, 121, 249, 0.30)',
+  5: 'rgba(217, 70, 239, 0.28)',
+  6: 'rgba(99, 102, 241, 0.20)',
+  7: 'rgba(45, 212, 191, 0.20)',
+  8: 'rgba(253, 186, 116, 0.20)',
+  9: 'rgba(148, 163, 184, 0.18)',
+  10: 'rgba(132, 204, 22, 0.18)',
+  11: 'rgba(165, 180, 252, 0.16)',
 }
 
 const SECTION_LABELS: Record<number, string> = {
-  0: 'intro',
-  1: 'attack',
-  2: 'build',
-  3: 'pre-drop',
-  4: 'drop',
-  5: 'peak',
-  6: 'breakdown',
-  7: 'outro',
-  8: 'rise',
-  9: 'valley',
-  10: 'sustain',
-  11: 'ambient',
+  0: 'intro', 1: 'attack', 2: 'build', 3: 'pre-drop',
+  4: 'drop', 5: 'peak', 6: 'breakdown', 7: 'outro',
+  8: 'rise', 9: 'valley', 10: 'sustain', 11: 'ambient',
 }
 
 const EMPTY_SECTIONS: TrackSection[] = []
 
 interface Props {
   trackId: number
-  position: number // seconds (driven by external AudioPlayer)
-  duration: number // seconds
+  position: number
+  duration: number
   onSeek: (seconds: number) => void
   className?: string
   height?: number
+  /** Enable pinch-to-zoom, wheel zoom, auto-scroll */
+  zoomable?: boolean
+  /** Show minimap overview strip */
+  showMinimap?: boolean
+  /** Show time markers */
+  showTimeline?: boolean
+  /** Tap callback (for opening fullscreen) */
+  onTap?: () => void
 }
 
 interface SectionsState {
@@ -62,18 +55,6 @@ interface SectionsState {
   values: TrackSection[]
 }
 
-/**
- * Visualization-only waveform driven by an external audio engine.
- *
- * Wavesurfer creates its own HTMLAudioElement to fetch and decode peaks,
- * but we mute it (volume=0) and never call `play()`. The playhead is
- * driven from the outside via `position` prop, and seeks bubble back up
- * through `onSeek`. The real audio comes from the AudioPlayer context's
- * Web Audio decks.
- *
- * Sections are loaded asynchronously via `fetchTrackMixMeta` and rendered
- * as colored regions on top of the waveform.
- */
 export function TrackWaveform({
   trackId,
   position,
@@ -81,48 +62,59 @@ export function TrackWaveform({
   onSeek,
   className,
   height = 56,
+  zoomable = false,
+  showMinimap = false,
+  showTimeline = false,
+  onTap,
 }: Props) {
   const containerRef = useRef<HTMLDivElement | null>(null)
   const wavesurferRef = useRef<WaveSurfer | null>(null)
   const regionsRef = useRef<ReturnType<typeof RegionsPlugin.create> | null>(null)
   const onSeekRef = useRef(onSeek)
-  const [sectionsState, setSectionsState] = useState<SectionsState>({
-    trackId: null,
-    values: [],
-  })
+  const zoomRef = useRef(zoomable ? 80 : 0)
+  const pinchStartRef = useRef(0)
+  const pinchZoomRef = useRef(80)
+  const [sectionsState, setSectionsState] = useState<SectionsState>({ trackId: null, values: [] })
   const [readyTrackId, setReadyTrackId] = useState<number | null>(null)
-  const sections =
-    sectionsState.trackId === trackId ? sectionsState.values : EMPTY_SECTIONS
+  const sections = sectionsState.trackId === trackId ? sectionsState.values : EMPTY_SECTIONS
   const ready = readyTrackId === trackId
 
-  useEffect(() => {
-    onSeekRef.current = onSeek
-  }, [onSeek])
+  useEffect(() => { onSeekRef.current = onSeek }, [onSeek])
 
-  // Load section metadata whenever the track changes.
+  // Load sections
   useEffect(() => {
     let cancelled = false
-    fetchTrackMixMeta(trackId)
-      .then((meta) => {
-        if (cancelled) return
-        setSectionsState({
-          trackId,
-          values: meta?.sections ?? [],
-        })
-      })
-      .catch(() => undefined)
-    return () => {
-      cancelled = true
-    }
+    fetchTrackMixMeta(trackId).then(meta => {
+      if (!cancelled) setSectionsState({ trackId, values: meta?.sections ?? [] })
+    }).catch(() => undefined)
+    return () => { cancelled = true }
   }, [trackId])
 
-  // Create the wavesurfer instance once the container exists, then load
-  // the audio file for peak generation. Recreated when trackId changes.
+  // Create wavesurfer
   useEffect(() => {
     const el = containerRef.current
     if (!el) return
 
     const regions = RegionsPlugin.create()
+    const plugins: any[] = [regions]
+
+    if (showMinimap) {
+      plugins.push(MinimapPlugin.create({
+        height: 20,
+        waveColor: 'rgba(148, 163, 184, 0.2)',
+        progressColor: 'rgba(148, 163, 184, 0.4)',
+        insertPosition: 'beforebegin',
+      }))
+    }
+
+    if (showTimeline) {
+      plugins.push(TimelinePlugin.create({
+        height: 16,
+        style: { fontSize: '9px', color: 'rgba(148, 163, 184, 0.3)' },
+        insertPosition: 'afterend',
+      }))
+    }
+
     const ws = WaveSurfer.create({
       container: el,
       height,
@@ -135,70 +127,50 @@ export function TrackWaveform({
       barRadius: 1,
       normalize: true,
       interact: true,
-      // We never call play() — wavesurfer's audio element exists only to
-      // decode peaks. Mute it just in case some browser auto-resumes.
       backend: 'MediaElement',
       mediaControls: false,
-      plugins: [regions],
+      plugins,
+      ...(zoomable ? {
+        minPxPerSec: 80,
+        autoScroll: true,
+        autoCenter: true,
+        hideScrollbar: true,
+      } : {}),
     })
+
     wavesurferRef.current = ws
     regionsRef.current = regions
+    zoomRef.current = zoomable ? 80 : 0
 
-    // Mute the internal audio element to guarantee it never makes sound,
-    // even if interact triggers a play() under the hood.
     const mediaEl = ws.getMediaElement()
-    if (mediaEl) {
-      mediaEl.muted = true
-      mediaEl.volume = 0
-    }
+    if (mediaEl) { mediaEl.muted = true; mediaEl.volume = 0 }
 
-    ws.on('ready', () => {
-      setReadyTrackId(trackId)
-    })
-
+    ws.on('ready', () => setReadyTrackId(trackId))
     ws.on('interaction', (newTime: number) => {
       onSeekRef.current(newTime)
-      // Pause wavesurfer's internal media in case interaction started it.
-      try {
-        ws.pause()
-      } catch {
-        // ignore
-      }
+      try { ws.pause() } catch {}
     })
 
-    void ws.load(`/api/audio/${trackId}`).catch(() => {
-      // network/decoding failures are non-fatal — the waveform just stays empty
-    })
+    void ws.load(`/api/audio/${trackId}`).catch(() => {})
 
     return () => {
-      try {
-        ws.destroy()
-      } catch {
-        // ignore
-      }
-      setReadyTrackId((current) => (current === trackId ? null : current))
+      try { ws.destroy() } catch {}
+      setReadyTrackId(cur => cur === trackId ? null : cur)
       wavesurferRef.current = null
       regionsRef.current = null
     }
-  }, [trackId, height])
+  }, [trackId, height, zoomable, showMinimap, showTimeline])
 
-  // Drive the playhead from the external position prop.
+  // Drive playhead
   useEffect(() => {
     const ws = wavesurferRef.current
     if (!ws || !ready) return
     try {
-      // Avoid fighting wavesurfer when the user is scrubbing — only push
-      // when the delta is significant. setTime is cheap enough at 30fps.
-      const wsTime = ws.getCurrentTime()
-      if (Math.abs(wsTime - position) > 0.05) {
-        ws.setTime(position)
-      }
-    } catch {
-      // ignore
-    }
+      if (Math.abs(ws.getCurrentTime() - position) > 0.05) ws.setTime(position)
+    } catch {}
   }, [position, ready])
 
-  // (Re)draw section regions whenever sections or readiness change.
+  // Draw section regions
   useEffect(() => {
     const regions = regionsRef.current
     if (!regions || !ready || sections.length === 0) return
@@ -208,34 +180,81 @@ export function TrackWaveform({
       const end = s.endMs / 1000
       if (end <= start) continue
       regions.addRegion({
-        start,
-        end,
+        start, end,
         color: SECTION_COLORS[s.type] ?? 'rgba(148, 163, 184, 0.15)',
-        drag: false,
-        resize: false,
+        drag: false, resize: false,
         content: SECTION_LABELS[s.type] ?? '',
       })
     }
   }, [sections, ready])
 
-  // Fallback bar shown until peaks are decoded — keeps layout height stable
-  // and gives the user *some* visual feedback during the first ~200ms.
-  const progressPct =
-    duration > 0 ? Math.min(100, (position / duration) * 100) : 0
+  // Pinch-to-zoom (touch)
+  useEffect(() => {
+    if (!zoomable) return
+    const el = containerRef.current
+    if (!el) return
+
+    const onTouchStart = (e: TouchEvent) => {
+      if (e.touches.length === 2) {
+        const dx = e.touches[0].clientX - e.touches[1].clientX
+        const dy = e.touches[0].clientY - e.touches[1].clientY
+        pinchStartRef.current = Math.hypot(dx, dy)
+        pinchZoomRef.current = zoomRef.current
+      }
+    }
+
+    const onTouchMove = (e: TouchEvent) => {
+      if (e.touches.length !== 2) return
+      e.preventDefault()
+      const dx = e.touches[0].clientX - e.touches[1].clientX
+      const dy = e.touches[0].clientY - e.touches[1].clientY
+      const dist = Math.hypot(dx, dy)
+      const scale = dist / (pinchStartRef.current || 1)
+      const newZoom = Math.max(20, Math.min(800, pinchZoomRef.current * scale))
+      zoomRef.current = newZoom
+      wavesurferRef.current?.zoom(newZoom)
+    }
+
+    el.addEventListener('touchstart', onTouchStart, { passive: true })
+    el.addEventListener('touchmove', onTouchMove, { passive: false })
+    return () => {
+      el.removeEventListener('touchstart', onTouchStart)
+      el.removeEventListener('touchmove', onTouchMove)
+    }
+  }, [zoomable])
+
+  // Wheel zoom (desktop: Ctrl/Cmd + scroll)
+  useEffect(() => {
+    if (!zoomable) return
+    const el = containerRef.current
+    if (!el) return
+
+    const onWheel = (e: WheelEvent) => {
+      if (!e.ctrlKey && !e.metaKey) return
+      e.preventDefault()
+      const factor = e.deltaY > 0 ? 0.85 : 1.18
+      const newZoom = Math.max(20, Math.min(800, zoomRef.current * factor))
+      zoomRef.current = newZoom
+      wavesurferRef.current?.zoom(newZoom)
+    }
+
+    el.addEventListener('wheel', onWheel, { passive: false })
+    return () => el.removeEventListener('wheel', onWheel)
+  }, [zoomable])
+
+  const progressPct = duration > 0 ? Math.min(100, (position / duration) * 100) : 0
 
   return (
-    <div className={cn('relative w-full', className)} style={{ height }}>
+    <div
+      className={cn('relative w-full', zoomable && 'touch-none', className)}
+      style={{ height: showMinimap ? height + 24 : showTimeline ? height + 20 : height }}
+      onClick={onTap}
+    >
       <div ref={containerRef} className="absolute inset-0" />
       {ready ? null : (
-        <div
-          className="pointer-events-none absolute inset-0 flex items-center px-1"
-          aria-hidden
-        >
+        <div className="pointer-events-none absolute inset-0 flex items-center px-1" aria-hidden>
           <div className="h-1 w-full overflow-hidden rounded-full bg-muted">
-            <div
-              className="h-full bg-primary/60 transition-[width] duration-150"
-              style={{ width: `${progressPct}%` }}
-            />
+            <div className="h-full bg-primary/60 transition-[width] duration-150" style={{ width: `${progressPct}%` }} />
           </div>
         </div>
       )}

@@ -16,6 +16,7 @@ import { useAudioPlayer } from '@/components/audio-player/audio-player-context'
 import type { PlayerTrackMeta } from '@/components/audio-player/audio-player-types'
 import { TrackWaveform } from '@/components/player/track-waveform'
 import { TransitionVisualizer } from '@/components/player/transition-visualizer'
+import { WaveformFullscreen } from '@/components/player/waveform-fullscreen'
 import { Slider } from '@/components/ui/slider'
 
 function fmt(s: number) {
@@ -108,7 +109,6 @@ function PlayingScreen({ audio, count, elapsed, history }: {
     lastResolvedStyle, recommendedStyle, volume, crossfadeBars, masterTempoBpm } = audio
   const progress = current && duration > 0 ? position / duration : 0
   const style = lastResolvedStyle ?? recommendedStyle
-
   if (!current) return null
 
   return (
@@ -144,28 +144,36 @@ function PlayingScreen({ audio, count, elapsed, history }: {
 
         <div className="h-px bg-foreground/[0.03]" />
 
-        {/* Deck A — bottom left (NOW PLAYING) */}
-        <div className="flex-1 flex min-h-0">
-          <div className="w-8 shrink-0 py-2 px-1">
-            <VerticalWave index={0} active={isPlaying} progress={progress} color="oklch(0.9 0 0)" />
+        {/* Deck A — bottom left (NOW PLAYING + interactive waveform) */}
+        <div className="flex-1 flex flex-col min-h-0 p-2 gap-1">
+          <div className="flex items-center justify-between">
+            <span className="dj-data text-[7px] tracking-[0.15em] text-foreground/40">A · NOW</span>
+            <span className="dj-data text-[8px] text-muted-foreground/20">{fmt(position)} / {fmt(duration)}</span>
           </div>
-          <div className="flex-1 flex flex-col justify-between">
-            <TrackBlock track={current} label="A · NOW" color="oklch(0.85 0 0)" />
-            {/* Time + Vol */}
-            <div className="p-3 pt-0 space-y-2">
-              <div className="flex items-center gap-2">
-                <span className="dj-data text-[9px] text-muted-foreground/20">{fmt(position)}</span>
-                <div className="flex-1 h-px bg-foreground/5">
-                  <div className="h-full bg-foreground/20" style={{ width: `${progress * 100}%` }} />
-                </div>
-                <span className="dj-data text-[9px] text-muted-foreground/20">{fmt(duration)}</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <IconVolume className="size-3 text-muted-foreground/15" />
-                <Slider value={[volume * 100]} min={0} max={100} step={1}
-                  onValueChange={v => audio.setVolume(v[0] / 100)} className="flex-1" aria-label="Volume" />
-              </div>
-            </div>
+          <p className="text-sm font-medium truncate leading-tight">{current.title}</p>
+          <div className="flex items-center gap-2">
+            {current.bpm && <span className="dj-data text-xs text-foreground/60">{current.bpm.toFixed(0)}</span>}
+            {current.camelot && <span className="dj-data text-[10px] text-muted-foreground/25">{current.camelot}</span>}
+            {current.mood && <span className="text-[8px] text-muted-foreground/12">{current.mood.replace(/_/g, ' ')}</span>}
+          </div>
+          {/* Interactive zoomable waveform — pinch to zoom, tap to seek */}
+          <div className="flex-1 min-h-0 rounded-lg border border-foreground/5 bg-foreground/[0.01] overflow-hidden">
+            <TrackWaveform
+              trackId={current.id}
+              position={position}
+              duration={duration}
+              onSeek={s => audio.seek(s)}
+              height={100}
+              zoomable
+              showMinimap
+              className="w-full"
+            />
+          </div>
+          {/* Volume */}
+          <div className="flex items-center gap-2">
+            <IconVolume className="size-3 text-muted-foreground/15" />
+            <Slider value={[volume * 100]} min={0} max={100} step={1}
+              onValueChange={v => audio.setVolume(v[0] / 100)} className="flex-1" aria-label="Volume" />
           </div>
         </div>
       </div>
@@ -288,7 +296,7 @@ function MasterScreen({ audio }: { audio: ReturnType<typeof useAudioPlayer> }) {
       <div className="relative h-24 rounded-xl border border-foreground/5 bg-foreground/[0.01] p-2 mb-4">
         <div className="h-full"><VerticalWave index={0} active={isPlaying} progress={progress} color="oklch(0.8 0 0 / 0.5)" /></div>
         <div className="absolute inset-0 p-2">
-          <TrackWaveform trackId={current.id} position={position} duration={duration} onSeek={s => audio.seek(s)} height={80} />
+          <TrackWaveform trackId={current.id} position={position} duration={duration} onSeek={s => audio.seek(s)} height={80} zoomable showMinimap />
         </div>
       </div>
       <div className="flex items-center gap-3">
