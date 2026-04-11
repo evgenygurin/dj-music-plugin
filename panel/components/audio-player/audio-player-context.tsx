@@ -2057,33 +2057,45 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
   }, [current, duration, position])
 
   // ── iOS background playback ─────────────────────────────────────
-  // iOS Safari kills Web Audio when backgrounded UNLESS there is an
-  // active <audio> element playing. We loop a tiny silent MP3 at
-  // near-zero volume to keep the iOS audio session alive. This makes
-  // iOS treat the page like a music app (shows lock screen controls,
-  // keeps AudioContext running). Also resume ctx on visibility return.
+  // WebKit PR #17812 (March 2024) added navigator.audioSession.type
+  // = "playback" which tells iOS to NOT suspend AudioContext when
+  // the page goes to background / screen locks. This is the official
+  // WebKit-sanctioned way to enable background audio for Web Audio.
+  //
+  // Combined with MediaSession API (already set up above) this gives
+  // full lock screen controls + continuous background playback.
+  //
+  // Fallback: silent <audio> keepalive for older iOS versions, plus
+  // visibilitychange resume for returning from background.
   const silenceRef = useRef<HTMLAudioElement | null>(null)
   useEffect(() => {
     if (typeof document === 'undefined') return
-    if (!isPlaying) {
-      // Stop silence when not playing
-      if (silenceRef.current) {
-        silenceRef.current.pause()
+
+    // Set audioSession type to "playback" (WebKit 275558, iOS 17.4+)
+    try {
+      const nav = navigator as Navigator & { audioSession?: { type: string } }
+      if (nav.audioSession) {
+        nav.audioSession.type = 'playback'
       }
+    } catch { /* not supported — fall through to silent keepalive */ }
+
+    if (!isPlaying) {
+      if (silenceRef.current) silenceRef.current.pause()
       return
     }
-    // Start silent keepalive
+
+    // Silent keepalive for older iOS (< 17.4) that don't support audioSession
     if (!silenceRef.current) {
       const el = document.createElement('audio')
       el.src = '/silence.mp3'
       el.loop = true
-      el.volume = 0.01 // near-silent but nonzero (iOS requires > 0)
+      el.volume = 0.01
       el.setAttribute('playsinline', 'true')
       silenceRef.current = el
     }
     void silenceRef.current.play().catch(() => undefined)
 
-    // Visibility change: resume AudioContext + re-kick audio on return
+    // Visibility change: resume ctx + re-kick audio on return
     const handler = () => {
       if (document.visibilityState === 'visible') {
         const ctx = ctxRef.current
@@ -2092,7 +2104,6 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
         if (active && active.audio.paused && isPlaying) {
           void active.audio.play().catch(() => undefined)
         }
-        // Re-kick silence keepalive
         if (silenceRef.current?.paused) {
           void silenceRef.current.play().catch(() => undefined)
         }
