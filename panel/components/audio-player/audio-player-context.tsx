@@ -2056,6 +2056,30 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     }
   }, [current, duration, position])
 
+  // ── iOS background playback ─────────────────────────────────────
+  // iOS Safari suspends AudioContext when the screen locks or the app
+  // is backgrounded. Resume it when visibility returns so playback
+  // continues seamlessly. Also re-call play() on the active audio
+  // element since iOS may have paused it independently.
+  useEffect(() => {
+    if (typeof document === 'undefined') return
+    const handler = () => {
+      if (document.visibilityState === 'visible') {
+        const ctx = ctxRef.current
+        if (ctx && ctx.state === 'suspended') {
+          void ctx.resume()
+        }
+        // Re-kick the active audio element — iOS may have paused it
+        const active = activeDeckRef.current === 'A' ? deckARef.current : deckBRef.current
+        if (active && active.audio.paused && isPlaying) {
+          void active.audio.play().catch(() => undefined)
+        }
+      }
+    }
+    document.addEventListener('visibilitychange', handler)
+    return () => document.removeEventListener('visibilitychange', handler)
+  }, [isPlaying])
+
   // "Next up" peek — what a linear `next()` would walk to. Null when
   // the queue is exhausted. Medium/Mini bars render this as a chip
   // so the user can see what's coming before hitting MIX NOW.
