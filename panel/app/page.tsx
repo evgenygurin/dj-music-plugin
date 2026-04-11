@@ -9,6 +9,7 @@ import {
   IconPlayerSkipBackFilled,
 } from '@tabler/icons-react'
 
+import { IconClock, IconShare } from '@tabler/icons-react'
 import { loadDjQueue } from '@/actions/library-actions'
 import { recordTrackFeedback } from '@/actions/feedback-actions'
 import { setEq, resetEq, setFilter } from '@/actions/mixer-actions'
@@ -50,6 +51,60 @@ function IdleScreen({ onStart, loading }: { onStart: (bpm: number) => void; load
           {loading ? <IconLoader2 className="size-10 animate-spin" /> : <IconPlayerPlayFilled className="size-10 translate-x-[2px]" />}
         </button>
       </div>
+    </div>
+  )
+}
+
+/* ── Sleep Timer ── */
+function SleepTimer({ audio }: { audio: ReturnType<typeof useAudioPlayer> }) {
+  const [remaining, setRemaining] = useState<number | null>(null) // seconds
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+
+  const start = useCallback((minutes: number) => {
+    if (timerRef.current) clearInterval(timerRef.current)
+    setRemaining(minutes * 60)
+    timerRef.current = setInterval(() => {
+      setRemaining(prev => {
+        if (prev === null || prev <= 1) {
+          if (timerRef.current) clearInterval(timerRef.current)
+          timerRef.current = null
+          audio.pause()
+          return null
+        }
+        return prev - 1
+      })
+    }, 1000)
+  }, [audio])
+
+  const cancel = useCallback(() => {
+    if (timerRef.current) clearInterval(timerRef.current)
+    timerRef.current = null
+    setRemaining(null)
+  }, [])
+
+  useEffect(() => () => { if (timerRef.current) clearInterval(timerRef.current) }, [])
+
+  if (remaining !== null) {
+    const m = Math.floor(remaining / 60)
+    const s = remaining % 60
+    return (
+      <div className="flex items-center justify-center gap-2 py-1">
+        <IconClock className="size-3 text-muted-foreground/15" />
+        <span className="dj-data text-[10px] text-foreground/30">{m}:{String(s).padStart(2, '0')}</span>
+        <button type="button" onClick={cancel} className="dj-data text-[7px] text-muted-foreground/10 active:text-foreground/30">CANCEL</button>
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex items-center justify-center gap-2 py-1">
+      <IconClock className="size-3 text-muted-foreground/8" />
+      {[15, 30, 60].map(m => (
+        <button key={m} type="button" onClick={() => start(m)}
+          className="dj-data text-[8px] text-muted-foreground/10 active:text-foreground/30 px-1.5 py-0.5 rounded border border-foreground/[0.03]">
+          {m}m
+        </button>
+      ))}
     </div>
   )
 }
@@ -157,26 +212,36 @@ function PlayingScreen({ audio, count, elapsed, history }: {
         />
       </div>
 
-      {/* ── NEXT UP bar ── */}
-      {nextUp && (
-        <div className="px-3 py-1.5 border-b border-foreground/[0.03] flex items-center gap-2">
-          <span className="text-[8px] uppercase tracking-wider text-muted-foreground/15">Next</span>
-          <p className="text-[11px] text-muted-foreground/30 truncate flex-1">{nextUp.title}</p>
-          {nextUp.bpm && <span className="dj-data text-[10px] text-muted-foreground/15">{nextUp.bpm.toFixed(0)}</span>}
-          {nextUp.camelot && <span className="dj-data text-[9px] text-muted-foreground/10">{nextUp.camelot}</span>}
-        </div>
-      )}
-
-      {/* ── SESSION INFO ── */}
-      <div className="px-3 py-1 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          {current.bpm && <span className="dj-data text-xs text-foreground/40">{current.bpm.toFixed(1)}</span>}
-          {current.camelot && <span className="dj-data text-[11px] text-muted-foreground/20">{current.camelot}</span>}
-          {current.mood && <span className="text-[9px] text-muted-foreground/12">{current.mood.replace(/_/g, ' ')}</span>}
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="dj-data text-[9px] text-muted-foreground/10">{count} mixed</span>
-          <span className="dj-data text-[9px] text-muted-foreground/10">{fmt(elapsed)}</span>
+      {/* ── QUEUE PEEK + SESSION ── */}
+      <div className="px-3 py-1.5 border-b border-foreground/[0.03]">
+        {/* Queue — next 3 tracks */}
+        {audio.queue.length > 0 && (
+          <div className="space-y-px mb-1">
+            {audio.queue.slice(audio.queueIndex + 1, audio.queueIndex + 4).map((t, i) => (
+              <div key={t.id} className="flex items-center gap-2">
+                <span className="dj-data text-[7px] text-muted-foreground/8 w-3">{i === 0 ? '→' : `${i + 1}`}</span>
+                <span className="text-[10px] text-muted-foreground/20 truncate flex-1">{t.title}</span>
+                {t.bpm && <span className="dj-data text-[8px] text-muted-foreground/10">{t.bpm.toFixed(0)}</span>}
+                {t.camelot && <span className="dj-data text-[7px] text-muted-foreground/6">{t.camelot}</span>}
+              </div>
+            ))}
+          </div>
+        )}
+        {/* Session info + share */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            {current.bpm && <span className="dj-data text-xs text-foreground/40">{current.bpm.toFixed(1)}</span>}
+            {current.camelot && <span className="dj-data text-[10px] text-muted-foreground/20">{current.camelot}</span>}
+            {current.mood && <span className="text-[8px] text-muted-foreground/10">{current.mood.replace(/_/g, ' ')}</span>}
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="dj-data text-[8px] text-muted-foreground/8">{count} mixed · {fmt(elapsed)}</span>
+            <button type="button"
+              onClick={() => { void navigator.clipboard?.writeText(`https://music.yandex.ru/track/${current.id}`) }}
+              className="text-muted-foreground/10 active:text-foreground/30" aria-label="Share">
+              <IconShare className="size-3" />
+            </button>
+          </div>
         </div>
       </div>
 
@@ -269,6 +334,9 @@ function PlayingScreen({ audio, count, elapsed, history }: {
           </button>
         </div>
       </div>
+
+      {/* ── SLEEP TIMER ── */}
+      <SleepTimer audio={audio} />
 
       {/* ── HISTORY ── */}
       {history.length > 0 && (
