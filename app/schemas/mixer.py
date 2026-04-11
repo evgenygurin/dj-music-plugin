@@ -14,7 +14,9 @@ class MixerStateRead(BaseModel):
         json_schema_extra={
             "example": {
                 "crossfader": 0.5,
-                "channel_gain": {"1": 1.0, "2": 1.0, "3": 1.0, "4": 1.0},
+                "channel_gain": {"1": 1.0, "2": 1.0},
+                "eq": {"1": {"low": 0.0, "mid": 0.0, "high": 0.0}},
+                "filter": {"1": 20000.0},
                 "decks": {},
             }
         }
@@ -22,6 +24,12 @@ class MixerStateRead(BaseModel):
 
     crossfader: float
     channel_gain: dict[int, float]
+    eq: dict[int, dict[str, float]] = Field(
+        default_factory=dict, description="Per-deck 3-band EQ gain in dB (-40..6)"
+    )
+    filter: dict[int, float] = Field(
+        default_factory=dict, description="Per-deck filter cutoff in Hz (20..20000)"
+    )
     decks: dict[int, DeckStateRead]
 
 
