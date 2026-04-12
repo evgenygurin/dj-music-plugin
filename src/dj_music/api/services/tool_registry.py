@@ -74,7 +74,8 @@ class ToolRegistry:
         guaranteed to be registered (including those that depend on
         SQLAlchemy models that may fail during cold import-time discovery).
         """
-        live_tools = await mcp.list_tools(run_middleware=False)
+        # _list_tools() bypasses visibility filter — we need ALL tools for HTTP discovery
+        live_tools = await mcp._list_tools()
         refreshed: list[dict[str, Any]] = []
         for tool_obj in live_tools:
             refreshed.append(
