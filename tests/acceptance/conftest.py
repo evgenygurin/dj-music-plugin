@@ -98,18 +98,24 @@ def patch_audio_pipeline(monkeypatch: pytest.MonkeyPatch):
         )
 
     monkeypatch.setattr("app.audio.pipeline.AnalysisPipeline.analyze", _fake_analyze)
-    monkeypatch.setattr("app.audio.classification.classifier.MoodClassifier.classify", _fake_classify)
+    monkeypatch.setattr(
+        "app.audio.classification.classifier.MoodClassifier.classify", _fake_classify
+    )
 
 
 @pytest.fixture
 def patch_tiered_noop(monkeypatch: pytest.MonkeyPatch):
     """Patch tiered analysis to a deterministic no-op."""
 
-    async def _fake_ensure_level(self, track_ids, target_level, *, force=False, progress_callback=None):  # type: ignore[no-untyped-def]
+    async def _fake_ensure_level(
+        self, track_ids, target_level, *, force=False, progress_callback=None
+    ):  # type: ignore[no-untyped-def]
         del self, target_level, force, progress_callback
         return {"analyzed": 0, "skipped": len(track_ids), "failed": 0}
 
-    monkeypatch.setattr("app.services.tiered_pipeline.TieredPipeline.ensure_level", _fake_ensure_level)
+    monkeypatch.setattr(
+        "app.services.tiered_pipeline.TieredPipeline.ensure_level", _fake_ensure_level
+    )
 
 
 @pytest.fixture
@@ -131,7 +137,9 @@ async def acceptance_harness(async_engine) -> AcceptanceHarness:  # type: ignore
     ym_mock.get_liked_ids = AsyncMock(return_value=[])
     ym_mock.get_disliked_ids = AsyncMock(return_value=set())
     ym_mock.get_tracks = AsyncMock(return_value=[])
-    ym_mock.get_playlist = AsyncMock(return_value=YMPlaylist(kind=42, title="Acceptance", revision=1))
+    ym_mock.get_playlist = AsyncMock(
+        return_value=YMPlaylist(kind=42, title="Acceptance", revision=1)
+    )
     ym_mock.get_playlist_tracks = AsyncMock(return_value=[])
     ym_mock.add_tracks_to_playlist = AsyncMock(return_value={"revision": 2})
     ym_mock.resolve_track_ids_with_albums = AsyncMock(side_effect=lambda ids: ids)
@@ -163,6 +171,9 @@ async def acceptance_harness(async_engine) -> AcceptanceHarness:  # type: ignore
 
     try:
         async with Client(mcp) as client:
+            # Unlock all hidden tool categories so acceptance tests can call any tool.
+            # This triggers tools/list_changed → client re-fetches tool list.
+            await client.call_tool("unlock_tools", {"action": "unlock", "category": "all"})
             yield AcceptanceHarness(client=client, ym=ym_mock, session_factory=factory)
     finally:
         mcp._lifespan_result = None

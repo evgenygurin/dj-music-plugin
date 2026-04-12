@@ -38,18 +38,11 @@ async def create_scoring_profile(
     groove_weight: float = 0.15,
     timbral_weight: float = 0.15,
     description: str | None = None,
-    session: AsyncSession = Depends(_get_session),
+    session: AsyncSession = Depends(_get_session),  # noqa: B008
 ) -> dict:
-    """Create a personal scoring weight profile.
+    """Create a personal scoring weight profile for the 6-component transition formula.
 
-    Weights control how the 6-component transition formula is balanced.
-    Higher weight = more influence on the overall score.
-    All weights should sum to ~1.0 for best results.
-
-    Presets:
-    - "default": balanced (0.20/0.12/0.18/0.20/0.15/0.15)
-    - "groove_lover": groove-heavy (bpm 0.15, groove 0.30, timbral 0.20)
-    - "harmonic_purist": key-focused (harmonic 0.30, spectral 0.10)
+    All weights should sum to ~1.0.
     """
     profile = ScoringProfile(
         name=name,
@@ -86,7 +79,7 @@ async def create_scoring_profile(
 )
 @map_domain_errors
 async def list_scoring_profiles(
-    session: AsyncSession = Depends(_get_session),
+    session: AsyncSession = Depends(_get_session),  # noqa: B008
 ) -> list[dict]:
     """List all personal scoring weight profiles."""
     result = await session.execute(select(ScoringProfile).order_by(ScoringProfile.name))
@@ -119,7 +112,7 @@ async def list_scoring_profiles(
 @map_domain_errors
 async def get_scoring_weights(
     profile_name: str = "default",
-    session: AsyncSession = Depends(_get_session),
+    session: AsyncSession = Depends(_get_session),  # noqa: B008
 ) -> dict:
     """Get scoring weights for a named profile.
 

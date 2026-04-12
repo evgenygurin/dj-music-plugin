@@ -6,6 +6,25 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.8.0] — 2026-04-13
+
+### Added
+- **Smoke-test script** (`scripts/smoke_test_all_tools.py`) — calls all 88 MCP tools through FastMCP Client with in-memory DB, verifies registration + schema + execution
+- Full MCP tool verification via Claude Code live client (91/91 tools responding correctly)
+
+### Fixed
+- `BestPairRead.avg_score` — was `float` (non-nullable), now `float | None` to handle entries with no score
+- `ANNOTATIONS_READ_ONLY` test — updated to match current preset (`readOnlyHint` + `idempotentHint`)
+- `test_unlock_tools_status` — removed stale `session_rules` assertion
+- `test_fitness_template_intent` — fixed import `app.services.templates` → `app.templates`
+- `audio_atomic` tools — use `FastMCPNotFoundError` instead of `ToolError` for missing entities
+- MCP tool visibility — resolved FK errors and stale tests (#93)
+- NOT NULL constraints in recent migration tables (#94)
+
+### Changed
+- `noqa B008` on `track_feedback` Depends() defaults (ruff compliance)
+- Supabase added to sandbox network allowedDomains
+
 ## [0.7.1] — 2026-04-12
 
 ### Added

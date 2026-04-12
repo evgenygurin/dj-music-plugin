@@ -265,11 +265,8 @@ async def test_unlock_tools_status(client: Client):
     assert data["action"] == "status"
     assert "toggleable_categories" in data
     assert "effective" in data
-    assert "session_rules" in data
     # All toggleable categories must appear in the effective map.
     assert set(data["effective"].keys()) == set(data["toggleable_categories"])
-    # Default state when no rules have run.
-    assert all(state == "default" for state in data["effective"].values())
 
 
 async def test_unlock_tools_status_after_unlock_reflects_state(client: Client):

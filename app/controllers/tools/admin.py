@@ -47,38 +47,32 @@ def _resolve_categories(category: str) -> set[str]:
 _VALID_UNLOCK_ACTIONS: frozenset[str] = frozenset({"unlock", "lock", "status"})
 
 
-async def _build_status(ctx: Context | None) -> dict[str, Any]:
-    """Compute the current per-session visibility state for toggleable tags.
+def _build_status(ctx: Context) -> dict[str, Any]:
+    """Check which toggleable categories are currently enabled/disabled.
 
-    Visibility is rule-based in FastMCP: every ``enable_components`` /
-    ``disable_components`` call appends a rule to ``_visibility_rules``
-    in the session state. Later rules override earlier ones (the
-    "Visibility transform" semantics).
-
-    For each known toggleable category we walk the rule list in order
-    and pick the **last** matching rule's ``enabled`` flag. Categories
-    without any matching rule are reported as ``"default"`` so the user
-    can see they fall back to whatever the server's static
-    ``mcp.disable(tags=...)`` configured at startup.
+    Uses ``ctx.fastmcp`` (the server instance) to inspect the active
+    visibility transforms.  Each category is reported as "enabled" or
+    "disabled" based on whether the server currently lists tools with
+    that tag.
     """
-    rules: list[dict[str, Any]] = []
-    if ctx is not None:
-        rules = await ctx.get_state("_visibility_rules") or []
-
+    server = ctx.fastmcp
+    # Walk the server's visibility transforms to determine state.
+    # Transforms are Visibility objects with .enabled (bool) and .tags/.keys.
     effective: dict[str, str] = {}
     for category in sorted(_TOGGLEABLE_CATEGORIES):
-        state = "default"
-        for rule in rules:
-            rule_tags = set(rule.get("tags") or [])
-            if category in rule_tags:
-                state = "enabled" if rule.get("enabled", True) else "disabled"
+        state = "enabled"
+        for transform in server.transforms:
+            if type(transform).__name__ != "Visibility":
+                continue
+            t_tags = getattr(transform, "tags", None) or set()
+            if category in t_tags:
+                state = "enabled" if getattr(transform, "enabled", True) else "disabled"
         effective[category] = state
 
     return {
         "action": "status",
         "toggleable_categories": sorted(_TOGGLEABLE_CATEGORIES),
         "effective": effective,
-        "session_rules": rules,
     }
 
 
@@ -95,17 +89,19 @@ async def unlock_tools(
     category: str | None = None,
     ctx: Context | None = None,
 ) -> dict[str, Any]:
-    """Control which tool categories are visible in this session.
+    """Enable or disable tool categories at server level.
 
-    ``action`` ∈ ``{unlock, lock, status}``. ``status`` returns the
-    effective visibility per toggleable category for the current
-    session — ``enabled`` / ``disabled`` / ``default`` (server default).
+    Uses ``ctx.fastmcp.enable/disable`` which triggers
+    ``notifications/tools/list_changed`` — the client re-fetches
+    the tool list automatically.
     """
     if action not in _VALID_UNLOCK_ACTIONS:
         raise ToolError(f"Unknown action: {action}. Valid: {sorted(_VALID_UNLOCK_ACTIONS)}")
 
     if action == "status":
-        return await _build_status(ctx)
+        if ctx is None:
+            raise ToolError("Context required for status")
+        return _build_status(ctx)
 
     # action ∈ {unlock, lock}
     if not category:
@@ -114,10 +110,15 @@ async def unlock_tools(
         raise ToolError(f"Context required for {action}")
 
     tags = _resolve_categories(category)
+    server = ctx.fastmcp
+
     if action == "unlock":
-        await ctx.enable_components(tags=tags)
+        # Server-level enable → triggers tools/list_changed notification
+        server.enable(tags=tags)
         return {"action": "unlocked", "categories": sorted(tags)}
-    await ctx.disable_components(tags=tags)
+
+    # lock
+    server.disable(tags=tags)
     return {"action": "locked", "categories": sorted(tags)}
 
 

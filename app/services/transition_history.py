@@ -34,6 +34,7 @@ class TransitionHistoryService:
         user_reaction: str | None = None,
         session_id: str | None = None,
     ) -> TransitionHistory:
+        await self._repo.ensure_tracks_exist([from_track_id, to_track_id])
         entry = TransitionHistory(
             from_track_id=from_track_id,
             to_track_id=to_track_id,

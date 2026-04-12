@@ -7,6 +7,8 @@ from typing import Any
 from sqlalchemy import desc, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.errors import NotFoundError
+from app.db.models.track import Track
 from app.db.models.transition_history import TransitionHistory
 from app.db.repositories.base import BaseRepository
 
@@ -14,6 +16,14 @@ from app.db.repositories.base import BaseRepository
 class TransitionHistoryRepository(BaseRepository[TransitionHistory]):
     def __init__(self, session: AsyncSession) -> None:
         super().__init__(session, TransitionHistory)
+
+    async def ensure_tracks_exist(self, track_ids: list[int]) -> None:
+        """Raise NotFoundError if any track_id is missing from the DB."""
+        result = await self.session.execute(select(Track.id).where(Track.id.in_(track_ids)))
+        found = set(result.scalars().all())
+        missing = set(track_ids) - found
+        if missing:
+            raise NotFoundError("Track", sorted(missing)[0])
 
     async def log(self, entry: TransitionHistory) -> TransitionHistory:
         self.session.add(entry)
@@ -73,8 +83,6 @@ class TransitionHistoryRepository(BaseRepository[TransitionHistory]):
     async def update_reaction(self, entry_id: int, reaction: str) -> None:
         entry = await self.get_by_id(entry_id)
         if entry is None:
-            from app.core.errors import NotFoundError
-
             raise NotFoundError("TransitionHistory", entry_id)
         entry.user_reaction = reaction
         await self.session.flush()

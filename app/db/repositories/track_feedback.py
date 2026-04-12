@@ -5,6 +5,8 @@ from __future__ import annotations
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.errors import NotFoundError
+from app.db.models.track import Track
 from app.db.models.track_feedback import TrackFeedback
 from app.db.repositories.base import BaseRepository
 
@@ -12,6 +14,12 @@ from app.db.repositories.base import BaseRepository
 class TrackFeedbackRepository(BaseRepository[TrackFeedback]):
     def __init__(self, session: AsyncSession) -> None:
         super().__init__(session, TrackFeedback)
+
+    async def _ensure_track_exists(self, track_id: int) -> None:
+        """Raise NotFoundError if track_id is missing — prevents FK IntegrityError."""
+        result = await self.session.execute(select(Track.id).where(Track.id == track_id))
+        if result.scalar_one_or_none() is None:
+            raise NotFoundError("Track", track_id)
 
     async def get_by_track(self, track_id: int) -> TrackFeedback | None:
         stmt = select(TrackFeedback).where(TrackFeedback.track_id == track_id)
@@ -26,6 +34,7 @@ class TrackFeedbackRepository(BaseRepository[TrackFeedback]):
                     setattr(existing, k, v)
             await self.session.flush()
             return existing
+        await self._ensure_track_exists(track_id)
         entry = TrackFeedback(track_id=track_id, **kwargs)
         self.session.add(entry)
         await self.session.flush()
@@ -47,6 +56,7 @@ class TrackFeedbackRepository(BaseRepository[TrackFeedback]):
             entry.play_count += 1
             await self.session.flush()
         else:
+            await self._ensure_track_exists(track_id)
             self.session.add(TrackFeedback(track_id=track_id, play_count=1))
             await self.session.flush()
 
@@ -56,5 +66,6 @@ class TrackFeedbackRepository(BaseRepository[TrackFeedback]):
             entry.skip_count += 1
             await self.session.flush()
         else:
+            await self._ensure_track_exists(track_id)
             self.session.add(TrackFeedback(track_id=track_id, skip_count=1))
             await self.session.flush()
