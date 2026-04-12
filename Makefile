@@ -47,6 +47,10 @@ upgrade:
 	uv lock --upgrade && uv sync --all-extras
 	cd panel && bun update
 
+setup-hooks:
+	ln -sf ../../hooks/pre-push .git/hooks/pre-push
+	@echo "Git hooks installed"
+
 clean:
 	find . -type d -name __pycache__ -exec rm -rf {} +
 	find . -type d -name .pytest_cache -exec rm -rf {} +
