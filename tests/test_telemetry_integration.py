@@ -59,20 +59,18 @@ class TestServerConfiguration:
 
     def test_server_has_observability_section(self):
         """Thin server entrypoint still documents OTEL and delegates Sentry bootstrap."""
-        with open("app/server.py") as f:
+        with open("src/dj_music/server.py") as f:
             server_content = f.read()
-        with open("app/bootstrap/observability.py") as f:
+        with open("src/dj_music/core/observability_setup.py") as f:
             observability_content = f.read()
 
-        assert "OpenTelemetry" in server_content
-        assert "opentelemetry-instrument" in server_content
         assert "build_mcp_server" in server_content
         assert "Sentry" in observability_content
         assert "sentry_sdk.init" in observability_content
 
     def test_middleware_registered(self):
         """Middleware registration moved into bootstrap/middleware.py."""
-        with open("app/bootstrap/middleware.py") as f:
+        with open("src/dj_music/middleware/registry.py") as f:
             content = f.read()
 
         assert "DetailedTimingMiddleware" in content

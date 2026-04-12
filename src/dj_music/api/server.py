@@ -21,7 +21,9 @@ from dj_music.api.routes.discovery import router as discovery_router
 from dj_music.api.routes.execution import router as execution_router
 from dj_music.api.routes.health import router as health_router
 from dj_music.api.state import build_api_runtime
-from app.server import mcp
+from dj_music.di.server_builder import build_mcp_server
+
+mcp = build_mcp_server()
 
 api = FastAPI(
     title="DJ Music Plugin — MCP API",
