@@ -33,7 +33,7 @@ globs: app/controllers/tools/**/*.py
 - `build_set` without features: fallback to `playlist_order` (not greedy/ga) — correct behavior
 - `get_set` tracks view: includes `artist_names` via batch query (`get_by_ids` batch, not N+1)
 - `TransitionIntent`: context-aware enum (maintain/ramp_up/cool_down/contrast) affects GA optimizer weights by track position
-- `score_timbral`: 6th component of TransitionScorer, total weights = 1.0 (bpm 0.20 + harmonic 0.12 + energy 0.18 + spectral 0.20 + groove 0.15 + timbral 0.15). Source of truth: `app/core/constants.py:DEFAULT_TRANSITION_WEIGHTS`
+- `score_timbral`: 6th component of TransitionScorer (weight 0.10), total weights = 1.0 (bpm 0.22 + harmonic 0.20 + energy 0.23 + spectral 0.15 + groove 0.10 + timbral 0.10)
 - `import_tracks`: возвращает `id_mapping: dict[str, int]` (ym_id → local_id) для **всех** refs, включая skipped. `playlist_id` реально добавляет треки в плейлист (idempotent — пропускает уже существующие). `auto_analyze=True` запускает `TieredPipeline.ensure_level(...L3)` на impoted+existing IDs.
 - `ym_playlists action=get_tracks`: `limit` (default 100, max 500) + `offset` обязательны для больших плейлистов. Ответ содержит `total`, `count`, `offset`, `limit`, `has_more`. Без них на плейлисте 1377 треков ответ ≈106k символов и переполняет MCP клиент.
 - `get_track` / `TrackService.search` распознают `ym:12345` / `YM:12345` префикс и резолвят через `track_external_ids` (`yandex_music`). Plain text query — fallback по title/artist. Implementation в `app/services/track_service.py:_extract_ym_id`.

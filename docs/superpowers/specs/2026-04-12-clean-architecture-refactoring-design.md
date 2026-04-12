@@ -107,7 +107,7 @@ Repository конвертирует ORM → Entity через `model_validate(or
 src/dj_music/
 │
 ├── core/                        # Config, Error, Types, Utils, Logging
-│   ├── types.py                 # BaseEntity(BaseModel), BaseValueObject(frozen=True)
+│   # types.py убран — BaseEntity/BaseValueObject/BaseFilter/BaseSort/BasePagination в schemas/base.py
 │   ├── errors.py                # DJMusicError hierarchy + ctx chain
 │   ├── constants.py             # SortField, SortDir, TechnoSubgenre, etc.
 │   ├── camelot.py               # Camelot wheel pure math
@@ -118,8 +118,31 @@ src/dj_music/
 │   └── utils/
 │       ├── time.py, parsing.py, cache.py, files.py, pagination.py
 │
-│   # entities/ УБРАН — Entity-First: всё в schemas/
-│
+├── schemas/                     # Entity-First: Entity + DTO + Filter + Validator
+│   ├── base.py                  # BaseEntity, BaseValueObject, BaseFilter, BaseSort, BasePagination
+│   ├── track.py                 # Track, TrackCreate, TrackBrief, TrackFilter
+│   ├── audio.py                 # TrackFeatures, AudioFeatures, Embedding
+│   ├── playlist.py              # Playlist, PlaylistItem, PlaylistSummary, PlaylistFilter
+│   ├── set.py                   # DjSet, SetVersion, SetItem, SetSummary, SetFilter
+│   ├── transition.py            # Transition, TransitionCandidate, TransitionScoreDTO
+│   ├── library.py               # LibraryItem, Beatgrid, CuePoint, SavedLoop
+│   ├── platform.py              # YandexMetadata, SpotifyMetadata
+│   ├── common.py                # CursorPage, PaginatedResponse
+│   └── yandex.py, deck.py, mixer.py
+│   #
+│   # Base classes в base.py:
+│   #   BaseEntity(BaseModel, from_attributes=True, extra="forbid")
+│   #   BaseValueObject(BaseModel, frozen=True)
+│   #   BasePagination(BaseModel) — limit + cursor
+│   #   BaseSort(BaseModel) — sort_dir (enum)
+│   #   BaseFilter(BaseModel, extra="forbid") — все поля optional
+│   #
+│   # Каждый XxxFilter наследует BaseFilter + BaseSort + BasePagination:
+│   #   class TrackFilter(BaseFilter, BaseSort, BasePagination):
+│   #       bpm_min, bpm_max, key_code, energy_min, sort_by, ...
+│   #       @model_validator — validate ranges (bpm_min <= bpm_max)
+│   #
+│   # Repository.filter(params: BaseFilter) → CursorPage[TSchema]
 │
 ├── models/                      # SQLAlchemy ORM (44 tables)
 │   ├── base.py
@@ -151,23 +174,7 @@ src/dj_music/
 │       ├── analyze_track.py, build_set.py, deliver_set.py
 │       └── import_tracks.py, sync_playlist.py
 │
-├── schemas/                     # Entity-First: Entity + DTO + Filter + Validator
-│   ├── base.py                  # BaseEntity, BaseValueObject (Pydantic bases)
-│   ├── track.py                 # Track (entity), TrackCreate, TrackBrief, TrackFilter
-│   ├── audio.py                 # TrackFeatures, AudioFeatures, Embedding
-│   ├── playlist.py              # Playlist, PlaylistItem, PlaylistSummary, PlaylistFilter
-│   ├── set.py                   # DjSet, SetVersion, SetItem, SetSummary, SetFilter
-│   ├── transition.py            # Transition, TransitionCandidate, TransitionScoreDTO
-│   ├── library.py               # LibraryItem, Beatgrid, CuePoint, SavedLoop
-│   ├── platform.py              # YandexMetadata, SpotifyMetadata
-│   ├── common.py                # CursorPage, PaginatedResponse, SortParams
-│   ├── yandex.py, deck.py, mixer.py
-│   #
-│   # Каждый файл содержит:
-│   #   Entity      — полная модель (from_attributes=True)
-│   #   Create/Update — input DTOs (что принимаем)
-│   #   Brief/Summary — output DTOs (что отдаём)
-│   #   Filter      — фильтрация + сортировка + пагинация (extra="forbid")
+│   # (schemas/ уже описан выше — не дублируем)
 │
 ├── tools/                       # MCP @tool handlers (FileSystemProvider scans here)
 │   ├── _shared/                 # taxonomy, context, dispatch, entity_resolver, errors
@@ -848,7 +855,7 @@ CLIENT
 
 | Конфликт | Решение |
 |----------|---------|
-| BaseEntity в core/types.py И schemas/base.py | `core/types.py` = Pydantic base classes. `schemas/base.py` реэкспортирует для удобства |
+| BaseEntity location | `schemas/base.py` = canonical. `core/types.py` удалён — base classes в schemas/ |
 | TrackFeatures в schemas/audio.py И transition/model.py | Canonical в `schemas/audio.py`. `transition/` импортирует оттуда |
 | entities/ vs schemas/ | Один пакет `schemas/` — Entity-First architecture. `entities/` удалён |
 | SortField/SortDir — в каком слое? | `core/constants.py` — cross-cutting enums, доступны всем |
