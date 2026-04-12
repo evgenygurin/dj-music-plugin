@@ -2,13 +2,17 @@
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 from fastapi import APIRouter, Body, HTTPException, Request
+from fastmcp.exceptions import NotFoundError, ToolError, ValidationError
 
 from dj_music.api.openapi import CALL_EXAMPLES, CALL_RESPONSES
 from dj_music.api.schemas import ToolCallRequest, ToolCallResponse
 from dj_music.api.state import get_runtime
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -37,8 +41,16 @@ async def call_tool(
 
     try:
         result = await runtime.mcp.call_tool(tool_name, arguments=payload.arguments)
-    except Exception as exc:
+    except NotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValidationError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except ToolError as exc:
+        logger.warning("Tool '%s' execution error: %s", tool_name, exc)
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+    except Exception as exc:
+        logger.exception("Unexpected error calling tool '%s'", tool_name)
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
 
     content: list[dict[str, Any]] = []
     if result.content:
