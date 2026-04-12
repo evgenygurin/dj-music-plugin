@@ -589,6 +589,115 @@ presentation/di/
 
 ---
 
+## Middleware, Pagination, Validation, Sorting, Filtering
+
+### Middleware — FastMCP built-in stack
+
+FastMCP v3 предоставляет 6 готовых middleware. Порядок добавления = onion (первый = outermost):
+
+```python
+from fastmcp.server.middleware.error_handling import ErrorHandlingMiddleware
+from fastmcp.server.middleware.rate_limiting import RateLimitingMiddleware
+from fastmcp.server.middleware.response_limiting import ResponseLimitingMiddleware
+from fastmcp.server.middleware.timing import TimingMiddleware
+from fastmcp.server.middleware.logging import LoggingMiddleware
+# + RetryMiddleware, SlidingWindowRateLimitingMiddleware
+
+mcp.add_middleware(ErrorHandlingMiddleware(include_traceback=True, error_callback=sentry_cb))
+mcp.add_middleware(RateLimitingMiddleware(max_requests_per_second=10, burst_capacity=20))
+mcp.add_middleware(ResponseLimitingMiddleware(max_size=500_000))
+mcp.add_middleware(TimingMiddleware())
+mcp.add_middleware(LoggingMiddleware())
+```
+
+Custom middleware наследует `Middleware` с `on_request` / `on_message`:
+
+```python
+class RequestIdMiddleware(Middleware):
+    async def on_request(self, context: MiddlewareContext, call_next):
+        request_id = str(uuid4())
+        request_id_var.set(request_id)  # contextvars
+        return await call_next(context)
+```
+
+### Pagination — два уровня
+
+| Уровень | Механизм | Для чего |
+|---------|----------|----------|
+| FastMCP list pagination | `list_page_size=50` в конструкторе | tools/list, resources/list (MCP protocol) |
+| Tool-level cursor pagination | `BaseRepository._paginate()` + `CursorPage[T]` | list_tracks, list_playlists (бизнес-данные) |
+
+Оба нужны. FastMCP pagination — для MCP protocol compliance. Tool pagination — для данных.
+
+### Validation — Pydantic Field constraints
+
+MCP tools валидируют через Pydantic `Field()` constraints прямо в параметрах:
+
+```python
+@tool
+async def filter_tracks(
+    bpm_min: float | None = Field(None, ge=20, le=300, description="Minimum BPM"),
+    bpm_max: float | None = Field(None, ge=20, le=300, description="Maximum BPM"),
+    energy_min: float | None = Field(None, ge=0, le=1, description="Minimum energy"),
+    sort_by: Literal["bpm", "title", "energy", "id"] = "id",
+    limit: int = Field(20, ge=1, le=100),
+    cursor: str | None = None,
+    service: TrackService = Depends(get_track_service),  # hidden
+) -> CursorPage[TrackBrief]:
+    ...
+```
+
+Для сложных фильтров — Pydantic model с `extra="forbid"`:
+
+```python
+class TrackFilterParams(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    bpm_min: float | None = Field(None, ge=20, le=300)
+    bpm_max: float | None = Field(None, ge=20, le=300)
+    key: str | None = None
+    energy_min: float | None = Field(None, ge=0, le=1)
+```
+
+### Sorting — enum + direction
+
+```python
+class SortField(StrEnum):
+    BPM = "bpm"
+    TITLE = "title"
+    ENERGY = "energy"
+    CREATED_AT = "created_at"
+    ID = "id"
+
+class SortDir(StrEnum):
+    ASC = "asc"
+    DESC = "desc"
+```
+
+Repository принимает `sort_by: SortField` + `sort_dir: SortDir` и маппит на SQLAlchemy `order_by()`.
+
+### Filtering — в Repository layer
+
+```python
+# infrastructure/persistence/repositories/track/filtering.py
+async def filter_advanced(
+    self, *,
+    bpm_range: tuple[float, float] | None = None,
+    key_code: int | None = None,
+    energy_range: tuple[float, float] | None = None,
+    has_features: bool | None = None,
+    exclude_set_id: int | None = None,
+    sort_by: SortField = SortField.ID,
+    sort_dir: SortDir = SortDir.ASC,
+    limit: int = 20,
+    cursor: str | None = None,
+) -> CursorPage[TrackEntity]:
+    ...
+```
+
+**Принцип:** Tool → Service → Repository. Фильтрация в SQL (Repository), не в Python (Service).
+
+---
+
 ## SOLID
 
 | Принцип | Как |
