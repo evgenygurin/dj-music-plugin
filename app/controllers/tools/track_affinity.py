@@ -33,7 +33,7 @@ def _get_svc(session: AsyncSession = Depends(get_db_session)) -> TrackAffinitySe
 )
 @map_domain_errors
 async def refresh_affinity(
-    svc: TrackAffinityService = Depends(_get_svc),
+    svc: TrackAffinityService = Depends(_get_svc),  # noqa: B008
 ) -> dict[str, int]:
     """Rebuild track affinity matrix from transition_history.
 
@@ -55,7 +55,7 @@ async def refresh_affinity(
 async def get_track_affinity(
     track_a_id: int,
     track_b_id: int,
-    svc: TrackAffinityService = Depends(_get_svc),
+    svc: TrackAffinityService = Depends(_get_svc),  # noqa: B008
 ) -> dict:
     """Get affinity data for a specific track pair."""
     result = await svc.get_pair(track_a_id, track_b_id)
@@ -75,7 +75,7 @@ async def get_track_affinity(
 async def get_affinity_recommendations(
     track_id: int,
     limit: int = 10,
-    svc: TrackAffinityService = Depends(_get_svc),
+    svc: TrackAffinityService = Depends(_get_svc),  # noqa: B008
 ) -> list[AffinityRecommendation]:
     """Top-N tracks with best proven chemistry for a given track.
 

@@ -30,7 +30,9 @@ class BuildSetWorkflow:
             return
         analysis = await self._tiered_pipeline.ensure_level(track_ids, AnalysisLevel.SCORING)
         if analysis["analyzed"] > 0:
-            await call_async_method(log, "info", f"Auto-analyzed {analysis['analyzed']} tracks (L3 scoring)")
+            await call_async_method(
+                log, "info", f"Auto-analyzed {analysis['analyzed']} tracks (L3 scoring)"
+            )
 
     async def build_set(
         self,
@@ -44,7 +46,9 @@ class BuildSetWorkflow:
         log: Any = None,
     ) -> dict[str, Any]:
         """Build a set from playlist tracks."""
-        await call_async_method(log, "info", f"Building set '{name}' from playlist {playlist_id}...")
+        await call_async_method(
+            log, "info", f"Building set '{name}' from playlist {playlist_id}..."
+        )
         await call_async_method(log, "progress", 0, 3)
 
         await self._ensure_scoring_level(

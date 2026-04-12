@@ -46,14 +46,18 @@ class AnalyzeTrackWorkflow:
     ) -> dict[str, Any]:
         """Analyze a single track, choosing the appropriate pipeline path."""
         if analyzers is not None:
-            await call_async_method(log, "info", f"Analyzing track {track_id} with custom analyzers...")
+            await call_async_method(
+                log, "info", f"Analyzing track {track_id} with custom analyzers..."
+            )
             result = await self._audio_service.analyze_track(
                 track_id,
                 analyzers=analyzers,
                 force=force,
             )
             if result.get("error") == "No audio file linked":
-                await call_async_method(log, "info", "No local file — falling back to tiered pipeline...")
+                await call_async_method(
+                    log, "info", "No local file — falling back to tiered pipeline..."
+                )
                 analysis = await self._tiered_pipeline.ensure_level(
                     [track_id],
                     AnalysisLevel.SCORING,
@@ -117,14 +121,18 @@ class AnalyzeTrackWorkflow:
             )
 
             for index, track_id in enumerate(ids_list):
-                await call_async_method(progress, "set_message", f"Track {index + 1}/{total} (id={track_id})")
+                await call_async_method(
+                    progress, "set_message", f"Track {index + 1}/{total} (id={track_id})"
+                )
                 result = await self._audio_service.analyze_track(
                     track_id,
                     analyzers=analyzers,
                     force=force,
                 )
                 if result.get("error") == "No audio file linked":
-                    tiered = await self._tiered_pipeline.ensure_level([track_id], target, force=force)
+                    tiered = await self._tiered_pipeline.ensure_level(
+                        [track_id], target, force=force
+                    )
                     result = {"status": "analyzed" if tiered["analyzed"] > 0 else "error"}
                 status = result.get("status", "error")
                 if status == "analyzed":

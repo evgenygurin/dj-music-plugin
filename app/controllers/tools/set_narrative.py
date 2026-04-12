@@ -34,7 +34,7 @@ def _get_set_repo(session: AsyncSession = Depends(get_db_session)) -> SetReposit
 @map_domain_errors
 async def analyze_set_narrative(
     set_id: int,
-    repo: SetRepository = Depends(_get_set_repo),
+    repo: SetRepository = Depends(_get_set_repo),  # noqa: B008
 ) -> dict[str, Any]:
     """Analyze a set's narrative structure — phases, flow, variety, arc.
 

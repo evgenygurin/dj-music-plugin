@@ -135,10 +135,11 @@ async def test_repo_never_commits():
     from pathlib import Path
 
     repo_dir = Path(__file__).parent.parent / "app" / "db" / "repositories"
-    repo_files = [repo_file for repo_file in repo_dir.glob("*.py") if repo_file.name != "__init__.py"]
+    repo_files = [
+        repo_file for repo_file in repo_dir.glob("*.py") if repo_file.name != "__init__.py"
+    ]
     assert repo_files, f"No repository files found under {repo_dir}"
     for repo_file in repo_files:
-
         source = repo_file.read_text()
         tree = ast.parse(source)
 

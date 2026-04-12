@@ -6,7 +6,7 @@ import asyncio
 import logging
 from typing import TYPE_CHECKING, Any
 
-from app._version import __version__ as _PIPELINE_VERSION
+from app._version import __version__ as _PIPELINE_VERSION  # noqa: N812
 from app.audio.level_config import AnalysisLevel, get_analyzers_for_level
 from app.config import settings
 
