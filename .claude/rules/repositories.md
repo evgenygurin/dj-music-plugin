@@ -1,11 +1,11 @@
 ---
 description: Repository layer patterns
-globs: app/db/repositories/**/*.py
+globs: src/dj_music/repositories/**/*.py
 ---
 
 # Repositories
 
-- Extend `BaseRepository` from `app/db/repositories/base.py`
+- Extend `BaseRepository` from `src/dj_music/repositories/base.py`
 - Receive `AsyncSession` via `__init__(self, session: AsyncSession)`
 - **Never commit** — only `session.flush()`. Commit happens in DI wrapper `get_db_session()`
 - Use `session.execute(select(...))` for queries, not `session.query()`

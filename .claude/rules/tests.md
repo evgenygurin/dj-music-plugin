@@ -16,7 +16,7 @@ globs: tests/**/*.py
 - Test elicitation: mock elicitation responses via FastMCP test utilities
 - Test error cases: not found, invalid params, partial success
 - Audio tests use synthetic WAV fixtures (440Hz sine, 128 BPM click, white noise)
-- Name test files to mirror source: `app/services/track.py` → `tests/test_services/test_track.py`
+- Name test files to mirror source: `src/dj_music/services/track.py` → `tests/test_services/test_track.py`
 
 ## Gotchas
 

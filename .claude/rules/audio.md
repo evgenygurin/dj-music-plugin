@@ -1,6 +1,6 @@
 ---
 description: Audio analysis patterns
-globs: app/audio/**/*.py
+globs: src/dj_music/audio/**/*.py
 ---
 
 # Audio Analysis
