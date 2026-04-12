@@ -1,365 +1,429 @@
 # Clean Architecture Refactoring — Design Spec
 
-> Date: 2026-04-12
-> Scope: Full structural refactoring of dj-music-plugin from layered architecture to Clean Architecture
-> Scale: ~301 Python files, ~29K lines, 88 MCP tools
+> Полная перестройка dj-music-plugin из flat monolith в Modular Monolith с Clean Architecture.
 
-## Goal
+## Проблема
 
-Migrate the project from the current "5 bands" flat-layer architecture (`app/`) to a strict 4-layer Clean Architecture with src-layout (`src/dj_music_plugin/`). Enforce the Dependency Rule via import-linter contracts and CI tests. Eliminate all boundary violations (20 services importing ORM models directly). Group code by business domain within each layer.
+Текущий проект (~304 Python файла, ~28.6K LOC без миграций):
 
-## Current State
+1. **Flat monolith** — 18 пакетов на одном уровне в `app/` без bounded contexts
+2. **Три слоя данных без границ** — `db/models/` (ORM), `entities/` (dataclass), `schemas/` (Pydantic) пересекаются
+3. **controllers/ гигант** — tools, dependencies, resources, prompts, middleware, schemas в одном пакете
+4. **services/ flat bag** — 15+ сервисов без группировки
+5. **Дублирование** — `build_ym_client()` x2, `_classify_mood` x2, `resolve_track_refs` x2
+6. **Layer violations** — 21 прямой импорт `app.db.models` в services
+7. **Config god-object** — 100+ настроек в одном `Settings` классе
+8. **Ghost directories** — 6 пустых директорий без кода
 
-```text
-app/                          # 301 files, 47 directories
-├── core/                     # cross-cutting (config, constants, errors, utils)
-├── controllers/              # MCP tools (88), prompts (6), resources (10), DI
-├── services/                 # 35 flat service files + set/ + curation/ + workflows/
-├── db/                       # models (15), repositories (20), migrations, session
-├── entities/                 # 3 files (Entity, ValueObject, TrackFeatures)
-├── transition/               # pure scoring (14 files)
-├── optimization/             # GA, greedy, fitness (5 files)
-├── camelot/                  # wheel math (1 file)
-├── templates/                # set templates (2 files)
-├── audit/                    # techno rules (1 file)
-├── export/                   # M3U8, Rekordbox, JSON (5 files)
-├── audio/                    # analyzers (18), pipeline, classification, core
-├── ym/                       # Yandex Music client (4 files)
-├── engines/                  # deck, mixer (5 files)
-├── bootstrap/                # server assembly (7 files)
-├── api/                      # REST wrapper (12 files)
-└── schemas/                  # Pydantic DTOs (10 files)
-```
+## Что уже хорошо (не ломать)
 
-### Key Problems
+- `transition/` — чистый домен, хорошая декомпозиция
+- `audio/` — layered, GoF паттерны (Registry, Strategy, Template Method)
+- `export/` — pure domain writers
+- `optimization/` — Strategy pattern, чистый домен
+- `import-linter` — 6 контрактов
+- UnitOfWork pattern реализован
+- FileSystemProvider auto-discovery работает
 
-1. **No Dependency Rule enforcement**: services import `app.db.models` directly (20 violations)
-2. **Mixed concerns**: pure domain logic (transition/, optimization/) at same level as infrastructure (ym/, audio/)
-3. **No ports/interfaces**: services coupled to concrete implementations
-4. **Flat services/**: 35 files without domain grouping
-5. **No src-layout**: `app/` is importable without installation
-6. **No domain events**: state changes not propagated cleanly
-7. **Scattered DTOs**: schemas/ separate from their domain context
+## Принятые решения
 
-## Target Architecture
+| Решение | Выбор | Причина |
+|---------|-------|---------|
+| Архитектура | Clean Architecture | Строгие слои, dependency rule |
+| Корневой пакет | `src/dj_music/` | Правильное Python packaging |
+| Domain entities | Нет (ORM = data model) | Прагматизм, 44 модели без дублирования |
+| Mapper layer | Нет | Минимум boilerplate, ORM доступны сервисам |
+| Ports (Protocol) | Да, на границах | Repositories + YM client + Cache |
+| Config split | Да, по доменам | Решает god-object |
+| FileSystemProvider | `presentation/mcp/` | Одна строка в server_builder |
 
-### 4 Concentric Layers
+---
+
+## Целевая архитектура
+
+### 6 слоёв
 
 ```text
-┌─────────────────────────────────────────────────┐
-│  PRESENTATION (mcp/)                            │
-│  MCP tools, REST routes, middleware, DI wiring  │
-├─────────────────────────────────────────────────┤
-│  INFRASTRUCTURE (infrastructure/)               │
-│  SQLAlchemy ORM, repos, YM client, audio,       │
-│  analyzers, algorithms, cache, event bus        │
-├─────────────────────────────────────────────────┤
-│  APPLICATION (application/)                     │
-│  Use case services, DTOs, mappers, UoW, ports   │
-├─────────────────────────────────────────────────┤
-│  DOMAIN (domain/)                               │
-│  Entities, value objects, domain services,      │
-│  events, ports (Protocol interfaces)            │
-└─────────────────────────────────────────────────┘
-  config/ + shared/ = cross-cutting (any layer can import)
+src/dj_music/
+├── kernel/           # Shared Kernel — 0 зависимостей
+├── domain/           # Domain Layer — чистая логика
+├── application/      # Application Layer — use cases, порты, DTO
+├── infrastructure/   # Infrastructure Layer — DB, YM, audio I/O
+├── engines/          # Runtime engines — long-lived state
+└── presentation/     # Presentation Layer — MCP tools, REST API, DI
 ```
 
 ### Dependency Rule
 
-| Layer | Can import | Cannot import |
-|---|---|---|
-| domain/ | stdlib only | application, infrastructure, mcp, any framework |
-| application/ | domain/ | infrastructure, mcp |
-| infrastructure/ | domain/, application/ | mcp |
-| mcp/ (presentation) | domain/, application/, infrastructure/ | — |
-| config/ + shared/ | stdlib | any layer (but layers can import them) |
+```text
+presentation --> application --> domain <-- infrastructure
+                    ^                        |
+                    +-------- ports <--------+
 
-### Target Directory Structure
+kernel <-- все слои (cross-cutting)
+engines --> domain + kernel
+```
+
+### Компоненты (из скетча пользователя)
 
 ```text
-dj-music-plugin/
-├── pyproject.toml
-├── alembic.ini
-├── alembic/
-│   ├── env.py
-│   ├── script.py.mako
-│   └── versions/
-│
-├── src/
-│   └── dj_music_plugin/
-│       ├── __init__.py
-│       ├── main.py                         # Composition root
-│       │
-│       ├── domain/                         # LAYER 1: Pure business logic
-│       │   ├── entities/                   # Identity-bearing aggregates
-│       │   │   ├── track.py                # Track aggregate root
-│       │   │   ├── playlist.py
-│       │   │   ├── dj_set.py               # DJSet aggregate root
-│       │   │   └── audio_features.py
-│       │   ├── value_objects/              # Immutable, identity-less
-│       │   │   ├── camelot_key.py          # CamelotKey + wheel logic
-│       │   │   ├── bpm.py
-│       │   │   ├── transition_score.py     # 6-component score
-│       │   │   ├── energy_level.py
-│       │   │   └── analysis_tier.py        # L1-L4 enum
-│       │   ├── services/                   # Pure domain services (no I/O)
-│       │   │   ├── harmonic_mixing.py      # Camelot compatibility rules
-│       │   │   ├── transition_scoring.py   # 6-component scoring algorithm
-│       │   │   └── set_constraints.py      # Set constraint validation
-│       │   ├── events/                     # Domain events (frozen dataclasses)
-│       │   │   ├── track_events.py
-│       │   │   └── set_events.py
-│       │   └── ports/                      # Protocol interfaces
-│       │       ├── repositories.py
-│       │       ├── audio_analyzer.py
-│       │       ├── audio_loader.py
-│       │       ├── set_builder.py          # SetBuildingStrategy Protocol
-│       │       ├── music_provider.py       # External API port
-│       │       └── analysis_cache.py
-│       │
-│       ├── application/                    # LAYER 2: Use cases
-│       │   ├── services/                   # Application services
-│       │   │   ├── track_service.py
-│       │   │   ├── playlist_service.py
-│       │   │   ├── set_builder_service.py  # Facade
-│       │   │   ├── analysis_service.py
-│       │   │   ├── transition_service.py
-│       │   │   └── yandex_service.py
-│       │   ├── dtos/                       # Pydantic v2 DTOs
-│       │   │   ├── base.py
-│       │   │   ├── track_dtos.py
-│       │   │   ├── playlist_dtos.py
-│       │   │   ├── set_dtos.py
-│       │   │   ├── analysis_dtos.py
-│       │   │   └── yandex_dtos.py
-│       │   ├── mappers/                    # Entity ↔ DTO ↔ ORM conversion
-│       │   │   ├── track_mapper.py
-│       │   │   ├── playlist_mapper.py
-│       │   │   └── set_mapper.py
-│       │   └── uow.py                     # Unit of Work
-│       │
-│       ├── infrastructure/                 # LAYER 3: Adapters
-│       │   ├── persistence/
-│       │   │   ├── database.py             # Engine, session factory
-│       │   │   ├── models/                 # ORM models (44 tables)
-│       │   │   │   ├── base.py
-│       │   │   │   ├── track_model.py
-│       │   │   │   ├── playlist_model.py
-│       │   │   │   ├── set_model.py
-│       │   │   │   ├── audio_features_model.py
-│       │   │   │   └── yandex_model.py
-│       │   │   └── repositories/           # Concrete implementations
-│       │   │       ├── base_repository.py  # SQLAlchemyRepository[T]
-│       │   │       ├── track_repository.py
-│       │   │       ├── playlist_repository.py
-│       │   │       └── set_repository.py
-│       │   ├── audio/                      # Audio analysis
-│       │   │   ├── pipeline.py
-│       │   │   ├── analyzers/              # 18 analyzers
-│       │   │   ├── core/                   # framing, loader, spectral
-│       │   │   ├── classification/         # mood classifier
-│       │   │   ├── loader.py
-│       │   │   └── batch_processor.py
-│       │   ├── algorithms/                 # Set-building strategies
-│       │   │   ├── greedy_set_builder.py
-│       │   │   └── genetic_set_builder.py
-│       │   ├── yandex/                     # YM API adapter
-│       │   │   ├── client.py
-│       │   │   └── mapper.py
-│       │   ├── cache/
-│       │   │   └── analysis_cache.py
-│       │   └── event_bus.py
-│       │
-│       ├── mcp/                            # LAYER 4: Presentation
-│       │   ├── server.py                   # FastMCP factory + middleware
-│       │   ├── tools/                      # Grouped by domain
-│       │   │   ├── _shared/
-│       │   │   ├── tracks/
-│       │   │   ├── playlists/
-│       │   │   ├── sets/
-│       │   │   ├── audio/
-│       │   │   ├── yandex/
-│       │   │   └── system/
-│       │   ├── resources/
-│       │   ├── prompts/
-│       │   ├── middleware/
-│       │   │   ├── logging.py
-│       │   │   ├── error_handling.py
-│       │   │   ├── rate_limiting.py
-│       │   │   └── telemetry.py
-│       │   └── dependencies.py             # Depends() factories
-│       │
-│       ├── config/
-│       │   └── settings.py                 # pydantic-settings
-│       │
-│       └── shared/
-│           ├── exceptions.py               # Exception hierarchy
-│           ├── types.py                    # Type aliases
-│           ├── logging.py                  # structlog config
-│           └── utils.py                    # Time, GUID helpers
-│
-├── tests/
-│   ├── conftest.py
-│   ├── unit/
-│   │   ├── domain/
-│   │   ├── application/
-│   │   └── infrastructure/
-│   ├── integration/
-│   └── e2e/
-│
-├── scripts/
-│   ├── seed_data.py
-│   └── benchmark_pipeline.py
-│
-└── docs/
-    └── architecture.md
+PRESENTATION:
+  Tool (Controller) --> Schema --> Service
+  Prompt --> Tool
+  Resource --> Tool
+
+APPLICATION:
+  Service --> Repository (via Port)
+  Schema --> Validator
+  CRUD операции
+
+DOMAIN:
+  Entity (dataclass) + Types
+  Transition scoring, Optimization, Export
+
+INFRASTRUCTURE:
+  Model (ORM) --> Repository (implementation)
+  Audio --> Pipeline
+  YM Client --> Rate Limit
+
+KERNEL (Core):
+  Config, Error, Middleware, Logging, Monitoring
+  Util --> Time, UUID
 ```
 
-## Key Patterns
+---
 
-### Ports & Adapters (Dependency Inversion)
+## Детальная структура
 
-- **Ports** defined in `domain/ports/` as `Protocol` classes
-- **Adapters** in `infrastructure/` implement the ports
-- Application layer depends only on ports, never on concrete adapters
-- Wiring happens in `main.py` (composition root) and `mcp/dependencies.py`
+### 1. kernel/ — Shared Kernel
 
-### Unit of Work
+```text
+src/dj_music/kernel/
+├── __init__.py
+├── types.py                 # ValueObject, Entity base, HasId, HasTimestamps
+├── errors.py                # DJMusicError hierarchy
+├── constants.py             # Enums, domain constants
+├── camelot.py               # Camelot wheel pure math
+├── config/
+│   ├── __init__.py          # Composite Settings facade
+│   ├── base.py              # BaseSettings
+│   ├── audio.py             # AudioSettings
+│   ├── scoring.py           # ScoringSettings
+│   ├── ym.py                # YandexMusicSettings
+│   ├── server.py            # ServerSettings
+│   └── db.py                # DatabaseSettings
+└── utils/
+    ├── time.py, parsing.py, cache.py, files.py, pagination.py
+```
 
-- UoW owns `AsyncSession`, creates repositories bound to it
-- Services call `commit()` once at end of successful operation
-- Repositories call `flush()` only — never commit
-- `expire_on_commit=False` for async safety
+### 2. domain/ — Domain Layer
 
-### Domain Events
+Чистая бизнес-логика. Зависит только от kernel. Ни SQLAlchemy, ни httpx, ни FastMCP.
 
-- Entities collect events internally (`_events: list`)
-- Events are frozen dataclasses (immutable facts)
-- `collect_events()` extracts and clears pending events
-- `event_bus.py` dispatches events to handlers in infrastructure
+```text
+src/dj_music/domain/
+├── audio/
+│   ├── model.py             # AudioSignal, AnalyzerResult
+│   ├── context.py           # AnalysisContext
+│   ├── dsp/                 # Pure DSP (spectral, rhythm, tonal, framing)
+│   ├── analyzers/           # 18 analyzers (Registry pattern)
+│   │   ├── base.py          # BaseAnalyzer ABC + AnalyzerRegistry
+│   │   ├── bpm.py, beat.py, key.py, loudness.py, spectral.py
+│   │   ├── energy.py, mfcc.py, structure.py, tonnetz.py
+│   │   ├── tempogram.py, phrase.py, bpm_histogram.py
+│   │   └── (essentia): beats_loudness, danceability, dissonance, etc.
+│   ├── classification/      # MoodClassifier + profiles
+│   └── quality/             # Audit rules
+│
+├── transition/              # Transition scoring (already pure)
+│   ├── model.py             # TransitionScore, TrackFeatures
+│   ├── scorer.py            # TransitionScorer (~140 LOC)
+│   ├── components/          # bpm, harmonic, energy, spectral, groove, timbral
+│   ├── constraints.py, intent.py, style.py
+│   ├── recipe.py, recipe_engine.py
+│   ├── section_context.py, subgenre_rules.py, weights.py, math.py
+│
+├── optimization/            # GA, greedy, fitness (already pure)
+│   ├── protocol.py, fitness.py, genetic.py, greedy.py, result.py
+│
+├── export/                  # Pure writers (no I/O)
+│   ├── model.py             # ExportTrack, ExportTransition DTOs
+│   ├── m3u8.py, rekordbox.py, json_guide.py, cheatsheet.py
+│
+├── templates/               # Set templates (pure data)
+│   ├── model.py, registry.py
+│
+├── narrative/               # Set narrative engine
+│   └── engine.py
+│
+└── mix_point/               # Mix-point detection (pure math)
+    └── detector.py
+```
 
-### Strategy Pattern for Set Building
+### 3. application/ — Application Layer
 
-- `domain/ports/set_builder.py` defines `SetBuildingStrategy` Protocol
-- `infrastructure/algorithms/greedy_set_builder.py` implements greedy
-- `infrastructure/algorithms/genetic_set_builder.py` implements GA
-- Selection at composition root based on user request
+```text
+src/dj_music/application/
+├── ports/                   # Protocol interfaces
+│   ├── repositories.py      # All repository Protocols
+│   ├── music_provider.py    # MusicProvider Protocol (YM abstraction)
+│   ├── audio_storage.py     # TimeseriesStorage Protocol
+│   └── cache.py             # TransitionCache Protocol
+│
+├── services/                # Use cases (flat with prefixes)
+│   ├── track.py, playlist.py, search.py, metadata.py
+│   ├── audio_analysis.py, tiered_pipeline.py
+│   ├── set_builder.py, set_scoring.py, set_crud.py
+│   ├── set_cheatsheet.py, set_facade.py
+│   ├── reasoning.py, delivery.py, discovery.py
+│   ├── import_.py, sync.py, export.py
+│   ├── curation.py, curation_mood.py, curation_audit.py, curation_distribution.py
+│   ├── embedding.py, candidate.py
+│   ├── transition.py, transition_cache.py, transition_history.py
+│   ├── optimizer.py, adaptive_arc.py, mix_point.py
+│   ├── affinity.py, feedback.py, background_tasks.py
+│
+├── workflows/               # Multi-step orchestrators
+│   ├── analyze_track.py, build_set.py, deliver_set.py
+│   ├── import_tracks.py, sync_playlist.py
+│
+└── dto/                     # Pydantic DTOs (replaces app/schemas/)
+    ├── track.py, playlist.py, set.py, transition.py
+    ├── common.py, yandex.py, deck.py, mixer.py
+```
 
-### Value Objects
+### 4. infrastructure/ — Infrastructure Layer
 
-- `@dataclass(frozen=True)` for all VOs
-- CamelotKey encapsulates wheel logic
-- TransitionScore is immutable 6-component record
-- BPM includes tolerance/matching logic
+```text
+src/dj_music/infrastructure/
+├── persistence/
+│   ├── session.py           # async_session_factory
+│   ├── seed.py              # Reference data
+│   ├── models/              # 44 SQLAlchemy ORM models
+│   │   ├── base.py, track.py, audio.py, playlist.py, set.py
+│   │   ├── transition.py, platform.py, library.py, key.py
+│   │   ├── export.py, ingestion.py, feedback.py, scoring_profile.py
+│   ├── repositories/        # Concrete repo implementations
+│   │   ├── base.py, unit_of_work.py
+│   │   ├── track/ (core, filtering, library, external_ids, stats)
+│   │   ├── playlist.py, set.py, feature.py, audio.py
+│   │   ├── transition.py, candidate.py, embedding.py, export.py
+│   │   ├── ingestion.py, metadata.py, transition_history.py
+│   │   └── track_affinity.py, track_feedback.py
+│   └── migrations/
+│
+├── yandex_music/            # YM adapter (implements MusicProvider port)
+│   ├── client.py, models.py, rate_limiter.py, filters.py
+│
+├── storage/
+│   ├── factory.py, transition_cache.py
+│
+├── audio/                   # Audio I/O adapters
+│   ├── loader.py, pipeline.py (668 LOC), temp_download.py, timeseries.py
+│
+└── observability/
+    ├── sentry.py, telemetry.py
+```
 
-### DTOs (Pydantic v2)
+### 5. engines/
 
-- Inheritance: Base → Create → Update → Response
-- `ConfigDict(from_attributes=True)` for ORM compatibility
-- Centralized in `application/dtos/`
+```text
+src/dj_music/engines/
+├── base.py
+├── deck/ (engine.py, state.py)
+├── mixer/ (engine.py)
+└── lifespan.py
+```
 
-### MCP Tool Organization
+### 6. presentation/
 
-- `FileSystemProvider` scans `mcp/tools/` recursively
-- `BM25SearchTransform` for large tool catalogs
-- Tools grouped by domain: tracks/, sets/, audio/, yandex/, system/
-- Each tool is a standalone `@tool` decorated function with `Depends()`
+```text
+src/dj_music/presentation/
+├── mcp/                     # FastMCP server (FileSystemProvider scans here)
+│   ├── server.py            # build_mcp_server()
+│   ├── tools/               # @tool handlers
+│   │   ├── _shared/ (taxonomy, context, dispatch, entity_resolver, resolvers, errors)
+│   │   ├── tracks.py, playlists.py, sets.py, search.py, reasoning.py
+│   │   ├── audio.py, audio_atomic.py, curation.py, delivery.py
+│   │   ├── discovery.py, import_download.py, sync.py, admin.py
+│   │   ├── monitoring.py, decks.py, mixer.py, feedback tools
+│   │   └── yandex/ (search, tracks, albums, playlists, likes)
+│   ├── resources/
+│   ├── prompts/
+│   ├── middleware/
+│   └── schemas/
+│
+├── http/                    # FastAPI REST wrapper
+│   ├── server.py, state.py, lifespan.py, openapi.py, schemas.py
+│   ├── routes/ (health, discovery, execution, audio)
+│   └── services/ (tool_registry, signed_url_cache, ym_audio_proxy)
+│
+├── bootstrap/               # Server assembly
+│   ├── server_builder.py, lifespans.py, transforms.py
+│   ├── middleware.py, visibility.py, observability.py, sampling.py
+│
+└── di/                      # Dependency Injection — composition root
+    ├── db.py, repos.py, services.py, audio.py, external.py, uow.py
+```
 
-## Dependency Rule Enforcement
+---
 
-### import-linter contracts
+## Import-Linter контракты
 
 ```ini
+[importlinter]
+root_packages = dj_music
+
+# 1. Domain must be pure
 [importlinter:contract:domain-pure]
-name = Domain must have zero framework imports
+name = Domain must have no external dependencies
 type = forbidden
-source_modules = dj_music_plugin.domain
-forbidden_modules = sqlalchemy, fastmcp, pydantic, librosa, httpx, essentia, numpy
+source_modules = dj_music.domain
+forbidden_modules =
+    dj_music.application
+    dj_music.infrastructure
+    dj_music.presentation
+    dj_music.engines
+    sqlalchemy
+    httpx
+    fastmcp
+    fastapi
 
-[importlinter:contract:application-no-infra]
-name = Application must not import infrastructure or MCP
+# 2. Application must not depend on infrastructure
+[importlinter:contract:application-no-infrastructure]
+name = Application uses ports not infrastructure
 type = forbidden
-source_modules = dj_music_plugin.application
-forbidden_modules = sqlalchemy, fastmcp, librosa, httpx, dj_music_plugin.infrastructure, dj_music_plugin.mcp
+source_modules =
+    dj_music.application.services
+    dj_music.application.workflows
+forbidden_modules =
+    dj_music.infrastructure
+    dj_music.presentation
+    sqlalchemy
+    httpx
+    fastmcp
 
-[importlinter:contract:infrastructure-no-mcp]
-name = Infrastructure must not import MCP presentation
+# 3. Kernel is a leaf
+[importlinter:contract:kernel-leaf]
+name = Kernel must not depend on any app layer
 type = forbidden
-source_modules = dj_music_plugin.infrastructure
-forbidden_modules = fastmcp, dj_music_plugin.mcp
+source_modules = dj_music.kernel
+forbidden_modules =
+    dj_music.domain
+    dj_music.application
+    dj_music.infrastructure
+    dj_music.presentation
+    dj_music.engines
+
+# 4. Presentation tools must not access infra directly
+[importlinter:contract:presentation-no-infra]
+name = Presentation depends on application not infrastructure
+type = forbidden
+source_modules =
+    dj_music.presentation.mcp.tools
+    dj_music.presentation.mcp.resources
+    dj_music.presentation.mcp.prompts
+forbidden_modules =
+    dj_music.infrastructure.persistence.models
+    dj_music.infrastructure.persistence.repositories
+
+# 5. Engines must not depend on transport
+[importlinter:contract:engines-no-transport]
+name = Engines must not depend on presentation or infra IO
+type = forbidden
+source_modules = dj_music.engines
+forbidden_modules =
+    dj_music.presentation
+    dj_music.infrastructure.yandex_music
+    dj_music.infrastructure.persistence
 ```
 
-### AST-based CI test
+---
 
-```python
-# tests/test_architecture.py
-LAYER_RULES = {
-    "domain": {"forbidden": ["sqlalchemy", "fastmcp", "pydantic", "librosa", "httpx"]},
-    "application": {"forbidden": ["sqlalchemy", "fastmcp", "librosa", "httpx"]},
-}
-```
+## GoF паттерны
 
-## Migration Strategy
+### Сохраняем (уже в кодовой базе)
 
-### Phase 1: Foundation
-- Create `src/dj_music_plugin/` structure
-- Move `alembic/` to project root
-- Set up `pyproject.toml` with src-layout
-- Create `main.py` composition root
+| Паттерн | Где |
+|---------|-----|
+| Strategy | optimization/ (GA vs Greedy) |
+| Registry | audio/analyzers/ |
+| Facade | set_facade, curation |
+| Template Method | BaseAnalyzer |
+| Command + Registry | ActionDispatcher |
+| Unit of Work | UnitOfWork |
+| Repository | BaseRepository[T] |
 
-### Phase 2: Domain Layer
-- Extract entities from `app/entities/` → `domain/entities/`
-- Create value objects from inline logic (CamelotKey, BPM, TransitionScore)
-- Move pure logic: transition/, optimization/, camelot/, templates/, audit/, export/ → domain/
-- Define ports in `domain/ports/`
-- Create domain events
+### Добавляем
 
-### Phase 3: Infrastructure Layer
-- Move ORM models: `app/db/models/` → `infrastructure/persistence/models/`
-- Move repositories: `app/db/repositories/` → `infrastructure/persistence/repositories/`
-- Move audio: `app/audio/` → `infrastructure/audio/`
-- Move YM client: `app/ym/` → `infrastructure/yandex/`
-- Implement ports with concrete adapters
-- Move GA/greedy: `app/optimization/` → `infrastructure/algorithms/`
+| Паттерн | Где | Зачем |
+|---------|-----|-------|
+| Port/Adapter | application/ports/ | Инверсия зависимостей |
+| Abstract Factory | di/ | Composition root |
 
-### Phase 4: Application Layer
-- Create application services from `app/services/`
-- Create DTOs from `app/schemas/`
-- Create mappers
-- Implement UoW pattern
-- Remove all `from app.db.models` imports from services
+---
 
-### Phase 5: Presentation Layer
-- Move MCP tools: `app/controllers/tools/` → `mcp/tools/` (grouped by domain)
-- Move middleware, resources, prompts
-- Create `mcp/server.py` factory
-- Set up DI factories in `mcp/dependencies.py`
-- Add BM25SearchTransform
+## SOLID
 
-### Phase 6: Cleanup & Enforcement
-- Add import-linter contracts for all 4 layers
-- Add AST-based architecture test
-- Update all documentation (CLAUDE.md, docs/, rules/)
-- Remove old `app/` directory
-- Update CI/CD, Dockerfile, scripts
+| Принцип | Как |
+|---------|-----|
+| S | Каждый сервис = один use case |
+| O | Analyzers/Templates через Registry |
+| L | Protocol-порты = substituability |
+| I | Split Protocols по необходимости |
+| D | Services -> Protocol ports <- Infrastructure |
 
-### Phase 7: Test Migration
-- Restructure tests: unit/ → domain/ + application/ + infrastructure/
-- Integration tests with real DB
-- E2E tests with MCP client
-- Verify all 1200+ tests pass
+---
 
-## Design Rationale
+## Дедупликация
 
-| Decision | Rationale |
-|---|---|
-| src/ layout | Python packaging consensus since 2025; prevents accidental imports |
-| Protocol over ABC for ports | Structural subtyping; adapters don't import domain base classes |
-| UoW with commit in services | SQLAlchemy official recommendation; explicit transaction boundaries |
-| expire_on_commit=False | Required for async SQLAlchemy (MissingGreenlet otherwise) |
-| Cursor/keyset pagination | O(1) at any depth vs O(n) for offset; index-friendly |
-| BM25SearchTransform | Prevents context window flooding with 50+ tool schemas |
-| FileSystemProvider | Zero-boilerplate tool registration; hot-reload in dev |
-| Frozen dataclasses for VOs/events | Immutability + __eq__ + __hash__ for free |
-| Strategy pattern for set building | Swap greedy ↔ GA at composition root without touching services |
-| Domain events | Decouple state changes from side effects cleanly |
+| Дубликат | Решение |
+|----------|---------|
+| `build_ym_client()` x2 | Одна фабрика в di/external.py |
+| `_classify_mood` x2 | Делегирование к MoodClassifier |
+| `resolve_track_refs` x2 | Единый helper |
+| Ghost directories x6 | Удалить |
+| `templates.py` resources x2 | Объединить |
+
+---
+
+## Миграция: фазы
+
+| # | Фаза | Описание |
+|---|------|----------|
+| 0 | Setup | `src/dj_music/`, pyproject.toml, import-linter |
+| 1 | kernel/ | config split, errors, constants, camelot, utils |
+| 2 | domain/ | transition/, optimization/, export/, templates/, audio domain |
+| 3 | application/ports/ | Protocol interfaces |
+| 4 | application/services/ | services переезжают |
+| 5 | application/workflows+dto/ | workflows/, schemas/ -> dto/ |
+| 6 | infrastructure/ | db/ -> persistence/, ym/ -> yandex_music/, audio I/O |
+| 7 | engines/ | engines переезжают |
+| 8 | presentation/ | controllers/ -> mcp/, api/ -> http/, bootstrap/, di/ |
+| 9 | Cleanup | ghost dirs, shims, docs |
+
+Каждая фаза — отдельный PR с re-export shims для backward compatibility.
+
+---
+
+## Что НЕ меняется
+
+- Бизнес-логика (scoring, optimization, audio analysis)
+- MCP tool API (названия, параметры, возвращаемые типы)
+- REST API endpoints
+- DB schema и миграции
+- Panel (Next.js)
+- FastMCP patterns (FileSystemProvider, @tool, Depends)
+
+---
+
+## Метрики успеха
+
+| Метрика | До | После |
+|---------|-----|-------|
+| God-files (>400 LOC) | 4 | 2 (deferred) |
+| Ghost directories | 6 | 0 |
+| db.models imports in services | 21 | 0 |
+| Import-linter contracts | 6 | 5 (stricter) |
+| Config files | 1 (100+ fields) | 6 (15-20 each) |
+| Duplicate code | 3+ | 0 |
