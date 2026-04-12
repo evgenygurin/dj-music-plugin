@@ -83,7 +83,7 @@ forbidden_modules =
     app.db.models
     app.db.repositories
 ignore_imports =
-    app.api.server -> app.server
+    dj_music.api.server -> dj_music.di.server_builder
 
 # ── Contract 6: Engines stay below transport ───────────────────────
 [importlinter:contract:engines-no-transport]
@@ -94,3 +94,49 @@ source_modules =
 forbidden_modules =
     app.api
     app.controllers
+
+# ── dj_music contracts ──────────────────────────────────────────────
+
+[importlinter:contract:dj-schemas-pure]
+name = Schemas must not depend on services or infrastructure
+type = forbidden
+source_modules = dj_music.schemas
+forbidden_modules =
+    dj_music.services
+    dj_music.ym
+    dj_music.tools
+    dj_music.engines
+    sqlalchemy
+    httpx
+    fastmcp
+    fastapi
+
+[importlinter:contract:dj-core-leaf]
+name = Core must not depend on any app layer
+type = forbidden
+source_modules = dj_music.core
+forbidden_modules =
+    dj_music.schemas
+    dj_music.services
+    dj_music.ym
+    dj_music.tools
+    dj_music.engines
+
+[importlinter:contract:dj-pure-domain]
+name = Transition, optimization, export, templates must be pure
+type = forbidden
+source_modules =
+    dj_music.transition
+    dj_music.optimization
+    dj_music.export
+    dj_music.templates
+forbidden_modules =
+    dj_music.models
+    dj_music.repositories
+    dj_music.services
+    dj_music.tools
+    dj_music.ym
+    dj_music.engines
+    sqlalchemy
+    httpx
+    fastmcp
