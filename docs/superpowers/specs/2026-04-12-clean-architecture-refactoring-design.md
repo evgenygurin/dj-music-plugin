@@ -7,7 +7,7 @@
 Текущий проект (~304 Python файла, ~28.6K LOC без миграций):
 
 1. **Flat monolith** — 18 пакетов на одном уровне в `app/` без bounded contexts
-2. **Три слоя данных без границ** — `db/models/` (ORM), `schemas/` (dataclass), `schemas/` (Pydantic) пересекаются
+2. **Три слоя данных без границ** — `db/models/` (ORM), `entities/` (dataclass), `schemas/` (Pydantic) пересекаются
 3. **controllers/ гигант** — tools, dependencies, resources, prompts, middleware, schemas в одном пакете
 4. **services/ flat bag** — 15+ сервисов без группировки
 5. **Дублирование** — `build_ym_client()` x2, `_classify_mood` x2, `resolve_track_refs` x2
@@ -48,8 +48,7 @@ Dependency rule через import-linter, не через вложенность
 
 ```text
 src/dj_music/
-├── core/              # Config, Error, Types, Utils, Logging, Monitoring
-│                      # entities/ УБРАН — Entity-First: всё в schemas/
+├── core/              # Config, Error, Utils, Logging
 ├── models/            # SQLAlchemy ORM models
 ├── repositories/      # Data access + CRUD + Protocol ports
 ├── services/          # Business logic (use cases)
@@ -73,14 +72,16 @@ src/dj_music/
 ### Dependency Rule
 
 ```text
-Tool (Controller) --> Schema --> Service --> Repository --> Entity
+Tool (Controller) --> Schema --> Service --> Repository --> Schema (return)
      |                  |                       |
-  Prompt             Validator               Model (ORM)
+  Prompt             Validator               Model (ORM) --> model_validate --> Schema
   Resource                                   CRUD (in BaseRepo)
 
-Core --> Config, Error, Middleware --> Logging, Monitoring, Rate Limit
+Core --> Config, Error, Logging
          Util --> Time, UUID
-         (BaseEntity, BaseValueObject, BaseFilter → schemas/base.py)
+         Constants --> SortField, SortDir, TechnoSubgenre, etc.
+
+schemas/base.py --> BaseEntity, BaseValueObject, BaseFilter, BaseSort, BasePagination
 
 Audio --> Pipeline (analyzers + DSP)
 Transition, Optimization, Export, Templates --> pure (only core deps)
@@ -101,7 +102,7 @@ Transition, Optimization, Export, Templates --> pure (only core deps)
 Каждый компонент = top-level пакет. Вложенность только где напрашивается (tools/yandex/, repositories/track/, audio/analyzers/).
 
 **Pydantic everywhere:** Entity, ValueObject, Schema, Config — всё Pydantic BaseModel.
-Repository конвертирует ORM → Entity через `model_validate(orm_obj)` (from_attributes=True).
+Repository конвертирует ORM → Schema через `Schema.model_validate(orm_obj)` (from_attributes=True).
 
 ```text
 src/dj_music/
@@ -174,8 +175,6 @@ src/dj_music/
 │       ├── analyze_track.py, build_set.py, deliver_set.py
 │       └── import_tracks.py, sync_playlist.py
 │
-│   # (schemas/ уже описан выше — не дублируем)
-│
 ├── tools/                       # MCP @tool handlers (FileSystemProvider scans here)
 │   ├── _shared/                 # taxonomy, context, dispatch, entity_resolver, errors
 │   ├── tracks.py, playlists.py, sets.py, search.py, reasoning.py
@@ -247,9 +246,9 @@ src/dj_music/
 [importlinter]
 root_packages = dj_music
 
-# 1. Domain must be pure
-[importlinter:contract:domain-pure]
-name = Domain must have no external dependencies
+# 1. Schemas must be pure (no services, no infra)
+[importlinter:contract:schemas-pure]
+name = Schemas must not depend on services or infrastructure
 type = forbidden
 source_modules = dj_music.schemas
 forbidden_modules =
@@ -262,9 +261,9 @@ forbidden_modules =
     fastmcp
     fastapi
 
-# 2. Application must not depend on infrastructure
-[importlinter:contract:application-no-infrastructure]
-name = Application uses ports not infrastructure
+# 2. Services must not depend on infra directly
+[importlinter:contract:services-no-infra]
+name = Services use ports not infrastructure
 type = forbidden
 source_modules =
     dj_music.services
@@ -276,7 +275,7 @@ forbidden_modules =
     httpx
     fastmcp
 
-# 3. Kernel is a leaf
+# 3. Core is a leaf
 [importlinter:contract:core-leaf]
 name = Core must not depend on any app layer
 type = forbidden
@@ -288,9 +287,9 @@ forbidden_modules =
     dj_music.tools
     dj_music.engines
 
-# 4. Presentation tools must not access infra directly
-[importlinter:contract:presentation-no-infra]
-name = Presentation depends on application not infrastructure
+# 4. Tools must not access models/repos directly
+[importlinter:contract:tools-no-infra]
+name = Tools depend on services not infrastructure
 type = forbidden
 source_modules =
     dj_music.tools
@@ -300,9 +299,9 @@ forbidden_modules =
     dj_music.models
     dj_music.repositories
 
-# 5. Engines must not depend on transport
+# 5. Engines must not depend on transport or persistence
 [importlinter:contract:engines-no-transport]
-name = Engines must not depend on presentation or infra IO
+name = Engines must not depend on tools or persistence
 type = forbidden
 source_modules = dj_music.engines
 forbidden_modules =
@@ -318,9 +317,9 @@ forbidden_modules =
 ### 3-слойная обработка ошибок
 
 ```text
-Domain layer      → raise DJMusicError с structured context (ctx dict)
-Infrastructure    → catch low-level, wrap в domain errors (ConnectionError → DatabaseUnavailable)
-Presentation      → convert domain errors в transport responses (DJMusicError → ToolError / HTTP 4xx)
+schemas/ + services/  → raise DJMusicError с structured context (ctx dict)
+repositories/ + ym/   → catch low-level, wrap в domain errors (ConnectionError → DatabaseUnavailable)
+tools/ + api/         → convert domain errors в transport responses (DJMusicError → ToolError / HTTP 4xx)
 ```
 
 ### DJMusicError с контекстной цепочкой
@@ -740,14 +739,14 @@ async def filter_advanced(
 | OpenTelemetry | https://gofastmcp.com/servers/telemetry | Интеграция OTEL traces |
 | Client Logging | https://gofastmcp.com/servers/logging | Логирование ctx.info/warning/error |
 
-### Phase 2 — domain/
+### Phase 2 — schemas/ + domain logic
 
 | Документ | URL | Зачем |
 |----------|-----|-------|
 | Prompts | https://gofastmcp.com/servers/prompts | Standalone @prompt паттерн |
 | Resources & Templates | https://gofastmcp.com/servers/resources | @resource, ResourceResult |
 
-### Phase 3+4 — application/
+### Phase 3+4 — repositories/ports + services/
 
 | Документ | URL | Зачем |
 |----------|-----|-------|
@@ -758,14 +757,14 @@ async def filter_advanced(
 | Sampling | https://gofastmcp.com/servers/sampling | LLM sampling fallback |
 | Background Tasks | https://gofastmcp.com/servers/tasks | Docket tasks, task=True |
 
-### Phase 6 — infrastructure/
+### Phase 6 — models/ + repositories/
 
 | Документ | URL | Зачем |
 |----------|-----|-------|
 | Storage Backends | https://gofastmcp.com/servers/storage-backends | Backend для state persistence |
 | Lifespans | https://gofastmcp.com/servers/lifespan | @lifespan, composition operator `\|` |
 
-### Phase 8 — presentation/
+### Phase 8 — tools/ + api/ + bootstrap/
 
 | Документ | URL | Зачем |
 |----------|-----|-------|
@@ -779,7 +778,7 @@ async def filter_advanced(
 | Composing Servers | https://gofastmcp.com/servers/composition | mount(), namespace, import_server |
 | Testing | https://gofastmcp.com/servers/testing | Client fixture, in-memory testing |
 
-### Phase 8 — presentation/mcp/ (Providers & Transforms)
+### Phase 8 — tools/ + api/ + bootstrap/mcp/ (Providers & Transforms)
 
 | Документ | URL | Зачем |
 |----------|-----|-------|
@@ -807,7 +806,7 @@ async def filter_advanced(
 | Claude Code Integration | https://gofastmcp.com/integrations/claude-code | .mcp.json config |
 | MCP JSON Configuration | https://gofastmcp.com/integrations/mcp-json-configuration | JSON config format |
 
-### Phase 8 — presentation/ (Auth, если потребуется)
+### Phase 8 — tools/ + api/ + bootstrap/ (Auth, если потребуется)
 
 | Документ | URL | Зачем |
 |----------|-----|-------|
@@ -852,24 +851,24 @@ MIDDLEWARE (onion):
   RateLimitingMiddleware  → token bucket
   ResponseLimitingMiddleware → size guard
   ↓
-PRESENTATION (mcp/tools/sets.py):
+TOOL (tools/sets.py):
   @tool build_set(playlist_id, template, service=Depends(...), ctx=CurrentContext())
   - Pydantic validation на входе
   - Вызывает service.build(...)
   ↓
-DI RESOLUTION (di/services.py → di/repos.py → di/db.py):
+DI RESOLUTION (bootstrap/di/services.py → di/repos.py → di/db.py):
   get_db_session() → AsyncSession (shared)
   get_track_repo(session) → SqlAlchemyTrackRepo(session)
   get_set_repo(session) → SqlAlchemySetRepo(session)
   get_set_service(repos...) → SetService(protocols...)
   ↓
-APPLICATION (services/set_builder.py):
+SERVICE (services/set_builder.py):
   SetService.build()
   - Загрузка через Protocol ports (не знает об ORM)
   - Получает Pydantic entities (Track, TrackFeatures)
   - Вызывает domain optimizer
   ↓
-DOMAIN (optimization/genetic.py + transition/scorer.py):
+PURE DOMAIN (optimization/genetic.py + transition/scorer.py):
   GeneticAlgorithm.optimize(tracks, scorer, template)
   - Pure: list[TrackFeatures] → OptimizationResult
   - ZERO I/O, ZERO framework deps
@@ -878,10 +877,10 @@ APPLICATION (back in set_builder.py):
   - Persists через repos (flush, не commit)
   - Returns SetSummary (Pydantic DTO)
   ↓
-PRESENTATION (back in tool):
+TOOL (back in tool):
   - DTO → FastMCP structuredContent + content
   ↓
-DI CLEANUP (di/db.py):
+DI CLEANUP (bootstrap/di/db.py):
   - SUCCESS → session.commit()
   - ERROR → session.rollback()
   - ALWAYS → session.close()
@@ -934,7 +933,7 @@ CLIENT
 |---------|-----|-------|
 | God-files (>400 LOC) | 4 | 2 (deferred) |
 | Ghost directories | 6 | 0 |
-| ORM imports in services | 21 | 0 (services use domain entities only) |
+| ORM imports in services | 21 | 0 (services use schemas only) |
 | Import-linter contracts | 6 | 5 (stricter) |
 | Config files | 1 (100+ fields) | 6 (15-20 each) |
 | Duplicate code | 3+ | 0 |
