@@ -49,3 +49,38 @@ After completing a milestone or ~10 dev commits:
 gh pr create --base main --head dev --title "Release: <milestone>"
 gh pr merge <num> --squash
 ```
+
+## Versioning (SemVer)
+
+Single source of truth: `pyproject.toml` → `version = "X.Y.Z"`
+
+| Bump | When | Example |
+|------|------|---------|
+| MAJOR (X) | Breaking MCP tool interface changes | 1.0.0 |
+| MINOR (Y) | New tools, features, analyzers | 0.7.0 → 0.8.0 |
+| PATCH (Z) | Bug fixes, metadata, docs, refactors | 0.7.0 → 0.7.1 |
+
+### Release checklist
+
+```bash
+# 1. Update version
+# pyproject.toml: version = "X.Y.Z"
+# CLAUDE.md: version line
+# CHANGELOG.md: move [Unreleased] → [X.Y.Z] — YYYY-MM-DD
+
+# 2. Commit
+git add pyproject.toml CLAUDE.md CHANGELOG.md
+git commit -m "release: vX.Y.Z"
+
+# 3. Tag
+git tag -a vX.Y.Z -m "vX.Y.Z"
+git push origin dev --tags
+git push origin dev:main --tags
+
+# 4. GitHub Release
+gh release create vX.Y.Z --title "vX.Y.Z" --notes-file /tmp/release-notes.md
+```
+
+### Tag naming: `vX.Y.Z` (with `v` prefix)
+
+### CHANGELOG format: Keep a Changelog (Added/Changed/Fixed/Removed)
