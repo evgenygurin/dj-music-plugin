@@ -190,11 +190,19 @@ HOTCUE_INDEX_MAX: int = 15
 KEY_CODE_MIN: int = 0
 KEY_CODE_MAX: int = 23
 
+
 # Transition scoring weights (default, overridable per-template).
 # Rebalanced from research §4.4 (Kim ISMIR 2020): MFCC #1, key
 # overrated, structural / groove undervalued. Sums to 1.0.
 # Re-exported from ``app/transition/weights.py:DEFAULT_WEIGHTS``
 # for the domain layer; this dict is the single source of truth.
+class SortDir(StrEnum):
+    """Sort direction for list queries."""
+
+    ASC = "asc"
+    DESC = "desc"
+
+
 DEFAULT_TRANSITION_WEIGHTS: dict[str, float] = {
     "bpm": 0.20,  # was 0.22
     "harmonic": 0.12,  # was 0.20
