@@ -7,7 +7,7 @@
 Текущий проект (~304 Python файла, ~28.6K LOC без миграций):
 
 1. **Flat monolith** — 18 пакетов на одном уровне в `app/` без bounded contexts
-2. **Три слоя данных без границ** — `db/models/` (ORM), `entities/` (dataclass), `schemas/` (Pydantic) пересекаются
+2. **Три слоя данных без границ** — `db/models/` (ORM), `schemas/` (dataclass), `schemas/` (Pydantic) пересекаются
 3. **controllers/ гигант** — tools, dependencies, resources, prompts, middleware, schemas в одном пакете
 4. **services/ flat bag** — 15+ сервисов без группировки
 5. **Дублирование** — `build_ym_client()` x2, `_classify_mood` x2, `resolve_track_refs` x2
@@ -31,8 +31,8 @@
 |---------|-------|---------|
 | Архитектура | Clean Architecture | Строгие слои, dependency rule |
 | Корневой пакет | `src/dj_music/` | Правильное Python packaging |
-| Domain entities | Да (Pydantic BaseModel) | Сервисы не знают об ORM. Pydantic = валидация + сериализация |
-| Mapper | `from_attributes=True` | `Entity.model_validate(orm_obj)` — Pydantic маппит автоматически |
+| Entity = Schema | Один пакет `schemas/` | Entity + DTO + Filter + Validator в одном месте (Entity-First) |
+| Mapper | `from_attributes=True` | `Schema.model_validate(orm_obj)` — Pydantic маппит автоматически |
 | Ports (Protocol) | Да, на границах | Repositories + YM client + Cache |
 | Config split | Да, по доменам | Решает god-object |
 | FileSystemProvider | `presentation/mcp/` | Одна строка в server_builder |
@@ -49,7 +49,7 @@ Dependency rule через import-linter, не через вложенность
 ```text
 src/dj_music/
 ├── core/              # Config, Error, Types, Utils, Logging, Monitoring
-├── entities/          # Pydantic domain models (Track, Set, Playlist)
+│                      # entities/ УБРАН — Entity-First: всё в schemas/
 ├── models/            # SQLAlchemy ORM models
 ├── repositories/      # Data access + CRUD + Protocol ports
 ├── services/          # Business logic (use cases)
@@ -87,15 +87,14 @@ Transition, Optimization, Export, Templates --> pure (only core deps)
 ```
 
 Стрелки = зависимости. Import-linter контракты обеспечивают:
-- `entities/`, `transition/`, `optimization/`, `export/` → зависят ТОЛЬКО от `core/`
-- `services/` → зависит от `entities/`, `core/`, `repositories/` (через Protocol)
+- `schemas/`, `transition/`, `optimization/`, `export/` → зависят ТОЛЬКО от `core/`
+- `services/` → зависит от `schemas/`, `core/`, `repositories/` (через Protocol)
 - `services/` НЕ импортирует `models/`, `tools/`, `ym/`, `api/`
 - `tools/` → зависит от `services/`, `schemas/`, `core/`
 - `tools/` НЕ импортирует `models/`, `repositories/` напрямую
-- `repositories/` → зависит от `models/`, `entities/`, `core/`
+- `repositories/` → зависит от `models/`, `schemas/`, `core/`
 
 ---
-
 
 ## Детальная структура
 
@@ -119,14 +118,8 @@ src/dj_music/
 │   └── utils/
 │       ├── time.py, parsing.py, cache.py, files.py, pagination.py
 │
-├── entities/                    # Pydantic domain entities (inherit core.types.BaseEntity)
-│   ├── track.py                 # Track, Artist, Genre, Label, Release
-│   ├── audio.py                 # TrackFeatures, AudioFeatures, Embedding
-│   ├── playlist.py              # Playlist, PlaylistItem
-│   ├── set.py                   # DjSet, SetVersion, SetItem, SetConstraint
-│   ├── transition.py            # Transition, TransitionCandidate
-│   ├── library.py               # LibraryItem, Beatgrid, CuePoint, SavedLoop
-│   └── platform.py              # YandexMetadata, SpotifyMetadata, etc.
+│   # entities/ УБРАН — Entity-First: всё в schemas/
+│
 │
 ├── models/                      # SQLAlchemy ORM (44 tables)
 │   ├── base.py
@@ -158,9 +151,23 @@ src/dj_music/
 │       ├── analyze_track.py, build_set.py, deliver_set.py
 │       └── import_tracks.py, sync_playlist.py
 │
-├── schemas/                     # Pydantic DTOs + Validators (tool returns)
-│   ├── track.py, playlist.py, set.py, transition.py
-│   └── common.py, yandex.py, deck.py, mixer.py
+├── schemas/                     # Entity-First: Entity + DTO + Filter + Validator
+│   ├── base.py                  # BaseEntity, BaseValueObject (Pydantic bases)
+│   ├── track.py                 # Track (entity), TrackCreate, TrackBrief, TrackFilter
+│   ├── audio.py                 # TrackFeatures, AudioFeatures, Embedding
+│   ├── playlist.py              # Playlist, PlaylistItem, PlaylistSummary, PlaylistFilter
+│   ├── set.py                   # DjSet, SetVersion, SetItem, SetSummary, SetFilter
+│   ├── transition.py            # Transition, TransitionCandidate, TransitionScoreDTO
+│   ├── library.py               # LibraryItem, Beatgrid, CuePoint, SavedLoop
+│   ├── platform.py              # YandexMetadata, SpotifyMetadata
+│   ├── common.py                # CursorPage, PaginatedResponse, SortParams
+│   ├── yandex.py, deck.py, mixer.py
+│   #
+│   # Каждый файл содержит:
+│   #   Entity      — полная модель (from_attributes=True)
+│   #   Create/Update — input DTOs (что принимаем)
+│   #   Brief/Summary — output DTOs (что отдаём)
+│   #   Filter      — фильтрация + сортировка + пагинация (extra="forbid")
 │
 ├── tools/                       # MCP @tool handlers (FileSystemProvider scans here)
 │   ├── _shared/                 # taxonomy, context, dispatch, entity_resolver, errors
@@ -237,7 +244,7 @@ root_packages = dj_music
 [importlinter:contract:domain-pure]
 name = Domain must have no external dependencies
 type = forbidden
-source_modules = dj_music.entities
+source_modules = dj_music.schemas
 forbidden_modules =
     dj_music.services
     dj_music.ym
@@ -268,7 +275,7 @@ name = Kernel must not depend on any app layer
 type = forbidden
 source_modules = dj_music.core
 forbidden_modules =
-    dj_music.entities
+    dj_music.schemas
     dj_music.services
     dj_music.ym
     dj_music.tools
@@ -633,8 +640,8 @@ async def filter_advanced(
 |---|------|----------|
 | 0 | Setup | `src/dj_music/`, pyproject.toml, import-linter |
 | 1 | core/ | config split, errors, constants, camelot, utils, logging |
-| 2a | domain/entities/ | Pydantic entities для Track, Set, Playlist, Transition, etc. |
-| 2b | domain/ | transition/, optimization/, export/, templates/, audio domain |
+| 2a | schemas/ | Entity-First: Entity + DTO + Filter + Validator для всех доменов |
+| 2b | domain logic | transition/, optimization/, export/, templates/, audio domain |
 | 3 | repositories/ports.py | Protocol interfaces |
 | 4 | services/ | services переезжают, убираем ORM imports |
 | 5 | application/workflows+schemas/ | workflows/, schemas/ stays as schemas/ |
@@ -830,7 +837,7 @@ CLIENT
 1. **Один session на весь call** — все repos на shared session → UoW
 2. **Domain = pure** — optimizer и scorer не знают о DB/HTTP/MCP
 3. **Services видят только Protocol** — не знают что под капотом SQLAlchemy
-4. **Entities = Pydantic** — repos конвертируют ORM → Pydantic перед return
+4. **Schemas = single source** — repos конвертируют ORM → Schema перед return
 5. **Commit/rollback в DI** — ни service, ни repo не делают commit
 6. **Middleware = cross-cutting** — logging, errors, rate limit без кода в tools
 7. **contextvars** — request_id propagates через все слои автоматически
@@ -841,8 +848,9 @@ CLIENT
 
 | Конфликт | Решение |
 |----------|---------|
-| BaseEntity в core/types.py И domain/entities/base.py | Определяется ТОЛЬКО в `core/types.py`. `domain/entities/base.py` не нужен — entities наследуют от `core.types.BaseEntity` |
-| TrackFeatures в domain/entities/audio.py И transition/model.py | Canonical в `domain/entities/audio.py`. `transition/` импортирует оттуда |
+| BaseEntity в core/types.py И schemas/base.py | `core/types.py` = Pydantic base classes. `schemas/base.py` реэкспортирует для удобства |
+| TrackFeatures в schemas/audio.py И transition/model.py | Canonical в `schemas/audio.py`. `transition/` импортирует оттуда |
+| entities/ vs schemas/ | Один пакет `schemas/` — Entity-First architecture. `entities/` удалён |
 | SortField/SortDir — в каком слое? | `core/constants.py` — cross-cutting enums, доступны всем |
 
 ---
