@@ -394,6 +394,99 @@ forbidden_modules =
 
 ---
 
+## Error Handling, Logging, Observability
+
+### 3-слойная обработка ошибок
+
+```text
+Domain layer      → raise DJMusicError с structured context (ctx dict)
+Infrastructure    → catch low-level, wrap в domain errors (ConnectionError → DatabaseUnavailable)
+Presentation      → convert domain errors в transport responses (DJMusicError → ToolError / HTTP 4xx)
+```
+
+### DJMusicError с контекстной цепочкой
+
+```python
+class DJMusicError(Exception):
+    def __init__(self, message: str, ctx: dict | None = None):
+        self.ctx = ctx or {}
+        super().__init__(message)
+
+    def get_context_chain(self) -> dict:
+        """Собирает ctx из всей цепочки __cause__."""
+        ctx = self.ctx.copy()
+        if self.__cause__ and isinstance(self.__cause__, DJMusicError):
+            ctx.update(self.__cause__.get_context_chain())
+        return ctx
+```
+
+Позволяет: `raise NotFoundError("Track", 42, ctx={"query": "ym:12345"})` → лог содержит полный контекст.
+
+### Middleware Chain (порядок критичен)
+
+```text
+Client → RequestID → Logging → ErrorHandler → RateLimit → App
+   ↑                                                       |
+   +--- RateLimit ← ErrorHandler ← Logging ← RequestID ←---+
+```
+
+- **RequestID** — генерирует/принимает trace ID, ставит в `contextvars` (не request.state)
+- **Logging** — structured access log (method, path, status, duration, request_id)
+- **ErrorHandler** — catch exceptions, wrap в clean responses, log с traceback
+- **RateLimit** — MCP tool rate limiting
+
+### Structured Logging (structlog)
+
+```text
+structlog processor chain:
+  1. contextvars.merge_contextvars    — request_id, tool_name автоматически
+  2. stdlib.add_log_level            — DEBUG/INFO/WARNING/ERROR
+  3. stdlib.add_logger_name          — module path
+  4. process_custom_exceptions       — auto-extract ctx из DJMusicError
+  5. TimeStamper(fmt="iso")          — ISO timestamps
+  6. JSONRenderer (prod) / ConsoleRenderer (dev)
+```
+
+- **Production**: JSON → stdout → log aggregation (Sentry, ELK)
+- **Development**: colored console output, human-readable
+- **contextvars**: request_id propagates через все слои без передачи параметром
+- **Шумные библиотеки** (httpx, httpcore): уровень WARNING
+
+### Sentry интеграция
+
+```text
+structlog chain включает SentryProcessor:
+  - ERROR/CRITICAL → автоматически отправляются в Sentry
+  - DJMusicError.ctx → Sentry breadcrumbs/tags
+  - request_id → Sentry event tag (связь с логами)
+```
+
+### Observability файлы в новой структуре
+
+```text
+src/dj_music/
+├── kernel/
+│   ├── errors.py            # DJMusicError hierarchy с ctx + get_context_chain()
+│   └── logging.py           # structlog configuration, processor chain, setup_logging()
+│
+├── infrastructure/
+│   └── observability/
+│       ├── sentry.py        # Sentry DSN init, SentryProcessor
+│       └── telemetry.py     # OTEL traces (optional)
+│
+└── presentation/
+    ├── mcp/
+    │   └── middleware/
+    │       ├── request_id.py    # RequestID → contextvars
+    │       ├── logging.py       # Access log middleware
+    │       ├── error_handler.py # Exception → ToolError conversion
+    │       └── rate_limit.py    # Rate limiting
+    └── http/
+        └── middleware similarly
+```
+
+---
+
 ## GoF паттерны
 
 ### Сохраняем (уже в кодовой базе)
