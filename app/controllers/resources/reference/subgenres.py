@@ -18,10 +18,13 @@ from app.core.constants import TechnoSubgenre
 @resource(
     uri="reference://subgenres",
     name="Techno Subgenres",
+    title="Techno Subgenres",
     description="15 techno subgenres ordered by energy intensity with descriptions",
     mime_type="application/json",
     tags={"core"},
-    annotations={"readOnlyHint": True},
+    annotations=ANNOTATIONS_READ_ONLY,
+    icons=ICON_REFERENCE,
+    meta=RESOURCE_META,
 )
 async def subgenres_reference() -> str:
     """Get techno subgenre reference data.

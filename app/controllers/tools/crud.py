@@ -22,7 +22,13 @@ from app.core.utils.parsing import ensure_dict
 from app.services.set.facade import SetService
 
 
-@tool(title="List Sets", tags={ToolCategory.CORE.value}, annotations=ANNOTATIONS_READ_ONLY)
+@tool(
+    title="List Sets",
+    tags={ToolCategory.CORE.value},
+    annotations=ANNOTATIONS_READ_ONLY,
+    icons=ICON_SETS,
+    meta=TOOL_META,
+)
 @map_domain_errors
 async def list_sets(
     template: str | None = None,
@@ -34,7 +40,13 @@ async def list_sets(
     return await svc.list_sets(template=template, limit=limit, cursor=cursor)
 
 
-@tool(title="Get Set", tags={ToolCategory.CORE.value}, annotations=ANNOTATIONS_READ_ONLY)
+@tool(
+    title="Get Set",
+    tags={ToolCategory.CORE.value},
+    annotations=ANNOTATIONS_READ_ONLY,
+    icons=ICON_SETS,
+    meta=TOOL_META,
+)
 @map_domain_errors
 async def get_set(
     id: int | None = None,
@@ -50,7 +62,13 @@ async def get_set(
     return await svc.get_set(id=id, query=query, view=view)
 
 
-@tool(title="Manage Set", tags={ToolCategory.CORE.value}, annotations=ANNOTATIONS_WRITE)
+@tool(
+    title="Manage Set",
+    tags={ToolCategory.CORE.value},
+    annotations=ANNOTATIONS_WRITE,
+    icons=ICON_SETS,
+    meta=TOOL_META,
+)
 @map_domain_errors
 async def manage_set(
     action: str,

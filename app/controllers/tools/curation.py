@@ -27,7 +27,6 @@ from app.controllers.dependencies import (
 )
 from app.controllers.tools._shared import (
     ANNOTATIONS_READ_ONLY,
-    ANNOTATIONS_WRITE,
     ToolCategory,
     ToolContext,
     ToolTimeout,
@@ -53,9 +52,12 @@ async def _auto_triage(
         await log.info(f"Auto-analyzed {analysis['analyzed']} tracks (L2 triage)")
 
 
-@tool(title="Classify Mood",
+@tool(
+    title="Classify Mood",
     tags={ToolCategory.CURATION.value},
-    annotations=ANNOTATIONS_WRITE,
+    annotations=ANNOTATIONS_WRITE_IDEMPOTENT,
+    icons=ICON_CURATION,
+    meta=TOOL_META,
     timeout=ToolTimeout.BATCH,
     task=True,
 )
@@ -88,9 +90,12 @@ async def classify_mood(
     )
 
 
-@tool(title="Audit Playlist",
+@tool(
+    title="Audit Playlist",
     tags={ToolCategory.CURATION.value},
     annotations=ANNOTATIONS_READ_ONLY,
+    icons=ICON_CURATION,
+    meta=TOOL_META,
     timeout=ToolTimeout.BATCH,
     task=True,
 )
@@ -118,7 +123,13 @@ async def audit_playlist(
     )
 
 
-@tool(title="Review Set Quality", tags={ToolCategory.CURATION.value}, annotations=ANNOTATIONS_READ_ONLY)
+@tool(
+    title="Review Set Quality",
+    tags={ToolCategory.CURATION.value},
+    annotations=ANNOTATIONS_READ_ONLY,
+    icons=ICON_CURATION,
+    meta=TOOL_META,
+)
 @map_domain_errors
 async def review_set_quality(
     set_id: int,
@@ -130,7 +141,13 @@ async def review_set_quality(
     return await svc.review_set_quality(set_id=set_id, version_label=version)
 
 
-@tool(title="Distribute to Subgenres", tags={ToolCategory.CURATION.value}, annotations=ANNOTATIONS_WRITE)
+@tool(
+    title="Distribute to Subgenres",
+    tags={ToolCategory.CURATION.value},
+    annotations=ANNOTATIONS_WRITE_DESTRUCTIVE_OPEN,
+    icons=ICON_CURATION,
+    meta=TOOL_META,
+)
 @map_domain_errors
 async def distribute_to_subgenres(
     source_playlist_id: int | None = None,
@@ -155,7 +172,13 @@ async def distribute_to_subgenres(
     )
 
 
-@tool(title="Library Stats", tags={ToolCategory.CURATION.value}, annotations=ANNOTATIONS_READ_ONLY)
+@tool(
+    title="Library Stats",
+    tags={ToolCategory.CURATION.value},
+    annotations=ANNOTATIONS_READ_ONLY,
+    icons=ICON_CURATION,
+    meta=TOOL_META,
+)
 @map_domain_errors
 async def get_library_stats(
     svc: CurationService = Depends(get_curation_service),  # noqa: B008

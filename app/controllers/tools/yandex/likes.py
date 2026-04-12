@@ -18,7 +18,7 @@ from app.controllers.tools._shared import (
     ToolCategory,
     UnknownActionError,
 )
-from app.controllers.tools.yandex._constants import MAX_LIKED_PAGE, YM_WRITE_ANNOTATIONS
+from app.controllers.tools.yandex._constants import MAX_LIKED_PAGE
 from app.core.utils.parsing import ensure_list
 from app.ym.client import YandexMusicClient
 
@@ -81,7 +81,13 @@ async def _remove(
     return {"action": "remove", "track_ids": track_ids, "success": True}
 
 
-@tool(title="YM Likes", tags={ToolCategory.YM.value}, annotations=YM_WRITE_ANNOTATIONS)
+@tool(
+    title="YM Likes",
+    tags={ToolCategory.YM.value},
+    annotations=ANNOTATIONS_WRITE_OPEN_WORLD,
+    icons=ICON_YM,
+    meta=TOOL_META,
+)
 async def ym_likes(
     action: str = "get_liked",
     track_ids: Any = None,

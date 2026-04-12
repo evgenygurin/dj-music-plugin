@@ -18,10 +18,13 @@ from app.core.constants import CAMELOT_KEYS
 @resource(
     uri="reference://camelot",
     name="Camelot Wheel Reference",
+    title="Camelot Wheel Reference",
     description="24 musical keys in Camelot notation with harmonic compatibility rules",
     mime_type="application/json",
     tags={"core"},
-    annotations={"readOnlyHint": True},
+    annotations=ANNOTATIONS_READ_ONLY,
+    icons=ICON_REFERENCE,
+    meta=RESOURCE_META,
 )
 async def camelot_reference() -> str:
     """Get Camelot wheel reference data.

@@ -10,7 +10,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.controllers.dependencies.db import get_db_session
 from app.controllers.tools._shared.errors import map_domain_errors
-from app.controllers.tools._shared.taxonomy import ANNOTATIONS_READ_ONLY, ToolCategory
+from app.controllers.tools._shared.taxonomy import (
+    ANNOTATIONS_READ_ONLY,
+    ToolCategory,
+)
 from app.db.repositories.transition_history import TransitionHistoryRepository
 from app.services.adaptive_arc import AdaptiveArcService
 
@@ -19,7 +22,13 @@ def _get_svc(session: AsyncSession = Depends(get_db_session)) -> AdaptiveArcServ
     return AdaptiveArcService(TransitionHistoryRepository(session))
 
 
-@tool(title="Get Energy Trend", tags={ToolCategory.CORE.value, "memory"}, annotations=ANNOTATIONS_READ_ONLY)
+@tool(
+    title="Get Energy Trend",
+    tags={ToolCategory.CORE.value, "memory"},
+    annotations=ANNOTATIONS_READ_ONLY,
+    icons=ICON_MEMORY,
+    meta=TOOL_META,
+)
 @map_domain_errors
 async def get_energy_trend(
     last_n: int = 10,
@@ -34,7 +43,13 @@ async def get_energy_trend(
     return {"trend": trend}
 
 
-@tool(title="Suggest Energy Direction", tags={ToolCategory.CORE.value, "memory"}, annotations=ANNOTATIONS_READ_ONLY)
+@tool(
+    title="Suggest Energy Direction",
+    tags={ToolCategory.CORE.value, "memory"},
+    annotations=ANNOTATIONS_READ_ONLY,
+    icons=ICON_MEMORY,
+    meta=TOOL_META,
+)
 @map_domain_errors
 async def suggest_energy_direction(
     last_n: int = 10,
@@ -49,7 +64,13 @@ async def suggest_energy_direction(
     return await svc.suggest_energy_direction(last_n)
 
 
-@tool(title="Get Session Arc", tags={ToolCategory.CORE.value, "memory"}, annotations=ANNOTATIONS_READ_ONLY)
+@tool(
+    title="Get Session Arc",
+    tags={ToolCategory.CORE.value, "memory"},
+    annotations=ANNOTATIONS_READ_ONLY,
+    icons=ICON_MEMORY,
+    meta=TOOL_META,
+)
 @map_domain_errors
 async def get_session_arc(
     limit: int = 50,

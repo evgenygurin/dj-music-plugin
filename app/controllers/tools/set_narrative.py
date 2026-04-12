@@ -10,7 +10,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.controllers.dependencies.db import get_db_session
 from app.controllers.tools._shared.errors import map_domain_errors
-from app.controllers.tools._shared.taxonomy import ANNOTATIONS_READ_ONLY, ToolCategory
+from app.controllers.tools._shared.taxonomy import (
+    ANNOTATIONS_READ_ONLY,
+    ToolCategory,
+)
 from app.db.repositories.set import SetRepository
 from app.services.set_narrative import SetNarrativeEngine
 
@@ -19,7 +22,13 @@ def _get_set_repo(session: AsyncSession = Depends(get_db_session)) -> SetReposit
     return SetRepository(session)
 
 
-@tool(title="Analyze Set Narrative", tags={ToolCategory.SETS.value, "memory"}, annotations=ANNOTATIONS_READ_ONLY)
+@tool(
+    title="Analyze Set Narrative",
+    tags={ToolCategory.SETS.value, "memory"},
+    annotations=ANNOTATIONS_READ_ONLY,
+    icons=ICON_SETS,
+    meta=TOOL_META,
+)
 @map_domain_errors
 async def analyze_set_narrative(
     set_id: int,

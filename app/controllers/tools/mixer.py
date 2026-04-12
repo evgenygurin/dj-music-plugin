@@ -10,7 +10,10 @@ from typing import Any
 from fastmcp import Context
 from fastmcp.tools import tool
 
-from app.controllers.tools._shared.taxonomy import ANNOTATIONS_READ_ONLY, ToolCategory
+from app.controllers.tools._shared.taxonomy import (
+    ANNOTATIONS_READ_ONLY,
+    ToolCategory,
+)
 from app.engines.mixer.engine import MixerEngine
 from app.schemas.deck import DeckStateRead
 from app.schemas.mixer import MixerStateRead
@@ -35,7 +38,12 @@ def _to_read(snapshot: dict[str, Any]) -> MixerStateRead:
     )
 
 
-@tool(title="Mixer Crossfader", tags={ToolCategory.CORE.value, "mixer"})
+@tool(
+    title="Mixer Crossfader",
+    tags={ToolCategory.CORE.value, "mixer"},
+    icons=ICON_MIXER,
+    meta=TOOL_META,
+)
 async def mixer_crossfader(target: float, ctx: Context) -> MixerStateRead:
     """Set crossfader position. 0=full A side, 1=full B side."""
     mixer = _get_mixer(ctx)
@@ -43,7 +51,12 @@ async def mixer_crossfader(target: float, ctx: Context) -> MixerStateRead:
     return _to_read(mixer.snapshot())
 
 
-@tool(title="Mixer Channel Gain", tags={ToolCategory.CORE.value, "mixer"})
+@tool(
+    title="Mixer Channel Gain",
+    tags={ToolCategory.CORE.value, "mixer"},
+    icons=ICON_MIXER,
+    meta=TOOL_META,
+)
 async def mixer_channel_gain(deck_id: int, gain: float, ctx: Context) -> MixerStateRead:
     """Set per-channel gain (0..1.5) for a deck on the mixer."""
     mixer = _get_mixer(ctx)
@@ -51,13 +64,19 @@ async def mixer_channel_gain(deck_id: int, gain: float, ctx: Context) -> MixerSt
     return _to_read(mixer.snapshot())
 
 
-@tool(title="Mixer State", tags={ToolCategory.CORE.value, "mixer"}, annotations=ANNOTATIONS_READ_ONLY)
+@tool(
+    title="Mixer State",
+    tags={ToolCategory.CORE.value, "mixer"},
+    annotations=ANNOTATIONS_READ_ONLY,
+    icons=ICON_MIXER,
+    meta=TOOL_META,
+)
 async def mixer_state(ctx: Context) -> MixerStateRead:
     """Snapshot of mixer + all 4 decks (no side effects)."""
     return _to_read(_get_mixer(ctx).snapshot())
 
 
-@tool(title="Set EQ", tags={ToolCategory.CORE.value, "mixer"})
+@tool(title="Set EQ", tags={ToolCategory.CORE.value, "mixer"}, icons=ICON_MIXER, meta=TOOL_META)
 async def set_eq(
     deck_id: int,
     band: str,
@@ -76,7 +95,7 @@ async def set_eq(
     return _to_read(mixer.snapshot())
 
 
-@tool(title="Kill EQ", tags={ToolCategory.CORE.value, "mixer"})
+@tool(title="Kill EQ", tags={ToolCategory.CORE.value, "mixer"}, icons=ICON_MIXER, meta=TOOL_META)
 async def kill_eq(
     deck_id: int,
     band: str,
@@ -93,7 +112,7 @@ async def kill_eq(
     return _to_read(mixer.snapshot())
 
 
-@tool(title="Reset EQ", tags={ToolCategory.CORE.value, "mixer"})
+@tool(title="Reset EQ", tags={ToolCategory.CORE.value, "mixer"}, icons=ICON_MIXER, meta=TOOL_META)
 async def reset_eq(
     deck_id: int,
     ctx: Context,
@@ -108,7 +127,9 @@ async def reset_eq(
     return _to_read(mixer.snapshot())
 
 
-@tool(title="Set Filter", tags={ToolCategory.CORE.value, "mixer"})
+@tool(
+    title="Set Filter", tags={ToolCategory.CORE.value, "mixer"}, icons=ICON_MIXER, meta=TOOL_META
+)
 async def set_filter(
     deck_id: int,
     cutoff_hz: float,

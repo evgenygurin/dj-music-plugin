@@ -7,12 +7,20 @@ from fastmcp.tools import tool
 
 from app.controllers.dependencies.services import get_transition_history_service
 from app.controllers.tools._shared.errors import map_domain_errors
-from app.controllers.tools._shared.taxonomy import ANNOTATIONS_READ_ONLY, ToolCategory
+from app.controllers.tools._shared.taxonomy import (
+    ANNOTATIONS_READ_ONLY,
+    ToolCategory,
+)
 from app.schemas.transition_history import BestPairRead, TransitionHistoryRead
 from app.services.transition_history import TransitionHistoryService
 
 
-@tool(title="Log Transition", tags={ToolCategory.CORE.value, "memory"})
+@tool(
+    title="Log Transition",
+    tags={ToolCategory.CORE.value, "memory"},
+    icons=ICON_MEMORY,
+    meta=TOOL_META,
+)
 @map_domain_errors
 async def log_transition(
     from_track_id: int,
@@ -55,6 +63,8 @@ async def log_transition(
     title="Transition History",
     tags={ToolCategory.CORE.value, "memory"},
     annotations=ANNOTATIONS_READ_ONLY,
+    icons=ICON_MEMORY,
+    meta=TOOL_META,
 )
 @map_domain_errors
 async def get_transition_history(
@@ -73,6 +83,8 @@ async def get_transition_history(
     title="Get Best Pairs",
     tags={ToolCategory.CORE.value, "memory"},
     annotations=ANNOTATIONS_READ_ONLY,
+    icons=ICON_MEMORY,
+    meta=TOOL_META,
 )
 @map_domain_errors
 async def get_best_pairs(
@@ -85,7 +97,12 @@ async def get_best_pairs(
     return [BestPairRead.model_validate(p) for p in pairs]
 
 
-@tool(title="Update Reaction", tags={ToolCategory.CORE.value, "memory"})
+@tool(
+    title="Update Reaction",
+    tags={ToolCategory.CORE.value, "memory"},
+    icons=ICON_MEMORY,
+    meta=TOOL_META,
+)
 @map_domain_errors
 async def update_reaction(
     entry_id: int,

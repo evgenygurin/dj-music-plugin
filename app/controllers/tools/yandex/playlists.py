@@ -23,7 +23,6 @@ from app.controllers.tools._shared import (
 )
 from app.controllers.tools.yandex._constants import (
     MAX_PLAYLIST_TRACKS_PAGE,
-    YM_WRITE_ANNOTATIONS,
 )
 from app.core.utils.parsing import ensure_list
 from app.ym.client import YandexMusicClient
@@ -209,7 +208,13 @@ async def _remove_tracks(
     }
 
 
-@tool(title="YM Playlists", tags={ToolCategory.YM.value}, annotations=YM_WRITE_ANNOTATIONS)
+@tool(
+    title="YM Playlists",
+    tags={ToolCategory.YM.value},
+    annotations=ANNOTATIONS_WRITE_OPEN_WORLD,
+    icons=ICON_YM,
+    meta=TOOL_META,
+)
 async def ym_playlists(
     action: str = "list",
     kind: int | None = None,

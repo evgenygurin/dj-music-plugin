@@ -10,9 +10,12 @@ from app.controllers.tools._shared import ANNOTATIONS_READ_ONLY, ToolCategory
 from app.templates.registry import TEMPLATES
 
 
-@tool(title="Get Set Templates",
+@tool(
+    title="Get Set Templates",
     tags={ToolCategory.SETS.value},
     annotations=ANNOTATIONS_READ_ONLY,
+    icons=ICON_SETS,
+    meta=TOOL_META,
 )
 async def get_set_templates() -> dict[str, Any]:
     """Return all DJ set templates with full slot definitions.

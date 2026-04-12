@@ -8,7 +8,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.controllers.dependencies.db import get_db_session
 from app.controllers.tools._shared.errors import map_domain_errors
-from app.controllers.tools._shared.taxonomy import ANNOTATIONS_READ_ONLY, ToolCategory
+from app.controllers.tools._shared.taxonomy import (
+    ANNOTATIONS_READ_ONLY,
+    ToolCategory,
+)
 from app.db.repositories.track_feedback import TrackFeedbackRepository
 from app.schemas.track_feedback import TrackFeedbackRead
 
@@ -17,7 +20,13 @@ def _get_repo(session: AsyncSession = Depends(get_db_session)) -> TrackFeedbackR
     return TrackFeedbackRepository(session)
 
 
-@tool(title="Like Track", tags={ToolCategory.CORE.value, "memory"})
+@tool(
+    title="Like Track",
+    tags={ToolCategory.CORE.value, "memory"},
+    annotations=ANNOTATIONS_WRITE_IDEMPOTENT,
+    icons=ICON_MEMORY,
+    meta=TOOL_META,
+)
 @map_domain_errors
 async def like_track(
     track_id: int,
@@ -28,7 +37,13 @@ async def like_track(
     return TrackFeedbackRead.model_validate(entry)
 
 
-@tool(title="Ban Track", tags={ToolCategory.CORE.value, "memory"})
+@tool(
+    title="Ban Track",
+    tags={ToolCategory.CORE.value, "memory"},
+    annotations=ANNOTATIONS_WRITE_DESTRUCTIVE,
+    icons=ICON_MEMORY,
+    meta=TOOL_META,
+)
 @map_domain_errors
 async def ban_track(
     track_id: int,
@@ -39,7 +54,13 @@ async def ban_track(
     return TrackFeedbackRead.model_validate(entry)
 
 
-@tool(title="Rate Track", tags={ToolCategory.CORE.value, "memory"})
+@tool(
+    title="Rate Track",
+    tags={ToolCategory.CORE.value, "memory"},
+    annotations=ANNOTATIONS_WRITE_IDEMPOTENT,
+    icons=ICON_MEMORY,
+    meta=TOOL_META,
+)
 @map_domain_errors
 async def rate_track(
     track_id: int,
@@ -58,7 +79,13 @@ async def rate_track(
     return TrackFeedbackRead.model_validate(entry)
 
 
-@tool(title="Get Track Feedback", tags={ToolCategory.CORE.value, "memory"}, annotations=ANNOTATIONS_READ_ONLY)
+@tool(
+    title="Get Track Feedback",
+    tags={ToolCategory.CORE.value, "memory"},
+    annotations=ANNOTATIONS_READ_ONLY,
+    icons=ICON_MEMORY,
+    meta=TOOL_META,
+)
 @map_domain_errors
 async def get_track_feedback(
     track_id: int,
@@ -71,7 +98,13 @@ async def get_track_feedback(
     return {"found": True, **TrackFeedbackRead.model_validate(entry).model_dump()}
 
 
-@tool(title="Get Banned Tracks", tags={ToolCategory.CORE.value, "memory"}, annotations=ANNOTATIONS_READ_ONLY)
+@tool(
+    title="Get Banned Tracks",
+    tags={ToolCategory.CORE.value, "memory"},
+    annotations=ANNOTATIONS_READ_ONLY,
+    icons=ICON_MEMORY,
+    meta=TOOL_META,
+)
 @map_domain_errors
 async def get_banned_tracks(
     repo: TrackFeedbackRepository = Depends(_get_repo),
@@ -80,7 +113,13 @@ async def get_banned_tracks(
     return await repo.get_banned_ids()
 
 
-@tool(title="Get Liked Tracks", tags={ToolCategory.CORE.value, "memory"}, annotations=ANNOTATIONS_READ_ONLY)
+@tool(
+    title="Get Liked Tracks",
+    tags={ToolCategory.CORE.value, "memory"},
+    annotations=ANNOTATIONS_READ_ONLY,
+    icons=ICON_MEMORY,
+    meta=TOOL_META,
+)
 @map_domain_errors
 async def get_liked_tracks(
     repo: TrackFeedbackRepository = Depends(_get_repo),

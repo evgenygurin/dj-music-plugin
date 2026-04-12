@@ -29,10 +29,13 @@ from app.db.models.track import Track
 @resource(
     uri="status://library",
     name="Library Health",
+    title="Library Health",
     description="Overall library statistics, feature coverage, and health indicators",
     mime_type="application/json",
     tags={"core"},
-    annotations={"readOnlyHint": True},
+    annotations=ANNOTATIONS_READ_ONLY,
+    icons=ICON_RESOURCE,
+    meta=RESOURCE_META,
 )
 async def library_status(
     session: AsyncSession = Depends(get_db_session),  # noqa: B008
@@ -116,10 +119,13 @@ async def library_status(
 @resource(
     uri="status://platforms",
     name="Platform Connectivity",
+    title="Platform Connectivity",
     description="Connected external platforms and linked track counts",
     mime_type="application/json",
     tags={"core"},
-    annotations={"readOnlyHint": True},
+    annotations=ANNOTATIONS_READ_ONLY,
+    icons=ICON_RESOURCE,
+    meta=RESOURCE_META,
 )
 async def platforms_status(
     session: AsyncSession = Depends(get_db_session),  # noqa: B008

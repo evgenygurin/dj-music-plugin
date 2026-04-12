@@ -9,7 +9,10 @@ from fastmcp.exceptions import ToolError
 from fastmcp.tools import tool
 
 from app.controllers.dependencies import get_ym_client
-from app.controllers.tools._shared import ANNOTATIONS_READ_ONLY_OPEN_WORLD, ToolCategory
+from app.controllers.tools._shared import (
+    ANNOTATIONS_READ_ONLY_OPEN_WORLD,
+    ToolCategory,
+)
 from app.controllers.tools.yandex._constants import (
     MAX_BATCH_TRACKS,
     MAX_SEARCH_LIMIT,
@@ -19,7 +22,13 @@ from app.core.utils.parsing import ensure_list
 from app.ym.client import YandexMusicClient
 
 
-@tool(title="YM Get Tracks", tags={ToolCategory.YM.value}, annotations=ANNOTATIONS_READ_ONLY_OPEN_WORLD)
+@tool(
+    title="YM Get Tracks",
+    tags={ToolCategory.YM.value},
+    annotations=ANNOTATIONS_READ_ONLY_OPEN_WORLD,
+    icons=ICON_YM,
+    meta=TOOL_META,
+)
 async def ym_get_tracks(
     track_ids: Any = None,
     fields: str = "id,title,artists,albums,duration_ms",
@@ -41,7 +50,13 @@ async def ym_get_tracks(
     return {"count": len(tracks_data), "tracks": tracks_data}
 
 
-@tool(title="YM Artist Tracks", tags={ToolCategory.YM.value}, annotations=ANNOTATIONS_READ_ONLY_OPEN_WORLD)
+@tool(
+    title="YM Artist Tracks",
+    tags={ToolCategory.YM.value},
+    annotations=ANNOTATIONS_READ_ONLY_OPEN_WORLD,
+    icons=ICON_YM,
+    meta=TOOL_META,
+)
 async def ym_artist_tracks(
     artist_id: str,
     page: int = 0,

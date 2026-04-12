@@ -19,7 +19,6 @@ from app.controllers.dependencies import get_audio_service, get_ym_client
 from app.controllers.tools._shared import (
     ANNOTATIONS_READ_ONLY,
     ANNOTATIONS_READ_ONLY_OPEN_WORLD,
-    ANNOTATIONS_WRITE,
     ToolCategory,
     ToolTimeout,
     map_domain_errors,
@@ -30,9 +29,12 @@ from app.ym.client import YandexMusicClient
 from app.ym.filters import genre_ok, is_excluded_title, ym_track_summary
 
 
-@tool(title="Analyze One Track",
+@tool(
+    title="Analyze One Track",
     tags={ToolCategory.ATOMIC.value},
-    annotations=ANNOTATIONS_WRITE,
+    annotations=ANNOTATIONS_WRITE_IDEMPOTENT,
+    icons=ICON_AUDIO,
+    meta=TOOL_META,
     timeout=ToolTimeout.BATCH,
 )
 @map_domain_errors
@@ -59,7 +61,13 @@ async def analyze_one_track(
     return result
 
 
-@tool(title="Classify One Track", tags={ToolCategory.ATOMIC.value}, annotations=ANNOTATIONS_WRITE)
+@tool(
+    title="Classify One Track",
+    tags={ToolCategory.ATOMIC.value},
+    annotations=ANNOTATIONS_WRITE_IDEMPOTENT,
+    icons=ICON_AUDIO,
+    meta=TOOL_META,
+)
 @map_domain_errors
 async def classify_one_track(
     track_id: int,
@@ -74,7 +82,13 @@ async def classify_one_track(
     return result
 
 
-@tool(title="Gate One Track", tags={ToolCategory.ATOMIC.value}, annotations=ANNOTATIONS_READ_ONLY)
+@tool(
+    title="Gate One Track",
+    tags={ToolCategory.ATOMIC.value},
+    annotations=ANNOTATIONS_READ_ONLY,
+    icons=ICON_AUDIO,
+    meta=TOOL_META,
+)
 @map_domain_errors
 async def gate_one_track(
     track_id: int,
@@ -86,7 +100,13 @@ async def gate_one_track(
     return await svc.gate_track(track_id, criteria=criteria)
 
 
-@tool(title="Get Similar One Track", tags={ToolCategory.ATOMIC.value}, annotations=ANNOTATIONS_READ_ONLY_OPEN_WORLD)
+@tool(
+    title="Get Similar One Track",
+    tags={ToolCategory.ATOMIC.value},
+    annotations=ANNOTATIONS_READ_ONLY_OPEN_WORLD,
+    icons=ICON_AUDIO,
+    meta=TOOL_META,
+)
 @map_domain_errors
 async def get_similar_one_track(
     ym_track_id: str,

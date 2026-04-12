@@ -9,12 +9,21 @@ from fastmcp.exceptions import ToolError
 from fastmcp.tools import tool
 
 from app.controllers.dependencies import get_ym_client
-from app.controllers.tools._shared import ANNOTATIONS_READ_ONLY_OPEN_WORLD, ToolCategory
+from app.controllers.tools._shared import (
+    ANNOTATIONS_READ_ONLY_OPEN_WORLD,
+    ToolCategory,
+)
 from app.controllers.tools.yandex._constants import MAX_SEARCH_LIMIT, VALID_SEARCH_TYPES
 from app.ym.client import YandexMusicClient
 
 
-@tool(title="YM Search", tags={ToolCategory.YM.value}, annotations=ANNOTATIONS_READ_ONLY_OPEN_WORLD)
+@tool(
+    title="YM Search",
+    tags={ToolCategory.YM.value},
+    annotations=ANNOTATIONS_READ_ONLY_OPEN_WORLD,
+    icons=ICON_YM,
+    meta=TOOL_META,
+)
 async def ym_search(
     query: str,
     type: str = "all",

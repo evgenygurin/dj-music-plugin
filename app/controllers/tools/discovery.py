@@ -33,12 +33,6 @@ from app.services.discovery_service import DiscoveryService
 _log = logging.getLogger(__name__)
 
 
-_EXPAND_ANNOTATIONS: dict[str, bool] = {
-    "readOnlyHint": False,
-    "openWorldHint": True,
-}
-
-
 class _LLMSearchQueries(BaseModel):
     """Structured response schema for LLM similar-track query generation."""
 
@@ -84,9 +78,12 @@ async def _find_similar_llm(
     )
 
 
-@tool(title="Find Similar Tracks",
+@tool(
+    title="Find Similar Tracks",
     tags={ToolCategory.DISCOVERY.value},
     annotations=ANNOTATIONS_READ_ONLY_OPEN_WORLD,
+    icons=ICON_DISCOVERY,
+    meta=TOOL_META,
 )
 @map_domain_errors
 async def find_similar_tracks(
@@ -143,9 +140,12 @@ async def find_similar_tracks(
     )
 
 
-@tool(title="Filter by Feedback",
+@tool(
+    title="Filter by Feedback",
     tags={ToolCategory.DISCOVERY.value},
     annotations=ANNOTATIONS_READ_ONLY_OPEN_WORLD,
+    icons=ICON_DISCOVERY,
+    meta=TOOL_META,
 )
 @map_domain_errors
 async def filter_by_feedback(
@@ -200,9 +200,12 @@ async def filter_by_feedback(
     )
 
 
-@tool(title="Expand Playlist",
+@tool(
+    title="Expand Playlist",
     tags={ToolCategory.DISCOVERY.value},
-    annotations=_EXPAND_ANNOTATIONS,
+    annotations=ANNOTATIONS_WRITE_OPEN_WORLD,
+    icons=ICON_DISCOVERY,
+    meta=TOOL_META,
     timeout=ToolTimeout.BATCH,
     task=True,
 )

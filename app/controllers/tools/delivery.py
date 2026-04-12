@@ -22,12 +22,13 @@ from app.controllers.tools._shared import (
 from app.core.utils.parsing import ensure_dict, ensure_list
 from app.services.workflows.deliver_set_workflow import DeliverSetWorkflow
 
-_DELIVER_SET_ANNOTATIONS: dict[str, bool] = {"readOnlyHint": False, "idempotentHint": True}
 
-
-@tool(title="Deliver Set",
+@tool(
+    title="Deliver Set",
     tags={ToolCategory.DELIVERY.value},
-    annotations=_DELIVER_SET_ANNOTATIONS,
+    annotations=ANNOTATIONS_WRITE_OPEN_WORLD,
+    icons=ICON_DELIVERY,
+    meta=TOOL_META,
     timeout=ToolTimeout.BATCH,
     task=True,
 )
@@ -56,7 +57,13 @@ async def deliver_set(
     )
 
 
-@tool(title="Export Set", tags={ToolCategory.DELIVERY.value}, annotations=ANNOTATIONS_WRITE)
+@tool(
+    title="Export Set",
+    tags={ToolCategory.DELIVERY.value},
+    annotations=ANNOTATIONS_WRITE,
+    icons=ICON_DELIVERY,
+    meta=TOOL_META,
+)
 @map_domain_errors
 async def export_set(
     set_id: int,

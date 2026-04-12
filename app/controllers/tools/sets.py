@@ -24,9 +24,12 @@ from app.services.set.facade import SetService
 from app.services.workflows.build_set_workflow import BuildSetWorkflow
 
 
-@tool(title="Build Set",
+@tool(
+    title="Build Set",
     tags={ToolCategory.SETS.value},
     annotations=ANNOTATIONS_WRITE,
+    icons=ICON_SETS,
+    meta=TOOL_META,
     timeout=ToolTimeout.BATCH,
     task=True,
 )
@@ -53,9 +56,12 @@ async def build_set(
     )
 
 
-@tool(title="Rebuild Set",
+@tool(
+    title="Rebuild Set",
     tags={ToolCategory.SETS.value},
     annotations=ANNOTATIONS_WRITE,
+    icons=ICON_SETS,
+    meta=TOOL_META,
     timeout=ToolTimeout.BATCH,
     task=True,
 )
@@ -80,7 +86,13 @@ async def rebuild_set(
     )
 
 
-@tool(title="Score Transitions", tags={ToolCategory.SETS.value}, annotations=ANNOTATIONS_WRITE)
+@tool(
+    title="Score Transitions",
+    tags={ToolCategory.SETS.value},
+    annotations=ANNOTATIONS_WRITE_IDEMPOTENT,
+    icons=ICON_SETS,
+    meta=TOOL_META,
+)
 @map_domain_errors
 async def score_transitions(
     mode: str = "set",
@@ -108,7 +120,13 @@ async def score_transitions(
     )
 
 
-@tool(title="Set Cheat Sheet", tags={ToolCategory.SETS.value}, annotations=ANNOTATIONS_READ_ONLY)
+@tool(
+    title="Set Cheat Sheet",
+    tags={ToolCategory.SETS.value},
+    annotations=ANNOTATIONS_READ_ONLY,
+    icons=ICON_SETS,
+    meta=TOOL_META,
+)
 @map_domain_errors
 async def get_set_cheat_sheet(
     set_id: int,

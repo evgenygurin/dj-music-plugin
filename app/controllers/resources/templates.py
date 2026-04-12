@@ -29,10 +29,13 @@ from app.db.models.track import Track
 @resource(
     uri="track://{track_id}/features",
     name="Track Audio Features",
+    title="Track Audio Features",
     description="Audio features summary for a specific track",
     mime_type="application/json",
     tags={"core"},
-    annotations={"readOnlyHint": True},
+    annotations=ANNOTATIONS_READ_ONLY,
+    icons=ICON_RESOURCE,
+    meta=RESOURCE_META,
 )
 async def track_features(
     track_id: Annotated[int, "Track ID"],
@@ -116,10 +119,13 @@ async def track_features(
 @resource(
     uri="set://{set_id}/summary",
     name="DJ Set Summary",
+    title="DJ Set Summary",
     description="Latest version summary for a specific DJ set",
     mime_type="application/json",
     tags={"core"},
-    annotations={"readOnlyHint": True},
+    annotations=ANNOTATIONS_READ_ONLY,
+    icons=ICON_RESOURCE,
+    meta=RESOURCE_META,
 )
 async def set_summary(
     set_id: Annotated[int, "DJ Set ID"],
@@ -199,10 +205,13 @@ async def set_summary(
 @resource(
     uri="playlist://{playlist_id}/status",
     name="Playlist Status",
+    title="Playlist Status",
     description="Status information for a specific playlist",
     mime_type="application/json",
     tags={"core"},
-    annotations={"readOnlyHint": True},
+    annotations=ANNOTATIONS_READ_ONLY,
+    icons=ICON_RESOURCE,
+    meta=RESOURCE_META,
 )
 async def playlist_status(
     playlist_id: Annotated[int, "Playlist ID"],
@@ -247,10 +256,13 @@ async def playlist_status(
 @resource(
     uri="catalog://stats{?mood,bpm_min,bpm_max}",
     name="Catalog Statistics",
+    title="Catalog Statistics",
     description="Filtered catalog statistics with optional mood and BPM range filters",
     mime_type="application/json",
     tags={"core"},
-    annotations={"readOnlyHint": True},
+    annotations=ANNOTATIONS_READ_ONLY,
+    icons=ICON_RESOURCE,
+    meta=RESOURCE_META,
 )
 async def catalog_stats(
     mood: Annotated[TechnoSubgenre | None, "Filter by mood/subgenre"] = None,

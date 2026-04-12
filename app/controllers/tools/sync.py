@@ -12,13 +12,20 @@ from fastmcp.server.context import Context
 from fastmcp.tools import tool
 
 from app.controllers.dependencies import get_sync_playlist_workflow
-from app.controllers.tools._shared import ToolCategory, map_domain_errors
+from app.controllers.tools._shared import (
+    ToolCategory,
+    map_domain_errors,
+)
 from app.services.workflows.sync_playlist_workflow import SyncPlaylistWorkflow
 
-_SYNC_ANNOTATIONS: dict[str, bool] = {"readOnlyHint": False, "openWorldHint": True}
 
-
-@tool(title="Sync Playlist", tags={ToolCategory.SYNC.value}, annotations=_SYNC_ANNOTATIONS)
+@tool(
+    title="Sync Playlist",
+    tags={ToolCategory.SYNC.value},
+    annotations=ANNOTATIONS_WRITE_OPEN_WORLD,
+    icons=ICON_SYNC,
+    meta=TOOL_META,
+)
 @map_domain_errors
 async def sync_playlist(
     playlist_id: int,
@@ -41,7 +48,13 @@ async def sync_playlist(
     )
 
 
-@tool(title="Push Set to YM", tags={ToolCategory.SYNC.value}, annotations=_SYNC_ANNOTATIONS)
+@tool(
+    title="Push Set to YM",
+    tags={ToolCategory.SYNC.value},
+    annotations=ANNOTATIONS_WRITE_OPEN_WORLD,
+    icons=ICON_SYNC,
+    meta=TOOL_META,
+)
 @map_domain_errors
 async def push_set_to_ym(
     set_id: int,

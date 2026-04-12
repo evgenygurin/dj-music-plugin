@@ -29,13 +29,15 @@ from app.core.utils.parsing import ensure_list
 from app.services.track_service import TrackService
 from app.services.workflows.analyze_track_workflow import AnalyzeTrackWorkflow
 
-_ANALYSIS_IDEMPOTENT: dict[str, bool] = {"idempotentHint": True}
 _VALID_STEMS = frozenset({"vocals", "drums", "bass", "other"})
 
 
-@tool(title="Analyze Track",
+@tool(
+    title="Analyze Track",
     tags={ToolCategory.AUDIO.value},
-    annotations=_ANALYSIS_IDEMPOTENT,
+    annotations=ANNOTATIONS_WRITE_IDEMPOTENT,
+    icons=ICON_AUDIO,
+    meta=TOOL_META,
     timeout=ToolTimeout.BATCH,
 )
 @map_domain_errors
@@ -69,9 +71,12 @@ async def analyze_track(
     )
 
 
-@tool(title="Analyze Batch",
+@tool(
+    title="Analyze Batch",
     tags={ToolCategory.AUDIO.value},
-    annotations=_ANALYSIS_IDEMPOTENT,
+    annotations=ANNOTATIONS_WRITE_IDEMPOTENT,
+    icons=ICON_AUDIO,
+    meta=TOOL_META,
     timeout=ToolTimeout.BATCH,
     task=True,
 )
@@ -106,7 +111,14 @@ async def analyze_batch(
     )
 
 
-@tool(title="Separate Stems", tags={ToolCategory.AUDIO.value}, timeout=ToolTimeout.BATCH)
+@tool(
+    title="Separate Stems",
+    tags={ToolCategory.AUDIO.value},
+    annotations=ANNOTATIONS_WRITE_OPEN_WORLD,
+    icons=ICON_AUDIO,
+    meta=TOOL_META,
+    timeout=ToolTimeout.BATCH,
+)
 @map_domain_errors
 async def separate_stems(
     track_id: int | None = None,

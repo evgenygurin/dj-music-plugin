@@ -35,7 +35,13 @@ _PLAYLIST_ACTIONS = frozenset(
 )
 
 
-@tool(title="List Playlists", tags={ToolCategory.CORE.value}, annotations=ANNOTATIONS_READ_ONLY)
+@tool(
+    title="List Playlists",
+    tags={ToolCategory.CORE.value},
+    annotations=ANNOTATIONS_READ_ONLY,
+    icons=ICON_PLAYLISTS,
+    meta=TOOL_META,
+)
 @map_domain_errors
 async def list_playlists(
     source: str | None = None,
@@ -52,7 +58,13 @@ async def list_playlists(
     )
 
 
-@tool(title="Get Playlist", tags={ToolCategory.CORE.value}, annotations=ANNOTATIONS_READ_ONLY)
+@tool(
+    title="Get Playlist",
+    tags={ToolCategory.CORE.value},
+    annotations=ANNOTATIONS_READ_ONLY,
+    icons=ICON_PLAYLISTS,
+    meta=TOOL_META,
+)
 @map_domain_errors
 async def get_playlist(
     id: int | None = None,
@@ -91,7 +103,13 @@ async def get_playlist(
     return response
 
 
-@tool(title="Manage Playlist", tags={ToolCategory.CORE.value}, annotations=ANNOTATIONS_WRITE)
+@tool(
+    title="Manage Playlist",
+    tags={ToolCategory.CORE.value},
+    annotations=ANNOTATIONS_WRITE,
+    icons=ICON_PLAYLISTS,
+    meta=TOOL_META,
+)
 @map_domain_errors
 async def manage_playlist(
     action: str,

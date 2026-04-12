@@ -18,10 +18,13 @@ from app.core.constants import SetTemplate
 @resource(
     uri="reference://templates",
     name="DJ Set Templates",
+    title="DJ Set Templates",
     description="8 pre-defined DJ set templates with energy arcs and slot definitions",
     mime_type="application/json",
     tags={"core"},
-    annotations={"readOnlyHint": True},
+    annotations=ANNOTATIONS_READ_ONLY,
+    icons=ICON_REFERENCE,
+    meta=RESOURCE_META,
 )
 async def templates_reference() -> str:
     """Get DJ set template reference data.

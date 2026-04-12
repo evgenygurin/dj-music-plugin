@@ -22,13 +22,13 @@ from app.controllers.tools._shared import (
 from app.core.utils.parsing import ensure_list
 from app.services.workflows.import_tracks_workflow import ImportTracksWorkflow
 
-_IMPORT_ANNOTATIONS: dict[str, bool] = {"readOnlyHint": False, "idempotentHint": True}
-_DOWNLOAD_ANNOTATIONS: dict[str, bool] = {"readOnlyHint": False, "openWorldHint": True}
 
-
-@tool(title="Import Tracks",
+@tool(
+    title="Import Tracks",
     tags={ToolCategory.DISCOVERY.value},
-    annotations=_IMPORT_ANNOTATIONS,
+    annotations=ANNOTATIONS_WRITE_OPEN_WORLD,
+    icons=ICON_DISCOVERY,
+    meta=TOOL_META,
     timeout=ToolTimeout.BATCH,
 )
 @map_domain_errors
@@ -58,9 +58,12 @@ async def import_tracks(
     )
 
 
-@tool(title="Download Tracks",
+@tool(
+    title="Download Tracks",
     tags={ToolCategory.DISCOVERY.value},
-    annotations=_DOWNLOAD_ANNOTATIONS,
+    annotations=ANNOTATIONS_WRITE_OPEN_WORLD,
+    icons=ICON_DISCOVERY,
+    meta=TOOL_META,
     timeout=ToolTimeout.BATCH,
     task=True,
 )

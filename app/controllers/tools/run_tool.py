@@ -35,10 +35,13 @@ from app.controllers.tools._shared import ANNOTATIONS_WRITE, ToolCategory
 _FORBIDDEN_TARGETS: frozenset[str] = frozenset({"run_tool", "search_tools"})
 
 
-@tool(title="Run Tool",
+@tool(
+    title="Run Tool",
     name="run_tool",
     tags={ToolCategory.ADMIN.value},
     annotations=ANNOTATIONS_WRITE,
+    icons=ICON_ADMIN,
+    meta=TOOL_META,
 )
 async def run_tool(
     name: Annotated[

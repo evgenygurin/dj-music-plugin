@@ -8,7 +8,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.controllers.dependencies.db import get_db_session
 from app.controllers.tools._shared.errors import map_domain_errors
-from app.controllers.tools._shared.taxonomy import ANNOTATIONS_READ_ONLY, ToolCategory
+from app.controllers.tools._shared.taxonomy import (
+    ANNOTATIONS_READ_ONLY,
+    ToolCategory,
+)
 from app.db.repositories.track_affinity import TrackAffinityRepository
 from app.schemas.track_affinity import AffinityRecommendation
 from app.services.track_affinity import TrackAffinityService
@@ -18,7 +21,13 @@ def _get_svc(session: AsyncSession = Depends(get_db_session)) -> TrackAffinitySe
     return TrackAffinityService(TrackAffinityRepository(session))
 
 
-@tool(title="Refresh Affinity", tags={ToolCategory.CORE.value, "memory"})
+@tool(
+    title="Refresh Affinity",
+    tags={ToolCategory.CORE.value, "memory"},
+    annotations=ANNOTATIONS_WRITE_IDEMPOTENT,
+    icons=ICON_MEMORY,
+    meta=TOOL_META,
+)
 @map_domain_errors
 async def refresh_affinity(
     svc: TrackAffinityService = Depends(_get_svc),
@@ -32,7 +41,13 @@ async def refresh_affinity(
     return {"pairs_updated": count}
 
 
-@tool(title="Get Track Affinity", tags={ToolCategory.CORE.value, "memory"}, annotations=ANNOTATIONS_READ_ONLY)
+@tool(
+    title="Get Track Affinity",
+    tags={ToolCategory.CORE.value, "memory"},
+    annotations=ANNOTATIONS_READ_ONLY,
+    icons=ICON_MEMORY,
+    meta=TOOL_META,
+)
 @map_domain_errors
 async def get_track_affinity(
     track_a_id: int,
@@ -46,7 +61,13 @@ async def get_track_affinity(
     return {"found": True, **result}
 
 
-@tool(title="Affinity Recommendations", tags={ToolCategory.CORE.value, "memory"}, annotations=ANNOTATIONS_READ_ONLY)
+@tool(
+    title="Affinity Recommendations",
+    tags={ToolCategory.CORE.value, "memory"},
+    annotations=ANNOTATIONS_READ_ONLY,
+    icons=ICON_MEMORY,
+    meta=TOOL_META,
+)
 @map_domain_errors
 async def get_affinity_recommendations(
     track_id: int,
