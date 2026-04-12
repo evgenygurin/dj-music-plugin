@@ -9,7 +9,6 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-import sys
 import time
 import traceback
 
@@ -180,18 +179,18 @@ async def main() -> None:
     event.listen(engine.sync_engine, "connect", _pragma)
 
     # Force all model imports so Base.metadata.create_all creates all tables
-    import app.db.models.audio  # noqa: F401
-    import app.db.models.export  # noqa: F401
-    import app.db.models.ingestion  # noqa: F401
-    import app.db.models.key  # noqa: F401
-    import app.db.models.library  # noqa: F401
-    import app.db.models.playlist  # noqa: F401
-    import app.db.models.scoring_profile  # noqa: F401
-    import app.db.models.set  # noqa: F401
-    import app.db.models.track  # noqa: F401
-    import app.db.models.track_affinity  # noqa: F401
-    import app.db.models.track_feedback  # noqa: F401
-    import app.db.models.transition  # noqa: F401
+    import app.db.models.audio
+    import app.db.models.export
+    import app.db.models.ingestion
+    import app.db.models.key
+    import app.db.models.library
+    import app.db.models.playlist
+    import app.db.models.scoring_profile
+    import app.db.models.set
+    import app.db.models.track
+    import app.db.models.track_affinity
+    import app.db.models.track_feedback
+    import app.db.models.transition
     import app.db.models.transition_history  # noqa: F401
 
     async with engine.begin() as conn:
@@ -207,14 +206,18 @@ async def main() -> None:
         for code, (camelot, name) in CAMELOT_KEYS.items():
             mode = 1 if camelot.endswith("B") else 0
             pitch_class = code % 12
-            session.add(Key(key_code=code, pitch_class=pitch_class, mode=mode, name=name, camelot=camelot))
+            session.add(
+                Key(key_code=code, pitch_class=pitch_class, mode=mode, name=name, camelot=camelot)
+            )
         await session.commit()
 
     # ── Mock YM client ──
     ym_mock = AsyncMock()
     ym_mock.__aenter__.return_value = ym_mock
     ym_mock.__aexit__.return_value = None
-    ym_mock.search = AsyncMock(return_value=AsyncMock(tracks=[], albums=[], artists=[], playlists=[]))
+    ym_mock.search = AsyncMock(
+        return_value=AsyncMock(tracks=[], albums=[], artists=[], playlists=[])
+    )
     ym_mock.get_liked_ids = AsyncMock(return_value=[])
     ym_mock.get_disliked_ids = AsyncMock(return_value=set())
     ym_mock.get_tracks = AsyncMock(return_value=[])
@@ -274,7 +277,9 @@ async def main() -> None:
             extra_in_server = registered - expected
 
             if missing_from_server:
-                print(f"\n⚠ Tools in TOOL_ARGS but NOT registered on server ({len(missing_from_server)}):")
+                print(
+                    f"\n⚠ Tools in TOOL_ARGS but NOT registered on server ({len(missing_from_server)}):"
+                )
                 for n in sorted(missing_from_server):
                     print(f"  - {n}")
 
@@ -315,11 +320,20 @@ async def main() -> None:
 
             # Unlock all categories first
             try:
-                for cat in ["delivery", "discovery", "curation", "sync", "ym", "audio", "atomic"]:
-                    await client.call_tool("unlock_tools", {"action": "unlock", "category": cat})
+                await client.call_tool("unlock_tools", {"action": "unlock", "category": "all"})
                 print("\n✓ All tool categories unlocked")
             except Exception as e:
                 print(f"\n✗ Failed to unlock tools: {e}")
+
+            # Re-list tools after unlock — client should see newly enabled tools
+            all_tools_after = await client.list_tools()
+            tool_names_after = sorted(t.name for t in all_tools_after)
+            new_tools = set(tool_names_after) - set(tool_names)
+            registered = set(tool_names_after)
+            print(f"  Tools after unlock: {len(tool_names_after)} (+{len(new_tools)} new)")
+            if new_tools:
+                for n in sorted(new_tools):
+                    print(f"    + {n}")
 
             # Call each tool
             total = len(TOOL_ARGS)
@@ -329,12 +343,14 @@ async def main() -> None:
 
             for i, (tool_name, args) in enumerate(sorted(TOOL_ARGS.items()), 1):
                 if tool_name not in registered:
-                    results.append({
-                        "tool": tool_name,
-                        "status": "MISSING",
-                        "error": "Not registered on server",
-                        "traceback": "",
-                    })
+                    results.append(
+                        {
+                            "tool": tool_name,
+                            "status": "MISSING",
+                            "error": "Not registered on server",
+                            "traceback": "",
+                        }
+                    )
                     print(f"  [{i:3d}/{total}] {tool_name:40s} MISSING")
                     error_count += 1
                     continue
@@ -348,22 +364,28 @@ async def main() -> None:
                     # Check if result indicates an error
                     is_error = getattr(result, "isError", False)
                     if is_error:
-                        results.append({
-                            "tool": tool_name,
-                            "status": "TOOL_ERROR",
-                            "error": text,
-                            "elapsed": f"{elapsed:.2f}s",
-                            "traceback": "",
-                        })
-                        print(f"  [{i:3d}/{total}] {tool_name:40s} TOOL_ERROR ({elapsed:.2f}s): {text[:80]}")
+                        results.append(
+                            {
+                                "tool": tool_name,
+                                "status": "TOOL_ERROR",
+                                "error": text,
+                                "elapsed": f"{elapsed:.2f}s",
+                                "traceback": "",
+                            }
+                        )
+                        print(
+                            f"  [{i:3d}/{total}] {tool_name:40s} TOOL_ERROR ({elapsed:.2f}s): {text[:80]}"
+                        )
                         warn_count += 1
                     else:
-                        results.append({
-                            "tool": tool_name,
-                            "status": "OK",
-                            "elapsed": f"{elapsed:.2f}s",
-                            "preview": text[:120],
-                        })
+                        results.append(
+                            {
+                                "tool": tool_name,
+                                "status": "OK",
+                                "elapsed": f"{elapsed:.2f}s",
+                                "preview": text[:120],
+                            }
+                        )
                         print(f"  [{i:3d}/{total}] {tool_name:40s} OK ({elapsed:.2f}s)")
                         ok_count += 1
 
@@ -371,14 +393,18 @@ async def main() -> None:
                     elapsed = time.time() - t0
                     tb = traceback.format_exc()
                     error_type = type(e).__name__
-                    results.append({
-                        "tool": tool_name,
-                        "status": "EXCEPTION",
-                        "error": f"{error_type}: {e}",
-                        "elapsed": f"{elapsed:.2f}s",
-                        "traceback": tb,
-                    })
-                    print(f"  [{i:3d}/{total}] {tool_name:40s} EXCEPTION ({elapsed:.2f}s): {error_type}: {str(e)[:80]}")
+                    results.append(
+                        {
+                            "tool": tool_name,
+                            "status": "EXCEPTION",
+                            "error": f"{error_type}: {e}",
+                            "elapsed": f"{elapsed:.2f}s",
+                            "traceback": tb,
+                        }
+                    )
+                    print(
+                        f"  [{i:3d}/{total}] {tool_name:40s} EXCEPTION ({elapsed:.2f}s): {error_type}: {str(e)[:80]}"
+                    )
                     error_count += 1
 
             # ── Summary ──

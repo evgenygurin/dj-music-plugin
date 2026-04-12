@@ -10,7 +10,7 @@ from __future__ import annotations
 from typing import Any
 
 from fastmcp.dependencies import Depends
-from fastmcp.exceptions import ToolError
+from fastmcp.exceptions import NotFoundError as FastMCPNotFoundError
 from fastmcp.server.context import Context
 from fastmcp.tools import tool
 
@@ -54,12 +54,10 @@ async def analyze_one_track(
 
     status = result.get("status")
     err = result.get("error") or ""
-    if status == "error" and err == "Track not found":
-        raise ToolError(f"Track {track_id} not found")
-    if status == "error" and "No audio file" in err:
-        raise ToolError(f"No audio file for track {track_id}")
     if status == "error" and ("not found" in err.lower() or "iCloud stub" in err):
-        raise ToolError(err)
+        raise FastMCPNotFoundError(err)
+    if status == "error" and "No audio file" in err:
+        raise FastMCPNotFoundError(f"No audio file for track {track_id}")
 
     return result
 
@@ -81,7 +79,9 @@ async def classify_one_track(
     result = await svc.classify_track(track_id)
 
     if result.get("status") == "error" and result.get("error") == "No features":
-        raise ToolError(f"No audio features for track {track_id}. Run analyze_one_track first.")
+        raise FastMCPNotFoundError(
+            f"No audio features for track {track_id}. Run analyze_one_track first."
+        )
     return result
 
 
