@@ -10,7 +10,7 @@ import httpx
 from fastapi import HTTPException
 from fastapi.responses import StreamingResponse
 
-from app.api.services.signed_url_cache import SignedUrlCache
+from dj_music.api.services.signed_url_cache import SignedUrlCache
 
 logger = logging.getLogger(__name__)
 
@@ -35,7 +35,7 @@ class YmAudioProxy:
 
     async def get_signed_url(self, ym_track_id: str) -> str:
         """Resolve and cache a signed YM download URL."""
-        from app.ym.client import APIError
+        from dj_music.ym.client import APIError
 
         cached = self._signed_url_cache.get(ym_track_id)
         if cached is not None:

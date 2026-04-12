@@ -6,9 +6,9 @@ from typing import Any
 
 from fastapi import APIRouter, Body, HTTPException, Request
 
-from app.api.openapi import CALL_EXAMPLES, CALL_RESPONSES
-from app.api.schemas import ToolCallRequest, ToolCallResponse
-from app.api.state import get_runtime
+from dj_music.api.openapi import CALL_EXAMPLES, CALL_RESPONSES
+from dj_music.api.schemas import ToolCallRequest, ToolCallResponse
+from dj_music.api.state import get_runtime
 
 router = APIRouter()
 

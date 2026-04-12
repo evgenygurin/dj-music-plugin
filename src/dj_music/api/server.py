@@ -14,13 +14,13 @@ from __future__ import annotations
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.lifespan import api_lifespan
-from app.api.openapi import API_DESCRIPTION, OPENAPI_TAGS, project_version
-from app.api.routes.audio import router as audio_router
-from app.api.routes.discovery import router as discovery_router
-from app.api.routes.execution import router as execution_router
-from app.api.routes.health import router as health_router
-from app.api.state import build_api_runtime
+from dj_music.api.lifespan import api_lifespan
+from dj_music.api.openapi import API_DESCRIPTION, OPENAPI_TAGS, project_version
+from dj_music.api.routes.audio import router as audio_router
+from dj_music.api.routes.discovery import router as discovery_router
+from dj_music.api.routes.execution import router as execution_router
+from dj_music.api.routes.health import router as health_router
+from dj_music.api.state import build_api_runtime
 from app.server import mcp
 
 api = FastAPI(

@@ -7,7 +7,7 @@ from typing import Any
 
 from fastapi import APIRouter, Request
 
-from app.api.state import get_runtime
+from dj_music.api.state import get_runtime
 
 logger = logging.getLogger(__name__)
 router = APIRouter()

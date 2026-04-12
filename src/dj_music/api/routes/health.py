@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Request
 
-from app.api.state import get_runtime
+from dj_music.api.state import get_runtime
 
 router = APIRouter()
 

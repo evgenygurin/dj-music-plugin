@@ -19,7 +19,7 @@ class ToolRegistry:
         from fastmcp.server.providers.filesystem_discovery import discover_and_import
         from fastmcp.tools import Tool
 
-        mcp_dir = controllers_dir or (Path(__file__).resolve().parents[2] / "controllers")
+        mcp_dir = controllers_dir or (Path(__file__).resolve().parents[4] / "app" / "controllers")
         result = discover_and_import(mcp_dir)
 
         tools: list[dict[str, Any]] = []

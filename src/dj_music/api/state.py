@@ -7,9 +7,9 @@ from typing import Any, cast
 
 from fastapi import FastAPI, Request
 
-from app.api.services.signed_url_cache import SignedUrlCache
-from app.api.services.tool_registry import ToolRegistry
-from app.api.services.ym_audio_proxy import YmAudioProxy
+from dj_music.api.services.signed_url_cache import SignedUrlCache
+from dj_music.api.services.tool_registry import ToolRegistry
+from dj_music.api.services.ym_audio_proxy import YmAudioProxy
 
 
 @dataclass

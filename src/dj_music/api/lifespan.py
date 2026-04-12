@@ -7,10 +7,10 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
-from app.api.state import get_runtime
-from app.config import settings
-from app.ym.client import YandexMusicClient
-from app.ym.rate_limiter import RateLimiter
+from dj_music.api.state import get_runtime
+from dj_music.core.config import settings
+from dj_music.ym.client import YandexMusicClient
+from dj_music.ym.rate_limiter import RateLimiter
 
 logger = logging.getLogger(__name__)
 
