@@ -47,7 +47,7 @@ async def make_session():
     from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
     from sqlalchemy.orm import sessionmaker
 
-    from app.config import settings
+    from dj_music.core.config import settings
 
     engine = create_async_engine(settings.database_url, echo=False)
     async_session = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
@@ -59,13 +59,13 @@ async def make_session():
 @asynccontextmanager
 async def make_services():
     """Create all services with a shared session."""
-    from app.db.repositories.feature import FeatureRepository
-    from app.db.repositories.playlist import PlaylistRepository
-    from app.db.repositories.set import SetRepository
-    from app.db.repositories.track import TrackRepository
-    from app.db.repositories.transition import TransitionRepository
-    from app.services.set.facade import SetService
-    from app.services.track_service import TrackService
+    from dj_music.repositories.feature import FeatureRepository
+    from dj_music.repositories.playlist import PlaylistRepository
+    from dj_music.repositories.set import SetRepository
+    from dj_music.repositories.track import TrackRepository
+    from dj_music.repositories.transition import TransitionRepository
+    from dj_music.services.set.facade import SetService
+    from dj_music.services.track_service import TrackService
 
     async with make_session() as session:
         track_repo = TrackRepository(session)
@@ -123,7 +123,7 @@ async def bench_get_features_batch(track_svc: Any) -> TimingResult:
 
 
 async def bench_list_playlists(session: Any) -> TimingResult:
-    from app.db.repositories.playlist import PlaylistRepository
+    from dj_music.repositories.playlist import PlaylistRepository
 
     repo = PlaylistRepository(session)
     with Timer("list_all(playlists)") as t:
@@ -133,7 +133,7 @@ async def bench_list_playlists(session: Any) -> TimingResult:
 
 
 async def bench_get_playlist_with_tracks(session: Any) -> TimingResult:
-    from app.db.repositories.playlist import PlaylistRepository
+    from dj_music.repositories.playlist import PlaylistRepository
 
     repo = PlaylistRepository(session)
     track_count = 0
@@ -195,9 +195,9 @@ async def bench_score_transitions(set_svc: Any) -> TimingResult:
 
 def _make_ym_client():
     """Create a YM client with proper constructor args."""
-    from app.config import settings
-    from app.ym.client import YandexMusicClient
-    from app.ym.rate_limiter import RateLimiter
+    from dj_music.core.config import settings
+    from dj_music.ym.client import YandexMusicClient
+    from dj_music.ym.rate_limiter import RateLimiter
 
     rate_limiter = RateLimiter(
         delay=settings.ym_rate_limit_delay,
@@ -242,7 +242,7 @@ async def bench_ym_get_tracks() -> TimingResult:
 
 async def bench_import_tracks(session: Any, track_svc: Any) -> TimingResult:
     """Measure import of already-existing tracks (idempotent skip)."""
-    from app.db.repositories.track import TrackRepository
+    from dj_music.repositories.track import TrackRepository
 
     repo = TrackRepository(session)
     with Timer("import_tracks(5 existing — skip check)") as t:

@@ -341,7 +341,7 @@ async def main() -> None:
     from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
     from sqlalchemy.orm import sessionmaker
 
-    from app.config import settings
+    from dj_music.core.config import settings
 
     # Use direct connection (port 5432) instead of PgBouncer (6543)
     # to avoid prepared statement and search_path issues.
@@ -353,8 +353,8 @@ async def main() -> None:
     async_session = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
     # Initialize YM client with settings
-    from app.ym.client import YandexMusicClient
-    from app.ym.rate_limiter import RateLimiter
+    from dj_music.ym.client import YandexMusicClient
+    from dj_music.ym.rate_limiter import RateLimiter
 
     ym = YandexMusicClient(
         token=settings.ym_token,

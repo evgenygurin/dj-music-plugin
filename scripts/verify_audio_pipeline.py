@@ -112,7 +112,7 @@ async def run_verification(track_path: str, use_processes: bool = False) -> bool
     print("=" * 64)
 
     # ── 1. AudioLoader ──
-    from app.audio.core.loader import AudioLoader
+    from dj_music.audio.core.loader import AudioLoader
 
     loader = AudioLoader()
     with Timer() as t:
@@ -125,7 +125,7 @@ async def run_verification(track_path: str, use_processes: bool = False) -> bool
     print(f"\n[1/7] AudioLoader: {signal.duration_seconds:.1f}s audio loaded ({t.elapsed:.2f}s)")
 
     # ── 2. AnalysisContext (eager precompute on full track for inspection) ──
-    from app.audio.core.context import AnalysisContext
+    from dj_music.audio.core.context import AnalysisContext
 
     with Timer() as t:
         ctx = AnalysisContext(signal)
@@ -141,8 +141,8 @@ async def run_verification(track_path: str, use_processes: bool = False) -> bool
     # and use its per-analyzer timings for the breakdown — running every
     # analyzer twice (sequential + parallel) doubled the verify time and
     # measured cold-vs-warm CPU rather than real concurrency benefit.
-    from app.audio.analyzers import AnalyzerRegistry
-    from app.audio.pipeline import AnalysisPipeline
+    from dj_music.audio.analyzers import AnalyzerRegistry
+    from dj_music.audio.pipeline import AnalysisPipeline
 
     registry = AnalyzerRegistry()
     registry.discover()
@@ -192,7 +192,7 @@ async def run_verification(track_path: str, use_processes: bool = False) -> bool
     f = pipe_result.features
 
     # ── 5. MoodClassifier ──
-    from app.audio.classification import ALL_PROFILES, MoodClassifier
+    from dj_music.audio.classification import ALL_PROFILES, MoodClassifier
 
     classifier = MoodClassifier(profiles=ALL_PROFILES)
     with Timer() as t:

@@ -22,14 +22,14 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 
-from app.core.constants import SetTemplate, TechnoSubgenre
+from dj_music.core.constants import SetTemplate, TechnoSubgenre
 from app.entities.audio.features import TrackFeatures
 from app.optimization.fitness import template_fitness
-from app.services.optimizer import GreedyChainBuilder
-from app.services.templates import get_template
-from app.services.transition import TransitionScorer
+from dj_music.services.optimizer import GreedyChainBuilder
+from dj_music.services.templates import get_template
+from dj_music.services.transition import TransitionScorer
 from app.templates.models import SetTemplateDefinition
-from app.transition.intent import infer_intent
+from dj_music.transition.intent import infer_intent
 
 KEY_TEMPLATES = ("peak_hour_60", "roller_90", "progressive_120", "closing_60")
 SAMPLE_SEEDS = (7, 13, 29, 41, 97)

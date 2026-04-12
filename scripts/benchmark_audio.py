@@ -11,7 +11,7 @@ import time
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
 
-from app.config import settings
+from dj_music.core.config import settings
 
 
 async def make_session() -> AsyncSession:
@@ -24,13 +24,13 @@ async def make_session() -> AsyncSession:
 async def main() -> None:
     session = await make_session()
 
-    from app.db.repositories.feature import FeatureRepository
-    from app.db.repositories.playlist import PlaylistRepository
-    from app.db.repositories.set import SetRepository
-    from app.db.repositories.track import TrackRepository
-    from app.db.repositories.transition import TransitionRepository
-    from app.services.set.facade import SetService
-    from app.services.track_service import TrackService
+    from dj_music.repositories.feature import FeatureRepository
+    from dj_music.repositories.playlist import PlaylistRepository
+    from dj_music.repositories.set import SetRepository
+    from dj_music.repositories.track import TrackRepository
+    from dj_music.repositories.transition import TransitionRepository
+    from dj_music.services.set.facade import SetService
+    from dj_music.services.track_service import TrackService
 
     track_repo = TrackRepository(session)
     feature_repo = FeatureRepository(session)
@@ -54,8 +54,8 @@ async def main() -> None:
     # ── 1. Single track analysis (force re-analyze track 1) ──
     print("\n--- Audio Analysis (single track) ---")
 
-    from app.audio.analyzers import AnalyzerRegistry
-    from app.audio.pipeline import AnalysisPipeline
+    from dj_music.audio.analyzers import AnalyzerRegistry
+    from dj_music.audio.pipeline import AnalysisPipeline
 
     registry = AnalyzerRegistry()
     registry.discover()
@@ -64,7 +64,7 @@ async def main() -> None:
     # Find library item for track 1
     from sqlalchemy import select
 
-    from app.db.models.library import DjLibraryItem
+    from dj_music.models.library import DjLibraryItem
 
     lib_item = (
         await session.execute(select(DjLibraryItem).where(DjLibraryItem.track_id == 1))
@@ -84,8 +84,8 @@ async def main() -> None:
         # Individual analyzer breakdown
         print("\n  Analyzer breakdown (re-running individually):")
         # Load audio and create shared AnalysisContext
-        from app.audio.core.context import AnalysisContext
-        from app.audio.core.loader import AudioLoader
+        from dj_music.audio.core.context import AnalysisContext
+        from dj_music.audio.core.loader import AudioLoader
 
         loader = AudioLoader()
         signal = await loader.load(str(lib_item.file_path))
@@ -183,7 +183,7 @@ async def main() -> None:
 
     # ── 3. Mood classification ──
     print("\n--- Mood Classification ---")
-    from app.audio.classification import MoodClassifier
+    from dj_music.audio.classification import MoodClassifier
 
     classifier = MoodClassifier()
     track_ids = [1, 2, 3, 4, 5]

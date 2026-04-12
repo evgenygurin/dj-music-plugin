@@ -109,15 +109,15 @@ async def main() -> None:
     from sqlalchemy import text
     from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
-    from app.audio.analyzers.base import AnalyzerRegistry
-    from app.audio.level_config import AnalysisLevel
-    from app.audio.pipeline import AnalysisPipeline
-    from app.config import settings
-    from app.db.repositories.audio import AudioRepository
-    from app.db.repositories.track import TrackRepository
-    from app.services.tiered_pipeline import TieredPipeline
-    from app.ym.client import YandexMusicClient
-    from app.ym.rate_limiter import RateLimiter
+    from dj_music.audio.analyzers.base import AnalyzerRegistry
+    from dj_music.audio.level_config import AnalysisLevel
+    from dj_music.audio.pipeline import AnalysisPipeline
+    from dj_music.core.config import settings
+    from dj_music.repositories.audio import AudioRepository
+    from dj_music.repositories.track import TrackRepository
+    from dj_music.services.tiered_pipeline import TieredPipeline
+    from dj_music.ym.client import YandexMusicClient
+    from dj_music.ym.rate_limiter import RateLimiter
 
     target = AnalysisLevel(args.level)
 

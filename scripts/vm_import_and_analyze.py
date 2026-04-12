@@ -200,14 +200,14 @@ async def _process_refs(
     force: bool,
 ) -> dict[str, int]:
     """Import refs (idempotent) and analyze up to target_level in chunks."""
-    from app.audio.level_config import AnalysisLevel
-    from app.audio.pipeline import AnalysisPipeline
-    from app.audio.timeseries import TimeseriesStorage
-    from app.db.repositories.audio import AudioRepository
-    from app.db.repositories.ingestion import IngestionRepository
-    from app.db.repositories.track import TrackRepository
-    from app.services.import_service import ImportService
-    from app.services.tiered_pipeline import TieredPipeline
+    from dj_music.audio.level_config import AnalysisLevel
+    from dj_music.audio.pipeline import AnalysisPipeline
+    from dj_music.audio.timeseries import TimeseriesStorage
+    from dj_music.repositories.audio import AudioRepository
+    from dj_music.repositories.ingestion import IngestionRepository
+    from dj_music.repositories.track import TrackRepository
+    from dj_music.services.import_service import ImportService
+    from dj_music.services.tiered_pipeline import TieredPipeline
 
     # Single storage instance — TieredPipeline only calls .save() (stateless
     # module-level dispatch), so reusing across sub-batches is safe and avoids
@@ -411,10 +411,10 @@ async def main() -> None:
 
     from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
-    from app.audio.analyzers.base import AnalyzerRegistry
-    from app.config import settings
-    from app.ym.client import YandexMusicClient
-    from app.ym.rate_limiter import RateLimiter
+    from dj_music.audio.analyzers.base import AnalyzerRegistry
+    from dj_music.core.config import settings
+    from dj_music.ym.client import YandexMusicClient
+    from dj_music.ym.rate_limiter import RateLimiter
 
     log.info("=" * 70)
     log.info("DJ Music Plugin — YM Importer + Analyzer")

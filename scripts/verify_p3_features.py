@@ -76,9 +76,9 @@ def find_real_mp3(library_root: str | None = None) -> str:
 
 async def main(track_path: str) -> bool:
     """Run P3 analyzer verification. Returns True if all pass."""
-    from app.audio.analyzers import AnalyzerRegistry
-    from app.audio.core.context import AnalysisContext
-    from app.audio.core.loader import AudioLoader
+    from dj_music.audio.analyzers import AnalyzerRegistry
+    from dj_music.audio.core.context import AnalysisContext
+    from dj_music.audio.core.loader import AudioLoader
 
     track_name = Path(track_path).stem
     file_mb = os.path.getsize(track_path) / (1024 * 1024)

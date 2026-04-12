@@ -385,15 +385,15 @@ async def _gate_stage(
     """
     import time
 
-    from app.audio.level_config import AnalysisLevel
-    from app.audio.pipeline import AnalysisPipeline
-    from app.audio.timeseries import TimeseriesStorage
-    from app.db.repositories.audio import AudioRepository
-    from app.db.repositories.ingestion import IngestionRepository
-    from app.db.repositories.track import TrackRepository
-    from app.services.audio_service import AudioService
-    from app.services.import_service import ImportService
-    from app.services.tiered_pipeline import TieredPipeline
+    from dj_music.audio.level_config import AnalysisLevel
+    from dj_music.audio.pipeline import AnalysisPipeline
+    from dj_music.audio.timeseries import TimeseriesStorage
+    from dj_music.repositories.audio import AudioRepository
+    from dj_music.repositories.ingestion import IngestionRepository
+    from dj_music.repositories.track import TrackRepository
+    from dj_music.services.audio_service import AudioService
+    from dj_music.services.import_service import ImportService
+    from dj_music.services.tiered_pipeline import TieredPipeline
 
     stats = {
         "imported": 0,
@@ -578,8 +578,8 @@ async def _load_orphan_ym_ids(session_factory: Any) -> list[str]:
     """
     from sqlalchemy import select
 
-    from app.db.models.audio import TrackAudioFeaturesComputed
-    from app.db.models.track import Track, TrackExternalId
+    from dj_music.models.audio import TrackAudioFeaturesComputed
+    from dj_music.models.track import Track, TrackExternalId
 
     async with session_factory() as session:
         rows = await session.execute(
@@ -604,7 +604,7 @@ async def _load_seen_from_db(session_factory: Any) -> set[str]:
     """Load ALL YM external IDs currently in DB for BFS dedup."""
     from sqlalchemy import select
 
-    from app.db.models.track import TrackExternalId
+    from dj_music.models.track import TrackExternalId
 
     async with session_factory() as session:
         rows = await session.execute(
@@ -622,8 +622,8 @@ async def _count_techno_in_db(session_factory: Any) -> int:
     """
     from sqlalchemy import func, select
 
-    from app.db.models.audio import TrackAudioFeaturesComputed
-    from app.db.models.track import Track
+    from dj_music.models.audio import TrackAudioFeaturesComputed
+    from dj_music.models.track import Track
 
     async with session_factory() as session:
         result = await session.execute(
@@ -656,7 +656,7 @@ async def _archive_failed_in_db(
 
     from sqlalchemy import select, update
 
-    from app.db.models.track import Track, TrackExternalId
+    from dj_music.models.track import Track, TrackExternalId
 
     async with session_factory() as session:
         rows = await session.execute(
@@ -991,9 +991,9 @@ async def _run_db_only(
 
 
 async def _run(args: argparse.Namespace) -> int:
-    from app.config import settings
-    from app.ym.client import YandexMusicClient
-    from app.ym.rate_limiter import RateLimiter
+    from dj_music.core.config import settings
+    from dj_music.ym.client import YandexMusicClient
+    from dj_music.ym.rate_limiter import RateLimiter
 
     gate_on = args.gate_mode == "l5"
 
@@ -1043,7 +1043,7 @@ async def _run(args: argparse.Namespace) -> int:
 
         from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
-        from app.audio.analyzers.base import AnalyzerRegistry
+        from dj_music.audio.analyzers.base import AnalyzerRegistry
 
         connect_args: dict[str, Any] = {}
         if settings.database_url.startswith("postgresql"):

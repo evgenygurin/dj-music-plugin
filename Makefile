@@ -35,10 +35,10 @@ dev:
 	uv run fastmcp run app/server.py --reload
 
 run:
-	uv run fastmcp run app/server.py
+	uv run fastmcp run src/dj_music/server.py
 
 api:
-	uv run --extra http uvicorn app.api.server:api --host 0.0.0.0 --port 8000 --reload
+	uv run --extra http uvicorn dj_music.api.server:api --host 0.0.0.0 --port 8000 --reload
 
 panel:
 	cd panel && bun dev
