@@ -2,7 +2,7 @@
   "$schema": "https://gofastmcp.com/public/schemas/fastmcp.json/v1.json",
   "source": {
     "type": "filesystem",
-    "path": "app/server.py",
+    "path": "src/dj_music/server.py",
     "entrypoint": "mcp"
   },
   "deployment": {
