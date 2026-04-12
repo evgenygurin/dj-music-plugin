@@ -45,7 +45,7 @@
 
 ```text
 src/dj_music/
-├── kernel/           # Shared Kernel — 0 зависимостей
+├── core/           # Shared Kernel — 0 зависимостей
 ├── domain/           # Domain Layer — чистая логика
 ├── application/      # Application Layer — use cases, порты, DTO
 ├── infrastructure/   # Infrastructure Layer — DB, YM, audio I/O
@@ -60,8 +60,8 @@ presentation --> application --> domain <-- infrastructure
                     ^                        |
                     +-------- ports <--------+
 
-kernel <-- все слои (cross-cutting)
-engines --> domain + kernel
+core <-- все слои (cross-cutting)
+engines --> domain + core
 ```
 
 ### Компоненты (из скетча пользователя)
@@ -95,10 +95,10 @@ KERNEL (Core):
 
 ## Детальная структура
 
-### 1. kernel/ — Shared Kernel
+### 1. core/ — Shared Kernel
 
 ```text
-src/dj_music/kernel/
+src/dj_music/core/
 ├── __init__.py
 ├── types.py                 # BaseEntity(BaseModel, from_attributes=True, extra="forbid")
 │                            # BaseValueObject(BaseModel, frozen=True)
@@ -120,7 +120,7 @@ src/dj_music/kernel/
 
 ### 2. domain/ — Domain Layer
 
-Чистая бизнес-логика. Зависит только от kernel. Ни SQLAlchemy, ни httpx, ни FastMCP.
+Чистая бизнес-логика. Зависит только от core. Ни SQLAlchemy, ни httpx, ни FastMCP.
 
 **Сервисы работают ТОЛЬКО с domain entities (Pydantic BaseModel), никогда с ORM моделями.**
 Repository конвертирует ORM → Pydantic через `Entity.model_validate(orm_obj)` (from_attributes=True).
@@ -144,7 +144,7 @@ Repository конвертирует ORM → Pydantic через `Entity.model_va
 
 ```text
 src/dj_music/domain/
-├── entities/                    # Domain entities (inherit from kernel.types.BaseEntity)
+├── entities/                    # Domain entities (inherit from core.types.BaseEntity)
 │   ├── __init__.py
 │   ├── track.py                 # Track, Artist, Genre, Label, Release
 │   ├── audio.py                 # TrackFeatures, AudioFeatures, Embedding
@@ -222,7 +222,7 @@ src/dj_music/application/
 │   ├── analyze_track.py, build_set.py, deliver_set.py
 │   ├── import_tracks.py, sync_playlist.py
 │
-└── dto/                     # Pydantic DTOs (replaces app/schemas/)
+└── schemas/                     # Pydantic DTOs (replaces app/schemas/)
     ├── track.py, playlist.py, set.py, transition.py
     ├── common.py, yandex.py, deck.py, mixer.py
 ```
@@ -357,10 +357,10 @@ forbidden_modules =
     fastmcp
 
 # 3. Kernel is a leaf
-[importlinter:contract:kernel-leaf]
+[importlinter:contract:core-leaf]
 name = Kernel must not depend on any app layer
 type = forbidden
-source_modules = dj_music.kernel
+source_modules = dj_music.core
 forbidden_modules =
     dj_music.domain
     dj_music.application
@@ -464,7 +464,7 @@ structlog chain включает SentryProcessor:
 
 ```text
 src/dj_music/
-├── kernel/
+├── core/
 │   ├── errors.py            # DJMusicError hierarchy с ctx + get_context_chain()
 │   └── logging.py           # structlog configuration, processor chain, setup_logging()
 │
@@ -726,12 +726,12 @@ async def filter_advanced(
 | # | Фаза | Описание |
 |---|------|----------|
 | 0 | Setup | `src/dj_music/`, pyproject.toml, import-linter |
-| 1 | kernel/ | config split, errors, constants, camelot, utils, logging |
+| 1 | core/ | config split, errors, constants, camelot, utils, logging |
 | 2a | domain/entities/ | Pydantic entities для Track, Set, Playlist, Transition, etc. |
 | 2b | domain/ | transition/, optimization/, export/, templates/, audio domain |
 | 3 | application/ports/ | Protocol interfaces |
 | 4 | application/services/ | services переезжают, убираем ORM imports |
-| 5 | application/workflows+dto/ | workflows/, schemas/ -> dto/ |
+| 5 | application/workflows+schemas/ | workflows/, schemas/ stays as schemas/ |
 | 6 | infrastructure/ | db/ -> persistence/, ym/ -> yandex_music/, audio I/O, observability/ |
 | 7 | engines/ | engines переезжают |
 | 8 | presentation/ | controllers/ -> mcp/, api/ -> http/, bootstrap/, di/ |
@@ -758,7 +758,7 @@ async def filter_advanced(
 | Settings | https://gofastmcp.com/more/settings | Все настройки FastMCP |
 | Project Configuration | https://gofastmcp.com/deployment/server-configuration | pyproject.toml / конфигурация |
 
-### Phase 1 — kernel/
+### Phase 1 — core/
 
 | Документ | URL | Зачем |
 |----------|-----|-------|
@@ -935,9 +935,9 @@ CLIENT
 
 | Конфликт | Решение |
 |----------|---------|
-| BaseEntity в kernel/types.py И domain/entities/base.py | Определяется ТОЛЬКО в `kernel/types.py`. `domain/entities/base.py` не нужен — entities наследуют от `kernel.types.BaseEntity` |
+| BaseEntity в core/types.py И domain/entities/base.py | Определяется ТОЛЬКО в `core/types.py`. `domain/entities/base.py` не нужен — entities наследуют от `core.types.BaseEntity` |
 | TrackFeatures в domain/entities/audio.py И transition/model.py | Canonical в `domain/entities/audio.py`. `transition/` импортирует оттуда |
-| SortField/SortDir — в каком слое? | `kernel/constants.py` — cross-cutting enums, доступны всем |
+| SortField/SortDir — в каком слое? | `core/constants.py` — cross-cutting enums, доступны всем |
 
 ---
 
