@@ -19,11 +19,16 @@ class ToolRegistry:
         from fastmcp.server.providers.filesystem_discovery import discover_and_import
         from fastmcp.tools import Tool
 
-        mcp_dir = controllers_dir or (Path(__file__).resolve().parents[4] / "app" / "controllers")
-        result = discover_and_import(mcp_dir)
+        # Scan tools/, prompts/, resources/ under src/dj_music/
+        root = controllers_dir or Path(__file__).resolve().parents[2]
+        all_components = []
+        for subdir in ("tools", "prompts", "resources"):
+            sub = root / subdir
+            if sub.is_dir():
+                all_components.extend(discover_and_import(sub).components)
 
         tools: list[dict[str, Any]] = []
-        for _path, component in result.components:
+        for _path, component in all_components:
             if not isinstance(component, Tool):
                 continue
             tools.append(
