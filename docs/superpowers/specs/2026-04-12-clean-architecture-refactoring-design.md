@@ -32,7 +32,7 @@
 | Архитектура | Clean Architecture | Строгие слои, dependency rule |
 | Корневой пакет | `src/dj_music/` | Правильное Python packaging |
 | Domain entities | Да (Pydantic BaseModel) | Сервисы не знают об ORM. Pydantic = валидация + сериализация |
-| Mapper | Внутри Repository | Repo конвертирует ORM <-> dataclass, не отдельный слой |
+| Mapper | `from_attributes=True` | `Entity.model_validate(orm_obj)` — Pydantic маппит автоматически |
 | Ports (Protocol) | Да, на границах | Repositories + YM client + Cache |
 | Config split | Да, по доменам | Решает god-object |
 | FileSystemProvider | `presentation/mcp/` | Одна строка в server_builder |
@@ -121,14 +121,24 @@ src/dj_music/kernel/
 Чистая бизнес-логика. Зависит только от kernel. Ни SQLAlchemy, ни httpx, ни FastMCP.
 
 **Сервисы работают ТОЛЬКО с domain entities (Pydantic BaseModel), никогда с ORM моделями.**
-Repository конвертирует ORM <-> Pydantic внутри себя.
+Repository конвертирует ORM → Pydantic через `Entity.model_validate(orm_obj)` (from_attributes=True).
 
 **Единая модель данных — Pydantic everywhere:**
-- Entity = Pydantic BaseModel (Track, Set, Playlist)
-- Value Object = Pydantic BaseModel с `ConfigDict(frozen=True)` (Bpm, Key, Lufs)
-- Schema (DTO) = Pydantic BaseModel (TrackBrief, SetSummary)
-- Config = pydantic-settings BaseSettings
-- Никаких dataclasses — всё Pydantic.
+- Entity = Pydantic BaseModel с `ConfigDict(from_attributes=True)` — маппинг из ORM автоматический
+- Value Object = Pydantic BaseModel с `ConfigDict(frozen=True)` — immutable
+- Schema (DTO) = Pydantic BaseModel (TrackBrief, SetSummary) — для tool returns
+- Config = pydantic-settings BaseSettings — конфигурация
+- Никаких dataclasses — всё Pydantic
+
+**Ключевые Pydantic v2 возможности:**
+- `from_attributes=True` — автоматический маппинг ORM → entity (заменяет Mapper)
+- `frozen=True` — immutable Value Objects (Bpm, Key, Lufs)
+- `computed_field` — вычисляемые свойства (camelot из key_code)
+- `field_validator` / `model_validator` — бизнес-правила прямо в entity
+- `Field(ge=20, le=300)` — constraint validation без CheckConstraint
+- `model_dump(include/exclude)` — гибкая сериализация для brief/full views
+- `Discriminator` — discriminated unions для полиморфных типов
+- `TypeAdapter` — валидация standalone типов (list, dict)
 
 ```text
 src/dj_music/domain/
