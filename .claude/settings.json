@@ -1,4 +1,12 @@
 {
+  "sandbox": {
+    "network": {
+      "allowedDomains": [
+        "aws-1-eu-central-1.pooler.supabase.com",
+        "bowosphlnghhgaulcyfm.supabase.co"
+      ]
+    }
+  },
   "extraKnownMarketplaces": {
     "fastmcp-builder-skill": {
       "source": {
