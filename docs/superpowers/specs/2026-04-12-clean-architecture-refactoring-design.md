@@ -65,7 +65,8 @@ src/dj_music/
 ├── engines/           # DeckEngine, MixerEngine (runtime)
 ├── ym/                # Yandex Music client
 ├── api/               # FastAPI REST wrapper
-├── bootstrap/         # Server assembly, Lifespans, DI
+├── bootstrap/         # Server assembly, Lifespans
+├── di/                # Dependency Injection — composition root
 └── server.py          # Entry point
 ```
 
@@ -228,11 +229,12 @@ src/dj_music/
 │   ├── routes/                  # health, discovery, execution, audio
 │   └── services/                # tool_registry, signed_url_cache, ym_audio_proxy
 │
-├── bootstrap/                   # Server assembly, Lifespans, DI
+├── bootstrap/                   # Server assembly, Lifespans
 │   ├── server_builder.py, lifespans.py, transforms.py
-│   ├── middleware.py, visibility.py, observability.py, sampling.py
-│   └── di/                      # Composition root
-│       └── db.py, repos.py, services.py, audio.py, external.py, uow.py
+│   └── middleware.py, visibility.py, observability.py, sampling.py
+│
+├── di/                          # Dependency Injection — composition root
+│   └── db.py, repos.py, services.py, audio.py, external.py, uow.py
 │
 ├── migrations/                  # Alembic
 │   └── env.py, versions/
@@ -507,7 +509,7 @@ Level 4: Tool        — @tool list_tracks(service=Depends(get_track_service)) �
 ### Session lifecycle
 
 ```python
-# bootstrap/di/db.py — ЕДИНСТВЕННОЕ место commit/rollback
+# di/db.py — ЕДИНСТВЕННОЕ место commit/rollback
 @asynccontextmanager
 async def get_db_session():
     session = async_session_factory()
@@ -537,10 +539,10 @@ def get_ym_client(ctx: Context = CurrentContext()) -> YandexMusicClient:
     return ctx.request_context.lifespan_context["ym_client"]
 ```
 
-### DI modules в bootstrap/di/
+### DI modules в di/
 
 ```text
-bootstrap/di/
+di/
 ├── db.py          # get_db_session (context manager, commit/rollback)
 ├── repos.py       # get_track_repo, get_set_repo, etc.
 ├── services.py    # get_track_service, get_set_service, etc.
@@ -556,7 +558,7 @@ bootstrap/di/
 | Session = async context manager | Гарантирует commit/rollback/close |
 | Repos flush(), never commit() | Транзакция на уровне tool call |
 | Services принимают Protocol, не конкретный класс | Testability, ISP |
-| DI factories в bootstrap/di/, не в domain/ | Domain не знает о DI framework |
+| DI factories в di/, не в domain/ | Domain не знает о DI framework |
 | Lifespan для singletons, Depends для per-request | Разное время жизни |
 | Один session на весь tool call | Consistency, UoW |
 
@@ -856,7 +858,7 @@ TOOL (tools/sets.py):
   - Pydantic validation на входе
   - Вызывает service.build(...)
   ↓
-DI RESOLUTION (bootstrap/di/services.py → di/repos.py → di/db.py):
+DI RESOLUTION (di/services.py → di/repos.py → di/db.py):
   get_db_session() → AsyncSession (shared)
   get_track_repo(session) → SqlAlchemyTrackRepo(session)
   get_set_repo(session) → SqlAlchemySetRepo(session)
@@ -880,7 +882,7 @@ APPLICATION (back in set_builder.py):
 TOOL (back in tool):
   - DTO → FastMCP structuredContent + content
   ↓
-DI CLEANUP (bootstrap/di/db.py):
+DI CLEANUP (di/db.py):
   - SUCCESS → session.commit()
   - ERROR → session.rollback()
   - ALWAYS → session.close()
