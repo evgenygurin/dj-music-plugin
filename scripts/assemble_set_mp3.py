@@ -46,12 +46,45 @@ from app.ym.client import YandexMusicClient
 from app.ym.rate_limiter import RateLimiter
 
 
+def _load_supabase_creds() -> tuple[str, str]:
+    """Load Supabase URL and anon key from env or panel/.env."""
+    url = os.environ.get("NEXT_PUBLIC_SUPABASE_URL", "")
+    key = os.environ.get("NEXT_PUBLIC_SUPABASE_ANON_KEY", "")
+    if url and key:
+        return url, key
+    # Fallback: read from panel/.env
+    panel_env = Path(__file__).resolve().parent.parent / "panel" / ".env"
+    if not panel_env.exists():
+        panel_env = Path(__file__).resolve().parent.parent / "panel" / ".env.local"
+    if panel_env.exists():
+        for line in panel_env.read_text().splitlines():
+            line = line.strip()
+            if line.startswith("#") or "=" not in line:
+                continue
+            k, _, v = line.partition("=")
+            v = v.strip().strip("\"'")
+            if k.strip() == "NEXT_PUBLIC_SUPABASE_URL":
+                url = v
+            elif k.strip() == "NEXT_PUBLIC_SUPABASE_ANON_KEY":
+                key = v
+    if not url or not key:
+        log.error(
+            "Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY, or create panel/.env"
+        )
+        sys.exit(1)
+    return url, key
+
+
+_SB_URL, _SB_KEY = "", ""
+
+
 def _sb_get(path: str) -> httpx.Response:
-    url = os.environ["NEXT_PUBLIC_SUPABASE_URL"]
-    key = os.environ["NEXT_PUBLIC_SUPABASE_ANON_KEY"]
+    global _SB_URL, _SB_KEY
+    if not _SB_URL:
+        _SB_URL, _SB_KEY = _load_supabase_creds()
     return httpx.get(
-        f"{url}/rest/v1/{path}",
-        headers={"apikey": key, "Authorization": f"Bearer {key}"},
+        f"{_SB_URL}/rest/v1/{path}",
+        headers={"apikey": _SB_KEY, "Authorization": f"Bearer {_SB_KEY}"},
     )
 
 

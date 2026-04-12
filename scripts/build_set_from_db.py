@@ -33,13 +33,47 @@ from app.transition.scorer import TransitionScorer
 from app.transition.style import recommend_style, style_profile
 
 
-def _sb_headers() -> dict[str, str]:
-    url = os.environ["NEXT_PUBLIC_SUPABASE_URL"]
-    key = os.environ["NEXT_PUBLIC_SUPABASE_ANON_KEY"]
+def _load_supabase_creds() -> tuple[str, str]:
+    """Load Supabase URL and anon key from env or panel/.env."""
+    sb_url = os.environ.get("NEXT_PUBLIC_SUPABASE_URL", "")
+    sb_key = os.environ.get("NEXT_PUBLIC_SUPABASE_ANON_KEY", "")
+    if sb_url and sb_key:
+        return sb_url, sb_key
+    from pathlib import Path
+
+    panel_env = Path(__file__).resolve().parent.parent / "panel" / ".env"
+    if not panel_env.exists():
+        panel_env = Path(__file__).resolve().parent.parent / "panel" / ".env.local"
+    if panel_env.exists():
+        for line in panel_env.read_text().splitlines():
+            line = line.strip()
+            if line.startswith("#") or "=" not in line:
+                continue
+            k, _, v = line.partition("=")
+            v = v.strip().strip("\"'")
+            if k.strip() == "NEXT_PUBLIC_SUPABASE_URL":
+                sb_url = v
+            elif k.strip() == "NEXT_PUBLIC_SUPABASE_ANON_KEY":
+                sb_key = v
+    if not sb_url or not sb_key:
+        log.error(
+            "Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY, or create panel/.env"
+        )
+        sys.exit(1)
+    return sb_url, sb_key
+
+
+_SB_URL, _SB_KEY = "", ""
+
+
+def _sb_headers() -> tuple[dict[str, str], str]:
+    global _SB_URL, _SB_KEY
+    if not _SB_URL:
+        _SB_URL, _SB_KEY = _load_supabase_creds()
     return {
-        "apikey": key,
-        "Authorization": f"Bearer {key}",
-    }, url
+        "apikey": _SB_KEY,
+        "Authorization": f"Bearer {_SB_KEY}",
+    }, _SB_URL
 
 
 def _fetch_tracks_by_mood(
