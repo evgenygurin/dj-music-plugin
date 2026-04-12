@@ -11,7 +11,7 @@ from pathlib import Path
 
 import pytest
 
-WORKFLOWS_DIR = Path("app/controllers/prompts/workflows")
+WORKFLOWS_DIR = Path("src/dj_music/prompts/workflows")
 
 EXPECTED = {
     "build_set.py": {
