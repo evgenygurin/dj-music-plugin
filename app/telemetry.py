@@ -25,7 +25,9 @@ T = TypeVar("T")
 
 def _get_tracer() -> trace.Tracer:
     """Get tracer lazily (allows test fixtures to configure provider first)."""
-    return trace.get_tracer("dj-music-plugin", "0.1.0")
+    from app._version import __version__
+
+    return trace.get_tracer("dj-music-plugin", __version__)
 
 
 def instrument_heavy_operation(
@@ -59,12 +61,12 @@ def instrument_heavy_operation(
 
                 # Add relevant args as attributes (first 3 positional args)
                 for i, arg in enumerate(args[:3]):
-                    if isinstance(arg, (str, int, float, bool)):
+                    if isinstance(arg, str | int | float | bool):
                         span.set_attribute(f"dj.arg.{i}", arg)
 
                 # Add relevant kwargs
                 for key, value in kwargs.items():
-                    if isinstance(value, (str, int, float, bool)):
+                    if isinstance(value, str | int | float | bool):
                         span.set_attribute(f"dj.param.{key}", value)
                     elif isinstance(value, list) and value:
                         span.set_attribute(f"dj.param.{key}.count", len(value))
@@ -89,11 +91,11 @@ def instrument_heavy_operation(
                 span.set_attribute("dj.debug_mode", settings.debug)
 
                 for i, arg in enumerate(args[:3]):
-                    if isinstance(arg, (str, int, float, bool)):
+                    if isinstance(arg, str | int | float | bool):
                         span.set_attribute(f"dj.arg.{i}", arg)
 
                 for key, value in kwargs.items():
-                    if isinstance(value, (str, int, float, bool)):
+                    if isinstance(value, str | int | float | bool):
                         span.set_attribute(f"dj.param.{key}", value)
                     elif isinstance(value, list) and value:
                         span.set_attribute(f"dj.param.{key}.count", len(value))
@@ -145,7 +147,7 @@ def set_span_attributes(**attributes: Any) -> None:
     span = trace.get_current_span()
     if span.is_recording():
         for key, value in attributes.items():
-            if isinstance(value, (str, int, float, bool)):
+            if isinstance(value, str | int | float | bool):
                 span.set_attribute(f"dj.{key}", value)
 
 

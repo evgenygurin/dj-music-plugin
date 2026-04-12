@@ -1,7 +1,7 @@
 ---
 name: expand-playlist
 description: "Use when the user asks to expand a playlist, find similar tracks, add more tracks, discover new tracks, import from Yandex Music, or fill gaps in a playlist. Covers discovery, feedback gating, import, download and analysis."
-version: 0.5.0
+version: 0.7.1
 ---
 
 # Expand Playlist Workflow

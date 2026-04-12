@@ -113,13 +113,15 @@ class ToolTimeout:
 
 # ── Meta ──────────────────────────────────────────────────────────
 
+from app._version import __version__ as _v
+
 TOOL_META: Final[dict[str, Any]] = {
-    "version": "0.7.0",
+    "version": _v,
     "author": "dj-music-plugin",
 }
 
 RESOURCE_META: Final[dict[str, Any]] = {
-    "version": "0.7.0",
+    "version": _v,
 }
 
 

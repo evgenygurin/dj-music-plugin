@@ -6,6 +6,7 @@ import asyncio
 import logging
 from typing import TYPE_CHECKING, Any
 
+from app._version import __version__ as _PIPELINE_VERSION
 from app.audio.level_config import AnalysisLevel, get_analyzers_for_level
 from app.config import settings
 
@@ -164,7 +165,7 @@ class TieredPipeline:
             run = await self._audio.create_pipeline_run(
                 track_id=track_id,
                 name=f"tiered_L{int(level)}",
-                version="0.5.0",
+                version=_PIPELINE_VERSION,
                 status="completed",
             )
 
