@@ -95,7 +95,7 @@ filterwarnings = [
 ]
 
 [tool.hatch.build.targets.wheel]
-packages = ["app"]
+packages = ["app", "src/dj_music"]
 
 [build-system]
 requires = ["hatchling"]
