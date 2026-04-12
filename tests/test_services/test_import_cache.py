@@ -8,8 +8,8 @@ import pytest
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.models.ingestion import RawProviderResponse
-from app.db.repositories.ingestion import IngestionRepository
+from dj_music.models.ingestion import RawProviderResponse
+from dj_music.repositories.ingestion import IngestionRepository
 
 # ── IngestionRepository unit tests ──────────────────
 
@@ -20,7 +20,7 @@ async def test_cache_response_creates_record(db: AsyncSession) -> None:
     repo = IngestionRepository(db)
 
     # First, we need a track
-    from app.db.models.track import Track
+    from dj_music.models.track import Track
 
     track = Track(title="Test Track", status=0)
     db.add(track)
@@ -46,7 +46,7 @@ async def test_cache_response_upserts_existing(db: AsyncSession) -> None:
     """cache_response should update existing record instead of duplicating."""
     repo = IngestionRepository(db)
 
-    from app.db.models.track import Track
+    from dj_music.models.track import Track
 
     track = Track(title="Test Track 2", status=0)
     db.add(track)
@@ -70,7 +70,7 @@ async def test_get_cached_response_returns_data(db: AsyncSession) -> None:
     """get_cached_response should return parsed JSON when cached."""
     repo = IngestionRepository(db)
 
-    from app.db.models.track import Track
+    from dj_music.models.track import Track
 
     track = Track(title="Cached Track", status=0)
     db.add(track)
@@ -89,7 +89,7 @@ async def test_get_cached_response_returns_none_for_missing(db: AsyncSession) ->
     """get_cached_response should return None when no cache exists."""
     repo = IngestionRepository(db)
 
-    from app.db.models.track import Track
+    from dj_music.models.track import Track
 
     track = Track(title="Uncached Track", status=0)
     db.add(track)

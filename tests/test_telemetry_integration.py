@@ -6,7 +6,7 @@ These tests validate that:
 3. OTEL integration works end-to-end
 """
 
-from app.config import settings
+from dj_music.core.config import settings
 
 
 class TestTelemetryConfiguration:
@@ -44,7 +44,7 @@ class TestTelemetryModules:
 
     def test_instrument_decorator_exists(self):
         """instrument_heavy_operation decorator exists."""
-        from app.telemetry import instrument_heavy_operation
+        from dj_music.core.telemetry import instrument_heavy_operation
 
         @instrument_heavy_operation("test_op")
         async def test_func():

@@ -15,11 +15,11 @@ import pytest
 from fastmcp.exceptions import NotFoundError as FastMCPNotFoundError
 from fastmcp.exceptions import ToolError
 
-from app.controllers.tools._shared.errors import (
+from dj_music.tools._shared.errors import (
     domain_errors_as_tool_error,
     map_domain_errors,
 )
-from app.core.errors import ConflictError, NotFoundError, ValidationError
+from dj_music.core.errors import ConflictError, NotFoundError, ValidationError
 
 
 async def test_not_found_mapped_to_fastmcp_not_found() -> None:

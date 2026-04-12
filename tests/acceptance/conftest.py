@@ -13,10 +13,10 @@ from fastmcp import Client
 from fastmcp.server.lifespan import lifespan
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
-from app.audio.analyzers import AnalyzerRegistry
-from app.core.utils.cache import TransitionCache
-from app.server import mcp
-from app.ym.models import YMPlaylist, YMTrack
+from dj_music.audio.analyzers import AnalyzerRegistry
+from dj_music.core.utils.cache import TransitionCache
+from dj_music.server import mcp
+from dj_music.ym.models import YMPlaylist, YMTrack
 
 
 @dataclass
@@ -97,8 +97,8 @@ def patch_audio_pipeline(monkeypatch: pytest.MonkeyPatch):
             reasoning="deterministic",
         )
 
-    monkeypatch.setattr("app.audio.pipeline.AnalysisPipeline.analyze", _fake_analyze)
-    monkeypatch.setattr("app.audio.classification.classifier.MoodClassifier.classify", _fake_classify)
+    monkeypatch.setattr("dj_music.audio.pipeline.AnalysisPipeline.analyze", _fake_analyze)
+    monkeypatch.setattr("dj_music.audio.classification.classifier.MoodClassifier.classify", _fake_classify)
 
 
 @pytest.fixture
@@ -109,7 +109,7 @@ def patch_tiered_noop(monkeypatch: pytest.MonkeyPatch):
         del self, target_level, force, progress_callback
         return {"analyzed": 0, "skipped": len(track_ids), "failed": 0}
 
-    monkeypatch.setattr("app.services.tiered_pipeline.TieredPipeline.ensure_level", _fake_ensure_level)
+    monkeypatch.setattr("dj_music.services.tiered_pipeline.TieredPipeline.ensure_level", _fake_ensure_level)
 
 
 @pytest.fixture

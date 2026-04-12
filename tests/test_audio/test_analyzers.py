@@ -10,11 +10,11 @@ from __future__ import annotations
 
 import numpy as np
 
-from app.audio.analyzers.energy import EnergyAnalyzer
-from app.audio.analyzers.loudness import LoudnessAnalyzer
-from app.audio.analyzers.spectral import SpectralAnalyzer
-from app.audio.core import AudioSignal
-from app.audio.core.context import AnalysisContext
+from dj_music.audio.analyzers.energy import EnergyAnalyzer
+from dj_music.audio.analyzers.loudness import LoudnessAnalyzer
+from dj_music.audio.analyzers.spectral import SpectralAnalyzer
+from dj_music.audio.core import AudioSignal
+from dj_music.audio.core.context import AnalysisContext
 
 SAMPLE_RATE = 22050
 DURATION = 2.0  # seconds
@@ -31,7 +31,7 @@ def _make_signal(samples: np.ndarray) -> AudioSignal:
 
 def _run(analyzer: object, signal: AudioSignal) -> object:  # type: ignore[type-arg]
     """Run analyzer synchronously via new API."""
-    from app.audio.analyzers.base import BaseAnalyzer
+    from dj_music.audio.analyzers.base import BaseAnalyzer
 
     assert isinstance(analyzer, BaseAnalyzer)
     return analyzer.run(AnalysisContext(signal))

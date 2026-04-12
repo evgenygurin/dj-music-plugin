@@ -5,8 +5,8 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from app.audio.core.context import AnalysisContext
-from app.audio.core.types import AudioSignal, FrameParams
+from dj_music.audio.core.context import AnalysisContext
+from dj_music.audio.core.types import AudioSignal, FrameParams
 
 SAMPLE_RATE = 22050
 

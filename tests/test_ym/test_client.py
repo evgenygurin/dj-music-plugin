@@ -7,9 +7,9 @@ from typing import Any
 import httpx
 import pytest
 
-from app.core.errors import APIError, AuthFailedError, RateLimitedError
-from app.ym.client import YandexMusicClient
-from app.ym.rate_limiter import RateLimiter
+from dj_music.core.errors import APIError, AuthFailedError, RateLimitedError
+from dj_music.ym.client import YandexMusicClient
+from dj_music.ym.rate_limiter import RateLimiter
 
 
 def _make_client(

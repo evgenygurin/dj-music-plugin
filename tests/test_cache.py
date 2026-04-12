@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import time
 
-from app.core.utils.cache import TransitionCache
+from dj_music.core.utils.cache import TransitionCache
 
 
 def test_cache_stores_and_retrieves_score() -> None:

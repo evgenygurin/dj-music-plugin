@@ -1,6 +1,6 @@
 import pytest
 
-from app.core.utils.pagination import CursorPage, decode_cursor, encode_cursor
+from dj_music.core.utils.pagination import CursorPage, decode_cursor, encode_cursor
 
 
 def test_encode_decode_roundtrip() -> None:

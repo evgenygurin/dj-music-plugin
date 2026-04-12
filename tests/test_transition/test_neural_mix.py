@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import pytest
 
-from app.entities.audio.features import TrackFeatures
-from app.transition.neural_mix import (
+from dj_music.schemas.audio import TrackFeatures
+from dj_music.transition.neural_mix import (
     NEURAL_MIX_STEMS,
     TRANSITION_ENERGY_BIAS,
     TRANSITION_STEM_WEIGHTS,

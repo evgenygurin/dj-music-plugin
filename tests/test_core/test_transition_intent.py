@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import pytest
 
-from app.core.constants import SetTemplate
-from app.transition.intent import (
+from dj_music.core.constants import SetTemplate
+from dj_music.transition.intent import (
     INTENT_WEIGHT_MODIFIERS,
     TransitionIntent,
     infer_intent,

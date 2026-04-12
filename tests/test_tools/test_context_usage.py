@@ -51,8 +51,8 @@ async def test_context_logging_in_build_set(client: Client, async_engine):
     """build_set uses ctx.info() for progress logging."""
     from sqlalchemy.ext.asyncio import async_sessionmaker
 
-    from app.db.models.playlist import Playlist
-    from app.db.models.track import Track
+    from dj_music.models.playlist import Playlist
+    from dj_music.models.track import Track
 
     factory = async_sessionmaker(async_engine, expire_on_commit=False)
     async with factory() as session:
@@ -65,7 +65,7 @@ async def test_context_logging_in_build_set(client: Client, async_engine):
         session.add(track)
         await session.flush()
 
-        from app.db.models.playlist import PlaylistItem
+        from dj_music.models.playlist import PlaylistItem
 
         item = PlaylistItem(playlist_id=playlist_id, track_id=track.id, sort_index=0)
         session.add(item)

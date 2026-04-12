@@ -7,14 +7,14 @@ from typing import Any, ClassVar
 import numpy as np
 import pytest
 
-from app.audio.analyzers.base import (
+from dj_music.audio.analyzers.base import (
     _ANALYZER_REGISTRY,
     AnalyzerRegistry,
     BaseAnalyzer,
     register_analyzer,
 )
-from app.audio.core.context import AnalysisContext
-from app.audio.core.types import AudioSignal
+from dj_music.audio.core.context import AnalysisContext
+from dj_music.audio.core.types import AudioSignal
 
 
 @pytest.fixture(autouse=True)

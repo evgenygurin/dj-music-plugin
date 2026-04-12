@@ -3,7 +3,7 @@
 import pytest
 from key_value.aio.stores.memory import MemoryStore
 
-from app.config import settings
+from dj_music.core.config import settings
 from app.infrastructure.storage import create_storage_backend, create_transition_cache_backend
 
 

@@ -37,7 +37,7 @@ class MockMiddlewareContext:
 
 
 # Import middleware (all classes in one file now)
-from app.controllers.middleware import (
+from dj_music.middleware import (
     DetailedTimingMiddleware,
     StructuredLoggingMiddleware,
     YMRateLimitMiddleware,

@@ -2,7 +2,7 @@
 
 import pytest
 
-from app.camelot.wheel import (
+from dj_music.core.camelot import (
     camelot_distance,
     camelot_to_key_code,
     is_compatible,

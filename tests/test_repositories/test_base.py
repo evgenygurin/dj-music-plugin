@@ -2,8 +2,8 @@
 
 import pytest
 
-from app.db.models.track import Track
-from app.db.repositories.base import BaseRepository
+from dj_music.models.track import Track
+from dj_music.repositories.base import BaseRepository
 
 
 @pytest.fixture

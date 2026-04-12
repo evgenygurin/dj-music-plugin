@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 
-from app.transition.recipe import (
+from dj_music.transition.recipe import (
     DjayTransition,
     EQPlan,
     RecipeStep,

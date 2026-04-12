@@ -2,9 +2,9 @@
 
 import pytest
 
-from app.db.models.track import Track
-from app.db.models.transition_history import TransitionHistory
-from app.db.repositories.transition_history import TransitionHistoryRepository
+from dj_music.models.track import Track
+from dj_music.models.transition_history import TransitionHistory
+from dj_music.repositories.transition_history import TransitionHistoryRepository
 
 
 @pytest.fixture

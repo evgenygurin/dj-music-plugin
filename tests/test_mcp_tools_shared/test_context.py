@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from app.controllers.tools._shared.context import ToolContext
+from dj_music.tools._shared.context import ToolContext
 
 
 class _FakeCtx:

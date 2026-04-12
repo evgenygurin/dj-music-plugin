@@ -6,11 +6,11 @@ from types import SimpleNamespace
 
 import pytest
 
-from app.core.constants import SectionType
-from app.entities.audio.features import TrackFeatures
-from app.services.set.scoring import SetScoringService
-from app.transition.score import TransitionScore
-from app.transition.scorer import TransitionScorer
+from dj_music.core.constants import SectionType
+from dj_music.schemas.audio import TrackFeatures
+from dj_music.services.set.scoring import SetScoringService
+from dj_music.transition.score import TransitionScore
+from dj_music.transition.scorer import TransitionScorer
 
 
 def _track() -> TrackFeatures:

@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import numpy as np
 
-from app.audio.core.context import AnalysisContext
-from app.audio.core.tonal import compute_mfcc, compute_pitch_class_chroma, tonal_centroid
-from app.audio.core.types import AudioSignal
+from dj_music.audio.core.context import AnalysisContext
+from dj_music.audio.core.tonal import compute_mfcc, compute_pitch_class_chroma, tonal_centroid
+from dj_music.audio.core.types import AudioSignal
 
 SAMPLE_RATE = 22050
 DURATION = 2.0

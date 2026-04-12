@@ -1,6 +1,6 @@
 """Tests for domain constants and enums."""
 
-from app.core.constants import (
+from dj_music.core.constants import (
     BPM_MAX,
     BPM_MIN,
     CAMELOT_KEYS,

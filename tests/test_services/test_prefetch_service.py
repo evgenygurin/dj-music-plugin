@@ -13,12 +13,12 @@ from __future__ import annotations
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.models.audio import TrackAudioFeaturesComputed
-from app.db.models.track import Track
-from app.db.models.transition import Transition
-from app.db.repositories.feature import FeatureRepository
-from app.db.repositories.transition import TransitionRepository
-from app.services.prefetch_service import PrefetchService
+from dj_music.models.audio import TrackAudioFeaturesComputed
+from dj_music.models.track import Track
+from dj_music.models.transition import Transition
+from dj_music.repositories.feature import FeatureRepository
+from dj_music.repositories.transition import TransitionRepository
+from dj_music.services.prefetch_service import PrefetchService
 
 
 def _make_features(track_id: int, **kwargs: object) -> TrackAudioFeaturesComputed:

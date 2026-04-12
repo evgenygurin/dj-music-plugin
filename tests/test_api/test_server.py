@@ -10,10 +10,10 @@ import pytest
 from fastapi.responses import Response
 from fastapi.testclient import TestClient
 
-from app.api.server import api
-from app.api.services.tool_registry import ToolRegistry
-from app.api.state import build_api_runtime
-from app.server import mcp
+from dj_music.api.server import api
+from dj_music.api.services.tool_registry import ToolRegistry
+from dj_music.api.state import build_api_runtime
+from dj_music.server import mcp
 
 
 class _FakeContent:
@@ -38,7 +38,7 @@ def api_client(monkeypatch: pytest.MonkeyPatch):
         yield
 
     monkeypatch.setattr(runtime.mcp_app.router, "lifespan_context", _fake_mcp_lifespan)
-    monkeypatch.setattr("app.api.lifespan.build_ym_client", lambda: _FakeYmClient())
+    monkeypatch.setattr("dj_music.api.lifespan.build_ym_client", lambda: _FakeYmClient())
 
     with TestClient(api) as client:
         yield client, runtime

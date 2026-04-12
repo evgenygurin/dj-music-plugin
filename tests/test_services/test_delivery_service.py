@@ -10,14 +10,14 @@ import pytest
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.models.export import AppExport
-from app.db.repositories.export import ExportRepository
-from app.db.repositories.feature import FeatureRepository
-from app.db.repositories.set import SetRepository
-from app.db.repositories.track import TrackRepository
-from app.db.repositories.transition import TransitionRepository
-from app.export.models import ExportTrack, SetExportData
-from app.services.delivery_service import DeliveryService
+from dj_music.models.export import AppExport
+from dj_music.repositories.export import ExportRepository
+from dj_music.repositories.feature import FeatureRepository
+from dj_music.repositories.set import SetRepository
+from dj_music.repositories.track import TrackRepository
+from dj_music.repositories.transition import TransitionRepository
+from dj_music.export.models import ExportTrack, SetExportData
+from dj_music.services.delivery_service import DeliveryService
 
 
 def _make_delivery_service(db: AsyncSession) -> DeliveryService:

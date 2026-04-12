@@ -3,7 +3,7 @@
 import pytest
 from key_value.aio.stores.memory import MemoryStore
 
-from app.services.transition_cache import CachedTransitionEntry, TransitionScoreCache
+from dj_music.services.transition_cache import CachedTransitionEntry, TransitionScoreCache
 
 
 @pytest.fixture

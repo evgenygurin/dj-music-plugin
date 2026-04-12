@@ -7,11 +7,11 @@ on the full TransitionScorer.
 
 from __future__ import annotations
 
-from app.core.constants import SectionType
-from app.entities.audio.features import TrackFeatures
-from app.transition import SectionContext, TransitionScorer
-from app.transition.components.harmonic import score_harmonic
-from app.transition.weights import (
+from dj_music.core.constants import SectionType
+from dj_music.schemas.audio import TrackFeatures
+from dj_music.transition import SectionContext, TransitionScorer
+from dj_music.transition.components.harmonic import score_harmonic
+from dj_music.transition.weights import (
     DRUM_ONLY_HARMONIC_FLOOR,
     DRUM_ONLY_WEIGHT_OVERRIDE,
 )

@@ -14,7 +14,7 @@ async def test_search_tracks(client: Client, async_engine):
     """search() returns matching tracks grouped by entity."""
     from sqlalchemy.ext.asyncio import async_sessionmaker
 
-    from app.db.models.track import Track
+    from dj_music.models.track import Track
 
     factory = async_sessionmaker(async_engine, expire_on_commit=False)
     async with factory() as session:
@@ -33,7 +33,7 @@ async def test_search_artists(client: Client, async_engine):
     """search() returns matching artists."""
     from sqlalchemy.ext.asyncio import async_sessionmaker
 
-    from app.db.models.track import Artist
+    from dj_music.models.track import Artist
 
     factory = async_sessionmaker(async_engine, expire_on_commit=False)
     async with factory() as session:
@@ -51,7 +51,7 @@ async def test_search_playlists(client: Client, async_engine):
     """search() returns matching playlists."""
     from sqlalchemy.ext.asyncio import async_sessionmaker
 
-    from app.db.models.playlist import Playlist
+    from dj_music.models.playlist import Playlist
 
     factory = async_sessionmaker(async_engine, expire_on_commit=False)
     async with factory() as session:
@@ -68,7 +68,7 @@ async def test_search_sets(client: Client, async_engine):
     """search() returns matching DJ sets."""
     from sqlalchemy.ext.asyncio import async_sessionmaker
 
-    from app.db.models.set import DjSet
+    from dj_music.models.set import DjSet
 
     factory = async_sessionmaker(async_engine, expire_on_commit=False)
     async with factory() as session:
@@ -93,9 +93,9 @@ async def test_search_all_entities(client: Client, async_engine):
     """search() with entity='all' queries all entity types."""
     from sqlalchemy.ext.asyncio import async_sessionmaker
 
-    from app.db.models.playlist import Playlist
-    from app.db.models.set import DjSet
-    from app.db.models.track import Artist, Track
+    from dj_music.models.playlist import Playlist
+    from dj_music.models.set import DjSet
+    from dj_music.models.track import Artist, Track
 
     factory = async_sessionmaker(async_engine, expire_on_commit=False)
     async with factory() as session:
@@ -122,8 +122,8 @@ async def test_filter_tracks_by_bpm(client: Client, async_engine):
     """filter_tracks() filters by BPM range."""
     from sqlalchemy.ext.asyncio import async_sessionmaker
 
-    from app.db.models.audio import TrackAudioFeaturesComputed
-    from app.db.models.track import Track
+    from dj_music.models.audio import TrackAudioFeaturesComputed
+    from dj_music.models.track import Track
 
     factory = async_sessionmaker(async_engine, expire_on_commit=False)
     async with factory() as session:
@@ -146,8 +146,8 @@ async def test_filter_tracks_by_key(client: Client, async_engine):
     """filter_tracks() filters by exact Camelot key."""
     from sqlalchemy.ext.asyncio import async_sessionmaker
 
-    from app.db.models.audio import TrackAudioFeaturesComputed
-    from app.db.models.track import Track
+    from dj_music.models.audio import TrackAudioFeaturesComputed
+    from dj_music.models.track import Track
 
     factory = async_sessionmaker(async_engine, expire_on_commit=False)
     async with factory() as session:
@@ -169,8 +169,8 @@ async def test_filter_tracks_by_key_compatible(client: Client, async_engine):
     """filter_tracks() with key_compatible returns harmonically compatible tracks."""
     from sqlalchemy.ext.asyncio import async_sessionmaker
 
-    from app.db.models.audio import TrackAudioFeaturesComputed
-    from app.db.models.track import Track
+    from dj_music.models.audio import TrackAudioFeaturesComputed
+    from dj_music.models.track import Track
 
     factory = async_sessionmaker(async_engine, expire_on_commit=False)
     async with factory() as session:
@@ -199,8 +199,8 @@ async def test_filter_tracks_by_energy(client: Client, async_engine):
     """filter_tracks() filters by energy range."""
     from sqlalchemy.ext.asyncio import async_sessionmaker
 
-    from app.db.models.audio import TrackAudioFeaturesComputed
-    from app.db.models.track import Track
+    from dj_music.models.audio import TrackAudioFeaturesComputed
+    from dj_music.models.track import Track
 
     factory = async_sessionmaker(async_engine, expire_on_commit=False)
     async with factory() as session:
@@ -297,7 +297,7 @@ async def test_list_platforms(client: Client, async_engine):
     """list_platforms() returns all providers with linked counts."""
     from sqlalchemy.ext.asyncio import async_sessionmaker
 
-    from app.db.models.track import Track, TrackExternalId
+    from dj_music.models.track import Track, TrackExternalId
 
     factory = async_sessionmaker(async_engine, expire_on_commit=False)
     async with factory() as session:

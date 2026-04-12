@@ -7,7 +7,7 @@ from dataclasses import dataclass
 import pytest
 from fastmcp.exceptions import ToolError
 
-from app.controllers.tools._shared.resolvers import (
+from dj_music.tools._shared.resolvers import (
     ensure_reference,
     resolve_entity,
     resolve_track_id,

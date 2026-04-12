@@ -1,6 +1,6 @@
-from app.core.constants import TechnoSubgenre
-from app.transition.recipe import TransitionType
-from app.transition.subgenre_rules import (
+from dj_music.core.constants import TechnoSubgenre
+from dj_music.transition.recipe import TransitionType
+from dj_music.transition.subgenre_rules import (
     SubgenrePairType,
     clamp_bars,
     classify_pair,

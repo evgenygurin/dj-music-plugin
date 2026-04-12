@@ -3,10 +3,10 @@
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.errors import NotFoundError, ValidationError
-from app.db.models.track import Track
-from app.db.repositories.embedding import EmbeddingRepository
-from app.services.embedding_service import (
+from dj_music.core.errors import NotFoundError, ValidationError
+from dj_music.models.track import Track
+from dj_music.repositories.embedding import EmbeddingRepository
+from dj_music.services.embedding_service import (
     EmbeddingService,
     _deserialize_vector,
     _serialize_vector,

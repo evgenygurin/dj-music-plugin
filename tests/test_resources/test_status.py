@@ -4,11 +4,11 @@ import json
 
 import pytest
 
-from app.controllers.resources.status import library_status, platforms_status
-from app.core.constants import Provider
-from app.db.models.audio import TrackAudioFeaturesComputed
-from app.db.models.platform import YandexMetadata
-from app.db.models.track import Track
+from dj_music.resources.status import library_status, platforms_status
+from dj_music.core.constants import Provider
+from dj_music.models.audio import TrackAudioFeaturesComputed
+from dj_music.models.platform import YandexMetadata
+from dj_music.models.track import Track
 
 
 @pytest.mark.asyncio

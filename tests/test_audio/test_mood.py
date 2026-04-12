@@ -15,14 +15,14 @@ from unittest.mock import patch
 
 import pytest
 
-from app.audio.classification import MoodClassifier, MoodResult
-from app.audio.classification.profiles import (
+from dj_music.audio.classification import MoodClassifier, MoodResult
+from dj_music.audio.classification.profiles import (
     ALL_PROFILES,
     CATCH_ALL_SUBGENRES,
     SubgenreProfile,
 )
-from app.config import settings
-from app.core.constants import TechnoSubgenre
+from dj_music.core.config import settings
+from dj_music.core.constants import TechnoSubgenre
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -751,13 +751,13 @@ class TestNewProfileFeatures:
 
     def test_classifier_fields_includes_dominant_phrase_bars(self) -> None:
         """_CLASSIFIER_FIELDS must include dominant_phrase_bars."""
-        from app.db.models.audio import TrackAudioFeaturesComputed
+        from dj_music.models.audio import TrackAudioFeaturesComputed
 
         assert "dominant_phrase_bars" in TrackAudioFeaturesComputed._CLASSIFIER_FIELDS
 
     def test_classifier_fields_includes_all_new_features(self) -> None:
         """_CLASSIFIER_FIELDS must include all features used in profiles."""
-        from app.db.models.audio import TrackAudioFeaturesComputed
+        from dj_music.models.audio import TrackAudioFeaturesComputed
 
         fields = set(TrackAudioFeaturesComputed._CLASSIFIER_FIELDS)
         required = {

@@ -5,8 +5,8 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from app.audio.core.context import AnalysisContext
-from app.audio.core.types import AudioSignal
+from dj_music.audio.core.context import AnalysisContext
+from dj_music.audio.core.types import AudioSignal
 
 SAMPLE_RATE = 22050
 DURATION = 3.0
@@ -36,7 +36,7 @@ def _fade_in_out() -> np.ndarray:
 def test_dynamic_complexity_happy_path():
     """DynamicComplexityAnalyzer produces float >= 0."""
     pytest.importorskip("essentia")
-    from app.audio.analyzers.dynamic_complexity import DynamicComplexityAnalyzer
+    from dj_music.audio.analyzers.dynamic_complexity import DynamicComplexityAnalyzer
 
     signal = _make_signal(_fade_in_out())
     analyzer = DynamicComplexityAnalyzer()
@@ -52,7 +52,7 @@ def test_dynamic_complexity_happy_path():
 def test_dynamic_complexity_comparative_constant_vs_fade():
     """Constant tone should have lower dynamic complexity than fade in/out."""
     pytest.importorskip("essentia")
-    from app.audio.analyzers.dynamic_complexity import DynamicComplexityAnalyzer
+    from dj_music.audio.analyzers.dynamic_complexity import DynamicComplexityAnalyzer
 
     analyzer = DynamicComplexityAnalyzer()
     const_result = analyzer.run(AnalysisContext(_make_signal(_constant_tone())))
@@ -72,7 +72,7 @@ def test_dynamic_complexity_graceful_skip_no_essentia():
     with _patch.dict("sys.modules", {"essentia": None, "essentia.standard": None}):
         from importlib import reload
 
-        import app.audio.analyzers.dynamic_complexity as mod
+        import dj_music.audio.analyzers.dynamic_complexity as mod
 
         reload(mod)
         analyzer = mod.DynamicComplexityAnalyzer()
@@ -82,7 +82,7 @@ def test_dynamic_complexity_graceful_skip_no_essentia():
 def test_dynamic_complexity_silence():
     """Silence doesn't crash."""
     pytest.importorskip("essentia")
-    from app.audio.analyzers.dynamic_complexity import DynamicComplexityAnalyzer
+    from dj_music.audio.analyzers.dynamic_complexity import DynamicComplexityAnalyzer
 
     silence = _make_signal(np.zeros(int(SAMPLE_RATE * DURATION), dtype=np.float32))
     analyzer = DynamicComplexityAnalyzer()

@@ -5,8 +5,8 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from app.audio.core.context import AnalysisContext
-from app.audio.core.types import AudioSignal
+from dj_music.audio.core.context import AnalysisContext
+from dj_music.audio.core.types import AudioSignal
 
 SAMPLE_RATE = 22050
 DURATION = 3.0
@@ -32,7 +32,7 @@ def _noise_burst() -> np.ndarray:
 
 def test_spectral_complexity_happy_path():
     pytest.importorskip("essentia", reason="essentia not installed")
-    from app.audio.analyzers.spectral_complexity import SpectralComplexityAnalyzer
+    from dj_music.audio.analyzers.spectral_complexity import SpectralComplexityAnalyzer
 
     signal = _make_signal(_pure_sine())
     analyzer = SpectralComplexityAnalyzer()
@@ -47,7 +47,7 @@ def test_spectral_complexity_happy_path():
 
 def test_spectral_complexity_noise_higher_than_sine():
     pytest.importorskip("essentia", reason="essentia not installed")
-    from app.audio.analyzers.spectral_complexity import SpectralComplexityAnalyzer
+    from dj_music.audio.analyzers.spectral_complexity import SpectralComplexityAnalyzer
 
     analyzer = SpectralComplexityAnalyzer()
     sine_result = analyzer.run(AnalysisContext(_make_signal(_pure_sine())))
@@ -64,7 +64,7 @@ def test_spectral_complexity_graceful_skip_no_essentia():
     from unittest.mock import patch
 
     with patch.dict("sys.modules", {"essentia": None, "essentia.standard": None}):
-        from app.audio.analyzers.spectral_complexity import SpectralComplexityAnalyzer
+        from dj_music.audio.analyzers.spectral_complexity import SpectralComplexityAnalyzer
 
         analyzer = SpectralComplexityAnalyzer()
         assert not analyzer.is_available()

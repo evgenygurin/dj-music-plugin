@@ -1,4 +1,4 @@
-from app.audio.level_config import AnalysisLevel, get_analyzers_for_level
+from dj_music.audio.level_config import AnalysisLevel, get_analyzers_for_level
 
 
 def test_level_enum():

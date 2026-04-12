@@ -5,7 +5,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from app.audio.core.types import AnalyzerResult, AudioSignal, FrameParams
+from dj_music.audio.core.types import AnalyzerResult, AudioSignal, FrameParams
 
 
 class TestFrameParams:

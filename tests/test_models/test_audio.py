@@ -3,14 +3,14 @@
 import pytest
 from sqlalchemy.exc import IntegrityError
 
-from app.db.models.audio import (
+from dj_music.models.audio import (
     Embedding,
     FeatureExtractionRun,
     TimeseriesReference,
     TrackAudioFeaturesComputed,
     TrackSection,
 )
-from app.db.models.track import Track
+from dj_music.models.track import Track
 
 
 async def _make_track(db, title="Test Track"):

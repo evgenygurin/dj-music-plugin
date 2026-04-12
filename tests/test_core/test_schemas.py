@@ -1,4 +1,4 @@
-from app.schemas import (
+from dj_music.schemas import (
     PaginatedResponse,
     PlaylistSummary,
     SetSummary,

@@ -5,7 +5,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from app.audio.core.framing import compute_energy_slope, compute_frame_energies
+from dj_music.audio.core.framing import compute_energy_slope, compute_frame_energies
 
 
 class TestComputeFrameEnergies:

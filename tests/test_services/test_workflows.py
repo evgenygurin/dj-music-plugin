@@ -7,8 +7,8 @@ from unittest.mock import AsyncMock, call
 
 import pytest
 
-from app.audio.level_config import AnalysisLevel
-from app.services.workflows import (
+from dj_music.audio.level_config import AnalysisLevel
+from dj_music.services.workflows import (
     AnalyzeTrackWorkflow,
     BuildSetWorkflow,
     DeliverSetWorkflow,

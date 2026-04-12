@@ -16,11 +16,11 @@ from unittest.mock import AsyncMock
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.models.playlist import Playlist
-from app.db.models.track import Track
-from app.db.repositories.playlist import PlaylistRepository
-from app.db.repositories.track import TrackRepository
-from app.services.import_service import ImportService
+from dj_music.models.playlist import Playlist
+from dj_music.models.track import Track
+from dj_music.repositories.playlist import PlaylistRepository
+from dj_music.repositories.track import TrackRepository
+from dj_music.services.import_service import ImportService
 
 
 def _make_service(db: AsyncSession) -> ImportService:

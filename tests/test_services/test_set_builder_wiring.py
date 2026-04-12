@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from app.entities.audio.features import TrackFeatures
-from app.optimization.result import OptimizationResult
-from app.services.set.builder import SetBuilderService
+from dj_music.schemas.audio import TrackFeatures
+from dj_music.optimization.result import OptimizationResult
+from dj_music.services.set.builder import SetBuilderService
 
 
 def _feature(*, bpm: float, mood: str | None) -> TrackFeatures:

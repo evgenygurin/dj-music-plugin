@@ -5,9 +5,9 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from app.audio.analyzers.beat import BeatDetector
-from app.audio.core.context import AnalysisContext
-from app.audio.core.types import AudioSignal
+from dj_music.audio.analyzers.beat import BeatDetector
+from dj_music.audio.core.context import AnalysisContext
+from dj_music.audio.core.types import AudioSignal
 
 SAMPLE_RATE = 22050
 

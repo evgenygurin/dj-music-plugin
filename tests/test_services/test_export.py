@@ -8,11 +8,11 @@ from pathlib import Path
 
 import pytest
 
-from app.export.cheatsheet_writer import write_cheat_sheet
-from app.export.json_writer import write_json_guide
-from app.export.m3u8_writer import write_m3u8
-from app.export.models import ExportTrack, ExportTransition, RekordboxOptions, SetExportData
-from app.export.rekordbox_writer import write_rekordbox_xml
+from dj_music.export.cheatsheet_writer import write_cheat_sheet
+from dj_music.export.json_writer import write_json_guide
+from dj_music.export.m3u8_writer import write_m3u8
+from dj_music.export.models import ExportTrack, ExportTransition, RekordboxOptions, SetExportData
+from dj_music.export.rekordbox_writer import write_rekordbox_xml
 
 
 @pytest.fixture

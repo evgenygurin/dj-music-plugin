@@ -10,10 +10,10 @@ from __future__ import annotations
 
 import numpy as np
 
-from app.audio.analyzers.structure import StructureAnalyzer
-from app.audio.core import AudioSignal
-from app.audio.core.context import AnalysisContext
-from app.core.constants import SectionType
+from dj_music.audio.analyzers.structure import StructureAnalyzer
+from dj_music.audio.core import AudioSignal
+from dj_music.audio.core.context import AnalysisContext
+from dj_music.core.constants import SectionType
 
 SAMPLE_RATE = 22050
 DURATION = 10.0  # seconds — longer than typical test to allow section detection

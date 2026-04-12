@@ -6,8 +6,8 @@ and plain downbeat lists, no fixtures.
 
 from __future__ import annotations
 
-from app.core.constants import SectionType
-from app.services.mix_point_service import (
+from dj_music.core.constants import SectionType
+from dj_music.services.mix_point_service import (
     TrackSectionRow,
     build_section_context,
     detect_mix_in_point,
@@ -15,7 +15,7 @@ from app.services.mix_point_service import (
     quantize_to_downbeat,
     section_at,
 )
-from app.transition.section_context import SectionContext
+from dj_music.transition.section_context import SectionContext
 
 # ── quantize_to_downbeat ─────────────────────────────────────────────
 

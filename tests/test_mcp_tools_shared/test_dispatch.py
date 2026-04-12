@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from app.controllers.tools._shared.dispatch import ActionDispatcher, UnknownActionError
+from dj_music.tools._shared.dispatch import ActionDispatcher, UnknownActionError
 
 
 async def test_register_and_dispatch() -> None:

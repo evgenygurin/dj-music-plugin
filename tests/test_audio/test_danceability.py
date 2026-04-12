@@ -7,8 +7,8 @@ from unittest.mock import patch
 import numpy as np
 import pytest
 
-from app.audio.core.context import AnalysisContext
-from app.audio.core.types import AudioSignal
+from dj_music.audio.core.context import AnalysisContext
+from dj_music.audio.core.types import AudioSignal
 
 SAMPLE_RATE = 22050
 DURATION = 3.0
@@ -40,7 +40,7 @@ def _kick_pattern(bpm: float = 130.0) -> np.ndarray:
 def test_danceability_happy_path():
     """DanceabilityAnalyzer produces float in valid range."""
     pytest.importorskip("essentia", reason="essentia not installed")
-    from app.audio.analyzers.danceability import DanceabilityAnalyzer
+    from dj_music.audio.analyzers.danceability import DanceabilityAnalyzer
 
     signal = _make_signal(_kick_pattern())
     analyzer = DanceabilityAnalyzer()
@@ -56,7 +56,7 @@ def test_danceability_happy_path():
 def test_danceability_graceful_skip_no_essentia():
     """Without essentia, analyzer reports unavailable."""
     with patch.dict("sys.modules", {"essentia": None, "essentia.standard": None}):
-        from app.audio.analyzers.danceability import DanceabilityAnalyzer
+        from dj_music.audio.analyzers.danceability import DanceabilityAnalyzer
 
         analyzer = DanceabilityAnalyzer()
         assert not analyzer.is_available()
@@ -64,7 +64,7 @@ def test_danceability_graceful_skip_no_essentia():
 
 def test_danceability_silence():
     """Silence produces a valid (likely low) danceability value, no crash."""
-    from app.audio.analyzers.danceability import DanceabilityAnalyzer
+    from dj_music.audio.analyzers.danceability import DanceabilityAnalyzer
 
     silence = _make_signal(np.zeros(int(SAMPLE_RATE * DURATION), dtype=np.float32))
     analyzer = DanceabilityAnalyzer()

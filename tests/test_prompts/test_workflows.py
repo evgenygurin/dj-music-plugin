@@ -3,7 +3,7 @@
 import pytest
 from fastmcp.prompts import Message
 
-from app.controllers.prompts.workflows import (
+from dj_music.prompts.workflows import (
     build_set_workflow,
     deliver_set_workflow,
     expand_playlist_workflow,

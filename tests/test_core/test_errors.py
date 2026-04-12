@@ -1,6 +1,6 @@
 """Tests for error hierarchy."""
 
-from app.core.errors import (
+from dj_music.core.errors import (
     AnalysisTimeoutError,
     AnalyzerUnavailableError,
     APIError,

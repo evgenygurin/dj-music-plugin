@@ -9,8 +9,8 @@ from __future__ import annotations
 
 import pytest
 
-from app.entities.audio.features import TrackFeatures
-from app.transition.scorer import TransitionScorer
+from dj_music.schemas.audio import TrackFeatures
+from dj_music.transition.scorer import TransitionScorer
 
 
 def _base_features(**overrides: object) -> TrackFeatures:
@@ -93,7 +93,7 @@ class TestTimbralComponent:
 
     def test_timbral_in_default_weights(self) -> None:
         """Timbral must be in DEFAULT_TRANSITION_WEIGHTS."""
-        from app.core.constants import DEFAULT_TRANSITION_WEIGHTS
+        from dj_music.core.constants import DEFAULT_TRANSITION_WEIGHTS
 
         assert "timbral" in DEFAULT_TRANSITION_WEIGHTS
         # Rebalanced 0.10 → 0.15 in commit 6 of the transition redesign.
@@ -102,7 +102,7 @@ class TestTimbralComponent:
 
     def test_weights_sum_to_one(self) -> None:
         """All default weights must sum to 1.0."""
-        from app.core.constants import DEFAULT_TRANSITION_WEIGHTS
+        from dj_music.core.constants import DEFAULT_TRANSITION_WEIGHTS
 
         assert sum(DEFAULT_TRANSITION_WEIGHTS.values()) == pytest.approx(1.0)
 
@@ -390,39 +390,39 @@ class TestTransitionIntent:
     """Tests for TransitionIntent enum, weight modifiers, and infer_intent."""
 
     def test_infer_ramp_up_early_position(self) -> None:
-        from app.transition.intent import TransitionIntent, infer_intent
+        from dj_music.transition.intent import TransitionIntent, infer_intent
 
         assert infer_intent(0.1, 0.0) == TransitionIntent.RAMP_UP
 
     def test_infer_cool_down_late_position(self) -> None:
-        from app.transition.intent import TransitionIntent, infer_intent
+        from dj_music.transition.intent import TransitionIntent, infer_intent
 
         assert infer_intent(0.9, 0.0) == TransitionIntent.COOL_DOWN
 
     def test_infer_ramp_up_energy_delta(self) -> None:
-        from app.transition.intent import TransitionIntent, infer_intent
+        from dj_music.transition.intent import TransitionIntent, infer_intent
 
         assert infer_intent(0.5, 3.0) == TransitionIntent.RAMP_UP
 
     def test_infer_cool_down_energy_delta(self) -> None:
-        from app.transition.intent import TransitionIntent, infer_intent
+        from dj_music.transition.intent import TransitionIntent, infer_intent
 
         assert infer_intent(0.5, -3.0) == TransitionIntent.COOL_DOWN
 
     def test_infer_maintain_default(self) -> None:
-        from app.transition.intent import TransitionIntent, infer_intent
+        from dj_music.transition.intent import TransitionIntent, infer_intent
 
         assert infer_intent(0.5, 0.5) == TransitionIntent.MAINTAIN
 
     def test_all_intents_weights_sum_to_one(self) -> None:
-        from app.transition.intent import INTENT_WEIGHT_MODIFIERS
+        from dj_music.transition.intent import INTENT_WEIGHT_MODIFIERS
 
         for intent, weights in INTENT_WEIGHT_MODIFIERS.items():
             total = sum(weights.values())
             assert abs(total - 1.0) < 0.01, f"{intent}: weights sum to {total}"
 
     def test_scorer_with_intent_produces_valid_score(self) -> None:
-        from app.transition.intent import TransitionIntent
+        from dj_music.transition.intent import TransitionIntent
 
         scorer = TransitionScorer()
         a = _base_features()

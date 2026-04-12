@@ -1,7 +1,7 @@
 """Tests for DJ set templates — 8 template definitions with slot validation."""
 
-from app.core.constants import SetTemplate
-from app.templates.registry import TEMPLATES, get_template, list_template_names
+from dj_music.core.constants import SetTemplate
+from dj_music.templates.registry import TEMPLATES, get_template, list_template_names
 
 # ── All 8 templates exist ───────────────────────────────
 

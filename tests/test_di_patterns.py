@@ -13,7 +13,7 @@ import pytest
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
-from app.controllers.dependencies import (
+from dj_music.di import (
     get_db_session,
     get_playlist_repo,
     get_set_repo,

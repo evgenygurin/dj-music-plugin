@@ -7,8 +7,8 @@ from unittest.mock import patch
 import numpy as np
 import pytest
 
-from app.audio.core.context import AnalysisContext
-from app.audio.core.types import AudioSignal
+from dj_music.audio.core.context import AnalysisContext
+from dj_music.audio.core.types import AudioSignal
 
 SAMPLE_RATE = 22050
 DURATION = 4.0
@@ -36,7 +36,7 @@ def _click_track(bpm: float = 130.0) -> np.ndarray:
 def test_tempogram_happy_path():
     """TempogramAnalyzer produces vector of floats."""
     pytest.importorskip("librosa")
-    from app.audio.analyzers.tempogram import TempogramAnalyzer
+    from dj_music.audio.analyzers.tempogram import TempogramAnalyzer
 
     signal = _make_signal(_click_track())
     analyzer = TempogramAnalyzer()
@@ -54,7 +54,7 @@ def test_tempogram_happy_path():
 def test_tempogram_graceful_skip_no_librosa():
     """Without librosa, analyzer reports unavailable."""
     with patch.dict("sys.modules", {"librosa": None}):
-        from app.audio.analyzers.tempogram import TempogramAnalyzer
+        from dj_music.audio.analyzers.tempogram import TempogramAnalyzer
 
         analyzer = TempogramAnalyzer()
         assert not analyzer.is_available()
@@ -62,7 +62,7 @@ def test_tempogram_graceful_skip_no_librosa():
 
 def test_tempogram_short_audio():
     """Very short audio (<1s) doesn't crash."""
-    from app.audio.analyzers.tempogram import TempogramAnalyzer
+    from dj_music.audio.analyzers.tempogram import TempogramAnalyzer
 
     short = _make_signal(
         np.random.default_rng(42).standard_normal(int(SAMPLE_RATE * 0.5)).astype(np.float32)

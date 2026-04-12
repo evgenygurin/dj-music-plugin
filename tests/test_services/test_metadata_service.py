@@ -3,8 +3,8 @@
 import pytest
 from sqlalchemy import select
 
-from app.db.models.platform import YandexMetadata
-from app.db.models.track import (
+from dj_music.models.platform import YandexMetadata
+from dj_music.models.track import (
     Artist,
     Genre,
     Label,
@@ -15,8 +15,8 @@ from app.db.models.track import (
     TrackLabel,
     TrackRelease,
 )
-from app.db.repositories.metadata import MetadataRepository
-from app.services.metadata_service import MetadataService
+from dj_music.repositories.metadata import MetadataRepository
+from dj_music.services.metadata_service import MetadataService
 
 
 @pytest.fixture
@@ -446,7 +446,7 @@ class TestNormalizePlaylist:
     """Test batch normalization for an entire playlist."""
 
     async def test_normalize_playlist(self, db, metadata_svc):
-        from app.db.models.playlist import Playlist, PlaylistItem
+        from dj_music.models.playlist import Playlist, PlaylistItem
 
         # Create tracks with YM metadata
         track1 = await _create_track_with_ym_meta(

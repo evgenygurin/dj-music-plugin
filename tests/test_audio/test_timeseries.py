@@ -8,7 +8,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from app.audio.timeseries import TimeseriesStorage
+from dj_music.audio.timeseries import TimeseriesStorage
 
 
 @pytest.fixture

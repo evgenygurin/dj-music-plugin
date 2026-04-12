@@ -7,8 +7,8 @@ import json
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.repositories.playlist import PlaylistRepository
-from app.services.playlist_service import PlaylistService
+from dj_music.repositories.playlist import PlaylistRepository
+from dj_music.services.playlist_service import PlaylistService
 
 
 def _make_playlist_service(db: AsyncSession) -> PlaylistService:

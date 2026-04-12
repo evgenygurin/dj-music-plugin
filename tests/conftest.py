@@ -8,32 +8,32 @@ from sqlalchemy import event
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.pool import StaticPool
 
-from app.db.models.audio import (  # noqa: F401
+from dj_music.models.audio import (  # noqa: F401
     Embedding,
     FeatureExtractionRun,
     TimeseriesReference,
     TrackAudioFeaturesComputed,
     TrackSection,
 )
-from app.db.models.base import Base
-from app.db.models.export import AppExport  # noqa: F401
-from app.db.models.ingestion import ProviderModel, RawProviderResponse  # noqa: F401
-from app.db.models.key import Key, KeyEdge  # noqa: F401
-from app.db.models.library import (  # noqa: F401
+from dj_music.models.base import Base
+from dj_music.models.export import AppExport  # noqa: F401
+from dj_music.models.ingestion import ProviderModel, RawProviderResponse  # noqa: F401
+from dj_music.models.key import Key, KeyEdge  # noqa: F401
+from dj_music.models.library import (  # noqa: F401
     DjBeatgrid,
     DjBeatgridChangePoint,
     DjCuePoint,
     DjLibraryItem,
     DjSavedLoop,
 )
-from app.db.models.playlist import Playlist, PlaylistItem  # noqa: F401
-from app.db.models.scoring_profile import ScoringProfile  # noqa: F401
-from app.db.models.set import DjSet, SetConstraint, SetFeedback, SetItem, SetVersion  # noqa: F401
-from app.db.models.track import Track  # noqa: F401
-from app.db.models.track_affinity import TrackAffinity  # noqa: F401
-from app.db.models.track_feedback import TrackFeedback  # noqa: F401
-from app.db.models.transition import Transition, TransitionCandidate  # noqa: F401
-from app.db.models.transition_history import TransitionHistory  # noqa: F401
+from dj_music.models.playlist import Playlist, PlaylistItem  # noqa: F401
+from dj_music.models.scoring_profile import ScoringProfile  # noqa: F401
+from dj_music.models.set import DjSet, SetConstraint, SetFeedback, SetItem, SetVersion  # noqa: F401
+from dj_music.models.track import Track  # noqa: F401
+from dj_music.models.track_affinity import TrackAffinity  # noqa: F401
+from dj_music.models.track_feedback import TrackFeedback  # noqa: F401
+from dj_music.models.transition import Transition, TransitionCandidate  # noqa: F401
+from dj_music.models.transition_history import TransitionHistory  # noqa: F401
 
 
 def _set_sqlite_pragma(dbapi_conn, _connection_record):
@@ -74,11 +74,11 @@ async def db(async_engine) -> AsyncSession:  # type: ignore[no-untyped-def]
 @pytest.fixture
 async def seeded_db(db):  # type: ignore[no-untyped-def]
     """Session with reference data: 24 Camelot keys."""
-    from app.core.constants import CAMELOT_KEYS
+    from dj_music.core.constants import CAMELOT_KEYS
 
     # Lazy import — models may not exist yet during early tasks
     try:
-        from app.db.models.key import Key
+        from dj_music.models.key import Key
 
         for code, (camelot, name) in CAMELOT_KEYS.items():
             mode = 1 if camelot.endswith("B") else 0
@@ -124,15 +124,15 @@ async def client(async_engine):  # type: ignore[no-untyped-def]
     from fastmcp import Client
     from sqlalchemy.ext.asyncio import async_sessionmaker
 
-    from app.server import mcp
+    from dj_music.server import mcp
 
     factory = async_sessionmaker(async_engine, expire_on_commit=False)
     original_lifespan = mcp._lifespan
 
     from unittest.mock import AsyncMock
 
-    from app.audio.analyzers import AnalyzerRegistry
-    from app.core.utils.cache import TransitionCache
+    from dj_music.audio.analyzers import AnalyzerRegistry
+    from dj_music.core.utils.cache import TransitionCache
 
     # Provide all lifespan context keys that tools may need
     registry = AnalyzerRegistry()

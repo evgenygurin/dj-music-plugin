@@ -7,8 +7,8 @@ from typing import Any
 import numpy as np
 import pytest
 
-from app.audio.core.context import AnalysisContext
-from app.audio.core.types import AudioSignal
+from dj_music.audio.core.context import AnalysisContext
+from dj_music.audio.core.types import AudioSignal
 
 SAMPLE_RATE = 22050
 
@@ -27,7 +27,7 @@ def _beat_times_for_bpm(bpm: float, duration: float) -> list[float]:
 
 def test_phrase_happy_path():
     pytest.importorskip("librosa", reason="librosa not installed")
-    from app.audio.analyzers.phrase import PhraseAnalyzer
+    from dj_music.audio.analyzers.phrase import PhraseAnalyzer
 
     analyzer = PhraseAnalyzer()
     ctx = AnalysisContext(_make_signal(duration=60.0))
@@ -46,7 +46,7 @@ def test_phrase_happy_path():
 
 def test_phrase_too_few_beats():
     pytest.importorskip("librosa", reason="librosa not installed")
-    from app.audio.analyzers.phrase import PhraseAnalyzer
+    from dj_music.audio.analyzers.phrase import PhraseAnalyzer
 
     analyzer = PhraseAnalyzer()
     ctx = AnalysisContext(_make_signal(duration=5.0))
@@ -62,7 +62,7 @@ def test_phrase_graceful_skip_no_librosa():
     from unittest.mock import patch
 
     with patch.dict("sys.modules", {"librosa": None}):
-        from app.audio.analyzers.phrase import PhraseAnalyzer
+        from dj_music.audio.analyzers.phrase import PhraseAnalyzer
 
         analyzer = PhraseAnalyzer()
         assert not analyzer.is_available()

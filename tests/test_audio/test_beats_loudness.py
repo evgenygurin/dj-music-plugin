@@ -5,8 +5,8 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from app.audio.core.context import AnalysisContext
-from app.audio.core.types import AudioSignal
+from dj_music.audio.core.context import AnalysisContext
+from dj_music.audio.core.types import AudioSignal
 
 SAMPLE_RATE = 22050
 DURATION = 4.0
@@ -48,7 +48,7 @@ def _beat_times_for_bpm(bpm: float = 130.0) -> list[float]:
 def test_beats_loudness_happy_path():
     """With beat_times, produces 6D band ratio vector."""
     pytest.importorskip("essentia")
-    from app.audio.analyzers.beats_loudness import BeatsLoudnessAnalyzer
+    from dj_music.audio.analyzers.beats_loudness import BeatsLoudnessAnalyzer
 
     signal = _make_signal(_kick_pattern())
     analyzer = BeatsLoudnessAnalyzer()
@@ -68,7 +68,7 @@ def test_beats_loudness_happy_path():
 def test_beats_loudness_no_beat_times():
     """Without beat_times in prior_results, returns empty dict (graceful)."""
     pytest.importorskip("essentia")
-    from app.audio.analyzers.beats_loudness import BeatsLoudnessAnalyzer
+    from dj_music.audio.analyzers.beats_loudness import BeatsLoudnessAnalyzer
 
     signal = _make_signal(_kick_pattern())
     analyzer = BeatsLoudnessAnalyzer()
@@ -87,7 +87,7 @@ def test_beats_loudness_no_beat_times():
 def test_beats_loudness_empty_beat_times():
     """Empty beat_times list returns empty dict."""
     pytest.importorskip("essentia")
-    from app.audio.analyzers.beats_loudness import BeatsLoudnessAnalyzer
+    from dj_music.audio.analyzers.beats_loudness import BeatsLoudnessAnalyzer
 
     signal = _make_signal(_kick_pattern())
     analyzer = BeatsLoudnessAnalyzer()
@@ -104,7 +104,7 @@ def test_beats_loudness_graceful_skip_no_essentia():
     with _patch.dict("sys.modules", {"essentia": None, "essentia.standard": None}):
         from importlib import reload
 
-        import app.audio.analyzers.beats_loudness as mod
+        import dj_music.audio.analyzers.beats_loudness as mod
 
         reload(mod)
         analyzer = mod.BeatsLoudnessAnalyzer()
@@ -114,7 +114,7 @@ def test_beats_loudness_graceful_skip_no_essentia():
 def test_beats_loudness_silence():
     """Silence with beat_times doesn't crash."""
     pytest.importorskip("essentia")
-    from app.audio.analyzers.beats_loudness import BeatsLoudnessAnalyzer
+    from dj_music.audio.analyzers.beats_loudness import BeatsLoudnessAnalyzer
 
     silence = _make_signal(np.zeros(int(SAMPLE_RATE * DURATION), dtype=np.float32))
     analyzer = BeatsLoudnessAnalyzer()

@@ -5,8 +5,8 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from app.audio.core.context import AnalysisContext
-from app.audio.core.types import AudioSignal
+from dj_music.audio.core.context import AnalysisContext
+from dj_music.audio.core.types import AudioSignal
 
 SAMPLE_RATE = 22050
 DURATION = 3.0
@@ -37,7 +37,7 @@ def _noise_signal() -> np.ndarray:
 
 def test_pitch_salience_happy_path():
     pytest.importorskip("essentia", reason="essentia not installed")
-    from app.audio.analyzers.pitch_salience import PitchSalienceAnalyzer
+    from dj_music.audio.analyzers.pitch_salience import PitchSalienceAnalyzer
 
     signal = _make_signal(_harmonic_signal())
     analyzer = PitchSalienceAnalyzer()
@@ -52,7 +52,7 @@ def test_pitch_salience_happy_path():
 
 def test_pitch_salience_harmonic_higher_than_noise():
     pytest.importorskip("essentia", reason="essentia not installed")
-    from app.audio.analyzers.pitch_salience import PitchSalienceAnalyzer
+    from dj_music.audio.analyzers.pitch_salience import PitchSalienceAnalyzer
 
     analyzer = PitchSalienceAnalyzer()
     harmonic = analyzer.run(AnalysisContext(_make_signal(_harmonic_signal())))
@@ -66,7 +66,7 @@ def test_pitch_salience_graceful_skip_no_essentia():
     from unittest.mock import patch
 
     with patch.dict("sys.modules", {"essentia": None, "essentia.standard": None}):
-        from app.audio.analyzers.pitch_salience import PitchSalienceAnalyzer
+        from dj_music.audio.analyzers.pitch_salience import PitchSalienceAnalyzer
 
         analyzer = PitchSalienceAnalyzer()
         assert not analyzer.is_available()

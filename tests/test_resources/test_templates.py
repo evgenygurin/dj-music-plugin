@@ -4,18 +4,18 @@ import json
 
 import pytest
 
-from app.controllers.resources.templates import (
+from dj_music.resources.templates import (
     catalog_stats,
     playlist_status,
     set_summary,
     track_features,
 )
-from app.core.errors import NotFoundError
-from app.db.models.audio import TrackAudioFeaturesComputed
-from app.db.models.playlist import Playlist
-from app.db.models.set import DjSet as DJSet
-from app.db.models.set import SetVersion as DJSetVersion
-from app.db.models.track import Track
+from dj_music.core.errors import NotFoundError
+from dj_music.models.audio import TrackAudioFeaturesComputed
+from dj_music.models.playlist import Playlist
+from dj_music.models.set import DjSet as DJSet
+from dj_music.models.set import SetVersion as DJSetVersion
+from dj_music.models.track import Track
 
 
 @pytest.mark.asyncio
@@ -249,7 +249,7 @@ async def test_catalog_stats_with_mood_filter(db):
         db.add(features)
     await db.flush()
 
-    from app.core.constants import TechnoSubgenre
+    from dj_music.core.constants import TechnoSubgenre
 
     result = await catalog_stats(mood=TechnoSubgenre.DRIVING, session=db)
     data = json.loads(result)

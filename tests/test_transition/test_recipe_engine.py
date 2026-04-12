@@ -1,11 +1,11 @@
 """Tests for TransitionRecipeEngine decision tree."""
 
-from app.core.constants import SectionType, TechnoSubgenre
-from app.entities.audio.features import TrackFeatures
-from app.transition.recipe import DjayTransition, TransitionType
-from app.transition.recipe_engine import TransitionRecipeEngine
-from app.transition.score import TransitionScore
-from app.transition.section_context import SectionContext
+from dj_music.core.constants import SectionType, TechnoSubgenre
+from dj_music.schemas.audio import TrackFeatures
+from dj_music.transition.recipe import DjayTransition, TransitionType
+from dj_music.transition.recipe_engine import TransitionRecipeEngine
+from dj_music.transition.score import TransitionScore
+from dj_music.transition.section_context import SectionContext
 
 engine = TransitionRecipeEngine()
 

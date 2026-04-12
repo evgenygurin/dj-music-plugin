@@ -7,8 +7,8 @@ from typing import Any
 import numpy as np
 import pytest
 
-from app.audio.core.context import AnalysisContext
-from app.audio.core.types import AudioSignal
+from dj_music.audio.core.context import AnalysisContext
+from dj_music.audio.core.types import AudioSignal
 
 SAMPLE_RATE = 22050
 
@@ -25,7 +25,7 @@ def _make_signal(n_samples: int = 22050 * 3) -> AudioSignal:
 
 def test_bpm_histogram_with_stable_intervals():
     pytest.importorskip("essentia", reason="essentia not installed")
-    from app.audio.analyzers.bpm_histogram import BpmHistogramAnalyzer
+    from dj_music.audio.analyzers.bpm_histogram import BpmHistogramAnalyzer
 
     analyzer = BpmHistogramAnalyzer()
     ctx = AnalysisContext(_make_signal())
@@ -45,7 +45,7 @@ def test_bpm_histogram_with_stable_intervals():
 
 def test_bpm_histogram_too_few_intervals():
     pytest.importorskip("essentia", reason="essentia not installed")
-    from app.audio.analyzers.bpm_histogram import BpmHistogramAnalyzer
+    from dj_music.audio.analyzers.bpm_histogram import BpmHistogramAnalyzer
 
     analyzer = BpmHistogramAnalyzer()
     ctx = AnalysisContext(_make_signal())
@@ -60,7 +60,7 @@ def test_bpm_histogram_graceful_skip_no_essentia():
     from unittest.mock import patch
 
     with patch.dict("sys.modules", {"essentia": None, "essentia.standard": None}):
-        from app.audio.analyzers.bpm_histogram import BpmHistogramAnalyzer
+        from dj_music.audio.analyzers.bpm_histogram import BpmHistogramAnalyzer
 
         analyzer = BpmHistogramAnalyzer()
         assert not analyzer.is_available()

@@ -11,10 +11,10 @@ from unittest.mock import AsyncMock
 import numpy as np
 import pytest
 
-from app.audio.analyzers.base import AnalyzerRegistry
-from app.audio.core.loader import AudioLoader
-from app.audio.core.types import AudioSignal
-from app.audio.pipeline import AnalysisPipeline
+from dj_music.audio.analyzers.base import AnalyzerRegistry
+from dj_music.audio.core.loader import AudioLoader
+from dj_music.audio.core.types import AudioSignal
+from dj_music.audio.pipeline import AnalysisPipeline
 
 
 @pytest.fixture
@@ -134,7 +134,7 @@ async def test_pipeline_two_phase_dependent_receives_prior(tmp_path, monkeypatch
     """Dependent analyzers in Phase 2 receive Phase 1 results via prior_results."""
     sf = pytest.importorskip("soundfile")
 
-    from app.audio.analyzers.base import AnalyzerRegistry, BaseAnalyzer
+    from dj_music.audio.analyzers.base import AnalyzerRegistry, BaseAnalyzer
 
     # Create a simple WAV file
     sr = 22050
@@ -180,7 +180,7 @@ async def test_pipeline_phase1_runs_without_dependent(tmp_path):
     """When no dependent analyzers exist, pipeline runs identically to before."""
     sf = pytest.importorskip("soundfile")
 
-    from app.audio.analyzers.base import AnalyzerRegistry, BaseAnalyzer
+    from dj_music.audio.analyzers.base import AnalyzerRegistry, BaseAnalyzer
 
     sr = 22050
     samples = np.random.default_rng(42).standard_normal(int(sr * 2)).astype(np.float32) * 0.3
@@ -210,7 +210,7 @@ async def test_filter_features_serializes_vectors():
     """filter_features() JSON-serializes vector column values."""
     import json
 
-    from app.db.models.audio import TrackAudioFeaturesComputed
+    from dj_music.models.audio import TrackAudioFeaturesComputed
 
     features = {
         "bpm": 130.0,
@@ -244,7 +244,7 @@ async def test_filter_features_serializes_vectors():
 async def test_pipeline_discovers_new_p1_analyzers():
     """Auto-discovery finds all 14 analyzers including 6 new P1 ones."""
     pytest.importorskip("librosa")
-    from app.audio.analyzers.base import AnalyzerRegistry
+    from dj_music.audio.analyzers.base import AnalyzerRegistry
 
     registry = AnalyzerRegistry()
     registry.discover()
@@ -271,7 +271,7 @@ async def test_pipeline_populates_beat_loudness_when_beats_available(tmp_path):
     pytest.importorskip("librosa")
     import numpy as np
 
-    from app.audio.pipeline import AnalysisPipeline
+    from dj_music.audio.pipeline import AnalysisPipeline
 
     # Generate a kick pattern WAV that BeatDetector can detect beats in
     sr = 22050
@@ -309,7 +309,7 @@ async def test_pipeline_populates_beat_loudness_when_beats_available(tmp_path):
 async def test_pipeline_discovers_p2_analyzers():
     """Auto-discovery finds P2 analyzers."""
     pytest.importorskip("librosa")
-    from app.audio.analyzers.base import AnalyzerRegistry
+    from dj_music.audio.analyzers.base import AnalyzerRegistry
 
     registry = AnalyzerRegistry()
     registry.discover()
@@ -322,8 +322,8 @@ async def test_pipeline_discovers_p2_analyzers():
 
 def test_scoring_parity_without_p2():
     """Tracks without P2 features produce valid scores (no crash, no NaN)."""
-    from app.entities.audio.features import TrackFeatures
-    from app.transition.scorer import TransitionScorer
+    from dj_music.schemas.audio import TrackFeatures
+    from dj_music.transition.scorer import TransitionScorer
 
     scorer = TransitionScorer()
     a = TrackFeatures(
@@ -373,7 +373,7 @@ class TestStitchedClip:
 
     def test_clip_passthrough_when_signal_shorter_than_target(self) -> None:
         """A 30s source asked for 60s clip returns the full source unchanged."""
-        from app.audio.pipeline import _clip_signal
+        from dj_music.audio.pipeline import _clip_signal
 
         sig = self._make_signal(30.0)
         out = _clip_signal(sig, 60.0, centered=True)
@@ -381,7 +381,7 @@ class TestStitchedClip:
 
     def test_clip_centered_returns_target_duration(self) -> None:
         """A 400s source clipped to 60s returns exactly 60s of audio."""
-        from app.audio.pipeline import _clip_signal
+        from dj_music.audio.pipeline import _clip_signal
 
         sig = self._make_signal(400.0)
         out = _clip_signal(sig, 60.0, centered=True)
@@ -398,7 +398,7 @@ class TestStitchedClip:
         clip contains samples from regions that span ≥50% of the source.
         Pure copy-from-the-middle would only span ~15% (60s of 400s).
         """
-        from app.audio.pipeline import _clip_signal
+        from dj_music.audio.pipeline import _clip_signal
 
         sr = 22050
         duration = 400.0
@@ -422,7 +422,7 @@ class TestStitchedClip:
 
     def test_clip_head_only_for_max_duration_legacy(self) -> None:
         """centered=False (caller-supplied max_duration) takes the head."""
-        from app.audio.pipeline import _clip_signal
+        from dj_music.audio.pipeline import _clip_signal
 
         sr = 22050
         n = sr * 100
@@ -437,7 +437,7 @@ class TestStitchedClip:
 
     def test_stitched_clip_fades_to_zero_at_window_boundaries(self) -> None:
         """Hann ramps must drive the very first sample of each window to 0."""
-        from app.audio.pipeline import _build_stitched_clip
+        from dj_music.audio.pipeline import _build_stitched_clip
 
         sr = 22050
         n = sr * 400
@@ -458,8 +458,8 @@ class TestStitchedClip:
         """End-to-end: an analyzer with clip_duration_s=60 sees 60s context."""
         from typing import Any
 
-        from app.audio.analyzers.base import BaseAnalyzer
-        from app.audio.core.context import AnalysisContext
+        from dj_music.audio.analyzers.base import BaseAnalyzer
+        from dj_music.audio.core.context import AnalysisContext
 
         sr = 22050
         n = sr * 200  # 200s source
@@ -499,8 +499,8 @@ class TestStitchedClip:
         """Analyzers with clip_duration_s=None see the full track."""
         from typing import Any
 
-        from app.audio.analyzers.base import BaseAnalyzer
-        from app.audio.core.context import AnalysisContext
+        from dj_music.audio.analyzers.base import BaseAnalyzer
+        from dj_music.audio.core.context import AnalysisContext
 
         sr = 22050
         sig = AudioSignal(
@@ -560,7 +560,7 @@ class TestVectorizedSlidingWindowRMS:
         return out
 
     def test_vectorized_matches_python_loop_on_400hz_sine(self) -> None:
-        from app.audio.analyzers.loudness import _sliding_window_rms
+        from dj_music.audio.analyzers.loudness import _sliding_window_rms
 
         sr = 22050
         t = np.arange(int(sr * 30.0)) / sr
@@ -572,7 +572,7 @@ class TestVectorizedSlidingWindowRMS:
             np.testing.assert_allclose(new, ref, rtol=1e-6, atol=1e-8)
 
     def test_vectorized_matches_python_loop_on_white_noise(self) -> None:
-        from app.audio.analyzers.loudness import _sliding_window_rms
+        from dj_music.audio.analyzers.loudness import _sliding_window_rms
 
         sr = 22050
         rng = np.random.default_rng(7)
@@ -582,14 +582,14 @@ class TestVectorizedSlidingWindowRMS:
         np.testing.assert_allclose(new, ref, rtol=1e-6, atol=1e-8)
 
     def test_short_signal_returns_empty(self) -> None:
-        from app.audio.analyzers.loudness import _sliding_window_rms
+        from dj_music.audio.analyzers.loudness import _sliding_window_rms
 
         sig = np.zeros(100, dtype=np.float32)
         out = _sliding_window_rms(sig, window_size=200, hop_size=50)
         assert out.shape == (0,)
 
     def test_rms_to_lufs_array_matches_scalar(self) -> None:
-        from app.audio.analyzers.loudness import _rms_to_lufs, _rms_to_lufs_array
+        from dj_music.audio.analyzers.loudness import _rms_to_lufs, _rms_to_lufs_array
 
         rms = np.array([1e-8, 0.001, 0.05, 0.3, 1.0], dtype=np.float64)
         vec = _rms_to_lufs_array(rms)
@@ -637,7 +637,7 @@ class TestVectorizedSpectral:
     def _reference_contrast_loop(
         mag: np.ndarray, freqs: np.ndarray, alpha: float = 0.2
     ) -> np.ndarray:
-        from app.audio.analyzers.spectral import _CONTRAST_BANDS_HZ
+        from dj_music.audio.analyzers.spectral import _CONTRAST_BANDS_HZ
 
         n_frames = mag.shape[1]
         out = np.empty(n_frames, dtype=np.float64)
@@ -657,7 +657,7 @@ class TestVectorizedSpectral:
         return out
 
     def test_vectorized_slope_matches_polyfit_loop(self) -> None:
-        from app.audio.analyzers.spectral import _vectorized_spectral_slope
+        from dj_music.audio.analyzers.spectral import _vectorized_spectral_slope
 
         mag, freqs = self._make_magnitude(seed=1)
         new = _vectorized_spectral_slope(mag, freqs)
@@ -667,7 +667,7 @@ class TestVectorizedSpectral:
         np.testing.assert_allclose(new, ref, rtol=1e-9, atol=1e-9)
 
     def test_vectorized_contrast_matches_per_frame_loop(self) -> None:
-        from app.audio.analyzers.spectral import _vectorized_spectral_contrast
+        from dj_music.audio.analyzers.spectral import _vectorized_spectral_contrast
 
         mag, freqs = self._make_magnitude(seed=2)
         new = _vectorized_spectral_contrast(mag, freqs)
@@ -675,7 +675,7 @@ class TestVectorizedSpectral:
         np.testing.assert_allclose(new, ref, rtol=1e-9, atol=1e-9)
 
     def test_vectorized_slope_zero_when_no_valid_freqs(self) -> None:
-        from app.audio.analyzers.spectral import _vectorized_spectral_slope
+        from dj_music.audio.analyzers.spectral import _vectorized_spectral_slope
 
         mag = np.ones((1, 50), dtype=np.float64)
         freqs = np.array([0.0])  # only DC bin
@@ -726,7 +726,7 @@ class TestProcessPoolDispatch:
         """A core (numpy-only) analyzer must run end-to-end via processes."""
         import soundfile as sf
 
-        from app.audio.pipeline import AnalysisPipeline
+        from dj_music.audio.pipeline import AnalysisPipeline
 
         sig = self._make_techno_signal(duration_s=4.0)
         wav_path = tmp_path / "tiny.wav"
@@ -755,7 +755,7 @@ class TestProcessPoolDispatch:
         pytest.importorskip("librosa")
         import soundfile as sf
 
-        from app.audio.pipeline import AnalysisPipeline
+        from dj_music.audio.pipeline import AnalysisPipeline
 
         sig = self._make_techno_signal(duration_s=4.0)
         wav_path = tmp_path / "tiny.wav"
@@ -782,7 +782,7 @@ class TestProcessPoolDispatch:
         """
         import soundfile as sf
 
-        from app.audio.pipeline import AnalysisPipeline
+        from dj_music.audio.pipeline import AnalysisPipeline
 
         sig = self._make_techno_signal(duration_s=4.0)
         wav_path = tmp_path / "tiny.wav"
@@ -803,7 +803,7 @@ class TestProcessPoolDispatch:
 
     def test_pipeline_shutdown_is_idempotent(self, registry: AnalyzerRegistry) -> None:
         """Calling shutdown() multiple times must be safe (no exception)."""
-        from app.audio.pipeline import AnalysisPipeline
+        from dj_music.audio.pipeline import AnalysisPipeline
 
         pipeline = AnalysisPipeline(registry=registry, use_processes=True, max_workers=2)
         # Pool is created lazily, so shutdown without analyze() is a no-op
@@ -847,7 +847,7 @@ class TestEventLoopResponsiveness:
         """
         import soundfile as sf
 
-        from app.audio.pipeline import AnalysisPipeline
+        from dj_music.audio.pipeline import AnalysisPipeline
 
         # Build a small techno-like signal so analyze() takes 1-3s
         sr = 22050
@@ -896,7 +896,7 @@ class TestEventLoopResponsiveness:
         """
         import soundfile as sf
 
-        from app.audio.pipeline import AnalysisPipeline
+        from dj_music.audio.pipeline import AnalysisPipeline
 
         sr = 22050
         duration = 4.0
@@ -1066,7 +1066,7 @@ class TestSharedMemoryTransport:
         """
         import soundfile as sf
 
-        from app.audio import pipeline as pipeline_module
+        from dj_music.audio import pipeline as pipeline_module
 
         sr = 22050
         n = int(sr * 4.0)
@@ -1095,7 +1095,7 @@ class TestSharedMemoryTransport:
             )
 
             # And the cache must NEVER exceed the configured LRU bound.
-            from app.config import settings
+            from dj_music.core.config import settings
 
             assert cache_size <= settings.audio_process_worker_cache_size
 
@@ -1113,6 +1113,6 @@ def _probe_worker_cache_size() -> int:
     tests can assert reuse vs. eviction. Must NOT be defined inside a
     test class — ProcessPoolExecutor cannot pickle methods.
     """
-    from app.audio.pipeline import _WORKER_CONTEXT_CACHE
+    from dj_music.audio.pipeline import _WORKER_CONTEXT_CACHE
 
     return len(_WORKER_CONTEXT_CACHE)

@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import pytest
 
-from app.db.models.playlist import Playlist
-from app.db.repositories.playlist import PlaylistRepository
-from app.db.repositories.track import TrackRepository
+from dj_music.models.playlist import Playlist
+from dj_music.repositories.playlist import PlaylistRepository
+from dj_music.repositories.track import TrackRepository
 from tests.acceptance.conftest import make_ym_track, parse_tool_result
 
 

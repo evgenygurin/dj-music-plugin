@@ -1,9 +1,9 @@
 import json
 
-from app.entities.audio.features import TrackFeatures
-from app.transition import TransitionRecipe, TransitionType, recommend_recipe
-from app.transition.recipe import DjayTransition, EQPlan
-from app.transition.score import TransitionScore
+from dj_music.schemas.audio import TrackFeatures
+from dj_music.transition import TransitionRecipe, TransitionType, recommend_recipe
+from dj_music.transition.recipe import DjayTransition, EQPlan
+from dj_music.transition.score import TransitionScore
 
 
 def test_recommend_recipe_with_features():
@@ -28,7 +28,7 @@ def test_recommend_recipe_fallback_without_features():
 
 
 def test_format_pair_response_includes_recipe():
-    from app.services.set.scoring import SetScoringService
+    from dj_music.services.set.scoring import SetScoringService
 
     response = SetScoringService._format_pair_response(
         from_id=1,
@@ -52,7 +52,7 @@ def test_format_pair_response_includes_recipe():
 
 
 def test_format_pair_response_none_overall():
-    from app.services.set.scoring import SetScoringService
+    from dj_music.services.set.scoring import SetScoringService
 
     response = SetScoringService._format_pair_response(
         from_id=1,
@@ -73,7 +73,7 @@ def test_format_pair_response_none_overall():
 
 
 def test_format_pair_response_uses_persisted_recipe_json():
-    from app.services.set.scoring import SetScoringService
+    from dj_music.services.set.scoring import SetScoringService
 
     persisted = TransitionRecipe(
         transition_type=TransitionType.CUT,
@@ -114,7 +114,7 @@ def test_format_pair_response_uses_persisted_recipe_json():
 
 
 def test_format_pair_response_falls_back_for_wrong_shaped_persisted_recipe_json():
-    from app.services.set.scoring import SetScoringService
+    from dj_music.services.set.scoring import SetScoringService
 
     score = TransitionScore(
         bpm=0.9, harmonic=0.8, energy=0.8, spectral=0.7, groove=0.7, timbral=0.7, overall=0.82
@@ -144,7 +144,7 @@ def test_format_pair_response_falls_back_for_wrong_shaped_persisted_recipe_json(
 
 
 def test_format_pair_response_falls_back_for_malformed_nested_recipe_json():
-    from app.services.set.scoring import SetScoringService
+    from dj_music.services.set.scoring import SetScoringService
 
     score = TransitionScore(
         bpm=0.9, harmonic=0.8, energy=0.8, spectral=0.7, groove=0.7, timbral=0.7, overall=0.82
@@ -185,8 +185,8 @@ def test_format_pair_response_falls_back_for_malformed_nested_recipe_json():
 
 
 def test_format_recipe_box():
-    from app.services.set.cheatsheet import _format_recipe_box
-    from app.transition.recipe import (
+    from dj_music.services.set.cheatsheet import _format_recipe_box
+    from dj_music.transition.recipe import (
         DjayTransition,
         EQPlan,
         RecipeStep,
@@ -224,7 +224,7 @@ def test_format_recipe_box():
 
 
 def test_export_transition_has_recipe_fields():
-    from app.export.models import ExportTransition
+    from dj_music.export.models import ExportTransition
 
     et = ExportTransition(
         from_position=0,

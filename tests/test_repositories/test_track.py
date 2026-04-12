@@ -2,9 +2,9 @@
 
 import pytest
 
-from app.db.models.audio import TrackAudioFeaturesComputed
-from app.db.models.track import Track
-from app.db.repositories.track import TrackRepository
+from dj_music.models.audio import TrackAudioFeaturesComputed
+from dj_music.models.track import Track
+from dj_music.repositories.track import TrackRepository
 
 
 @pytest.fixture

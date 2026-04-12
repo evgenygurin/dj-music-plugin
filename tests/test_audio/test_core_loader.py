@@ -8,8 +8,8 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from app.audio.core.loader import AudioLoader
-from app.audio.core.types import AudioSignal
+from dj_music.audio.core.loader import AudioLoader
+from dj_music.audio.core.types import AudioSignal
 
 
 def _write_wav(path: Path, samples: np.ndarray, sr: int = 22050) -> None:

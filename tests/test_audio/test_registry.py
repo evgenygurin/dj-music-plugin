@@ -4,9 +4,9 @@ from __future__ import annotations
 
 from typing import Any, ClassVar
 
-from app.audio.analyzers import AnalyzerRegistry, BaseAnalyzer
-from app.audio.core import AudioSignal
-from app.audio.core.context import AnalysisContext
+from dj_music.audio.analyzers import AnalyzerRegistry, BaseAnalyzer
+from dj_music.audio.core import AudioSignal
+from dj_music.audio.core.context import AnalysisContext
 
 
 class DummyAnalyzer(BaseAnalyzer):

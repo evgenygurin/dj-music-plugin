@@ -5,8 +5,8 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from app.services.set.cheatsheet import SetCheatSheetService
-from app.transition.recipe import (
+from dj_music.services.set.cheatsheet import SetCheatSheetService
+from dj_music.transition.recipe import (
     DjayTransition,
     EQPlan,
     RecipeStep,
@@ -43,7 +43,7 @@ async def test_get_cheat_sheet_falls_back_when_persisted_recipe_json_is_malforme
         calls.append((args, kwargs))
         return expected_recipe
 
-    monkeypatch.setattr("app.services.set.cheatsheet.recommend_recipe", _fake_recommend_recipe)
+    monkeypatch.setattr("dj_music.services.set.cheatsheet.recommend_recipe", _fake_recommend_recipe)
 
     svc = SetCheatSheetService(
         set_repo=SimpleNamespace(

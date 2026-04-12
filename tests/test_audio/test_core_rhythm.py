@@ -4,14 +4,14 @@ from __future__ import annotations
 
 import numpy as np
 
-from app.audio.core.context import AnalysisContext
-from app.audio.core.rhythm import (
+from dj_music.audio.core.context import AnalysisContext
+from dj_music.audio.core.rhythm import (
     find_beat_times,
     sample_interpolated,
     spectral_flux_onset_envelope,
     tempo_from_onset_autocorrelation,
 )
-from app.audio.core.types import AudioSignal
+from dj_music.audio.core.types import AudioSignal
 
 SAMPLE_RATE = 22050
 HOP_LENGTH = 512

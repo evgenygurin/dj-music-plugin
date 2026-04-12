@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-from app.entities.audio.features import TrackFeatures
-from app.optimization.fitness import transition_quality
-from app.services.templates import get_template
-from app.transition.intent import TransitionIntent
-from app.transition.score import TransitionScore
+from dj_music.schemas.audio import TrackFeatures
+from dj_music.optimization.fitness import transition_quality
+from dj_music.services.templates import get_template
+from dj_music.transition.intent import TransitionIntent
+from dj_music.transition.score import TransitionScore
 
 
 class _CaptureScorer:

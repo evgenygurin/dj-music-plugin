@@ -5,15 +5,15 @@ from __future__ import annotations
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.models.audio import TrackAudioFeaturesComputed
-from app.db.models.playlist import Playlist, PlaylistItem
-from app.db.models.track import Track
-from app.db.repositories.feature import FeatureRepository
-from app.db.repositories.playlist import PlaylistRepository
-from app.db.repositories.set import SetRepository
-from app.db.repositories.track import TrackRepository
-from app.db.repositories.transition import TransitionRepository
-from app.services.curation.facade import CurationService
+from dj_music.models.audio import TrackAudioFeaturesComputed
+from dj_music.models.playlist import Playlist, PlaylistItem
+from dj_music.models.track import Track
+from dj_music.repositories.feature import FeatureRepository
+from dj_music.repositories.playlist import PlaylistRepository
+from dj_music.repositories.set import SetRepository
+from dj_music.repositories.track import TrackRepository
+from dj_music.repositories.transition import TransitionRepository
+from dj_music.services.curation.facade import CurationService
 
 
 def _make_curation_service(db: AsyncSession) -> CurationService:

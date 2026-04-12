@@ -7,7 +7,7 @@ import pytest
 @pytest.mark.asyncio
 async def test_temp_download_creates_and_cleans():
     """Temp download should create file, yield path, then delete."""
-    from app.audio.temp_download import temp_download_track
+    from dj_music.audio.temp_download import temp_download_track
 
     mock_client = AsyncMock()
 
@@ -35,7 +35,7 @@ async def test_temp_download_creates_and_cleans():
 @pytest.mark.asyncio
 async def test_temp_download_cleans_on_error():
     """Temp file cleaned up even if analysis raises."""
-    from app.audio.temp_download import temp_download_track
+    from dj_music.audio.temp_download import temp_download_track
 
     mock_client = AsyncMock()
 
@@ -59,7 +59,7 @@ async def test_temp_download_cleans_on_error():
 @pytest.mark.asyncio
 async def test_temp_download_calls_client():
     """Should call client.download_track with correct args."""
-    from app.audio.temp_download import temp_download_track
+    from dj_music.audio.temp_download import temp_download_track
 
     mock_client = AsyncMock()
 

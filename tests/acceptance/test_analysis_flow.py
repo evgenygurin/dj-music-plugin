@@ -7,9 +7,9 @@ from pathlib import Path
 import pytest
 from sqlalchemy import select
 
-from app.db.models.audio import FeatureExtractionRun, TrackAudioFeaturesComputed, TrackSection
-from app.db.models.library import DjLibraryItem
-from app.db.models.track import Track
+from dj_music.models.audio import FeatureExtractionRun, TrackAudioFeaturesComputed, TrackSection
+from dj_music.models.library import DjLibraryItem
+from dj_music.models.track import Track
 from tests.acceptance.conftest import parse_tool_result
 
 

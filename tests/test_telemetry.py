@@ -12,7 +12,7 @@ from opentelemetry.sdk.trace.export.in_memory_span_exporter import (
     InMemorySpanExporter,
 )
 
-from app.telemetry import (
+from dj_music.core.telemetry import (
     add_span_event,
     instrument_heavy_operation,
     record_error,

@@ -7,11 +7,11 @@ from pathlib import Path
 import pytest
 from sqlalchemy import select
 
-from app.db.models.audio import TrackAudioFeaturesComputed
-from app.db.models.export import AppExport
-from app.db.models.library import DjLibraryItem
-from app.db.models.playlist import Playlist, PlaylistItem
-from app.db.models.track import Track
+from dj_music.models.audio import TrackAudioFeaturesComputed
+from dj_music.models.export import AppExport
+from dj_music.models.library import DjLibraryItem
+from dj_music.models.playlist import Playlist, PlaylistItem
+from dj_music.models.track import Track
 from tests.acceptance.conftest import parse_tool_result
 
 

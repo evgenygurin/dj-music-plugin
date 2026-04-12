@@ -8,7 +8,7 @@ from unittest.mock import AsyncMock
 import pytest
 from fastmcp.exceptions import ToolError
 
-from app.ym.models import YMAlbum, YMPlaylist, YMTrack
+from dj_music.ym.models import YMAlbum, YMPlaylist, YMTrack
 
 # ── BUG-14: ym_get_album validation ───────────────────
 
@@ -16,7 +16,7 @@ from app.ym.models import YMAlbum, YMPlaylist, YMTrack
 @pytest.mark.asyncio
 async def test_ym_get_album_raises_on_empty_stub() -> None:
     """YM returns an empty album dict when the id is unknown — must raise."""
-    from app.controllers.tools.yandex.albums import ym_get_album
+    from dj_music.tools.yandex.albums import ym_get_album
 
     ym_mock = AsyncMock()
     ym_mock.get_album = AsyncMock(
@@ -40,7 +40,7 @@ async def test_ym_get_album_raises_on_empty_stub() -> None:
 @pytest.mark.asyncio
 async def test_ym_get_album_returns_album_when_present() -> None:
     """A real album with title or artists must pass through unchanged."""
-    from app.controllers.tools.yandex.albums import ym_get_album
+    from dj_music.tools.yandex.albums import ym_get_album
 
     ym_mock = AsyncMock()
     ym_mock.get_album = AsyncMock(
@@ -62,7 +62,7 @@ async def test_ym_get_album_returns_album_when_present() -> None:
 @pytest.mark.asyncio
 async def test_ym_get_album_rejects_blank_id() -> None:
     """A blank/empty album_id must fail before hitting the YM client."""
-    from app.controllers.tools.yandex.albums import ym_get_album
+    from dj_music.tools.yandex.albums import ym_get_album
 
     ym_mock = AsyncMock()
     with pytest.raises(ToolError, match="album_id is required"):
@@ -79,7 +79,7 @@ async def test_remove_tracks_calls_remove_descending_order() -> None:
 
     This prevents index shifting when removing multiple tracks.
     """
-    from app.controllers.tools.yandex.playlists import ym_playlists
+    from dj_music.tools.yandex.playlists import ym_playlists
 
     ym_mock = AsyncMock()
 
@@ -123,7 +123,7 @@ async def test_remove_tracks_calls_remove_descending_order() -> None:
 @pytest.mark.asyncio
 async def test_remove_tracks_reports_not_found() -> None:
     """ym_playlists remove_tracks should report track IDs not found in playlist."""
-    from app.controllers.tools.yandex.playlists import ym_playlists
+    from dj_music.tools.yandex.playlists import ym_playlists
 
     ym_mock = AsyncMock()
 
@@ -152,7 +152,7 @@ async def test_remove_tracks_reports_not_found() -> None:
 @pytest.mark.asyncio
 async def test_remove_tracks_single_track() -> None:
     """ym_playlists remove_tracks should work for a single track removal."""
-    from app.controllers.tools.yandex.playlists import ym_playlists
+    from dj_music.tools.yandex.playlists import ym_playlists
 
     ym_mock = AsyncMock()
 
@@ -190,8 +190,8 @@ async def test_remove_tracks_single_track() -> None:
 async def test_get_tracks_paginates_by_default() -> None:
     """ym_playlists get_tracks must page large playlists to avoid oversized
     responses (BUG-018: 1377-track playlist returned ~106k chars)."""
-    from app.controllers.tools.yandex._constants import MAX_PLAYLIST_TRACKS_PAGE
-    from app.controllers.tools.yandex.playlists import ym_playlists
+    from dj_music.tools.yandex._constants import MAX_PLAYLIST_TRACKS_PAGE
+    from dj_music.tools.yandex.playlists import ym_playlists
 
     ym_mock = AsyncMock()
     big_playlist = [YMTrack(id=str(i), title=f"Track {i}") for i in range(1377)]
@@ -212,7 +212,7 @@ async def test_get_tracks_paginates_by_default() -> None:
 @pytest.mark.asyncio
 async def test_get_tracks_respects_limit_and_offset() -> None:
     """get_tracks must accept limit/offset and slice the playlist accordingly."""
-    from app.controllers.tools.yandex.playlists import ym_playlists
+    from dj_music.tools.yandex.playlists import ym_playlists
 
     ym_mock = AsyncMock()
     playlist = [YMTrack(id=str(i), title=f"Track {i}") for i in range(50)]
@@ -238,7 +238,7 @@ async def test_get_tracks_respects_limit_and_offset() -> None:
 @pytest.mark.asyncio
 async def test_get_tracks_last_page_marks_not_truncated() -> None:
     """The final page must report ``truncated=False`` and ``next_offset=None``."""
-    from app.controllers.tools.yandex.playlists import ym_playlists
+    from dj_music.tools.yandex.playlists import ym_playlists
 
     ym_mock = AsyncMock()
     playlist = [YMTrack(id=str(i), title=f"Track {i}") for i in range(15)]
@@ -262,8 +262,8 @@ async def test_get_tracks_last_page_marks_not_truncated() -> None:
 @pytest.mark.asyncio
 async def test_get_tracks_caps_limit_to_max() -> None:
     """``limit`` larger than ``MAX_PLAYLIST_TRACKS_PAGE`` must be capped."""
-    from app.controllers.tools.yandex._constants import MAX_PLAYLIST_TRACKS_PAGE
-    from app.controllers.tools.yandex.playlists import ym_playlists
+    from dj_music.tools.yandex._constants import MAX_PLAYLIST_TRACKS_PAGE
+    from dj_music.tools.yandex.playlists import ym_playlists
 
     ym_mock = AsyncMock()
     playlist = [YMTrack(id=str(i), title=f"Track {i}") for i in range(1000)]
@@ -283,7 +283,7 @@ async def test_get_tracks_caps_limit_to_max() -> None:
 @pytest.mark.asyncio
 async def test_get_tracks_rejects_negative_offset() -> None:
     """A negative ``offset`` must raise instead of returning the tail."""
-    from app.controllers.tools.yandex.playlists import ym_playlists
+    from dj_music.tools.yandex.playlists import ym_playlists
 
     ym_mock = AsyncMock()
     ym_mock.get_playlist_tracks = AsyncMock(return_value=[YMTrack(id="1", title="A")])

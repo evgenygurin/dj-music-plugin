@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from app.audio.core.spectral import (
+from dj_music.audio.core.spectral import (
     band_energies,
     compute_stft,
     spectral_centroid,

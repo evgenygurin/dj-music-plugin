@@ -2,8 +2,8 @@
 
 import pytest
 
-from app.entities.audio.features import TrackFeatures
-from app.transition.scorer import TransitionScorer
+from dj_music.schemas.audio import TrackFeatures
+from dj_music.transition.scorer import TransitionScorer
 
 
 @pytest.fixture

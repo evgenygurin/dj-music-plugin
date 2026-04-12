@@ -17,15 +17,15 @@ import pytest
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.models.audio import TrackAudioFeaturesComputed
-from app.db.models.playlist import Playlist, PlaylistItem
-from app.db.models.set import DjSet, SetItem, SetVersion
-from app.db.models.track import Track
-from app.db.models.transition import Transition
-from app.db.repositories.feature import FeatureRepository
-from app.db.repositories.set import SetRepository
-from app.db.repositories.transition import TransitionRepository
-from app.services.set.scoring import SetScoringService
+from dj_music.models.audio import TrackAudioFeaturesComputed
+from dj_music.models.playlist import Playlist, PlaylistItem
+from dj_music.models.set import DjSet, SetItem, SetVersion
+from dj_music.models.track import Track
+from dj_music.models.transition import Transition
+from dj_music.repositories.feature import FeatureRepository
+from dj_music.repositories.set import SetRepository
+from dj_music.repositories.transition import TransitionRepository
+from dj_music.services.set.scoring import SetScoringService
 
 
 def _make_scoring_service(db: AsyncSession) -> SetScoringService:

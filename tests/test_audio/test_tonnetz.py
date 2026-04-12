@@ -5,8 +5,8 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from app.audio.core.context import AnalysisContext
-from app.audio.core.types import AudioSignal
+from dj_music.audio.core.context import AnalysisContext
+from dj_music.audio.core.types import AudioSignal
 
 SAMPLE_RATE = 22050
 DURATION = 2.0
@@ -29,7 +29,7 @@ def _pure_a4() -> np.ndarray:
 def test_tonnetz_happy_path():
     """TonnetzAnalyzer produces 6D vector of floats."""
     pytest.importorskip("librosa")
-    from app.audio.analyzers.tonnetz import TonnetzAnalyzer
+    from dj_music.audio.analyzers.tonnetz import TonnetzAnalyzer
 
     signal = _make_signal(_pure_a4())
     analyzer = TonnetzAnalyzer()
@@ -46,7 +46,7 @@ def test_tonnetz_happy_path():
 def test_tonnetz_values_in_range():
     """Tonnetz values should be in [-1.5, 1.5] range."""
     pytest.importorskip("librosa")
-    from app.audio.analyzers.tonnetz import TonnetzAnalyzer
+    from dj_music.audio.analyzers.tonnetz import TonnetzAnalyzer
 
     signal = _make_signal(_pure_a4())
     analyzer = TonnetzAnalyzer()
@@ -64,7 +64,7 @@ def test_tonnetz_graceful_skip_no_librosa():
     with _patch.dict("sys.modules", {"librosa": None, "librosa.feature": None}):
         from importlib import reload
 
-        import app.audio.analyzers.tonnetz as mod
+        import dj_music.audio.analyzers.tonnetz as mod
 
         reload(mod)
         analyzer = mod.TonnetzAnalyzer()
@@ -74,7 +74,7 @@ def test_tonnetz_graceful_skip_no_librosa():
 def test_tonnetz_silence():
     """Silence doesn't crash."""
     pytest.importorskip("librosa")
-    from app.audio.analyzers.tonnetz import TonnetzAnalyzer
+    from dj_music.audio.analyzers.tonnetz import TonnetzAnalyzer
 
     silence = _make_signal(np.zeros(int(SAMPLE_RATE * DURATION), dtype=np.float32))
     analyzer = TonnetzAnalyzer()

@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from app.db.repositories.track import TrackRepository
+from dj_music.repositories.track import TrackRepository
 from tests.acceptance.conftest import make_ym_track, parse_tool_result
 
 

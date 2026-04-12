@@ -5,8 +5,8 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from app.audio.core.context import AnalysisContext
-from app.audio.core.types import AudioSignal
+from dj_music.audio.core.context import AnalysisContext
+from dj_music.audio.core.types import AudioSignal
 
 SAMPLE_RATE = 22050
 DURATION = 30.0  # 30 seconds — enough beats for stable averaging
@@ -42,7 +42,7 @@ def _kick_pattern(bpm: float, duration: float = DURATION) -> AudioSignal:
 
 def _detect_bpm(signal: AudioSignal) -> float:
     pytest.importorskip("librosa")
-    from app.audio.analyzers.bpm import BPMDetector
+    from dj_music.audio.analyzers.bpm import BPMDetector
 
     analyzer = BPMDetector()
     ctx = AnalysisContext(signal)
@@ -85,7 +85,7 @@ def test_bpm_detector_returns_realistic_confidence() -> None:
     """Confidence should be a float in (0, 1], not a hardcoded 1.0 fallback."""
     signal = _kick_pattern(128.0)
     pytest.importorskip("librosa")
-    from app.audio.analyzers.bpm import BPMDetector
+    from dj_music.audio.analyzers.bpm import BPMDetector
 
     analyzer = BPMDetector()
     ctx = AnalysisContext(signal)

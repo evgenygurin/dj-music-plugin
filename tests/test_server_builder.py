@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from app.bootstrap.server_builder import build_mcp_server
+from dj_music.di.server_builder import build_mcp_server
 
 
 def test_build_mcp_server_registers_expected_middleware() -> None:

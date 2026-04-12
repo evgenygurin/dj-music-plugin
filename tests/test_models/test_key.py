@@ -4,8 +4,8 @@ import pytest
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
-from app.core.constants import CAMELOT_KEYS
-from app.db.models.key import Key, KeyEdge
+from dj_music.core.constants import CAMELOT_KEYS
+from dj_music.models.key import Key, KeyEdge
 
 
 class TestKey:

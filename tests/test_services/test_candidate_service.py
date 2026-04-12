@@ -3,10 +3,10 @@
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.models.audio import TrackAudioFeaturesComputed
-from app.db.models.track import Track
-from app.db.repositories.candidate import CandidateRepository
-from app.services.candidate_service import CandidateService
+from dj_music.models.audio import TrackAudioFeaturesComputed
+from dj_music.models.track import Track
+from dj_music.repositories.candidate import CandidateRepository
+from dj_music.services.candidate_service import CandidateService
 
 # ── Fixtures ────────────────────────────────────────────
 

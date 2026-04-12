@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import pytest
 
-from app.audio.classification import MoodClassifier, MoodResult
-from app.audio.classification.profiles import ALL_PROFILES, FeatureTarget
-from app.core.constants import TechnoSubgenre
+from dj_music.audio.classification import MoodClassifier, MoodResult
+from dj_music.audio.classification.profiles import ALL_PROFILES, FeatureTarget
+from dj_music.core.constants import TechnoSubgenre
 
 
 class TestSubgenreProfile:
@@ -59,7 +59,7 @@ class TestMoodClassifierWithProfiles:
 
 def test_all_profiles_include_p2_features() -> None:
     """All 15 profiles should include at least danceability and dissonance targets."""
-    from app.audio.classification.profiles import ALL_PROFILES
+    from dj_music.audio.classification.profiles import ALL_PROFILES
 
     for profile in ALL_PROFILES:
         assert "danceability" in profile.features, f"{profile.subgenre} missing danceability"

@@ -13,10 +13,10 @@ from fastmcp.server.dependencies import get_context
 from fastmcp.server.lifespan import lifespan
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
-from app.audio.analyzers import AnalyzerRegistry
-from app.core.utils.cache import TransitionCache
-from app.ym.client import YandexMusicClient
-from app.ym.rate_limiter import RateLimiter
+from dj_music.audio.analyzers import AnalyzerRegistry
+from dj_music.core.utils.cache import TransitionCache
+from dj_music.ym.client import YandexMusicClient
+from dj_music.ym.rate_limiter import RateLimiter
 
 # ── Test lifespans (copy of production lifespans for isolation) ──
 # Prefix with _ to prevent pytest collection warnings

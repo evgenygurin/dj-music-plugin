@@ -7,8 +7,8 @@ from unittest.mock import patch as _patch
 import numpy as np
 import pytest
 
-from app.audio.core.context import AnalysisContext
-from app.audio.core.types import AudioSignal
+from dj_music.audio.core.context import AnalysisContext
+from dj_music.audio.core.types import AudioSignal
 
 SAMPLE_RATE = 22050
 DURATION = 2.0
@@ -39,7 +39,7 @@ def _dissonant_cluster() -> np.ndarray:
 def test_dissonance_happy_path():
     """DissonanceAnalyzer produces float in valid range."""
     pytest.importorskip("essentia", reason="essentia not installed")
-    from app.audio.analyzers.dissonance import DissonanceAnalyzer
+    from dj_music.audio.analyzers.dissonance import DissonanceAnalyzer
 
     signal = _make_signal(_pure_sine())
     analyzer = DissonanceAnalyzer()
@@ -55,7 +55,7 @@ def test_dissonance_happy_path():
 def test_dissonance_comparative_sine_vs_cluster():
     """Pure sine should be less dissonant than close frequency cluster."""
     pytest.importorskip("essentia", reason="essentia not installed")
-    from app.audio.analyzers.dissonance import DissonanceAnalyzer
+    from dj_music.audio.analyzers.dissonance import DissonanceAnalyzer
 
     analyzer = DissonanceAnalyzer()
     sine_result = analyzer.run(AnalysisContext(_make_signal(_pure_sine())))
@@ -70,7 +70,7 @@ def test_dissonance_comparative_sine_vs_cluster():
 def test_dissonance_graceful_skip_no_essentia():
     """Without essentia, analyzer reports unavailable."""
     with _patch.dict("sys.modules", {"essentia": None, "essentia.standard": None}):
-        from app.audio.analyzers.dissonance import DissonanceAnalyzer
+        from dj_music.audio.analyzers.dissonance import DissonanceAnalyzer
 
         analyzer = DissonanceAnalyzer()
         assert not analyzer.is_available()
@@ -79,7 +79,7 @@ def test_dissonance_graceful_skip_no_essentia():
 def test_dissonance_silence():
     """Silence doesn't crash."""
     pytest.importorskip("essentia", reason="essentia not installed")
-    from app.audio.analyzers.dissonance import DissonanceAnalyzer
+    from dj_music.audio.analyzers.dissonance import DissonanceAnalyzer
 
     silence = _make_signal(np.zeros(int(SAMPLE_RATE * DURATION), dtype=np.float32))
     analyzer = DissonanceAnalyzer()
