@@ -100,7 +100,7 @@ KERNEL (Core):
 ```text
 src/dj_music/kernel/
 ├── __init__.py
-├── types.py                 # ValueObject, Entity base, HasId, HasTimestamps
+├── types.py                 # BaseEntity(BaseModel), BaseValueObject(BaseModel, frozen=True)
 ├── errors.py                # DJMusicError hierarchy
 ├── constants.py             # Enums, domain constants
 ├── camelot.py               # Camelot wheel pure math
@@ -120,8 +120,15 @@ src/dj_music/kernel/
 
 Чистая бизнес-логика. Зависит только от kernel. Ни SQLAlchemy, ни httpx, ни FastMCP.
 
-**Сервисы работают ТОЛЬКО с domain entities (dataclasses), никогда с ORM моделями.**
-Repository отвечает за конвертацию ORM <-> dataclass внутри себя.
+**Сервисы работают ТОЛЬКО с domain entities (Pydantic BaseModel), никогда с ORM моделями.**
+Repository конвертирует ORM <-> Pydantic внутри себя.
+
+**Единая модель данных — Pydantic everywhere:**
+- Entity = Pydantic BaseModel (Track, Set, Playlist)
+- Value Object = Pydantic BaseModel с `ConfigDict(frozen=True)` (Bpm, Key, Lufs)
+- Schema (DTO) = Pydantic BaseModel (TrackBrief, SetSummary)
+- Config = pydantic-settings BaseSettings
+- Никаких dataclasses — всё Pydantic.
 
 ```text
 src/dj_music/domain/
