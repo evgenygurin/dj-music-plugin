@@ -1,3 +1,8 @@
+---
+description: Git workflow, branching, versioning, release process
+alwaysApply: true
+---
+
 # Git Workflow — Project Rules
 
 Extends global `~/.claude/rules/git.md`. Project-specific overrides below.

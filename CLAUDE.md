@@ -2,9 +2,19 @@
 
 // Всегда думай по-русски и отвечай по-русски, если только явно не просят другое.
 
+## Quick Start
+
+```bash
+uv sync --all-extras                       # Install all deps
+make check                                 # lint + typecheck + arch + test
+uv run fastmcp run app/server.py --reload  # MCP dev server
+cd panel && bun dev                        # Panel on :3000
+./start.sh                                 # Both at once
+```
+
 ## Цель проекта
 
-MCP-сервер для управления DJ techno библиотекой, построения оптимизированных сетов и интеграции с Яндекс Музыкой. Включает веб-панель для мониторинга и аналитики.
+MCP-сервер для управления DJ techno библиотекой, построения оптимизированных сетов и интеграции с Яндекс ��узыкой. Включает веб-панель для мониторинга и аналитики.
 
 - Спецификация: @REQUIREMENTS.md
 - Дизайн-документ: @docs/superpowers/specs/2026-03-24-dj-music-plugin-design.md
