@@ -27,10 +27,11 @@ def test_tool_category_values_match_legacy_tag_strings() -> None:
 
 def test_annotation_presets_content() -> None:
     """Presets hold the exact MCP annotation flags tools rely on."""
-    assert ANNOTATIONS_READ_ONLY == {"readOnlyHint": True}
+    assert ANNOTATIONS_READ_ONLY == {"readOnlyHint": True, "idempotentHint": True}
     assert ANNOTATIONS_WRITE == {"readOnlyHint": False}
     assert ANNOTATIONS_READ_ONLY_OPEN_WORLD == {
         "readOnlyHint": True,
+        "idempotentHint": True,
         "openWorldHint": True,
     }
 

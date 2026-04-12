@@ -47,5 +47,5 @@ class TransitionHistoryRead(BaseModel):
 class BestPairRead(BaseModel):
     track_id: int
     play_count: int
-    avg_score: float
+    avg_score: float | None
     last_reaction: str | None

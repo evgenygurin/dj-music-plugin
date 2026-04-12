@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from app.entities.audio.features import TrackFeatures
 from app.optimization.fitness import transition_quality
-from app.services.templates import get_template
+from app.templates import get_template
 from app.transition.intent import TransitionIntent
 from app.transition.score import TransitionScore
 
