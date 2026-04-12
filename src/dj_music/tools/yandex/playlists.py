@@ -15,7 +15,7 @@ from fastmcp.exceptions import ToolError
 from fastmcp.tools import tool
 
 from dj_music.core.config import settings
-from app.controllers.dependencies import get_ym_client
+from dj_music.di import get_ym_client
 from dj_music.tools._shared import (
     ActionDispatcher,
     ToolCategory,
@@ -26,7 +26,7 @@ from dj_music.tools.yandex._constants import (
     YM_WRITE_ANNOTATIONS,
 )
 from dj_music.core.utils.parsing import ensure_list
-from app.ym.client import YandexMusicClient
+from dj_music.ym.client import YandexMusicClient
 
 _dispatcher: ActionDispatcher[dict[str, Any]] = ActionDispatcher()
 

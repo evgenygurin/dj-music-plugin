@@ -14,7 +14,7 @@ from fastmcp.dependencies import Depends
 from fastmcp.exceptions import ToolError
 from fastmcp.tools import tool
 
-from app.controllers.dependencies import get_feature_repo, get_track_service
+from dj_music.di import get_feature_repo, get_track_service
 from dj_music.tools._shared import (
     ANNOTATIONS_READ_ONLY,
     ANNOTATIONS_WRITE,
@@ -23,8 +23,8 @@ from dj_music.tools._shared import (
     resolve_track_id,
 )
 from dj_music.core.utils.parsing import ensure_dict
-from app.db.repositories.feature import FeatureRepository
-from app.schemas import PaginatedResponse, TrackBrief, TrackStandard
+from dj_music.repositories.feature import FeatureRepository
+from dj_music.schemas import PaginatedResponse, TrackBrief, TrackStandard
 from dj_music.services.track_service import TrackService
 
 _TRACK_ACTIONS = frozenset({"create", "update", "archive", "unarchive"})

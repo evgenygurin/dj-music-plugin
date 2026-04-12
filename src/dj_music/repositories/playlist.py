@@ -8,7 +8,7 @@ from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.db.models.playlist import Playlist, PlaylistItem
+from dj_music.models.playlist import Playlist, PlaylistItem
 from dj_music.repositories.base import BaseRepository
 
 if TYPE_CHECKING:

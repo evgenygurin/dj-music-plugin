@@ -14,11 +14,11 @@ from typing import TYPE_CHECKING
 
 from dj_music.core.camelot import camelot_distance
 from dj_music.core.config import settings
-from app.db.models.transition import TransitionCandidate
+from dj_music.models.transition import TransitionCandidate
 from dj_music.transition import TransitionScorer
 
 if TYPE_CHECKING:
-    from app.db.repositories.candidate import CandidateRepository
+    from dj_music.repositories.candidate import CandidateRepository
 
 
 @dataclass

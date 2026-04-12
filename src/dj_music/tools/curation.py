@@ -20,7 +20,7 @@ from fastmcp.server.context import Context
 from fastmcp.tools import tool
 
 from dj_music.audio.level_config import AnalysisLevel
-from app.controllers.dependencies import (
+from dj_music.di import (
     get_curation_service,
     get_playlist_repo,
     get_tiered_pipeline,
@@ -35,7 +35,7 @@ from dj_music.tools._shared import (
     map_domain_errors,
 )
 from dj_music.core.utils.parsing import ensure_list
-from app.db.repositories.playlist import PlaylistRepository
+from dj_music.repositories.playlist import PlaylistRepository
 from dj_music.services.curation.facade import CurationService
 from dj_music.services.tiered_pipeline import TieredPipeline
 

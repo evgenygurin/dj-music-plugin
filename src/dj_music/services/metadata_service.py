@@ -10,8 +10,8 @@ import logging
 from datetime import date
 from typing import Any
 
-from app.db.models.platform import YandexMetadata
-from app.db.models.track import (
+from dj_music.models.platform import YandexMetadata
+from dj_music.models.track import (
     Artist,  # used at runtime in _get_or_create()
     Genre,  # used at runtime in _get_or_create()
     Label,
@@ -21,7 +21,7 @@ from app.db.models.track import (
     TrackLabel,  # used at runtime in _link_if_not_exists()
     TrackRelease,  # used at runtime in _link_if_not_exists()
 )
-from app.db.repositories.metadata import MetadataRepository
+from dj_music.repositories.metadata import MetadataRepository
 
 logger = logging.getLogger(__name__)
 

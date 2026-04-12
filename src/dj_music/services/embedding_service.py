@@ -16,8 +16,8 @@ import numpy as np
 from dj_music.core.errors import NotFoundError, ValidationError
 
 if TYPE_CHECKING:
-    from app.db.models.audio import Embedding
-    from app.db.repositories.embedding import EmbeddingRepository
+    from dj_music.models.audio import Embedding
+    from dj_music.repositories.embedding import EmbeddingRepository
 
 
 class EmbeddingService:

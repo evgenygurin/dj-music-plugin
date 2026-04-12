@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from dj_music.di.db import get_db_session
 from dj_music.tools._shared.errors import map_domain_errors
 from dj_music.tools._shared.taxonomy import ANNOTATIONS_READ_ONLY, ToolCategory
-from app.db.repositories.set import SetRepository
+from dj_music.repositories.set import SetRepository
 from dj_music.services.set_narrative import SetNarrativeEngine
 
 
@@ -31,11 +31,11 @@ async def analyze_set_narrative(
     quality scores (flow, variety, arc), and actionable suggestions.
     Use after build_set to evaluate narrative quality.
     """
-    from app.db.repositories.feature import FeatureRepository
+    from dj_music.repositories.feature import FeatureRepository
 
     set_obj = await repo.get_by_id(set_id)
     if set_obj is None:
-        from app.core.errors import NotFoundError
+        from dj_music.core.errors import NotFoundError
 
         raise NotFoundError("DjSet", set_id)
 

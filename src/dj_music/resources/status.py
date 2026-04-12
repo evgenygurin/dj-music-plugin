@@ -14,16 +14,16 @@ from fastmcp.resources import resource
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.controllers.dependencies import get_db_session
+from dj_music.di import get_db_session
 from dj_music.core.constants import Provider
-from app.db.models.audio import TrackAudioFeaturesComputed
-from app.db.models.platform import (
+from dj_music.models.audio import TrackAudioFeaturesComputed
+from dj_music.models.platform import (
     BeatportMetadata,
     SoundcloudMetadata,
     SpotifyMetadata,
     YandexMetadata,
 )
-from app.db.models.track import Track
+from dj_music.models.track import Track
 
 
 @resource(

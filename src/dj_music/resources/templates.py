@@ -17,13 +17,13 @@ from fastmcp.resources import resource
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.controllers.dependencies import get_db_session
+from dj_music.di import get_db_session
 from dj_music.core.constants import CAMELOT_KEYS, TechnoSubgenre
-from app.core.errors import NotFoundError
-from app.db.models.audio import TrackAudioFeaturesComputed
-from app.db.models.playlist import Playlist
-from app.db.models.set import DjSet, SetVersion
-from app.db.models.track import Track
+from dj_music.core.errors import NotFoundError
+from dj_music.models.audio import TrackAudioFeaturesComputed
+from dj_music.models.playlist import Playlist
+from dj_music.models.set import DjSet, SetVersion
+from dj_music.models.track import Track
 
 
 @resource(
@@ -160,7 +160,7 @@ async def set_summary(
         return json.dumps(data, indent=2)
 
     # Count tracks in latest version
-    from app.db.models.set import SetItem
+    from dj_music.models.set import SetItem
 
     track_count_result = await session.execute(
         select(func.count()).where(SetItem.version_id == latest_version.id)
@@ -168,7 +168,7 @@ async def set_summary(
     track_count = track_count_result.scalar() or 0
 
     # Calculate total duration from track durations
-    from app.db.models.track import Track as TrackModel
+    from dj_music.models.track import Track as TrackModel
 
     dur_result = await session.execute(
         select(func.coalesce(func.sum(TrackModel.duration_ms), 0))
@@ -224,7 +224,7 @@ async def playlist_status(
         raise NotFoundError("Playlist", playlist_id)
 
     # Count tracks in playlist
-    from app.db.models.playlist import PlaylistItem
+    from dj_music.models.playlist import PlaylistItem
 
     tc_result = await session.execute(
         select(func.count()).where(PlaylistItem.playlist_id == playlist_id)

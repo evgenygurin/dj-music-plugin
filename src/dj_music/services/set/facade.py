@@ -6,13 +6,13 @@ from typing import Any
 
 from dj_music.core.errors import ValidationError
 from dj_music.core.utils.pagination import CursorPage
-from app.db.models.set import DjSet, SetConstraint, SetFeedback, SetItem, SetVersion
-from app.db.repositories.feature import FeatureRepository
-from app.db.repositories.playlist import PlaylistRepository
-from app.db.repositories.set import SetRepository
-from app.db.repositories.track import TrackRepository
-from app.db.repositories.transition import TransitionRepository
-from app.schemas import SetSummary
+from dj_music.models.set import DjSet, SetConstraint, SetFeedback, SetItem, SetVersion
+from dj_music.repositories.feature import FeatureRepository
+from dj_music.repositories.playlist import PlaylistRepository
+from dj_music.repositories.set import SetRepository
+from dj_music.repositories.track import TrackRepository
+from dj_music.repositories.transition import TransitionRepository
+from dj_music.schemas import SetSummary
 from dj_music.services.set.builder import SetBuilderService
 from dj_music.services.set.cheatsheet import SetCheatSheetService
 from dj_music.services.set.crud import SetCrudService
@@ -205,7 +205,7 @@ class SetService:
                     latest_score=latest.quality_score if latest else None,
                 ).model_dump()
             )
-        from app.schemas import PaginatedResponse
+        from dj_music.schemas import PaginatedResponse
 
         return PaginatedResponse[SetSummary](
             items=items, next_cursor=page.next_cursor, total=page.total

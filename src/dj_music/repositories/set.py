@@ -8,12 +8,12 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.db.models.set import DjSet, SetItem, SetVersion
+from dj_music.models.set import DjSet, SetItem, SetVersion
 from dj_music.repositories.base import BaseRepository
 
 if TYPE_CHECKING:
     from dj_music.core.utils.pagination import CursorPage
-    from app.db.models.set import SetConstraint, SetFeedback
+    from dj_music.models.set import SetConstraint, SetFeedback
 
 
 class SetRepository(BaseRepository[DjSet]):
@@ -187,7 +187,7 @@ class SetRepository(BaseRepository[DjSet]):
 
     async def remove_constraint(self, constraint_id: int) -> bool:
         """Remove a constraint by ID."""
-        from app.db.models.set import SetConstraint
+        from dj_music.models.set import SetConstraint
 
         stmt = select(SetConstraint).where(SetConstraint.id == constraint_id)
         result = await self.session.execute(stmt)

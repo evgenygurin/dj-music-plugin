@@ -12,7 +12,7 @@ from fastmcp.exceptions import ToolError
 from fastmcp.server.context import Context
 from fastmcp.tools import tool
 
-from app.controllers.dependencies import (
+from dj_music.di import (
     get_feature_repo,
     get_search_service,
     get_track_service,
@@ -22,8 +22,8 @@ from dj_music.tools._shared import (
     ToolCategory,
     map_domain_errors,
 )
-from app.db.repositories.feature import FeatureRepository
-from app.schemas import PaginatedResponse, TrackBrief
+from dj_music.repositories.feature import FeatureRepository
+from dj_music.schemas import PaginatedResponse, TrackBrief
 from dj_music.services.search_service import SearchService
 from dj_music.services.track_service import TrackService
 

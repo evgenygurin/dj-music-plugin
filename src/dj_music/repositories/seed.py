@@ -11,10 +11,10 @@ import logging
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from app.camelot.wheel import camelot_distance
+from dj_music.core.camelot.wheel import camelot_distance
 from dj_music.core.constants import CAMELOT_KEYS, Provider
-from app.db.models.ingestion import ProviderModel
-from app.db.models.key import Key, KeyEdge
+from dj_music.models.ingestion import ProviderModel
+from dj_music.models.key import Key, KeyEdge
 
 logger = logging.getLogger(__name__)
 

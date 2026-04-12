@@ -2,7 +2,18 @@
 
 from __future__ import annotations
 
+from pydantic import BaseModel
+
 from dj_music.schemas.base import BaseEntity
+
+
+class PlaylistSummary(BaseModel):
+    """Compact playlist projection for list views."""
+
+    id: int
+    name: str
+    track_count: int = 0
+    source_of_truth: str = "local"
 
 
 class Playlist(BaseEntity):

@@ -11,8 +11,8 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.models.platform import YandexMetadata
-from app.db.models.track import Release, Track
+from dj_music.models.platform import YandexMetadata
+from dj_music.models.track import Release, Track
 
 
 class MetadataRepository:
@@ -41,7 +41,7 @@ class MetadataRepository:
 
     async def get_playlist_track_ids(self, playlist_id: int) -> list[int]:
         """Get ordered track IDs for a playlist."""
-        from app.db.models.playlist import PlaylistItem
+        from dj_music.models.playlist import PlaylistItem
 
         stmt = (
             select(PlaylistItem.track_id)

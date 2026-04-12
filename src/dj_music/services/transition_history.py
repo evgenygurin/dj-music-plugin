@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from app.db.models.transition_history import TransitionHistory
-from app.db.repositories.transition_history import TransitionHistoryRepository
+from dj_music.models.transition_history import TransitionHistory
+from dj_music.repositories.transition_history import TransitionHistoryRepository
 
 
 class TransitionHistoryService:

@@ -7,14 +7,14 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.models.audio import (
+from dj_music.models.audio import (
     FeatureExtractionRun,
     TimeseriesReference,
     TrackAudioFeaturesComputed,
     TrackSection,
 )
-from app.db.models.library import DjBeatgrid, DjLibraryItem
-from app.db.models.track import Track
+from dj_music.models.library import DjBeatgrid, DjLibraryItem
+from dj_music.models.track import Track
 from dj_music.repositories.base import BaseRepository
 
 

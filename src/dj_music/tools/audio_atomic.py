@@ -15,7 +15,7 @@ from fastmcp.server.context import Context
 from fastmcp.tools import tool
 
 from dj_music.core.config import settings
-from app.controllers.dependencies import get_audio_service, get_ym_client
+from dj_music.di import get_audio_service, get_ym_client
 from dj_music.tools._shared import (
     ANNOTATIONS_READ_ONLY,
     ANNOTATIONS_READ_ONLY_OPEN_WORLD,
@@ -26,8 +26,8 @@ from dj_music.tools._shared import (
 )
 from dj_music.core.utils.parsing import ensure_list
 from dj_music.services.audio_service import AudioService
-from app.ym.client import YandexMusicClient
-from app.ym.filters import genre_ok, is_excluded_title, ym_track_summary
+from dj_music.ym.client import YandexMusicClient
+from dj_music.ym.filters import genre_ok, is_excluded_title, ym_track_summary
 
 
 @tool(

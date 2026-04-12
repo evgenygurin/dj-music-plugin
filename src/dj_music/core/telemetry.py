@@ -4,7 +4,7 @@ FastMCP provides native OTEL integration via opentelemetry-api.
 This module adds custom spans for heavy operations (set building, audio analysis, delivery).
 
 Usage:
-    from app.telemetry import instrument_heavy_operation
+    from dj_music.core.telemetry import instrument_heavy_operation
 
     @instrument_heavy_operation("build_set")
     async def build_set_service(...):

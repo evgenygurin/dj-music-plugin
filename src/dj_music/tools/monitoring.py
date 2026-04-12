@@ -19,7 +19,7 @@ from fastmcp import Context
 from fastmcp.tools import tool
 
 from dj_music.tools._shared.taxonomy import ToolCategory
-from app.engines.mixer.engine import MixerEngine
+from dj_music.engines.mixer.engine import MixerEngine
 
 DEFAULT_HZ = 15
 MAX_HZ = 30

@@ -16,8 +16,8 @@ from fastmcp import Context
 from fastmcp.tools import tool
 
 from dj_music.tools._shared.taxonomy import ANNOTATIONS_READ_ONLY, ToolCategory
-from app.core.errors import NotFoundError
-from app.engines.deck.engine import DeckEngine
+from dj_music.core.errors import NotFoundError
+from dj_music.engines.deck.engine import DeckEngine
 from dj_music.schemas.deck import DeckStateRead
 
 

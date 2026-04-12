@@ -6,7 +6,7 @@ from typing import Any
 
 from dj_music.audio.level_config import AnalysisLevel
 from dj_music.core.errors import ValidationError
-from app.db.repositories.playlist import PlaylistRepository
+from dj_music.repositories.playlist import PlaylistRepository
 from dj_music.services.set.facade import SetService
 from dj_music.services.tiered_pipeline import TieredPipeline
 from dj_music.services.workflows._helpers import call_async_method

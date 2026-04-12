@@ -7,9 +7,9 @@ from typing import Any
 
 from dj_music.core.errors import NotFoundError, ValidationError
 from dj_music.core.utils.pagination import CursorPage
-from app.db.models.set import DjSet, SetConstraint, SetFeedback, SetItem, SetVersion
-from app.db.repositories.set import SetRepository
-from app.db.repositories.track import TrackRepository
+from dj_music.models.set import DjSet, SetConstraint, SetFeedback, SetItem, SetVersion
+from dj_music.repositories.set import SetRepository
+from dj_music.repositories.track import TrackRepository
 
 
 class SetCrudService:

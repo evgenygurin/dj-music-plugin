@@ -11,7 +11,7 @@ from fastmcp.dependencies import Depends
 from fastmcp.server.context import Context
 from fastmcp.tools import tool
 
-from app.controllers.dependencies import get_sync_playlist_workflow
+from dj_music.di import get_sync_playlist_workflow
 from dj_music.tools._shared import ToolCategory, map_domain_errors
 from dj_music.services.workflows.sync_playlist_workflow import SyncPlaylistWorkflow
 

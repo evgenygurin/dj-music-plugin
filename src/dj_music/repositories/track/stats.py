@@ -7,8 +7,8 @@ from typing import Any
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.models.audio import TrackAudioFeaturesComputed
-from app.db.models.track import Track, TrackExternalId
+from dj_music.models.audio import TrackAudioFeaturesComputed
+from dj_music.models.track import Track, TrackExternalId
 
 
 class StatsMixin:
@@ -22,8 +22,8 @@ class StatsMixin:
 
     async def get_library_stats(self) -> dict[str, Any]:
         """Library dashboard: counts, coverage, distributions."""
-        from app.db.models.playlist import Playlist
-        from app.db.models.set import DjSet
+        from dj_music.models.playlist import Playlist
+        from dj_music.models.set import DjSet
 
         total_tracks = (await self.session.execute(select(func.count(Track.id)))).scalar() or 0
         active_tracks = (

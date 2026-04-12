@@ -7,8 +7,8 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.models.library import DjLibraryItem
-from app.db.models.platform import YandexMetadata
+from dj_music.models.library import DjLibraryItem
+from dj_music.models.platform import YandexMetadata
 
 
 class LibraryMixin:

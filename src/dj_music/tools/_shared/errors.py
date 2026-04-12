@@ -61,7 +61,7 @@ from fastmcp.exceptions import NotFoundError as FastMCPNotFoundError
 from fastmcp.exceptions import ToolError
 from mcp import McpError
 
-from app.core.errors import ConflictError, NotFoundError, ValidationError
+from dj_music.core.errors import ConflictError, NotFoundError, ValidationError
 
 R = TypeVar("R")
 

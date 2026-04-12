@@ -15,8 +15,8 @@ from dj_music.audio.pipeline import AnalysisPipeline
 
 if TYPE_CHECKING:
     from dj_music.audio.analyzers import AnalyzerRegistry
-    from app.db.models.audio import TrackAudioFeaturesComputed
-    from app.db.repositories.audio import AudioRepository
+    from dj_music.models.audio import TrackAudioFeaturesComputed
+    from dj_music.repositories.audio import AudioRepository
 
 logger = logging.getLogger(__name__)
 
@@ -100,7 +100,7 @@ class AudioService:
         if force:
             await self._repo.delete_features(track_id)
 
-        from app.db.models.audio import TrackAudioFeaturesComputed
+        from dj_music.models.audio import TrackAudioFeaturesComputed
 
         features = await self._repo.create_features_from_pipeline(
             track_id=track_id,

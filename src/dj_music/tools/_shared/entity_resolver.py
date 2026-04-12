@@ -6,7 +6,7 @@ from typing import Any, Literal
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.repositories.track import TrackRepository
+from dj_music.repositories.track import TrackRepository
 
 logger = logging.getLogger(__name__)
 

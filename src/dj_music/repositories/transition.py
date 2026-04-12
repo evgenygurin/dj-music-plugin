@@ -3,7 +3,7 @@
 from sqlalchemy import or_, select, tuple_
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.models.transition import Transition, TransitionCandidate
+from dj_music.models.transition import Transition, TransitionCandidate
 from dj_music.repositories.base import BaseRepository
 
 

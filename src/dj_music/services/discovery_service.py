@@ -13,9 +13,9 @@ logger = logging.getLogger(__name__)
 
 from dj_music.core.config import settings
 from dj_music.core.errors import NotFoundError, ValidationError
-from app.db.repositories.track import TrackRepository
-from app.ym.client import YandexMusicClient
-from app.ym.filters import genre_ok, is_excluded_title, ym_track_summary
+from dj_music.repositories.track import TrackRepository
+from dj_music.ym.client import YandexMusicClient
+from dj_music.ym.filters import genre_ok, is_excluded_title, ym_track_summary
 
 
 class DiscoveryService:

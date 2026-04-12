@@ -5,15 +5,15 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from dj_music.core.errors import NotFoundError
-from app.db.repositories.feature import FeatureRepository
-from app.db.repositories.set import SetRepository
-from app.db.repositories.track import TrackRepository
+from dj_music.repositories.feature import FeatureRepository
+from dj_music.repositories.set import SetRepository
+from dj_music.repositories.track import TrackRepository
 from dj_music.transition.recipe import TransitionRecipe
 from dj_music.transition.score import TransitionScore
 from dj_music.transition.style import recommend_recipe
 
 if TYPE_CHECKING:
-    from app.db.repositories.transition import TransitionRepository
+    from dj_music.repositories.transition import TransitionRepository
 
 
 def _format_recipe_box(recipe: TransitionRecipe, score: float | None = None) -> str:

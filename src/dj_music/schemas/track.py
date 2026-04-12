@@ -58,3 +58,17 @@ class TrackFilter(BaseFilter, BaseSort, BasePagination):
             if self.energy_min > self.energy_max:
                 raise ValueError("energy_min must be <= energy_max")
         return self
+
+
+class TrackStandard(TrackBrief):
+    """Standard track projection — brief plus mood/energy summary.
+
+    Mirrors ``app.schemas.track.TrackStandard`` for service compatibility.
+    """
+
+    artist_names: list[str] = []
+    duration_ms: int | None = None
+    key_camelot: str | None = None
+    energy_lufs: float | None = None
+    status: int = 0
+    has_features: bool = False

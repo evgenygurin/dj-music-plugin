@@ -2,7 +2,7 @@
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.models.export import AppExport
+from dj_music.models.export import AppExport
 from dj_music.repositories.base import BaseRepository
 
 

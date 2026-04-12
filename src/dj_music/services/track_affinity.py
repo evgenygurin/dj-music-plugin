@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from app.db.repositories.track_affinity import TrackAffinityRepository
+from dj_music.repositories.track_affinity import TrackAffinityRepository
 
 
 class TrackAffinityService:

@@ -12,7 +12,7 @@ from fastmcp.exceptions import ToolError
 from fastmcp.server.context import Context
 from fastmcp.tools import tool
 
-from app.controllers.dependencies import get_import_tracks_workflow
+from dj_music.di import get_import_tracks_workflow
 from dj_music.tools._shared import (
     ToolCategory,
     ToolContext,

@@ -14,9 +14,9 @@ logger = logging.getLogger(__name__)
 if TYPE_CHECKING:
     from dj_music.audio.pipeline import AnalysisPipeline
     from dj_music.audio.timeseries import TimeseriesStorage
-    from app.db.repositories.audio import AudioRepository
-    from app.db.repositories.track import TrackRepository
-    from app.ym.client import YandexMusicClient
+    from dj_music.repositories.audio import AudioRepository
+    from dj_music.repositories.track import TrackRepository
+    from dj_music.ym.client import YandexMusicClient
 
 
 class TieredPipeline:

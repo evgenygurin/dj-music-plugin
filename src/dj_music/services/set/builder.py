@@ -6,11 +6,11 @@ import json as _json
 from typing import Any
 
 from dj_music.core.errors import NotFoundError, ValidationError
-from app.db.models.set import DjSet, SetVersion
-from app.db.repositories.feature import FeatureRepository
-from app.db.repositories.playlist import PlaylistRepository
-from app.db.repositories.set import SetRepository
-from app.entities.audio.features import TrackFeatures
+from dj_music.models.set import DjSet, SetVersion
+from dj_music.repositories.feature import FeatureRepository
+from dj_music.repositories.playlist import PlaylistRepository
+from dj_music.repositories.set import SetRepository
+from dj_music.schemas.audio import TrackFeatures
 from dj_music.templates.registry import get_template
 from dj_music.transition.scorer import TransitionScorer
 
@@ -50,7 +50,7 @@ class SetBuilderService:
 
         # Exclude banned tracks (Phase 3 AI intelligence)
         try:
-            from app.db.repositories.track_feedback import TrackFeedbackRepository
+            from dj_music.repositories.track_feedback import TrackFeedbackRepository
 
             feedback_repo = TrackFeedbackRepository(self._playlists.session)
             banned = set(await feedback_repo.get_banned_ids())

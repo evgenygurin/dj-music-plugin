@@ -7,7 +7,7 @@ from typing import Any
 from sqlalchemy import desc, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.models.transition_history import TransitionHistory
+from dj_music.models.transition_history import TransitionHistory
 from dj_music.repositories.base import BaseRepository
 
 

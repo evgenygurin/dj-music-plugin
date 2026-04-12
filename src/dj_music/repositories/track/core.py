@@ -5,7 +5,7 @@ from __future__ import annotations
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.models.track import Artist, Track, TrackArtist
+from dj_music.models.track import Artist, Track, TrackArtist
 from dj_music.repositories.base import BaseRepository
 
 

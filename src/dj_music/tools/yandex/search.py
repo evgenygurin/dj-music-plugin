@@ -8,10 +8,10 @@ from fastmcp.dependencies import Depends
 from fastmcp.exceptions import ToolError
 from fastmcp.tools import tool
 
-from app.controllers.dependencies import get_ym_client
+from dj_music.di import get_ym_client
 from dj_music.tools._shared import ANNOTATIONS_READ_ONLY_OPEN_WORLD, ToolCategory
 from dj_music.tools.yandex._constants import MAX_SEARCH_LIMIT, VALID_SEARCH_TYPES
-from app.ym.client import YandexMusicClient
+from dj_music.ym.client import YandexMusicClient
 
 
 @tool(tags={ToolCategory.YM.value}, annotations=ANNOTATIONS_READ_ONLY_OPEN_WORLD)

@@ -6,8 +6,8 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from dj_music.core.utils.pagination import CursorPage
-from app.db.models.audio import TrackAudioFeaturesComputed
-from app.db.models.track import Track
+from dj_music.models.audio import TrackAudioFeaturesComputed
+from dj_music.models.track import Track
 
 
 class FilteringMixin:
@@ -69,7 +69,7 @@ class FilteringMixin:
         from sqlalchemy import func as sa_func
 
         from dj_music.core.utils.pagination import decode_cursor, encode_cursor
-        from app.db.models.set import SetItem, SetVersion
+        from dj_music.models.set import SetItem, SetVersion
 
         if has_features is False:
             stmt = (

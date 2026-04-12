@@ -11,7 +11,7 @@ from fastmcp.dependencies import Depends
 from fastmcp.server.context import Context
 from fastmcp.tools import tool
 
-from app.controllers.dependencies import get_deliver_set_workflow
+from dj_music.di import get_deliver_set_workflow
 from dj_music.tools._shared import (
     ANNOTATIONS_WRITE,
     ToolCategory,

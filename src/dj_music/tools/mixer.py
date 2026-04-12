@@ -11,7 +11,7 @@ from fastmcp import Context
 from fastmcp.tools import tool
 
 from dj_music.tools._shared.taxonomy import ANNOTATIONS_READ_ONLY, ToolCategory
-from app.engines.mixer.engine import MixerEngine
+from dj_music.engines.mixer.engine import MixerEngine
 from dj_music.schemas.deck import DeckStateRead
 from dj_music.schemas.mixer import MixerStateRead
 

@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from dj_music.di.db import get_db_session
 from dj_music.tools._shared.errors import map_domain_errors
 from dj_music.tools._shared.taxonomy import ANNOTATIONS_READ_ONLY, ToolCategory
-from app.db.repositories.transition_history import TransitionHistoryRepository
+from dj_music.repositories.transition_history import TransitionHistoryRepository
 from dj_music.services.adaptive_arc import AdaptiveArcService
 
 

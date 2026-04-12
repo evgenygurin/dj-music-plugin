@@ -7,10 +7,10 @@ from typing import Any
 from dj_music.core.camelot import camelot_distance, key_code_to_camelot
 from dj_music.core.constants import SectionType
 from dj_music.core.errors import NotFoundError
-from app.db.models.transition import Transition
-from app.db.repositories.feature import FeatureRepository
-from app.db.repositories.set import SetRepository
-from app.db.repositories.transition import TransitionRepository
+from dj_music.models.transition import Transition
+from dj_music.repositories.feature import FeatureRepository
+from dj_music.repositories.set import SetRepository
+from dj_music.repositories.transition import TransitionRepository
 from dj_music.services.mix_point_service import TrackSectionRow, build_section_context
 from dj_music.transition import (
     SectionContext,
@@ -290,7 +290,7 @@ class SetScoringService:
 
         # Apply transition history bonus (Phase 1 AI intelligence)
         try:
-            from app.db.repositories.transition_history import TransitionHistoryRepository
+            from dj_music.repositories.transition_history import TransitionHistoryRepository
             from dj_music.services.transition_history import TransitionHistoryService
 
             history_svc = TransitionHistoryService(

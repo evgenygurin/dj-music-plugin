@@ -7,9 +7,9 @@ from __future__ import annotations
 
 from dj_music.core.errors import NotFoundError, ValidationError
 from dj_music.core.utils.pagination import CursorPage
-from app.db.models.playlist import Playlist
-from app.db.repositories.playlist import PlaylistRepository
-from app.schemas import PlaylistSummary
+from dj_music.models.playlist import Playlist
+from dj_music.repositories.playlist import PlaylistRepository
+from dj_music.schemas import PlaylistSummary
 
 
 class PlaylistService:

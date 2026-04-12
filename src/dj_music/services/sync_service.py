@@ -10,10 +10,10 @@ from typing import Any
 
 from dj_music.core.config import settings
 from dj_music.core.errors import NotFoundError, ValidationError
-from app.db.repositories.playlist import PlaylistRepository
-from app.db.repositories.set import SetRepository
-from app.db.repositories.track import TrackRepository
-from app.ym.client import YandexMusicClient
+from dj_music.repositories.playlist import PlaylistRepository
+from dj_music.repositories.set import SetRepository
+from dj_music.repositories.track import TrackRepository
+from dj_music.ym.client import YandexMusicClient
 
 
 class SyncService:

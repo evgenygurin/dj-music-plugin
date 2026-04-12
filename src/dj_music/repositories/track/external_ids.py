@@ -5,7 +5,7 @@ from __future__ import annotations
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.models.track import TrackExternalId
+from dj_music.models.track import TrackExternalId
 
 
 class ExternalIdMixin:
@@ -81,7 +81,7 @@ class ExternalIdMixin:
         """Update album_id in YandexMetadata for a given YM track ID."""
         from sqlalchemy import update as sa_update
 
-        from app.db.models.platform import YandexMetadata
+        from dj_music.models.platform import YandexMetadata
 
         stmt = (
             sa_update(YandexMetadata)

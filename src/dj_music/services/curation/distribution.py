@@ -7,9 +7,9 @@ from typing import Any
 from dj_music.audio.classification import MoodClassifier
 from dj_music.core.constants import TechnoSubgenre
 from dj_music.core.errors import ValidationError
-from app.db.repositories.feature import FeatureRepository
-from app.db.repositories.playlist import PlaylistRepository
-from app.db.repositories.track import TrackRepository
+from dj_music.repositories.feature import FeatureRepository
+from dj_music.repositories.playlist import PlaylistRepository
+from dj_music.repositories.track import TrackRepository
 
 
 class DistributionService:

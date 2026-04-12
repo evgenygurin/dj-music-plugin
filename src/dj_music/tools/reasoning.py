@@ -14,7 +14,7 @@ from fastmcp.dependencies import Depends
 from fastmcp.server.context import Context
 from fastmcp.tools import tool
 
-from app.controllers.dependencies import get_reasoning_service
+from dj_music.di import get_reasoning_service
 from dj_music.tools._shared import (
     ANNOTATIONS_READ_ONLY,
     ToolCategory,

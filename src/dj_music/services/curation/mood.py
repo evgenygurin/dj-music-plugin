@@ -6,8 +6,8 @@ from typing import Any
 
 from dj_music.audio.classification import MoodClassifier
 from dj_music.core.errors import ValidationError
-from app.db.repositories.feature import FeatureRepository
-from app.db.repositories.playlist import PlaylistRepository
+from dj_music.repositories.feature import FeatureRepository
+from dj_music.repositories.playlist import PlaylistRepository
 
 
 class MoodClassificationService:

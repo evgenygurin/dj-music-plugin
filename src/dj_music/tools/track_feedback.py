@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from dj_music.di.db import get_db_session
 from dj_music.tools._shared.errors import map_domain_errors
 from dj_music.tools._shared.taxonomy import ANNOTATIONS_READ_ONLY, ToolCategory
-from app.db.repositories.track_feedback import TrackFeedbackRepository
+from dj_music.repositories.track_feedback import TrackFeedbackRepository
 from dj_music.schemas.track_feedback import TrackFeedbackRead
 
 

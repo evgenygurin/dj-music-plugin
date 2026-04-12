@@ -10,7 +10,7 @@ from typing import Any
 from fastmcp.dependencies import Depends
 from fastmcp.tools import tool
 
-from app.controllers.dependencies import get_set_service
+from dj_music.di import get_set_service
 from dj_music.tools._shared import (
     ANNOTATIONS_READ_ONLY,
     ANNOTATIONS_WRITE,

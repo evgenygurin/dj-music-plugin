@@ -9,7 +9,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from dj_music.core.utils.time import utc_now
-from app.db.models.ingestion import RawProviderResponse
+from dj_music.models.ingestion import RawProviderResponse
 from dj_music.repositories.base import BaseRepository
 
 
@@ -77,7 +77,7 @@ class IngestionRepository(BaseRepository[RawProviderResponse]):
 
     async def _resolve_provider_id(self, provider_name: str) -> int | None:
         """Resolve provider name to ID. Returns None if not found."""
-        from app.db.models.ingestion import ProviderModel
+        from dj_music.models.ingestion import ProviderModel
 
         stmt = select(ProviderModel.id).where(ProviderModel.name == provider_name)
         result = await self.session.execute(stmt)
@@ -85,7 +85,7 @@ class IngestionRepository(BaseRepository[RawProviderResponse]):
 
     async def _ensure_provider_id(self, provider_name: str) -> int:
         """Resolve provider name to ID, creating it if needed."""
-        from app.db.models.ingestion import ProviderModel
+        from dj_music.models.ingestion import ProviderModel
 
         existing = await self._resolve_provider_id(provider_name)
         if existing is not None:

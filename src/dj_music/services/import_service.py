@@ -16,12 +16,12 @@ from typing import Any
 
 from dj_music.core.config import settings
 from dj_music.core.errors import ValidationError
-from app.db.models.library import DjLibraryItem
-from app.db.models.track import Track
-from app.db.repositories.ingestion import IngestionRepository
-from app.db.repositories.playlist import PlaylistRepository
-from app.db.repositories.track import TrackRepository
-from app.ym.client import YandexMusicClient
+from dj_music.models.library import DjLibraryItem
+from dj_music.models.track import Track
+from dj_music.repositories.ingestion import IngestionRepository
+from dj_music.repositories.playlist import PlaylistRepository
+from dj_music.repositories.track import TrackRepository
+from dj_music.ym.client import YandexMusicClient
 
 
 def _sanitize_filename(title: str, max_len: int = 80) -> str:

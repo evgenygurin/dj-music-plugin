@@ -32,13 +32,13 @@ from typing import TYPE_CHECKING
 
 from dj_music.audio.level_config import AnalysisLevel
 from dj_music.core.config import settings
-from app.db.models.transition import Transition
-from app.entities.audio.features import TrackFeatures
+from dj_music.models.transition import Transition
+from dj_music.schemas.audio import TrackFeatures
 from dj_music.transition import TransitionScorer
 
 if TYPE_CHECKING:
-    from app.db.repositories.feature import FeatureRepository
-    from app.db.repositories.transition import TransitionRepository
+    from dj_music.repositories.feature import FeatureRepository
+    from dj_music.repositories.transition import TransitionRepository
     from dj_music.services.tiered_pipeline import TieredPipeline
 
 

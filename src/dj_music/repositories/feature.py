@@ -5,9 +5,9 @@ from __future__ import annotations
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.models.audio import TrackAudioFeaturesComputed, TrackSection
-from app.db.models.track import Track
-from app.entities.audio.features import TrackFeatures
+from dj_music.models.audio import TrackAudioFeaturesComputed, TrackSection
+from dj_music.models.track import Track
+from dj_music.schemas.audio import TrackFeatures
 from dj_music.repositories.base import BaseRepository
 
 

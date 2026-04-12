@@ -15,3 +15,7 @@ class CursorPage(BaseModel, Generic[T]):
     items: list[T]
     next_cursor: str | None = None
     total: int | None = None
+
+
+# Alias used by services and tools migrated from app.schemas
+PaginatedResponse = CursorPage

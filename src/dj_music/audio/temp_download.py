@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from app.ym.client import YandexMusicClient
+    from dj_music.ym.client import YandexMusicClient
 
 
 @asynccontextmanager

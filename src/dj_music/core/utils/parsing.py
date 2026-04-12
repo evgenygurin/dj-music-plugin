@@ -5,7 +5,7 @@ instead of parsed objects. FastMCP does NOT auto-parse these. This module
 provides helpers to normalize incoming parameters.
 
 Usage in tools:
-    from app.core.utils.parsing import ensure_list, ensure_dict
+    from dj_music.core.utils.parsing import ensure_list, ensure_dict
 
     @tool(...)
     async def my_tool(data: dict | str | None = None) -> dict:

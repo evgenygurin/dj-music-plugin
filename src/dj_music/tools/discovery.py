@@ -19,7 +19,7 @@ from fastmcp.server.context import Context
 from fastmcp.tools import tool
 from pydantic import BaseModel
 
-from app.controllers.dependencies import get_discovery_service
+from dj_music.di import get_discovery_service
 from dj_music.tools._shared import (
     ANNOTATIONS_READ_ONLY_OPEN_WORLD,
     ToolCategory,

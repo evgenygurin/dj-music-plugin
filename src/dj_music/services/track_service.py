@@ -10,11 +10,11 @@ from typing import Any
 
 from dj_music.core.errors import NotFoundError, ValidationError
 from dj_music.core.utils.pagination import CursorPage
-from app.db.models.audio import TrackAudioFeaturesComputed
-from app.db.models.track import Track
-from app.db.repositories.feature import FeatureRepository
-from app.db.repositories.track import TrackRepository
-from app.schemas import TrackBrief, TrackStandard
+from dj_music.models.audio import TrackAudioFeaturesComputed
+from dj_music.models.track import Track
+from dj_music.repositories.feature import FeatureRepository
+from dj_music.repositories.track import TrackRepository
+from dj_music.schemas import TrackBrief, TrackStandard
 
 _LEADING_ARTICLES = re.compile(r"^(the|a|an)\s+", re.IGNORECASE)
 _NON_ALNUM_PREFIX = re.compile(r"^[^a-z0-9\u00C0-\u024F]+")

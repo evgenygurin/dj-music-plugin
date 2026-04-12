@@ -11,12 +11,12 @@ from dj_music.audio.level_config import AnalysisLevel
 from dj_music.core.camelot import camelot_distance, key_code_to_camelot
 from dj_music.core.config import settings
 from dj_music.core.errors import NotFoundError, ValidationError
-from app.db.models.set import SetVersion
-from app.db.repositories.feature import FeatureRepository
-from app.db.repositories.playlist import PlaylistRepository
-from app.db.repositories.set import SetRepository
-from app.db.repositories.track import TrackRepository
-from app.db.repositories.transition import TransitionRepository
+from dj_music.models.set import SetVersion
+from dj_music.repositories.feature import FeatureRepository
+from dj_music.repositories.playlist import PlaylistRepository
+from dj_music.repositories.set import SetRepository
+from dj_music.repositories.track import TrackRepository
+from dj_music.repositories.transition import TransitionRepository
 from dj_music.transition import TransitionScorer
 
 if TYPE_CHECKING:
@@ -142,7 +142,7 @@ class ReasoningService:
         # Exclude banned tracks (Phase 3 AI intelligence)
         banned_ids: set[int] = set()
         try:
-            from app.db.repositories.track_feedback import TrackFeedbackRepository
+            from dj_music.repositories.track_feedback import TrackFeedbackRepository
 
             feedback_repo = TrackFeedbackRepository(self._tracks.session)
             banned_ids = set(await feedback_repo.get_banned_ids())

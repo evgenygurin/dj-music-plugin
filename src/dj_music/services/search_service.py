@@ -11,11 +11,11 @@ from dj_music.core.camelot import camelot_to_key_code, is_compatible, key_code_t
 from dj_music.core.constants import KEY_CODE_MAX, KEY_CODE_MIN
 from dj_music.core.errors import ValidationError
 from dj_music.core.utils.pagination import CursorPage
-from app.db.models.track import Track
-from app.db.repositories.feature import FeatureRepository
-from app.db.repositories.playlist import PlaylistRepository
-from app.db.repositories.set import SetRepository
-from app.db.repositories.track import TrackRepository
+from dj_music.models.track import Track
+from dj_music.repositories.feature import FeatureRepository
+from dj_music.repositories.playlist import PlaylistRepository
+from dj_music.repositories.set import SetRepository
+from dj_music.repositories.track import TrackRepository
 
 
 class SearchService:
