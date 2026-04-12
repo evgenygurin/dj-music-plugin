@@ -8,8 +8,15 @@ globs: app/controllers/tools/**/*.py
 - Use standalone `@tool` decorator from `fastmcp` (FileSystemProvider auto-discovers, scans subpackages recursively)
 - **Tag and annotation constants**: import from `app.controllers.tools._shared` — never hardcode literals
   - `tags={ToolCategory.CORE.value}` (StrEnum, no magic strings)
-  - `annotations=ANNOTATIONS_READ_ONLY` / `ANNOTATIONS_WRITE` / `ANNOTATIONS_READ_ONLY_OPEN_WORLD`
+  - `annotations=ANNOTATIONS_READ_ONLY` / `ANNOTATIONS_WRITE` / `ANNOTATIONS_WRITE_IDEMPOTENT` / `ANNOTATIONS_WRITE_DESTRUCTIVE` / `ANNOTATIONS_WRITE_OPEN_WORLD` / `ANNOTATIONS_WRITE_DESTRUCTIVE_OPEN` / `ANNOTATIONS_READ_ONLY_OPEN_WORLD`
+  - `idempotentHint=True` — classify_mood, analyze_track, score_transitions (safe to retry)
+  - `destructiveHint=True` — ban_track, distribute_to_subgenres(clean)
+  - `openWorldHint=True` — import_tracks, download_tracks, ym_*, sync_playlist
   - `timeout=ToolTimeout.MEDIUM | HEAVY | BATCH`
+- **Title**: `title="Human Readable Name"` — REQUIRED on every tool (Claude Code displays it in UI)
+- **Icons**: `icons=ICON_TRACKS` / `ICON_SETS` / `ICON_YM` / etc — 16 SVG icon sets in `_shared.taxonomy`
+- **Meta**: `meta=TOOL_META` on every tool — `{"version": "0.7.0", "author": "dj-music-plugin"}`
+- **No BM25SearchTransform** — removed because it proxied all calls through `run_tool`. Use native `mcp.disable(tags=...)` visibility (see `bootstrap/visibility.py`)
 - **Entity resolution**: use `resolve_track_id` / `resolve_entity` / `ensure_reference` from `_shared` — never re-implement `id|query` validation
 - **Context logging**: wrap `ctx` in `ToolContext(ctx)` and call `await log.info(...)`, `log.progress(...)`, `log.elicit(...)` — never write `if ctx: await ctx.info(...)` guards
 - **Action-dispatched tools** (`ym_playlists`, `ym_likes`, `manage_*`): use `ActionDispatcher[ResultT]` from `_shared.dispatch` — `@_dispatcher.register("name")` instead of `if/elif` chains. Duplicate registration raises at import time.
