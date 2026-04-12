@@ -81,7 +81,7 @@ async def _remove(
     return {"action": "remove", "track_ids": track_ids, "success": True}
 
 
-@tool(tags={ToolCategory.YM.value}, annotations=YM_WRITE_ANNOTATIONS)
+@tool(title="YM Likes", tags={ToolCategory.YM.value}, annotations=YM_WRITE_ANNOTATIONS)
 async def ym_likes(
     action: str = "get_liked",
     track_ids: Any = None,

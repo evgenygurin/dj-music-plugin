@@ -14,7 +14,7 @@ from app.controllers.tools.yandex._constants import MAX_SEARCH_LIMIT, VALID_SEAR
 from app.ym.client import YandexMusicClient
 
 
-@tool(tags={ToolCategory.YM.value}, annotations=ANNOTATIONS_READ_ONLY_OPEN_WORLD)
+@tool(title="YM Search", tags={ToolCategory.YM.value}, annotations=ANNOTATIONS_READ_ONLY_OPEN_WORLD)
 async def ym_search(
     query: str,
     type: str = "all",

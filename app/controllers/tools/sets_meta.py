@@ -10,7 +10,7 @@ from app.controllers.tools._shared import ANNOTATIONS_READ_ONLY, ToolCategory
 from app.templates.registry import TEMPLATES
 
 
-@tool(
+@tool(title="Get Set Templates",
     tags={ToolCategory.SETS.value},
     annotations=ANNOTATIONS_READ_ONLY,
 )

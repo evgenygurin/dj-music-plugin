@@ -23,7 +23,7 @@ from app.controllers.tools._shared import (
 from app.services.reasoning_service import ReasoningService
 
 
-@tool(tags={ToolCategory.SETS.value}, annotations=ANNOTATIONS_READ_ONLY)
+@tool(title="Suggest Next Track", tags={ToolCategory.SETS.value}, annotations=ANNOTATIONS_READ_ONLY)
 @map_domain_errors
 async def suggest_next_track(
     set_id: int,
@@ -49,7 +49,7 @@ async def suggest_next_track(
     )
 
 
-@tool(tags={ToolCategory.SETS.value}, annotations=ANNOTATIONS_READ_ONLY)
+@tool(title="Explain Transition", tags={ToolCategory.SETS.value}, annotations=ANNOTATIONS_READ_ONLY)
 @map_domain_errors
 async def explain_transition(
     from_track_id: int,
@@ -61,7 +61,7 @@ async def explain_transition(
     return await svc.explain_transition(from_track_id, to_track_id)
 
 
-@tool(tags={ToolCategory.SETS.value}, annotations=ANNOTATIONS_READ_ONLY)
+@tool(title="Find Replacement", tags={ToolCategory.SETS.value}, annotations=ANNOTATIONS_READ_ONLY)
 @map_domain_errors
 async def find_replacement(
     set_id: int,
@@ -83,7 +83,7 @@ async def find_replacement(
     )
 
 
-@tool(tags={ToolCategory.SETS.value}, annotations=ANNOTATIONS_READ_ONLY)
+@tool(title="Compare Versions", tags={ToolCategory.SETS.value}, annotations=ANNOTATIONS_READ_ONLY)
 @map_domain_errors
 async def compare_set_versions(
     set_id: int,
@@ -100,7 +100,7 @@ async def compare_set_versions(
     )
 
 
-@tool(tags={ToolCategory.SETS.value}, annotations=ANNOTATIONS_READ_ONLY)
+@tool(title="Quick Set Review", tags={ToolCategory.SETS.value}, annotations=ANNOTATIONS_READ_ONLY)
 @map_domain_errors
 async def quick_set_review(
     set_id: int,

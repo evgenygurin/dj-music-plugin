@@ -26,7 +26,7 @@ _IMPORT_ANNOTATIONS: dict[str, bool] = {"readOnlyHint": False, "idempotentHint":
 _DOWNLOAD_ANNOTATIONS: dict[str, bool] = {"readOnlyHint": False, "openWorldHint": True}
 
 
-@tool(
+@tool(title="Import Tracks",
     tags={ToolCategory.DISCOVERY.value},
     annotations=_IMPORT_ANNOTATIONS,
     timeout=ToolTimeout.BATCH,
@@ -58,7 +58,7 @@ async def import_tracks(
     )
 
 
-@tool(
+@tool(title="Download Tracks",
     tags={ToolCategory.DISCOVERY.value},
     annotations=_DOWNLOAD_ANNOTATIONS,
     timeout=ToolTimeout.BATCH,

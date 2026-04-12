@@ -209,7 +209,7 @@ async def _remove_tracks(
     }
 
 
-@tool(tags={ToolCategory.YM.value}, annotations=YM_WRITE_ANNOTATIONS)
+@tool(title="YM Playlists", tags={ToolCategory.YM.value}, annotations=YM_WRITE_ANNOTATIONS)
 async def ym_playlists(
     action: str = "list",
     kind: int | None = None,

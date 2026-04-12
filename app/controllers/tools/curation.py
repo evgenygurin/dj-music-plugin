@@ -53,7 +53,7 @@ async def _auto_triage(
         await log.info(f"Auto-analyzed {analysis['analyzed']} tracks (L2 triage)")
 
 
-@tool(
+@tool(title="Classify Mood",
     tags={ToolCategory.CURATION.value},
     annotations=ANNOTATIONS_WRITE,
     timeout=ToolTimeout.BATCH,
@@ -88,7 +88,7 @@ async def classify_mood(
     )
 
 
-@tool(
+@tool(title="Audit Playlist",
     tags={ToolCategory.CURATION.value},
     annotations=ANNOTATIONS_READ_ONLY,
     timeout=ToolTimeout.BATCH,
@@ -118,7 +118,7 @@ async def audit_playlist(
     )
 
 
-@tool(tags={ToolCategory.CURATION.value}, annotations=ANNOTATIONS_READ_ONLY)
+@tool(title="Review Set Quality", tags={ToolCategory.CURATION.value}, annotations=ANNOTATIONS_READ_ONLY)
 @map_domain_errors
 async def review_set_quality(
     set_id: int,
@@ -130,7 +130,7 @@ async def review_set_quality(
     return await svc.review_set_quality(set_id=set_id, version_label=version)
 
 
-@tool(tags={ToolCategory.CURATION.value}, annotations=ANNOTATIONS_WRITE)
+@tool(title="Distribute to Subgenres", tags={ToolCategory.CURATION.value}, annotations=ANNOTATIONS_WRITE)
 @map_domain_errors
 async def distribute_to_subgenres(
     source_playlist_id: int | None = None,
@@ -155,7 +155,7 @@ async def distribute_to_subgenres(
     )
 
 
-@tool(tags={ToolCategory.CURATION.value}, annotations=ANNOTATIONS_READ_ONLY)
+@tool(title="Library Stats", tags={ToolCategory.CURATION.value}, annotations=ANNOTATIONS_READ_ONLY)
 @map_domain_errors
 async def get_library_stats(
     svc: CurationService = Depends(get_curation_service),  # noqa: B008

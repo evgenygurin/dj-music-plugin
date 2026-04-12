@@ -24,7 +24,7 @@ from app.services.set.facade import SetService
 from app.services.workflows.build_set_workflow import BuildSetWorkflow
 
 
-@tool(
+@tool(title="Build Set",
     tags={ToolCategory.SETS.value},
     annotations=ANNOTATIONS_WRITE,
     timeout=ToolTimeout.BATCH,
@@ -53,7 +53,7 @@ async def build_set(
     )
 
 
-@tool(
+@tool(title="Rebuild Set",
     tags={ToolCategory.SETS.value},
     annotations=ANNOTATIONS_WRITE,
     timeout=ToolTimeout.BATCH,
@@ -80,7 +80,7 @@ async def rebuild_set(
     )
 
 
-@tool(tags={ToolCategory.SETS.value}, annotations=ANNOTATIONS_WRITE)
+@tool(title="Score Transitions", tags={ToolCategory.SETS.value}, annotations=ANNOTATIONS_WRITE)
 @map_domain_errors
 async def score_transitions(
     mode: str = "set",
@@ -108,7 +108,7 @@ async def score_transitions(
     )
 
 
-@tool(tags={ToolCategory.SETS.value}, annotations=ANNOTATIONS_READ_ONLY)
+@tool(title="Set Cheat Sheet", tags={ToolCategory.SETS.value}, annotations=ANNOTATIONS_READ_ONLY)
 @map_domain_errors
 async def get_set_cheat_sheet(
     set_id: int,

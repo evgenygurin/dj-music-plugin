@@ -33,7 +33,7 @@ _ANALYSIS_IDEMPOTENT: dict[str, bool] = {"idempotentHint": True}
 _VALID_STEMS = frozenset({"vocals", "drums", "bass", "other"})
 
 
-@tool(
+@tool(title="Analyze Track",
     tags={ToolCategory.AUDIO.value},
     annotations=_ANALYSIS_IDEMPOTENT,
     timeout=ToolTimeout.BATCH,
@@ -69,7 +69,7 @@ async def analyze_track(
     )
 
 
-@tool(
+@tool(title="Analyze Batch",
     tags={ToolCategory.AUDIO.value},
     annotations=_ANALYSIS_IDEMPOTENT,
     timeout=ToolTimeout.BATCH,
@@ -106,7 +106,7 @@ async def analyze_batch(
     )
 
 
-@tool(tags={ToolCategory.AUDIO.value}, timeout=ToolTimeout.BATCH)
+@tool(title="Separate Stems", tags={ToolCategory.AUDIO.value}, timeout=ToolTimeout.BATCH)
 @map_domain_errors
 async def separate_stems(
     track_id: int | None = None,

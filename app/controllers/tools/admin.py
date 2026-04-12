@@ -80,7 +80,7 @@ async def _build_status(ctx: Context | None) -> dict[str, Any]:
     }
 
 
-@tool(tags={ToolCategory.ADMIN.value}, annotations=ANNOTATIONS_WRITE)
+@tool(title="Unlock Tools", tags={ToolCategory.ADMIN.value}, annotations=ANNOTATIONS_WRITE)
 @map_domain_errors
 async def unlock_tools(
     action: str = "status",
@@ -113,7 +113,7 @@ async def unlock_tools(
     return {"action": "locked", "categories": sorted(tags)}
 
 
-@tool(tags={ToolCategory.ADMIN.value}, annotations=ANNOTATIONS_READ_ONLY)
+@tool(title="List Platforms", tags={ToolCategory.ADMIN.value}, annotations=ANNOTATIONS_READ_ONLY)
 @map_domain_errors
 async def list_platforms(
     svc: TrackService = Depends(get_track_service),  # noqa: B008
