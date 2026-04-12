@@ -165,11 +165,6 @@ class Settings(BaseSettings):
     sampling_max_tokens: int = 512
     sampling_temperature: float = 0.8
 
-    # ── Background Tasks ─────────────────────────────
-    docket_url: str = "memory://"
-    docket_concurrency: int = 4
-    task_poll_interval_seconds: int = 5
-
     # ── Observability ────────────────────────────────
     sentry_dsn: str = ""
     otel_enabled: bool = False

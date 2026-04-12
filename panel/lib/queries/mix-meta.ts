@@ -154,10 +154,8 @@ export async function getTrackMixMeta(trackId: number): Promise<TrackMixMeta | n
     // downbeat math uses, so use the same source for both.
     bpm: beatgridBpm ?? pickNumber(features?.bpm),
     // Prefer first_downbeat_ms from features (populated by pipeline beat
-    // detection), then beatgrid, then compute on-the-fly via backend.
-    // TODO: Remove on-the-fly computation after beatgrid migration completes
-    // and all tracks have first_downbeat_ms populated in DB.
-    firstDownbeatSec: await (async () => {
+    // detection), then beatgrid grid_offset_ms, then fallback to 0.
+    firstDownbeatSec: (() => {
       const fromFeatures = pickNumber(features?.first_downbeat_ms)
       if (fromFeatures != null) return fromFeatures / 1000
       if (firstDownbeatMs != null) return firstDownbeatMs / 1000

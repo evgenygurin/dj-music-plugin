@@ -5,24 +5,33 @@
 Plugin-based architecture: analyzers register themselves with capabilities and required dependencies.
 
 ```text
-AnalyzerRegistry (7 implemented)
+AnalyzerRegistry (18 implemented)
 ├── core (always available, pure Python + numpy)
-│   ├── LoudnessAnalyzer    → integrated_lufs, short_term, momentary, rms, peak, crest, LRA
-│   ├── EnergyAnalyzer      → mean, max, std, slope, 7-band breakdown, ratios
-│   └── SpectralAnalyzer    → centroid, rolloff, flatness, flux, slope, contrast, HNR
+│   ├── LoudnessAnalyzer        → integrated_lufs, short_term, momentary, rms, peak, crest, LRA
+│   ├── EnergyAnalyzer          → mean, max, std, slope, 7-band breakdown, ratios
+│   ├── SpectralAnalyzer        → centroid, rolloff, flatness, flux, slope, contrast, HNR
+│   └── StructureAnalyzer       → section boundaries (intro, drop, breakdown, outro, ...)
 │
 ├── librosa (requires [audio] extra)
-│   ├── BPMDetector         → bpm, confidence, stability, variable_tempo
-│   ├── KeyDetector         → key_code, confidence, atonality, chroma_vector
-│   ├── BeatDetector        → beat positions, onset_rate, pulse_clarity, kick_prominence, hp_ratio
-│   └── MFCCExtractor       → 13-coefficient vector
+│   ├── BPMDetector             → bpm, confidence, stability, variable_tempo
+│   ├── KeyDetector             → key_code, confidence, atonality, chroma_vector
+│   ├── BeatDetector            → beat positions, onset_rate, pulse_clarity, kick_prominence, hp_ratio
+│   ├── MFCCExtractor           → 13-coefficient vector
+│   ├── TempogramAnalyzer       → tempogram ratio vector
+│   ├── TonnetzAnalyzer         → tonnetz features for harmonic analysis
+│   ├── BpmHistogramAnalyzer    → BPM histogram (depends on beat)
+│   └── PhraseAnalyzer          → phrase boundaries (depends on beat + bpm)
 │
-├── NOT YET IMPLEMENTED (planned)
-│   ├── GrooveAnalyzer      → rhythmic complexity, swing metrics
-│   └── StructureAnalyzer   → section boundaries (intro, drop, breakdown, outro, ...)
+├── essentia (requires [audio] extra)
+│   ├── BeatsLoudnessAnalyzer   → beat-loudness band ratios
+│   ├── DanceabilityAnalyzer    → danceability score (unbounded)
+│   ├── DissonanceAnalyzer      → dissonance mean
+│   ├── DynamicComplexityAnalyzer → dynamic complexity score
+│   ├── PitchSalienceAnalyzer   → pitch salience mean
+│   └── SpectralComplexityAnalyzer → spectral complexity mean
 │
 └── NOT YET IMPLEMENTED (planned, requires [stems] extra)
-    └── StemSeparator       → vocals, drums, bass, other (demucs/htdemucs)
+    └── StemSeparator           → vocals, drums, bass, other (demucs/htdemucs)
 ```
 
 ## Pipeline Orchestration
@@ -65,7 +74,7 @@ Each window gets a 20ms hann-fade in and out to avoid click artifacts at
 the boundaries (which would otherwise create false onsets in beat
 detection). Then they are concatenated:
 
-```
+```text
 source: [intro] ─── [build] ─── [drop] ─── [break] ─── [outro]
                 ↑              ↑                ↑
               W1 (20s)      W2 (20s)         W3 (20s)

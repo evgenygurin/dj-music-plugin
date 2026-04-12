@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
+
+logger = logging.getLogger(__name__)
 
 from app.audio.level_config import AnalysisLevel
 from app.config import settings
@@ -100,7 +103,9 @@ class DeliverSetWorkflow:
         await call_async_method(log, "info", f"Stage 1/4: Loaded {len(items)} tracks")
         await call_async_method(log, "progress", 1, 4)
 
-        scored_count, conflict_count = await self._delivery_service.score_delivery_transitions(items)
+        scored_count, conflict_count = await self._delivery_service.score_delivery_transitions(
+            items
+        )
         await call_async_method(
             log,
             "info",
@@ -123,7 +128,7 @@ class DeliverSetWorkflow:
                         "conflicts": conflict_count,
                     }
             except Exception:
-                pass
+                logger.debug("Elicitation unavailable, skipping conflict gate")
 
         export_data = await self._delivery_service.build_export_data(dj_set, target_version, items)
         base_dir = Path(output_dir or settings.delivery_output_dir)
@@ -150,13 +155,13 @@ class DeliverSetWorkflow:
             dj_set.name,
             export_formats,
         )
-        await call_async_method(log, "info", f"Stage 3/4: Generated {len(generated_files)} export files")
+        await call_async_method(
+            log, "info", f"Stage 3/4: Generated {len(generated_files)} export files"
+        )
         await call_async_method(log, "progress", 3, 4)
 
         copied_files = (
-            await self._copy_audio_bundle(export_data, set_dir, log)
-            if copy_files
-            else 0
+            await self._copy_audio_bundle(export_data, set_dir, log) if copy_files else 0
         )
 
         ym_sync: dict[str, Any] | None = None
