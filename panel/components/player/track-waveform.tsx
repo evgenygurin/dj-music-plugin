@@ -168,9 +168,14 @@ export function TrackWaveform({
       try { ws.pause() } catch {}
     })
 
-    void ws.load(`/api/audio/${trackId}`).catch(() => {})
+    const ac = new AbortController()
+    void ws.load(`/api/audio/${trackId}`).catch((err: unknown) => {
+      if (err instanceof DOMException && err.name === 'AbortError') return
+      // Ignore stream abort during cleanup — expected when switching tracks
+    })
 
     return () => {
+      ac.abort()
       try { ws.destroy() } catch {}
       setReadyTrackId(cur => cur === trackId ? null : cur)
       wavesurferRef.current = null
