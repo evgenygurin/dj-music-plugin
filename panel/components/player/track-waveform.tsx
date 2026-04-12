@@ -175,8 +175,17 @@ export function TrackWaveform({
     })
 
     return () => {
+      // Suppress AbortError from WaveSurfer's internal fetch during destroy.
+      // The browser logs unhandled rejections even though destroy() is in try/catch
+      // because WaveSurfer's internal Promises reject asynchronously.
+      const suppress = (e: PromiseRejectionEvent) => {
+        if (e.reason?.name === 'AbortError') e.preventDefault()
+      }
+      window.addEventListener('unhandledrejection', suppress)
       ac.abort()
       try { ws.destroy() } catch {}
+      // Remove listener after microtask queue drains (rejections are async)
+      queueMicrotask(() => window.removeEventListener('unhandledrejection', suppress))
       setReadyTrackId(cur => cur === trackId ? null : cur)
       wavesurferRef.current = null
       regionsRef.current = null
