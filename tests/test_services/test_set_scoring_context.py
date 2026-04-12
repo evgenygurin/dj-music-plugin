@@ -67,6 +67,12 @@ class _FakeTransitionRepo:
     async def get_score(self, from_id: int, to_id: int):
         return self.rows.get((from_id, to_id))
 
+    async def get_scores_batch(
+        self,
+        pairs: list[tuple[int, int]],
+    ) -> dict[tuple[int, int], object]:
+        return {pair: self.rows[pair] for pair in pairs if pair in self.rows}
+
     async def save_score(self, transition):
         self.rows[(transition.from_track_id, transition.to_track_id)] = transition
         return transition

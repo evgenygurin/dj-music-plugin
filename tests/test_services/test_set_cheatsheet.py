@@ -64,12 +64,20 @@ async def test_get_cheat_sheet_falls_back_when_persisted_recipe_json_is_malforme
                     SimpleNamespace(title="Track A"),
                     SimpleNamespace(title="Track B"),
                 ]
-            )
+            ),
+            get_by_ids=AsyncMock(
+                return_value={
+                    1: SimpleNamespace(title="Track A"),
+                    2: SimpleNamespace(title="Track B"),
+                }
+            ),
         ),
         feature_repo=SimpleNamespace(
             get_scoring_features_batch=AsyncMock(
                 return_value={
-                    1: SimpleNamespace(bpm=128.0, key_code=1, integrated_lufs=-8.0, mood="driving"),
+                    1: SimpleNamespace(
+                        bpm=128.0, key_code=1, integrated_lufs=-8.0, mood="driving"
+                    ),
                     2: SimpleNamespace(bpm=130.0, key_code=2, integrated_lufs=-7.0, mood="peak"),
                 }
             )

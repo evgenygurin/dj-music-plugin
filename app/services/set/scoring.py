@@ -148,6 +148,7 @@ class SetScoringService:
         ``reject_reason`` so cache hits and fresh scores are
         indistinguishable to callers.
         """
+
         def _round(v: float | None) -> float | None:
             return round(v, 4) if v is not None else None
 
@@ -217,9 +218,21 @@ class SetScoringService:
         from_section_id: int | None = None,
         to_section_id: int | None = None,
         overlap_ms: int | None = None,
+        features_cache: dict[int, Any] | None = None,
+        existing_cache: dict[tuple[int, int], Transition] | None = None,
     ) -> dict[str, Any]:
-        """Score transition between two tracks. Save to DB."""
-        existing = await self._transitions.get_score(from_id, to_id)
+        """Score transition between two tracks. Save to DB.
+
+        When invoked inside a bulk loop (see :meth:`score_set_transitions`),
+        the caller can pass ``features_cache`` and ``existing_cache`` to
+        avoid hitting the database once per pair: both maps are pre-loaded
+        via a single batch query upstream, so the hot loop makes zero extra
+        round-trips.
+        """
+        if existing_cache is not None:
+            existing = existing_cache.get((from_id, to_id))
+        else:
+            existing = await self._transitions.get_score(from_id, to_id)
         can_use_cache = (
             existing is not None
             and existing.overall_quality is not None
@@ -255,8 +268,12 @@ class SetScoringService:
                 persisted_recipe_json=existing.transition_recipe_json,
             )
 
-        ft_from = await self._features.get_scoring_features(from_id)
-        ft_to = await self._features.get_scoring_features(to_id)
+        if features_cache is not None:
+            ft_from = features_cache.get(from_id)
+            ft_to = features_cache.get(to_id)
+        else:
+            ft_from = await self._features.get_scoring_features(from_id)
+            ft_to = await self._features.get_scoring_features(to_id)
 
         if not ft_from or not ft_to:
             return {
@@ -328,11 +345,29 @@ class SetScoringService:
         )
 
     async def score_set_transitions(self, set_id: int) -> dict[str, Any]:
-        """Score all sequential transitions in a set."""
+        """Score all sequential transitions in a set.
+
+        Optimised vs. the previous naive implementation:
+
+        * **Single batch-fetch** loads features for every track in the set
+          instead of N individual ``get_scoring_features`` calls — one SQL
+          round-trip instead of 2*N (once per pair endpoint).
+        * **Single batch-fetch** of existing transition rows short-circuits
+          already-scored pairs without N separate ``get_score`` queries.
+        * Per-pair recipe generation still runs because each pair can have
+          different section contexts, but the DB cost drops from O(N) to O(1).
+        """
         result = await self._sets.load_version_with_items(set_id)
         if result is None:
             raise NotFoundError("SetVersion", f"set_id={set_id}")
         latest, items = result
+
+        # Pre-batch the DB loads so the inner loop never waits on I/O.
+        involved_ids = list({item.track_id for item in items})
+        features_cache = await self._features.get_scoring_features_batch(involved_ids)
+
+        pair_keys = [(items[i].track_id, items[i + 1].track_id) for i in range(len(items) - 1)]
+        existing_cache = await self._transitions.get_scores_batch(pair_keys)
 
         section_rows_cache: dict[int, list[TrackSectionRow]] = {}
         transitions_data = []
@@ -356,6 +391,8 @@ class SetScoringService:
                 from_section_id=from_section_id,
                 to_section_id=to_section_id,
                 overlap_ms=overlap_ms,
+                features_cache=features_cache,
+                existing_cache=existing_cache,
             )
             score_data["position"] = i
             score_data["used_section_context"] = section_context is not None
@@ -448,7 +485,9 @@ class SetScoringService:
                     if candidate_bpm_distance is not None
                     else None,
                     "energy_step": round(energy_step, 4) if energy_step is not None else None,
-                    "energy_delta": round(abs(energy_step), 4) if energy_step is not None else None,
+                    "energy_delta": round(abs(energy_step), 4)
+                    if energy_step is not None
+                    else None,
                     "groove_similarity": round(score.groove, 4),
                     "harmonic_score": round(score.harmonic, 4),
                     "key_distance": candidate_key_distance,
@@ -468,9 +507,7 @@ class SetScoringService:
                 float(candidate["bpm_distance"])
                 if candidate["bpm_distance"] is not None
                 else float("inf"),
-                int(candidate["key_distance"])
-                if candidate["key_distance"] is not None
-                else 99,
+                int(candidate["key_distance"]) if candidate["key_distance"] is not None else 99,
                 abs(float(candidate["energy_step"]))
                 if candidate["energy_step"] is not None
                 else float("inf"),
