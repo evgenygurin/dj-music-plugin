@@ -27,7 +27,6 @@ return value.
 
 from __future__ import annotations
 
-import asyncio
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
@@ -225,29 +224,6 @@ class PrefetchService:
             # Prefetch is best-effort: never propagate analysis failures to
             # the caller. The next scoring call falls back to live analysis.
             return {"analyzed": 0, "skipped": len(bounded), "failed": len(bounded)}
-
-    async def prefetch_many(
-        self,
-        seed_track_ids: list[int],
-        pool_ids: list[int],
-        *,
-        top_k: int = 10,
-    ) -> list[PrefetchResult]:
-        """Run ``prefetch_after`` for multiple seeds serialised over one session.
-
-        Scores share a single SQLAlchemy session so we fan out via
-        ``asyncio.gather`` but bound concurrency with a 1-slot semaphore
-        (AsyncSession is not safe for concurrent writes).
-        """
-        if not seed_track_ids:
-            return []
-        sem = asyncio.Semaphore(1)
-
-        async def _one(seed: int) -> PrefetchResult:
-            async with sem:
-                return await self.prefetch_after(seed, pool_ids, top_k=top_k)
-
-        return list(await asyncio.gather(*[_one(s) for s in seed_track_ids]))
 
 
 def _empty_result(seed_track_id: int) -> PrefetchResult:

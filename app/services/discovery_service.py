@@ -5,8 +5,11 @@ Framework-agnostic: no MCP/FastMCP imports.
 
 from __future__ import annotations
 
+import logging
 import random
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 from app.config import settings
 from app.core.errors import NotFoundError, ValidationError
@@ -112,6 +115,7 @@ class DiscoveryService:
                         continue
                     all_results.append(ym_track_summary(t))
             except Exception:
+                logger.debug("YM similar query failed for seed, skipping", exc_info=True)
                 continue
 
         # Dedup by ym_id
@@ -229,6 +233,7 @@ class DiscoveryService:
             try:
                 raw_similar = await self._ym.get_similar(seed.id)
             except Exception:
+                logger.debug("YM get_similar failed for seed %s", seed.id, exc_info=True)
                 continue
 
             for t in raw_similar:
@@ -294,6 +299,7 @@ class DiscoveryService:
                 revision = result.get("revision", revision + 1)
                 added += len(batch)
             except Exception:
+                logger.warning("YM playlist modify failed, stopping batch add", exc_info=True)
                 break
 
         elapsed_ms = int((_time.monotonic() - _t0) * 1000)
