@@ -12,6 +12,8 @@ from app.controllers.dependencies.db import get_db_session
 from app.controllers.tools._shared.errors import map_domain_errors
 from app.controllers.tools._shared.taxonomy import (
     ANNOTATIONS_READ_ONLY,
+    ICON_MEMORY,
+    TOOL_META,
     ToolCategory,
 )
 from app.db.repositories.transition_history import TransitionHistoryRepository

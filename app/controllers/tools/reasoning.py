@@ -17,6 +17,8 @@ from fastmcp.tools import tool
 from app.controllers.dependencies import get_reasoning_service
 from app.controllers.tools._shared import (
     ANNOTATIONS_READ_ONLY,
+    ICON_SETS,
+    TOOL_META,
     ToolCategory,
     map_domain_errors,
 )

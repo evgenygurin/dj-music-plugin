@@ -9,6 +9,8 @@ from app.controllers.dependencies.services import get_transition_history_service
 from app.controllers.tools._shared.errors import map_domain_errors
 from app.controllers.tools._shared.taxonomy import (
     ANNOTATIONS_READ_ONLY,
+    ICON_MEMORY,
+    TOOL_META,
     ToolCategory,
 )
 from app.schemas.transition_history import BestPairRead, TransitionHistoryRead

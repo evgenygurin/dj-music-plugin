@@ -13,6 +13,9 @@ from fastmcp.tools import tool
 
 from app.controllers.dependencies import get_sync_playlist_workflow
 from app.controllers.tools._shared import (
+    ANNOTATIONS_WRITE_OPEN_WORLD,
+    ICON_SYNC,
+    TOOL_META,
     ToolCategory,
     map_domain_errors,
 )

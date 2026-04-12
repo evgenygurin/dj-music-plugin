@@ -18,6 +18,8 @@ from app.controllers.dependencies import get_feature_repo, get_track_service
 from app.controllers.tools._shared import (
     ANNOTATIONS_READ_ONLY,
     ANNOTATIONS_WRITE,
+    ICON_TRACKS,
+    TOOL_META,
     ToolCategory,
     map_domain_errors,
     resolve_track_id,

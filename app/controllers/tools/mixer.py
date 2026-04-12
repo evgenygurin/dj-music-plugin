@@ -12,6 +12,8 @@ from fastmcp.tools import tool
 
 from app.controllers.tools._shared.taxonomy import (
     ANNOTATIONS_READ_ONLY,
+    ICON_MIXER,
+    TOOL_META,
     ToolCategory,
 )
 from app.engines.mixer.engine import MixerEngine

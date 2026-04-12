@@ -28,7 +28,7 @@ from fastmcp.tools import tool
 from fastmcp.tools.tool import ToolResult
 from pydantic import Field
 
-from app.controllers.tools._shared import ANNOTATIONS_WRITE, ToolCategory
+from app.controllers.tools._shared import ANNOTATIONS_WRITE, ICON_ADMIN, TOOL_META, ToolCategory
 
 # Names that must never be invoked through the proxy (they are the proxy
 # itself or the companion search tool).

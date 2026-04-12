@@ -12,6 +12,11 @@ import json
 
 from fastmcp.resources import resource
 
+from app.controllers.tools._shared.taxonomy import (
+    ANNOTATIONS_READ_ONLY,
+    ICON_REFERENCE,
+    RESOURCE_META,
+)
 from app.core.constants import SetTemplate
 
 

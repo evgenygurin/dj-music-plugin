@@ -18,6 +18,11 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.controllers.dependencies import get_db_session
+from app.controllers.tools._shared.taxonomy import (
+    ANNOTATIONS_READ_ONLY,
+    ICON_RESOURCE,
+    RESOURCE_META,
+)
 from app.core.constants import CAMELOT_KEYS, TechnoSubgenre
 from app.core.errors import NotFoundError
 from app.db.models.audio import TrackAudioFeaturesComputed

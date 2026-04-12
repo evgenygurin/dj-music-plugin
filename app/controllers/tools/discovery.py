@@ -22,6 +22,9 @@ from pydantic import BaseModel
 from app.controllers.dependencies import get_discovery_service
 from app.controllers.tools._shared import (
     ANNOTATIONS_READ_ONLY_OPEN_WORLD,
+    ANNOTATIONS_WRITE_OPEN_WORLD,
+    ICON_DISCOVERY,
+    TOOL_META,
     ToolCategory,
     ToolContext,
     ToolTimeout,

@@ -17,6 +17,9 @@ from fastmcp.tools import tool
 from app.config import settings
 from app.controllers.dependencies import get_ym_client
 from app.controllers.tools._shared import (
+    ANNOTATIONS_WRITE_OPEN_WORLD,
+    ICON_YM,
+    TOOL_META,
     ActionDispatcher,
     ToolCategory,
     UnknownActionError,

@@ -6,7 +6,7 @@ from typing import Any
 
 from fastmcp.tools import tool
 
-from app.controllers.tools._shared import ANNOTATIONS_READ_ONLY, ToolCategory
+from app.controllers.tools._shared import ANNOTATIONS_READ_ONLY, ICON_SETS, TOOL_META, ToolCategory
 from app.templates.registry import TEMPLATES
 
 

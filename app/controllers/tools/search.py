@@ -19,6 +19,8 @@ from app.controllers.dependencies import (
 )
 from app.controllers.tools._shared import (
     ANNOTATIONS_READ_ONLY,
+    ICON_SEARCH,
+    TOOL_META,
     ToolCategory,
     map_domain_errors,
 )

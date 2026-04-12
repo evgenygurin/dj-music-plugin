@@ -17,6 +17,8 @@ from fastmcp.tools import tool
 
 from app.controllers.tools._shared.taxonomy import (
     ANNOTATIONS_READ_ONLY,
+    ICON_DECKS,
+    TOOL_META,
     ToolCategory,
 )
 from app.core.errors import NotFoundError

@@ -14,6 +14,9 @@ from fastmcp.tools import tool
 
 from app.controllers.dependencies import get_import_tracks_workflow
 from app.controllers.tools._shared import (
+    ANNOTATIONS_WRITE_OPEN_WORLD,
+    ICON_DISCOVERY,
+    TOOL_META,
     ToolCategory,
     ToolContext,
     ToolTimeout,

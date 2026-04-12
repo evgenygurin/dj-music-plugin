@@ -19,6 +19,9 @@ from app.controllers.dependencies import get_audio_service, get_ym_client
 from app.controllers.tools._shared import (
     ANNOTATIONS_READ_ONLY,
     ANNOTATIONS_READ_ONLY_OPEN_WORLD,
+    ANNOTATIONS_WRITE_IDEMPOTENT,
+    ICON_AUDIO,
+    TOOL_META,
     ToolCategory,
     ToolTimeout,
     map_domain_errors,

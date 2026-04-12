@@ -20,6 +20,8 @@ from app.controllers.dependencies import (
 from app.controllers.tools._shared import (
     ANNOTATIONS_READ_ONLY,
     ANNOTATIONS_WRITE,
+    ICON_PLAYLISTS,
+    TOOL_META,
     ToolCategory,
     map_domain_errors,
     resolve_entity,

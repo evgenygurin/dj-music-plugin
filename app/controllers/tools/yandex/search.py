@@ -11,6 +11,8 @@ from fastmcp.tools import tool
 from app.controllers.dependencies import get_ym_client
 from app.controllers.tools._shared import (
     ANNOTATIONS_READ_ONLY_OPEN_WORLD,
+    ICON_YM,
+    TOOL_META,
     ToolCategory,
 )
 from app.controllers.tools.yandex._constants import MAX_SEARCH_LIMIT, VALID_SEARCH_TYPES

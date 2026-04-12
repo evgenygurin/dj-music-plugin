@@ -14,6 +14,8 @@ from app.controllers.dependencies import get_set_service
 from app.controllers.tools._shared import (
     ANNOTATIONS_READ_ONLY,
     ANNOTATIONS_WRITE,
+    ICON_SETS,
+    TOOL_META,
     ToolCategory,
     ensure_reference,
     map_domain_errors,

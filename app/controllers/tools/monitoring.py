@@ -18,7 +18,11 @@ from typing import Any
 from fastmcp import Context
 from fastmcp.tools import tool
 
-from app.controllers.tools._shared.taxonomy import ToolCategory
+from app.controllers.tools._shared.taxonomy import (
+    ICON_MONITORING,
+    TOOL_META,
+    ToolCategory,
+)
 from app.engines.mixer.engine import MixerEngine
 
 DEFAULT_HZ = 15
