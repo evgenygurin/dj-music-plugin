@@ -50,12 +50,7 @@ class TrackAffinityRepository(BaseRepository[TrackAffinity]):
             TransitionHistory.to_track_id.label("track_b_id"),
             func.count().label("play_count"),
             func.avg(TransitionHistory.overall_score).label("avg_score"),
-            func.sum(
-                func.cast(
-                    TransitionHistory.user_reaction == "like",
-                    type_=func.integer if False else None,
-                )
-            ).label("like_count_raw"),
+            func.count().filter(TransitionHistory.user_reaction == "like").label("like_count_raw"),
             func.max(TransitionHistory.created_at).label("last_played_at"),
         ).group_by(TransitionHistory.from_track_id, TransitionHistory.to_track_id)
         result = await self.session.execute(agg)
