@@ -272,6 +272,7 @@ source_modules =
     dj_music.services
     dj_music.services.workflows
 forbidden_modules =
+    dj_music.models
     dj_music.ym
     dj_music.tools
     sqlalchemy
@@ -311,7 +312,29 @@ forbidden_modules =
     dj_music.tools
     dj_music.ym
     dj_music.repositories
+
+# 6. Pure domain packages must have no infra deps
+[importlinter:contract:pure-domain]
+name = Transition, optimization, export, templates must be pure
+type = forbidden
+source_modules =
+    dj_music.transition
+    dj_music.optimization
+    dj_music.export
+    dj_music.templates
+forbidden_modules =
+    dj_music.models
+    dj_music.repositories
+    dj_music.services
+    dj_music.tools
+    dj_music.ym
+    dj_music.engines
+    sqlalchemy
+    httpx
+    fastmcp
 ```
+
+**Замечание:** контракт `services-no-infra` также запрещает `dj_music.models` — сервисы работают ТОЛЬКО с schemas (Pydantic), не с ORM моделями.
 
 ---
 
@@ -558,7 +581,7 @@ di/
 | Session = async context manager | Гарантирует commit/rollback/close |
 | Repos flush(), never commit() | Транзакция на уровне tool call |
 | Services принимают Protocol, не конкретный класс | Testability, ISP |
-| DI factories в di/, не в domain/ | Domain не знает о DI framework |
+| DI factories в di/, не в schemas/ или services/ | Бизнес-логика не знает о DI framework |
 | Lifespan для singletons, Depends для per-request | Разное время жизни |
 | Один session на весь tool call | Consistency, UoW |
 
