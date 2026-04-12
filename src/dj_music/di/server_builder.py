@@ -27,8 +27,8 @@ def build_mcp_server() -> FastMCP:
     observability = setup_observability(logger)
     sampling_handler, sampling_handler_behavior = build_sampling_handler(logger)
 
-    # src/dj_music/ — FileSystemProvider auto-discovers tools/resources/prompts
-    mcp_dir = Path(__file__).resolve().parents[1]
+    # Scan only tools/, prompts/, resources/ — NOT the entire src/dj_music/
+    root = Path(__file__).resolve().parents[1]
     server_transforms = build_pre_constructor_transforms(logger)
 
     mcp = FastMCP(
@@ -38,7 +38,11 @@ def build_mcp_server() -> FastMCP:
             "and Yandex Music integration. "
             "Use unlock_tools to access hidden tool categories."
         ),
-        providers=[FileSystemProvider(mcp_dir)],
+        providers=[
+            FileSystemProvider(root / "tools"),
+            FileSystemProvider(root / "prompts"),
+            FileSystemProvider(root / "resources"),
+        ],
         transforms=server_transforms,
         lifespan=build_server_lifespan(),
         list_page_size=settings.pagination_size,

@@ -18,7 +18,7 @@ from key_value.aio.stores.memory import MemoryStore
 if TYPE_CHECKING:
     from key_value.aio.base import KeyValueStore
 
-from app.config import settings
+from dj_music.core.config import settings
 
 
 def create_storage_backend() -> KeyValueStore:

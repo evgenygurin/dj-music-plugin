@@ -34,6 +34,9 @@ class TrackBrief(BaseEntity):
     bpm: float | None = None
     key_code: int | None = None
     mood: str | None = None
+    artist_names: list[str] = []
+    duration_ms: int | None = None
+    key_camelot: str | None = None
 
 
 class TrackFilter(BaseFilter, BaseSort, BasePagination):
@@ -66,9 +69,6 @@ class TrackStandard(TrackBrief):
     Mirrors ``app.schemas.track.TrackStandard`` for service compatibility.
     """
 
-    artist_names: list[str] = []
-    duration_ms: int | None = None
-    key_camelot: str | None = None
     energy_lufs: float | None = None
     status: int = 0
     has_features: bool = False

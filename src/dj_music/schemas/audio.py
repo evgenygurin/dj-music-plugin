@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from pydantic import ConfigDict
+from typing import Any
+
+from pydantic import ConfigDict, field_validator
 
 from dj_music.schemas.base import BaseEntity
 
@@ -72,6 +74,25 @@ class TrackFeatures(BaseEntity):
     hp_ratio: float | None = None
     tempogram_ratio_vector: list[float] | None = None
 
+    @field_validator(
+        "mfcc_vector",
+        "energy_bands",
+        "beat_loudness_band_ratio",
+        "tonnetz_vector",
+        "tempogram_ratio_vector",
+        mode="before",
+    )
+    @classmethod
+    def _parse_json_list(cls, v: Any) -> list[float] | None:
+        """Parse JSON string → list[float] for vector fields stored as text in DB."""
+        if v is None:
+            return None
+        if isinstance(v, str):
+            import json
+
+            return json.loads(v)
+        return v
+
     # P3 enrichment: Timbral
     dynamic_complexity: float | None = None
 
@@ -80,3 +101,8 @@ class TrackFeatures(BaseEntity):
 
     # Mood classification
     mood: str | None = None
+
+    @classmethod
+    def from_db(cls, row: Any) -> TrackFeatures:
+        """Construct from a DB row or any object with matching attributes."""
+        return cls.model_validate(row, from_attributes=True)

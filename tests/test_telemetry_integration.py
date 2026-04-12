@@ -35,7 +35,7 @@ class TestTelemetryModules:
 
     def test_telemetry_module_imports(self):
         """Telemetry module imports successfully."""
-        from app import telemetry
+        from dj_music.core import telemetry
 
         assert hasattr(telemetry, "instrument_heavy_operation")
         assert hasattr(telemetry, "add_span_event")
