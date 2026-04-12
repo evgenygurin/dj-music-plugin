@@ -510,6 +510,85 @@ src/dj_music/
 
 ---
 
+## Dependency Injection — архитектура
+
+### DI Chain (4 уровня)
+
+```text
+Level 1: Session     — get_db_session() → async context manager (commit/rollback/close)
+Level 2: Repository  — get_track_repo(session=Depends(get_db_session)) → конкретный repo
+Level 3: Service     — get_track_service(repo=Depends(get_track_repo)) → service с Protocol deps
+Level 4: Tool        — @tool list_tracks(service=Depends(get_track_service)) → hidden from LLM
+```
+
+### 3 способа инъекции в FastMCP
+
+| Способ | Когда | Видимость LLM |
+|--------|-------|---------------|
+| `ctx: Context` | Request context | Hidden |
+| `param = Depends(factory)` | Repos, services, clients | Hidden |
+| `ctx: Context = CurrentContext()` | Explicit context | Hidden |
+
+**Depends() параметры автоматически скрыты от LLM schema.** Клиент видит только бизнес-параметры.
+
+### Session lifecycle
+
+```python
+# presentation/di/db.py — ЕДИНСТВЕННОЕ место commit/rollback
+@asynccontextmanager
+async def get_db_session():
+    session = async_session_factory()
+    try:
+        yield session
+        await session.commit()
+    except Exception:
+        await session.rollback()
+        raise
+    finally:
+        await session.close()
+```
+
+### Lifespan vs Depends — разное время жизни
+
+| Компонент | Время жизни | Механизм |
+|-----------|-------------|----------|
+| YM client, Analyzer registry | Server lifetime | `@lifespan` → state dict |
+| DB session, repos, services | Per-request (tool call) | `Depends()` → context manager |
+| UnitOfWork | Per-request | `Depends(get_uow)` |
+
+### Lifespan → DI bridge
+
+```python
+# Singletons из lifespan доступны через ctx:
+def get_ym_client(ctx: Context = CurrentContext()) -> YandexMusicClient:
+    return ctx.request_context.lifespan_context["ym_client"]
+```
+
+### DI modules в presentation/di/
+
+```text
+presentation/di/
+├── db.py          # get_db_session (context manager, commit/rollback)
+├── repos.py       # get_track_repo, get_set_repo, etc.
+├── services.py    # get_track_service, get_set_service, etc.
+├── audio.py       # get_audio_service, get_tiered_pipeline
+├── external.py    # get_ym_client (from lifespan state)
+└── uow.py         # get_uow (UnitOfWork aggregator)
+```
+
+### Ключевые правила DI
+
+| Правило | Причина |
+|---------|---------|
+| Session = async context manager | Гарантирует commit/rollback/close |
+| Repos flush(), never commit() | Транзакция на уровне tool call |
+| Services принимают Protocol, не конкретный класс | Testability, ISP |
+| DI factories в presentation/di/, не в domain/ | Domain не знает о DI framework |
+| Lifespan для singletons, Depends для per-request | Разное время жизни |
+| Один session на весь tool call | Consistency, UoW |
+
+---
+
 ## SOLID
 
 | Принцип | Как |
