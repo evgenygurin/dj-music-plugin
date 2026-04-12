@@ -19,15 +19,15 @@ from typing import Any
 
 import httpx
 
-from app.core.errors import APIError, AuthFailedError, RateLimitedError
-from app.ym.models import (
+from dj_music.core.errors import APIError, AuthFailedError, RateLimitedError
+from dj_music.ym.models import (
     YMAlbum,
     YMArtist,
     YMPlaylist,
     YMSearchResults,
     YMTrack,
 )
-from app.ym.rate_limiter import RateLimiter
+from dj_music.ym.rate_limiter import RateLimiter
 
 _log = logging.getLogger(__name__)
 

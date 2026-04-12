@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from app.config import settings
+from dj_music.core.config import settings
 
 
 def ym_track_summary(track: object) -> dict[str, Any]:
