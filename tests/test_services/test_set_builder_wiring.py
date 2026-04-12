@@ -43,7 +43,7 @@ def test_optimize_order_passes_template_and_moods_to_ga(monkeypatch) -> None:
                 track_order=list(track_ids), quality_score=0.77, algorithm="ga"
             )
 
-    monkeypatch.setattr("app.optimization.genetic.GeneticAlgorithm", _FakeGA)
+    monkeypatch.setattr("dj_music.optimization.genetic.GeneticAlgorithm", _FakeGA)
 
     track_ids = [1, 2, 3]
     track_features = [
@@ -97,7 +97,7 @@ def test_optimize_order_gracefully_ignores_unknown_template(monkeypatch) -> None
                 algorithm="greedy",
             )
 
-    monkeypatch.setattr("app.optimization.greedy.GreedyChainBuilder", _FakeGreedy)
+    monkeypatch.setattr("dj_music.optimization.greedy.GreedyChainBuilder", _FakeGreedy)
 
     track_ids = [11, 12, 13]
     track_features = [

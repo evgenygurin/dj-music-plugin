@@ -1,1 +1,6 @@
-from dj_music.audio.analyzers.dynamic_complexity import *  # noqa: F401,F403
+# Re-export shim for backward compatibility
+import importlib as _importlib
+import sys as _sys
+
+_real = _importlib.import_module("dj_music.audio.analyzers.dynamic_complexity")
+_sys.modules[__name__] = _real

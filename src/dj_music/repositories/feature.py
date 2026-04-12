@@ -7,8 +7,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models.audio import TrackAudioFeaturesComputed, TrackSection
 from app.db.models.track import Track
+from app.entities.audio.features import TrackFeatures
 from dj_music.repositories.base import BaseRepository
-from dj_music.schemas.audio import TrackFeatures
 
 
 class FeatureRepository(BaseRepository[TrackAudioFeaturesComputed]):

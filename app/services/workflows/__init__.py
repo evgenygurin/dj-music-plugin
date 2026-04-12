@@ -1,15 +1,6 @@
-"""Application workflows for multi-step orchestration."""
+# Re-export shim for backward compatibility
+import importlib as _importlib
+import sys as _sys
 
-from app.services.workflows.analyze_track_workflow import AnalyzeTrackWorkflow
-from app.services.workflows.build_set_workflow import BuildSetWorkflow
-from app.services.workflows.deliver_set_workflow import DeliverSetWorkflow
-from app.services.workflows.import_tracks_workflow import ImportTracksWorkflow
-from app.services.workflows.sync_playlist_workflow import SyncPlaylistWorkflow
-
-__all__ = [
-    "AnalyzeTrackWorkflow",
-    "BuildSetWorkflow",
-    "DeliverSetWorkflow",
-    "ImportTracksWorkflow",
-    "SyncPlaylistWorkflow",
-]
+_real = _importlib.import_module("dj_music.services.workflows")
+_sys.modules[__name__] = _real

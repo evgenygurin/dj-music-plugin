@@ -1,1 +1,6 @@
-from dj_music.export.json_writer import *  # noqa: F401,F403
+# Re-export shim for backward compatibility
+import importlib as _importlib
+import sys as _sys
+
+_real = _importlib.import_module("dj_music.export.json_writer")
+_sys.modules[__name__] = _real

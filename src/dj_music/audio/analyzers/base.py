@@ -20,8 +20,15 @@ from dj_music.audio.core.types import AnalyzerResult
 
 logger = logging.getLogger(__name__)
 
-# Global registry populated by @register_analyzer decorator
-_ANALYZER_REGISTRY: dict[str, type[BaseAnalyzer]] = {}
+# Global registry populated by @register_analyzer decorator.
+# Stored in sys.modules so it survives the file being loaded under two different
+# names (app.audio.analyzers.base vs dj_music.audio.analyzers.base).
+import sys as _sys_for_registry
+
+_REGISTRY_KEY = "_dj_music_analyzer_registry"
+if _REGISTRY_KEY not in _sys_for_registry.modules:
+    _sys_for_registry.modules[_REGISTRY_KEY] = {}  # type: ignore[assignment]
+_ANALYZER_REGISTRY: dict[str, type[BaseAnalyzer]] = _sys_for_registry.modules[_REGISTRY_KEY]  # type: ignore[assignment]
 
 
 def register_analyzer(cls: type[BaseAnalyzer]) -> type[BaseAnalyzer]:
@@ -133,13 +140,13 @@ class AnalyzerRegistry:
         import importlib
         import pkgutil
 
-        import app.audio.analyzers as pkg
+        import dj_music.audio.analyzers as pkg
 
         for info in pkgutil.iter_modules(pkg.__path__):
             if info.name in ("base", "__init__"):
                 continue
             with contextlib.suppress(ImportError):
-                importlib.import_module(f"app.audio.analyzers.{info.name}")
+                importlib.import_module(f"dj_music.audio.analyzers.{info.name}")
 
         for name, cls in _ANALYZER_REGISTRY.items():
             if name in self._analyzers:

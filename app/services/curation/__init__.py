@@ -1,5 +1,6 @@
-"""Curation services — mood classification, audit, distribution."""
+# Re-export shim for backward compatibility
+import importlib as _importlib
+import sys as _sys
 
-from app.services.curation.facade import CurationService
-
-__all__ = ["CurationService"]
+_real = _importlib.import_module("dj_music.services.curation")
+_sys.modules[__name__] = _real

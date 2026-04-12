@@ -1,3 +1,6 @@
-from app.services.set.facade import SetService
+# Re-export shim for backward compatibility
+import importlib as _importlib
+import sys as _sys
 
-__all__ = ["SetService"]
+_real = _importlib.import_module("dj_music.services.set")
+_sys.modules[__name__] = _real

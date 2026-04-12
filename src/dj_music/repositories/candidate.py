@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.models.audio import TrackAudioFeaturesComputed
 from app.db.models.transition import TransitionCandidate
 from dj_music.repositories.base import BaseRepository
-from dj_music.schemas.audio import TrackFeatures
+from app.entities.audio.features import TrackFeatures
 
 
 class CandidateRepository(BaseRepository[TransitionCandidate]):
