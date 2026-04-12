@@ -9,7 +9,7 @@ const REST_BASE = RAW.replace(/\/+mcp\/?$/, '').replace(/\/+$/, '')
 
 // Total timeout for the entire request (connect + stream body).
 // Backend read timeout is 15s per chunk; this covers the full transfer.
-const TOTAL_TIMEOUT_MS = 45_000
+const TOTAL_TIMEOUT_MS = 120_000
 
 export async function GET(
   request: Request,
