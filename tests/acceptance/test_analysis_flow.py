@@ -40,11 +40,6 @@ async def test_analysis_flow_persists_features_sections_and_run_metadata(
         )
         await session.commit()
 
-    # Audio tools are disabled at startup — unlock before calling
-    await acceptance_harness.client.call_tool(
-        "unlock_tools", {"action": "unlock", "category": "audio"},
-    )
-
     result = await acceptance_harness.client.call_tool(
         "analyze_track",
         {"track_id": track_id, "analyzers": ["energy", "tempo"]},
@@ -62,14 +57,20 @@ async def test_analysis_flow_persists_features_sections_and_run_metadata(
         assert features.mood == "driving"
 
         runs = (
-            await session.execute(
-                select(FeatureExtractionRun).where(FeatureExtractionRun.track_id == track_id)
+            (
+                await session.execute(
+                    select(FeatureExtractionRun).where(FeatureExtractionRun.track_id == track_id)
+                )
             )
-        ).scalars().all()
+            .scalars()
+            .all()
+        )
         assert len(runs) == 1
         assert runs[0].pipeline_name == "audio_service"
 
         sections = (
-            await session.execute(select(TrackSection).where(TrackSection.track_id == track_id))
-        ).scalars().all()
+            (await session.execute(select(TrackSection).where(TrackSection.track_id == track_id)))
+            .scalars()
+            .all()
+        )
         assert len(sections) == 1

@@ -143,17 +143,17 @@ Low-level building blocks used by composite tools. Not intended for direct use.
 | Set Building | 4 | `sets` | Always |
 | Set Reasoning | 5 | `sets` | Always |
 | Admin | 2 | `admin` | Always |
-| Delivery & Export | 2 | `delivery` | Always |
-| Discovery & Download | 5 | `discovery` | Always |
-| Curation | 5 | `curation` | Always |
-| Sync | 2 | `sync` | Always |
-| YM API | 6 | `ym` | Always |
-| Audio Analysis | 3 | `audio` | Hidden |
-| Atomic | 4 | `atomic` | Hidden |
+| Delivery & Export | 2 | `delivery` | Unlockable |
+| Discovery & Download | 5 | `discovery` | Unlockable |
+| Curation | 5 | `curation` | Unlockable |
+| Sync | 2 | `sync` | Unlockable |
+| YM API | 6 | `ym` | Unlockable |
+| Audio Analysis | 3 | `audio` | Unlockable |
+| Atomic | 4 | `atomic` | Unlockable |
 | **Total** | **50** | | |
 
-> **Note:** Extended categories (delivery, discovery, curation, sync, ym) are now always visible.
-> Claude Code does not re-fetch the tool list after `unlock_tools`, so only audio/atomic remain hidden.
+> **Note:** All 7 extended/hidden categories start disabled. Use `unlock_tools(action="unlock", category="all")`
+> to enable them — this triggers `notifications/tools/list_changed` so the client re-fetches the tool list.
 
 ## Legend
 

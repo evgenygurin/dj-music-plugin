@@ -20,15 +20,15 @@
 
 ## Исправления
 
-### FIX 1: Visibility — 20 tools стали видимы
+### FIX 1: unlock_tools теперь реально работает
 
-**Файл:** `app/bootstrap/visibility.py`
+**Файлы:** `app/controllers/tools/admin.py`, `app/bootstrap/visibility.py`
 
-**Было:** `mcp.disable(tags={"delivery","discovery","curation","sync","ym","audio","atomic"})` — 27 tools скрыты.
+**Было:** `unlock_tools` вызывал `ctx.enable_components(tags=...)` — session-level visibility rule, не триггерит `tools/list_changed` notification. Клиент не перезапрашивал tool list → 27 tools оставались невидимы.
 
-**Стало:** `mcp.disable(tags={"audio","atomic"})` — только 7 heavy/dangerous tools скрыты.
+**Стало:** `unlock_tools` вызывает `ctx.fastmcp.enable(tags=...)` — server-level enable, который триггерит `notifications/tools/list_changed`. Клиент автоматически перезапрашивает tool list. Все 7 disabled categories (delivery, discovery, curation, sync, ym, audio, atomic) реально разблокируются.
 
-**Причина:** Claude Code (stdio transport) не перезапрашивает tool list после `ctx.enable_components()`. Extended tools (ym, sync, curation, delivery, discovery) теперь видны сразу.
+**Visibility policy** оставлена без изменений: все 7 категорий скрыты при старте для экономии контекста (~5K vs ~9K tokens).
 
 ### FIX 2: FK IntegrityError → NotFoundError
 

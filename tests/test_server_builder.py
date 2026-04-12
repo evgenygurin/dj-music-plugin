@@ -28,6 +28,9 @@ def test_build_mcp_server_registers_resource_and_prompt_transforms() -> None:
     assert "ResourcesAsTools" in transform_names
     assert "PromptsAsTools" in transform_names
 
-    visibility_reprs = [repr(transform) for transform in mcp.transforms if type(transform).__name__ == "Visibility"]
-    # Only audio + atomic are disabled at startup (extended categories are now always visible)
-    assert any("atomic" in text and "audio" in text for text in visibility_reprs)
+    visibility_reprs = [
+        repr(transform) for transform in mcp.transforms if type(transform).__name__ == "Visibility"
+    ]
+    # All 7 toggleable categories are disabled at startup
+    assert any("atomic" in text for text in visibility_reprs)
+    assert any("ym" in text for text in visibility_reprs)
