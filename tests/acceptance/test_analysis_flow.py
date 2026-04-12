@@ -57,14 +57,20 @@ async def test_analysis_flow_persists_features_sections_and_run_metadata(
         assert features.mood == "driving"
 
         runs = (
-            await session.execute(
-                select(FeatureExtractionRun).where(FeatureExtractionRun.track_id == track_id)
+            (
+                await session.execute(
+                    select(FeatureExtractionRun).where(FeatureExtractionRun.track_id == track_id)
+                )
             )
-        ).scalars().all()
+            .scalars()
+            .all()
+        )
         assert len(runs) == 1
         assert runs[0].pipeline_name == "audio_service"
 
         sections = (
-            await session.execute(select(TrackSection).where(TrackSection.track_id == track_id))
-        ).scalars().all()
+            (await session.execute(select(TrackSection).where(TrackSection.track_id == track_id)))
+            .scalars()
+            .all()
+        )
         assert len(sections) == 1

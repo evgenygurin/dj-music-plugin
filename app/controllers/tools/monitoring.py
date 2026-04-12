@@ -50,11 +50,7 @@ async def watch_decks(
 ) -> dict[str, Any]:
     """Stream mixer + deck state at `hz` updates/sec for `duration_s` seconds.
 
-    Pushes one snapshot per tick via `ctx.report_progress` + `ctx.info`.
-    Cancellable via client `notifications/cancelled`. Returns final
-    snapshot + tick count when the budget runs out or the client cancels.
-
-    Bounds: 1 ≤ hz ≤ 30, 1 ≤ duration_s ≤ 600.
+    Cancellable via client. Returns final snapshot + tick count.
     """
     hz = max(1, min(int(hz), MAX_HZ))
     duration_s = max(1.0, min(float(duration_s), MAX_DURATION_S))
