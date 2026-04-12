@@ -1,37 +1,17 @@
 {
-  "total_registered": 65,
+  "total_registered": 85,
   "total_tested": 88,
-  "ok": 21,
+  "ok": 39,
   "tool_errors": 0,
-  "exceptions": 67,
+  "exceptions": 49,
   "missing_from_server": [
     "analyze_batch",
     "analyze_one_track",
     "analyze_track",
-    "audit_playlist",
-    "classify_mood",
     "classify_one_track",
-    "deliver_set",
-    "distribute_to_subgenres",
-    "download_tracks",
-    "expand_playlist_ym",
-    "export_set",
-    "filter_by_feedback",
-    "find_similar_tracks",
     "gate_one_track",
-    "get_library_stats",
     "get_similar_one_track",
-    "import_tracks",
-    "push_set_to_ym",
-    "review_set_quality",
-    "separate_stems",
-    "sync_playlist",
-    "ym_artist_tracks",
-    "ym_get_album",
-    "ym_get_tracks",
-    "ym_likes",
-    "ym_playlists",
-    "ym_search"
+    "separate_stems"
   ],
   "extra_in_server": [
     "get_prompt",
@@ -41,21 +21,21 @@
   ],
   "metadata_warnings": [
     {
-      "tool": "watch_decks",
+      "tool": "download_tracks",
       "issues": [
-        "description too long (319 chars)"
+        "description too long (470 chars)"
       ]
     },
     {
-      "tool": "create_scoring_profile",
+      "tool": "ym_get_album",
       "issues": [
-        "description too long (409 chars)"
+        "description too long (385 chars)"
       ]
     },
     {
-      "tool": "get_set_templates",
+      "tool": "ym_playlists",
       "issues": [
-        "description too long (481 chars)"
+        "description too long (434 chars)"
       ]
     }
   ],
@@ -76,7 +56,7 @@
       "tool": "analyze_set_narrative",
       "status": "EXCEPTION",
       "error": "ToolError: Not found: Error calling tool 'analyze_set_narrative'",
-      "elapsed": "0.13s",
+      "elapsed": "0.07s",
       "traceback": "Traceback (most recent call last):\n  File \"/home/user/dj-music-plugin/scripts/debug_all_tools.py\", line 344, in main\n    result = await client.call_tool(tool_name, args)\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/dj-music-plugin/.venv/lib/python3.12/site-packages/fastmcp/client/mixins/tools.py\", line 287, in call_tool\n    return await self._parse_call_tool_result(\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/dj-music-plugin/.venv/lib/python3.12/site-packages/fastmcp/client/mixins/tools.py\", line 181, in _parse_call_tool_result\n    return await _parse_call_tool_result(\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/dj-music-plugin/.venv/lib/python3.12/site-packages/fastmcp/client/mixins/tools.py\", line 390, in _parse_call_tool_result\n    raise ToolError(msg)\nfastmcp.exceptions.ToolError: Not found: Error calling tool 'analyze_set_narrative'\n"
     },
     {
@@ -87,16 +67,17 @@
     },
     {
       "tool": "audit_playlist",
-      "status": "MISSING",
-      "error": "Not registered on server",
-      "traceback": ""
+      "status": "EXCEPTION",
+      "error": "ToolError: Not found: Error calling tool 'audit_playlist'",
+      "elapsed": "0.05s",
+      "traceback": "Traceback (most recent call last):\n  File \"/home/user/dj-music-plugin/scripts/debug_all_tools.py\", line 344, in main\n    result = await client.call_tool(tool_name, args)\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/dj-music-plugin/.venv/lib/python3.12/site-packages/fastmcp/client/mixins/tools.py\", line 287, in call_tool\n    return await self._parse_call_tool_result(\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/dj-music-plugin/.venv/lib/python3.12/site-packages/fastmcp/client/mixins/tools.py\", line 181, in _parse_call_tool_result\n    return await _parse_call_tool_result(\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/dj-music-plugin/.venv/lib/python3.12/site-packages/fastmcp/client/mixins/tools.py\", line 390, in _parse_call_tool_result\n    raise ToolError(msg)\nfastmcp.exceptions.ToolError: Not found: Error calling tool 'audit_playlist'\n"
     },
     {
       "tool": "ban_track",
       "status": "EXCEPTION",
-      "error": "ToolError: Internal error: Error calling tool 'ban_track'",
-      "elapsed": "0.24s",
-      "traceback": "Traceback (most recent call last):\n  File \"/home/user/dj-music-plugin/scripts/debug_all_tools.py\", line 344, in main\n    result = await client.call_tool(tool_name, args)\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/dj-music-plugin/.venv/lib/python3.12/site-packages/fastmcp/client/mixins/tools.py\", line 287, in call_tool\n    return await self._parse_call_tool_result(\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/dj-music-plugin/.venv/lib/python3.12/site-packages/fastmcp/client/mixins/tools.py\", line 181, in _parse_call_tool_result\n    return await _parse_call_tool_result(\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/dj-music-plugin/.venv/lib/python3.12/site-packages/fastmcp/client/mixins/tools.py\", line 390, in _parse_call_tool_result\n    raise ToolError(msg)\nfastmcp.exceptions.ToolError: Internal error: Error calling tool 'ban_track'\n"
+      "error": "ToolError: Not found: Error calling tool 'ban_track'",
+      "elapsed": "0.10s",
+      "traceback": "Traceback (most recent call last):\n  File \"/home/user/dj-music-plugin/scripts/debug_all_tools.py\", line 344, in main\n    result = await client.call_tool(tool_name, args)\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/dj-music-plugin/.venv/lib/python3.12/site-packages/fastmcp/client/mixins/tools.py\", line 287, in call_tool\n    return await self._parse_call_tool_result(\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/dj-music-plugin/.venv/lib/python3.12/site-packages/fastmcp/client/mixins/tools.py\", line 181, in _parse_call_tool_result\n    return await _parse_call_tool_result(\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/dj-music-plugin/.venv/lib/python3.12/site-packages/fastmcp/client/mixins/tools.py\", line 390, in _parse_call_tool_result\n    raise ToolError(msg)\nfastmcp.exceptions.ToolError: Not found: Error calling tool 'ban_track'\n"
     },
     {
       "tool": "build_set",
@@ -107,9 +88,9 @@
     },
     {
       "tool": "classify_mood",
-      "status": "MISSING",
-      "error": "Not registered on server",
-      "traceback": ""
+      "status": "OK",
+      "elapsed": "0.01s",
+      "preview": "{\"classified\": 0, \"skipped_no_features\": 1, \"skipped_already_classified\": 0, \"total\": 1, \"distribution\": {}, \"tracks\": ["
     },
     {
       "tool": "classify_one_track",
@@ -121,94 +102,96 @@
       "tool": "compare_set_versions",
       "status": "EXCEPTION",
       "error": "ToolError: Invalid params: Error calling tool 'compare_set_versions'",
-      "elapsed": "0.07s",
+      "elapsed": "0.06s",
       "traceback": "Traceback (most recent call last):\n  File \"/home/user/dj-music-plugin/scripts/debug_all_tools.py\", line 344, in main\n    result = await client.call_tool(tool_name, args)\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/dj-music-plugin/.venv/lib/python3.12/site-packages/fastmcp/client/mixins/tools.py\", line 287, in call_tool\n    return await self._parse_call_tool_result(\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/dj-music-plugin/.venv/lib/python3.12/site-packages/fastmcp/client/mixins/tools.py\", line 181, in _parse_call_tool_result\n    return await _parse_call_tool_result(\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/dj-music-plugin/.venv/lib/python3.12/site-packages/fastmcp/client/mixins/tools.py\", line 390, in _parse_call_tool_result\n    raise ToolError(msg)\nfastmcp.exceptions.ToolError: Invalid params: Error calling tool 'compare_set_versions'\n"
     },
     {
       "tool": "create_scoring_profile",
       "status": "OK",
-      "elapsed": "0.01s",
+      "elapsed": "0.00s",
       "preview": "{\"id\": 1, \"name\": \"debug-profile\", \"weights\": {\"bpm\": 0.2, \"harmonic\": 0.12, \"energy\": 0.18, \"spectral\": 0.2, \"groove\": "
     },
     {
       "tool": "deck_cue",
       "status": "EXCEPTION",
-      "error": "ToolError: Internal error: 2 validation errors for call[deck_cue]\ndeck_id\n  Missing required argument [type=missing_argument, input_value={'deck': 1}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.12/v/missing_argument\ndeck\n  Unexpected keyword argument [type=unexpected_keyword_argument, input_value=1, input_type=int]\n    For further information visit https://errors.pydantic.dev/2.12/v/unexpected_keyword_argument",
-      "elapsed": "0.01s",
-      "traceback": "Traceback (most recent call last):\n  File \"/home/user/dj-music-plugin/scripts/debug_all_tools.py\", line 344, in main\n    result = await client.call_tool(tool_name, args)\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/dj-music-plugin/.venv/lib/python3.12/site-packages/fastmcp/client/mixins/tools.py\", line 287, in call_tool\n    return await self._parse_call_tool_result(\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/dj-music-plugin/.venv/lib/python3.12/site-packages/fastmcp/client/mixins/tools.py\", line 181, in _parse_call_tool_result\n    return await _parse_call_tool_result(\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/dj-music-plugin/.venv/lib/python3.12/site-packages/fastmcp/client/mixins/tools.py\", line 390, in _parse_call_tool_result\n    raise ToolError(msg)\nfastmcp.exceptions.ToolError: Internal error: 2 validation errors for call[deck_cue]\ndeck_id\n  Missing required argument [type=missing_argument, input_value={'deck': 1}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.12/v/missing_argument\ndeck\n  Unexpected keyword argument [type=unexpected_keyword_argument, input_value=1, input_type=int]\n    For further information visit https://errors.pydantic.dev/2.12/v/unexpected_keyword_argument\n"
+      "error": "ToolError: Not found: Error calling tool 'deck_cue'",
+      "elapsed": "0.02s",
+      "traceback": "Traceback (most recent call last):\n  File \"/home/user/dj-music-plugin/scripts/debug_all_tools.py\", line 344, in main\n    result = await client.call_tool(tool_name, args)\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/dj-music-plugin/.venv/lib/python3.12/site-packages/fastmcp/client/mixins/tools.py\", line 287, in call_tool\n    return await self._parse_call_tool_result(\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/dj-music-plugin/.venv/lib/python3.12/site-packages/fastmcp/client/mixins/tools.py\", line 181, in _parse_call_tool_result\n    return await _parse_call_tool_result(\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/dj-music-plugin/.venv/lib/python3.12/site-packages/fastmcp/client/mixins/tools.py\", line 390, in _parse_call_tool_result\n    raise ToolError(msg)\nfastmcp.exceptions.ToolError: Not found: Error calling tool 'deck_cue'\n"
     },
     {
       "tool": "deck_load",
       "status": "EXCEPTION",
-      "error": "ToolError: Internal error: 3 validation errors for call[deck_load]\ndeck_id\n  Missing required argument [type=missing_argument, input_value={'deck': 1, 'track_id': 1}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.12/v/missing_argument\nduration_ms\n  Missing required argument [type=missing_argument, input_value={'deck': 1, 'track_id': 1}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.12/v/missing_argument\ndeck\n  Unexpected keyword argument [type=unexpected_keyword_argument, input_value=1, input_type=int]\n    For further information visit https://errors.pydantic.dev/2.12/v/unexpected_keyword_argument",
-      "elapsed": "0.01s",
-      "traceback": "Traceback (most recent call last):\n  File \"/home/user/dj-music-plugin/scripts/debug_all_tools.py\", line 344, in main\n    result = await client.call_tool(tool_name, args)\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/dj-music-plugin/.venv/lib/python3.12/site-packages/fastmcp/client/mixins/tools.py\", line 287, in call_tool\n    return await self._parse_call_tool_result(\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/dj-music-plugin/.venv/lib/python3.12/site-packages/fastmcp/client/mixins/tools.py\", line 181, in _parse_call_tool_result\n    return await _parse_call_tool_result(\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/dj-music-plugin/.venv/lib/python3.12/site-packages/fastmcp/client/mixins/tools.py\", line 390, in _parse_call_tool_result\n    raise ToolError(msg)\nfastmcp.exceptions.ToolError: Internal error: 3 validation errors for call[deck_load]\ndeck_id\n  Missing required argument [type=missing_argument, input_value={'deck': 1, 'track_id': 1}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.12/v/missing_argument\nduration_ms\n  Missing required argument [type=missing_argument, input_value={'deck': 1, 'track_id': 1}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.12/v/missing_argument\ndeck\n  Unexpected keyword argument [type=unexpected_keyword_argument, input_value=1, input_type=int]\n    For further information visit https://errors.pydantic.dev/2.12/v/unexpected_keyword_argument\n"
+      "error": "ToolError: Not found: Error calling tool 'deck_load'",
+      "elapsed": "0.02s",
+      "traceback": "Traceback (most recent call last):\n  File \"/home/user/dj-music-plugin/scripts/debug_all_tools.py\", line 344, in main\n    result = await client.call_tool(tool_name, args)\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/dj-music-plugin/.venv/lib/python3.12/site-packages/fastmcp/client/mixins/tools.py\", line 287, in call_tool\n    return await self._parse_call_tool_result(\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/dj-music-plugin/.venv/lib/python3.12/site-packages/fastmcp/client/mixins/tools.py\", line 181, in _parse_call_tool_result\n    return await _parse_call_tool_result(\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/dj-music-plugin/.venv/lib/python3.12/site-packages/fastmcp/client/mixins/tools.py\", line 390, in _parse_call_tool_result\n    raise ToolError(msg)\nfastmcp.exceptions.ToolError: Not found: Error calling tool 'deck_load'\n"
     },
     {
       "tool": "deck_pause",
       "status": "EXCEPTION",
-      "error": "ToolError: Internal error: 2 validation errors for call[deck_pause]\ndeck_id\n  Missing required argument [type=missing_argument, input_value={'deck': 1}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.12/v/missing_argument\ndeck\n  Unexpected keyword argument [type=unexpected_keyword_argument, input_value=1, input_type=int]\n    For further information visit https://errors.pydantic.dev/2.12/v/unexpected_keyword_argument",
-      "elapsed": "0.01s",
-      "traceback": "Traceback (most recent call last):\n  File \"/home/user/dj-music-plugin/scripts/debug_all_tools.py\", line 344, in main\n    result = await client.call_tool(tool_name, args)\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/dj-music-plugin/.venv/lib/python3.12/site-packages/fastmcp/client/mixins/tools.py\", line 287, in call_tool\n    return await self._parse_call_tool_result(\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/dj-music-plugin/.venv/lib/python3.12/site-packages/fastmcp/client/mixins/tools.py\", line 181, in _parse_call_tool_result\n    return await _parse_call_tool_result(\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/dj-music-plugin/.venv/lib/python3.12/site-packages/fastmcp/client/mixins/tools.py\", line 390, in _parse_call_tool_result\n    raise ToolError(msg)\nfastmcp.exceptions.ToolError: Internal error: 2 validation errors for call[deck_pause]\ndeck_id\n  Missing required argument [type=missing_argument, input_value={'deck': 1}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.12/v/missing_argument\ndeck\n  Unexpected keyword argument [type=unexpected_keyword_argument, input_value=1, input_type=int]\n    For further information visit https://errors.pydantic.dev/2.12/v/unexpected_keyword_argument\n"
+      "error": "ToolError: Not found: Error calling tool 'deck_pause'",
+      "elapsed": "0.02s",
+      "traceback": "Traceback (most recent call last):\n  File \"/home/user/dj-music-plugin/scripts/debug_all_tools.py\", line 344, in main\n    result = await client.call_tool(tool_name, args)\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/dj-music-plugin/.venv/lib/python3.12/site-packages/fastmcp/client/mixins/tools.py\", line 287, in call_tool\n    return await self._parse_call_tool_result(\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/dj-music-plugin/.venv/lib/python3.12/site-packages/fastmcp/client/mixins/tools.py\", line 181, in _parse_call_tool_result\n    return await _parse_call_tool_result(\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/dj-music-plugin/.venv/lib/python3.12/site-packages/fastmcp/client/mixins/tools.py\", line 390, in _parse_call_tool_result\n    raise ToolError(msg)\nfastmcp.exceptions.ToolError: Not found: Error calling tool 'deck_pause'\n"
     },
     {
       "tool": "deck_play",
       "status": "EXCEPTION",
-      "error": "ToolError: Internal error: 2 validation errors for call[deck_play]\ndeck_id\n  Missing required argument [type=missing_argument, input_value={'deck': 1}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.12/v/missing_argument\ndeck\n  Unexpected keyword argument [type=unexpected_keyword_argument, input_value=1, input_type=int]\n    For further information visit https://errors.pydantic.dev/2.12/v/unexpected_keyword_argument",
-      "elapsed": "0.01s",
-      "traceback": "Traceback (most recent call last):\n  File \"/home/user/dj-music-plugin/scripts/debug_all_tools.py\", line 344, in main\n    result = await client.call_tool(tool_name, args)\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/dj-music-plugin/.venv/lib/python3.12/site-packages/fastmcp/client/mixins/tools.py\", line 287, in call_tool\n    return await self._parse_call_tool_result(\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/dj-music-plugin/.venv/lib/python3.12/site-packages/fastmcp/client/mixins/tools.py\", line 181, in _parse_call_tool_result\n    return await _parse_call_tool_result(\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/dj-music-plugin/.venv/lib/python3.12/site-packages/fastmcp/client/mixins/tools.py\", line 390, in _parse_call_tool_result\n    raise ToolError(msg)\nfastmcp.exceptions.ToolError: Internal error: 2 validation errors for call[deck_play]\ndeck_id\n  Missing required argument [type=missing_argument, input_value={'deck': 1}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.12/v/missing_argument\ndeck\n  Unexpected keyword argument [type=unexpected_keyword_argument, input_value=1, input_type=int]\n    For further information visit https://errors.pydantic.dev/2.12/v/unexpected_keyword_argument\n"
+      "error": "ToolError: Not found: Error calling tool 'deck_play'",
+      "elapsed": "0.02s",
+      "traceback": "Traceback (most recent call last):\n  File \"/home/user/dj-music-plugin/scripts/debug_all_tools.py\", line 344, in main\n    result = await client.call_tool(tool_name, args)\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/dj-music-plugin/.venv/lib/python3.12/site-packages/fastmcp/client/mixins/tools.py\", line 287, in call_tool\n    return await self._parse_call_tool_result(\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/dj-music-plugin/.venv/lib/python3.12/site-packages/fastmcp/client/mixins/tools.py\", line 181, in _parse_call_tool_result\n    return await _parse_call_tool_result(\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/dj-music-plugin/.venv/lib/python3.12/site-packages/fastmcp/client/mixins/tools.py\", line 390, in _parse_call_tool_result\n    raise ToolError(msg)\nfastmcp.exceptions.ToolError: Not found: Error calling tool 'deck_play'\n"
     },
     {
       "tool": "deck_set_gain",
       "status": "EXCEPTION",
-      "error": "ToolError: Internal error: 4 validation errors for call[deck_set_gain]\ndeck_id\n  Missing required argument [type=missing_argument, input_value={'deck': 1, 'gain_db': 0.0}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.12/v/missing_argument\ngain\n  Missing required argument [type=missing_argument, input_value={'deck': 1, 'gain_db': 0.0}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.12/v/missing_argument\ndeck\n  Unexpected keyword argument [type=unexpected_keyword_argument, input_value=1, input_type=int]\n    For further information visit https://errors.pydantic.dev/2.12/v/unexpected_keyword_argument\ngain_db\n  Unexpected keyword argument [type=unexpected_keyword_argument, input_value=0.0, input_type=float]\n    For further information visit https://errors.pydantic.dev/2.12/v/unexpected_keyword_argument",
-      "elapsed": "0.01s",
-      "traceback": "Traceback (most recent call last):\n  File \"/home/user/dj-music-plugin/scripts/debug_all_tools.py\", line 344, in main\n    result = await client.call_tool(tool_name, args)\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/dj-music-plugin/.venv/lib/python3.12/site-packages/fastmcp/client/mixins/tools.py\", line 287, in call_tool\n    return await self._parse_call_tool_result(\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/dj-music-plugin/.venv/lib/python3.12/site-packages/fastmcp/client/mixins/tools.py\", line 181, in _parse_call_tool_result\n    return await _parse_call_tool_result(\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/dj-music-plugin/.venv/lib/python3.12/site-packages/fastmcp/client/mixins/tools.py\", line 390, in _parse_call_tool_result\n    raise ToolError(msg)\nfastmcp.exceptions.ToolError: Internal error: 4 validation errors for call[deck_set_gain]\ndeck_id\n  Missing required argument [type=missing_argument, input_value={'deck': 1, 'gain_db': 0.0}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.12/v/missing_argument\ngain\n  Missing required argument [type=missing_argument, input_value={'deck': 1, 'gain_db': 0.0}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.12/v/missing_argument\ndeck\n  Unexpected keyword argument [type=unexpected_keyword_argument, input_value=1, input_type=int]\n    For further information visit https://errors.pydantic.dev/2.12/v/unexpected_keyword_argument\ngain_db\n  Unexpected keyword argument [type=unexpected_keyword_argument, input_value=0.0, input_type=float]\n    For further information visit https://errors.pydantic.dev/2.12/v/unexpected_keyword_argument\n"
+      "error": "ToolError: Not found: Error calling tool 'deck_set_gain'",
+      "elapsed": "0.02s",
+      "traceback": "Traceback (most recent call last):\n  File \"/home/user/dj-music-plugin/scripts/debug_all_tools.py\", line 344, in main\n    result = await client.call_tool(tool_name, args)\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/dj-music-plugin/.venv/lib/python3.12/site-packages/fastmcp/client/mixins/tools.py\", line 287, in call_tool\n    return await self._parse_call_tool_result(\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/dj-music-plugin/.venv/lib/python3.12/site-packages/fastmcp/client/mixins/tools.py\", line 181, in _parse_call_tool_result\n    return await _parse_call_tool_result(\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/dj-music-plugin/.venv/lib/python3.12/site-packages/fastmcp/client/mixins/tools.py\", line 390, in _parse_call_tool_result\n    raise ToolError(msg)\nfastmcp.exceptions.ToolError: Not found: Error calling tool 'deck_set_gain'\n"
     },
     {
       "tool": "deck_set_pitch",
       "status": "EXCEPTION",
-      "error": "ToolError: Internal error: 2 validation errors for call[deck_set_pitch]\ndeck_id\n  Missing required argument [type=missing_argument, input_value={'deck': 1, 'pitch': 0.0}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.12/v/missing_argument\ndeck\n  Unexpected keyword argument [type=unexpected_keyword_argument, input_value=1, input_type=int]\n    For further information visit https://errors.pydantic.dev/2.12/v/unexpected_keyword_argument",
-      "elapsed": "0.01s",
-      "traceback": "Traceback (most recent call last):\n  File \"/home/user/dj-music-plugin/scripts/debug_all_tools.py\", line 344, in main\n    result = await client.call_tool(tool_name, args)\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/dj-music-plugin/.venv/lib/python3.12/site-packages/fastmcp/client/mixins/tools.py\", line 287, in call_tool\n    return await self._parse_call_tool_result(\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/dj-music-plugin/.venv/lib/python3.12/site-packages/fastmcp/client/mixins/tools.py\", line 181, in _parse_call_tool_result\n    return await _parse_call_tool_result(\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/dj-music-plugin/.venv/lib/python3.12/site-packages/fastmcp/client/mixins/tools.py\", line 390, in _parse_call_tool_result\n    raise ToolError(msg)\nfastmcp.exceptions.ToolError: Internal error: 2 validation errors for call[deck_set_pitch]\ndeck_id\n  Missing required argument [type=missing_argument, input_value={'deck': 1, 'pitch': 0.0}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.12/v/missing_argument\ndeck\n  Unexpected keyword argument [type=unexpected_keyword_argument, input_value=1, input_type=int]\n    For further information visit https://errors.pydantic.dev/2.12/v/unexpected_keyword_argument\n"
+      "error": "ToolError: Not found: Error calling tool 'deck_set_pitch'",
+      "elapsed": "0.02s",
+      "traceback": "Traceback (most recent call last):\n  File \"/home/user/dj-music-plugin/scripts/debug_all_tools.py\", line 344, in main\n    result = await client.call_tool(tool_name, args)\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/dj-music-plugin/.venv/lib/python3.12/site-packages/fastmcp/client/mixins/tools.py\", line 287, in call_tool\n    return await self._parse_call_tool_result(\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/dj-music-plugin/.venv/lib/python3.12/site-packages/fastmcp/client/mixins/tools.py\", line 181, in _parse_call_tool_result\n    return await _parse_call_tool_result(\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/dj-music-plugin/.venv/lib/python3.12/site-packages/fastmcp/client/mixins/tools.py\", line 390, in _parse_call_tool_result\n    raise ToolError(msg)\nfastmcp.exceptions.ToolError: Not found: Error calling tool 'deck_set_pitch'\n"
     },
     {
       "tool": "deck_state",
       "status": "EXCEPTION",
-      "error": "ToolError: Internal error: 2 validation errors for call[deck_state]\ndeck_id\n  Missing required argument [type=missing_argument, input_value={'deck': 1}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.12/v/missing_argument\ndeck\n  Unexpected keyword argument [type=unexpected_keyword_argument, input_value=1, input_type=int]\n    For further information visit https://errors.pydantic.dev/2.12/v/unexpected_keyword_argument",
-      "elapsed": "0.01s",
-      "traceback": "Traceback (most recent call last):\n  File \"/home/user/dj-music-plugin/scripts/debug_all_tools.py\", line 344, in main\n    result = await client.call_tool(tool_name, args)\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/dj-music-plugin/.venv/lib/python3.12/site-packages/fastmcp/client/mixins/tools.py\", line 287, in call_tool\n    return await self._parse_call_tool_result(\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/dj-music-plugin/.venv/lib/python3.12/site-packages/fastmcp/client/mixins/tools.py\", line 181, in _parse_call_tool_result\n    return await _parse_call_tool_result(\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/dj-music-plugin/.venv/lib/python3.12/site-packages/fastmcp/client/mixins/tools.py\", line 390, in _parse_call_tool_result\n    raise ToolError(msg)\nfastmcp.exceptions.ToolError: Internal error: 2 validation errors for call[deck_state]\ndeck_id\n  Missing required argument [type=missing_argument, input_value={'deck': 1}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.12/v/missing_argument\ndeck\n  Unexpected keyword argument [type=unexpected_keyword_argument, input_value=1, input_type=int]\n    For further information visit https://errors.pydantic.dev/2.12/v/unexpected_keyword_argument\n"
+      "error": "ToolError: Not found: Error calling tool 'deck_state'",
+      "elapsed": "0.02s",
+      "traceback": "Traceback (most recent call last):\n  File \"/home/user/dj-music-plugin/scripts/debug_all_tools.py\", line 344, in main\n    result = await client.call_tool(tool_name, args)\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/dj-music-plugin/.venv/lib/python3.12/site-packages/fastmcp/client/mixins/tools.py\", line 287, in call_tool\n    return await self._parse_call_tool_result(\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/dj-music-plugin/.venv/lib/python3.12/site-packages/fastmcp/client/mixins/tools.py\", line 181, in _parse_call_tool_result\n    return await _parse_call_tool_result(\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/dj-music-plugin/.venv/lib/python3.12/site-packages/fastmcp/client/mixins/tools.py\", line 390, in _parse_call_tool_result\n    raise ToolError(msg)\nfastmcp.exceptions.ToolError: Not found: Error calling tool 'deck_state'\n"
     },
     {
       "tool": "deck_unload",
       "status": "EXCEPTION",
-      "error": "ToolError: Internal error: 2 validation errors for call[deck_unload]\ndeck_id\n  Missing required argument [type=missing_argument, input_value={'deck': 1}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.12/v/missing_argument\ndeck\n  Unexpected keyword argument [type=unexpected_keyword_argument, input_value=1, input_type=int]\n    For further information visit https://errors.pydantic.dev/2.12/v/unexpected_keyword_argument",
-      "elapsed": "0.01s",
-      "traceback": "Traceback (most recent call last):\n  File \"/home/user/dj-music-plugin/scripts/debug_all_tools.py\", line 344, in main\n    result = await client.call_tool(tool_name, args)\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/dj-music-plugin/.venv/lib/python3.12/site-packages/fastmcp/client/mixins/tools.py\", line 287, in call_tool\n    return await self._parse_call_tool_result(\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/dj-music-plugin/.venv/lib/python3.12/site-packages/fastmcp/client/mixins/tools.py\", line 181, in _parse_call_tool_result\n    return await _parse_call_tool_result(\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/dj-music-plugin/.venv/lib/python3.12/site-packages/fastmcp/client/mixins/tools.py\", line 390, in _parse_call_tool_result\n    raise ToolError(msg)\nfastmcp.exceptions.ToolError: Internal error: 2 validation errors for call[deck_unload]\ndeck_id\n  Missing required argument [type=missing_argument, input_value={'deck': 1}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.12/v/missing_argument\ndeck\n  Unexpected keyword argument [type=unexpected_keyword_argument, input_value=1, input_type=int]\n    For further information visit https://errors.pydantic.dev/2.12/v/unexpected_keyword_argument\n"
+      "error": "ToolError: Not found: Error calling tool 'deck_unload'",
+      "elapsed": "0.02s",
+      "traceback": "Traceback (most recent call last):\n  File \"/home/user/dj-music-plugin/scripts/debug_all_tools.py\", line 344, in main\n    result = await client.call_tool(tool_name, args)\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/dj-music-plugin/.venv/lib/python3.12/site-packages/fastmcp/client/mixins/tools.py\", line 287, in call_tool\n    return await self._parse_call_tool_result(\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/dj-music-plugin/.venv/lib/python3.12/site-packages/fastmcp/client/mixins/tools.py\", line 181, in _parse_call_tool_result\n    return await _parse_call_tool_result(\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/dj-music-plugin/.venv/lib/python3.12/site-packages/fastmcp/client/mixins/tools.py\", line 390, in _parse_call_tool_result\n    raise ToolError(msg)\nfastmcp.exceptions.ToolError: Not found: Error calling tool 'deck_unload'\n"
     },
     {
       "tool": "deliver_set",
-      "status": "MISSING",
-      "error": "Not registered on server",
-      "traceback": ""
+      "status": "EXCEPTION",
+      "error": "ToolError: Not found: Error calling tool 'deliver_set'",
+      "elapsed": "0.05s",
+      "traceback": "Traceback (most recent call last):\n  File \"/home/user/dj-music-plugin/scripts/debug_all_tools.py\", line 344, in main\n    result = await client.call_tool(tool_name, args)\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/dj-music-plugin/.venv/lib/python3.12/site-packages/fastmcp/client/mixins/tools.py\", line 287, in call_tool\n    return await self._parse_call_tool_result(\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/dj-music-plugin/.venv/lib/python3.12/site-packages/fastmcp/client/mixins/tools.py\", line 181, in _parse_call_tool_result\n    return await _parse_call_tool_result(\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/dj-music-plugin/.venv/lib/python3.12/site-packages/fastmcp/client/mixins/tools.py\", line 390, in _parse_call_tool_result\n    raise ToolError(msg)\nfastmcp.exceptions.ToolError: Not found: Error calling tool 'deliver_set'\n"
     },
     {
       "tool": "distribute_to_subgenres",
-      "status": "MISSING",
-      "error": "Not registered on server",
-      "traceback": ""
+      "status": "EXCEPTION",
+      "error": "ToolError: Invalid params: Error calling tool 'distribute_to_subgenres'",
+      "elapsed": "0.05s",
+      "traceback": "Traceback (most recent call last):\n  File \"/home/user/dj-music-plugin/scripts/debug_all_tools.py\", line 344, in main\n    result = await client.call_tool(tool_name, args)\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/dj-music-plugin/.venv/lib/python3.12/site-packages/fastmcp/client/mixins/tools.py\", line 287, in call_tool\n    return await self._parse_call_tool_result(\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/dj-music-plugin/.venv/lib/python3.12/site-packages/fastmcp/client/mixins/tools.py\", line 181, in _parse_call_tool_result\n    return await _parse_call_tool_result(\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/dj-music-plugin/.venv/lib/python3.12/site-packages/fastmcp/client/mixins/tools.py\", line 390, in _parse_call_tool_result\n    raise ToolError(msg)\nfastmcp.exceptions.ToolError: Invalid params: Error calling tool 'distribute_to_subgenres'\n"
     },
     {
       "tool": "download_tracks",
-      "status": "MISSING",
-      "error": "Not registered on server",
-      "traceback": ""
+      "status": "OK",
+      "elapsed": "0.01s",
+      "preview": "{\"requested\": 1, \"downloaded\": 0, \"skipped\": 0, \"linked_to_library\": 0, \"failed\": 0, \"target_dir\": \"/root/Music/DJ\", \"fi"
     },
     {
       "tool": "expand_playlist_ym",
-      "status": "MISSING",
-      "error": "Not registered on server",
-      "traceback": ""
+      "status": "OK",
+      "elapsed": "0.00s",
+      "preview": "{\"dry_run\": true, \"playlist_kind\": 1, \"current_count\": 0, \"target_count\": 100, \"candidates_found\": 0, \"would_add\": 0, \"b"
     },
     {
       "tool": "explain_transition",
@@ -219,15 +202,16 @@
     },
     {
       "tool": "export_set",
-      "status": "MISSING",
-      "error": "Not registered on server",
-      "traceback": ""
+      "status": "EXCEPTION",
+      "error": "ToolError: Not found: Error calling tool 'export_set'",
+      "elapsed": "0.05s",
+      "traceback": "Traceback (most recent call last):\n  File \"/home/user/dj-music-plugin/scripts/debug_all_tools.py\", line 344, in main\n    result = await client.call_tool(tool_name, args)\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/dj-music-plugin/.venv/lib/python3.12/site-packages/fastmcp/client/mixins/tools.py\", line 287, in call_tool\n    return await self._parse_call_tool_result(\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/dj-music-plugin/.venv/lib/python3.12/site-packages/fastmcp/client/mixins/tools.py\", line 181, in _parse_call_tool_result\n    return await _parse_call_tool_result(\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/dj-music-plugin/.venv/lib/python3.12/site-packages/fastmcp/client/mixins/tools.py\", line 390, in _parse_call_tool_result\n    raise ToolError(msg)\nfastmcp.exceptions.ToolError: Not found: Error calling tool 'export_set'\n"
     },
     {
       "tool": "filter_by_feedback",
-      "status": "MISSING",
-      "error": "Not registered on server",
-      "traceback": ""
+      "status": "OK",
+      "elapsed": "0.00s",
+      "preview": "{\"total\": 1, \"passed\": [\"12345\"], \"blocked_disliked\": [], \"boosted_liked\": [], \"counts\": {\"passed\": 1, \"blocked\": 0, \"bo"
     },
     {
       "tool": "filter_tracks",
@@ -244,9 +228,10 @@
     },
     {
       "tool": "find_similar_tracks",
-      "status": "MISSING",
-      "error": "Not registered on server",
-      "traceback": ""
+      "status": "EXCEPTION",
+      "error": "ToolError: Not found: Error calling tool 'find_similar_tracks'",
+      "elapsed": "0.05s",
+      "traceback": "Traceback (most recent call last):\n  File \"/home/user/dj-music-plugin/scripts/debug_all_tools.py\", line 344, in main\n    result = await client.call_tool(tool_name, args)\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/dj-music-plugin/.venv/lib/python3.12/site-packages/fastmcp/client/mixins/tools.py\", line 287, in call_tool\n    return await self._parse_call_tool_result(\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/dj-music-plugin/.venv/lib/python3.12/site-packages/fastmcp/client/mixins/tools.py\", line 181, in _parse_call_tool_result\n    return await _parse_call_tool_result(\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/dj-music-plugin/.venv/lib/python3.12/site-packages/fastmcp/client/mixins/tools.py\", line 390, in _parse_call_tool_result\n    raise ToolError(msg)\nfastmcp.exceptions.ToolError: Not found: Error calling tool 'find_similar_tracks'\n"
     },
     {
       "tool": "gate_one_track",
@@ -268,23 +253,21 @@
     },
     {
       "tool": "get_best_pairs",
-      "status": "EXCEPTION",
-      "error": "ToolError: Internal error: 1 validation error for call[get_best_pairs]\ntrack_id\n  Missing required argument [type=missing_argument, input_value={}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.12/v/missing_argument",
+      "status": "OK",
       "elapsed": "0.01s",
-      "traceback": "Traceback (most recent call last):\n  File \"/home/user/dj-music-plugin/scripts/debug_all_tools.py\", line 344, in main\n    result = await client.call_tool(tool_name, args)\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/dj-music-plugin/.venv/lib/python3.12/site-packages/fastmcp/client/mixins/tools.py\", line 287, in call_tool\n    return await self._parse_call_tool_result(\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/dj-music-plugin/.venv/lib/python3.12/site-packages/fastmcp/client/mixins/tools.py\", line 181, in _parse_call_tool_result\n    return await _parse_call_tool_result(\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/dj-music-plugin/.venv/lib/python3.12/site-packages/fastmcp/client/mixins/tools.py\", line 390, in _parse_call_tool_result\n    raise ToolError(msg)\nfastmcp.exceptions.ToolError: Internal error: 1 validation error for call[get_best_pairs]\ntrack_id\n  Missing required argument [type=missing_argument, input_value={}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.12/v/missing_argument\n"
+      "preview": "CallToolResult(content=[], structured_content={'result': []}, meta={'fastmcp': {'wrap_result': True}}, data=[], is_error"
     },
     {
       "tool": "get_energy_trend",
-      "status": "EXCEPTION",
-      "error": "ToolError: Internal error: 1 validation error for call[get_energy_trend]\nset_id\n  Unexpected keyword argument [type=unexpected_keyword_argument, input_value=1, input_type=int]\n    For further information visit https://errors.pydantic.dev/2.12/v/unexpected_keyword_argument",
+      "status": "OK",
       "elapsed": "0.01s",
-      "traceback": "Traceback (most recent call last):\n  File \"/home/user/dj-music-plugin/scripts/debug_all_tools.py\", line 344, in main\n    result = await client.call_tool(tool_name, args)\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/dj-music-plugin/.venv/lib/python3.12/site-packages/fastmcp/client/mixins/tools.py\", line 287, in call_tool\n    return await self._parse_call_tool_result(\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/dj-music-plugin/.venv/lib/python3.12/site-packages/fastmcp/client/mixins/tools.py\", line 181, in _parse_call_tool_result\n    return await _parse_call_tool_result(\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/dj-music-plugin/.venv/lib/python3.12/site-packages/fastmcp/client/mixins/tools.py\", line 390, in _parse_call_tool_result\n    raise ToolError(msg)\nfastmcp.exceptions.ToolError: Internal error: 1 validation error for call[get_energy_trend]\nset_id\n  Unexpected keyword argument [type=unexpected_keyword_argument, input_value=1, input_type=int]\n    For further information visit https://errors.pydantic.dev/2.12/v/unexpected_keyword_argument\n"
+      "preview": "{\"trend\": \"unknown\"}"
     },
     {
       "tool": "get_library_stats",
-      "status": "MISSING",
-      "error": "Not registered on server",
-      "traceback": ""
+      "status": "OK",
+      "elapsed": "0.01s",
+      "preview": "{\"tracks\": {\"total\": 0, \"active\": 0, \"archived\": 0, \"with_features\": 0, \"without_features\": 0, \"feature_coverage\": 0.0},"
     },
     {
       "tool": "get_liked_tracks",
@@ -308,21 +291,21 @@
     {
       "tool": "get_session_arc",
       "status": "OK",
-      "elapsed": "0.01s",
+      "elapsed": "0.00s",
       "preview": "CallToolResult(content=[], structured_content={'result': []}, meta={'fastmcp': {'wrap_result': True}}, data=[], is_error"
     },
     {
       "tool": "get_set",
       "status": "EXCEPTION",
       "error": "ToolError: Not found: Error calling tool 'get_set'",
-      "elapsed": "0.05s",
+      "elapsed": "0.04s",
       "traceback": "Traceback (most recent call last):\n  File \"/home/user/dj-music-plugin/scripts/debug_all_tools.py\", line 344, in main\n    result = await client.call_tool(tool_name, args)\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/dj-music-plugin/.venv/lib/python3.12/site-packages/fastmcp/client/mixins/tools.py\", line 287, in call_tool\n    return await self._parse_call_tool_result(\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/dj-music-plugin/.venv/lib/python3.12/site-packages/fastmcp/client/mixins/tools.py\", line 181, in _parse_call_tool_result\n    return await _parse_call_tool_result(\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/dj-music-plugin/.venv/lib/python3.12/site-packages/fastmcp/client/mixins/tools.py\", line 390, in _parse_call_tool_result\n    raise ToolError(msg)\nfastmcp.exceptions.ToolError: Not found: Error calling tool 'get_set'\n"
     },
     {
       "tool": "get_set_cheat_sheet",
       "status": "EXCEPTION",
       "error": "ToolError: Not found: Error calling tool 'get_set_cheat_sheet'",
-      "elapsed": "0.06s",
+      "elapsed": "0.05s",
       "traceback": "Traceback (most recent call last):\n  File \"/home/user/dj-music-plugin/scripts/debug_all_tools.py\", line 344, in main\n    result = await client.call_tool(tool_name, args)\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/dj-music-plugin/.venv/lib/python3.12/site-packages/fastmcp/client/mixins/tools.py\", line 287, in call_tool\n    return await self._parse_call_tool_result(\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/dj-music-plugin/.venv/lib/python3.12/site-packages/fastmcp/client/mixins/tools.py\", line 181, in _parse_call_tool_result\n    return await _parse_call_tool_result(\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/dj-music-plugin/.venv/lib/python3.12/site-packages/fastmcp/client/mixins/tools.py\", line 390, in _parse_call_tool_result\n    raise ToolError(msg)\nfastmcp.exceptions.ToolError: Not found: Error calling tool 'get_set_cheat_sheet'\n"
     },
     {
@@ -346,16 +329,15 @@
     },
     {
       "tool": "get_track_affinity",
-      "status": "EXCEPTION",
-      "error": "ToolError: Internal error: 3 validation errors for call[get_track_affinity]\ntrack_a_id\n  Missing required argument [type=missing_argument, input_value={'track_id': 1}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.12/v/missing_argument\ntrack_b_id\n  Missing required argument [type=missing_argument, input_value={'track_id': 1}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.12/v/missing_argument\ntrack_id\n  Unexpected keyword argument [type=unexpected_keyword_argument, input_value=1, input_type=int]\n    For further information visit https://errors.pydantic.dev/2.12/v/unexpected_keyword_argument",
-      "elapsed": "0.01s",
-      "traceback": "Traceback (most recent call last):\n  File \"/home/user/dj-music-plugin/scripts/debug_all_tools.py\", line 344, in main\n    result = await client.call_tool(tool_name, args)\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/dj-music-plugin/.venv/lib/python3.12/site-packages/fastmcp/client/mixins/tools.py\", line 287, in call_tool\n    return await self._parse_call_tool_result(\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/dj-music-plugin/.venv/lib/python3.12/site-packages/fastmcp/client/mixins/tools.py\", line 181, in _parse_call_tool_result\n    return await _parse_call_tool_result(\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/dj-music-plugin/.venv/lib/python3.12/site-packages/fastmcp/client/mixins/tools.py\", line 390, in _parse_call_tool_result\n    raise ToolError(msg)\nfastmcp.exceptions.ToolError: Internal error: 3 validation errors for call[get_track_affinity]\ntrack_a_id\n  Missing required argument [type=missing_argument, input_value={'track_id': 1}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.12/v/missing_argument\ntrack_b_id\n  Missing required argument [type=missing_argument, input_value={'track_id': 1}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.12/v/missing_argument\ntrack_id\n  Unexpected keyword argument [type=unexpected_keyword_argument, input_value=1, input_type=int]\n    For further information visit https://errors.pydantic.dev/2.12/v/unexpected_keyword_argument\n"
+      "status": "OK",
+      "elapsed": "0.00s",
+      "preview": "{\"found\": false, \"track_a_id\": 1, \"track_b_id\": 2}"
     },
     {
       "tool": "get_track_features",
       "status": "EXCEPTION",
       "error": "ToolError: Not found: Error calling tool 'get_track_features'",
-      "elapsed": "0.05s",
+      "elapsed": "0.04s",
       "traceback": "Traceback (most recent call last):\n  File \"/home/user/dj-music-plugin/scripts/debug_all_tools.py\", line 344, in main\n    result = await client.call_tool(tool_name, args)\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/dj-music-plugin/.venv/lib/python3.12/site-packages/fastmcp/client/mixins/tools.py\", line 287, in call_tool\n    return await self._parse_call_tool_result(\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/dj-music-plugin/.venv/lib/python3.12/site-packages/fastmcp/client/mixins/tools.py\", line 181, in _parse_call_tool_result\n    return await _parse_call_tool_result(\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/dj-music-plugin/.venv/lib/python3.12/site-packages/fastmcp/client/mixins/tools.py\", line 390, in _parse_call_tool_result\n    raise ToolError(msg)\nfastmcp.exceptions.ToolError: Not found: Error calling tool 'get_track_features'\n"
     },
     {
@@ -367,34 +349,33 @@
     {
       "tool": "get_transition_history",
       "status": "OK",
-      "elapsed": "0.01s",
+      "elapsed": "0.02s",
       "preview": "CallToolResult(content=[], structured_content={'result': []}, meta={'fastmcp': {'wrap_result': True}}, data=[], is_error"
     },
     {
       "tool": "import_tracks",
-      "status": "MISSING",
-      "error": "Not registered on server",
-      "traceback": ""
+      "status": "OK",
+      "elapsed": "0.01s",
+      "preview": "{\"imported\": 1, \"skipped\": 0, \"enriched\": 0, \"total_refs\": 1, \"id_mapping\": {\"12345\": 1}, \"playlist_added\": 0}"
     },
     {
       "tool": "kill_eq",
       "status": "EXCEPTION",
-      "error": "ToolError: Internal error: 2 validation errors for call[kill_eq]\ndeck_id\n  Missing required argument [type=missing_argument, input_value={'deck': 1, 'band': 'mid'}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.12/v/missing_argument\ndeck\n  Unexpected keyword argument [type=unexpected_keyword_argument, input_value=1, input_type=int]\n    For further information visit https://errors.pydantic.dev/2.12/v/unexpected_keyword_argument",
-      "elapsed": "0.01s",
-      "traceback": "Traceback (most recent call last):\n  File \"/home/user/dj-music-plugin/scripts/debug_all_tools.py\", line 344, in main\n    result = await client.call_tool(tool_name, args)\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/dj-music-plugin/.venv/lib/python3.12/site-packages/fastmcp/client/mixins/tools.py\", line 287, in call_tool\n    return await self._parse_call_tool_result(\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/dj-music-plugin/.venv/lib/python3.12/site-packages/fastmcp/client/mixins/tools.py\", line 181, in _parse_call_tool_result\n    return await _parse_call_tool_result(\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/dj-music-plugin/.venv/lib/python3.12/site-packages/fastmcp/client/mixins/tools.py\", line 390, in _parse_call_tool_result\n    raise ToolError(msg)\nfastmcp.exceptions.ToolError: Internal error: 2 validation errors for call[kill_eq]\ndeck_id\n  Missing required argument [type=missing_argument, input_value={'deck': 1, 'band': 'mid'}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.12/v/missing_argument\ndeck\n  Unexpected keyword argument [type=unexpected_keyword_argument, input_value=1, input_type=int]\n    For further information visit https://errors.pydantic.dev/2.12/v/unexpected_keyword_argument\n"
+      "error": "ToolError: Not found: Error calling tool 'kill_eq'",
+      "elapsed": "0.02s",
+      "traceback": "Traceback (most recent call last):\n  File \"/home/user/dj-music-plugin/scripts/debug_all_tools.py\", line 344, in main\n    result = await client.call_tool(tool_name, args)\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/dj-music-plugin/.venv/lib/python3.12/site-packages/fastmcp/client/mixins/tools.py\", line 287, in call_tool\n    return await self._parse_call_tool_result(\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/dj-music-plugin/.venv/lib/python3.12/site-packages/fastmcp/client/mixins/tools.py\", line 181, in _parse_call_tool_result\n    return await _parse_call_tool_result(\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/dj-music-plugin/.venv/lib/python3.12/site-packages/fastmcp/client/mixins/tools.py\", line 390, in _parse_call_tool_result\n    raise ToolError(msg)\nfastmcp.exceptions.ToolError: Not found: Error calling tool 'kill_eq'\n"
     },
     {
       "tool": "like_track",
-      "status": "EXCEPTION",
-      "error": "ToolError: Internal error: Error calling tool 'like_track'",
-      "elapsed": "0.17s",
-      "traceback": "Traceback (most recent call last):\n  File \"/home/user/dj-music-plugin/scripts/debug_all_tools.py\", line 344, in main\n    result = await client.call_tool(tool_name, args)\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/dj-music-plugin/.venv/lib/python3.12/site-packages/fastmcp/client/mixins/tools.py\", line 287, in call_tool\n    return await self._parse_call_tool_result(\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/dj-music-plugin/.venv/lib/python3.12/site-packages/fastmcp/client/mixins/tools.py\", line 181, in _parse_call_tool_result\n    return await _parse_call_tool_result(\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/dj-music-plugin/.venv/lib/python3.12/site-packages/fastmcp/client/mixins/tools.py\", line 390, in _parse_call_tool_result\n    raise ToolError(msg)\nfastmcp.exceptions.ToolError: Internal error: Error calling tool 'like_track'\n"
+      "status": "OK",
+      "elapsed": "0.01s",
+      "preview": "{\"id\":1,\"track_id\":1,\"rating\":5,\"status\":\"liked\",\"notes\":null,\"play_count\":0,\"skip_count\":0}"
     },
     {
       "tool": "list_platforms",
       "status": "OK",
       "elapsed": "0.00s",
-      "preview": "[{\"platform\":\"yandex_music\",\"linked_tracks\":0,\"available\":true},{\"platform\":\"spotify\",\"linked_tracks\":0,\"available\":true"
+      "preview": "[{\"platform\":\"yandex_music\",\"linked_tracks\":1,\"available\":true},{\"platform\":\"spotify\",\"linked_tracks\":0,\"available\":true"
     },
     {
       "tool": "list_playlists",
@@ -417,15 +398,15 @@
     {
       "tool": "list_tracks",
       "status": "OK",
-      "elapsed": "0.01s",
-      "preview": "{\"items\":[],\"next_cursor\":null,\"total\":0}"
+      "elapsed": "0.02s",
+      "preview": "{\"items\":[{\"id\":1,\"title\":\"YM:12345\",\"artist_names\":[],\"bpm\":null,\"key_camelot\":null,\"duration_ms\":null}],\"next_cursor\":"
     },
     {
       "tool": "log_transition",
       "status": "EXCEPTION",
-      "error": "ToolError: Internal error: Error calling tool 'log_transition'",
-      "elapsed": "0.23s",
-      "traceback": "Traceback (most recent call last):\n  File \"/home/user/dj-music-plugin/scripts/debug_all_tools.py\", line 344, in main\n    result = await client.call_tool(tool_name, args)\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/dj-music-plugin/.venv/lib/python3.12/site-packages/fastmcp/client/mixins/tools.py\", line 287, in call_tool\n    return await self._parse_call_tool_result(\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/dj-music-plugin/.venv/lib/python3.12/site-packages/fastmcp/client/mixins/tools.py\", line 181, in _parse_call_tool_result\n    return await _parse_call_tool_result(\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/dj-music-plugin/.venv/lib/python3.12/site-packages/fastmcp/client/mixins/tools.py\", line 390, in _parse_call_tool_result\n    raise ToolError(msg)\nfastmcp.exceptions.ToolError: Internal error: Error calling tool 'log_transition'\n"
+      "error": "ToolError: Not found: Error calling tool 'log_transition'",
+      "elapsed": "0.05s",
+      "traceback": "Traceback (most recent call last):\n  File \"/home/user/dj-music-plugin/scripts/debug_all_tools.py\", line 344, in main\n    result = await client.call_tool(tool_name, args)\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/dj-music-plugin/.venv/lib/python3.12/site-packages/fastmcp/client/mixins/tools.py\", line 287, in call_tool\n    return await self._parse_call_tool_result(\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/dj-music-plugin/.venv/lib/python3.12/site-packages/fastmcp/client/mixins/tools.py\", line 181, in _parse_call_tool_result\n    return await _parse_call_tool_result(\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/dj-music-plugin/.venv/lib/python3.12/site-packages/fastmcp/client/mixins/tools.py\", line 390, in _parse_call_tool_result\n    raise ToolError(msg)\nfastmcp.exceptions.ToolError: Not found: Error calling tool 'log_transition'\n"
     },
     {
       "tool": "manage_playlist",
@@ -443,21 +424,21 @@
       "tool": "manage_tracks",
       "status": "OK",
       "elapsed": "0.02s",
-      "preview": "{\"id\":1,\"title\":\"Debug Track\",\"artist_names\":[],\"bpm\":null,\"key_camelot\":null,\"duration_ms\":180000,\"energy_lufs\":null,\"m"
+      "preview": "{\"id\":2,\"title\":\"Debug Track\",\"artist_names\":[],\"bpm\":null,\"key_camelot\":null,\"duration_ms\":180000,\"energy_lufs\":null,\"m"
     },
     {
       "tool": "mixer_channel_gain",
       "status": "EXCEPTION",
-      "error": "ToolError: Internal error: 4 validation errors for call[mixer_channel_gain]\ndeck_id\n  Missing required argument [type=missing_argument, input_value={'channel': 1, 'gain_db': 0.0}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.12/v/missing_argument\ngain\n  Missing required argument [type=missing_argument, input_value={'channel': 1, 'gain_db': 0.0}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.12/v/missing_argument\nchannel\n  Unexpected keyword argument [type=unexpected_keyword_argument, input_value=1, input_type=int]\n    For further information visit https://errors.pydantic.dev/2.12/v/unexpected_keyword_argument\ngain_db\n  Unexpected keyword argument [type=unexpected_keyword_argument, input_value=0.0, input_type=float]\n    For further information visit https://errors.pydantic.dev/2.12/v/unexpected_keyword_argument",
-      "elapsed": "0.01s",
-      "traceback": "Traceback (most recent call last):\n  File \"/home/user/dj-music-plugin/scripts/debug_all_tools.py\", line 344, in main\n    result = await client.call_tool(tool_name, args)\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/dj-music-plugin/.venv/lib/python3.12/site-packages/fastmcp/client/mixins/tools.py\", line 287, in call_tool\n    return await self._parse_call_tool_result(\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/dj-music-plugin/.venv/lib/python3.12/site-packages/fastmcp/client/mixins/tools.py\", line 181, in _parse_call_tool_result\n    return await _parse_call_tool_result(\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/dj-music-plugin/.venv/lib/python3.12/site-packages/fastmcp/client/mixins/tools.py\", line 390, in _parse_call_tool_result\n    raise ToolError(msg)\nfastmcp.exceptions.ToolError: Internal error: 4 validation errors for call[mixer_channel_gain]\ndeck_id\n  Missing required argument [type=missing_argument, input_value={'channel': 1, 'gain_db': 0.0}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.12/v/missing_argument\ngain\n  Missing required argument [type=missing_argument, input_value={'channel': 1, 'gain_db': 0.0}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.12/v/missing_argument\nchannel\n  Unexpected keyword argument [type=unexpected_keyword_argument, input_value=1, input_type=int]\n    For further information visit https://errors.pydantic.dev/2.12/v/unexpected_keyword_argument\ngain_db\n  Unexpected keyword argument [type=unexpected_keyword_argument, input_value=0.0, input_type=float]\n    For further information visit https://errors.pydantic.dev/2.12/v/unexpected_keyword_argument\n"
+      "error": "ToolError: Not found: Error calling tool 'mixer_channel_gain'",
+      "elapsed": "0.02s",
+      "traceback": "Traceback (most recent call last):\n  File \"/home/user/dj-music-plugin/scripts/debug_all_tools.py\", line 344, in main\n    result = await client.call_tool(tool_name, args)\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/dj-music-plugin/.venv/lib/python3.12/site-packages/fastmcp/client/mixins/tools.py\", line 287, in call_tool\n    return await self._parse_call_tool_result(\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/dj-music-plugin/.venv/lib/python3.12/site-packages/fastmcp/client/mixins/tools.py\", line 181, in _parse_call_tool_result\n    return await _parse_call_tool_result(\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/dj-music-plugin/.venv/lib/python3.12/site-packages/fastmcp/client/mixins/tools.py\", line 390, in _parse_call_tool_result\n    raise ToolError(msg)\nfastmcp.exceptions.ToolError: Not found: Error calling tool 'mixer_channel_gain'\n"
     },
     {
       "tool": "mixer_crossfader",
       "status": "EXCEPTION",
-      "error": "ToolError: Internal error: 2 validation errors for call[mixer_crossfader]\ntarget\n  Missing required argument [type=missing_argument, input_value={'position': 0.5}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.12/v/missing_argument\nposition\n  Unexpected keyword argument [type=unexpected_keyword_argument, input_value=0.5, input_type=float]\n    For further information visit https://errors.pydantic.dev/2.12/v/unexpected_keyword_argument",
-      "elapsed": "0.01s",
-      "traceback": "Traceback (most recent call last):\n  File \"/home/user/dj-music-plugin/scripts/debug_all_tools.py\", line 344, in main\n    result = await client.call_tool(tool_name, args)\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/dj-music-plugin/.venv/lib/python3.12/site-packages/fastmcp/client/mixins/tools.py\", line 287, in call_tool\n    return await self._parse_call_tool_result(\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/dj-music-plugin/.venv/lib/python3.12/site-packages/fastmcp/client/mixins/tools.py\", line 181, in _parse_call_tool_result\n    return await _parse_call_tool_result(\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/dj-music-plugin/.venv/lib/python3.12/site-packages/fastmcp/client/mixins/tools.py\", line 390, in _parse_call_tool_result\n    raise ToolError(msg)\nfastmcp.exceptions.ToolError: Internal error: 2 validation errors for call[mixer_crossfader]\ntarget\n  Missing required argument [type=missing_argument, input_value={'position': 0.5}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.12/v/missing_argument\nposition\n  Unexpected keyword argument [type=unexpected_keyword_argument, input_value=0.5, input_type=float]\n    For further information visit https://errors.pydantic.dev/2.12/v/unexpected_keyword_argument\n"
+      "error": "ToolError: Not found: Error calling tool 'mixer_crossfader'",
+      "elapsed": "0.02s",
+      "traceback": "Traceback (most recent call last):\n  File \"/home/user/dj-music-plugin/scripts/debug_all_tools.py\", line 344, in main\n    result = await client.call_tool(tool_name, args)\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/dj-music-plugin/.venv/lib/python3.12/site-packages/fastmcp/client/mixins/tools.py\", line 287, in call_tool\n    return await self._parse_call_tool_result(\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/dj-music-plugin/.venv/lib/python3.12/site-packages/fastmcp/client/mixins/tools.py\", line 181, in _parse_call_tool_result\n    return await _parse_call_tool_result(\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/dj-music-plugin/.venv/lib/python3.12/site-packages/fastmcp/client/mixins/tools.py\", line 390, in _parse_call_tool_result\n    raise ToolError(msg)\nfastmcp.exceptions.ToolError: Not found: Error calling tool 'mixer_crossfader'\n"
     },
     {
       "tool": "mixer_state",
@@ -468,22 +449,23 @@
     },
     {
       "tool": "push_set_to_ym",
-      "status": "MISSING",
-      "error": "Not registered on server",
-      "traceback": ""
+      "status": "EXCEPTION",
+      "error": "ToolError: Invalid params: Error calling tool 'push_set_to_ym'",
+      "elapsed": "0.05s",
+      "traceback": "Traceback (most recent call last):\n  File \"/home/user/dj-music-plugin/scripts/debug_all_tools.py\", line 344, in main\n    result = await client.call_tool(tool_name, args)\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/dj-music-plugin/.venv/lib/python3.12/site-packages/fastmcp/client/mixins/tools.py\", line 287, in call_tool\n    return await self._parse_call_tool_result(\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/dj-music-plugin/.venv/lib/python3.12/site-packages/fastmcp/client/mixins/tools.py\", line 181, in _parse_call_tool_result\n    return await _parse_call_tool_result(\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/dj-music-plugin/.venv/lib/python3.12/site-packages/fastmcp/client/mixins/tools.py\", line 390, in _parse_call_tool_result\n    raise ToolError(msg)\nfastmcp.exceptions.ToolError: Invalid params: Error calling tool 'push_set_to_ym'\n"
     },
     {
       "tool": "quick_set_review",
       "status": "EXCEPTION",
       "error": "ToolError: Not found: Error calling tool 'quick_set_review'",
-      "elapsed": "0.08s",
+      "elapsed": "0.07s",
       "traceback": "Traceback (most recent call last):\n  File \"/home/user/dj-music-plugin/scripts/debug_all_tools.py\", line 344, in main\n    result = await client.call_tool(tool_name, args)\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/dj-music-plugin/.venv/lib/python3.12/site-packages/fastmcp/client/mixins/tools.py\", line 287, in call_tool\n    return await self._parse_call_tool_result(\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/dj-music-plugin/.venv/lib/python3.12/site-packages/fastmcp/client/mixins/tools.py\", line 181, in _parse_call_tool_result\n    return await _parse_call_tool_result(\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/dj-music-plugin/.venv/lib/python3.12/site-packages/fastmcp/client/mixins/tools.py\", line 390, in _parse_call_tool_result\n    raise ToolError(msg)\nfastmcp.exceptions.ToolError: Not found: Error calling tool 'quick_set_review'\n"
     },
     {
       "tool": "rate_track",
       "status": "OK",
       "elapsed": "0.01s",
-      "preview": "{\"id\":1,\"track_id\":1,\"rating\":4,\"status\":\"active\",\"notes\":null,\"play_count\":0,\"skip_count\":0}"
+      "preview": "{\"id\":1,\"track_id\":1,\"rating\":4,\"status\":\"liked\",\"notes\":null,\"play_count\":0,\"skip_count\":0}"
     },
     {
       "tool": "rebuild_set",
@@ -494,36 +476,35 @@
     },
     {
       "tool": "refresh_affinity",
-      "status": "EXCEPTION",
-      "error": "ToolError: Internal error: 1 validation error for call[refresh_affinity]\ntrack_id\n  Unexpected keyword argument [type=unexpected_keyword_argument, input_value=1, input_type=int]\n    For further information visit https://errors.pydantic.dev/2.12/v/unexpected_keyword_argument",
-      "elapsed": "0.01s",
-      "traceback": "Traceback (most recent call last):\n  File \"/home/user/dj-music-plugin/scripts/debug_all_tools.py\", line 344, in main\n    result = await client.call_tool(tool_name, args)\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/dj-music-plugin/.venv/lib/python3.12/site-packages/fastmcp/client/mixins/tools.py\", line 287, in call_tool\n    return await self._parse_call_tool_result(\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/dj-music-plugin/.venv/lib/python3.12/site-packages/fastmcp/client/mixins/tools.py\", line 181, in _parse_call_tool_result\n    return await _parse_call_tool_result(\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/dj-music-plugin/.venv/lib/python3.12/site-packages/fastmcp/client/mixins/tools.py\", line 390, in _parse_call_tool_result\n    raise ToolError(msg)\nfastmcp.exceptions.ToolError: Internal error: 1 validation error for call[refresh_affinity]\ntrack_id\n  Unexpected keyword argument [type=unexpected_keyword_argument, input_value=1, input_type=int]\n    For further information visit https://errors.pydantic.dev/2.12/v/unexpected_keyword_argument\n"
+      "status": "OK",
+      "elapsed": "0.00s",
+      "preview": "{\"pairs_updated\": 0}"
     },
     {
       "tool": "reset_eq",
       "status": "EXCEPTION",
-      "error": "ToolError: Internal error: 2 validation errors for call[reset_eq]\ndeck_id\n  Missing required argument [type=missing_argument, input_value={'deck': 1}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.12/v/missing_argument\ndeck\n  Unexpected keyword argument [type=unexpected_keyword_argument, input_value=1, input_type=int]\n    For further information visit https://errors.pydantic.dev/2.12/v/unexpected_keyword_argument",
-      "elapsed": "0.01s",
-      "traceback": "Traceback (most recent call last):\n  File \"/home/user/dj-music-plugin/scripts/debug_all_tools.py\", line 344, in main\n    result = await client.call_tool(tool_name, args)\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/dj-music-plugin/.venv/lib/python3.12/site-packages/fastmcp/client/mixins/tools.py\", line 287, in call_tool\n    return await self._parse_call_tool_result(\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/dj-music-plugin/.venv/lib/python3.12/site-packages/fastmcp/client/mixins/tools.py\", line 181, in _parse_call_tool_result\n    return await _parse_call_tool_result(\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/dj-music-plugin/.venv/lib/python3.12/site-packages/fastmcp/client/mixins/tools.py\", line 390, in _parse_call_tool_result\n    raise ToolError(msg)\nfastmcp.exceptions.ToolError: Internal error: 2 validation errors for call[reset_eq]\ndeck_id\n  Missing required argument [type=missing_argument, input_value={'deck': 1}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.12/v/missing_argument\ndeck\n  Unexpected keyword argument [type=unexpected_keyword_argument, input_value=1, input_type=int]\n    For further information visit https://errors.pydantic.dev/2.12/v/unexpected_keyword_argument\n"
+      "error": "ToolError: Not found: Error calling tool 'reset_eq'",
+      "elapsed": "0.02s",
+      "traceback": "Traceback (most recent call last):\n  File \"/home/user/dj-music-plugin/scripts/debug_all_tools.py\", line 344, in main\n    result = await client.call_tool(tool_name, args)\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/dj-music-plugin/.venv/lib/python3.12/site-packages/fastmcp/client/mixins/tools.py\", line 287, in call_tool\n    return await self._parse_call_tool_result(\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/dj-music-plugin/.venv/lib/python3.12/site-packages/fastmcp/client/mixins/tools.py\", line 181, in _parse_call_tool_result\n    return await _parse_call_tool_result(\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/dj-music-plugin/.venv/lib/python3.12/site-packages/fastmcp/client/mixins/tools.py\", line 390, in _parse_call_tool_result\n    raise ToolError(msg)\nfastmcp.exceptions.ToolError: Not found: Error calling tool 'reset_eq'\n"
     },
     {
       "tool": "review_set_quality",
-      "status": "MISSING",
-      "error": "Not registered on server",
-      "traceback": ""
+      "status": "EXCEPTION",
+      "error": "ToolError: Not found: Error calling tool 'review_set_quality'",
+      "elapsed": "0.05s",
+      "traceback": "Traceback (most recent call last):\n  File \"/home/user/dj-music-plugin/scripts/debug_all_tools.py\", line 344, in main\n    result = await client.call_tool(tool_name, args)\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/dj-music-plugin/.venv/lib/python3.12/site-packages/fastmcp/client/mixins/tools.py\", line 287, in call_tool\n    return await self._parse_call_tool_result(\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/dj-music-plugin/.venv/lib/python3.12/site-packages/fastmcp/client/mixins/tools.py\", line 181, in _parse_call_tool_result\n    return await _parse_call_tool_result(\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/dj-music-plugin/.venv/lib/python3.12/site-packages/fastmcp/client/mixins/tools.py\", line 390, in _parse_call_tool_result\n    raise ToolError(msg)\nfastmcp.exceptions.ToolError: Not found: Error calling tool 'review_set_quality'\n"
     },
     {
       "tool": "run_tool",
-      "status": "EXCEPTION",
-      "error": "ToolError: Internal error: 2 validation errors for call[run_tool]\nname\n  Missing required argument [type=missing_argument, input_value={'tool_name': 'list_platforms', 'arguments': {}}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.12/v/missing_argument\ntool_name\n  Unexpected keyword argument [type=unexpected_keyword_argument, input_value='list_platforms', input_type=str]\n    For further information visit https://errors.pydantic.dev/2.12/v/unexpected_keyword_argument",
-      "elapsed": "0.01s",
-      "traceback": "Traceback (most recent call last):\n  File \"/home/user/dj-music-plugin/scripts/debug_all_tools.py\", line 344, in main\n    result = await client.call_tool(tool_name, args)\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/dj-music-plugin/.venv/lib/python3.12/site-packages/fastmcp/client/mixins/tools.py\", line 287, in call_tool\n    return await self._parse_call_tool_result(\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/dj-music-plugin/.venv/lib/python3.12/site-packages/fastmcp/client/mixins/tools.py\", line 181, in _parse_call_tool_result\n    return await _parse_call_tool_result(\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/dj-music-plugin/.venv/lib/python3.12/site-packages/fastmcp/client/mixins/tools.py\", line 390, in _parse_call_tool_result\n    raise ToolError(msg)\nfastmcp.exceptions.ToolError: Internal error: 2 validation errors for call[run_tool]\nname\n  Missing required argument [type=missing_argument, input_value={'tool_name': 'list_platforms', 'arguments': {}}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.12/v/missing_argument\ntool_name\n  Unexpected keyword argument [type=unexpected_keyword_argument, input_value='list_platforms', input_type=str]\n    For further information visit https://errors.pydantic.dev/2.12/v/unexpected_keyword_argument\n"
+      "status": "OK",
+      "elapsed": "0.00s",
+      "preview": "[{\"platform\":\"yandex_music\",\"linked_tracks\":1,\"available\":true},{\"platform\":\"spotify\",\"linked_tracks\":0,\"available\":true"
     },
     {
       "tool": "score_transitions",
       "status": "EXCEPTION",
       "error": "ToolError: Not found: Error calling tool 'score_transitions'",
-      "elapsed": "0.07s",
+      "elapsed": "0.08s",
       "traceback": "Traceback (most recent call last):\n  File \"/home/user/dj-music-plugin/scripts/debug_all_tools.py\", line 344, in main\n    result = await client.call_tool(tool_name, args)\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/dj-music-plugin/.venv/lib/python3.12/site-packages/fastmcp/client/mixins/tools.py\", line 287, in call_tool\n    return await self._parse_call_tool_result(\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/dj-music-plugin/.venv/lib/python3.12/site-packages/fastmcp/client/mixins/tools.py\", line 181, in _parse_call_tool_result\n    return await _parse_call_tool_result(\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/dj-music-plugin/.venv/lib/python3.12/site-packages/fastmcp/client/mixins/tools.py\", line 390, in _parse_call_tool_result\n    raise ToolError(msg)\nfastmcp.exceptions.ToolError: Not found: Error calling tool 'score_transitions'\n"
     },
     {
@@ -541,36 +522,36 @@
     {
       "tool": "set_eq",
       "status": "EXCEPTION",
-      "error": "ToolError: Internal error: 4 validation errors for call[set_eq]\ndeck_id\n  Missing required argument [type=missing_argument, input_value={'deck': 1, 'band': 'mid', 'gain_db': 0.0}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.12/v/missing_argument\ngain\n  Missing required argument [type=missing_argument, input_value={'deck': 1, 'band': 'mid', 'gain_db': 0.0}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.12/v/missing_argument\ndeck\n  Unexpected keyword argument [type=unexpected_keyword_argument, input_value=1, input_type=int]\n    For further information visit https://errors.pydantic.dev/2.12/v/unexpected_keyword_argument\ngain_db\n  Unexpected keyword argument [type=unexpected_keyword_argument, input_value=0.0, input_type=float]\n    For further information visit https://errors.pydantic.dev/2.12/v/unexpected_keyword_argument",
-      "elapsed": "0.01s",
-      "traceback": "Traceback (most recent call last):\n  File \"/home/user/dj-music-plugin/scripts/debug_all_tools.py\", line 344, in main\n    result = await client.call_tool(tool_name, args)\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/dj-music-plugin/.venv/lib/python3.12/site-packages/fastmcp/client/mixins/tools.py\", line 287, in call_tool\n    return await self._parse_call_tool_result(\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/dj-music-plugin/.venv/lib/python3.12/site-packages/fastmcp/client/mixins/tools.py\", line 181, in _parse_call_tool_result\n    return await _parse_call_tool_result(\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/dj-music-plugin/.venv/lib/python3.12/site-packages/fastmcp/client/mixins/tools.py\", line 390, in _parse_call_tool_result\n    raise ToolError(msg)\nfastmcp.exceptions.ToolError: Internal error: 4 validation errors for call[set_eq]\ndeck_id\n  Missing required argument [type=missing_argument, input_value={'deck': 1, 'band': 'mid', 'gain_db': 0.0}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.12/v/missing_argument\ngain\n  Missing required argument [type=missing_argument, input_value={'deck': 1, 'band': 'mid', 'gain_db': 0.0}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.12/v/missing_argument\ndeck\n  Unexpected keyword argument [type=unexpected_keyword_argument, input_value=1, input_type=int]\n    For further information visit https://errors.pydantic.dev/2.12/v/unexpected_keyword_argument\ngain_db\n  Unexpected keyword argument [type=unexpected_keyword_argument, input_value=0.0, input_type=float]\n    For further information visit https://errors.pydantic.dev/2.12/v/unexpected_keyword_argument\n"
+      "error": "ToolError: Not found: Error calling tool 'set_eq'",
+      "elapsed": "0.02s",
+      "traceback": "Traceback (most recent call last):\n  File \"/home/user/dj-music-plugin/scripts/debug_all_tools.py\", line 344, in main\n    result = await client.call_tool(tool_name, args)\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/dj-music-plugin/.venv/lib/python3.12/site-packages/fastmcp/client/mixins/tools.py\", line 287, in call_tool\n    return await self._parse_call_tool_result(\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/dj-music-plugin/.venv/lib/python3.12/site-packages/fastmcp/client/mixins/tools.py\", line 181, in _parse_call_tool_result\n    return await _parse_call_tool_result(\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/dj-music-plugin/.venv/lib/python3.12/site-packages/fastmcp/client/mixins/tools.py\", line 390, in _parse_call_tool_result\n    raise ToolError(msg)\nfastmcp.exceptions.ToolError: Not found: Error calling tool 'set_eq'\n"
     },
     {
       "tool": "set_filter",
       "status": "EXCEPTION",
-      "error": "ToolError: Internal error: 5 validation errors for call[set_filter]\ndeck_id\n  Missing required argument [type=missing_argument, input_value={'deck': 1, 'type': 'lowp...s', 'frequency': 1000.0}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.12/v/missing_argument\ncutoff_hz\n  Missing required argument [type=missing_argument, input_value={'deck': 1, 'type': 'lowp...s', 'frequency': 1000.0}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.12/v/missing_argument\ndeck\n  Unexpected keyword argument [type=unexpected_keyword_argument, input_value=1, input_type=int]\n    For further information visit https://errors.pydantic.dev/2.12/v/unexpected_keyword_argument\ntype\n  Unexpected keyword argument [type=unexpected_keyword_argument, input_value='lowpass', input_type=str]\n    For further information visit https://errors.pydantic.dev/2.12/v/unexpected_keyword_argument\nfrequency\n  Unexpected keyword argument [type=unexpected_keyword_argument, input_value=1000.0, input_type=float]\n    For further information visit https://errors.pydantic.dev/2.12/v/unexpected_keyword_argument",
+      "error": "ToolError: Not found: Error calling tool 'set_filter'",
       "elapsed": "0.02s",
-      "traceback": "Traceback (most recent call last):\n  File \"/home/user/dj-music-plugin/scripts/debug_all_tools.py\", line 344, in main\n    result = await client.call_tool(tool_name, args)\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/dj-music-plugin/.venv/lib/python3.12/site-packages/fastmcp/client/mixins/tools.py\", line 287, in call_tool\n    return await self._parse_call_tool_result(\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/dj-music-plugin/.venv/lib/python3.12/site-packages/fastmcp/client/mixins/tools.py\", line 181, in _parse_call_tool_result\n    return await _parse_call_tool_result(\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/dj-music-plugin/.venv/lib/python3.12/site-packages/fastmcp/client/mixins/tools.py\", line 390, in _parse_call_tool_result\n    raise ToolError(msg)\nfastmcp.exceptions.ToolError: Internal error: 5 validation errors for call[set_filter]\ndeck_id\n  Missing required argument [type=missing_argument, input_value={'deck': 1, 'type': 'lowp...s', 'frequency': 1000.0}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.12/v/missing_argument\ncutoff_hz\n  Missing required argument [type=missing_argument, input_value={'deck': 1, 'type': 'lowp...s', 'frequency': 1000.0}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.12/v/missing_argument\ndeck\n  Unexpected keyword argument [type=unexpected_keyword_argument, input_value=1, input_type=int]\n    For further information visit https://errors.pydantic.dev/2.12/v/unexpected_keyword_argument\ntype\n  Unexpected keyword argument [type=unexpected_keyword_argument, input_value='lowpass', input_type=str]\n    For further information visit https://errors.pydantic.dev/2.12/v/unexpected_keyword_argument\nfrequency\n  Unexpected keyword argument [type=unexpected_keyword_argument, input_value=1000.0, input_type=float]\n    For further information visit https://errors.pydantic.dev/2.12/v/unexpected_keyword_argument\n"
+      "traceback": "Traceback (most recent call last):\n  File \"/home/user/dj-music-plugin/scripts/debug_all_tools.py\", line 344, in main\n    result = await client.call_tool(tool_name, args)\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/dj-music-plugin/.venv/lib/python3.12/site-packages/fastmcp/client/mixins/tools.py\", line 287, in call_tool\n    return await self._parse_call_tool_result(\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/dj-music-plugin/.venv/lib/python3.12/site-packages/fastmcp/client/mixins/tools.py\", line 181, in _parse_call_tool_result\n    return await _parse_call_tool_result(\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/dj-music-plugin/.venv/lib/python3.12/site-packages/fastmcp/client/mixins/tools.py\", line 390, in _parse_call_tool_result\n    raise ToolError(msg)\nfastmcp.exceptions.ToolError: Not found: Error calling tool 'set_filter'\n"
     },
     {
       "tool": "suggest_energy_direction",
-      "status": "EXCEPTION",
-      "error": "ToolError: Internal error: 1 validation error for call[suggest_energy_direction]\nset_id\n  Unexpected keyword argument [type=unexpected_keyword_argument, input_value=1, input_type=int]\n    For further information visit https://errors.pydantic.dev/2.12/v/unexpected_keyword_argument",
-      "elapsed": "0.01s",
-      "traceback": "Traceback (most recent call last):\n  File \"/home/user/dj-music-plugin/scripts/debug_all_tools.py\", line 344, in main\n    result = await client.call_tool(tool_name, args)\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/dj-music-plugin/.venv/lib/python3.12/site-packages/fastmcp/client/mixins/tools.py\", line 287, in call_tool\n    return await self._parse_call_tool_result(\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/dj-music-plugin/.venv/lib/python3.12/site-packages/fastmcp/client/mixins/tools.py\", line 181, in _parse_call_tool_result\n    return await _parse_call_tool_result(\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/dj-music-plugin/.venv/lib/python3.12/site-packages/fastmcp/client/mixins/tools.py\", line 390, in _parse_call_tool_result\n    raise ToolError(msg)\nfastmcp.exceptions.ToolError: Internal error: 1 validation error for call[suggest_energy_direction]\nset_id\n  Unexpected keyword argument [type=unexpected_keyword_argument, input_value=1, input_type=int]\n    For further information visit https://errors.pydantic.dev/2.12/v/unexpected_keyword_argument\n"
+      "status": "OK",
+      "elapsed": "0.00s",
+      "preview": "{\"suggestion\": \"any\", \"reason\": \"no clear trend\"}"
     },
     {
       "tool": "suggest_next_track",
       "status": "EXCEPTION",
       "error": "ToolError: Not found: Error calling tool 'suggest_next_track'",
-      "elapsed": "0.04s",
+      "elapsed": "0.13s",
       "traceback": "Traceback (most recent call last):\n  File \"/home/user/dj-music-plugin/scripts/debug_all_tools.py\", line 344, in main\n    result = await client.call_tool(tool_name, args)\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/dj-music-plugin/.venv/lib/python3.12/site-packages/fastmcp/client/mixins/tools.py\", line 287, in call_tool\n    return await self._parse_call_tool_result(\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/dj-music-plugin/.venv/lib/python3.12/site-packages/fastmcp/client/mixins/tools.py\", line 181, in _parse_call_tool_result\n    return await _parse_call_tool_result(\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/dj-music-plugin/.venv/lib/python3.12/site-packages/fastmcp/client/mixins/tools.py\", line 390, in _parse_call_tool_result\n    raise ToolError(msg)\nfastmcp.exceptions.ToolError: Not found: Error calling tool 'suggest_next_track'\n"
     },
     {
       "tool": "sync_playlist",
-      "status": "MISSING",
-      "error": "Not registered on server",
-      "traceback": ""
+      "status": "EXCEPTION",
+      "error": "ToolError: Invalid params: Error calling tool 'sync_playlist'",
+      "elapsed": "0.06s",
+      "traceback": "Traceback (most recent call last):\n  File \"/home/user/dj-music-plugin/scripts/debug_all_tools.py\", line 344, in main\n    result = await client.call_tool(tool_name, args)\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/dj-music-plugin/.venv/lib/python3.12/site-packages/fastmcp/client/mixins/tools.py\", line 287, in call_tool\n    return await self._parse_call_tool_result(\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/dj-music-plugin/.venv/lib/python3.12/site-packages/fastmcp/client/mixins/tools.py\", line 181, in _parse_call_tool_result\n    return await _parse_call_tool_result(\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/dj-music-plugin/.venv/lib/python3.12/site-packages/fastmcp/client/mixins/tools.py\", line 390, in _parse_call_tool_result\n    raise ToolError(msg)\nfastmcp.exceptions.ToolError: Invalid params: Error calling tool 'sync_playlist'\n"
     },
     {
       "tool": "unlock_tools",
@@ -581,9 +562,9 @@
     {
       "tool": "update_reaction",
       "status": "EXCEPTION",
-      "error": "ToolError: Internal error: 2 validation errors for call[update_reaction]\nentry_id\n  Missing required argument [type=missing_argument, input_value={'transition_id': 1, 'reaction': 'good'}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.12/v/missing_argument\ntransition_id\n  Unexpected keyword argument [type=unexpected_keyword_argument, input_value=1, input_type=int]\n    For further information visit https://errors.pydantic.dev/2.12/v/unexpected_keyword_argument",
-      "elapsed": "0.01s",
-      "traceback": "Traceback (most recent call last):\n  File \"/home/user/dj-music-plugin/scripts/debug_all_tools.py\", line 344, in main\n    result = await client.call_tool(tool_name, args)\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/dj-music-plugin/.venv/lib/python3.12/site-packages/fastmcp/client/mixins/tools.py\", line 287, in call_tool\n    return await self._parse_call_tool_result(\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/dj-music-plugin/.venv/lib/python3.12/site-packages/fastmcp/client/mixins/tools.py\", line 181, in _parse_call_tool_result\n    return await _parse_call_tool_result(\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/dj-music-plugin/.venv/lib/python3.12/site-packages/fastmcp/client/mixins/tools.py\", line 390, in _parse_call_tool_result\n    raise ToolError(msg)\nfastmcp.exceptions.ToolError: Internal error: 2 validation errors for call[update_reaction]\nentry_id\n  Missing required argument [type=missing_argument, input_value={'transition_id': 1, 'reaction': 'good'}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.12/v/missing_argument\ntransition_id\n  Unexpected keyword argument [type=unexpected_keyword_argument, input_value=1, input_type=int]\n    For further information visit https://errors.pydantic.dev/2.12/v/unexpected_keyword_argument\n"
+      "error": "ToolError: Not found: Error calling tool 'update_reaction'",
+      "elapsed": "0.08s",
+      "traceback": "Traceback (most recent call last):\n  File \"/home/user/dj-music-plugin/scripts/debug_all_tools.py\", line 344, in main\n    result = await client.call_tool(tool_name, args)\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/dj-music-plugin/.venv/lib/python3.12/site-packages/fastmcp/client/mixins/tools.py\", line 287, in call_tool\n    return await self._parse_call_tool_result(\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/dj-music-plugin/.venv/lib/python3.12/site-packages/fastmcp/client/mixins/tools.py\", line 181, in _parse_call_tool_result\n    return await _parse_call_tool_result(\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/dj-music-plugin/.venv/lib/python3.12/site-packages/fastmcp/client/mixins/tools.py\", line 390, in _parse_call_tool_result\n    raise ToolError(msg)\nfastmcp.exceptions.ToolError: Not found: Error calling tool 'update_reaction'\n"
     },
     {
       "tool": "watch_decks",
@@ -594,39 +575,40 @@
     },
     {
       "tool": "ym_artist_tracks",
-      "status": "MISSING",
-      "error": "Not registered on server",
-      "traceback": ""
+      "status": "OK",
+      "elapsed": "0.00s",
+      "preview": "{\"artist_id\": \"12345\", \"page\": 0, \"sort_by\": \"date\", \"count\": 0, \"tracks\": [], \"has_next\": false}"
     },
     {
       "tool": "ym_get_album",
-      "status": "MISSING",
-      "error": "Not registered on server",
-      "traceback": ""
+      "status": "EXCEPTION",
+      "error": "ToolError: Not found: Error calling tool 'ym_get_album'",
+      "elapsed": "1.51s",
+      "traceback": "Traceback (most recent call last):\n  File \"/home/user/dj-music-plugin/scripts/debug_all_tools.py\", line 344, in main\n    result = await client.call_tool(tool_name, args)\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/dj-music-plugin/.venv/lib/python3.12/site-packages/fastmcp/client/mixins/tools.py\", line 287, in call_tool\n    return await self._parse_call_tool_result(\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/dj-music-plugin/.venv/lib/python3.12/site-packages/fastmcp/client/mixins/tools.py\", line 181, in _parse_call_tool_result\n    return await _parse_call_tool_result(\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/dj-music-plugin/.venv/lib/python3.12/site-packages/fastmcp/client/mixins/tools.py\", line 390, in _parse_call_tool_result\n    raise ToolError(msg)\nfastmcp.exceptions.ToolError: Not found: Error calling tool 'ym_get_album'\n"
     },
     {
       "tool": "ym_get_tracks",
-      "status": "MISSING",
-      "error": "Not registered on server",
-      "traceback": ""
+      "status": "OK",
+      "elapsed": "0.00s",
+      "preview": "{\"count\": 0, \"tracks\": []}"
     },
     {
       "tool": "ym_likes",
-      "status": "MISSING",
-      "error": "Not registered on server",
-      "traceback": ""
+      "status": "OK",
+      "elapsed": "1.50s",
+      "preview": "{\"action\": \"get_liked\", \"count\": 0, \"offset\": 0, \"limit\": 200, \"liked_ids\": [], \"next_offset\": null, \"truncated\": false}"
     },
     {
       "tool": "ym_playlists",
-      "status": "MISSING",
-      "error": "Not registered on server",
-      "traceback": ""
+      "status": "OK",
+      "elapsed": "1.50s",
+      "preview": "{\"action\": \"list\", \"playlists\": []}"
     },
     {
       "tool": "ym_search",
-      "status": "MISSING",
-      "error": "Not registered on server",
-      "traceback": ""
+      "status": "OK",
+      "elapsed": "1.50s",
+      "preview": "{\"query\": \"test\", \"type\": \"tracks\", \"tracks\": [], \"albums\": [], \"artists\": [], \"playlists\": []}"
     }
   ]
 }

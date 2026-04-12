@@ -143,14 +143,17 @@ Low-level building blocks used by composite tools. Not intended for direct use.
 | Set Building | 4 | `sets` | Always |
 | Set Reasoning | 5 | `sets` | Always |
 | Admin | 2 | `admin` | Always |
-| Delivery & Export | 2 | `delivery` | Extended |
-| Discovery & Download | 5 | `discovery` | Extended |
-| Curation | 5 | `curation` | Extended |
-| Sync | 2 | `sync` | Extended |
-| YM API | 6 | `ym` | Extended |
+| Delivery & Export | 2 | `delivery` | Always |
+| Discovery & Download | 5 | `discovery` | Always |
+| Curation | 5 | `curation` | Always |
+| Sync | 2 | `sync` | Always |
+| YM API | 6 | `ym` | Always |
 | Audio Analysis | 3 | `audio` | Hidden |
 | Atomic | 4 | `atomic` | Hidden |
 | **Total** | **50** | | |
+
+> **Note:** Extended categories (delivery, discovery, curation, sync, ym) are now always visible.
+> Claude Code does not re-fetch the tool list after `unlock_tools`, so only audio/atomic remain hidden.
 
 ## Legend
 

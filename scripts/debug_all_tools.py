@@ -90,39 +90,39 @@ TOOL_ARGS: dict[str, dict] = {
     "classify_one_track": {"track_id": 1},
     "gate_one_track": {"track_id": 1},
     "get_similar_one_track": {"ym_track_id": "12345"},
-    # ── Decks ──
-    "deck_load": {"deck": 1, "track_id": 1},
-    "deck_play": {"deck": 1},
-    "deck_pause": {"deck": 1},
-    "deck_cue": {"deck": 1},
-    "deck_unload": {"deck": 1},
-    "deck_set_pitch": {"deck": 1, "pitch": 0.0},
-    "deck_set_gain": {"deck": 1, "gain_db": 0.0},
-    "deck_state": {"deck": 1},
-    # ── Mixer ──
-    "mixer_crossfader": {"position": 0.5},
-    "mixer_channel_gain": {"channel": 1, "gain_db": 0.0},
+    # ── Decks (param: deck_id, not deck) ──
+    "deck_load": {"deck_id": 1, "track_id": 1, "duration_ms": 180000},
+    "deck_play": {"deck_id": 1},
+    "deck_pause": {"deck_id": 1},
+    "deck_cue": {"deck_id": 1},
+    "deck_unload": {"deck_id": 1},
+    "deck_set_pitch": {"deck_id": 1, "pitch": 0.0},
+    "deck_set_gain": {"deck_id": 1, "gain": 0.0},
+    "deck_state": {"deck_id": 1},
+    # ── Mixer (param: deck_id, target, gain) ──
+    "mixer_crossfader": {"target": 0.5},
+    "mixer_channel_gain": {"deck_id": 1, "gain": 0.0},
     "mixer_state": {},
-    "set_eq": {"deck": 1, "band": "mid", "gain_db": 0.0},
-    "kill_eq": {"deck": 1, "band": "mid"},
-    "reset_eq": {"deck": 1},
-    "set_filter": {"deck": 1, "type": "lowpass", "frequency": 1000.0},
+    "set_eq": {"deck_id": 1, "band": "mid", "gain": 0.0},
+    "kill_eq": {"deck_id": 1, "band": "mid"},
+    "reset_eq": {"deck_id": 1},
+    "set_filter": {"deck_id": 1, "cutoff_hz": 1000.0},
     # ── Monitoring ──
     "watch_decks": {},
     # ── Memory / Feedback ──
     "log_transition": {"from_track_id": 1, "to_track_id": 2},
     "get_transition_history": {},
-    "get_best_pairs": {},
-    "update_reaction": {"transition_id": 1, "reaction": "good"},
+    "get_best_pairs": {"track_id": 1},
+    "update_reaction": {"entry_id": 1, "reaction": "like"},
     "like_track": {"track_id": 1},
     "ban_track": {"track_id": 1},
     "rate_track": {"track_id": 1, "rating": 4},
     "get_track_feedback": {"track_id": 1},
     "get_banned_tracks": {},
     "get_liked_tracks": {},
-    # ── Affinity ──
-    "refresh_affinity": {"track_id": 1},
-    "get_track_affinity": {"track_id": 1},
+    # ── Affinity (refresh_affinity has no params, get_track_affinity needs track_a_id + track_b_id) ──
+    "refresh_affinity": {},
+    "get_track_affinity": {"track_a_id": 1, "track_b_id": 2},
     "get_affinity_recommendations": {"track_id": 1},
     # ── Scoring Profile ──
     "create_scoring_profile": {"name": "debug-profile"},
@@ -132,12 +132,12 @@ TOOL_ARGS: dict[str, dict] = {
     "analyze_set_narrative": {"set_id": 1},
     # ── Sets Meta ──
     "get_set_templates": {},
-    # ── Adaptive Arc ──
-    "get_energy_trend": {"set_id": 1},
-    "suggest_energy_direction": {"set_id": 1},
+    # ── Adaptive Arc (no set_id — uses last_n) ──
+    "get_energy_trend": {"last_n": 5},
+    "suggest_energy_direction": {"last_n": 5},
     "get_session_arc": {},
-    # ── Run Tool ──
-    "run_tool": {"tool_name": "list_platforms", "arguments": {}},
+    # ── Run Tool (param: name, not tool_name) ──
+    "run_tool": {"name": "list_platforms"},
 }
 
 

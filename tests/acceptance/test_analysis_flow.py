@@ -40,6 +40,11 @@ async def test_analysis_flow_persists_features_sections_and_run_metadata(
         )
         await session.commit()
 
+    # Audio tools are disabled at startup — unlock before calling
+    await acceptance_harness.client.call_tool(
+        "unlock_tools", {"action": "unlock", "category": "audio"},
+    )
+
     result = await acceptance_harness.client.call_tool(
         "analyze_track",
         {"track_id": track_id, "analyzers": ["energy", "tempo"]},

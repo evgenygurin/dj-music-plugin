@@ -1,24 +1,29 @@
 """Component visibility policy for the MCP server.
 
-Default: core, sets, admin always visible.
-Extended categories (delivery, discovery, curation, sync, ym) start disabled.
-Hidden categories (audio, atomic) start disabled.
+Default: all tools visible EXCEPT heavy/dangerous ones (audio, atomic).
 
-Use ``unlock_tools(action="unlock", category="...")`` to enable per-session.
+Claude Code (and other MCP clients using stdio transport) does NOT
+re-fetch the tool list after ``ctx.enable_components`` — so tools
+disabled at startup are effectively invisible for the entire session.
+
+Only hide categories that are genuinely dangerous or expensive to call
+by accident.  Extended categories (delivery, discovery, curation, sync,
+ym) are now always visible so Claude Code can use them without
+``unlock_tools``.
+
+Use ``unlock_tools(action="unlock", category="...")`` to enable
+audio/atomic per-session when needed.
 """
 
 from __future__ import annotations
 
 from typing import Any
 
-# Categories hidden at startup — unlockable via unlock_tools.
+# Only heavy / low-level categories are hidden at startup.
+# Extended categories (delivery, discovery, curation, sync, ym)
+# are now always visible — see docstring above.
 _DISABLED_AT_STARTUP: frozenset[str] = frozenset(
     {
-        "delivery",
-        "discovery",
-        "curation",
-        "sync",
-        "ym",
         "audio",
         "atomic",
     }

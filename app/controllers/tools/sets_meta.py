@@ -18,16 +18,9 @@ from app.templates.registry import TEMPLATES
     meta=TOOL_META,
 )
 async def get_set_templates() -> dict[str, Any]:
-    """Return all DJ set templates with full slot definitions.
+    """Return all DJ set templates with slot definitions (mood, energy, BPM, position).
 
-    Each template describes an energy arc as an ordered list of slots
-    (warm-up → build → peak → release). Clients use the slot metadata
-    (target mood, energy LUFS, BPM range, position, flexibility) to
-    score candidate tracks during adaptive set playback.
-
-    This tool is read-only, has no parameters, and returns a single
-    payload containing all templates. The result is static per release
-    so clients should cache it for the session.
+    Static per release — clients should cache for the session.
     """
     return {
         "templates": [

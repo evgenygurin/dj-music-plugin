@@ -44,6 +44,11 @@ async def test_download_flow_links_library_item_and_analysis_can_find_file(
         assert library_item.file_path is not None
         assert Path(library_item.file_path).exists()
 
+    # Audio tools are disabled at startup — unlock before calling
+    await acceptance_harness.client.call_tool(
+        "unlock_tools", {"action": "unlock", "category": "audio"},
+    )
+
     analysis = await acceptance_harness.client.call_tool(
         "analyze_track",
         {"track_id": track_id, "analyzers": ["energy"]},

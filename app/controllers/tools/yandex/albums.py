@@ -44,6 +44,9 @@ async def ym_get_album(
 
     album = await ym.get_album(album_id, with_tracks=include_tracks)
 
+    if album is None:
+        raise FastMCPNotFoundError(f"Album not found: {album_id}")
+
     # YM returns an empty stub (id="" / no title / no artists / 0 tracks)
     # when the album does not exist. Treat as not-found.
     if not album.title and not album.artists and not album.tracks:

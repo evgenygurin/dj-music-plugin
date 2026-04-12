@@ -33,7 +33,7 @@ globs: app/controllers/tools/**/*.py
 
 - `Depends()`: use `param=Depends(factory)`, NOT `Annotated[Type, Depends(factory)]` — FastMCP doesn't resolve Annotated
 - `list_page_size` in config must be >= tool count (100) — Claude Code doesn't follow nextCursor
-- Hidden tools: after `unlock_tools`, Claude Code doesn't reload tool list — hidden tools (audio, atomic) only accessible via script `Client(mcp)`
+- Hidden tools: only audio + atomic categories are hidden at startup (extended categories like ym, curation, delivery, sync, discovery are always visible). Audio/atomic tools require `unlock_tools(action="unlock", category="audio")` — but Claude Code doesn't re-fetch the tool list after unlock, so hidden tools are only accessible via script `Client(mcp)`
 - `download_tracks` refs: accepts YM track IDs (`"135055088"`) or local IDs (auto-resolves via `resolve_local_ids_to_ym`). Numbers < 100000 = local, >= 100000 = YM
 - `download_tracks` automatically creates `DjLibraryItem` via `_link_file_to_track()` — no manual linking needed
 - `score_delivery_transitions` returns `tuple[int, int]` (scored, conflicts), NOT dict
