@@ -1,6 +1,7 @@
 [importlinter]
 root_packages =
     app
+    dj_music
 include_external_packages = True
 
 # ── Contract 1: services must be framework-agnostic ─────────────────
