@@ -144,9 +144,8 @@ Repository конвертирует ORM → Pydantic через `Entity.model_va
 
 ```text
 src/dj_music/domain/
-├── entities/                    # Domain entities (Pydantic BaseModel)
+├── entities/                    # Domain entities (inherit from kernel.types.BaseEntity)
 │   ├── __init__.py
-│   ├── base.py                  # BaseEntity (id + timestamps), BaseValueObject (frozen)
 │   ├── track.py                 # Track, Artist, Genre, Label, Release
 │   ├── audio.py                 # TrackFeatures, AudioFeatures, Embedding
 │   ├── playlist.py              # Playlist, PlaylistItem
@@ -861,6 +860,84 @@ async def filter_advanced(
 | Apps Quickstart | https://gofastmcp.com/apps/quickstart | Building apps |
 | Prefab UI | https://gofastmcp.com/apps/prefab | Pre-built UI components |
 | Patterns | https://gofastmcp.com/apps/patterns | Common app patterns |
+
+---
+
+## Сквозной Data Flow — build_set пример
+
+Полный путь запроса через все слои (проверка целостности):
+
+```text
+CLIENT
+  ↓ MCP Protocol (stdio / StreamableHTTP)
+MIDDLEWARE (onion):
+  RequestIdMiddleware     → uuid → contextvars
+  LoggingMiddleware       → "build_set started"
+  ErrorHandlingMiddleware → try/catch
+  RateLimitingMiddleware  → token bucket
+  ResponseLimitingMiddleware → size guard
+  ↓
+PRESENTATION (mcp/tools/sets.py):
+  @tool build_set(playlist_id, template, service=Depends(...), ctx=CurrentContext())
+  - Pydantic validation на входе
+  - Вызывает service.build(...)
+  ↓
+DI RESOLUTION (di/services.py → di/repos.py → di/db.py):
+  get_db_session() → AsyncSession (shared)
+  get_track_repo(session) → SqlAlchemyTrackRepo(session)
+  get_set_repo(session) → SqlAlchemySetRepo(session)
+  get_set_service(repos...) → SetService(protocols...)
+  ↓
+APPLICATION (services/set_builder.py):
+  SetService.build()
+  - Загрузка через Protocol ports (не знает об ORM)
+  - Получает Pydantic entities (Track, TrackFeatures)
+  - Вызывает domain optimizer
+  ↓
+DOMAIN (optimization/genetic.py + transition/scorer.py):
+  GeneticAlgorithm.optimize(tracks, scorer, template)
+  - Pure: list[TrackFeatures] → OptimizationResult
+  - ZERO I/O, ZERO framework deps
+  ↓
+APPLICATION (back in set_builder.py):
+  - Persists через repos (flush, не commit)
+  - Returns SetSummary (Pydantic DTO)
+  ↓
+PRESENTATION (back in tool):
+  - DTO → FastMCP structuredContent + content
+  ↓
+DI CLEANUP (di/db.py):
+  - SUCCESS → session.commit()
+  - ERROR → session.rollback()
+  - ALWAYS → session.close()
+  ↓
+MIDDLEWARE (reverse):
+  ResponseLimiting → truncate if > 500KB
+  ErrorHandler → if exception: ToolError + Sentry
+  Logging → "build_set completed 3.2s ok"
+  ↓
+CLIENT
+```
+
+### Ключевые инварианты этого flow:
+
+1. **Один session на весь call** — все repos на shared session → UoW
+2. **Domain = pure** — optimizer и scorer не знают о DB/HTTP/MCP
+3. **Services видят только Protocol** — не знают что под капотом SQLAlchemy
+4. **Entities = Pydantic** — repos конвертируют ORM → Pydantic перед return
+5. **Commit/rollback в DI** — ни service, ни repo не делают commit
+6. **Middleware = cross-cutting** — logging, errors, rate limit без кода в tools
+7. **contextvars** — request_id propagates через все слои автоматически
+
+---
+
+## Разрешённые конфликты спеки
+
+| Конфликт | Решение |
+|----------|---------|
+| BaseEntity в kernel/types.py И domain/entities/base.py | Определяется ТОЛЬКО в `kernel/types.py`. `domain/entities/base.py` не нужен — entities наследуют от `kernel.types.BaseEntity` |
+| TrackFeatures в domain/entities/audio.py И transition/model.py | Canonical в `domain/entities/audio.py`. `transition/` импортирует оттуда |
+| SortField/SortDir — в каком слое? | `kernel/constants.py` — cross-cutting enums, доступны всем |
 
 ---
 
