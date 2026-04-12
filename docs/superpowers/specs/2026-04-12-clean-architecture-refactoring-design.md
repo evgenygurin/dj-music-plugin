@@ -31,7 +31,7 @@
 |---------|-------|---------|
 | Архитектура | Clean Architecture | Строгие слои, dependency rule |
 | Корневой пакет | `src/dj_music/` | Правильное Python packaging |
-| Domain entities | Да (dataclasses) | Сервисы не должны знать об ORM |
+| Domain entities | Да (Pydantic BaseModel) | Сервисы не знают об ORM. Pydantic = валидация + сериализация |
 | Mapper | Внутри Repository | Repo конвертирует ORM <-> dataclass, не отдельный слой |
 | Ports (Protocol) | Да, на границах | Repositories + YM client + Cache |
 | Config split | Да, по доменам | Решает god-object |
@@ -125,9 +125,9 @@ Repository отвечает за конвертацию ORM <-> dataclass вну
 
 ```text
 src/dj_music/domain/
-├── entities/                    # Domain entities (dataclasses)
+├── entities/                    # Domain entities (Pydantic BaseModel)
 │   ├── __init__.py
-│   ├── base.py                  # Entity, ValueObject (identity/structural equality)
+│   ├── base.py                  # BaseEntity (id + timestamps), BaseValueObject (frozen)
 │   ├── track.py                 # Track, Artist, Genre, Label, Release
 │   ├── audio.py                 # TrackFeatures, AudioFeatures, Embedding
 │   ├── playlist.py              # Playlist, PlaylistItem
@@ -136,6 +136,8 @@ src/dj_music/domain/
 │   ├── library.py               # LibraryItem, Beatgrid, CuePoint, SavedLoop
 │   ├── platform.py              # YandexMetadata, SpotifyMetadata, etc.
 │   └── export.py                # AppExport
+│   # Pydantic дает: field_validator, model_validator, .model_dump(),
+│   # ConfigDict(frozen=True) для VOs, Annotated[float, Field(ge=0, le=1)]
 │
 ├── audio/
 │   ├── model.py             # AudioSignal, AnalyzerResult
