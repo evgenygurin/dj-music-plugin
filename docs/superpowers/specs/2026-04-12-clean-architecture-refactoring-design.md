@@ -65,9 +65,8 @@ src/dj_music/
 ├── engines/           # DeckEngine, MixerEngine (runtime)
 ├── ym/                # Yandex Music client
 ├── api/               # FastAPI REST wrapper
-├── bootstrap/         # Server assembly, Lifespans
-├── di/                # Dependency Injection — composition root
-└── server.py          # Entry point
+├── di/                # DI + lifespans + sampling
+└── server.py          # Entry point (includes server_builder logic)
 ```
 
 ### Dependency Rule
@@ -114,6 +113,7 @@ src/dj_music/
 │   ├── constants.py             # SortField, SortDir, TechnoSubgenre, etc.
 │   ├── camelot.py               # Camelot wheel pure math
 │   ├── logging.py               # structlog setup, processor chain
+│   ├── observability.py         # Sentry + OTEL setup
 │   ├── config/                  # Split Settings by domain
 │   │   ├── __init__.py          # Composite Settings facade
 │   │   ├── audio.py, scoring.py, ym.py, server.py, db.py
@@ -182,6 +182,7 @@ src/dj_music/
 │   ├── audio.py, audio_atomic.py, curation.py, delivery.py
 │   ├── discovery.py, import_download.py, sync.py, admin.py
 │   ├── monitoring.py, decks.py, mixer.py
+│   ├── visibility.py            # Tool visibility tiers (core/extended/hidden)
 │   └── yandex/                  # search, tracks, albums, playlists, likes
 │
 ├── prompts/                     # MCP @prompt handlers
@@ -191,8 +192,10 @@ src/dj_music/
 │   ├── status.py, templates.py
 │   └── reference/               # camelot, subgenres, templates
 │
-├── middleware/                  # FastMCP built-in + custom middleware
+├── middleware/                  # FastMCP built-in + custom middleware + transforms
 │   ├── request_id.py, logging.py, error_handler.py, rate_limit.py
+│   ├── transforms.py            # Namespace, P→T, R→T
+│   └── registry.py              # Middleware + transforms registration
 │
 ├── audio/                       # Analyzers, DSP, Pipeline, Classification
 │   ├── model.py, context.py
@@ -229,12 +232,10 @@ src/dj_music/
 │   ├── routes/                  # health, discovery, execution, audio
 │   └── services/                # tool_registry, signed_url_cache, ym_audio_proxy
 │
-├── bootstrap/                   # Server assembly, Lifespans
-│   ├── server_builder.py, lifespans.py, transforms.py
-│   └── middleware.py, visibility.py, observability.py, sampling.py
-│
-├── di/                          # Dependency Injection — composition root
-│   └── db.py, repos.py, services.py, audio.py, external.py, uow.py
+├── di/                          # DI composition root + server wiring
+│   ├── db.py, repos.py, services.py, audio.py, external.py, uow.py
+│   ├── lifespans.py             # db | ym | analyzer | cache | audio
+│   └── sampling.py              # LLM sampling fallback handler
 │
 ├── migrations/                  # Alembic
 │   └── env.py, versions/
@@ -387,11 +388,10 @@ structlog chain включает SentryProcessor:
 src/dj_music/
 ├── core/
 │   ├── errors.py            # DJMusicError hierarchy с ctx + get_context_chain()
-│   ├── logging.py           # structlog configuration, processor chain, setup_logging()
-│   ├── sentry.py            # Sentry DSN init, SentryProcessor
-│   └── telemetry.py         # OTEL traces (optional)
+│   ├── logging.py           # structlog configuration, processor chain
+│   └── observability.py     # Sentry + OTEL setup
 │
-└── middleware/               # FastMCP built-in + custom middleware
+└── middleware/
     ├── request_id.py        # RequestID → contextvars
     ├── logging.py           # Access log middleware
     ├── error_handler.py     # Exception → ToolError conversion
@@ -710,7 +710,7 @@ async def filter_advanced(
 | 5 | services/workflows/ | workflows переезжают в services/workflows/ |
 | 6 | models/ + repositories/ | db/models/ → models/, db/repositories/ → repositories/, db/session → repositories/session |
 | 7 | engines/ + ym/ + audio/ | engines, ym, audio переезжают на top-level |
-| 8 | tools/ + api/ + bootstrap/ | controllers/tools/ → tools/, api/ stays, bootstrap/ + di/ |
+| 8 | tools/ + api/ + di/ | controllers/tools/ → tools/, api/ stays, di/ absorbs bootstrap |
 | 9 | middleware/ + cleanup | middleware/ на top-level, ghost dirs, shims, docs, CLAUDE.md |
 
 Каждая фаза — отдельный PR с re-export shims для backward compatibility.
@@ -766,7 +766,7 @@ async def filter_advanced(
 | Storage Backends | https://gofastmcp.com/servers/storage-backends | Backend для state persistence |
 | Lifespans | https://gofastmcp.com/servers/lifespan | @lifespan, composition operator `\|` |
 
-### Phase 8 — tools/ + api/ + bootstrap/
+### Phase 8 — tools/ + api/ + di/
 
 | Документ | URL | Зачем |
 |----------|-----|-------|
@@ -780,7 +780,7 @@ async def filter_advanced(
 | Composing Servers | https://gofastmcp.com/servers/composition | mount(), namespace, import_server |
 | Testing | https://gofastmcp.com/servers/testing | Client fixture, in-memory testing |
 
-### Phase 8 — tools/ + api/ + bootstrap/mcp/ (Providers & Transforms)
+### Phase 8 — tools/ + api/ + di/mcp/ (Providers & Transforms)
 
 | Документ | URL | Зачем |
 |----------|-----|-------|
@@ -808,7 +808,7 @@ async def filter_advanced(
 | Claude Code Integration | https://gofastmcp.com/integrations/claude-code | .mcp.json config |
 | MCP JSON Configuration | https://gofastmcp.com/integrations/mcp-json-configuration | JSON config format |
 
-### Phase 8 — tools/ + api/ + bootstrap/ (Auth, если потребуется)
+### Phase 8 — tools/ + api/ + di/ (Auth, если потребуется)
 
 | Документ | URL | Зачем |
 |----------|-----|-------|
