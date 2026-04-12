@@ -31,8 +31,8 @@
 |---------|-------|---------|
 | Архитектура | Clean Architecture | Строгие слои, dependency rule |
 | Корневой пакет | `src/dj_music/` | Правильное Python packaging |
-| Domain entities | Нет (ORM = data model) | Прагматизм, 44 модели без дублирования |
-| Mapper layer | Нет | Минимум boilerplate, ORM доступны сервисам |
+| Domain entities | Да (dataclasses) | Сервисы не должны знать об ORM |
+| Mapper | Внутри Repository | Repo конвертирует ORM <-> dataclass, не отдельный слой |
 | Ports (Protocol) | Да, на границах | Repositories + YM client + Cache |
 | Config split | Да, по доменам | Решает god-object |
 | FileSystemProvider | `presentation/mcp/` | Одна строка в server_builder |
@@ -120,8 +120,23 @@ src/dj_music/kernel/
 
 Чистая бизнес-логика. Зависит только от kernel. Ни SQLAlchemy, ни httpx, ни FastMCP.
 
+**Сервисы работают ТОЛЬКО с domain entities (dataclasses), никогда с ORM моделями.**
+Repository отвечает за конвертацию ORM <-> dataclass внутри себя.
+
 ```text
 src/dj_music/domain/
+├── entities/                    # Domain entities (dataclasses)
+│   ├── __init__.py
+│   ├── base.py                  # Entity, ValueObject (identity/structural equality)
+│   ├── track.py                 # Track, Artist, Genre, Label, Release
+│   ├── audio.py                 # TrackFeatures, AudioFeatures, Embedding
+│   ├── playlist.py              # Playlist, PlaylistItem
+│   ├── set.py                   # DjSet, SetVersion, SetItem, SetConstraint, SetFeedback
+│   ├── transition.py            # Transition, TransitionCandidate
+│   ├── library.py               # LibraryItem, Beatgrid, CuePoint, SavedLoop
+│   ├── platform.py              # YandexMetadata, SpotifyMetadata, etc.
+│   └── export.py                # AppExport
+│
 ├── audio/
 │   ├── model.py             # AudioSignal, AnalyzerResult
 │   ├── context.py           # AnalysisContext
@@ -164,8 +179,8 @@ src/dj_music/domain/
 
 ```text
 src/dj_music/application/
-├── ports/                   # Protocol interfaces
-│   ├── repositories.py      # All repository Protocols
+├── ports/                   # Protocol interfaces (return domain entities, not ORM)
+│   ├── repositories.py      # All repository Protocols (return dataclasses)
 │   ├── music_provider.py    # MusicProvider Protocol (YM abstraction)
 │   ├── audio_storage.py     # TimeseriesStorage Protocol
 │   └── cache.py             # TransitionCache Protocol
@@ -203,7 +218,7 @@ src/dj_music/infrastructure/
 │   │   ├── base.py, track.py, audio.py, playlist.py, set.py
 │   │   ├── transition.py, platform.py, library.py, key.py
 │   │   ├── export.py, ingestion.py, feedback.py, scoring_profile.py
-│   ├── repositories/        # Concrete repo implementations
+│   ├── repositories/        # Concrete repos (ORM -> domain entity conversion inside)
 │   │   ├── base.py, unit_of_work.py
 │   │   ├── track/ (core, filtering, library, external_ids, stats)
 │   │   ├── playlist.py, set.py, feature.py, audio.py
@@ -393,7 +408,8 @@ forbidden_modules =
 |---|------|----------|
 | 0 | Setup | `src/dj_music/`, pyproject.toml, import-linter |
 | 1 | kernel/ | config split, errors, constants, camelot, utils |
-| 2 | domain/ | transition/, optimization/, export/, templates/, audio domain |
+| 2a | domain/entities/ | Dataclass entities для Track, Set, Playlist, Transition, etc. |
+| 2b | domain/ | transition/, optimization/, export/, templates/, audio domain |
 | 3 | application/ports/ | Protocol interfaces |
 | 4 | application/services/ | services переезжают |
 | 5 | application/workflows+dto/ | workflows/, schemas/ -> dto/ |
@@ -423,7 +439,7 @@ forbidden_modules =
 |---------|-----|-------|
 | God-files (>400 LOC) | 4 | 2 (deferred) |
 | Ghost directories | 6 | 0 |
-| db.models imports in services | 21 | 0 |
+| ORM imports in services | 21 | 0 (services use domain entities only) |
 | Import-linter contracts | 6 | 5 (stricter) |
 | Config files | 1 (100+ fields) | 6 (15-20 each) |
 | Duplicate code | 3+ | 0 |
