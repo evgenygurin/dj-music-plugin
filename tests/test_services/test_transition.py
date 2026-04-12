@@ -2,7 +2,8 @@
 
 import pytest
 
-from app.services.transition import TrackFeatures, TransitionScorer
+from app.entities.audio.features import TrackFeatures
+from app.transition.scorer import TransitionScorer
 
 
 @pytest.fixture

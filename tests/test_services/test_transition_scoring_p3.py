@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from app.entities.audio.features import TrackFeatures
-from app.services.transition import TransitionScorer
+from app.transition.scorer import TransitionScorer
 
 
 def _base(**overrides: object) -> TrackFeatures:

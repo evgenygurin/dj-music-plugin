@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
+from app.entities.audio.features import TrackFeatures
 from app.optimization.result import OptimizationResult
 from app.services.set.builder import SetBuilderService
-from app.services.transition import TrackFeatures
 
 
 def _feature(*, bpm: float, mood: str | None) -> TrackFeatures:
@@ -43,7 +43,7 @@ def test_optimize_order_passes_template_and_moods_to_ga(monkeypatch) -> None:
                 track_order=list(track_ids), quality_score=0.77, algorithm="ga"
             )
 
-    monkeypatch.setattr("app.services.optimizer.GeneticAlgorithm", _FakeGA)
+    monkeypatch.setattr("app.optimization.genetic.GeneticAlgorithm", _FakeGA)
 
     track_ids = [1, 2, 3]
     track_features = [
@@ -97,7 +97,7 @@ def test_optimize_order_gracefully_ignores_unknown_template(monkeypatch) -> None
                 algorithm="greedy",
             )
 
-    monkeypatch.setattr("app.services.optimizer.GreedyChainBuilder", _FakeGreedy)
+    monkeypatch.setattr("app.optimization.greedy.GreedyChainBuilder", _FakeGreedy)
 
     track_ids = [11, 12, 13]
     track_features = [

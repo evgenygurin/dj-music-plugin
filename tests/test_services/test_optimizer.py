@@ -4,13 +4,12 @@ from __future__ import annotations
 
 import random
 
-from app.services.optimizer import (
-    GeneticAlgorithm,
-    GreedyChainBuilder,
-    compute_fitness,
-)
-from app.services.templates import get_template
-from app.services.transition import TrackFeatures, TransitionScorer
+from app.entities.audio.features import TrackFeatures
+from app.optimization.fitness import compute_fitness
+from app.optimization.genetic import GeneticAlgorithm
+from app.optimization.greedy import GreedyChainBuilder
+from app.templates.registry import get_template
+from app.transition.scorer import TransitionScorer
 
 # ── Test fixtures ───────────────────────────────────────
 

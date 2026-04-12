@@ -12,7 +12,6 @@ from app.db.repositories.feature import FeatureRepository
 from app.db.repositories.set import SetRepository
 from app.db.repositories.transition import TransitionRepository
 from app.services.mix_point_service import TrackSectionRow, build_section_context
-from app.services.transition import TransitionScorer
 from app.transition import (
     SectionContext,
     TransitionRecipe,
@@ -22,6 +21,7 @@ from app.transition import (
     style_profile,
 )
 from app.transition.math_helpers import bpm_distance
+from app.transition.scorer import TransitionScorer
 
 
 class SetScoringService:

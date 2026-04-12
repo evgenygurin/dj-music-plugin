@@ -7,9 +7,10 @@ from types import SimpleNamespace
 import pytest
 
 from app.core.constants import SectionType
+from app.entities.audio.features import TrackFeatures
 from app.services.set.scoring import SetScoringService
-from app.services.transition import TrackFeatures, TransitionScorer
 from app.transition.score import TransitionScore
+from app.transition.scorer import TransitionScorer
 
 
 def _track() -> TrackFeatures:
