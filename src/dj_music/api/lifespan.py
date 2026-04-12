@@ -44,6 +44,16 @@ async def api_lifespan(app: FastAPI):  # type: ignore[no-untyped-def]
     try:
         async with runtime.mcp_app.router.lifespan_context(runtime.mcp_app):
             runtime.mcp_ready = True
+            # Refresh tool registry from live MCP server — catches tools
+            # that failed import-time discovery due to SQLAlchemy warnings.
+            try:
+                await runtime.tool_registry.refresh_from_mcp(runtime.mcp)
+                logger.info(
+                    "Tool registry refreshed from MCP: %d tools",
+                    len(runtime.tool_registry.tools),
+                )
+            except Exception:
+                logger.exception("Failed to refresh tool registry from MCP")
             logger.info("MCP server started — tool execution enabled")
             yield
     except Exception:

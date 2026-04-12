@@ -84,11 +84,23 @@ export async function GET(
   if (!headers.has('content-type')) headers.set('content-type', 'audio/mpeg')
   if (!headers.has('accept-ranges')) headers.set('accept-ranges', 'bytes')
 
-  // Wrap body in a stream that clears the timeout on completion.
+  // Wrap body in a stream that clears the timeout on completion and
+  // handles pipe failures gracefully (e.g. expired YM download URL,
+  // upstream connection drop).
   const body = upstream.body
     ? upstream.body.pipeThrough(
         new TransformStream({
+          transform(chunk, controller) {
+            try {
+              controller.enqueue(chunk)
+            } catch {
+              // Reader disconnected — swallow and let flush/cancel clean up.
+            }
+          },
           flush() {
+            clearTimeout(timer)
+          },
+          cancel() {
             clearTimeout(timer)
           },
         }),

@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any
 
 
-@dataclass(frozen=True)
+@dataclass
 class ToolRegistry:
     """Cached MCP tool metadata for discovery and HTTP validation."""
 
@@ -66,3 +66,30 @@ class ToolRegistry:
         """Return a tool's input schema by name."""
         tool = self.get_tool(tool_name)
         return None if tool is None else tool["input_schema"]
+
+    async def refresh_from_mcp(self, mcp: Any) -> None:
+        """Re-populate tool list from a live FastMCP server instance.
+
+        This is called after the MCP lifespan is up, so all tools are
+        guaranteed to be registered (including those that depend on
+        SQLAlchemy models that may fail during cold import-time discovery).
+        """
+        live_tools = await mcp.list_tools(run_middleware=False)
+        refreshed: list[dict[str, Any]] = []
+        for tool_obj in live_tools:
+            refreshed.append(
+                {
+                    "name": tool_obj.name,
+                    "description": tool_obj.description or "",
+                    "tags": sorted(tool_obj.tags) if tool_obj.tags else [],
+                    "annotations": (
+                        tool_obj.annotations.model_dump(exclude_none=True)
+                        if tool_obj.annotations
+                        else None
+                    ),
+                    "input_schema": tool_obj.parameters or {},
+                    "timeout": tool_obj.timeout,
+                }
+            )
+        refreshed.sort(key=lambda t: t["name"])
+        self.tools = refreshed
