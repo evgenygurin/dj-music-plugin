@@ -19,7 +19,7 @@ def _get_set_repo(session: AsyncSession = Depends(get_db_session)) -> SetReposit
     return SetRepository(session)
 
 
-@tool(tags={ToolCategory.SETS.value, "memory"}, annotations=ANNOTATIONS_READ_ONLY)
+@tool(title="Analyze Set Narrative", tags={ToolCategory.SETS.value, "memory"}, annotations=ANNOTATIONS_READ_ONLY)
 @map_domain_errors
 async def analyze_set_narrative(
     set_id: int,

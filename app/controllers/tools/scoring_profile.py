@@ -17,7 +17,7 @@ def _get_session(session: AsyncSession = Depends(get_db_session)) -> AsyncSessio
     return session
 
 
-@tool(tags={ToolCategory.CORE.value, "memory"})
+@tool(title="Create Scoring Profile", tags={ToolCategory.CORE.value, "memory"})
 @map_domain_errors
 async def create_scoring_profile(
     name: str,
@@ -67,7 +67,7 @@ async def create_scoring_profile(
     }
 
 
-@tool(tags={ToolCategory.CORE.value, "memory"}, annotations=ANNOTATIONS_READ_ONLY)
+@tool(title="List Scoring Profiles", tags={ToolCategory.CORE.value, "memory"}, annotations=ANNOTATIONS_READ_ONLY)
 @map_domain_errors
 async def list_scoring_profiles(
     session: AsyncSession = Depends(_get_session),
@@ -93,7 +93,7 @@ async def list_scoring_profiles(
     ]
 
 
-@tool(tags={ToolCategory.CORE.value, "memory"}, annotations=ANNOTATIONS_READ_ONLY)
+@tool(title="Get Scoring Weights", tags={ToolCategory.CORE.value, "memory"}, annotations=ANNOTATIONS_READ_ONLY)
 @map_domain_errors
 async def get_scoring_weights(
     profile_name: str = "default",

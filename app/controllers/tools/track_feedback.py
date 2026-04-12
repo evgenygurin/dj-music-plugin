@@ -17,7 +17,7 @@ def _get_repo(session: AsyncSession = Depends(get_db_session)) -> TrackFeedbackR
     return TrackFeedbackRepository(session)
 
 
-@tool(tags={ToolCategory.CORE.value, "memory"})
+@tool(title="Like Track", tags={ToolCategory.CORE.value, "memory"})
 @map_domain_errors
 async def like_track(
     track_id: int,
@@ -28,7 +28,7 @@ async def like_track(
     return TrackFeedbackRead.model_validate(entry)
 
 
-@tool(tags={ToolCategory.CORE.value, "memory"})
+@tool(title="Ban Track", tags={ToolCategory.CORE.value, "memory"})
 @map_domain_errors
 async def ban_track(
     track_id: int,
@@ -39,7 +39,7 @@ async def ban_track(
     return TrackFeedbackRead.model_validate(entry)
 
 
-@tool(tags={ToolCategory.CORE.value, "memory"})
+@tool(title="Rate Track", tags={ToolCategory.CORE.value, "memory"})
 @map_domain_errors
 async def rate_track(
     track_id: int,
@@ -58,7 +58,7 @@ async def rate_track(
     return TrackFeedbackRead.model_validate(entry)
 
 
-@tool(tags={ToolCategory.CORE.value, "memory"}, annotations=ANNOTATIONS_READ_ONLY)
+@tool(title="Get Track Feedback", tags={ToolCategory.CORE.value, "memory"}, annotations=ANNOTATIONS_READ_ONLY)
 @map_domain_errors
 async def get_track_feedback(
     track_id: int,
@@ -71,7 +71,7 @@ async def get_track_feedback(
     return {"found": True, **TrackFeedbackRead.model_validate(entry).model_dump()}
 
 
-@tool(tags={ToolCategory.CORE.value, "memory"}, annotations=ANNOTATIONS_READ_ONLY)
+@tool(title="Get Banned Tracks", tags={ToolCategory.CORE.value, "memory"}, annotations=ANNOTATIONS_READ_ONLY)
 @map_domain_errors
 async def get_banned_tracks(
     repo: TrackFeedbackRepository = Depends(_get_repo),
@@ -80,7 +80,7 @@ async def get_banned_tracks(
     return await repo.get_banned_ids()
 
 
-@tool(tags={ToolCategory.CORE.value, "memory"}, annotations=ANNOTATIONS_READ_ONLY)
+@tool(title="Get Liked Tracks", tags={ToolCategory.CORE.value, "memory"}, annotations=ANNOTATIONS_READ_ONLY)
 @map_domain_errors
 async def get_liked_tracks(
     repo: TrackFeedbackRepository = Depends(_get_repo),

@@ -28,7 +28,7 @@ from app.services.search_service import SearchService
 from app.services.track_service import TrackService
 
 
-@tool(tags={ToolCategory.CORE.value}, annotations=ANNOTATIONS_READ_ONLY)
+@tool(title="Search Library", tags={ToolCategory.CORE.value}, annotations=ANNOTATIONS_READ_ONLY)
 @map_domain_errors
 async def search(
     query: str,
@@ -43,7 +43,7 @@ async def search(
     return await svc.search(query=query, entity=entity, limit=limit)
 
 
-@tool(tags={ToolCategory.CORE.value}, annotations=ANNOTATIONS_READ_ONLY)
+@tool(title="Filter Tracks", tags={ToolCategory.CORE.value}, annotations=ANNOTATIONS_READ_ONLY)
 @map_domain_errors
 async def filter_tracks(
     bpm_min: float | None = None,

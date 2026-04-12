@@ -19,7 +19,7 @@ def _get_svc(session: AsyncSession = Depends(get_db_session)) -> AdaptiveArcServ
     return AdaptiveArcService(TransitionHistoryRepository(session))
 
 
-@tool(tags={ToolCategory.CORE.value, "memory"}, annotations=ANNOTATIONS_READ_ONLY)
+@tool(title="Get Energy Trend", tags={ToolCategory.CORE.value, "memory"}, annotations=ANNOTATIONS_READ_ONLY)
 @map_domain_errors
 async def get_energy_trend(
     last_n: int = 10,
@@ -34,7 +34,7 @@ async def get_energy_trend(
     return {"trend": trend}
 
 
-@tool(tags={ToolCategory.CORE.value, "memory"}, annotations=ANNOTATIONS_READ_ONLY)
+@tool(title="Suggest Energy Direction", tags={ToolCategory.CORE.value, "memory"}, annotations=ANNOTATIONS_READ_ONLY)
 @map_domain_errors
 async def suggest_energy_direction(
     last_n: int = 10,
@@ -49,7 +49,7 @@ async def suggest_energy_direction(
     return await svc.suggest_energy_direction(last_n)
 
 
-@tool(tags={ToolCategory.CORE.value, "memory"}, annotations=ANNOTATIONS_READ_ONLY)
+@tool(title="Get Session Arc", tags={ToolCategory.CORE.value, "memory"}, annotations=ANNOTATIONS_READ_ONLY)
 @map_domain_errors
 async def get_session_arc(
     limit: int = 50,

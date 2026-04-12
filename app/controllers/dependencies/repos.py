@@ -16,6 +16,7 @@ from app.db.repositories.playlist import PlaylistRepository
 from app.db.repositories.set import SetRepository
 from app.db.repositories.track import TrackRepository
 from app.db.repositories.transition import TransitionRepository
+from app.db.repositories.transition_history import TransitionHistoryRepository
 
 
 def get_track_repo(session: AsyncSession = Depends(get_db_session)) -> TrackRepository:  # noqa: B008
@@ -70,3 +71,9 @@ def get_candidate_repo(
     session: AsyncSession = Depends(get_db_session),  # noqa: B008
 ) -> CandidateRepository:
     return CandidateRepository(session)
+
+
+def get_transition_history_repo(
+    session: AsyncSession = Depends(get_db_session),  # noqa: B008
+) -> TransitionHistoryRepository:
+    return TransitionHistoryRepository(session)

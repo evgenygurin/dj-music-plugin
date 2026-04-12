@@ -84,7 +84,7 @@ async def _find_similar_llm(
     )
 
 
-@tool(
+@tool(title="Find Similar Tracks",
     tags={ToolCategory.DISCOVERY.value},
     annotations=ANNOTATIONS_READ_ONLY_OPEN_WORLD,
 )
@@ -143,7 +143,7 @@ async def find_similar_tracks(
     )
 
 
-@tool(
+@tool(title="Filter by Feedback",
     tags={ToolCategory.DISCOVERY.value},
     annotations=ANNOTATIONS_READ_ONLY_OPEN_WORLD,
 )
@@ -200,7 +200,7 @@ async def filter_by_feedback(
     )
 
 
-@tool(
+@tool(title="Expand Playlist",
     tags={ToolCategory.DISCOVERY.value},
     annotations=_EXPAND_ANNOTATIONS,
     timeout=ToolTimeout.BATCH,

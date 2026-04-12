@@ -14,7 +14,7 @@ from app.controllers.tools._shared import ANNOTATIONS_READ_ONLY_OPEN_WORLD, Tool
 from app.ym.client import YandexMusicClient
 
 
-@tool(tags={ToolCategory.YM.value}, annotations=ANNOTATIONS_READ_ONLY_OPEN_WORLD)
+@tool(title="YM Get Album", tags={ToolCategory.YM.value}, annotations=ANNOTATIONS_READ_ONLY_OPEN_WORLD)
 async def ym_get_album(
     album_id: str,
     include_tracks: bool = False,

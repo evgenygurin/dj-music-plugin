@@ -19,7 +19,7 @@ from app.core.utils.parsing import ensure_list
 from app.ym.client import YandexMusicClient
 
 
-@tool(tags={ToolCategory.YM.value}, annotations=ANNOTATIONS_READ_ONLY_OPEN_WORLD)
+@tool(title="YM Get Tracks", tags={ToolCategory.YM.value}, annotations=ANNOTATIONS_READ_ONLY_OPEN_WORLD)
 async def ym_get_tracks(
     track_ids: Any = None,
     fields: str = "id,title,artists,albums,duration_ms",
@@ -41,7 +41,7 @@ async def ym_get_tracks(
     return {"count": len(tracks_data), "tracks": tracks_data}
 
 
-@tool(tags={ToolCategory.YM.value}, annotations=ANNOTATIONS_READ_ONLY_OPEN_WORLD)
+@tool(title="YM Artist Tracks", tags={ToolCategory.YM.value}, annotations=ANNOTATIONS_READ_ONLY_OPEN_WORLD)
 async def ym_artist_tracks(
     artist_id: str,
     page: int = 0,

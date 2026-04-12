@@ -32,7 +32,7 @@ def _get_mixer(ctx: Context) -> MixerEngine:
     return mixer
 
 
-@tool(tags={ToolCategory.CORE.value, "monitoring"}, timeout=None)
+@tool(title="Watch Decks", tags={ToolCategory.CORE.value, "monitoring"}, timeout=None)
 async def watch_decks(
     ctx: Context,
     hz: int = DEFAULT_HZ,

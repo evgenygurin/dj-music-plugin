@@ -7,25 +7,15 @@ from typing import Any
 
 
 def build_pre_constructor_transforms(logger: logging.Logger | None = None) -> list[Any]:
-    """Build transforms passed into the FastMCP constructor."""
-    log = logger or logging.getLogger(__name__)
-    server_transforms: list[Any] = []
+    """Build transforms passed into the FastMCP constructor.
 
-    try:
-        from fastmcp.server.transforms.search import BM25SearchTransform
-
-        server_transforms.append(
-            BM25SearchTransform(
-                max_results=10,
-                always_visible=["unlock_tools", "get_library_stats", "run_tool"],
-                search_tool_name="search_tools",
-                call_tool_name="_bm25_call_tool",
-            )
-        )
-    except ImportError:
-        log.warning("BM25SearchTransform not available — install fastmcp[search]")
-
-    return server_transforms
+    BM25SearchTransform was removed because it forces Claude Code to call
+    all tools via a ``run_tool`` proxy, which shows "Run Tool" in the UI
+    instead of the actual tool name/title.  The native tag-based visibility
+    system (``mcp.disable(tags=...)``) is used instead — see
+    ``visibility.py``.
+    """
+    return []
 
 
 def register_post_constructor_transforms(mcp: Any, logger: logging.Logger | None = None) -> None:

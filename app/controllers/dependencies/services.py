@@ -17,6 +17,7 @@ from app.controllers.dependencies.repos import (
     get_playlist_repo,
     get_set_repo,
     get_track_repo,
+    get_transition_history_repo,
     get_transition_repo,
 )
 from app.db.repositories.candidate import CandidateRepository
@@ -28,6 +29,7 @@ from app.db.repositories.playlist import PlaylistRepository
 from app.db.repositories.set import SetRepository
 from app.db.repositories.track import TrackRepository
 from app.db.repositories.transition import TransitionRepository
+from app.db.repositories.transition_history import TransitionHistoryRepository
 from app.services.audio_service import AudioService
 from app.services.candidate_service import CandidateService
 from app.services.curation.facade import CurationService
@@ -43,6 +45,7 @@ from app.services.set.facade import SetService
 from app.services.sync_service import SyncService
 from app.services.tiered_pipeline import TieredPipeline
 from app.services.track_service import TrackService
+from app.services.transition_history import TransitionHistoryService
 from app.services.workflows import (
     AnalyzeTrackWorkflow,
     BuildSetWorkflow,
@@ -195,3 +198,9 @@ def get_deliver_set_workflow(
     sync_workflow: SyncPlaylistWorkflow = Depends(get_sync_playlist_workflow),  # noqa: B008
 ) -> DeliverSetWorkflow:
     return DeliverSetWorkflow(delivery_service, tiered_pipeline, sync_workflow)
+
+
+def get_transition_history_service(
+    repo: TransitionHistoryRepository = Depends(get_transition_history_repo),  # noqa: B008
+) -> TransitionHistoryService:
+    return TransitionHistoryService(repo)

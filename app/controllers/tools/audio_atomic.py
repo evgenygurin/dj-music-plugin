@@ -30,7 +30,7 @@ from app.ym.client import YandexMusicClient
 from app.ym.filters import genre_ok, is_excluded_title, ym_track_summary
 
 
-@tool(
+@tool(title="Analyze One Track",
     tags={ToolCategory.ATOMIC.value},
     annotations=ANNOTATIONS_WRITE,
     timeout=ToolTimeout.BATCH,
@@ -59,7 +59,7 @@ async def analyze_one_track(
     return result
 
 
-@tool(tags={ToolCategory.ATOMIC.value}, annotations=ANNOTATIONS_WRITE)
+@tool(title="Classify One Track", tags={ToolCategory.ATOMIC.value}, annotations=ANNOTATIONS_WRITE)
 @map_domain_errors
 async def classify_one_track(
     track_id: int,
@@ -74,7 +74,7 @@ async def classify_one_track(
     return result
 
 
-@tool(tags={ToolCategory.ATOMIC.value}, annotations=ANNOTATIONS_READ_ONLY)
+@tool(title="Gate One Track", tags={ToolCategory.ATOMIC.value}, annotations=ANNOTATIONS_READ_ONLY)
 @map_domain_errors
 async def gate_one_track(
     track_id: int,
@@ -86,7 +86,7 @@ async def gate_one_track(
     return await svc.gate_track(track_id, criteria=criteria)
 
 
-@tool(tags={ToolCategory.ATOMIC.value}, annotations=ANNOTATIONS_READ_ONLY_OPEN_WORLD)
+@tool(title="Get Similar One Track", tags={ToolCategory.ATOMIC.value}, annotations=ANNOTATIONS_READ_ONLY_OPEN_WORLD)
 @map_domain_errors
 async def get_similar_one_track(
     ym_track_id: str,

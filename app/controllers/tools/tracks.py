@@ -40,7 +40,7 @@ def _parse_json(value: str | None) -> Any:
         return None
 
 
-@tool(tags={ToolCategory.CORE.value}, annotations=ANNOTATIONS_READ_ONLY)
+@tool(title="List Tracks", tags={ToolCategory.CORE.value}, annotations=ANNOTATIONS_READ_ONLY)
 @map_domain_errors
 async def list_tracks(
     limit: int = 20,
@@ -81,7 +81,7 @@ async def list_tracks(
     )
 
 
-@tool(tags={ToolCategory.CORE.value}, annotations=ANNOTATIONS_READ_ONLY)
+@tool(title="Get Track", tags={ToolCategory.CORE.value}, annotations=ANNOTATIONS_READ_ONLY)
 @map_domain_errors
 async def get_track(
     id: int | None = None,
@@ -95,7 +95,7 @@ async def get_track(
     return svc.to_standard(track, features, artist_names=artist_map.get(track_id))
 
 
-@tool(tags={ToolCategory.CORE.value}, annotations=ANNOTATIONS_WRITE)
+@tool(title="Manage Tracks", tags={ToolCategory.CORE.value}, annotations=ANNOTATIONS_WRITE)
 @map_domain_errors
 async def manage_tracks(
     action: str,
@@ -134,7 +134,7 @@ async def manage_tracks(
     return svc.to_standard(track, artist_names=artist_map.get(track_id))
 
 
-@tool(tags={ToolCategory.CORE.value}, annotations=ANNOTATIONS_READ_ONLY)
+@tool(title="Get Track Features", tags={ToolCategory.CORE.value}, annotations=ANNOTATIONS_READ_ONLY)
 @map_domain_errors
 async def get_track_features(
     id: int | None = None,
