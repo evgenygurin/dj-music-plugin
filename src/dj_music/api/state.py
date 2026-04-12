@@ -31,7 +31,7 @@ def build_api_runtime(mcp: Any) -> ApiRuntimeState:
     runtime = ApiRuntimeState(
         mcp=mcp,
         mcp_app=mcp.http_app(path="/"),
-        tool_registry=ToolRegistry.discover(),
+        tool_registry=ToolRegistry(tools=[]),  # Populated by refresh_from_mcp in lifespan
         signed_url_cache=signed_url_cache,
         ym_audio_proxy=None,  # type: ignore[arg-type]
     )
