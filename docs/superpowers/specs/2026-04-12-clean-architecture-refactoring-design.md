@@ -35,7 +35,7 @@
 | Mapper | `from_attributes=True` | `Schema.model_validate(orm_obj)` — Pydantic маппит автоматически |
 | Ports (Protocol) | Да, на границах | Repositories + YM client + Cache |
 | Config split | Да, по доменам | Решает god-object |
-| FileSystemProvider | `presentation/mcp/` | Одна строка в server_builder |
+| FileSystemProvider | `tools/` + `prompts/` + `resources/` | Scan flat top-level packages |
 
 ---
 
@@ -80,7 +80,7 @@ Tool (Controller) --> Schema --> Service --> Repository --> Entity
 
 Core --> Config, Error, Middleware --> Logging, Monitoring, Rate Limit
          Util --> Time, UUID
-         Types (BaseEntity, BaseValueObject)
+         (BaseEntity, BaseValueObject, BaseFilter → schemas/base.py)
 
 Audio --> Pipeline (analyzers + DSP)
 Transition, Optimization, Export, Templates --> pure (only core deps)
@@ -150,7 +150,7 @@ src/dj_music/
 │   ├── transition.py, platform.py, library.py, key.py
 │   └── export.py, ingestion.py, feedback.py, scoring_profile.py
 │
-├── repositories/                # Data access: BaseRepository[TModel, TEntity] + ports
+├── repositories/                # Data access: BaseRepository[TModel, TSchema] + ports
 │   ├── base.py                  # Generic CRUD via model_validate/model_dump
 │   ├── ports.py                 # Protocol interfaces (TrackRepo, SetRepo, etc.)
 │   ├── unit_of_work.py          # UnitOfWork aggregator
@@ -278,7 +278,7 @@ forbidden_modules =
 
 # 3. Kernel is a leaf
 [importlinter:contract:core-leaf]
-name = Kernel must not depend on any app layer
+name = Core must not depend on any app layer
 type = forbidden
 source_modules = dj_music.core
 forbidden_modules =
@@ -386,23 +386,78 @@ structlog chain включает SentryProcessor:
 src/dj_music/
 ├── core/
 │   ├── errors.py            # DJMusicError hierarchy с ctx + get_context_chain()
-│   └── logging.py           # structlog configuration, processor chain, setup_logging()
+│   ├── logging.py           # structlog configuration, processor chain, setup_logging()
+│   ├── sentry.py            # Sentry DSN init, SentryProcessor
+│   └── telemetry.py         # OTEL traces (optional)
 │
-├── infrastructure/
-│   └── observability/
-│       ├── sentry.py        # Sentry DSN init, SentryProcessor
-│       └── telemetry.py     # OTEL traces (optional)
-│
-└── presentation/
-    ├── mcp/
-    │   └── middleware/
-    │       ├── request_id.py    # RequestID → contextvars
-    │       ├── logging.py       # Access log middleware
-    │       ├── error_handler.py # Exception → ToolError conversion
-    │       └── rate_limit.py    # Rate limiting
-    └── http/
-        └── middleware similarly
+└── middleware/               # FastMCP built-in + custom middleware
+    ├── request_id.py        # RequestID → contextvars
+    ├── logging.py           # Access log middleware
+    ├── error_handler.py     # Exception → ToolError conversion
+    └── rate_limit.py        # Rate limiting
 ```
+
+---
+
+## SQLAlchemy 2.0 — обязательные паттерны
+
+| Паттерн | Когда | Пример |
+|---------|-------|--------|
+| `selectinload()` | Перед `model_validate()` для relationships | `select(Track).options(selectinload(Track.artists))` |
+| `load_only()` | Heavy entities (TrackFeatures 80+ полей) | `select(Track).options(load_only(Track.id, Track.title))` |
+| `WriteOnlyMapped` | Большие коллекции (track_sections 108K строк) | `sections: WriteOnlyMapped[Section] = relationship(...)` |
+| `expire_on_commit=False` | Async sessions | В `async_session_factory` |
+| `flush()` never `commit()` | Все repositories | Commit на уровне DI `get_db_session()` |
+| `Mapped[]` + `mapped_column()` | Все модели | SQLAlchemy 2.0 style, не legacy `Column()` |
+
+---
+
+## Pydantic v2 — обязательные возможности
+
+| Возможность | Когда | Пример |
+|-------------|-------|--------|
+| `from_attributes=True` | Entity schema маппинг из ORM | `Track.model_validate(orm_track)` |
+| `frozen=True` | Value Objects (immutable) | `class Bpm(BaseValueObject): value: float` |
+| `computed_field` | Вычисляемые свойства | `@computed_field def camelot(self) -> str` |
+| `field_validator` | Валидация одного поля | `@field_validator('bpm') def check_bpm(cls, v)` |
+| `model_validator(mode="after")` | Cross-field валидация | `bpm_min <= bpm_max` в Filter |
+| `model_validator(mode="before")` | Pre-parse данных | Нормализация input перед валидацией |
+| `Field(ge=, le=)` | Constraint validation | `bpm: float = Field(ge=20, le=300)` |
+| `model_dump(include/exclude)` | Brief/full views | `track.model_dump(include={"id","title","bpm"})` |
+| `Discriminator` | Полиморфные unions | `platform: Annotated[Union[YM, Spotify], Discriminator("type")]` |
+| `TypeAdapter` | Standalone type validation | `TypeAdapter(list[Track]).validate_python(data)` |
+| `extra="forbid"` | Strict filters | `class TrackFilter(BaseFilter): model_config = ...` |
+
+### Validator guidelines
+
+- `@field_validator` — валидация одного поля (range, format, normalization)
+- `@model_validator(mode="after")` — cross-field (bpm_min <= bpm_max, key + camelot consistency)
+- `@model_validator(mode="before")` — pre-parse (string → int, normalize case)
+- Переиспользование: вынести общие validators в `schemas/base.py` как standalone functions
+- Никогда `@validator` (deprecated) — только `@field_validator` / `@model_validator`
+
+---
+
+## Почему НЕТ BaseService
+
+Сервисы слишком разные для общего базового класса:
+
+```python
+# TrackService: 2 зависимости
+class TrackService:
+    def __init__(self, tracks: TrackRepository, features: FeatureRepository): ...
+
+# SetService: 5 зависимостей, facade over 4 sub-services
+class SetService:
+    def __init__(self, sets, tracks, playlists, features, transitions): ...
+
+# AudioService: pipeline + repo + downloader
+class AudioService:
+    def __init__(self, pipeline: AnalysisPipeline, features: FeatureRepository): ...
+```
+
+BaseService с `self.repo` не подходит — у каждого сервиса свой набор зависимостей.
+**Composition > Inheritance** для сервисного слоя. Protocol ports обеспечивают testability.
 
 ---
 
@@ -609,7 +664,7 @@ async def filter_advanced(
     sort_dir: SortDir = SortDir.ASC,
     limit: int = 20,
     cursor: str | None = None,
-) -> CursorPage[TrackEntity]:
+) -> CursorPage[TrackSchema]:
     ...
 ```
 
@@ -651,11 +706,11 @@ async def filter_advanced(
 | 2b | domain logic | transition/, optimization/, export/, templates/, audio domain |
 | 3 | repositories/ports.py | Protocol interfaces |
 | 4 | services/ | services переезжают, убираем ORM imports |
-| 5 | application/workflows+schemas/ | workflows/, schemas/ stays as schemas/ |
-| 6 | infrastructure/ | db/ -> persistence/, ym/ -> yandex_music/, audio I/O, observability/ |
-| 7 | engines/ | engines переезжают |
-| 8 | presentation/ | controllers/ -> mcp/, api/ -> http/, bootstrap/, di/ |
-| 9 | Cleanup | ghost dirs, shims, docs, CLAUDE.md обновление |
+| 5 | services/workflows/ | workflows переезжают в services/workflows/ |
+| 6 | models/ + repositories/ | db/models/ → models/, db/repositories/ → repositories/, db/session → repositories/session |
+| 7 | engines/ + ym/ + audio/ | engines, ym, audio переезжают на top-level |
+| 8 | tools/ + api/ + bootstrap/ | controllers/tools/ → tools/, api/ stays, bootstrap/ + di/ |
+| 9 | middleware/ + cleanup | middleware/ на top-level, ghost dirs, shims, docs, CLAUDE.md |
 
 Каждая фаза — отдельный PR с re-export shims для backward compatibility.
 
