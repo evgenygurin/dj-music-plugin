@@ -15,8 +15,8 @@ from typing import Any
 
 from fastmcp.server.lifespan import lifespan
 
-from app.engines.deck.engine import DeckEngine
-from app.engines.mixer.engine import MixerEngine
+from dj_music.engines.deck.engine import DeckEngine
+from dj_music.engines.mixer.engine import MixerEngine
 
 NUM_DECKS = 4
 

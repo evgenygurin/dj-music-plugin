@@ -9,8 +9,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from app.engines.base import BaseEngine
-from app.engines.deck.engine import DeckEngine
+from dj_music.engines.base import BaseEngine
+from dj_music.engines.deck.engine import DeckEngine
 
 
 class MixerEngine(BaseEngine):
@@ -48,7 +48,7 @@ class MixerEngine(BaseEngine):
 
     def set_eq(self, deck_id: int, band: str, gain: float) -> None:
         """Set EQ gain for a band. band ∈ {low, mid, high}, gain ∈ [-40, 6] dB."""
-        from app.core.errors import NotFoundError, ValidationError
+        from dj_music.core.errors import NotFoundError, ValidationError
 
         if deck_id not in self.decks:
             raise NotFoundError("Deck", deck_id)
@@ -65,7 +65,7 @@ class MixerEngine(BaseEngine):
 
     def reset_eq(self, deck_id: int) -> None:
         """Reset all EQ bands to 0 dB (flat)."""
-        from app.core.errors import NotFoundError
+        from dj_music.core.errors import NotFoundError
 
         if deck_id not in self.decks:
             raise NotFoundError("Deck", deck_id)
@@ -73,7 +73,7 @@ class MixerEngine(BaseEngine):
 
     def set_filter(self, deck_id: int, cutoff_hz: float) -> None:
         """Set filter cutoff frequency. 20 Hz = full cut, 20000 Hz = open."""
-        from app.core.errors import NotFoundError
+        from dj_music.core.errors import NotFoundError
 
         if deck_id not in self.decks:
             raise NotFoundError("Deck", deck_id)
@@ -84,7 +84,7 @@ class MixerEngine(BaseEngine):
 
     def set_channel_gain(self, deck_id: int, value: float) -> None:
         if deck_id not in self.decks:
-            from app.core.errors import NotFoundError
+            from dj_music.core.errors import NotFoundError
 
             raise NotFoundError("Deck", deck_id)
         self._channel_gain[deck_id] = max(0.0, min(value, 1.5))

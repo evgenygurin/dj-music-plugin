@@ -9,8 +9,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from app.engines.base import BaseEngine
-from app.engines.deck.state import DeckState, assert_transition
+from dj_music.engines.base import BaseEngine
+from dj_music.engines.deck.state import DeckState, assert_transition
 
 
 class DeckEngine(BaseEngine):
@@ -76,7 +76,7 @@ class DeckEngine(BaseEngine):
 
     def set_pitch(self, value: float) -> None:
         if not 0.92 <= value <= 1.08:  # ±8% DJ standard
-            from app.core.errors import ValidationError
+            from dj_music.core.errors import ValidationError
 
             raise ValidationError(f"Pitch out of range: {value} (must be 0.92..1.08)")
         self._pitch = value

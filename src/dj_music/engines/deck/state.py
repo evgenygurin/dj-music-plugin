@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from enum import StrEnum
 
-from app.core.errors import ValidationError
+from dj_music.core.errors import ValidationError
 
 
 class DeckState(StrEnum):
