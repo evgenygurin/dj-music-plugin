@@ -100,7 +100,9 @@ KERNEL (Core):
 ```text
 src/dj_music/kernel/
 ├── __init__.py
-├── types.py                 # BaseEntity(BaseModel), BaseValueObject(BaseModel, frozen=True)
+├── types.py                 # BaseEntity(BaseModel, from_attributes=True, extra="forbid")
+│                            # BaseValueObject(BaseModel, frozen=True)
+│                            # Все entities и VOs наследуют от этих двух базовых классов
 ├── errors.py                # DJMusicError hierarchy
 ├── constants.py             # Enums, domain constants
 ├── camelot.py               # Camelot wheel pure math
@@ -238,13 +240,25 @@ src/dj_music/infrastructure/
 │   │   ├── transition.py, platform.py, library.py, key.py
 │   │   ├── export.py, ingestion.py, feedback.py, scoring_profile.py
 │   ├── repositories/        # Concrete repos (ORM -> Pydantic entity via model_validate)
-│   │   # Паттерны SQLAlchemy 2.0:
-│   │   # - selectinload() перед model_validate() для relationships
-│   │   # - load_only() для heavy entities (TrackFeatures 80+ полей)
-│   │   # - WriteOnlyMapped для больших коллекций (track_sections 108K строк)
-│   │   # - expire_on_commit=False в async sessions
-│   │   # - flush() never commit() — commit на уровне DI
-│   │   ├── base.py, unit_of_work.py
+│   │   #
+│   │   # BaseRepository[TModel, TEntity] — Generic base class:
+│   │   #   - TModel = SQLAlchemy ORM model
+│   │   #   - TEntity = Pydantic domain entity
+│   │   #   - CRUD бесплатно: get_by_id, list_all, create, update, delete
+│   │   #   - Маппинг: entity_class.model_validate(orm_obj) / entity.model_dump()
+│   │   #   - Cursor pagination через _paginate()
+│   │   #
+│   │   # SQLAlchemy 2.0 паттерны:
+│   │   #   - selectinload() перед model_validate() для relationships
+│   │   #   - load_only() для heavy entities (TrackFeatures 80+ полей)
+│   │   #   - WriteOnlyMapped для больших коллекций (track_sections 108K строк)
+│   │   #   - expire_on_commit=False в async sessions
+│   │   #   - flush() never commit() — commit на уровне DI
+│   │   #
+│   │   # НЕТ BaseService — сервисы используют composition, не inheritance
+│   │   #
+│   │   ├── base.py              # BaseRepository[TModel, TEntity]
+│   │   ├── unit_of_work.py
 │   │   ├── track/ (core, filtering, library, external_ids, stats)
 │   │   ├── playlist.py, set.py, feature.py, audio.py
 │   │   ├── transition.py, candidate.py, embedding.py, export.py
