@@ -199,7 +199,7 @@ src/dj_music/domain/
 ```text
 src/dj_music/application/
 ├── ports/                   # Protocol interfaces (return domain entities, not ORM)
-│   ├── repositories.py      # All repository Protocols (return dataclasses)
+│   ├── repositories.py      # All repository Protocols (return Pydantic entities)
 │   ├── music_provider.py    # MusicProvider Protocol (YM abstraction)
 │   ├── audio_storage.py     # TimeseriesStorage Protocol
 │   └── cache.py             # TransitionCache Protocol
@@ -237,7 +237,13 @@ src/dj_music/infrastructure/
 │   │   ├── base.py, track.py, audio.py, playlist.py, set.py
 │   │   ├── transition.py, platform.py, library.py, key.py
 │   │   ├── export.py, ingestion.py, feedback.py, scoring_profile.py
-│   ├── repositories/        # Concrete repos (ORM -> domain entity conversion inside)
+│   ├── repositories/        # Concrete repos (ORM -> Pydantic entity via model_validate)
+│   │   # Паттерны SQLAlchemy 2.0:
+│   │   # - selectinload() перед model_validate() для relationships
+│   │   # - load_only() для heavy entities (TrackFeatures 80+ полей)
+│   │   # - WriteOnlyMapped для больших коллекций (track_sections 108K строк)
+│   │   # - expire_on_commit=False в async sessions
+│   │   # - flush() never commit() — commit на уровне DI
 │   │   ├── base.py, unit_of_work.py
 │   │   ├── track/ (core, filtering, library, external_ids, stats)
 │   │   ├── playlist.py, set.py, feature.py, audio.py
