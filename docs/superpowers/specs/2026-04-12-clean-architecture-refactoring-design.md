@@ -539,18 +539,140 @@ src/dj_music/
 | # | Фаза | Описание |
 |---|------|----------|
 | 0 | Setup | `src/dj_music/`, pyproject.toml, import-linter |
-| 1 | kernel/ | config split, errors, constants, camelot, utils |
-| 2a | domain/entities/ | Dataclass entities для Track, Set, Playlist, Transition, etc. |
+| 1 | kernel/ | config split, errors, constants, camelot, utils, logging |
+| 2a | domain/entities/ | Pydantic entities для Track, Set, Playlist, Transition, etc. |
 | 2b | domain/ | transition/, optimization/, export/, templates/, audio domain |
 | 3 | application/ports/ | Protocol interfaces |
-| 4 | application/services/ | services переезжают |
+| 4 | application/services/ | services переезжают, убираем ORM imports |
 | 5 | application/workflows+dto/ | workflows/, schemas/ -> dto/ |
-| 6 | infrastructure/ | db/ -> persistence/, ym/ -> yandex_music/, audio I/O |
+| 6 | infrastructure/ | db/ -> persistence/, ym/ -> yandex_music/, audio I/O, observability/ |
 | 7 | engines/ | engines переезжают |
 | 8 | presentation/ | controllers/ -> mcp/, api/ -> http/, bootstrap/, di/ |
-| 9 | Cleanup | ghost dirs, shims, docs |
+| 9 | Cleanup | ghost dirs, shims, docs, CLAUDE.md обновление |
 
 Каждая фаза — отдельный PR с re-export shims для backward compatibility.
+
+---
+
+## ⚠️ ОБЯЗАТЕЛЬНАЯ документация FastMCP — изучить ПЕРЕД реализацией
+
+Полный sitemap: https://gofastmcp.com/llms.txt
+Полная документация: https://gofastmcp.com/llms-full.txt
+
+**ВСЕ ссылки ниже ОБЯЗАТЕЛЬНЫ для изучения перед выполнением соответствующей фазы.**
+
+### Phase 0 — Setup
+
+| Документ | URL | Зачем |
+|----------|-----|-------|
+| Welcome | https://gofastmcp.com/getting-started/welcome | Обзор FastMCP 3.x |
+| Installation | https://gofastmcp.com/getting-started/installation | Версии, зависимости |
+| Quickstart | https://gofastmcp.com/getting-started/quickstart | Базовые паттерны |
+| Settings | https://gofastmcp.com/more/settings | Все настройки FastMCP |
+| Project Configuration | https://gofastmcp.com/deployment/server-configuration | pyproject.toml / конфигурация |
+
+### Phase 1 — kernel/
+
+| Документ | URL | Зачем |
+|----------|-----|-------|
+| OpenTelemetry | https://gofastmcp.com/servers/telemetry | Интеграция OTEL traces |
+| Client Logging | https://gofastmcp.com/servers/logging | Логирование ctx.info/warning/error |
+
+### Phase 2 — domain/
+
+| Документ | URL | Зачем |
+|----------|-----|-------|
+| Prompts | https://gofastmcp.com/servers/prompts | Standalone @prompt паттерн |
+| Resources & Templates | https://gofastmcp.com/servers/resources | @resource, ResourceResult |
+
+### Phase 3+4 — application/
+
+| Документ | URL | Зачем |
+|----------|-----|-------|
+| Dependency Injection | https://gofastmcp.com/servers/dependency-injection | Depends(), DI chain |
+| MCP Context | https://gofastmcp.com/servers/context | ctx.info, ctx.report_progress, ctx.sample |
+| Progress Reporting | https://gofastmcp.com/servers/progress | Отслеживание прогресса long tools |
+| User Elicitation | https://gofastmcp.com/servers/elicitation | ctx.elicit() для user input |
+| Sampling | https://gofastmcp.com/servers/sampling | LLM sampling fallback |
+| Background Tasks | https://gofastmcp.com/servers/tasks | Docket tasks, task=True |
+
+### Phase 6 — infrastructure/
+
+| Документ | URL | Зачем |
+|----------|-----|-------|
+| Storage Backends | https://gofastmcp.com/servers/storage-backends | Backend для state persistence |
+| Lifespans | https://gofastmcp.com/servers/lifespan | @lifespan, composition operator `\|` |
+
+### Phase 8 — presentation/
+
+| Документ | URL | Зачем |
+|----------|-----|-------|
+| The FastMCP Server | https://gofastmcp.com/servers/server | FastMCP() конструктор, все опции |
+| Tools | https://gofastmcp.com/servers/tools | @tool, ToolResult, structuredContent |
+| Middleware | https://gofastmcp.com/servers/middleware | Middleware chain, порядок |
+| Pagination | https://gofastmcp.com/servers/pagination | list_page_size, cursor pagination |
+| Component Visibility | https://gofastmcp.com/servers/visibility | enable_components, hidden/visible |
+| Versioning | https://gofastmcp.com/servers/versioning | API versioning |
+| Icons | https://gofastmcp.com/servers/icons | Tool icons |
+| Composing Servers | https://gofastmcp.com/servers/composition | mount(), namespace, import_server |
+| Testing | https://gofastmcp.com/servers/testing | Client fixture, in-memory testing |
+
+### Phase 8 — presentation/mcp/ (Providers & Transforms)
+
+| Документ | URL | Зачем |
+|----------|-----|-------|
+| Providers Overview | https://gofastmcp.com/servers/providers/overview | Provider architecture |
+| Filesystem Provider | https://gofastmcp.com/servers/providers/filesystem | FileSystemProvider auto-discovery |
+| Local Provider | https://gofastmcp.com/servers/providers/local | @mcp.tool direct registration |
+| MCP Proxy Provider | https://gofastmcp.com/servers/providers/proxy | Proxy to remote MCP |
+| Custom Providers | https://gofastmcp.com/servers/providers/custom | Custom component providers |
+| Skills Provider | https://gofastmcp.com/servers/providers/skills | SkillsDirectoryProvider |
+| Transforms Overview | https://gofastmcp.com/servers/transforms/transforms | Transform pipeline |
+| Tool Transformation | https://gofastmcp.com/servers/transforms/tool-transformation | Modify tool schemas |
+| Namespace Transform | https://gofastmcp.com/servers/transforms/namespace | Prefix naming |
+| Tool Search | https://gofastmcp.com/servers/transforms/tool-search | Tool search transform |
+| Prompts as Tools | https://gofastmcp.com/servers/transforms/prompts-as-tools | P->T transform |
+| Resources as Tools | https://gofastmcp.com/servers/transforms/resources-as-tools | R->T transform |
+| Code Mode | https://gofastmcp.com/servers/transforms/code-mode | Code execution mode |
+
+### Phase 8 — presentation/http/ (Deployment)
+
+| Документ | URL | Зачем |
+|----------|-----|-------|
+| Running Your Server | https://gofastmcp.com/deployment/running-server | stdio vs HTTP |
+| HTTP Deployment | https://gofastmcp.com/deployment/http | StreamableHTTP, ASGI mount |
+| FastAPI Integration | https://gofastmcp.com/integrations/fastapi | FastAPI + MCP mount |
+| Claude Code Integration | https://gofastmcp.com/integrations/claude-code | .mcp.json config |
+| MCP JSON Configuration | https://gofastmcp.com/integrations/mcp-json-configuration | JSON config format |
+
+### Phase 8 — presentation/ (Auth, если потребуется)
+
+| Документ | URL | Зачем |
+|----------|-----|-------|
+| Authentication | https://gofastmcp.com/servers/auth/authentication | Auth overview |
+| Authorization | https://gofastmcp.com/servers/authorization | Permission model |
+| Token Verification | https://gofastmcp.com/servers/auth/token-verification | JWT/token verify |
+| Supabase Integration | https://gofastmcp.com/integrations/supabase | Supabase auth |
+
+### Phase 9 — Cleanup (Client, CLI)
+
+| Документ | URL | Зачем |
+|----------|-----|-------|
+| The FastMCP Client | https://gofastmcp.com/clients/client | Client API |
+| Client Transports | https://gofastmcp.com/clients/transports | stdio/HTTP transports |
+| Calling Tools | https://gofastmcp.com/clients/tools | Tool invocation |
+| CLI Overview | https://gofastmcp.com/cli/overview | fastmcp CLI |
+| Running Servers | https://gofastmcp.com/cli/running | fastmcp run/dev |
+| Inspecting Servers | https://gofastmcp.com/cli/inspecting | fastmcp list/inspect |
+
+### Apps (если потребуется)
+
+| Документ | URL | Зачем |
+|----------|-----|-------|
+| Apps Overview | https://gofastmcp.com/apps/overview | MCP Apps architecture |
+| Apps Quickstart | https://gofastmcp.com/apps/quickstart | Building apps |
+| Prefab UI | https://gofastmcp.com/apps/prefab | Pre-built UI components |
+| Patterns | https://gofastmcp.com/apps/patterns | Common app patterns |
 
 ---
 
