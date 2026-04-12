@@ -19,20 +19,20 @@ from app.controllers.dependencies import (
     get_set_repo,
     get_track_repo,
 )
-from app.db.models.track import Track
-from app.db.repositories.playlist import PlaylistRepository
-from app.db.repositories.set import SetRepository
-from app.db.repositories.track import TrackRepository
+from dj_music.models.track import Track
+from dj_music.repositories.playlist import PlaylistRepository
+from dj_music.repositories.set import SetRepository
+from dj_music.repositories.track import TrackRepository
 
 
 def _patch_dependency_context(monkeypatch: pytest.MonkeyPatch, session_factory) -> None:  # type: ignore[no-untyped-def]
     class MockContext:
         lifespan_context = {"db_session_factory": session_factory}
 
-    import app.controllers.dependencies
+    import dj_music.di
 
     monkeypatch.setattr(
-        app.controllers.dependencies,
+        dj_music.di,
         "get_context",
         lambda: MockContext(),
     )
@@ -135,10 +135,11 @@ async def test_repo_never_commits():
     from pathlib import Path
 
     repo_dir = Path(__file__).parent.parent / "app" / "db" / "repositories"
-    repo_files = [repo_file for repo_file in repo_dir.glob("*.py") if repo_file.name != "__init__.py"]
+    repo_files = [
+        repo_file for repo_file in repo_dir.glob("*.py") if repo_file.name != "__init__.py"
+    ]
     assert repo_files, f"No repository files found under {repo_dir}"
     for repo_file in repo_files:
-
         source = repo_file.read_text()
         tree = ast.parse(source)
 

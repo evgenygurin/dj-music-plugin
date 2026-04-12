@@ -5,7 +5,7 @@ from __future__ import annotations
 from fastmcp.dependencies import Depends
 from fastmcp.tools import tool
 
-from app.controllers.dependencies.services import get_transition_history_service
+from dj_music.di.services import get_transition_history_service
 from dj_music.tools._shared.errors import map_domain_errors
 from dj_music.tools._shared.taxonomy import ANNOTATIONS_READ_ONLY, ToolCategory
 from dj_music.schemas.transition_history import BestPairRead, TransitionHistoryRead

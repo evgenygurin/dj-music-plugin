@@ -7,10 +7,10 @@ from fastmcp.tools import tool
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.controllers.dependencies.db import get_db_session
+from dj_music.di.db import get_db_session
 from dj_music.tools._shared.errors import map_domain_errors
 from dj_music.tools._shared.taxonomy import ANNOTATIONS_READ_ONLY, ToolCategory
-from app.db.models.scoring_profile import ScoringProfile
+from dj_music.models.scoring_profile import ScoringProfile
 
 
 def _get_session(session: AsyncSession = Depends(get_db_session)) -> AsyncSession:  # noqa: B008
