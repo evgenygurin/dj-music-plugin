@@ -4,7 +4,10 @@ Default: core, sets, admin always visible.
 Extended categories (delivery, discovery, curation, sync, ym) start disabled.
 Hidden categories (audio, atomic) start disabled.
 
-Use ``unlock_tools(action="unlock", category="...")`` to enable per-session.
+All disabled categories are unlockable at runtime via
+``unlock_tools(action="unlock", category="...")``, which calls
+``ctx.fastmcp.enable(tags=...)`` — a server-level operation that triggers
+``notifications/tools/list_changed`` so the client re-fetches the tool list.
 """
 
 from __future__ import annotations

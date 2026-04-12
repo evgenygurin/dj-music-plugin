@@ -34,7 +34,7 @@ def _get_repo(session: AsyncSession = Depends(get_db_session)) -> TrackFeedbackR
 @map_domain_errors
 async def like_track(
     track_id: int,
-    repo: TrackFeedbackRepository = Depends(_get_repo),
+    repo: TrackFeedbackRepository = Depends(_get_repo),  # noqa: B008
 ) -> TrackFeedbackRead:
     """Mark a track as liked. Liked tracks get priority in set building."""
     entry = await repo.upsert(track_id, status="liked", rating=5)
@@ -51,7 +51,7 @@ async def like_track(
 @map_domain_errors
 async def ban_track(
     track_id: int,
-    repo: TrackFeedbackRepository = Depends(_get_repo),
+    repo: TrackFeedbackRepository = Depends(_get_repo),  # noqa: B008
 ) -> TrackFeedbackRead:
     """Ban a track. Banned tracks are excluded from all future sets."""
     entry = await repo.upsert(track_id, status="banned", rating=1)
@@ -70,7 +70,7 @@ async def rate_track(
     track_id: int,
     rating: int,
     notes: str | None = None,
-    repo: TrackFeedbackRepository = Depends(_get_repo),
+    repo: TrackFeedbackRepository = Depends(_get_repo),  # noqa: B008
 ) -> TrackFeedbackRead:
     """Rate a track 1-5. Higher ratings boost the track in set building.
 
@@ -93,7 +93,7 @@ async def rate_track(
 @map_domain_errors
 async def get_track_feedback(
     track_id: int,
-    repo: TrackFeedbackRepository = Depends(_get_repo),
+    repo: TrackFeedbackRepository = Depends(_get_repo),  # noqa: B008
 ) -> dict:
     """Get feedback for a track (rating, status, play/skip counts)."""
     entry = await repo.get_by_track(track_id)
@@ -111,7 +111,7 @@ async def get_track_feedback(
 )
 @map_domain_errors
 async def get_banned_tracks(
-    repo: TrackFeedbackRepository = Depends(_get_repo),
+    repo: TrackFeedbackRepository = Depends(_get_repo),  # noqa: B008
 ) -> list[int]:
     """Get all banned track IDs. Use to exclude from set building."""
     return await repo.get_banned_ids()
@@ -126,7 +126,7 @@ async def get_banned_tracks(
 )
 @map_domain_errors
 async def get_liked_tracks(
-    repo: TrackFeedbackRepository = Depends(_get_repo),
+    repo: TrackFeedbackRepository = Depends(_get_repo),  # noqa: B008
 ) -> list[int]:
     """Get all liked track IDs. Use to prioritize in set building."""
     return await repo.get_liked_ids()
