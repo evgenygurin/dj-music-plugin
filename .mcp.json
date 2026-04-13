@@ -1,0 +1,18 @@
+{
+  "mcpServers": {
+    "dj-music": {
+      "command": "bash",
+      "args": [
+        "-c",
+        "cd /Users/laptop/dev/dj-music-plugin && set -a && source .env 2>/dev/null && set +a && exec uv run fastmcp run app/server.py"
+      ]
+    },
+    "ssh-manager": {
+      "command": "node",
+      "args": ["/opt/node22/lib/node_modules/mcp-ssh-manager/src/index.js"],
+      "env": {
+        "SSH_CONFIG_PATH": "/root/.ssh/ssh-config.toml"
+      }
+    }
+  }
+}

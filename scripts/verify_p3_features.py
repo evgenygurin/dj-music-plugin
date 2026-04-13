@@ -117,10 +117,18 @@ async def main(track_path: str) -> bool:
     beat_analyzer = registry.get("beat")
     if beat_analyzer and beat_analyzer.is_available():
         print("Pre-running 'beat' analyzer for dependent P3 analyzers...")
+        t0 = time.perf_counter()
         beat_result = beat_analyzer.run(ctx)
+        beat_time = time.perf_counter() - t0
         if beat_result.success and beat_result.features:
             prior = beat_result.features
-            print(f"  beat -> OK ({len(prior)} features)\n")
+            n_beats = len(prior.get("beat_times", []))
+            n_downbeats = len(prior.get("downbeat_times", []))
+            first_db = prior.get("first_downbeat_ms", "N/A")
+            db_conf = prior.get("downbeat_confidence", 0)
+            print(f"  beat -> OK ({len(prior)} features, {beat_time:.2f}s)")
+            print(f"    beats: {n_beats}, downbeats: {n_downbeats}")
+            print(f"    first_downbeat_ms: {first_db}, confidence: {db_conf:.3f}\n")
         else:
             print(
                 f"  beat -> FAIL ({beat_result.error}) — dependent analyzers will get empty data\n"
