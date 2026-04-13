@@ -183,3 +183,35 @@ cd panel && bun install && bun dev         # http://localhost:3000
 ## Версия
 
 Plugin v0.8.0, 88 tools (title+icons+meta on all, smoke-tested), 9 resources, 6 prompts, 18 audio analyzers (3 core numpy + 4 librosa + 11 essentia/extended), two-phase pipeline, context-aware 6-component scoring, tiered analysis (L1-L4), FileSystemProvider, native tag-based visibility (no BM25), modular bootstrap/api/di/workflows architecture. Transition Recipe Engine (12 djay Pro AI transition types), Neural Mix stem-aware scoring, speculative prefetch, beatgrid migration, auto-DJ, Phase 2-6 AI memory (transition history, track affinity, feedback, scoring profiles, narrative, adaptive arc), Selectel VM deployment, GitHub CI.
+
+## Selectel VM (audio analysis server)
+
+Production DB (PostgreSQL) и audio analysis pipeline запускаются на Selectel VM.
+
+### Подключение
+```bash
+bash scripts/selectel_run.sh "команда"           # выполнить команду на VM
+bash scripts/selectel_run.sh                      # интерактивный SSH
+```
+
+Креды в `.env`: `SELECTEL_SSH_HOST`, `SELECTEL_SSH_USER`, `SELECTEL_SSH_KEY_PATH`, `SELECTEL_PROJECT_PATH`.
+
+### Типовые операции на VM
+```bash
+# Подтянуть код и запустить миграции
+bash scripts/selectel_run.sh "git pull && uv run alembic upgrade head"
+
+# Запустить верификацию audio pipeline
+bash scripts/selectel_run.sh "uv run python scripts/verify_audio_pipeline.py"
+
+# Запустить тесты
+bash scripts/selectel_run.sh "uv run pytest -v"
+
+# Применить фикс beat detection
+bash scripts/selectel_run.sh "bash scripts/fix_beat_on_server.sh"
+```
+
+### Selectel API (если нужно управление инфраструктурой)
+- Keystone token: `POST https://cloud.api.selcloud.ru/identity/v3/auth/tokens`
+- OpenStack CLI: `openstack server list`, `openstack server show <id>`
+- Креды OpenStack в `.env`: `OS_AUTH_URL`, `OS_PROJECT_ID`, `OS_USERNAME`, `OS_PASSWORD`
