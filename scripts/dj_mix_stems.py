@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import argparse
 import logging
+import os
 import subprocess
 import sys
 import time
@@ -34,6 +35,185 @@ log = logging.getLogger("stem_mixer")
 
 SR = 44100
 STEMS = ("drums", "bass", "vocals", "other")
+
+
+# ── Supabase Feature Loading ────────────────────────────────
+
+
+def _load_supabase_creds() -> tuple[str, str]:
+    """Load Supabase URL and anon key from env or panel/.env."""
+    sb_url = os.environ.get("NEXT_PUBLIC_SUPABASE_URL", "")
+    sb_key = os.environ.get("NEXT_PUBLIC_SUPABASE_ANON_KEY", "")
+    if sb_url and sb_key:
+        return sb_url, sb_key
+    panel_env = Path(__file__).resolve().parent.parent / "panel" / ".env"
+    if not panel_env.exists():
+        panel_env = Path(__file__).resolve().parent.parent / "panel" / ".env.local"
+    if panel_env.exists():
+        for line in panel_env.read_text().splitlines():
+            line = line.strip()
+            if line.startswith("#") or "=" not in line:
+                continue
+            k, _, v = line.partition("=")
+            v = v.strip().strip("\"'")
+            if k.strip() == "NEXT_PUBLIC_SUPABASE_URL":
+                sb_url = v
+            elif k.strip() == "NEXT_PUBLIC_SUPABASE_ANON_KEY":
+                sb_key = v
+    return sb_url, sb_key
+
+
+_SB_URL, _SB_KEY = "", ""
+
+FEATURE_FIELDS = (
+    "track_id,bpm,bpm_confidence,bpm_stability,variable_tempo,"
+    "integrated_lufs,short_term_lufs_mean,loudness_range_lu,crest_factor_db,"
+    "energy_mean,energy_slope,"
+    "energy_sub,energy_low,energy_lowmid,energy_mid,energy_highmid,energy_high,"
+    "spectral_centroid_hz,spectral_rolloff_85,spectral_rolloff_95,"
+    "spectral_flatness,spectral_flux_std,"
+    "spectral_slope,spectral_contrast,hnr_db,chroma_entropy,"
+    "key_code,key_confidence,atonality,"
+    "mfcc_vector,onset_rate,pulse_clarity,kick_prominence,hp_ratio,"
+    "mood,mood_confidence,"
+    "tonnetz_vector,tempogram_ratio_vector,"
+    "beat_loudness_band_ratio,danceability,dissonance_mean,"
+    "dynamic_complexity,pitch_salience_mean,spectral_complexity_mean"
+)
+
+
+def _sb_get(path: str):
+    """Make authenticated Supabase REST call."""
+    global _SB_URL, _SB_KEY
+    if not _SB_URL:
+        _SB_URL, _SB_KEY = _load_supabase_creds()
+    if not _SB_URL:
+        return None
+    import httpx
+
+    return httpx.get(
+        f"{_SB_URL}/rest/v1/{path}",
+        headers={"apikey": _SB_KEY, "Authorization": f"Bearer {_SB_KEY}"},
+    )
+
+
+def _parse_vector(val: object) -> list[float] | None:
+    if val is None:
+        return None
+    if isinstance(val, list):
+        return [float(x) for x in val]
+    if isinstance(val, str):
+        import json
+
+        try:
+            return [float(x) for x in json.loads(val)]
+        except (json.JSONDecodeError, TypeError):
+            return None
+    return None
+
+
+def _row_to_features(row: dict) -> TrackFeatures:
+    from app.entities.audio.features import TrackFeatures
+
+    bands = [
+        row.get("energy_sub") or 0.0,
+        row.get("energy_low") or 0.0,
+        row.get("energy_lowmid") or 0.0,
+        row.get("energy_mid") or 0.0,
+        row.get("energy_highmid") or 0.0,
+        row.get("energy_high") or 0.0,
+    ]
+    return TrackFeatures(
+        bpm=row.get("bpm"),
+        bpm_confidence=row.get("bpm_confidence"),
+        bpm_stability=row.get("bpm_stability"),
+        variable_tempo=row.get("variable_tempo"),
+        integrated_lufs=row.get("integrated_lufs"),
+        short_term_lufs_mean=row.get("short_term_lufs_mean"),
+        loudness_range_lu=row.get("loudness_range_lu"),
+        crest_factor_db=row.get("crest_factor_db"),
+        energy_mean=row.get("energy_mean"),
+        energy_slope=row.get("energy_slope"),
+        energy_bands=bands if any(b != 0 for b in bands) else None,
+        spectral_centroid_hz=row.get("spectral_centroid_hz"),
+        spectral_rolloff_85=row.get("spectral_rolloff_85"),
+        spectral_rolloff_95=row.get("spectral_rolloff_95"),
+        spectral_flatness=row.get("spectral_flatness"),
+        spectral_flux_std=row.get("spectral_flux_std"),
+        spectral_slope=row.get("spectral_slope"),
+        spectral_contrast=row.get("spectral_contrast"),
+        hnr_db=row.get("hnr_db"),
+        chroma_entropy=row.get("chroma_entropy"),
+        key_code=row.get("key_code"),
+        key_confidence=row.get("key_confidence"),
+        atonality=row.get("atonality"),
+        mfcc_vector=_parse_vector(row.get("mfcc_vector")),
+        onset_rate=row.get("onset_rate"),
+        pulse_clarity=row.get("pulse_clarity"),
+        kick_prominence=row.get("kick_prominence"),
+        hp_ratio=row.get("hp_ratio"),
+        tonnetz_vector=_parse_vector(row.get("tonnetz_vector")),
+        tempogram_ratio_vector=_parse_vector(row.get("tempogram_ratio_vector")),
+        beat_loudness_band_ratio=_parse_vector(row.get("beat_loudness_band_ratio")),
+        danceability=row.get("danceability"),
+        dissonance_mean=row.get("dissonance_mean"),
+        dynamic_complexity=row.get("dynamic_complexity"),
+        pitch_salience_mean=row.get("pitch_salience_mean"),
+        spectral_complexity_mean=row.get("spectral_complexity_mean"),
+        mood=row.get("mood"),
+    )
+
+
+def _load_features_for_tracks(mp3_files: list[Path]) -> dict[str, TrackFeatures]:
+    """Load real audio features from Supabase by searching each track title via ilike."""
+    import re
+
+    result: dict[str, TrackFeatures] = {}
+
+    try:
+        for f in mp3_files:
+            clean = re.sub(r"^\d+[\.\s]+", "", f.stem).strip()
+            search_term = clean.replace("'", "''")
+
+            # Search by full title (Artist - Song)
+            r = _sb_get(f"tracks?select=id,title&title=ilike.*{search_term}*&limit=1")
+            if r is None or r.status_code != 200 or not r.json():
+                # Fallback: search by song name only (after " - ")
+                if " - " in clean:
+                    song = clean.split(" - ", 1)[1].strip()
+                    r = _sb_get(f"tracks?select=id,title&title=ilike.*{song}*&limit=1")
+
+            if r is None or r.status_code != 200 or not r.json():
+                log.warning("  No match: %s", f.name)
+                continue
+
+            tid = r.json()[0]["id"]
+
+            # Get features
+            r2 = _sb_get(
+                f"track_audio_features_computed?select={FEATURE_FIELDS}&track_id=eq.{tid}"
+            )
+            if r2 and r2.status_code == 200 and r2.json():
+                row = r2.json()[0]
+                result[f.name] = _row_to_features(row)
+                log.info(
+                    "  %s → id=%d bpm=%.1f lufs=%.1f key=%s mood=%s",
+                    f.name[:35],
+                    tid,
+                    row.get("bpm") or 0,
+                    row.get("integrated_lufs") or 0,
+                    row.get("key_code", "?"),
+                    row.get("mood", "?"),
+                )
+            else:
+                log.warning("  No features: %s (id=%d)", f.name, tid)
+
+        log.info("Loaded features for %d / %d tracks", len(result), len(mp3_files))
+
+    except Exception as e:
+        log.warning("Error loading features: %s", e)
+
+    return result
 
 
 # ── Stem Separator ───────────────────────────────────────────
@@ -531,11 +711,14 @@ def main() -> None:
 
     # Render transitions and write output
     log.info("=" * 60)
-    log.info("PHASE 2: Rendering stem-based transitions")
+    log.info("PHASE 2: Loading features + rendering stem transitions")
     log.info("=" * 60)
 
     from app.entities.audio.features import TrackFeatures
     from app.transition.scorer import TransitionScorer
+
+    # Load real audio features from Supabase
+    features_map = _load_features_for_tracks(mp3_files)
 
     scorer = TransitionScorer()
     overlap_samples = bars_to_samples(args.overlap_bars, args.bpm)
@@ -553,13 +736,33 @@ def main() -> None:
             a_stems = all_stems[i - 1]
             b_stems = all_stems[i]
 
-            # Score transition
-            score = scorer.score(TrackFeatures(bpm=args.bpm), TrackFeatures(bpm=args.bpm))
+            # Get real features (or fallback to BPM-only)
+            a_feat = features_map.get(mp3_files[i - 1].name, TrackFeatures(bpm=args.bpm))
+            b_feat = features_map.get(mp3_files[i].name, TrackFeatures(bpm=args.bpm))
+            if a_feat.bpm is None:
+                a_feat = TrackFeatures(bpm=args.bpm)
+            if b_feat.bpm is None:
+                b_feat = TrackFeatures(bpm=args.bpm)
 
-            # Render stem-based transition
+            # Score with all 6 components
+            score = scorer.score(a_feat, b_feat)
+
+            # Render stem-based transition (type varies by score!)
             tr = select_and_render(a_stems, b_stems, score.overall, args.overlap_bars, args.bpm)
 
-            log.info("  %2d→%2d: %s (score=%.3f)", i, i + 1, tr.type_name, score.overall)
+            log.info(
+                "  %2d→%2d: %s (%.3f [bpm=%.2f hrm=%.2f nrg=%.2f spc=%.2f grv=%.2f tmb=%.2f])",
+                i,
+                i + 1,
+                tr.type_name,
+                score.overall,
+                score.bpm,
+                score.harmonic,
+                score.energy,
+                score.spectral,
+                score.groove,
+                score.timbral,
+            )
 
             # Write transition blend
             out.write(np.clip(tr.audio, -1, 1).astype(np.float32))
