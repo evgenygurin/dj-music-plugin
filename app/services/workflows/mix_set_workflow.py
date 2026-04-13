@@ -83,7 +83,7 @@ class MixSetWorkflow:
 
         # Check for already-downloaded MP3s in the output dir
         for item in items:
-            patterns = list(base.glob(f"*{item.track_id}*")) or list(base.glob("*.mp3"))
+            patterns = list(base.glob(f"*{item.track_id}*"))
             if patterns:
                 audio_paths.append(patterns[0])
 

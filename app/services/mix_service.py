@@ -60,25 +60,21 @@ def _render_transition(
     n = _bars_to_samples(overlap_bars, bpm)
     swap_n = n // 2  # bass swap at halfway point
 
-    # Get overlap regions
-    a_drums = a.drums[-n:]
-    a_bass = a.bass[-n:]
-    a_vocals = a.vocals[-n:]
-    a_other = a.other[-n:]
-    b_drums = b.drums[:n]
-    b_bass = b.bass[:n]
-    b_vocals = b.vocals[:n]
-    b_other = b.other[:n]
+    # Get overlap regions and pad if shorter than overlap window
+    def _pad_tail(arr: np.ndarray) -> np.ndarray:
+        return np.pad(arr, ((n - len(arr), 0), (0, 0))) if len(arr) < n else arr
 
-    # Pad if needed
-    for name in ("a_drums", "a_bass", "a_vocals", "a_other"):
-        arr = locals()[name]
-        if len(arr) < n:
-            locals()[name] = np.pad(arr, ((n - len(arr), 0), (0, 0)))
-    for name in ("b_drums", "b_bass", "b_vocals", "b_other"):
-        arr = locals()[name]
-        if len(arr) < n:
-            locals()[name] = np.pad(arr, ((0, n - len(arr)), (0, 0)))
+    def _pad_head(arr: np.ndarray) -> np.ndarray:
+        return np.pad(arr, ((0, n - len(arr)), (0, 0))) if len(arr) < n else arr
+
+    a_drums = _pad_tail(a.drums[-n:])
+    a_bass = _pad_tail(a.bass[-n:])
+    a_vocals = _pad_tail(a.vocals[-n:])
+    a_other = _pad_tail(a.other[-n:])
+    b_drums = _pad_head(b.drums[:n])
+    b_bass = _pad_head(b.bass[:n])
+    b_vocals = _pad_head(b.vocals[:n])
+    b_other = _pad_head(b.other[:n])
 
     fade_in = _fade(n, "in")
     fade_out = _fade(n, "out")
@@ -246,22 +242,24 @@ async def mix_set(
     # Convert to MP3
     logger.info("Converting to MP3 (320kbps)...")
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    subprocess.run(
-        [
-            "ffmpeg",
-            "-y",
-            "-i",
-            str(wav_path),
-            "-codec:a",
-            "libmp3lame",
-            "-b:a",
-            "320k",
-            str(output_path),
-        ],
-        capture_output=True,
-        check=True,
-    )
-    wav_path.unlink()
+    try:
+        subprocess.run(
+            [
+                "ffmpeg",
+                "-y",
+                "-i",
+                str(wav_path),
+                "-codec:a",
+                "libmp3lame",
+                "-b:a",
+                "320k",
+                str(output_path),
+            ],
+            capture_output=True,
+            check=True,
+        )
+    finally:
+        wav_path.unlink(missing_ok=True)
 
     size = output_path.stat().st_size
     logger.info(

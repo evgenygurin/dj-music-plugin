@@ -254,9 +254,9 @@ class StemService:
         # ONNX htdemucs requires a pre-converted model.
         # Fall back to PyTorch CPU if ONNX model not available.
         logger.info(
-            "ONNX backend selected but model conversion not yet implemented, using PyTorch CPU"
+            "ONNX backend selected but model conversion not yet implemented, falling back to PyTorch CPU"
         )
-        self._backend = StemBackend.TORCH_CPU
+        # Don't mutate self._backend — fall back locally only
         return await self._separate_torch(path, "cpu")
 
     async def _separate_eq(self, path: Path) -> StemResult:
