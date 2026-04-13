@@ -54,49 +54,100 @@ class TrackStems:
 
 
 class StemSeparator:
-    """Wraps demucs for stem separation. Initializes model once, reuses."""
+    """Wraps demucs for stem separation. Tries MLX → MPS → CPU."""
 
     def __init__(self, model_name: str = "htdemucs", device: str | None = None):
+        self._backend = "torch"
+        t0 = time.time()
+
+        # Try MLX first (fastest on Apple Silicon, ~3-5x faster than MPS)
+        if device is None or device == "mlx":
+            try:
+                from demucs_mlx import Separator as MLXSeparator
+
+                self._mlx_sep = MLXSeparator(model=model_name, shifts=1)
+                self._backend = "mlx"
+                log.info("Using demucs-mlx backend (%.1fs)", time.time() - t0)
+                return
+            except ImportError:
+                if device == "mlx":
+                    log.error("demucs-mlx not installed: pip install demucs-mlx")
+                    sys.exit(1)
+                log.info("demucs-mlx not found, falling back to PyTorch")
+
+        # PyTorch fallback
         import torch
+        from demucs.pretrained import get_model
 
         if device is None:
             if torch.cuda.is_available():
                 device = "cuda"
             elif hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
-                device = "cpu"  # MPS has partial fallbacks, CPU often faster
+                device = "mps"  # MPS is ~5-7x faster than CPU on Apple Silicon
             else:
                 device = "cpu"
 
         self._device = device
         log.info("Loading demucs model '%s' on %s...", model_name, device)
-        t0 = time.time()
-
-        from demucs.pretrained import get_model
 
         self._model = get_model(model_name)
         self._model.to(torch.device(device))
         self._model.eval()
-        self._sources = self._model.sources  # ['drums', 'bass', 'other', 'vocals']
-        log.info("Model loaded in %.1fs (sources: %s)", time.time() - t0, self._sources)
+        self._sources = self._model.sources
+        log.info(
+            "Model loaded in %.1fs (sources: %s, backend: torch/%s)",
+            time.time() - t0,
+            self._sources,
+            device,
+        )
 
     def separate(self, audio_path: Path) -> TrackStems:
         """Separate a track into 4 stems."""
+        if self._backend == "mlx":
+            return self._separate_mlx(audio_path)
+        return self._separate_torch(audio_path)
+
+    def _separate_mlx(self, audio_path: Path) -> TrackStems:
+        """MLX backend — fastest on Apple Silicon."""
+        t0 = time.time()
+        _origin, stems = self._mlx_sep.separate_audio_file(str(audio_path))
+
+        # demucs-mlx returns numpy arrays as (samples, channels) or (samples,)
+        result = {}
+        for name in STEMS:
+            arr = np.array(stems[name], dtype=np.float32)
+            if arr.ndim == 1:
+                arr = np.stack([arr, arr], axis=1)
+            elif arr.ndim == 2 and arr.shape[0] == 2:
+                arr = arr.T  # (channels, samples) → (samples, channels)
+            result[name] = arr
+
+        duration_s = result["drums"].shape[0] / SR
+        log.info(
+            "    Separated in %.1fs (%.1f min track) [mlx]", time.time() - t0, duration_s / 60
+        )
+
+        return TrackStems(
+            drums=result["drums"],
+            bass=result["bass"],
+            vocals=result["vocals"],
+            other=result["other"],
+            duration_s=duration_s,
+        )
+
+    def _separate_torch(self, audio_path: Path) -> TrackStems:
+        """PyTorch backend (MPS or CPU)."""
         import torch
         from demucs.apply import apply_model
         from demucs.audio import convert_audio
 
         t0 = time.time()
-        # Load via soundfile (avoids torchaudio/torchcodec issues)
         data, sr = sf.read(str(audio_path), dtype="float32")
         if data.ndim == 1:
             data = np.stack([data, data], axis=1)
-        # soundfile: (samples, channels) → torch: (channels, samples)
         waveform = torch.from_numpy(data.T)
 
-        # Convert to model's expected format
         waveform = convert_audio(waveform, sr, self._model.samplerate, self._model.audio_channels)
-
-        # Add batch dimension: (channels, samples) → (1, channels, samples)
         mix = waveform.unsqueeze(0).to(self._device)
 
         with torch.no_grad():
@@ -105,20 +156,23 @@ class StemSeparator:
                 mix,
                 device=self._device,
                 split=True,
-                overlap=0.25,
+                overlap=0.1,  # reduced for speed (0.25 → 0.1)
+                shifts=0,  # no random shifts (saves ~50% time)
                 progress=False,
             )
-        # estimates shape: (1, sources, channels, samples)
 
-        # Convert to numpy (samples, channels) for soundfile compat
         stems = {}
         for i, name in enumerate(self._sources):
             tensor = estimates[0, i].cpu()
-            # (channels, samples) → (samples, channels)
             stems[name] = tensor.numpy().T.astype(np.float32)
 
         duration_s = stems[self._sources[0]].shape[0] / SR
-        log.info("    Separated in %.1fs (%.1f min track)", time.time() - t0, duration_s / 60)
+        log.info(
+            "    Separated in %.1fs (%.1f min track) [torch/%s]",
+            time.time() - t0,
+            duration_s / 60,
+            self._device,
+        )
 
         return TrackStems(
             drums=stems["drums"],
