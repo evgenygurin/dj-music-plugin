@@ -29,7 +29,7 @@ MICRO_RAMP_SAMPLES = int(MICRO_RAMP_MS / 1000 * SR)
 
 
 @dataclass
-class MixResult:
+class MixSetResult:
     """Result of rendering a DJ mix."""
 
     output_path: Path
@@ -140,7 +140,7 @@ def _render_transition(
     return blended, len(a.drums) - n, n, t_type
 
 
-async def render_mix(
+async def mix_set(
     stems: list[StemResult],
     scores: list[TransitionScore],
     *,
@@ -148,7 +148,7 @@ async def render_mix(
     overlap_bars: int = 16,
     output_path: Path,
     progress_callback: object = None,
-) -> MixResult:
+) -> MixSetResult:
     """Render a complete DJ mix from separated stems.
 
     Args:
@@ -268,7 +268,7 @@ async def render_mix(
         "Done: %s (%.1f MB, %.1f min)", output_path.name, size / 1_048_576, duration_s / 60
     )
 
-    return MixResult(
+    return MixSetResult(
         output_path=output_path,
         duration_s=duration_s,
         track_count=len(stems),

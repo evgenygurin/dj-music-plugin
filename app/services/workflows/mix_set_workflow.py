@@ -11,7 +11,7 @@ from typing import Any
 
 from app.db.repositories.feature import FeatureRepository
 from app.db.repositories.set import SetRepository
-from app.services.mix_renderer import render_mix
+from app.services.mix_service import mix_set
 from app.services.stem_service import StemService
 from app.services.workflows._helpers import call_async_method
 from app.transition.scorer import TransitionScorer
@@ -19,7 +19,7 @@ from app.transition.scorer import TransitionScorer
 logger = logging.getLogger(__name__)
 
 
-class RenderMixWorkflow:
+class MixSetWorkflow:
     """Render a DJ set into a single mixed MP3 with stem-based transitions."""
 
     def __init__(
@@ -136,7 +136,7 @@ class RenderMixWorkflow:
             bpm = sum(bpms) / len(bpms) if bpms else 128.0
 
         output_path = base / "mix.mp3"
-        mix_result = await render_mix(
+        mix_result = await mix_set(
             stems=stems,
             scores=scores,
             bpm=bpm,

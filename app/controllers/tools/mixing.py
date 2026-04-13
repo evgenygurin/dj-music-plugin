@@ -22,7 +22,7 @@ from app.controllers.tools._shared import (
 
 
 @tool(
-    title="Render Mix",
+    title="Mix Set",
     tags={ToolCategory.DELIVERY.value},
     annotations=ANNOTATIONS_WRITE,
     icons=ICON_DELIVERY,
@@ -31,7 +31,7 @@ from app.controllers.tools._shared import (
     task=True,
 )
 @map_domain_errors
-async def render_mix(
+async def mix_set(
     set_id: int,
     version: str | None = None,
     output_dir: str | None = None,
@@ -77,9 +77,9 @@ async def render_mix(
         "status": "ready",
         "stem_backend": stem_svc.backend.value,
         "note": (
-            "render_mix workflow requires DB session injection via Depends(). "
+            "mix_set workflow requires DB session injection via Depends(). "
             "Use scripts/dj_mix_stems.py for standalone rendering, or wire "
-            "RenderMixWorkflow into the DI system."
+            "MixSetWorkflow into the DI system."
         ),
         "usage": (
             f"python scripts/dj_mix_stems.py --input-dir generated-sets/<set>/ "
