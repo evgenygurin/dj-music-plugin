@@ -54,89 +54,131 @@ class TrackStems:
 
 
 class StemSeparator:
-    """Wraps demucs for stem separation. Tries MLX → MPS → CPU."""
+    """Wraps demucs for stem separation. Tries: MLX API → demucs-mlx CLI → PyTorch."""
 
     def __init__(self, model_name: str = "htdemucs", device: str | None = None):
-        self._backend = "torch"
+        self._backend = "cli"  # safest default
+        self._model_name = model_name
         t0 = time.time()
 
-        # Try MLX first (fastest on Apple Silicon, ~3-5x faster than MPS)
-        if device is None or device == "mlx":
+        # Try 1: MLX Python API (fastest, Apple Silicon native)
+        if device in (None, "mlx"):
             try:
                 from demucs_mlx import Separator as MLXSeparator
 
-                self._mlx_sep = MLXSeparator(model=model_name, shifts=1)
+                self._mlx_sep = MLXSeparator(model=model_name, shifts=1, split=True)
                 self._backend = "mlx"
-                log.info("Using demucs-mlx backend (%.1fs)", time.time() - t0)
+                log.info("Using demucs-mlx Python API (%.1fs)", time.time() - t0)
                 return
             except ImportError:
-                if device == "mlx":
-                    log.error("demucs-mlx not installed: pip install demucs-mlx")
-                    sys.exit(1)
-                log.info("demucs-mlx not found, falling back to PyTorch")
+                log.info("demucs_mlx Python import failed, trying CLI...")
+            except Exception as e:
+                log.info("demucs_mlx init failed (%s), trying CLI...", e)
 
-        # PyTorch fallback
+        # Try 2: demucs-mlx CLI (works if installed in any Python, avoids import issues)
+        if device in (None, "mlx", "cli"):
+            import shutil
+
+            cli_path = shutil.which("demucs-mlx")
+            if cli_path:
+                self._backend = "cli"
+                self._cli_path = cli_path
+                log.info("Using demucs-mlx CLI: %s", cli_path)
+                return
+            else:
+                log.info("demucs-mlx CLI not found, falling back to PyTorch")
+
+        # Try 3: PyTorch (CPU — MPS is unreliable on demucs 4.0)
         import torch
         from demucs.pretrained import get_model
 
+        # Force CPU — MPS gives no speedup on demucs 4.0 due to STFT CPU fallback
         if device is None:
-            if torch.cuda.is_available():
-                device = "cuda"
-            elif hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
-                device = "mps"  # MPS is ~5-7x faster than CPU on Apple Silicon
-            else:
-                device = "cpu"
+            device = "cuda" if torch.cuda.is_available() else "cpu"
 
         self._device = device
+        self._backend = "torch"
         log.info("Loading demucs model '%s' on %s...", model_name, device)
 
         self._model = get_model(model_name)
         self._model.to(torch.device(device))
         self._model.eval()
         self._sources = self._model.sources
-        log.info(
-            "Model loaded in %.1fs (sources: %s, backend: torch/%s)",
-            time.time() - t0,
-            self._sources,
-            device,
-        )
+        log.info("Model loaded in %.1fs (backend: torch/%s)", time.time() - t0, device)
 
     def separate(self, audio_path: Path) -> TrackStems:
         """Separate a track into 4 stems."""
         if self._backend == "mlx":
             return self._separate_mlx(audio_path)
+        elif self._backend == "cli":
+            return self._separate_cli(audio_path)
         return self._separate_torch(audio_path)
 
     def _separate_mlx(self, audio_path: Path) -> TrackStems:
-        """MLX backend — fastest on Apple Silicon."""
+        """MLX Python API — fastest on Apple Silicon."""
         t0 = time.time()
         _origin, stems = self._mlx_sep.separate_audio_file(str(audio_path))
 
-        # demucs-mlx returns numpy arrays as (samples, channels) or (samples,)
+        # demucs-mlx returns (channels, samples) numpy arrays
         result = {}
         for name in STEMS:
             arr = np.array(stems[name], dtype=np.float32)
             if arr.ndim == 1:
                 arr = np.stack([arr, arr], axis=1)
-            elif arr.ndim == 2 and arr.shape[0] == 2:
+            elif arr.ndim == 2 and arr.shape[0] <= 2:
                 arr = arr.T  # (channels, samples) → (samples, channels)
             result[name] = arr
 
         duration_s = result["drums"].shape[0] / SR
-        log.info(
-            "    Separated in %.1fs (%.1f min track) [mlx]", time.time() - t0, duration_s / 60
-        )
+        log.info("    Separated in %.1fs (%.1f min) [mlx]", time.time() - t0, duration_s / 60)
+        return TrackStems(**result, duration_s=duration_s)
 
-        return TrackStems(
-            drums=result["drums"],
-            bass=result["bass"],
-            vocals=result["vocals"],
-            other=result["other"],
-            duration_s=duration_s,
-        )
+    def _separate_cli(self, audio_path: Path) -> TrackStems:
+        """demucs-mlx CLI — avoids Python import issues."""
+        import subprocess
+        import tempfile
+
+        t0 = time.time()
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            cmd = [
+                self._cli_path,
+                "-n",
+                self._model_name,
+                "-o",
+                tmp_dir,
+                "--shifts",
+                "1",
+                str(audio_path),
+            ]
+            proc = subprocess.run(cmd, capture_output=True, text=True)
+            if proc.returncode != 0:
+                log.error("demucs-mlx CLI failed: %s", proc.stderr[-500:])
+                raise RuntimeError(f"demucs-mlx CLI failed: {proc.stderr[-200:]}")
+
+            # Read output WAVs
+            track_name = audio_path.stem
+            stem_dir = Path(tmp_dir) / self._model_name / track_name
+            result = {}
+            for name in STEMS:
+                wav_path = stem_dir / f"{name}.wav"
+                if wav_path.exists():
+                    data, _sr = sf.read(str(wav_path), dtype="float32")
+                    if data.ndim == 1:
+                        data = np.stack([data, data], axis=1)
+                    result[name] = data
+                else:
+                    log.warning("    Stem %s not found at %s", name, wav_path)
+                    # List what's actually there
+                    if stem_dir.exists():
+                        log.warning("    Available: %s", list(stem_dir.iterdir()))
+                    result[name] = np.zeros((44100, 2), dtype=np.float32)
+
+        duration_s = result["drums"].shape[0] / SR
+        log.info("    Separated in %.1fs (%.1f min) [cli]", time.time() - t0, duration_s / 60)
+        return TrackStems(**result, duration_s=duration_s)
 
     def _separate_torch(self, audio_path: Path) -> TrackStems:
-        """PyTorch backend (MPS or CPU)."""
+        """PyTorch backend (CPU fallback)."""
         import torch
         from demucs.apply import apply_model
         from demucs.audio import convert_audio
@@ -146,7 +188,6 @@ class StemSeparator:
         if data.ndim == 1:
             data = np.stack([data, data], axis=1)
         waveform = torch.from_numpy(data.T)
-
         waveform = convert_audio(waveform, sr, self._model.samplerate, self._model.audio_channels)
         mix = waveform.unsqueeze(0).to(self._device)
 
@@ -156,24 +197,22 @@ class StemSeparator:
                 mix,
                 device=self._device,
                 split=True,
-                overlap=0.1,  # reduced for speed (0.25 → 0.1)
-                shifts=0,  # no random shifts (saves ~50% time)
+                overlap=0.1,
+                shifts=0,
                 progress=False,
             )
 
         stems = {}
         for i, name in enumerate(self._sources):
-            tensor = estimates[0, i].cpu()
-            stems[name] = tensor.numpy().T.astype(np.float32)
+            stems[name] = estimates[0, i].cpu().numpy().T.astype(np.float32)
 
         duration_s = stems[self._sources[0]].shape[0] / SR
         log.info(
-            "    Separated in %.1fs (%.1f min track) [torch/%s]",
+            "    Separated in %.1fs (%.1f min) [torch/%s]",
             time.time() - t0,
             duration_s / 60,
             self._device,
         )
-
         return TrackStems(
             drums=stems["drums"],
             bass=stems["bass"],
