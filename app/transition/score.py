@@ -24,3 +24,7 @@ class TransitionScore:
     overall: float = 0.0
     hard_reject: bool = False
     reject_reason: str | None = None
+    # Soft conflict flags (Mosaikbox 2024) — not hard rejects, but
+    # inform the recipe engine to mute specific stems during overlap.
+    vocal_conflict: bool = False  # both tracks have vocals → mute outgoing
+    drum_conflict: bool = False  # drum patterns dissimilar → attenuate incoming drums

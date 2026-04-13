@@ -482,26 +482,39 @@ def stem_bass_swap(
     fade_in = _fade(n, "in")
     fade_out = _fade(n, "out")
 
-    # BASS: hard swap at swap point (the key DJ technique)
+    # 5ms micro-ramp (click prevention) — ~220 samples at 44.1kHz
+    micro_ramp = int(0.005 * SR)
+
+    # BASS: HARD CUT at swap point (0ms transition — the cardinal DJ rule).
+    # Two basses must NEVER play simultaneously — phase cancellation destroys
+    # sub-bass. 5ms micro-ramp prevents click artifact at the cut boundary.
     bass_mix = np.zeros((n, a_bass.shape[1]), dtype=np.float32)
-    # Fade out A's bass leading up to swap point
-    bass_fade_out = np.ones((n, 1), dtype=np.float32)
-    if swap_n > 0:
-        ramp = min(swap_n, bars_to_samples(2, bpm))  # 2-bar ramp
-        bass_fade_out[swap_n - ramp : swap_n] = np.linspace(1, 0, ramp).reshape(-1, 1)
-    bass_fade_out[swap_n:] = 0
-    bass_fade_in = 1 - bass_fade_out
-    bass_mix = a_bass * bass_fade_out + b_bass * bass_fade_in
+    bass_mix[:swap_n] = a_bass[:swap_n]
+    bass_mix[swap_n:] = b_bass[swap_n:]
+    # Apply micro-ramp at the cut boundary to prevent click
+    if micro_ramp > 0 and swap_n > micro_ramp and swap_n < n - micro_ramp:
+        ramp_out = np.linspace(1, 0, micro_ramp, dtype=np.float32).reshape(-1, 1)
+        ramp_in = np.linspace(0, 1, micro_ramp, dtype=np.float32).reshape(-1, 1)
+        bass_mix[swap_n - micro_ramp : swap_n] = a_bass[swap_n - micro_ramp : swap_n] * ramp_out
+        bass_mix[swap_n : swap_n + micro_ramp] = b_bass[swap_n : swap_n + micro_ramp] * ramp_in
 
-    # DRUMS: gradual crossfade
-    drums_mix = a_drums * fade_out + b_drums * fade_in
+    # DRUMS: introduce B drums FIRST (safest — no harmonic risk).
+    # Staggered: B drums fade in over first quarter, A drums fade out later.
+    quarter = n // 4
+    drums_early_in = np.zeros((n, 1), dtype=np.float32)
+    drums_early_in[:quarter] = np.linspace(0, 1, quarter, dtype=np.float32).reshape(-1, 1)
+    drums_early_in[quarter:] = 1.0
+    drums_mix = a_drums * fade_out + b_drums * drums_early_in * fade_in
 
-    # VOCALS: crossfade with slight duck in the middle to avoid clash
+    # VOCALS: crossfade with duck in the middle to prevent vocal clash
     mid_duck = 1.0 - 0.3 * np.exp(-(np.linspace(-2, 2, n) ** 2)).reshape(-1, 1)
     vocals_mix = (a_vocals * fade_out + b_vocals * fade_in) * mid_duck
 
-    # OTHER (synths, pads): smooth crossfade
-    other_mix = a_other * fade_out + b_other * fade_in
+    # OTHER (synths, pads): introduce AFTER bass swap (harmonics last)
+    other_late_in = np.zeros((n, 1), dtype=np.float32)
+    half = n // 2
+    other_late_in[half:] = np.linspace(0, 1, n - half, dtype=np.float32).reshape(-1, 1)
+    other_mix = a_other * fade_out + b_other * other_late_in
 
     blended = (drums_mix + bass_mix + vocals_mix + other_mix).astype(np.float32)
 

@@ -50,8 +50,12 @@ def _butter_bandpass(low: float, high: float, order: int = 4) -> np.ndarray:
 
 
 def split_3band(audio: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """Split audio into low (<200Hz), mid (200-4000Hz), high (>4000Hz)."""
-    low = sosfilt(_butter_lowpass(200), audio, axis=0)
+    """Split audio into low (<150Hz), mid (150-4000Hz), high (>4000Hz).
+
+    Crossover at 150 Hz (not 200) matches Pioneer DJM kick-kill frequency.
+    Filter order=4 (24 dB/oct LR4) matches Allen & Heath Xone:92.
+    """
+    low = sosfilt(_butter_lowpass(150), audio, axis=0)
     high = sosfilt(_butter_highpass(4000), audio, axis=0)
     mid = audio - low - high
     return low, mid, high
@@ -67,7 +71,7 @@ def apply_hpf_sweep(audio: np.ndarray, start_freq: float, end_freq: float) -> np
         end = min((i + 1) * chunk_size, n)
         freq = start_freq + (end_freq - start_freq) * (i / 19)
         freq = max(20, min(freq, SR / 2 - 100))
-        sos = _butter_highpass(freq, order=2)
+        sos = _butter_highpass(freq, order=4)  # 24 dB/oct LR4
         result[start:end] = sosfilt(sos, audio[start:end], axis=0)
     return result
 

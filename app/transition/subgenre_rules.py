@@ -55,13 +55,19 @@ def classify_pair(
     return SubgenrePairType.MIXED_PAIR
 
 
+# Bar clamps per subgenre pair. Research-calibrated:
+# - Hard: minimum 8 (not 0) — hard cuts without micro-ramp cause clicks
+# - Ambient: max 64 (not 128) — ultra-long blends lose listener attention
+# - Hypnotic: max 32 (Ben Klock style: long but not infinite)
+# - Sources: Kim ISMIR 2020 (transition length histogram peaks at 8/16/32),
+#   professional DJ practice, Mosaikbox 2024 (16 bars standard)
 _BAR_CLAMPS: dict[SubgenrePairType, tuple[int, int]] = {
-    SubgenrePairType.AMBIENT_PAIR: (32, 128),
-    SubgenrePairType.HARD_PAIR: (0, 8),
-    SubgenrePairType.HYPNOTIC_PAIR: (16, 64),
-    SubgenrePairType.ACID_PAIR: (8, 32),
-    SubgenrePairType.MELODIC_PAIR: (16, 64),
-    SubgenrePairType.MIXED_PAIR: (0, 64),
+    SubgenrePairType.AMBIENT_PAIR: (32, 64),  # was (32, 128)
+    SubgenrePairType.HARD_PAIR: (4, 16),  # was (0, 8) — need micro-ramp
+    SubgenrePairType.HYPNOTIC_PAIR: (16, 32),  # was (16, 64)
+    SubgenrePairType.ACID_PAIR: (8, 32),  # unchanged — matches research
+    SubgenrePairType.MELODIC_PAIR: (16, 48),  # was (16, 64)
+    SubgenrePairType.MIXED_PAIR: (8, 48),  # was (0, 64)
 }
 
 

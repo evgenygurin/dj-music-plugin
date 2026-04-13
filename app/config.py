@@ -57,6 +57,17 @@ class Settings(BaseSettings):
     scoring_crest_diff_penalty: float = 0.10  # penalty amount
     scoring_energy_slope_bonus: float = 0.05  # bonus for same slope direction
 
+    # ── Conflict Detection (Mosaikbox 2024) ──────────
+    vocal_pitch_salience_threshold: float = 0.4  # pitch salience > this = vocal present
+    vocal_overlap_threshold_ms: float = 2000.0  # mute when overlap > 2 sec
+    drum_groove_conflict_floor: float = 0.95  # mute incoming drums if similarity < 95%
+
+    # ── Audio Engineering (Allen & Heath / Pioneer) ──
+    bass_swap_ramp_ms: float = 0.0  # hard cut on downbeat, not fade
+    micro_ramp_ms: float = 5.0  # click prevention on CUTs (~220 samples @ 44.1kHz)
+    hpf_filter_order: int = 4  # 24 dB/oct (LR4), was 2 (12 dB/oct)
+    kick_kill_cutoff_hz: float = 150.0  # was 200 Hz in offline renderer
+
     # ── Storage Backends ─────────────────────────────
     storage_backend: str = "memory"  # memory, file, redis
     storage_file_dir: str = "cache/storage"
