@@ -82,15 +82,18 @@ class StemSeparator:
     def separate(self, audio_path: Path) -> TrackStems:
         """Separate a track into 4 stems."""
         import torch
-        import torchaudio
         from demucs.apply import apply_model
         from demucs.audio import convert_audio
 
         t0 = time.time()
-        waveform, sr = torchaudio.load(str(audio_path))
+        # Load via soundfile (avoids torchaudio/torchcodec issues)
+        data, sr = sf.read(str(audio_path), dtype="float32")
+        if data.ndim == 1:
+            data = np.stack([data, data], axis=1)
+        # soundfile: (samples, channels) → torch: (channels, samples)
+        waveform = torch.from_numpy(data.T)
 
-        # Convert to model's expected format (model.samplerate, model.audio_channels)
-        waveform.mean(0)
+        # Convert to model's expected format
         waveform = convert_audio(waveform, sr, self._model.samplerate, self._model.audio_channels)
 
         # Add batch dimension: (channels, samples) → (1, channels, samples)
