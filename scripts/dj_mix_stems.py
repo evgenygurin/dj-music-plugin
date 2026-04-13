@@ -67,38 +67,54 @@ class StemSeparator:
             else:
                 device = "cpu"
 
+        self._device = device
         log.info("Loading demucs model '%s' on %s...", model_name, device)
         t0 = time.time()
 
-        from demucs.api import Separator
+        from demucs.pretrained import get_model
 
-        self._sep = Separator(
-            model=model_name,
-            device=device,
-            segment=10,
-            overlap=0.25,
-            split=True,
-            progress=False,
-        )
-        log.info("Model loaded in %.1fs", time.time() - t0)
+        self._model = get_model(model_name)
+        self._model.to(torch.device(device))
+        self._model.eval()
+        self._sources = self._model.sources  # ['drums', 'bass', 'other', 'vocals']
+        log.info("Model loaded in %.1fs (sources: %s)", time.time() - t0, self._sources)
 
     def separate(self, audio_path: Path) -> TrackStems:
         """Separate a track into 4 stems."""
+        import torch
         import torchaudio
+        from demucs.apply import apply_model
+        from demucs.audio import convert_audio
 
         t0 = time.time()
         waveform, sr = torchaudio.load(str(audio_path))
 
-        _, separated = self._sep.separate_tensor(waveform, sr=sr)
+        # Convert to model's expected format (model.samplerate, model.audio_channels)
+        waveform.mean(0)
+        waveform = convert_audio(waveform, sr, self._model.samplerate, self._model.audio_channels)
+
+        # Add batch dimension: (channels, samples) → (1, channels, samples)
+        mix = waveform.unsqueeze(0).to(self._device)
+
+        with torch.no_grad():
+            estimates = apply_model(
+                self._model,
+                mix,
+                device=self._device,
+                split=True,
+                overlap=0.25,
+                progress=False,
+            )
+        # estimates shape: (1, sources, channels, samples)
 
         # Convert to numpy (samples, channels) for soundfile compat
         stems = {}
-        for name in STEMS:
-            tensor = separated[name].cpu()
-            # demucs outputs (channels, samples) → transpose to (samples, channels)
+        for i, name in enumerate(self._sources):
+            tensor = estimates[0, i].cpu()
+            # (channels, samples) → (samples, channels)
             stems[name] = tensor.numpy().T.astype(np.float32)
 
-        duration_s = stems["drums"].shape[0] / SR
+        duration_s = stems[self._sources[0]].shape[0] / SR
         log.info("    Separated in %.1fs (%.1f min track)", time.time() - t0, duration_s / 60)
 
         return TrackStems(
