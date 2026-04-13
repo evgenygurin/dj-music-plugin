@@ -14,4 +14,3 @@ OpenTelemetry (optional, requires `uv sync --extra otel`):
 from app.bootstrap.server_builder import build_mcp_server
 
 mcp = build_mcp_server()
-

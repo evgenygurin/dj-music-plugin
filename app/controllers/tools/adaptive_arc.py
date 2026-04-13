@@ -34,7 +34,7 @@ def _get_svc(session: AsyncSession = Depends(get_db_session)) -> AdaptiveArcServ
 @map_domain_errors
 async def get_energy_trend(
     last_n: int = 10,
-    svc: AdaptiveArcService = Depends(_get_svc),
+    svc: AdaptiveArcService = Depends(_get_svc),  # noqa: B008
 ) -> dict[str, str]:
     """Analyze recent transitions to determine energy direction.
 
@@ -55,7 +55,7 @@ async def get_energy_trend(
 @map_domain_errors
 async def suggest_energy_direction(
     last_n: int = 10,
-    svc: AdaptiveArcService = Depends(_get_svc),
+    svc: AdaptiveArcService = Depends(_get_svc),  # noqa: B008
 ) -> dict[str, Any]:
     """Suggest what energy direction the next track should take.
 
@@ -76,7 +76,7 @@ async def suggest_energy_direction(
 @map_domain_errors
 async def get_session_arc(
     limit: int = 50,
-    svc: AdaptiveArcService = Depends(_get_svc),
+    svc: AdaptiveArcService = Depends(_get_svc),  # noqa: B008
 ) -> list[dict[str, Any]]:
     """Get the energy arc of the current session.
 

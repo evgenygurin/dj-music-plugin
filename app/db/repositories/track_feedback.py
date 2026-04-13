@@ -17,9 +17,7 @@ class TrackFeedbackRepository(BaseRepository[TrackFeedback]):
 
     async def _ensure_track_exists(self, track_id: int) -> None:
         """Raise NotFoundError if track_id is missing — prevents FK IntegrityError."""
-        result = await self.session.execute(
-            select(Track.id).where(Track.id == track_id)
-        )
+        result = await self.session.execute(select(Track.id).where(Track.id == track_id))
         if result.scalar_one_or_none() is None:
             raise NotFoundError("Track", track_id)
 
