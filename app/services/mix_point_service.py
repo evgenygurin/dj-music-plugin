@@ -19,11 +19,11 @@ from dataclasses import dataclass
 from app.core.constants import SectionType
 from app.transition.section_context import SectionContext
 
-# A "phrase" in techno is the 32-beat (8-bar) unit DJs build their
-# blends around. We quantise to half a phrase (16 beats / 4 bars) so we
-# don't snap too aggressively on short tracks.
-PHRASE_BARS: int = 8
-SUBPHRASE_BARS: int = 4
+# A "phrase" in techno is the 64-beat (16-bar) unit DJs build their
+# blends around. Zehren 2022: >95% of cue points in EDM fall on 16-bar
+# phrase boundaries. Snapping to 16 bars matches professional practice.
+PHRASE_BARS: int = 16
+SUBPHRASE_BARS: int = 8
 BEATS_PER_BAR: int = 4
 
 

@@ -196,10 +196,10 @@ KEY_CODE_MAX: int = 23
 # Re-exported from ``app/transition/weights.py:DEFAULT_WEIGHTS``
 # for the domain layer; this dict is the single source of truth.
 DEFAULT_TRANSITION_WEIGHTS: dict[str, float] = {
-    "bpm": 0.20,  # was 0.22
-    "harmonic": 0.12,  # was 0.20
-    "energy": 0.18,  # was 0.23
-    "spectral": 0.20,  # was 0.15 — MFCC is #1 in real mixes
-    "groove": 0.15,  # was 0.10
-    "timbral": 0.15,  # was 0.10
+    "bpm": 0.18,  # was 0.20 — stable in techno, less discriminative
+    "harmonic": 0.10,  # was 0.12 — Kim 2020: key NOT statistically significant
+    "energy": 0.17,  # was 0.18
+    "spectral": 0.25,  # was 0.20 — MFCC #1 predictor (Kim 2020), Mosaikbox timbre=0.75
+    "groove": 0.15,  # was 0.15 — Mosaikbox: drum pattern conflict at 0.95 threshold
+    "timbral": 0.15,  # was 0.15
 }

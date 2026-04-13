@@ -45,12 +45,12 @@ ENERGY_SLOPE_BONUS: float = 0.05
 
 # ── Spectral scoring ─────────────────────────────────────
 SPECTRAL_SUB_WEIGHTS: dict[str, float] = {
-    "mfcc": 0.30,
-    "centroid": 0.20,
-    "energy_bands": 0.20,
-    "rolloff": 0.15,
-    "slope": 0.10,
-    "flux": 0.05,
+    "mfcc": 0.45,  # was 0.30 — #1 predictor of real DJ transitions (Kim 2020)
+    "centroid": 0.15,  # was 0.20
+    "energy_bands": 0.15,  # was 0.20
+    "rolloff": 0.10,  # was 0.15
+    "slope": 0.10,  # was 0.10
+    "flux": 0.05,  # was 0.05
 }
 DISSONANCE_PAIR_THRESHOLD: float = 0.4
 DISSONANCE_PENALTY: float = 0.15
@@ -120,3 +120,32 @@ DRUM_ONLY_WEIGHT_OVERRIDE: dict[str, float] = {
     "groove": 0.20,
     "timbral": 0.15,
 }
+
+# ── Conflict detection thresholds (Mosaikbox 2024) ──────
+# Drum pattern conflict: when groove similarity < this, incoming drums
+# should be muted during the transition overlap. Mosaikbox uses 0.95.
+GROOVE_CONFLICT_THRESHOLD: float = 0.95
+
+# Vocal conflict: when both tracks have pitch_salience above this
+# threshold AND their vocal segments overlap > VOCAL_OVERLAP_MS,
+# outgoing vocals should be muted. Mosaikbox: > 2 seconds overlap.
+VOCAL_PITCH_SALIENCE_THRESHOLD: float = 0.4
+VOCAL_SPECTRAL_CENTROID_FLOOR_HZ: float = 2500.0  # vocals above this
+VOCAL_OVERLAP_THRESHOLD_MS: float = 2000.0
+
+# ── Audio engineering constants (Allen & Heath / Pioneer) ─
+# Bass swap is a hard cut (0ms), not a fade. Two kicks must NEVER
+# play simultaneously — phase cancellation destroys sub-bass.
+BASS_SWAP_RAMP_MS: float = 0.0  # hard cut on downbeat
+
+# Click prevention micro-ramp applied on CUT transitions and
+# instant bass kills. 5ms = ~220 samples at 44.1kHz.
+MICRO_RAMP_MS: float = 5.0
+
+# HPF filter order: 24 dB/oct (LR4) matches Allen & Heath Xone:92
+# and Pioneer DJM-900NXS2 in ISO mode. Previous: 12 dB/oct (order 2).
+HPF_FILTER_ORDER: int = 4  # butterworth order → 24 dB/oct
+
+# Kick kill cutoff: 150 Hz LR4 removes kick fundamental (40-80Hz)
+# and body (80-150Hz) while preserving upper harmonics. Previous: 200Hz.
+KICK_KILL_CUTOFF_HZ: float = 150.0

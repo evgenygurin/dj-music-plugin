@@ -72,9 +72,9 @@ class TransitionScorer:
                 sum and ``score_harmonic`` applies its drum-only floor.
                 Drum-only override takes precedence over ``intent``.
         """
-        rejection = check_hard_constraints(from_t, to_t)
-        if rejection is not None:
-            return rejection
+        result = check_hard_constraints(from_t, to_t)
+        if result.rejection is not None:
+            return result.rejection
 
         # Pick weight set: drum-only > intent override > instance default
         if section_context is not None and section_context.is_drum_only_pair:
@@ -84,7 +84,10 @@ class TransitionScorer:
         else:
             weights = None
 
-        return self._compute_score(from_t, to_t, weights=weights, section_context=section_context)
+        score = self._compute_score(from_t, to_t, weights=weights, section_context=section_context)
+        score.vocal_conflict = result.vocal_conflict
+        score.drum_conflict = result.drum_conflict
+        return score
 
     def score_with_candidates(
         self,
@@ -102,17 +105,20 @@ class TransitionScorer:
 
         Falls back to a full ``score()`` if no candidate data is provided.
         """
-        rejection = check_hard_constraints(
+        result = check_hard_constraints(
             from_t,
             to_t,
             pre_bpm_dist=candidate_bpm_distance,
             pre_key_dist=candidate_key_distance,
             pre_energy_delta=candidate_energy_delta,
         )
-        if rejection is not None:
-            return rejection
+        if result.rejection is not None:
+            return result.rejection
 
-        return self._compute_score(from_t, to_t)
+        score = self._compute_score(from_t, to_t)
+        score.vocal_conflict = result.vocal_conflict
+        score.drum_conflict = result.drum_conflict
+        return score
 
     # ── Shared internals ───────────────────────────
 
