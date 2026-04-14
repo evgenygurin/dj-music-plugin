@@ -101,14 +101,14 @@ class ToolTimeout:
     one place rather than searching the codebase for literal ``600.0``.
     """
 
-    #: Interactive operations that should complete within 2 minutes.
-    MEDIUM: Final[float] = 120.0
+    #: Interactive operations (score_pair, filter, search) — up to 5 minutes.
+    MEDIUM: Final[float] = 300.0
 
-    #: Pipeline operations (build_set, analyze_track) — up to 5 minutes.
-    HEAVY: Final[float] = 300.0
+    #: Pipeline operations (build_set, analyze_track) — up to 15 minutes.
+    HEAVY: Final[float] = 900.0
 
-    #: Long-running batch jobs (analyze_batch, deliver_set) — up to 10 minutes.
-    BATCH: Final[float] = 600.0
+    #: Long-running batch jobs (analyze_batch, deliver_set) — up to 30 minutes.
+    BATCH: Final[float] = 1800.0
 
 
 # ── Meta ──────────────────────────────────────────────────────────

@@ -90,3 +90,43 @@ class FeatureRepository(BaseRepository[TrackAudioFeaturesComputed]):
         )
         result = await self.session.execute(stmt)
         return [r[0] for r in result.all()]
+
+    async def get_library_candidates(
+        self,
+        *,
+        bpm_min: float | None = None,
+        bpm_max: float | None = None,
+        moods: list[str] | None = None,
+        energy_min: float | None = None,
+        energy_max: float | None = None,
+        exclude_ids: set[int] | None = None,
+        pool_size: int = 500,
+    ) -> list[int]:
+        """Select candidate track IDs from the full library via SQL filtering.
+
+        Returns up to ``pool_size`` active tracks matching the criteria,
+        ordered randomly for variety across repeated builds.
+        """
+        from sqlalchemy import func
+
+        stmt = (
+            select(TrackAudioFeaturesComputed.track_id)
+            .join(Track, Track.id == TrackAudioFeaturesComputed.track_id)
+            .where(Track.status == 0)  # active only
+        )
+        if bpm_min is not None:
+            stmt = stmt.where(TrackAudioFeaturesComputed.bpm >= bpm_min)
+        if bpm_max is not None:
+            stmt = stmt.where(TrackAudioFeaturesComputed.bpm <= bpm_max)
+        if moods:
+            stmt = stmt.where(TrackAudioFeaturesComputed.mood.in_(moods))
+        if energy_min is not None:
+            stmt = stmt.where(TrackAudioFeaturesComputed.integrated_lufs >= energy_min)
+        if energy_max is not None:
+            stmt = stmt.where(TrackAudioFeaturesComputed.integrated_lufs <= energy_max)
+        if exclude_ids:
+            stmt = stmt.where(TrackAudioFeaturesComputed.track_id.notin_(exclude_ids))
+
+        stmt = stmt.order_by(func.random()).limit(pool_size)
+        result = await self.session.execute(stmt)
+        return [r[0] for r in result.all()]

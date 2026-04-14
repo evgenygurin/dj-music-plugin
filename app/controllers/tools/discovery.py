@@ -210,7 +210,6 @@ async def filter_by_feedback(
     icons=ICON_DISCOVERY,
     meta=TOOL_META,
     timeout=ToolTimeout.BATCH,
-    task=True,
 )
 @map_domain_errors
 async def expand_playlist_ym(

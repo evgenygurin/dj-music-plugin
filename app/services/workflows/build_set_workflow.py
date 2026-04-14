@@ -37,15 +37,49 @@ class BuildSetWorkflow:
     async def build_set(
         self,
         *,
-        playlist_id: int,
+        playlist_id: int | None = None,
         name: str,
+        source: str = "playlist",
         template: str | None = None,
         target_duration_min: int | None = None,
         algorithm: str = "greedy",
         dry_run: bool = False,
+        bpm_min: float | None = None,
+        bpm_max: float | None = None,
+        moods: list[str] | None = None,
+        energy_min: float | None = None,
+        energy_max: float | None = None,
+        pool_size: int = 500,
         log: Any = None,
     ) -> dict[str, Any]:
-        """Build a set from playlist tracks."""
+        """Build a set from playlist tracks or the full library.
+
+        ``source="playlist"`` — classic path: requires ``playlist_id``,
+        pre-analyzes tracks to L3, builds from playlist tracks.
+
+        ``source="library"`` — new path: SQL-filters the entire library
+        by BPM/mood/energy, skips L3 pre-analysis (L2 features suffice),
+        selects up to ``pool_size`` candidates, then optimizes.
+        """
+        if source == "library":
+            return await self._build_from_library(
+                name=name,
+                template=template,
+                target_duration_min=target_duration_min,
+                algorithm=algorithm,
+                bpm_min=bpm_min,
+                bpm_max=bpm_max,
+                moods=moods,
+                energy_min=energy_min,
+                energy_max=energy_max,
+                pool_size=pool_size,
+                log=log,
+            )
+
+        # ── Playlist mode (original path) ────────────────
+        if playlist_id is None:
+            raise ValidationError("playlist_id is required when source='playlist'")
+
         await call_async_method(
             log, "info", f"Building set '{name}' from playlist {playlist_id}..."
         )
@@ -82,6 +116,53 @@ class BuildSetWorkflow:
             "algorithm": used_algorithm,
             "quality_score": round(quality, 4) if quality else None,
             "template": template,
+        }
+
+    async def _build_from_library(
+        self,
+        *,
+        name: str,
+        template: str | None,
+        target_duration_min: int | None,
+        algorithm: str,
+        bpm_min: float | None,
+        bpm_max: float | None,
+        moods: list[str] | None,
+        energy_min: float | None,
+        energy_max: float | None,
+        pool_size: int,
+        log: Any,
+    ) -> dict[str, Any]:
+        """Library mode: filter candidates from full library, no MP3 downloads."""
+        await call_async_method(
+            log, "info", f"Building set '{name}' from library (pool_size={pool_size})..."
+        )
+
+        dj_set, version, quality, used_algorithm = await self._set_service.build_set_from_library(
+            name,
+            template=template,
+            bpm_min=bpm_min,
+            bpm_max=bpm_max,
+            moods=moods,
+            energy_min=energy_min,
+            energy_max=energy_max,
+            pool_size=pool_size,
+            target_duration_min=target_duration_min,
+            algorithm=algorithm,
+        )
+        items = await self._set_service.get_version_items(version.id)
+        await call_async_method(log, "info", f"Set created: {dj_set.id}, version: {version.id}")
+
+        return {
+            "set_id": dj_set.id,
+            "version_id": version.id,
+            "version_label": version.label,
+            "track_count": len(items),
+            "algorithm": used_algorithm,
+            "quality_score": round(quality, 4) if quality else None,
+            "template": template,
+            "source": "library",
+            "pool_size": pool_size,
         }
 
     async def rebuild_set(

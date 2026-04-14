@@ -33,7 +33,6 @@ from app.services.workflows.deliver_set_workflow import DeliverSetWorkflow
     icons=ICON_DELIVERY,
     meta=TOOL_META,
     timeout=ToolTimeout.BATCH,
-    task=True,
 )
 @map_domain_errors
 async def deliver_set(

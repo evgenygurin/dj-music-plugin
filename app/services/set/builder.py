@@ -231,3 +231,147 @@ class SetBuilderService:
             )
 
         return opt_result.track_order, opt_result.quality_score, algorithm
+
+    # ── Library mode ─────────────────────────────────
+
+    async def build_set_from_library(
+        self,
+        name: str,
+        *,
+        template: str | None = None,
+        bpm_min: float | None = None,
+        bpm_max: float | None = None,
+        moods: list[str] | None = None,
+        energy_min: float | None = None,
+        energy_max: float | None = None,
+        pool_size: int = 500,
+        target_duration_min: int | None = None,
+        algorithm: str = "greedy",
+    ) -> tuple[DjSet, SetVersion, float | None, str]:
+        """Build optimized set from the full track library.
+
+        Uses SQL filtering to select a candidate pool, then runs
+        the same greedy/GA optimization as playlist-based builds.
+        No MP3 downloads — works entirely on existing L2+ features.
+
+        Returns (dj_set, version, quality_score, algorithm_used).
+        """
+        # Derive filter bounds from template slots (if any)
+        tmpl_filters = self._template_filters(template) if template else {}
+        eff_bpm_min = bpm_min if bpm_min is not None else tmpl_filters.get("bpm_min")
+        eff_bpm_max = bpm_max if bpm_max is not None else tmpl_filters.get("bpm_max")
+        eff_moods = moods if moods is not None else tmpl_filters.get("moods")
+
+        # Exclude banned tracks
+        banned: set[int] = set()
+        try:
+            from app.db.repositories.track_feedback import TrackFeedbackRepository
+
+            feedback_repo = TrackFeedbackRepository(self._features.session)
+            banned = set(await feedback_repo.get_banned_ids())
+        except Exception:
+            pass
+
+        # SQL-filtered candidate pool from entire library
+        track_ids = await self._features.get_library_candidates(
+            bpm_min=eff_bpm_min,
+            bpm_max=eff_bpm_max,
+            moods=eff_moods,
+            energy_min=energy_min,
+            energy_max=energy_max,
+            exclude_ids=banned or None,
+            pool_size=pool_size,
+        )
+        if not track_ids:
+            raise ValidationError("No tracks match the filters. Try widening BPM range or moods.")
+
+        # Load features & optimize (same path as playlist mode)
+        features_map = await self._features.get_scoring_features_batch(track_ids)
+        track_features_list = [features_map.get(tid, TrackFeatures()) for tid in track_ids]
+
+        optimized_order, quality, used_algorithm = self._optimize_order(
+            track_ids,
+            track_features_list,
+            algorithm,
+            template_name=template,
+        )
+
+        # Truncate by target duration — keep only tracks that fit
+        if target_duration_min:
+            target_ms = target_duration_min * 60_000
+            # Load durations from tracks table
+            from sqlalchemy import select as sa_select
+
+            from app.db.models.track import Track
+
+            dur_stmt = sa_select(Track.id, Track.duration_ms).where(Track.id.in_(optimized_order))
+            dur_result = await self._sets.session.execute(dur_stmt)
+            dur_map = {r[0]: r[1] or 300_000 for r in dur_result.all()}
+
+            truncated: list[int] = []
+            cumulative_ms = 0
+            for tid in optimized_order:
+                dur = dur_map.get(tid, 300_000)  # fallback 5 min
+                if cumulative_ms + dur > target_ms and truncated:
+                    break
+                truncated.append(tid)
+                cumulative_ms += dur
+            optimized_order = truncated
+
+        # Persist
+        dj_set = DjSet(
+            name=name,
+            target_duration_ms=(target_duration_min * 60_000) if target_duration_min else None,
+            template_name=template,
+            source_playlist_id=None,
+        )
+        dj_set = await self._sets.create(dj_set)
+
+        from app.core.utils.time import utc_timestamp_iso
+
+        gen_meta = _json.dumps(
+            {
+                "source": "library",
+                "algorithm": used_algorithm,
+                "pool_size": len(track_ids),
+                "track_count": len(optimized_order),
+                "template": template,
+                "filters": {
+                    "bpm_min": eff_bpm_min,
+                    "bpm_max": eff_bpm_max,
+                    "moods": eff_moods,
+                    "energy_min": energy_min,
+                    "energy_max": energy_max,
+                },
+                "target_duration_min": target_duration_min,
+                "timestamp": utc_timestamp_iso(),
+            }
+        )
+        version = await self._sets.create_version_with_meta(
+            dj_set.id,
+            optimized_order,
+            label="v1",
+            gen_meta=gen_meta,
+        )
+
+        if quality is not None:
+            version.quality_score = quality
+            await self._sets.session.flush()
+
+        return dj_set, version, quality, used_algorithm
+
+    @staticmethod
+    def _template_filters(template_name: str) -> dict[str, Any]:
+        """Extract aggregate BPM/mood filter bounds from template slots."""
+        try:
+            tmpl = get_template(template_name)
+        except KeyError:
+            return {}
+        bpm_min = min(s.bpm_min for s in tmpl.slots) - 2
+        bpm_max = max(s.bpm_max for s in tmpl.slots) + 2
+        moods_set = {s.target_mood for s in tmpl.slots if s.target_mood}
+        return {
+            "bpm_min": bpm_min,
+            "bpm_max": bpm_max,
+            "moods": list(moods_set) if moods_set else None,
+        }
