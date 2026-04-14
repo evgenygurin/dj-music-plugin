@@ -4,12 +4,23 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from app.core.constants import TechnoSubgenre
+
+
+def _to_subgenre(mood: str | None) -> TechnoSubgenre | None:
+    if not mood:
+        return None
+    try:
+        return TechnoSubgenre(mood)
+    except ValueError:
+        return None
 from app.core.errors import NotFoundError
 from app.db.repositories.feature import FeatureRepository
 from app.db.repositories.set import SetRepository
 from app.db.repositories.track import TrackRepository
 from app.transition.recipe import TransitionRecipe
 from app.transition.score import TransitionScore
+from app.transition.selector import TransitionSelector
 
 if TYPE_CHECKING:
     from app.db.repositories.transition import TransitionRepository
@@ -167,8 +178,8 @@ class SetCheatSheetService:
                         score,
                         prev_feat,
                         feat,
-                        mood_a=prev_feat.mood if prev_feat else None,
-                        mood_b=feat.mood if feat else None,
+                        mood_a=_to_subgenre(prev_feat.mood if prev_feat else None),
+                        mood_b=_to_subgenre(feat.mood if feat else None),
                     )
 
                 lines.append(_format_recipe_box(recipe, score=overall_score))

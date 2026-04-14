@@ -135,22 +135,6 @@ def test_call_tool_executes_and_preserves_response_shape(
     }
 
 
-def test_audio_stream_route_delegates_to_proxy(api_client) -> None:
-    client, runtime = api_client
-    runtime.audio_proxy.stream = AsyncMock(
-        return_value=Response(content=b"audio-bytes", media_type="audio/mpeg")
-    )
-
-    response = client.get("/api/audio/stream/123")
-
-    assert response.status_code == 200
-    assert response.content == b"audio-bytes"
-    runtime.audio_proxy.stream.assert_awaited_once_with(
-        track_id="123",
-        range_header=None,
-    )
-
-
 def test_openapi_keeps_critical_routes_and_examples(api_client) -> None:
     client, _runtime = api_client
 

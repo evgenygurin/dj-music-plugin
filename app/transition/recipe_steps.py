@@ -6,9 +6,13 @@ Stems follow djay's Neural Mix lane model: drums, harmonics (bass+mid melodic), 
 
 from __future__ import annotations
 
+from collections.abc import Callable
+
 from app.core.constants import NeuralMixCrossfaderFX
 from app.transition.recipe import EQPlan, RecipeStep
 from app.transition.types import StemAction
+
+_StepFn = Callable[[int], tuple[tuple[RecipeStep, ...], EQPlan]]
 
 
 def _h(len_bars: int) -> int:
@@ -20,7 +24,7 @@ def build_steps_for_fx(
     bars: int,
 ) -> tuple[tuple[RecipeStep, ...], EQPlan]:
     """Factory: pick the template matching the active Crossfader FX preset."""
-    builders: dict[NeuralMixCrossfaderFX, object] = {
+    builders: dict[NeuralMixCrossfaderFX, _StepFn] = {
         NeuralMixCrossfaderFX.NEURAL_MIX_FADE: _steps_fade,
         NeuralMixCrossfaderFX.NEURAL_MIX_ECHO_OUT: _steps_echo_out,
         NeuralMixCrossfaderFX.NEURAL_MIX_VOCAL_SUSTAIN: _steps_vocal_sustain,
@@ -30,7 +34,7 @@ def build_steps_for_fx(
         NeuralMixCrossfaderFX.NEURAL_MIX_DRUM_CUT: _steps_drum_cut,
     }
     fn = builders[fx]
-    return fn(bars)  # type: ignore[operator,misc]
+    return fn(bars)
 
 
 def _steps_fade(bars: int) -> tuple[tuple[RecipeStep, ...], EQPlan]:

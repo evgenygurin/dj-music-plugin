@@ -80,7 +80,8 @@ def check_hard_constraints(
             rejection=TransitionScore(
                 hard_reject=True,
                 reject_reason=(
-                    f"Camelot distance {key_dist} >= {settings.transition_hard_reject_camelot_dist}"
+                    f"Camelot distance {key_dist} >= "
+                    f"{settings.transition_hard_reject_camelot_dist}"
                 ),
             ),
         )
@@ -99,7 +100,8 @@ def check_hard_constraints(
             rejection=TransitionScore(
                 hard_reject=True,
                 reject_reason=(
-                    f"Energy gap {energy_gap:.1f} LUFS > {settings.transition_hard_reject_energy_gap}"
+                    f"Energy gap {energy_gap:.1f} LUFS > "
+                    f"{settings.transition_hard_reject_energy_gap}"
                 ),
             ),
         )

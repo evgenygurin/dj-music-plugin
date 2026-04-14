@@ -16,6 +16,7 @@ from app.transition import (
     SectionContext,
     TransitionRecipe,
     TransitionScore,
+    TransitionSelector,
 )
 from app.transition.math_helpers import bpm_distance
 from app.transition.scorer import TransitionScorer

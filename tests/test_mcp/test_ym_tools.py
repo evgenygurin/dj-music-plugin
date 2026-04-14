@@ -54,9 +54,9 @@ async def test_ym_get_album_returns_album_when_present() -> None:
     )
 
     result = await ym_get_album(album_id="42", include_tracks=True, ym=ym_mock)
-    assert result["album_id"] == "42"
-    assert result["album"]["title"] == "Real Album"
-    assert len(result["album"]["tracks"]) == 2
+    assert result.album_id == "42"
+    assert result.album["title"] == "Real Album"
+    assert len(result.album["tracks"]) == 2
 
 
 @pytest.mark.asyncio
@@ -105,8 +105,8 @@ async def test_remove_tracks_calls_remove_descending_order() -> None:
         ym=ym_mock,
     )
 
-    assert result["action"] == "remove_tracks"
-    assert result["removed"] == 2  # "200" appears twice
+    assert result.action == "remove_tracks"
+    assert result.removed == 2  # "200" appears twice
 
     # Verify remove was called in descending index order (3 before 1)
     calls = ym_mock.remove_tracks_from_playlist.call_args_list
@@ -144,9 +144,9 @@ async def test_remove_tracks_reports_not_found() -> None:
         ym=ym_mock,
     )
 
-    assert result["removed"] == 1
-    assert "999" in result["not_found"]
-    assert "200" not in result["not_found"]
+    assert result.removed == 1
+    assert "999" in result.not_found
+    assert "200" not in result.not_found
 
 
 @pytest.mark.asyncio
@@ -174,8 +174,8 @@ async def test_remove_tracks_single_track() -> None:
         ym=ym_mock,
     )
 
-    assert result["removed"] == 1
-    assert result["not_found"] == []
+    assert result.removed == 1
+    assert result.not_found == []
 
     # Verify correct index (1) and range (1, 2)
     call_args = ym_mock.remove_tracks_from_playlist.call_args
@@ -200,13 +200,13 @@ async def test_get_tracks_paginates_by_default() -> None:
     result = await ym_playlists(action="get_tracks", kind=10, ym=ym_mock)
 
     # Total still reported, but tracks are paged
-    assert result["count"] == 1377
-    assert result["limit"] == MAX_PLAYLIST_TRACKS_PAGE
-    assert result["offset"] == 0
-    assert len(result["tracks"]) == MAX_PLAYLIST_TRACKS_PAGE
-    assert len(result["track_ids"]) == MAX_PLAYLIST_TRACKS_PAGE
-    assert result["truncated"] is True
-    assert result["next_offset"] == MAX_PLAYLIST_TRACKS_PAGE
+    assert result.count == 1377
+    assert result.limit == MAX_PLAYLIST_TRACKS_PAGE
+    assert result.offset == 0
+    assert len(result.tracks) == MAX_PLAYLIST_TRACKS_PAGE
+    assert len(result.track_ids) == MAX_PLAYLIST_TRACKS_PAGE
+    assert result.truncated is True
+    assert result.next_offset == MAX_PLAYLIST_TRACKS_PAGE
 
 
 @pytest.mark.asyncio
@@ -226,13 +226,13 @@ async def test_get_tracks_respects_limit_and_offset() -> None:
         ym=ym_mock,
     )
 
-    assert result["count"] == 50
-    assert result["offset"] == 20
-    assert result["limit"] == 10
-    assert result["track_ids"] == [str(i) for i in range(20, 30)]
-    assert len(result["tracks"]) == 10
-    assert result["truncated"] is True
-    assert result["next_offset"] == 30
+    assert result.count == 50
+    assert result.offset == 20
+    assert result.limit == 10
+    assert result.track_ids == [str(i) for i in range(20, 30)]
+    assert len(result.tracks) == 10
+    assert result.truncated is True
+    assert result.next_offset == 30
 
 
 @pytest.mark.asyncio
@@ -252,11 +252,11 @@ async def test_get_tracks_last_page_marks_not_truncated() -> None:
         ym=ym_mock,
     )
 
-    assert result["count"] == 15
-    assert result["offset"] == 10
-    assert len(result["tracks"]) == 5  # only 5 tracks left
-    assert result["truncated"] is False
-    assert result["next_offset"] is None
+    assert result.count == 15
+    assert result.offset == 10
+    assert len(result.tracks) == 5  # only 5 tracks left
+    assert result.truncated is False
+    assert result.next_offset is None
 
 
 @pytest.mark.asyncio
@@ -276,8 +276,8 @@ async def test_get_tracks_caps_limit_to_max() -> None:
         ym=ym_mock,
     )
 
-    assert result["limit"] == MAX_PLAYLIST_TRACKS_PAGE
-    assert len(result["tracks"]) == MAX_PLAYLIST_TRACKS_PAGE
+    assert result.limit == MAX_PLAYLIST_TRACKS_PAGE
+    assert len(result.tracks) == MAX_PLAYLIST_TRACKS_PAGE
 
 
 @pytest.mark.asyncio

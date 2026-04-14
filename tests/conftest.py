@@ -149,6 +149,17 @@ async def client(async_engine):  # type: ignore[no-untyped-def]
     ym_mock.get_liked_ids = AsyncMock(return_value=[])
     ym_mock.get_disliked_ids = AsyncMock(return_value=set())
 
+    # Mock ProviderRegistry (required after multi-provider refactor)
+    from unittest.mock import MagicMock
+
+    from app.core.constants import Provider
+    from app.providers.registry import ProviderRegistry
+
+    provider_mock = MagicMock()
+    provider_mock.provider = Provider.YANDEX_MUSIC
+    provider_registry = ProviderRegistry()
+    provider_registry.register(provider_mock, default=True)
+
     from fastmcp.server.lifespan import lifespan
 
     @lifespan
@@ -159,6 +170,7 @@ async def client(async_engine):  # type: ignore[no-untyped-def]
             "ym_client": ym_mock,
             "analyzer_registry": registry,
             "transition_cache": cache,
+            "provider_registry": provider_registry,
         }
 
     mcp._lifespan = _test_lifespan

@@ -14,8 +14,8 @@ from app.transition.intent import infer_intent
 from app.transition.scorer import TransitionScorer
 
 _FITNESS_WEIGHTS = {
-    "transition": 0.35,
-    "bpm_smooth": 0.20,
+    "transition": 0.40,
+    "bpm_smooth": 0.15,
     "energy_arc": 0.20,
     "variety": 0.10,
     "template": 0.15,
@@ -48,7 +48,10 @@ def transition_quality(
         energy_delta = (b.integrated_lufs or -8.0) - (a.integrated_lufs or -8.0)
         intent = infer_intent(position, energy_delta, template=template_enum)
         score = scorer.score(a, b, intent=intent)
-        total += 0.0 if score.hard_reject else score.overall
+        # "Nina Kraviz principle": hard-rejected pairs get a tiny floor (0.01)
+        # so GA can still explore unconventional but potentially interesting
+        # transitions instead of completely ignoring them.
+        total += 0.01 if score.hard_reject else score.overall
     return total / (n - 1)
 
 

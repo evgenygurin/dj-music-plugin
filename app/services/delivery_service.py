@@ -161,9 +161,9 @@ class DeliveryService:
                         score.key_distance if score and hasattr(score, "key_distance") else None
                     ),
                     energy_delta=None,
-                    transition_type=recipe.fx_type.value if recipe else None,
+                    transition_type=recipe.fx_type.value if recipe and recipe.fx_type else None,
                     transition_bars=recipe.bars if recipe else None,
-                    djay_transition=recipe.djay_transition.value if recipe else None,
+                    djay_transition=str(recipe.fx_type) if recipe and recipe.fx_type else None,
                     recipe_steps=[step.to_dict() for step in recipe.steps] if recipe else None,
                     eq_plan=recipe.eq_plan.to_dict() if recipe else None,
                     rescue_move=recipe.rescue_move if recipe else None,

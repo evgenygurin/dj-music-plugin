@@ -27,13 +27,10 @@ from app.transition.hard_constraints import check_hard_constraints
 from app.transition.intent import INTENT_WEIGHT_MODIFIERS, TransitionIntent
 from app.transition.score import TransitionScore
 from app.transition.section_context import SectionContext
-from app.transition.style import recommend_style, style_profile
 
 __all__ = [
     "TransitionScore",
     "TransitionScorer",
-    "recommend_style",
-    "style_profile",
 ]
 
 
@@ -202,9 +199,3 @@ def _structure_bonus(section_context: SectionContext | None) -> float:
     in_q = _MIX_IN_QUALITY.get(section_context.to_section, 0.3)
     pair_quality = (out_q + in_q) / 2.0
     return 1.0 + _STRUCTURE_BONUS_MAX * (pair_quality - 0.5)
-
-
-# recommend_style and style_profile live in app/transition/style.py
-# and are re-exported above so existing
-# `from app.transition.scorer import recommend_style` calls
-# remain valid.

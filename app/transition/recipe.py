@@ -7,6 +7,7 @@ StemAction lives in types.py to break the forward-reference cycle.
 
 from __future__ import annotations
 
+import contextlib
 import dataclasses
 import json
 from typing import Literal
@@ -40,8 +41,10 @@ class EQPlan:
 def _coerce_int(value: object) -> int | None:
     if isinstance(value, bool):
         return None
+    if not isinstance(value, (int, float, str)):
+        return None
     try:
-        return int(value)  # type: ignore[arg-type]
+        return int(value)
     except (TypeError, ValueError):
         return None
 
@@ -49,8 +52,10 @@ def _coerce_int(value: object) -> int | None:
 def _coerce_float(value: object) -> float | None:
     if isinstance(value, bool):
         return None
+    if not isinstance(value, (int, float, str)):
+        return None
     try:
-        return float(value)  # type: ignore[arg-type]
+        return float(value)
     except (TypeError, ValueError):
         return None
 
@@ -189,10 +194,8 @@ class TransitionRecipe:
         fx_type: NeuralMixCrossfaderFX | None = None
         fx_raw = data.get("fx_type")
         if isinstance(fx_raw, str):
-            try:
+            with contextlib.suppress(ValueError):
                 fx_type = NeuralMixCrossfaderFX(fx_raw)
-            except ValueError:
-                pass  # legacy value — gracefully ignored
 
         steps_raw = data.get("steps", [])
         steps: tuple[RecipeStep, ...] = ()

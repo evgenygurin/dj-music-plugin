@@ -94,54 +94,69 @@ class SetTemplate(StrEnum):
     FULL_LIBRARY = "full_library"
 
 
-class TransitionStyle(StrEnum):
-    """Recommended *type* of transition for an A→B pair.
+class NeuralMixCrossfaderFX(StrEnum):
+    """djay Pro AI — Crossfader FX names (Neural Mix™).
 
-    Picked by ``TransitionScorer.recommend_style()`` from the 6-component
-    score plus the hard-reject status. The DJ engine consumes this to
-    choose its mix length and automation pattern (length in bars, EQ
-    automation, optional FX). Style only encodes *how* to play the
-    transition — *whether* to play it at all is decided by the score
-    upstream.
+    Algoriddim isolates each track into **drums**, **harmonics**, **vocals**
+    (see Neural Mix overview in the djay manual). These seven presets are the
+    only transition kinds we model; routing and automation use stem actions
+    on those three lanes.
 
-    Ordered roughly from most-confident-blend to last-resort.
+    Values match stable API strings stored in DB / JSON (``crossfader_fx``).
     """
 
-    # Bars / behaviour are advisory; the engine maps each style to its
-    # own parameters in TRANSITION_STYLE_PROFILES below.
-    CUT = "cut"
-    """Hard cut on the bar — perfect BPM/key/groove match, no overlap needed."""
+    NEURAL_MIX_FADE = "neural_mix_fade"
+    """Default AI crossfade: balance all three stems across the mix."""
 
-    BASS_SWAP_SHORT = "bass_swap_short"
-    """8-bar bass-swap blend — good match, just enough overlap to swap kicks."""
+    NEURAL_MIX_ECHO_OUT = "neural_mix_echo_out"
+    """Echo / space on the outgoing track while bringing B in."""
 
-    BASS_SWAP_LONG = "bass_swap_long"
-    """32-bar bass-swap blend — DJ default, room for breathing and EQ work."""
+    NEURAL_MIX_VOCAL_SUSTAIN = "neural_mix_vocal_sustain"
+    """Hold the vocal stem from A while other elements hand off to B."""
 
-    LONG_BLEND = "long_blend"
-    """64-bar tonal blend — slow harmonic shift, useful when energy matches but key drifts."""
+    NEURAL_MIX_HARMONIC_SUSTAIN = "neural_mix_harmonic_sustain"
+    """Hold pads / harmonic content from A (melodic glue across the blend)."""
 
-    ECHO_OUT = "echo_out"
-    """Outgoing track tail-stops with an echo/reverb hold — for big energy gaps."""
+    NEURAL_MIX_DRUM_SWAP = "neural_mix_drum_swap"
+    """Swap drum stems at the phrase — key-agnostic workhorse for techno."""
 
-    FILTER_SWEEP = "filter_sweep"
-    """Outgoing HPF-swept upward to free spectrum — last resort for collisions."""
+    NEURAL_MIX_VOCAL_CUT = "neural_mix_vocal_cut"
+    """Strip vocals from the outgoing deck to free the mix for B."""
+
+    NEURAL_MIX_DRUM_CUT = "neural_mix_drum_cut"
+    """Cut drums on A so B's kick can land clean (phrase-drop punch)."""
 
 
-# Per-style mix length (bars) + a short reason. The engine looks these
-# up by style; tests assert the table covers every style. Bars stay in
-# DJ-native units so the audio engine can still convert them via the
-# active deck's BPM at runtime.
-TRANSITION_STYLE_PROFILES: dict[TransitionStyle, dict[str, float | str]] = {
-    TransitionStyle.CUT: {"bars": 0, "reason": "perfect match — drop on the bar"},
-    TransitionStyle.BASS_SWAP_SHORT: {"bars": 8, "reason": "good match — quick bass swap"},
-    TransitionStyle.BASS_SWAP_LONG: {
-        "bars": 32,
-        "reason": "default blend — bass swap with breathing room",
+# Default bars + rationale per FX (advisory; ``TransitionRecipeEngine`` may override).
+TRANSITION_FX_PROFILES: dict[NeuralMixCrossfaderFX, dict[str, float | str]] = {
+    NeuralMixCrossfaderFX.NEURAL_MIX_FADE: {
+        "bars": 16,
+        "reason": "balanced stem crossfade",
     },
-    TransitionStyle.LONG_BLEND: {"bars": 64, "reason": "key shift — slow harmonic blend"},
-    TransitionStyle.ECHO_OUT: {"bars": 16, "reason": "energy gap — tail outgoing with echo"},
-    TransitionStyle.FILTER_SWEEP: {"bars": 16, "reason": "spectral collision — HPF the outgoing"},
+    NeuralMixCrossfaderFX.NEURAL_MIX_ECHO_OUT: {
+        "bars": 16,
+        "reason": "energy gap — echo tail on A",
+    },
+    NeuralMixCrossfaderFX.NEURAL_MIX_VOCAL_SUSTAIN: {
+        "bars": 16,
+        "reason": "vocal line continuity",
+    },
+    NeuralMixCrossfaderFX.NEURAL_MIX_HARMONIC_SUSTAIN: {
+        "bars": 32,
+        "reason": "harmonic pad glue — slow handoff",
+    },
+    NeuralMixCrossfaderFX.NEURAL_MIX_DRUM_SWAP: {
+        "bars": 16,
+        "reason": "rhythm swap at phrase",
+    },
+    NeuralMixCrossfaderFX.NEURAL_MIX_VOCAL_CUT: {
+        "bars": 8,
+        "reason": "remove conflicting vocals on A",
+    },
+    NeuralMixCrossfaderFX.NEURAL_MIX_DRUM_CUT: {
+        "bars": 8,
+        "reason": "phrase-end drum handoff",
+    },
 }
 
 
@@ -196,10 +211,10 @@ KEY_CODE_MAX: int = 23
 # Re-exported from ``app/transition/weights.py:DEFAULT_WEIGHTS``
 # for the domain layer; this dict is the single source of truth.
 DEFAULT_TRANSITION_WEIGHTS: dict[str, float] = {
-    "bpm": 0.18,  # was 0.20 — stable in techno, less discriminative
-    "harmonic": 0.10,  # was 0.12 — Kim 2020: key NOT statistically significant
-    "energy": 0.17,  # was 0.18
-    "spectral": 0.25,  # was 0.20 — MFCC #1 predictor (Kim 2020), Mosaikbox timbre=0.75
-    "groove": 0.15,  # was 0.15 — Mosaikbox: drum pattern conflict at 0.95 threshold
-    "timbral": 0.15,  # was 0.15
+    "bpm": 0.22,  # raised: primary mixing constraint, Gaussian sigma=6
+    "harmonic": 0.16,  # raised: Camelot matters for melodic passages
+    "energy": 0.18,  # LUFS-based perceived loudness flow
+    "spectral": 0.18,  # MFCC+centroid timbral similarity (was over-dominant at 0.25)
+    "groove": 0.13,  # onset density + kick prominence
+    "timbral": 0.13,  # spectral contrast, danceability, pitch salience
 }
