@@ -1,0 +1,7 @@
+[ssh_servers.selectel]
+host = "111.88.224.143"
+user = "root"
+key_path = "~/.ssh/selectel_ed25519"
+port = 22
+default_dir = "/root"
+description = "Selectel VM for DJ Music Plugin (ru-7, Moscow)"

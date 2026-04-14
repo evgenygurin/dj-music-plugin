@@ -151,9 +151,19 @@ async def main() -> None:
         beat_prior: dict = {}
         beat_a = registry.get("beat")
         if beat_a and beat_a.is_available():
+            t0 = time.perf_counter()
             br = beat_a.run(ctx)
+            beat_ms = (time.perf_counter() - t0) * 1000
             if br.success and br.features:
                 beat_prior = br.features
+                n_beats = len(beat_prior.get("beat_times", []))
+                n_db = len(beat_prior.get("downbeat_times", []))
+                db_conf = beat_prior.get("downbeat_confidence", 0)
+                record(
+                    "  beat (for P3 prior)",
+                    beat_ms,
+                    f"beats={n_beats}, downbeats={n_db}, db_conf={db_conf:.3f}",
+                )
 
         p3_total = 0.0
         p3_ok = 0

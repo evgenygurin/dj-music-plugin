@@ -1,6 +1,6 @@
 # MCP Tool Catalog
 
-Quick reference for all 50 tools (46 visible + 4 atomic hidden).
+Quick reference for all 88 tools (61 visible + 27 hidden).
 
 ## Core Tools (always visible — 23 tools)
 
@@ -134,6 +134,96 @@ Low-level building blocks used by composite tools. Not intended for direct use.
 | `gate_one_track` | track_id, criteria? | yes |
 | `get_similar_one_track` | ym_track_id, limit?, min/max_duration_ms?, genre_filter?, genre_blacklist?, exclude_patterns? | yes |
 
+## New Tools (since v0.7.0)
+
+### Decks (8 tools, tag: `core`, file: `decks.py`)
+
+| Tool | Params | RO |
+|------|--------|-----|
+| `deck_load` | deck_id, track_id, duration_ms | no |
+| `deck_play` | deck_id | no |
+| `deck_pause` | deck_id | no |
+| `deck_cue` | deck_id | no |
+| `deck_unload` | deck_id | no |
+| `deck_set_pitch` | deck_id, pitch | no |
+| `deck_set_gain` | deck_id, gain | no |
+| `deck_state` | deck_id | yes |
+
+### Mixer (7 tools, tag: `core`, file: `mixer.py`)
+
+| Tool | Params | RO |
+|------|--------|-----|
+| `mixer_crossfader` | target | no |
+| `mixer_channel_gain` | deck_id, gain | no |
+| `mixer_state` | — | yes |
+| `set_eq` | deck_id, band, gain | no |
+| `kill_eq` | deck_id, band | no |
+| `reset_eq` | deck_id | no |
+| `set_filter` | deck_id, cutoff_hz | no |
+
+### Track Feedback (6 tools, tag: `core`, file: `track_feedback.py`)
+
+| Tool | Params | RO |
+|------|--------|-----|
+| `like_track` | track_id | no |
+| `ban_track` | track_id | no |
+| `rate_track` | track_id, rating, notes? | no |
+| `get_track_feedback` | track_id | yes |
+| `get_banned_tracks` | — | yes |
+| `get_liked_tracks` | — | yes |
+
+### Transition History (4 tools, tag: `core`, file: `transition_history.py`)
+
+| Tool | Params | RO |
+|------|--------|-----|
+| `log_transition` | from_track_id, to_track_id, overall_score?, style?, ... | no |
+| `get_transition_history` | limit?, from_track_id?, to_track_id?, min_score? | yes |
+| `get_best_pairs` | track_id, limit? | yes |
+| `update_reaction` | entry_id, reaction | no |
+
+### Track Affinity (3 tools, tag: `core`, file: `track_affinity.py`)
+
+| Tool | Params | RO |
+|------|--------|-----|
+| `refresh_affinity` | — | no |
+| `get_track_affinity` | track_a_id, track_b_id | yes |
+| `get_affinity_recommendations` | track_id, limit? | yes |
+
+### Scoring Profiles (3 tools, tag: `core`, file: `scoring_profile.py`)
+
+| Tool | Params | RO |
+|------|--------|-----|
+| `create_scoring_profile` | name, bpm/harmonic/energy/spectral/groove/timbral_weight, description? | no |
+| `list_scoring_profiles` | — | yes |
+| `get_scoring_weights` | profile_name? | yes |
+
+### Adaptive Arc (3 tools, tag: `core`, file: `adaptive_arc.py`)
+
+| Tool | Params | RO |
+|------|--------|-----|
+| `get_energy_trend` | last_n? | yes |
+| `suggest_energy_direction` | last_n? | yes |
+| `get_session_arc` | limit? | yes |
+
+### Set Narrative (1 tool, tag: `sets`, file: `set_narrative.py`)
+
+| Tool | Params | RO |
+|------|--------|-----|
+| `analyze_set_narrative` | set_id | yes |
+
+### Monitoring (1 tool, tag: `core`, file: `monitoring.py`)
+
+| Tool | Params | RO |
+|------|--------|-----|
+| `watch_decks` | hz?, duration_s? | yes |
+
+### Misc (2 tools)
+
+| Tool | File | Params | RO |
+|------|------|--------|-----|
+| `get_set_templates` | sets_meta.py | — | yes |
+| `run_tool` | run_tool.py | name, arguments? | no |
+
 ## Summary
 
 | Category | Count | Tag | Visibility |
@@ -143,6 +233,16 @@ Low-level building blocks used by composite tools. Not intended for direct use.
 | Set Building | 4 | `sets` | Always |
 | Set Reasoning | 5 | `sets` | Always |
 | Admin | 2 | `admin` | Always |
+| Decks | 8 | `core` | Always |
+| Mixer | 7 | `core` | Always |
+| Track Feedback | 6 | `core` | Always |
+| Transition History | 4 | `core` | Always |
+| Track Affinity | 3 | `core` | Always |
+| Scoring Profiles | 3 | `core` | Always |
+| Adaptive Arc | 3 | `core` | Always |
+| Set Narrative | 1 | `sets` | Always |
+| Monitoring | 1 | `core` | Always |
+| Misc (templates, run_tool) | 2 | `core` | Always |
 | Delivery & Export | 2 | `delivery` | Unlockable |
 | Discovery & Download | 5 | `discovery` | Unlockable |
 | Curation | 5 | `curation` | Unlockable |
@@ -150,7 +250,7 @@ Low-level building blocks used by composite tools. Not intended for direct use.
 | YM API | 6 | `ym` | Unlockable |
 | Audio Analysis | 3 | `audio` | Unlockable |
 | Atomic | 4 | `atomic` | Unlockable |
-| **Total** | **50** | | |
+| **Total** | **88** | | |
 
 > **Note:** All 7 extended/hidden categories start disabled. Use `unlock_tools(action="unlock", category="all")`
 > to enable them — this triggers `notifications/tools/list_changed` so the client re-fetches the tool list.

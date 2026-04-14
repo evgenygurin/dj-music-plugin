@@ -19,9 +19,7 @@ class TransitionHistoryRepository(BaseRepository[TransitionHistory]):
 
     async def ensure_tracks_exist(self, track_ids: list[int]) -> None:
         """Raise NotFoundError if any track_id is missing from the DB."""
-        result = await self.session.execute(
-            select(Track.id).where(Track.id.in_(track_ids))
-        )
+        result = await self.session.execute(select(Track.id).where(Track.id.in_(track_ids)))
         found = set(result.scalars().all())
         missing = set(track_ids) - found
         if missing:
