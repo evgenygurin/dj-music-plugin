@@ -34,27 +34,45 @@ from app.services.workflows.build_set_workflow import BuildSetWorkflow
     icons=ICON_SETS,
     meta=TOOL_META,
     timeout=ToolTimeout.BATCH,
-    task=True,
 )
 @map_domain_errors
 async def build_set(
-    playlist_id: int,
     name: str,
+    playlist_id: int | None = None,
+    source: str = "playlist",
     template: str | None = None,
     target_duration_min: int | None = None,
     algorithm: str = "greedy",
     dry_run: bool = False,
+    bpm_min: float | None = None,
+    bpm_max: float | None = None,
+    moods: list[str] | None = None,
+    energy_min: float | None = None,
+    energy_max: float | None = None,
+    pool_size: int = 500,
     workflow: BuildSetWorkflow = Depends(get_build_set_workflow),  # noqa: B008
     ctx: Context | None = None,
 ) -> dict[str, Any]:
-    """Build optimized DJ set from playlist. Supports ``greedy`` or ``ga`` algorithm."""
+    """Build optimized DJ set from playlist or library. Supports ``greedy`` or ``ga`` algorithm.
+
+    ``source="playlist"`` builds from a specific playlist (requires ``playlist_id``).
+    ``source="library"`` selects candidates from the full track library using
+    BPM/mood/energy filters — no MP3 downloads needed.
+    """
     return await workflow.build_set(
         playlist_id=playlist_id,
         name=name,
+        source=source,
         template=template,
         target_duration_min=target_duration_min,
         algorithm=algorithm,
         dry_run=dry_run,
+        bpm_min=bpm_min,
+        bpm_max=bpm_max,
+        moods=moods,
+        energy_min=energy_min,
+        energy_max=energy_max,
+        pool_size=pool_size,
         log=ToolContext(ctx),
     )
 
@@ -66,7 +84,6 @@ async def build_set(
     icons=ICON_SETS,
     meta=TOOL_META,
     timeout=ToolTimeout.BATCH,
-    task=True,
 )
 @map_domain_errors
 async def rebuild_set(

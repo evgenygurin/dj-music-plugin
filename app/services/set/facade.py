@@ -138,6 +138,33 @@ class SetService:
             algorithm=algorithm,
         )
 
+    async def build_set_from_library(
+        self,
+        name: str,
+        *,
+        template: str | None = None,
+        bpm_min: float | None = None,
+        bpm_max: float | None = None,
+        moods: list[str] | None = None,
+        energy_min: float | None = None,
+        energy_max: float | None = None,
+        pool_size: int = 500,
+        target_duration_min: int | None = None,
+        algorithm: str = "greedy",
+    ) -> tuple[DjSet, SetVersion, float | None, str]:
+        return await self._builder.build_set_from_library(
+            name,
+            template=template,
+            bpm_min=bpm_min,
+            bpm_max=bpm_max,
+            moods=moods,
+            energy_min=energy_min,
+            energy_max=energy_max,
+            pool_size=pool_size,
+            target_duration_min=target_duration_min,
+            algorithm=algorithm,
+        )
+
     async def build_set_dry_run(
         self,
         playlist_id: int,
