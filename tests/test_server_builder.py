@@ -32,5 +32,5 @@ def test_build_mcp_server_registers_resource_and_prompt_transforms() -> None:
         repr(transform) for transform in mcp.transforms if type(transform).__name__ == "Visibility"
     ]
     # All 7 toggleable categories are disabled at startup
-    assert any("atomic" in text for text in visibility_reprs)
+    assert any("memory" in text for text in visibility_reprs)
     assert any("ym" in text for text in visibility_reprs)

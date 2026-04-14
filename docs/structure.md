@@ -76,7 +76,7 @@ dj-music-plugin/
 │   │   │   ├── reasoning.py        # suggest_next, explain, replace, compare
 │   │   │   ├── delivery.py
 │   │   │   ├── discovery.py
-│   │   │   ├── import_download.py
+│   │   │   ├── importing.py
 │   │   │   ├── curation.py         # mood, audit, distribute
 │   │   │   ├── sync.py
 │   │   │   ├── audio.py            # analyze_track / batch / stems (stub)

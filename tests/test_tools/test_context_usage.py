@@ -42,7 +42,7 @@ async def test_context_available_in_list_tracks(client: Client):
 
 async def test_context_available_in_search(client: Client):
     """search can access Context via CurrentContext()."""
-    result = await client.call_tool("search", {"query": "test"})
+    result = await client.call_tool("search_library", {"query": "test"})
     data = _parse_result(result)
     assert "results" in data
 

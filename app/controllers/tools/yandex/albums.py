@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Annotated
 
 from fastmcp.dependencies import Depends
 from fastmcp.exceptions import NotFoundError as FastMCPNotFoundError
 from fastmcp.exceptions import ToolError
 from fastmcp.tools import tool
+from pydantic import Field
 
 from app.clients.ym.client import YandexMusicClient
 from app.controllers.dependencies import get_ym_client
@@ -17,6 +18,7 @@ from app.controllers.tools._shared import (
     TOOL_META,
     ToolCategory,
 )
+from app.schemas.ym_responses import YMAlbumResponse
 
 
 @tool(
@@ -27,18 +29,17 @@ from app.controllers.tools._shared import (
     meta=TOOL_META,
 )
 async def ym_get_album(
-    album_id: str,
-    include_tracks: bool = False,
-    ym: YandexMusicClient = Depends(get_ym_client),  # noqa: B008
-) -> dict[str, Any]:
-    """Get album info from Yandex Music, optionally with tracks.
-
-    Raises :class:`fastmcp.exceptions.NotFoundError` if YM does not
-    return an album with the given id (the YM API replies with an empty
-    stub or HTTP 400 instead of HTTP 404). Raised as the FastMCP-native
-    not-found type so the outer ``ErrorHandlingMiddleware`` maps it to
-    MCP error code ``-32001 Not found`` rather than ``-32603``.
-    """
+    album_id: Annotated[str, Field(description="YM album ID (string)")],
+    include_tracks: Annotated[
+        bool, Field(description="Include track listing in response")
+    ] = False,
+    ym: Annotated[
+        YandexMusicClient,
+        Field(description="Yandex Music API client (injected)."),
+        Depends(get_ym_client),
+    ] = Depends(get_ym_client),  # noqa: B008
+) -> YMAlbumResponse:
+    """Fetch album metadata from Yandex Music, optionally including tracks. Use when resolving an album ID or showing album details from YM."""
     if not album_id or not str(album_id).strip():
         raise ToolError("album_id is required")
 
@@ -47,9 +48,7 @@ async def ym_get_album(
     if album is None:
         raise FastMCPNotFoundError(f"Album not found: {album_id}")
 
-    # YM returns an empty stub (id="" / no title / no artists / 0 tracks)
-    # when the album does not exist. Treat as not-found.
     if not album.title and not album.artists and not album.tracks:
         raise FastMCPNotFoundError(f"Album not found: {album_id}")
 
-    return {"album_id": album_id, "album": album.model_dump()}
+    return YMAlbumResponse(album_id=album_id, album=album.model_dump())

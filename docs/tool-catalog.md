@@ -1,6 +1,6 @@
 # MCP Tool Catalog
 
-Quick reference for all MCP tools (visible + hidden).
+Quick reference for all MCP tools (~51 total, visible + hidden).
 
 ## Core Tools (always visible)
 
@@ -21,7 +21,7 @@ Quick reference for all MCP tools (visible + hidden).
 | `get_playlist` | id?, query?, include_tracks? | yes |
 | `manage_playlist` | action(create\|update\|delete\|add_tracks\|remove_tracks\|reorder), data?, track_refs?, positions? | no |
 
-### CRUD — Sets (tag: `core`, file: `crud.py`)
+### CRUD — Sets (tag: `core`, file: `sets_crud.py`)
 
 | Tool | Params | RO |
 |------|--------|-----|
@@ -33,8 +33,7 @@ Quick reference for all MCP tools (visible + hidden).
 
 | Tool | Params | RO |
 |------|--------|-----|
-| `search` | query, entity(tracks\|artists\|playlists\|sets\|all), limit | yes |
-| `filter_tracks` | bpm_min/max?, key?, key_compatible?, energy_min/max?, has_features?, exclude_set_id?, sort_by, limit, cursor | yes |
+| `search_library` | query, entity(tracks\|artists\|playlists\|sets\|all), limit | yes |
 
 ### Set Building (tag: `sets`, file: `sets.py`)
 
@@ -44,6 +43,7 @@ Quick reference for all MCP tools (visible + hidden).
 | `rebuild_set` | set_id, pin_tracks?, exclude_tracks?, algorithm, version_label? | no | 120s |
 | `score_transitions` | mode(set\|pair\|track_candidates), set_id?, from/to_track_id?, track_id?, top_n? | no | — |
 | `get_set_cheat_sheet` | set_id, version? | yes | — |
+| `get_set_templates` | — | yes | — |
 
 ### Set Reasoning (tag: `sets`, file: `reasoning.py`)
 
@@ -54,6 +54,7 @@ Quick reference for all MCP tools (visible + hidden).
 | `find_replacement` | set_id, position, count? | yes |
 | `compare_set_versions` | set_id, version_a?, version_b? | yes |
 | `quick_set_review` | set_id | yes |
+| `analyze_set_narrative` | set_id | yes |
 
 ### Admin (tag: `admin`, file: `admin.py`)
 
@@ -69,7 +70,6 @@ Quick reference for all MCP tools (visible + hidden).
 | Tool | Params | Timeout |
 |------|---------|---------|
 | `deliver_set` | set_id, version?, output_dir?, copy_files?, sync_to_ym?, formats?, dry_run? | 300s |
-| `export_set` | set_id, format, output_path?, rekordbox_options? | — |
 
 ### Discovery & Download (tag: `discovery`)
 
@@ -78,8 +78,8 @@ Quick reference for all MCP tools (visible + hidden).
 | `find_similar_tracks` | discovery.py | track_id, strategy(ym\|llm)?, limit?, min/max_duration_ms?, genre_filter?, genre_blacklist?, exclude_patterns? | yes |
 | `expand_playlist_ym` | discovery.py | ym_playlist_kind, target_count?, genre_filter?, genre_blacklist?, exclude_patterns?, min/max_duration_ms?, use_feedback?, dry_run? | no |
 | `filter_by_feedback` | discovery.py | ym_track_ids (returns passed/blocked/boosted) | yes |
-| `import_tracks` | import_download.py | track_refs, playlist_id?, auto_analyze? | no |
-| `download_tracks` | import_download.py | track_refs, target_dir?, skip_existing?, prefer_bitrate? | no |
+| `import_tracks` | importing.py | track_refs, playlist_id?, auto_analyze? | no |
+| `download_tracks` | importing.py | track_refs, target_dir?, skip_existing?, prefer_bitrate? | no |
 
 ### Curation (tag: `curation`, file: `curation.py`)
 
@@ -87,7 +87,6 @@ Quick reference for all MCP tools (visible + hidden).
 |------|--------|-----|
 | `classify_mood` | track_ids?\|playlist_id?, reclassify? | no |
 | `audit_playlist` | playlist_id?, playlist_query?, check?, template? | yes |
-| `review_set_quality` | set_id, version? | yes |
 | `distribute_to_subgenres` | source_playlist_id?, mode?, sync_to_ym?, dry_run? | no |
 | `get_library_stats` | — | yes |
 
@@ -122,75 +121,21 @@ Each YM tool lives in its own submodule under `app/controllers/tools/yandex/`:
 | `analyze_track` | track_id?, track_query?, analyzers?, force?, level? | 120s |
 | `analyze_batch` | track_ids?\|playlist_id?, batch_size?, analyzers?, level?, force? | 600s |
 | `separate_stems` | track_id?, track_query?, stems? | 300s |
+| `classify_track` | track_id | — |
+| `gate_track` | track_id, criteria? | — |
+| `get_similar_tracks` | ym_track_id, limit?, min/max_duration_ms?, genre_filter?, genre_blacklist?, exclude_patterns? | — |
 
-### Atomic (tag: `atomic`, file: `audio_atomic.py`)
+### Memory (tag: `memory`, file: `memory.py`)
 
-Low-level building blocks used by composite tools. Not intended for direct use.
-
-| Tool | Params | RO |
-|------|--------|-----|
-| `analyze_one_track` | track_id, analyzers?, force? | no |
-| `classify_one_track` | track_id | no |
-| `gate_one_track` | track_id, criteria? | yes |
-| `get_similar_one_track` | ym_track_id, limit?, min/max_duration_ms?, genre_filter?, genre_blacklist?, exclude_patterns? | yes |
-
-## New Tools (since v0.7.0)
-
-### Track Feedback (tag: `core`, file: `track_feedback.py`)
+Hidden by default; unlock via `unlock_tools`. Dispatch tools consolidate prior per-action MCP tools.
 
 | Tool | Params | RO |
 |------|--------|-----|
-| `like_track` | track_id | no |
-| `ban_track` | track_id | no |
-| `rate_track` | track_id, rating, notes? | no |
-| `get_track_feedback` | track_id | yes |
-| `get_banned_tracks` | — | yes |
-| `get_liked_tracks` | — | yes |
-
-### Transition History (tag: `core`, file: `transition_history.py`)
-
-| Tool | Params | RO |
-|------|--------|-----|
-| `log_transition` | from_track_id, to_track_id, overall_score?, style?, ... | no |
-| `get_transition_history` | limit?, from_track_id?, to_track_id?, min_score? | yes |
-| `get_best_pairs` | track_id, limit? | yes |
-| `update_reaction` | entry_id, reaction | no |
-
-### Track Affinity (tag: `core`, file: `track_affinity.py`)
-
-| Tool | Params | RO |
-|------|--------|-----|
-| `refresh_affinity` | — | no |
-| `get_track_affinity` | track_a_id, track_b_id | yes |
-| `get_affinity_recommendations` | track_id, limit? | yes |
-
-### Scoring Profiles (tag: `core`, file: `scoring_profile.py`)
-
-| Tool | Params | RO |
-|------|--------|-----|
-| `create_scoring_profile` | name, bpm/harmonic/energy/spectral/groove/timbral_weight, description? | no |
-| `list_scoring_profiles` | — | yes |
-| `get_scoring_weights` | profile_name? | yes |
-
-### Adaptive Arc (tag: `core`, file: `adaptive_arc.py`)
-
-| Tool | Params | RO |
-|------|--------|-----|
-| `get_energy_trend` | last_n? | yes |
-| `suggest_energy_direction` | last_n? | yes |
-| `get_session_arc` | limit? | yes |
-
-### Set Narrative (tag: `sets`, file: `set_narrative.py`)
-
-| Tool | Params | RO |
-|------|--------|-----|
-| `analyze_set_narrative` | set_id | yes |
-
-### Misc
-
-| Tool | File | Params | RO |
-|------|------|--------|-----|
-| `get_set_templates` | sets_meta.py | — | yes |
+| `track_feedback` | action(like\|ban\|rate\|get\|list_liked\|list_banned), track_id?, rating?, notes?, ... | varies |
+| `transition_history` | action(log\|list\|best_pairs\|react), from_track_id?, to_track_id?, entry_id?, reaction?, ... | varies |
+| `track_affinity` | action(refresh\|get_pair\|recommend), track_id?, track_a_id?, track_b_id?, limit?, ... | varies |
+| `scoring_profile` | action(create\|list\|get_weights), name?, weights?, description?, profile_name?, ... | varies |
+| `session_arc` | action(trend\|suggest\|full_arc), last_n?, limit?, ... | varies |
 
 ## Summary
 
@@ -201,20 +146,13 @@ Low-level building blocks used by composite tools. Not intended for direct use.
 | Set Building | `sets` | Always |
 | Set Reasoning | `sets` | Always |
 | Admin | `admin` | Always |
-| Track Feedback | `core` | Always |
-| Transition History | `core` | Always |
-| Track Affinity | `core` | Always |
-| Scoring Profiles | `core` | Always |
-| Adaptive Arc | `core` | Always |
-| Set Narrative | `sets` | Always |
-| Misc (templates) | `core` | Always |
 | Delivery & Export | `delivery` | Unlockable |
 | Discovery & Download | `discovery` | Unlockable |
 | Curation | `curation` | Unlockable |
 | Sync | `sync` | Unlockable |
 | YM API | `ym` | Unlockable |
 | Audio Analysis | `audio` | Unlockable |
-| Atomic | `atomic` | Unlockable |
+| Memory | `memory` | Unlockable |
 
 > **Note:** All 7 extended/hidden categories start disabled. Use `unlock_tools(action="unlock", category="all")`
 > to enable them — this triggers `notifications/tools/list_changed` so the client re-fetches the tool list.

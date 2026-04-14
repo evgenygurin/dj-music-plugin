@@ -11,13 +11,13 @@ Tools:
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import Annotated, Any, Literal
 
 from fastmcp.dependencies import Depends
 from fastmcp.exceptions import ToolError
 from fastmcp.server.context import Context
 from fastmcp.tools import tool
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.controllers.dependencies import get_discovery_service
 from app.controllers.tools._shared import (
@@ -90,23 +90,30 @@ async def _find_similar_llm(
 )
 @map_domain_errors
 async def find_similar_tracks(
-    track_id: int,
-    strategy: str = "ym",
-    limit: int = 20,
-    min_duration_ms: int | None = None,
-    max_duration_ms: int | None = None,
-    genre_filter: Any = None,
-    genre_blacklist: Any = None,
-    exclude_patterns: Any = None,
-    svc: DiscoveryService = Depends(get_discovery_service),  # noqa: B008
-    ctx: Context | None = None,
+    track_id: Annotated[int, Field(description="Local track ID")],
+    strategy: Annotated[Literal["ym", "llm"], Field(description="Discovery strategy")] = "ym",
+    limit: Annotated[int, Field(description="Max similar tracks to return", ge=1)] = 20,
+    min_duration_ms: Annotated[
+        int | None, Field(description="Minimum track duration (ms)")
+    ] = None,
+    max_duration_ms: Annotated[
+        int | None, Field(description="Maximum track duration (ms)")
+    ] = None,
+    genre_filter: Annotated[list[str] | None, Field(description="Genre whitelist")] = None,
+    genre_blacklist: Annotated[list[str] | None, Field(description="Genre blacklist")] = None,
+    exclude_patterns: Annotated[
+        list[str] | None, Field(description="Title patterns to exclude")
+    ] = None,
+    svc: Annotated[
+        DiscoveryService,
+        Field(description="Injected discovery service."),
+    ] = Depends(get_discovery_service),  # noqa: B008
+    ctx: Annotated[
+        Context | None,
+        Field(description="MCP context for logging and optional LLM sampling."),
+    ] = None,
 ) -> dict[str, Any]:
-    """Find similar tracks via YM API with declarative filters.
-
-    ``strategy``: ``ym`` (default) or ``llm``.
-    ``genre_filter``: whitelist; ``genre_blacklist``: blacklist.
-    ``exclude_patterns``: title keywords to skip (default: remix, edit, live ...).
-    """
+    """Finds similar tracks via YM or optional LLM search with declarative filters. Use when expanding from a seed track or generating alternatives that match your rules."""
     log = ToolContext(ctx)
     genre_filter_list = ensure_list(genre_filter) or None
     genre_blacklist_list = ensure_list(genre_blacklist) or None
@@ -152,15 +159,19 @@ async def find_similar_tracks(
 )
 @map_domain_errors
 async def filter_by_feedback(
-    ym_track_ids: Any = None,
-    svc: DiscoveryService = Depends(get_discovery_service),  # noqa: B008
-    ctx: Context | None = None,
+    ym_track_ids: Annotated[
+        str | list[str] | None, Field(description="YM track IDs to filter")
+    ] = None,
+    svc: Annotated[
+        DiscoveryService,
+        Field(description="Injected discovery service."),
+    ] = Depends(get_discovery_service),  # noqa: B008
+    ctx: Annotated[
+        Context | None,
+        Field(description="MCP context for logging and optional feedback session cache."),
+    ] = None,
 ) -> dict[str, Any]:
-    """Apply liked/disliked feedback gate to YM track IDs.
-
-    Returns categorised IDs: ``passed`` (unknown), ``blocked`` (disliked),
-    ``boosted`` (liked). Claude decides what to do with each category.
-    """
+    """Splits YM track IDs into liked, disliked, and neutral buckets using YM feedback. Use when pruning discovery results or prioritizing tracks that match your taste."""
     log = ToolContext(ctx)
     ids_list = ensure_list(ym_track_ids)
     if not ids_list:
@@ -213,24 +224,31 @@ async def filter_by_feedback(
 )
 @map_domain_errors
 async def expand_playlist_ym(
-    ym_playlist_kind: int,
-    target_count: int = 100,
-    genre_filter: Any = None,
-    genre_blacklist: Any = None,
-    exclude_patterns: Any = None,
-    min_duration_ms: int | None = None,
-    max_duration_ms: int | None = None,
-    use_feedback: bool = True,
-    dry_run: bool = False,
-    svc: DiscoveryService = Depends(get_discovery_service),  # noqa: B008
-    ctx: Context | None = None,
+    ym_playlist_kind: Annotated[int, Field(description="YM playlist kind number")],
+    target_count: Annotated[int, Field(description="Target playlist size", ge=1)] = 100,
+    genre_filter: Annotated[list[str] | None, Field(description="Genre whitelist")] = None,
+    genre_blacklist: Annotated[list[str] | None, Field(description="Genre blacklist")] = None,
+    exclude_patterns: Annotated[
+        list[str] | None, Field(description="Title patterns to exclude")
+    ] = None,
+    min_duration_ms: Annotated[
+        int | None, Field(description="Minimum track duration (ms)")
+    ] = None,
+    max_duration_ms: Annotated[
+        int | None, Field(description="Maximum track duration (ms)")
+    ] = None,
+    use_feedback: Annotated[bool, Field(description="Apply liked/disliked feedback gate")] = True,
+    dry_run: Annotated[bool, Field(description="Preview without modifying the playlist")] = False,
+    svc: Annotated[
+        DiscoveryService,
+        Field(description="Injected discovery service."),
+    ] = Depends(get_discovery_service),  # noqa: B008
+    ctx: Annotated[
+        Context | None,
+        Field(description="MCP context for logging."),
+    ] = None,
 ) -> dict[str, Any]:
-    """Expand YM playlist with similar tracks, applying declarative filters.
-
-    One-call orchestrator: fetches seeds → finds similar → filters → adds.
-    Prefer ``find_similar_tracks`` + ``filter_by_feedback`` + ``ym_playlists``
-    for fine-grained control.
-    """
+    """Grows a Yandex Music playlist toward a target size with similar tracks and filters. Use when you want one-shot expansion instead of chaining finer discovery tools."""
     log = ToolContext(ctx)
     await log.info("Fetching playlist tracks...")
 

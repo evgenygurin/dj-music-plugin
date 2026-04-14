@@ -1,16 +1,13 @@
-"""Yandex Music likes operations.
-
-Action-parameterised tool ``ym_likes`` dispatches to named handlers via
-:class:`~app.controllers.tools._shared.ActionDispatcher`.
-"""
+"""Yandex Music likes tools; ``ym_likes`` dispatches list/add/remove via ActionDispatcher."""
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Annotated, Any, Literal
 
 from fastmcp.dependencies import Depends
 from fastmcp.exceptions import ToolError
 from fastmcp.tools import tool
+from pydantic import Field
 
 from app.clients.ym.client import YandexMusicClient
 from app.controllers.dependencies import get_ym_client
@@ -24,6 +21,9 @@ from app.controllers.tools._shared import (
 )
 from app.controllers.tools.yandex._constants import MAX_LIKED_PAGE
 from app.core.utils.parsing import ensure_list
+from app.schemas.ym_responses import YMLikesActionResult
+
+LikesAction = Literal["get_liked", "add", "remove"]
 
 _dispatcher: ActionDispatcher[dict[str, Any]] = ActionDispatcher()
 
@@ -37,7 +37,6 @@ async def _get_liked(
     **_: Any,
 ) -> dict[str, Any]:
     liked_set = await ym.get_liked_ids()
-    # Sort for stable pagination — set ordering is unspecified.
     liked = sorted(liked_set)
     total = len(liked)
 
@@ -92,21 +91,26 @@ async def _remove(
     meta=TOOL_META,
 )
 async def ym_likes(
-    action: str = "get_liked",
-    track_ids: Any = None,
-    limit: int | None = None,
-    offset: int = 0,
-    ym: YandexMusicClient = Depends(get_ym_client),  # noqa: B008
-) -> dict[str, Any]:
-    """Consolidated likes operations on Yandex Music.
-
-    ``action`` ∈ ``{get_liked, add, remove}``. ``limit``/``offset`` apply
-    only to ``get_liked`` and page through the full liked list (default
-    page size is :data:`MAX_LIKED_PAGE`).
-    """
+    action: Annotated[LikesAction, Field(description="Operation to perform")] = "get_liked",
+    track_ids: Annotated[
+        str | list[str] | None,
+        Field(description="YM track ID(s) — required for 'add' and 'remove'"),
+    ] = None,
+    limit: Annotated[
+        int | None,
+        Field(description="Page size for get_liked (max 200)", ge=1, le=MAX_LIKED_PAGE),
+    ] = None,
+    offset: Annotated[int, Field(description="Offset for get_liked pagination", ge=0)] = 0,
+    ym: Annotated[
+        YandexMusicClient,
+        Field(description="Yandex Music API client (injected)."),
+        Depends(get_ym_client),
+    ] = Depends(get_ym_client),  # noqa: B008
+) -> YMLikesActionResult:
+    """List, add, or remove liked tracks on the user's Yandex Music account. Use when syncing hearts, curating a liked pool, or undoing likes."""
     ids = ensure_list(track_ids) or None
     try:
-        return await _dispatcher.dispatch(
+        raw = await _dispatcher.dispatch(
             action,
             track_ids=ids,
             ym=ym,
@@ -115,3 +119,4 @@ async def ym_likes(
         )
     except UnknownActionError as e:
         raise ToolError(str(e)) from e
+    return YMLikesActionResult(**raw)

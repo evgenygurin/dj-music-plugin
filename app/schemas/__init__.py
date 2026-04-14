@@ -23,6 +23,14 @@ from app.schemas.playlist import PlaylistSummary
 from app.schemas.set import SetSummary
 from app.schemas.track import TrackBrief, TrackStandard
 from app.schemas.yandex import YMTrackSummary
+from app.schemas.ym_responses import (
+    YMAlbumResponse,
+    YMArtistTracksPage,
+    YMLikesActionResult,
+    YMPlaylistActionResult,
+    YMSearchResponse,
+    YMTrackBatch,
+)
 
 __all__ = [
     "PaginatedResponse",
@@ -30,5 +38,11 @@ __all__ = [
     "SetSummary",
     "TrackBrief",
     "TrackStandard",
+    "YMAlbumResponse",
+    "YMArtistTracksPage",
+    "YMLikesActionResult",
+    "YMPlaylistActionResult",
+    "YMSearchResponse",
+    "YMTrackBatch",
     "YMTrackSummary",
 ]

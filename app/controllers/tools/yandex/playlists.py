@@ -1,18 +1,13 @@
-"""Yandex Music playlist operations.
-
-Action-parameterised tool ``ym_playlists`` dispatches to named handlers
-via :class:`~app.controllers.tools._shared.ActionDispatcher` (Command + Registry
-pattern). Adding a new action is a pure addition — no ``if/elif`` edit
-required, and duplicate registrations fail loudly at import time.
-"""
+"""Yandex Music playlist tools; ``ym_playlists`` dispatches CRUD/track actions via ActionDispatcher."""
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Annotated, Any, Literal
 
 from fastmcp.dependencies import Depends
 from fastmcp.exceptions import ToolError
 from fastmcp.tools import tool
+from pydantic import Field
 
 from app.clients.ym.client import YandexMusicClient
 from app.config import settings
@@ -25,10 +20,13 @@ from app.controllers.tools._shared import (
     ToolCategory,
     UnknownActionError,
 )
-from app.controllers.tools.yandex._constants import (
-    MAX_PLAYLIST_TRACKS_PAGE,
-)
+from app.controllers.tools.yandex._constants import MAX_PLAYLIST_TRACKS_PAGE
 from app.core.utils.parsing import ensure_list
+from app.schemas.ym_responses import YMPlaylistActionResult
+
+PlaylistAction = Literal[
+    "list", "get", "get_tracks", "create", "rename", "delete", "add_tracks", "remove_tracks"
+]
 
 _dispatcher: ActionDispatcher[dict[str, Any]] = ActionDispatcher()
 
@@ -219,27 +217,41 @@ async def _remove_tracks(
     meta=TOOL_META,
 )
 async def ym_playlists(
-    action: str = "list",
-    kind: int | None = None,
-    name: str | None = None,
-    track_ids: Any = None,
-    revision: int | None = None,
-    limit: int | None = None,
-    offset: int = 0,
-    ym: YandexMusicClient = Depends(get_ym_client),  # noqa: B008
-) -> dict[str, Any]:
-    """Consolidated playlist operations on Yandex Music.
-
-    ``action`` ∈ ``{get, get_tracks, list, create, rename, delete,
-    add_tracks, remove_tracks}``. ``limit``/``offset`` apply only to
-    ``get_tracks`` and page through the playlist (default page size is
-    :data:`MAX_PLAYLIST_TRACKS_PAGE`) so very large playlists never
-    blow up the response budget. ``count`` is always the total length;
-    ``next_offset`` and ``truncated`` describe the next page.
-    """
+    action: Annotated[PlaylistAction, Field(description="Operation to perform")] = "list",
+    kind: Annotated[
+        int | None,
+        Field(
+            description="YM playlist number (from list action); required for get/get_tracks/rename/delete/add_tracks/remove_tracks"
+        ),
+    ] = None,
+    name: Annotated[
+        str | None, Field(description="Playlist name — required for create/rename")
+    ] = None,
+    track_ids: Annotated[
+        str | list[str] | None,
+        Field(description="YM track ID(s) — required for add_tracks/remove_tracks"),
+    ] = None,
+    revision: Annotated[
+        int | None,
+        Field(
+            description="Playlist revision (from previous get response) — required for add_tracks"
+        ),
+    ] = None,
+    limit: Annotated[
+        int | None,
+        Field(description="Page size for get_tracks (max 200)", ge=1, le=MAX_PLAYLIST_TRACKS_PAGE),
+    ] = None,
+    offset: Annotated[int, Field(description="Offset for get_tracks pagination", ge=0)] = 0,
+    ym: Annotated[
+        YandexMusicClient,
+        Field(description="Yandex Music API client (injected)."),
+        Depends(get_ym_client),
+    ] = Depends(get_ym_client),  # noqa: B008
+) -> YMPlaylistActionResult:
+    """List and mutate user playlists on Yandex Music (tracks, revisions, kinds). Use when exporting to YM, renaming playlists, or paging playlist tracks."""
     ids = ensure_list(track_ids) or None
     try:
-        return await _dispatcher.dispatch(
+        raw = await _dispatcher.dispatch(
             action,
             kind=kind,
             name=name,
@@ -251,3 +263,4 @@ async def ym_playlists(
         )
     except UnknownActionError as e:
         raise ToolError(str(e)) from e
+    return YMPlaylistActionResult(**raw)

@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Annotated, Literal
 
 from fastmcp.dependencies import Depends
-from fastmcp.exceptions import ToolError
 from fastmcp.tools import tool
+from pydantic import Field
 
 from app.clients.ym.client import YandexMusicClient
 from app.controllers.dependencies import get_ym_client
@@ -16,7 +16,10 @@ from app.controllers.tools._shared import (
     TOOL_META,
     ToolCategory,
 )
-from app.controllers.tools.yandex._constants import MAX_SEARCH_LIMIT, VALID_SEARCH_TYPES
+from app.controllers.tools.yandex._constants import MAX_SEARCH_LIMIT
+from app.schemas.ym_responses import YMSearchResponse
+
+SearchType = Literal["tracks", "albums", "artists", "playlists", "all"]
 
 
 @tool(
@@ -27,24 +30,24 @@ from app.controllers.tools.yandex._constants import MAX_SEARCH_LIMIT, VALID_SEAR
     meta=TOOL_META,
 )
 async def ym_search(
-    query: str,
-    type: str = "all",
-    limit: int = 10,
-    ym: YandexMusicClient = Depends(get_ym_client),  # noqa: B008
-) -> dict[str, Any]:
-    """Search Yandex Music for tracks, albums, artists, playlists.
-
-    ``type`` ∈ ``{tracks, albums, artists, playlists, all}``.
-    """
-    if type not in VALID_SEARCH_TYPES:
-        raise ToolError(f"Invalid type: {type}. Valid: {', '.join(sorted(VALID_SEARCH_TYPES))}")
-
+    query: Annotated[str, Field(description="Search query text")],
+    type: Annotated[SearchType, Field(description="Entity type to search")] = "all",
+    limit: Annotated[
+        int, Field(description="Max results per entity type", ge=1, le=MAX_SEARCH_LIMIT)
+    ] = 10,
+    ym: Annotated[
+        YandexMusicClient,
+        Field(description="Yandex Music API client (injected)."),
+        Depends(get_ym_client),
+    ] = Depends(get_ym_client),  # noqa: B008
+) -> YMSearchResponse:
+    """Search Yandex Music by text across tracks, albums, artists, and playlists. Use when discovering titles on YM from a query outside the local library."""
     result = await ym.search(query, type=type, limit=min(limit, MAX_SEARCH_LIMIT))
-    return {
-        "query": query,
-        "type": type,
-        "tracks": [t.model_dump() for t in result.tracks],
-        "albums": [a.model_dump() for a in result.albums],
-        "artists": [a.model_dump() for a in result.artists],
-        "playlists": [p.model_dump() for p in result.playlists],
-    }
+    return YMSearchResponse(
+        query=query,
+        type=type,
+        tracks=[t.model_dump() for t in result.tracks],
+        albums=[a.model_dump() for a in result.albums],
+        artists=[a.model_dump() for a in result.artists],
+        playlists=[p.model_dump() for p in result.playlists],
+    )

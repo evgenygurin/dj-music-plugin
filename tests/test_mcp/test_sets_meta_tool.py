@@ -43,7 +43,7 @@ async def test_get_set_templates_has_read_only_annotation() -> None:
     """Verify tool is properly decorated with read-only annotation."""
     # Direct import test to ensure the @tool decorator with ANNOTATIONS_READ_ONLY
     # is properly applied
-    from app.controllers.tools.sets_meta import get_set_templates
+    from app.controllers.tools.sets import get_set_templates
 
     # Verify the function exists and is decorated
     assert get_set_templates is not None

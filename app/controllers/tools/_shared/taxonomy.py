@@ -47,7 +47,7 @@ class ToolCategory(StrEnum):
     SYNC = "sync"
     YM = "ym"
     AUDIO = "audio"
-    ATOMIC = "atomic"
+    MEMORY = "memory"
     ADMIN = "admin"
 
 

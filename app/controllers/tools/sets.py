@@ -1,15 +1,17 @@
-"""Set building tools: build, rebuild, score transitions, cheat sheet.
+"""Set building tools: build, rebuild, score, cheat sheet, templates.
 
-Thin wrappers calling :class:`SetService` via ``Depends()``.
+Thin wrappers calling :class:`SetService` / :class:`BuildSetWorkflow`
+via ``Depends()``.
 """
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Annotated, Any, Literal
 
 from fastmcp.dependencies import Depends
 from fastmcp.server.context import Context
 from fastmcp.tools import tool
+from pydantic import Field
 
 from app.controllers.dependencies import get_build_set_workflow, get_set_service
 from app.controllers.tools._shared import (
@@ -25,6 +27,7 @@ from app.controllers.tools._shared import (
 )
 from app.services.set.facade import SetService
 from app.services.workflows.build_set_workflow import BuildSetWorkflow
+from app.templates.registry import TEMPLATES
 
 
 @tool(
@@ -37,28 +40,35 @@ from app.services.workflows.build_set_workflow import BuildSetWorkflow
 )
 @map_domain_errors
 async def build_set(
-    name: str,
-    playlist_id: int | None = None,
-    source: str = "playlist",
-    template: str | None = None,
-    target_duration_min: int | None = None,
-    algorithm: str = "greedy",
-    dry_run: bool = False,
-    bpm_min: float | None = None,
-    bpm_max: float | None = None,
-    moods: list[str] | None = None,
-    energy_min: float | None = None,
-    energy_max: float | None = None,
-    pool_size: int = 500,
-    workflow: BuildSetWorkflow = Depends(get_build_set_workflow),  # noqa: B008
-    ctx: Context | None = None,
+    name: Annotated[str, Field(description="Set name")],
+    playlist_id: Annotated[int | None, Field(description="Source playlist ID")] = None,
+    source: Annotated[
+        Literal["playlist", "library"], Field(description="Track source")
+    ] = "playlist",
+    template: Annotated[str | None, Field(description="Set template name")] = None,
+    target_duration_min: Annotated[
+        int | None, Field(description="Target set duration in minutes")
+    ] = None,
+    algorithm: Annotated[
+        Literal["greedy", "ga"], Field(description="Optimization algorithm")
+    ] = "greedy",
+    dry_run: Annotated[bool, Field(description="Preview without saving")] = False,
+    bpm_min: Annotated[float | None, Field(description="Minimum BPM filter")] = None,
+    bpm_max: Annotated[float | None, Field(description="Maximum BPM filter")] = None,
+    moods: Annotated[list[str] | None, Field(description="Filter by subgenre moods")] = None,
+    energy_min: Annotated[float | None, Field(description="Minimum energy (LUFS-related)")] = None,
+    energy_max: Annotated[float | None, Field(description="Maximum energy (LUFS-related)")] = None,
+    pool_size: Annotated[int, Field(description="Max candidate pool size", ge=10)] = 500,
+    workflow: Annotated[
+        BuildSetWorkflow,
+        Field(description="Injected build-set workflow"),
+    ] = Depends(get_build_set_workflow),  # noqa: B008
+    ctx: Annotated[
+        Context | None,
+        Field(description="Optional MCP request context"),
+    ] = None,
 ) -> dict[str, Any]:
-    """Build optimized DJ set from playlist or library. Supports ``greedy`` or ``ga`` algorithm.
-
-    ``source="playlist"`` builds from a specific playlist (requires ``playlist_id``).
-    ``source="library"`` selects candidates from the full track library using
-    BPM/mood/energy filters — no MP3 downloads needed.
-    """
+    """Builds an optimized DJ set from a playlist or the library with greedy or GA optimization. Use when creating or dry-running a set from a playlist or filtered pool. ``source="playlist"`` requires ``playlist_id``; ``source="library"`` uses BPM/mood/energy filters without downloading audio."""
     return await workflow.build_set(
         playlist_id=playlist_id,
         name=name,
@@ -87,15 +97,29 @@ async def build_set(
 )
 @map_domain_errors
 async def rebuild_set(
-    set_id: int,
-    pin_tracks: list[int] | None = None,
-    exclude_tracks: list[int] | None = None,
-    algorithm: str = "greedy",
-    version_label: str | None = None,
-    workflow: BuildSetWorkflow = Depends(get_build_set_workflow),  # noqa: B008
-    ctx: Context | None = None,
+    set_id: Annotated[int, Field(description="DJ set ID to rebuild")],
+    pin_tracks: Annotated[
+        list[int] | None, Field(description="Track IDs that must stay in order")
+    ] = None,
+    exclude_tracks: Annotated[
+        list[int] | None, Field(description="Track IDs to remove from the pool")
+    ] = None,
+    algorithm: Annotated[
+        Literal["greedy", "ga"], Field(description="Optimization algorithm")
+    ] = "greedy",
+    version_label: Annotated[
+        str | None, Field(description="Label for the new set version")
+    ] = None,
+    workflow: Annotated[
+        BuildSetWorkflow,
+        Field(description="Injected build-set workflow"),
+    ] = Depends(get_build_set_workflow),  # noqa: B008
+    ctx: Annotated[
+        Context | None,
+        Field(description="Optional MCP request context"),
+    ] = None,
 ) -> dict[str, Any]:
-    """Rebuild existing set with pinned/excluded tracks. Creates new version."""
+    """Rebuilds an existing set into a new version with optional pinned or excluded tracks. Use when refining order while keeping anchors or shrinking the candidate pool."""
     return await workflow.rebuild_set(
         set_id=set_id,
         pin_tracks=pin_tracks,
@@ -115,20 +139,31 @@ async def rebuild_set(
 )
 @map_domain_errors
 async def score_transitions(
-    mode: str = "set",
-    set_id: int | None = None,
-    from_track_id: int | None = None,
-    to_track_id: int | None = None,
-    track_id: int | None = None,
-    top_n: int = 10,
-    workflow: BuildSetWorkflow = Depends(get_build_set_workflow),  # noqa: B008
-    ctx: Context | None = None,
+    mode: Annotated[
+        Literal["set", "pair", "track_candidates"],
+        Field(description="Scoring mode"),
+    ] = "set",
+    set_id: Annotated[int | None, Field(description="Set ID when mode is set")] = None,
+    from_track_id: Annotated[
+        int | None, Field(description="Outgoing track ID (pair mode)")
+    ] = None,
+    to_track_id: Annotated[int | None, Field(description="Incoming track ID (pair mode)")] = None,
+    track_id: Annotated[
+        int | None, Field(description="Anchor track ID (track_candidates mode)")
+    ] = None,
+    top_n: Annotated[
+        int, Field(description="Max ranked transitions or candidates to persist")
+    ] = 10,
+    workflow: Annotated[
+        BuildSetWorkflow,
+        Field(description="Injected build-set workflow"),
+    ] = Depends(get_build_set_workflow),  # noqa: B008
+    ctx: Annotated[
+        Context | None,
+        Field(description="Optional MCP request context"),
+    ] = None,
 ) -> dict[str, Any]:
-    """Score transitions.
-
-    ``mode`` ∈ ``{set, pair, track_candidates}``. Computes scores via
-    :class:`TransitionScorer` and **saves** them to the database.
-    """
+    """Scores transitions for a set, a single pair, or anchor candidates and persists results. Use when auditing blends, ranking options, or refreshing stored transition scores."""
     return await workflow.score_transitions(
         mode=mode,
         set_id=set_id,
@@ -149,10 +184,49 @@ async def score_transitions(
 )
 @map_domain_errors
 async def get_set_cheat_sheet(
-    set_id: int,
-    version: str | None = None,
-    svc: SetService = Depends(get_set_service),  # noqa: B008
-    ctx: Context | None = None,
+    set_id: Annotated[int, Field(description="DJ set ID")],
+    version: Annotated[str | None, Field(description="Set version label (optional)")] = None,
+    svc: Annotated[
+        SetService,
+        Field(description="Injected set service"),
+    ] = Depends(get_set_service),  # noqa: B008
+    ctx: Annotated[
+        Context | None,
+        Field(description="Optional MCP request context"),
+    ] = None,
 ) -> str:
-    """Human-readable cheat sheet: BPM flow, key changes, energy arc."""
+    """Returns a human-readable BPM, key, and energy-arc summary for a set version. Use when reviewing flow on paper or in the booth before playback."""
     return await svc.get_cheat_sheet(set_id, version=version)
+
+
+@tool(
+    title="Get Set Templates",
+    tags={ToolCategory.SETS.value},
+    annotations=ANNOTATIONS_READ_ONLY,
+    icons=ICON_SETS,
+    meta=TOOL_META,
+)
+async def get_set_templates() -> dict[str, Any]:
+    """Lists registered DJ set templates with slot definitions (moods, BPM, energy). Use when choosing a ``template`` argument for ``build_set`` or comparing archetypes."""
+    return {
+        "templates": [
+            {
+                "name": tpl.name,
+                "duration_min": tpl.duration_min,
+                "description": tpl.description,
+                "slots": [
+                    {
+                        "position": slot.position,
+                        "target_mood": slot.target_mood,
+                        "energy_lufs": slot.energy_lufs,
+                        "bpm_min": slot.bpm_min,
+                        "bpm_max": slot.bpm_max,
+                        "duration_ms": slot.duration_ms,
+                        "flexibility": slot.flexibility,
+                    }
+                    for slot in tpl.slots
+                ],
+            }
+            for tpl in TEMPLATES.values()
+        ]
+    }

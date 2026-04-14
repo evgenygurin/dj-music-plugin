@@ -1,23 +1,23 @@
-"""Curation tools (5 tools, tag: curation).
+"""Curation tools (4 tools, tag: curation).
 
 Thin wrappers calling :class:`CurationService` via ``Depends()``.
 
 Tools:
 - ``classify_mood`` — classify tracks by 15 techno subgenres
 - ``audit_playlist`` — audit playlist for quality criteria
-- ``review_set_quality`` — review set transitions quality
 - ``distribute_to_subgenres`` — sort tracks into subgenre playlists
 - ``get_library_stats`` — library dashboard stats
 """
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Annotated, Any, Literal
 
 from fastmcp.dependencies import Depends
 from fastmcp.exceptions import ToolError
 from fastmcp.server.context import Context
 from fastmcp.tools import tool
+from pydantic import Field
 
 from app.audio.level_config import AnalysisLevel
 from app.controllers.dependencies import (
@@ -66,15 +66,29 @@ async def _auto_triage(
 )
 @map_domain_errors
 async def classify_mood(
-    track_ids: Any = None,
-    playlist_id: int | None = None,
-    reclassify: bool = False,
-    svc: CurationService = Depends(get_curation_service),  # noqa: B008
-    tiered: TieredPipeline = Depends(get_tiered_pipeline),  # noqa: B008
-    playlist_repo: PlaylistRepository = Depends(get_playlist_repo),  # noqa: B008
-    ctx: Context | None = None,
+    track_ids: Annotated[list[int] | None, Field(description="Track IDs to classify")] = None,
+    playlist_id: Annotated[
+        int | None, Field(description="Classify all tracks in playlist")
+    ] = None,
+    reclassify: Annotated[bool, Field(description="Overwrite existing mood labels")] = False,
+    svc: Annotated[
+        CurationService,
+        Field(description="Curation service for mood classification"),
+    ] = Depends(get_curation_service),  # noqa: B008
+    tiered: Annotated[
+        TieredPipeline,
+        Field(description="Tiered analysis pipeline for auto-triage"),
+    ] = Depends(get_tiered_pipeline),  # noqa: B008
+    playlist_repo: Annotated[
+        PlaylistRepository,
+        Field(description="Playlist repository for playlist track IDs"),
+    ] = Depends(get_playlist_repo),  # noqa: B008
+    ctx: Annotated[
+        Context | None,
+        Field(description="Optional MCP context for tool logging"),
+    ] = None,
 ) -> dict[str, Any]:
-    """Classify tracks by 15 techno subgenres using rule-based MoodClassifier."""
+    """Classifies tracks into 15 techno subgenres with the mood classifier. Use when labeling tracks or a whole playlist before curation."""
     log = ToolContext(ctx)
     ids = ensure_list(track_ids) or None
     if not ids and playlist_id is None:
@@ -103,16 +117,30 @@ async def classify_mood(
 )
 @map_domain_errors
 async def audit_playlist(
-    playlist_id: int | None = None,
-    playlist_query: str | None = None,
-    check: str | None = None,
-    template: str | None = None,
-    svc: CurationService = Depends(get_curation_service),  # noqa: B008
-    tiered: TieredPipeline = Depends(get_tiered_pipeline),  # noqa: B008
-    playlist_repo: PlaylistRepository = Depends(get_playlist_repo),  # noqa: B008
-    ctx: Context | None = None,
+    playlist_id: Annotated[int | None, Field(description="Local playlist ID")] = None,
+    playlist_query: Annotated[
+        str | None, Field(description="Resolve playlist by name query")
+    ] = None,
+    check: Annotated[str | None, Field(description="Named audit check to run (optional)")] = None,
+    template: Annotated[str | None, Field(description="Audit template name (optional)")] = None,
+    svc: Annotated[
+        CurationService,
+        Field(description="Curation service for playlist audits"),
+    ] = Depends(get_curation_service),  # noqa: B008
+    tiered: Annotated[
+        TieredPipeline,
+        Field(description="Tiered analysis pipeline for auto-triage"),
+    ] = Depends(get_tiered_pipeline),  # noqa: B008
+    playlist_repo: Annotated[
+        PlaylistRepository,
+        Field(description="Playlist repository for playlist track IDs"),
+    ] = Depends(get_playlist_repo),  # noqa: B008
+    ctx: Annotated[
+        Context | None,
+        Field(description="Optional MCP context for tool logging"),
+    ] = None,
 ) -> dict[str, Any]:
-    """Audit playlist for techno quality criteria and library gaps."""
+    """Audits a playlist against techno quality and gap checks. Use when reviewing library health before a set or cleanup."""
     log = ToolContext(ctx)
     ensure_reference(playlist_id, playlist_query, entity_name="playlist")
 
@@ -126,24 +154,6 @@ async def audit_playlist(
 
 
 @tool(
-    title="Review Set Quality",
-    tags={ToolCategory.CURATION.value},
-    annotations=ANNOTATIONS_READ_ONLY,
-    icons=ICON_CURATION,
-    meta=TOOL_META,
-)
-@map_domain_errors
-async def review_set_quality(
-    set_id: int,
-    version: str | None = None,
-    svc: CurationService = Depends(get_curation_service),  # noqa: B008
-    ctx: Context | None = None,
-) -> dict[str, Any]:
-    """Review set quality: transition scores, BPM flow, energy arc, rating."""
-    return await svc.review_set_quality(set_id=set_id, version_label=version)
-
-
-@tool(
     title="Distribute to Subgenres",
     tags={ToolCategory.CURATION.value},
     annotations=ANNOTATIONS_WRITE_DESTRUCTIVE_OPEN,
@@ -152,16 +162,33 @@ async def review_set_quality(
 )
 @map_domain_errors
 async def distribute_to_subgenres(
-    source_playlist_id: int | None = None,
-    mode: str = "append",
-    sync_to_ym: bool = False,
-    dry_run: bool = False,
-    svc: CurationService = Depends(get_curation_service),  # noqa: B008
-    tiered: TieredPipeline = Depends(get_tiered_pipeline),  # noqa: B008
-    playlist_repo: PlaylistRepository = Depends(get_playlist_repo),  # noqa: B008
-    ctx: Context | None = None,
+    source_playlist_id: Annotated[
+        int | None, Field(description="Source playlist whose tracks to distribute")
+    ] = None,
+    mode: Annotated[
+        Literal["append", "replace"],
+        Field(description="How to update subgenre playlists"),
+    ] = "append",
+    sync_to_ym: Annotated[bool, Field(description="Mirror changes to Yandex Music")] = False,
+    dry_run: Annotated[bool, Field(description="Preview without modifying playlists")] = False,
+    svc: Annotated[
+        CurationService,
+        Field(description="Curation service for subgenre distribution"),
+    ] = Depends(get_curation_service),  # noqa: B008
+    tiered: Annotated[
+        TieredPipeline,
+        Field(description="Tiered analysis pipeline for auto-triage"),
+    ] = Depends(get_tiered_pipeline),  # noqa: B008
+    playlist_repo: Annotated[
+        PlaylistRepository,
+        Field(description="Playlist repository for playlist track IDs"),
+    ] = Depends(get_playlist_repo),  # noqa: B008
+    ctx: Annotated[
+        Context | None,
+        Field(description="Optional MCP context for tool logging"),
+    ] = None,
 ) -> dict[str, Any]:
-    """Distribute tracks to 15 subgenre playlists based on mood classification."""
+    """Routes tracks from a source playlist into per-subgenre playlists from mood labels. Use when reorganizing the library after classification."""
     log = ToolContext(ctx)
 
     if source_playlist_id is not None:
@@ -183,8 +210,14 @@ async def distribute_to_subgenres(
 )
 @map_domain_errors
 async def get_library_stats(
-    svc: CurationService = Depends(get_curation_service),  # noqa: B008
-    ctx: Context | None = None,
+    svc: Annotated[
+        CurationService,
+        Field(description="Curation service for aggregate library metrics"),
+    ] = Depends(get_curation_service),  # noqa: B008
+    ctx: Annotated[
+        Context | None,
+        Field(description="Optional MCP context for tool logging"),
+    ] = None,
 ) -> dict[str, Any]:
-    """Library dashboard: counts, coverage, distributions."""
+    """Returns aggregate library stats such as counts and coverage. Use when you need a quick dashboard view of the collection."""
     return await svc.get_library_stats()
