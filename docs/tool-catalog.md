@@ -21,7 +21,7 @@ Quick reference for all MCP tools (~51 total, visible + hidden).
 | `get_playlist` | id?, query?, include_tracks? | yes |
 | `manage_playlist` | action(create\|update\|delete\|add_tracks\|remove_tracks\|reorder), data?, track_refs?, positions? | no |
 
-### CRUD — Sets (tag: `core`, file: `sets_crud.py`)
+### CRUD — Sets (tag: `core`, file: `sets.py`)
 
 | Tool | Params | RO |
 |------|--------|-----|
