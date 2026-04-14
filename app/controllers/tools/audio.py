@@ -8,7 +8,6 @@ Tools:
 - classify_track — mood/subgenre classification for one track
 - gate_track — quality gate check for one track
 - get_similar_tracks — YM similar tracks with filters
-- separate_stems — ML stem separation (stub)
 """
 
 from __future__ import annotations
@@ -17,7 +16,6 @@ from typing import Annotated, Any
 
 from fastmcp.dependencies import Depends, Progress
 from fastmcp.exceptions import NotFoundError as FastMCPNotFoundError
-from fastmcp.exceptions import ToolError
 from fastmcp.server.context import Context
 from fastmcp.tools import tool
 from pydantic import Field
@@ -35,13 +33,11 @@ from app.controllers.tools._shared import (
     ANNOTATIONS_READ_ONLY,
     ANNOTATIONS_READ_ONLY_OPEN_WORLD,
     ANNOTATIONS_WRITE_IDEMPOTENT,
-    ANNOTATIONS_WRITE_OPEN_WORLD,
     ICON_AUDIO,
     TOOL_META,
     ToolCategory,
     ToolContext,
     ToolTimeout,
-    ensure_reference,
     map_domain_errors,
     resolve_track_id,
 )
@@ -49,8 +45,6 @@ from app.core.utils.parsing import ensure_list
 from app.services.audio_service import AudioService
 from app.services.track_service import TrackService
 from app.services.workflows.analyze_track_workflow import AnalyzeTrackWorkflow
-
-_VALID_STEMS = frozenset({"vocals", "drums", "bass", "other"})
 
 
 @tool(
@@ -148,46 +142,6 @@ async def analyze_batch(
         force=force,
         progress=progress,
     )
-
-
-@tool(
-    title="Separate Stems",
-    tags={ToolCategory.AUDIO.value},
-    annotations=ANNOTATIONS_WRITE_OPEN_WORLD,
-    icons=ICON_AUDIO,
-    meta=TOOL_META,
-    timeout=ToolTimeout.BATCH,
-)
-@map_domain_errors
-async def separate_stems(
-    track_id: Annotated[int | None, Field(description="Local track ID")] = None,
-    track_query: Annotated[str | None, Field(description="Text search to resolve track")] = None,
-    stems: Annotated[
-        list[str] | None,
-        Field(description="Stems to separate: vocals, drums, bass, other"),
-    ] = None,
-    ctx: Annotated[
-        Context | None,
-        Field(description="Optional MCP request context"),
-    ] = None,
-) -> dict[str, Any]:
-    """Returns a stub payload for stem separation (vocals, drums, bass, other). Use when checking API shape; real separation needs the ``[stems]`` extra."""
-    stems_list = ensure_list(stems) or None
-    ensure_reference(track_id, track_query, entity_name="track")
-
-    if stems_list:
-        invalid = set(stems_list) - _VALID_STEMS
-        if invalid:
-            raise ToolError(f"Invalid stems: {sorted(invalid)}. Valid: {sorted(_VALID_STEMS)}")
-
-    return {
-        "track_id": track_id,
-        "track_query": track_query,
-        "stems_requested": stems_list or sorted(_VALID_STEMS),
-        "status": "stub",
-        "output_files": {},
-        "note": "Requires [stems] extra: uv sync --extra stems",
-    }
 
 
 @tool(

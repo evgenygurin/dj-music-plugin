@@ -184,18 +184,6 @@ class YandexMusicAdapter:
     async def remove_likes(self, track_ids: list[str]) -> bool:
         return await self._client.remove_likes(track_ids)
 
-    # ── Audio streaming ───────────────────────────────────────────────
-
-    async def get_stream_url(self, track_id: str) -> str:
-        infos = await self._client.get_download_info(track_id)
-        if not infos:
-            from app.core.errors import APIError
-
-            raise APIError(404, f"No download info for track {track_id}")
-        best = infos[0]
-        info_url = best.get("downloadInfoUrl", "")
-        return await self._client._resolve_download_url(track_id, info_url)
-
     # ── Lifecycle ─────────────────────────────────────────────────────
 
     async def close(self) -> None:

@@ -103,12 +103,6 @@ class MusicProvider(Protocol):
 
     async def remove_likes(self, track_ids: list[str]) -> bool: ...
 
-    # ── Audio streaming ───────────────────────────────────────────────
-
-    async def get_stream_url(self, track_id: str) -> str:
-        """Resolve a temporary direct URL for audio streaming."""
-        ...
-
     # ── Lifecycle ─────────────────────────────────────────────────────
 
     async def close(self) -> None: ...

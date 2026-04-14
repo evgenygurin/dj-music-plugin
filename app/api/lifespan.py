@@ -42,6 +42,5 @@ async def api_lifespan(app: FastAPI):  # type: ignore[no-untyped-def]
         yield
     finally:
         runtime.mcp_ready = False
-        runtime.signed_url_cache.clear()
         await registry.close_all()
         runtime.ym_client = None
