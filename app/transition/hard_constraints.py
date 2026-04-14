@@ -14,13 +14,13 @@ from dataclasses import dataclass
 from app.camelot.wheel import camelot_distance
 from app.config import settings
 from app.entities.audio.features import TrackFeatures
-from app.transition.math_helpers import bpm_distance
-from app.transition.score import TransitionScore
-from app.transition.weights import (
+from app.transition.constants import (
     GROOVE_CONFLICT_THRESHOLD,
     VOCAL_PITCH_SALIENCE_THRESHOLD,
     VOCAL_SPECTRAL_CENTROID_FLOOR_HZ,
 )
+from app.transition.math_helpers import bpm_distance
+from app.transition.score import TransitionScore
 
 
 @dataclass(frozen=True)

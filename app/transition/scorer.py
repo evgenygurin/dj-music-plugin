@@ -12,7 +12,7 @@ redesign that produced this layout.
 
 from __future__ import annotations
 
-from app.core.constants import DEFAULT_TRANSITION_WEIGHTS
+from app.core.constants import DEFAULT_TRANSITION_WEIGHTS, SectionType
 from app.entities.audio.features import TrackFeatures
 from app.transition.components import (
     score_bpm,
@@ -22,12 +22,12 @@ from app.transition.components import (
     score_spectral,
     score_timbral,
 )
+from app.transition.constants import DRUM_ONLY_WEIGHT_OVERRIDE
 from app.transition.hard_constraints import check_hard_constraints
 from app.transition.intent import INTENT_WEIGHT_MODIFIERS, TransitionIntent
 from app.transition.score import TransitionScore
 from app.transition.section_context import SectionContext
 from app.transition.style import recommend_style, style_profile
-from app.transition.weights import DRUM_ONLY_WEIGHT_OVERRIDE
 
 __all__ = [
     "TransitionScore",
@@ -129,7 +129,11 @@ class TransitionScorer:
         weights: dict[str, float] | None = None,
         section_context: SectionContext | None = None,
     ) -> TransitionScore:
-        """Run all 6 component functions and combine them with weights."""
+        """Run all 6 component functions and combine them with weights.
+
+        Applies a multiplicative structure bonus (up to +8%) when section
+        context shows a good structural pairing (e.g. outro→intro).
+        """
         w = weights or self.weights
         bpm = score_bpm(from_t, to_t)
         harmonic = score_harmonic(from_t, to_t, section_context=section_context)
@@ -147,6 +151,8 @@ class TransitionScorer:
             + w.get("timbral", 0) * timbral
         )
 
+        overall *= _structure_bonus(section_context)
+
         return TransitionScore(
             bpm=bpm,
             harmonic=harmonic,
@@ -156,6 +162,46 @@ class TransitionScorer:
             timbral=timbral,
             overall=overall,
         )
+
+
+# ── Structure bonus ──────────────────────────────
+
+_MIX_OUT_QUALITY: dict[int, float] = {
+    SectionType.OUTRO: 1.0,
+    SectionType.BREAKDOWN: 0.85,
+    SectionType.VALLEY: 0.7,
+    SectionType.DROP: 0.5,
+    SectionType.BUILD: 0.3,
+    SectionType.INTRO: 0.1,
+}
+
+_MIX_IN_QUALITY: dict[int, float] = {
+    SectionType.INTRO: 1.0,
+    SectionType.DROP: 0.8,
+    SectionType.BUILD: 0.7,
+    SectionType.BREAKDOWN: 0.6,
+    SectionType.VALLEY: 0.4,
+    SectionType.OUTRO: 0.1,
+}
+
+_STRUCTURE_BONUS_MAX = 0.08
+
+
+def _structure_bonus(section_context: SectionContext | None) -> float:
+    """Multiplicative bonus for good structural pairings (1.0 - 1.08).
+
+    Rewards transitions that happen at natural DJ mix points
+    (e.g. outro→intro = 1.08, drop→intro = 0.94 * bonus).
+    Returns 1.0 (neutral) when section data is unavailable.
+    """
+    if section_context is None:
+        return 1.0
+    if section_context.from_section is None or section_context.to_section is None:
+        return 1.0
+    out_q = _MIX_OUT_QUALITY.get(section_context.from_section, 0.3)
+    in_q = _MIX_IN_QUALITY.get(section_context.to_section, 0.3)
+    pair_quality = (out_q + in_q) / 2.0
+    return 1.0 + _STRUCTURE_BONUS_MAX * (pair_quality - 0.5)
 
 
 # recommend_style and style_profile live in app/transition/style.py

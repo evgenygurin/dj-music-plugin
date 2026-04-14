@@ -8,7 +8,7 @@ by their per-feature weights.
 from __future__ import annotations
 
 from app.entities.audio.features import TrackFeatures
-from app.transition.weights import (
+from app.transition.constants import (
     TIMBRAL_DANCEABILITY_NORM,
     TIMBRAL_DYNAMIC_COMPLEXITY_NORM,
     TIMBRAL_PITCH_SALIENCE_NORM,

@@ -8,9 +8,7 @@ from __future__ import annotations
 
 from app.camelot.wheel import camelot_distance
 from app.entities.audio.features import TrackFeatures
-from app.transition.math_helpers import cosine_similarity
-from app.transition.section_context import SectionContext
-from app.transition.weights import (
+from app.transition.constants import (
     ATONAL_RELAX_FLOOR,
     CAMELOT_BASE_SCORES,
     DRUM_ONLY_HARMONIC_FLOOR,
@@ -20,6 +18,8 @@ from app.transition.weights import (
     KEY_CONFIDENCE_BLEND_THRESHOLD,
     TONNETZ_BLEND,
 )
+from app.transition.math_helpers import cosine_similarity
+from app.transition.section_context import SectionContext
 
 
 def score_harmonic(

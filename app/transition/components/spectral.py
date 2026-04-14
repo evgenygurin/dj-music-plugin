@@ -9,14 +9,14 @@ spectral complexity.
 from __future__ import annotations
 
 from app.entities.audio.features import TrackFeatures
-from app.transition.math_helpers import correlation, cosine_similarity
-from app.transition.weights import (
+from app.transition.constants import (
     COMPLEXITY_DIFF_THRESHOLD,
     COMPLEXITY_PENALTY,
     DISSONANCE_PAIR_THRESHOLD,
     DISSONANCE_PENALTY,
     SPECTRAL_SUB_WEIGHTS,
 )
+from app.transition.math_helpers import correlation, cosine_similarity
 
 
 def score_spectral(from_t: TrackFeatures, to_t: TrackFeatures) -> float:

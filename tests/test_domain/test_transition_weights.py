@@ -10,15 +10,13 @@ import math
 
 import pytest
 
-from app.transition.weights import (
+from app.transition.constants import (
     BPM_GAUSS_SIGMA,
     BPM_STABILITY_FLOOR,
-    DEFAULT_STYLE_RULES,
     DEFAULT_WEIGHTS,
     GROOVE_SUB_WEIGHTS,
     SPECTRAL_SUB_WEIGHTS,
     TIMBRAL_SUB_WEIGHTS,
-    StyleRules,
 )
 
 
@@ -55,31 +53,3 @@ class TestNumericInvariants:
 
     def test_stability_floor_in_range(self) -> None:
         assert 0.0 <= BPM_STABILITY_FLOOR <= 1.0
-
-
-class TestStyleRules:
-    def test_default_rules_is_frozen(self) -> None:
-        from dataclasses import FrozenInstanceError
-
-        with pytest.raises(FrozenInstanceError):
-            DEFAULT_STYLE_RULES.spectral_collision_cutoff = 0.99  # type: ignore[misc]
-
-    def test_default_rules_thresholds_in_unit_range(self) -> None:
-        rules = DEFAULT_STYLE_RULES
-        for name in (
-            "spectral_collision_cutoff",
-            "energy_gap_cutoff",
-            "harmonic_drift_cutoff",
-            "perfect_bpm_cutoff",
-            "perfect_harmonic_cutoff",
-            "perfect_groove_cutoff",
-            "confident_overall_cutoff",
-        ):
-            value = getattr(rules, name)
-            assert 0.0 <= value <= 1.0, f"{name}={value} outside [0,1]"
-
-    def test_can_override(self) -> None:
-        custom = StyleRules(spectral_collision_cutoff=0.5)
-        assert custom.spectral_collision_cutoff == 0.5
-        # Other defaults preserved
-        assert custom.energy_gap_cutoff == DEFAULT_STYLE_RULES.energy_gap_cutoff
