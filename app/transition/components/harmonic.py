@@ -19,7 +19,7 @@ from app.transition.constants import (
     TONNETZ_BLEND,
 )
 from app.transition.math_helpers import cosine_similarity
-from app.transition.section_context import SectionContext
+from app.transition.models import SectionContext
 
 
 def score_harmonic(

@@ -9,7 +9,7 @@ import pytest
 from app.core.constants import SectionType
 from app.entities.audio.features import TrackFeatures
 from app.services.set.scoring import SetScoringService
-from app.transition.score import TransitionScore
+from app.transition.models import TransitionScore
 from app.transition.scorer import TransitionScorer
 
 

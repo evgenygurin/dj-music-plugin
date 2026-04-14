@@ -14,10 +14,19 @@ from app.db.repositories.transition import TransitionRepository
 from app.services.mix_point_service import TrackSectionRow, build_section_context
 from app.transition import (
     SectionContext,
-    TransitionRecipe,
+    TransitionRecommendation,
     TransitionScore,
-    TransitionSelector,
 )
+from app.transition.recommender import TransitionRecommender
+
+
+def _safe_parse_recommendation(raw: str | None) -> "TransitionRecommendation | None":
+    if not raw:
+        return None
+    try:
+        return TransitionRecommendation.model_validate_json(raw)
+    except Exception:
+        return None
 from app.transition.math_helpers import bpm_distance
 from app.transition.scorer import TransitionScorer
 
@@ -170,29 +179,16 @@ class SetScoringService:
             )
             from app.entities.audio.features import TrackFeatures as _TrackFeatures
 
-            _sel = TransitionSelector()
-            _tmp_recipe = _sel.build_recipe(synthetic, _TrackFeatures(), _TrackFeatures())
-            recommended_style = str(_tmp_recipe.fx_type) if _tmp_recipe.fx_type else "unknown"
-            recommended_bars = _tmp_recipe.bars
+            _rec = TransitionRecommender().recommend(synthetic, _TrackFeatures(), _TrackFeatures())
+            recommended_style = _rec.fx_type.value
+            recommended_bars = None
 
-            persisted_recipe = TransitionRecipe.from_json(persisted_recipe_json)
-            if persisted_recipe is not None:
-                transition_type = (
-                    str(persisted_recipe.fx_type) if persisted_recipe.fx_type else "unknown"
-                )
-                transition_bars = persisted_recipe.bars
-                djay_transition = (
-                    str(persisted_recipe.fx_type) if persisted_recipe.fx_type else "unknown"
-                )
-                recipe_confidence = persisted_recipe.confidence
-            else:
-                recipe = TransitionSelector().build_recipe(
-                    synthetic, _TrackFeatures(), _TrackFeatures()
-                )
-                transition_type = str(recipe.fx_type) if recipe.fx_type else "unknown"
-                transition_bars = recipe.bars
-                djay_transition = str(recipe.fx_type) if recipe.fx_type else "unknown"
-                recipe_confidence = recipe.confidence
+            persisted = _safe_parse_recommendation(persisted_recipe_json)
+            rec = persisted or TransitionRecommender().recommend(synthetic, _TrackFeatures(), _TrackFeatures())
+            transition_type = rec.fx_type.value
+            transition_bars = None
+            djay_transition = rec.fx_type.value
+            recipe_confidence = rec.confidence
 
         return {
             "from_track_id": from_id,
@@ -306,15 +302,8 @@ class SetScoringService:
         except Exception:
             pass  # History bonus is non-critical; scoring works without it
 
-        # Generate recipe with real features
-        recipe = TransitionSelector().build_recipe(
-            score,
-            ft_from,
-            ft_to,
-            mood_a=ft_from.mood,
-            mood_b=ft_to.mood,
-            section_context=section_context,
-        )
+        # Recommend Neural Mix FX with real features
+        recipe = TransitionRecommender().recommend(score, ft_from, ft_to, section_context=section_context)
 
         transition = existing or Transition(from_track_id=from_id, to_track_id=to_id)
         transition.from_section_id = from_section_id
@@ -329,9 +318,9 @@ class SetScoringService:
         transition.timbral_score = score.timbral
         transition.hard_reject = score.hard_reject
         transition.reject_reason = score.reject_reason
-        transition.fx_type = str(recipe.fx_type) if recipe.fx_type else "unknown"
-        transition.transition_bars = recipe.bars
-        transition.transition_recipe_json = recipe.to_json()
+        transition.fx_type = recipe.fx_type.value
+        transition.transition_bars = None
+        transition.transition_recipe_json = recipe.model_dump_json()
         await self._transitions.save_score(transition)
 
         return self._format_pair_response(
@@ -347,7 +336,7 @@ class SetScoringService:
             hard_reject=score.hard_reject,
             reject_reason=score.reject_reason,
             cached=False,
-            persisted_recipe_json=recipe.to_json(),
+            persisted_recipe_json=recipe.model_dump_json(),
         )
 
     async def score_set_transitions(self, set_id: int) -> dict[str, Any]:

@@ -26,7 +26,17 @@ from app.export import (
     write_m3u8,
     write_rekordbox_xml,
 )
-from app.transition.recipe import TransitionRecipe
+from app.transition.models import TransitionRecommendation
+
+
+def _safe_parse_recommendation(raw: str | None) -> "TransitionRecommendation | None":
+    if not raw:
+        return None
+    try:
+        return TransitionRecommendation.model_validate_json(raw)
+    except Exception:
+        return None
+
 
 
 class DeliveryService:
@@ -147,7 +157,7 @@ class DeliveryService:
             score = await self._transitions.get_score(items[i].track_id, items[i + 1].track_id)
             recipe = None
             if score and score.transition_recipe_json:
-                recipe = TransitionRecipe.from_json(score.transition_recipe_json)
+                recipe = _safe_parse_recommendation(score.transition_recipe_json)
 
             export_transitions.append(
                 ExportTransition(
@@ -161,12 +171,12 @@ class DeliveryService:
                         score.key_distance if score and hasattr(score, "key_distance") else None
                     ),
                     energy_delta=None,
-                    transition_type=recipe.fx_type.value if recipe and recipe.fx_type else None,
-                    transition_bars=recipe.bars if recipe else None,
-                    djay_transition=str(recipe.fx_type) if recipe and recipe.fx_type else None,
-                    recipe_steps=[step.to_dict() for step in recipe.steps] if recipe else None,
-                    eq_plan=recipe.eq_plan.to_dict() if recipe else None,
-                    rescue_move=recipe.rescue_move if recipe else None,
+                    transition_type=recipe.fx_type.value if recipe else None,
+                    transition_bars=None,
+                    djay_transition=recipe.fx_type.value if recipe else None,
+                    recipe_steps=None,
+                    eq_plan=None,
+                    rescue_move=None,
                 )
             )
 

@@ -17,7 +17,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from app.core.constants import SectionType
-from app.transition.section_context import SectionContext
+from app.transition.models import SectionContext
 
 # A "phrase" in techno is the 64-beat (16-bar) unit DJs build their
 # blends around. Zehren 2022: >95% of cue points in EDM fall on 16-bar

@@ -48,13 +48,13 @@ class TestSectionContext:
         ctx3 = SectionContext(from_section=None, to_section=None)
         assert ctx3.is_drum_only_pair is False
 
-    def test_frozen_dataclass(self) -> None:
-        from dataclasses import FrozenInstanceError
-
+    def test_frozen_model(self) -> None:
+        """SectionContext is immutable (Pydantic frozen model)."""
         import pytest
+        from pydantic import ValidationError
 
         ctx = SectionContext(from_section=SectionType.INTRO, to_section=SectionType.OUTRO)
-        with pytest.raises(FrozenInstanceError):
+        with pytest.raises((ValidationError, TypeError)):
             ctx.from_section = SectionType.DROP  # type: ignore[misc]
 
 

@@ -7,42 +7,26 @@ import pytest
 
 from app.core.constants import NeuralMixCrossfaderFX
 from app.services.set.cheatsheet import SetCheatSheetService
-from app.transition.recipe import (
-    EQPlan,
-    RecipeStep,
-    TransitionRecipe,
-)
+from app.transition.models import TransitionRecommendation
 
 
 @pytest.mark.asyncio
 async def test_get_cheat_sheet_falls_back_when_persisted_recipe_json_is_malformed(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    expected_recipe = TransitionRecipe(
+    expected = TransitionRecommendation(
         fx_type=NeuralMixCrossfaderFX.NEURAL_MIX_DRUM_SWAP,
-        bars=16,
-        djay_tempo_adjust="sync",
-        steps=(
-            RecipeStep(bar=0, deck="B", action="Start B, bass killed"),
-            RecipeStep(bar=8, deck="both", action="BASS SWAP on the one"),
-        ),
-        eq_plan=EQPlan(low="swap@bar8", mid="gradual", high="keep"),
-        mix_in_section=None,
-        mix_out_section=None,
-        phrase_align=True,
-        warnings=(),
         confidence=0.87,
-        subgenre_modifier=None,
-        rescue_move="filter sweep + hard cut",
+        reason="both tracks drum-heavy — hard cut on phrase boundary",
     )
     calls: list[object] = []
 
-    def _fake_build_recipe(*args, **kwargs):
+    def _fake_recommend(*args, **kwargs):
         calls.append((args, kwargs))
-        return expected_recipe
+        return expected
 
     monkeypatch.setattr(
-        "app.transition.selector.TransitionSelector.build_recipe", _fake_build_recipe
+        "app.transition.recommender.TransitionRecommender.recommend", _fake_recommend
     )
 
     svc = SetCheatSheetService(
@@ -104,5 +88,3 @@ async def test_get_cheat_sheet_falls_back_when_persisted_recipe_json_is_malforme
 
     assert calls
     assert "NEURAL MIX DRUM SWAP" in text
-    assert "bar 8" in text
-    assert "swap@bar8" in text
