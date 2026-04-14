@@ -1,140 +1,92 @@
-from __future__ import annotations
+"""Tests for EQPlan, RecipeStep, and TransitionRecipe."""
 
 import json
 
-from app.transition.recipe import (
-    DjayTransition,
-    EQPlan,
-    RecipeStep,
-    StemAction,
-    TransitionRecipe,
-    TransitionType,
-)
+from app.core.constants import NeuralMixCrossfaderFX
+from app.transition.recipe import EQPlan, RecipeStep, TransitionRecipe
+from app.transition.types import StemAction
 
 
-def test_transition_type_has_12_values():
-    assert len(TransitionType) == 12
-    assert TransitionType.CUT == "cut"
-    assert TransitionType.NEURAL_MIX_BLEND == "neural_mix_blend"
-    assert TransitionType.STEMS_CREATIVE == "stems_creative"
+def test_eq_plan_defaults():
+    plan = EQPlan()
+    assert plan.low == "stem"
+    assert plan.mid == "stem"
+    assert plan.high == "stem"
 
 
-def test_djay_transition_has_6_values():
-    assert len(DjayTransition) == 6
-    assert DjayTransition.NEURAL_MIX == "neural_mix"
+def test_eq_plan_round_trip():
+    plan = EQPlan(low="cut", mid="filter", high="stem")
+    assert EQPlan.from_dict(plan.to_dict()) == plan
 
 
-def test_stem_action_values():
-    assert StemAction.SWAP == "swap"
-    assert StemAction.FADE_IN == "fade_in"
-
-
-def test_recipe_step_creation():
+def test_recipe_step_round_trip():
     step = RecipeStep(
-        bar=8,
-        deck="both",
-        action="BASS SWAP on the one",
-        stem="bass",
-        stem_action=StemAction.SWAP,
+        bar=4,
+        deck="A",
+        action="fade out drums",
+        stem="drums",
+        stem_action=StemAction.FADE_OUT,
     )
-    assert step.bar == 8
-    assert step.stem == "bass"
-    assert step.eq_band is None
+    d = step.to_dict()
+    restored = RecipeStep.from_dict(d)
+    assert restored == step
 
 
-def test_transition_recipe_creation():
+def test_recipe_step_from_dict_invalid_deck():
+    assert RecipeStep.from_dict({"bar": 0, "deck": "C", "action": "x"}) is None
+
+
+def test_recipe_step_from_dict_bool_bar():
+    assert RecipeStep.from_dict({"bar": True, "deck": "A", "action": "x"}) is None
+
+
+def test_transition_recipe_round_trip():
+    step = RecipeStep(
+        bar=0,
+        deck="B",
+        action="bring in B drums",
+        stem="drums",
+        stem_action=StemAction.FADE_IN,
+    )
     recipe = TransitionRecipe(
-        transition_type=TransitionType.BASS_SWAP_SHORT,
-        bars=8,
-        djay_transition=DjayTransition.NONE,
-        djay_tempo_adjust="sync",
-        steps=(
-            RecipeStep(bar=0, deck="B", action="Start B, bass killed"),
-            RecipeStep(bar=8, deck="both", action="BASS SWAP"),
-        ),
-        eq_plan=EQPlan(low="swap@bar8", mid="gradual", high="keep"),
-        mix_in_section="intro",
-        mix_out_section="outro",
-        phrase_align=True,
-        warnings=("BPM +2",),
-        confidence=0.88,
-        subgenre_modifier=None,
-        rescue_move="filter sweep + hard cut",
+        fx_type=NeuralMixCrossfaderFX.NEURAL_MIX_DRUM_SWAP,
+        bars=16,
+        steps=(step,),
+        warnings=("key clash",),
+        confidence=0.85,
+        rescue_move="hard cut if stems clash",
     )
-    assert recipe.bars == 8
-    assert len(recipe.steps) == 2
-    assert recipe.steps[0].deck == "B"
+    json_str = recipe.to_json()
+    restored = TransitionRecipe.from_json(json_str)
+    assert restored is not None
+    assert restored.fx_type == NeuralMixCrossfaderFX.NEURAL_MIX_DRUM_SWAP
+    assert restored.bars == 16
+    assert len(restored.steps) == 1
+    assert restored.steps[0].stem_action == StemAction.FADE_IN
+    assert restored.confidence == 0.85
 
 
-def test_recipe_to_dict():
-    recipe = TransitionRecipe(
-        transition_type=TransitionType.CUT,
-        bars=0,
-        djay_transition=DjayTransition.NONE,
-        djay_tempo_adjust="sync",
-        steps=(),
-        eq_plan=EQPlan(low="keep", mid="keep", high="keep"),
-        mix_in_section=None,
-        mix_out_section=None,
-        phrase_align=True,
-        warnings=(),
-        confidence=0.95,
-        subgenre_modifier=None,
-        rescue_move="hard cut",
-    )
-    d = recipe.to_dict()
-    assert d["transition_type"] == "cut"
-    assert d["bars"] == 0
-    json.dumps(d)  # Must be JSON-serializable
+def test_transition_recipe_from_json_legacy_fx_type():
+    """Legacy fx_type values (old TransitionType strings) are silently ignored."""
+    raw = json.dumps({"fx_type": "BASS_SWAP_SHORT", "bars": 8, "steps": []})
+    recipe = TransitionRecipe.from_json(raw)
+    assert recipe is not None
+    assert recipe.fx_type is None
 
 
-def test_recipe_from_json_round_trip():
-    recipe = TransitionRecipe(
-        transition_type=TransitionType.BASS_SWAP_SHORT,
-        bars=8,
-        djay_transition=DjayTransition.NEURAL_MIX,
-        djay_tempo_adjust="gradual",
-        steps=(
-            RecipeStep(
-                bar=4,
-                deck="both",
-                action="Swap bass",
-                stem="bass",
-                stem_action=StemAction.SWAP,
-                eq_band="low",
-                eq_value=0.0,
-                effect="echo",
-                effect_param=0.5,
-            ),
-        ),
-        eq_plan=EQPlan(low="swap", mid="gradual", high="keep"),
-        mix_in_section="intro",
-        mix_out_section="outro",
-        phrase_align=True,
-        warnings=("watch vocals",),
-        confidence=0.83,
-        subgenre_modifier="hard_pair",
-        rescue_move="hard cut",
-    )
-
-    assert TransitionRecipe.from_json(recipe.to_json()) == recipe
+def test_transition_recipe_from_json_none():
+    assert TransitionRecipe.from_json(None) is None
 
 
-def test_recipe_from_json_returns_none_for_wrong_shaped_payload():
-    assert TransitionRecipe.from_json("[]") is None
+def test_transition_recipe_from_json_invalid():
+    assert TransitionRecipe.from_json("not-json") is None
 
 
-def test_recipe_from_json_returns_none_for_malformed_nested_payload():
-    payload = json.dumps(
-        {
-            "transition_type": "cut",
-            "bars": 4,
-            "djay_transition": "none",
-            "steps": [[]],
-            "eq_plan": {"low": "keep", "mid": "keep", "high": "keep"},
-            "confidence": 0.8,
-            "rescue_move": "hard cut",
-        }
-    )
+def test_all_neural_mix_fx_steps():
+    """Every NeuralMixCrossfaderFX must produce a non-empty step sequence."""
+    from app.transition.recipe_steps import build_steps_for_fx
 
-    assert TransitionRecipe.from_json(payload) is None
+    for fx in NeuralMixCrossfaderFX:
+        steps, eq = build_steps_for_fx(fx, 16)
+        assert len(steps) > 0, f"{fx} produced no steps"
+        assert isinstance(eq, EQPlan)
