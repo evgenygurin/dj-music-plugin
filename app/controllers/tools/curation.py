@@ -63,7 +63,6 @@ async def _auto_triage(
     icons=ICON_CURATION,
     meta=TOOL_META,
     timeout=ToolTimeout.BATCH,
-    task=True,
 )
 @map_domain_errors
 async def classify_mood(
@@ -101,7 +100,6 @@ async def classify_mood(
     icons=ICON_CURATION,
     meta=TOOL_META,
     timeout=ToolTimeout.BATCH,
-    task=True,
 )
 @map_domain_errors
 async def audit_playlist(

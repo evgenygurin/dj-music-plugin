@@ -68,7 +68,6 @@ async def import_tracks(
     icons=ICON_DISCOVERY,
     meta=TOOL_META,
     timeout=ToolTimeout.BATCH,
-    task=True,
 )
 @map_domain_errors
 async def download_tracks(

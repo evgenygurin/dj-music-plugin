@@ -82,7 +82,6 @@ async def analyze_track(
     icons=ICON_AUDIO,
     meta=TOOL_META,
     timeout=ToolTimeout.BATCH,
-    task=True,
 )
 @map_domain_errors
 async def analyze_batch(
