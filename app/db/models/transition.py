@@ -72,7 +72,7 @@ class Transition(Base, TimestampMixin):
     low_conflict_score: Mapped[float | None] = mapped_column(nullable=True)
     overall_quality: Mapped[float | None] = mapped_column(nullable=True)
 
-    transition_type: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    fx_type: Mapped[str | None] = mapped_column(String(30), nullable=True)
     transition_bars: Mapped[int | None] = mapped_column(nullable=True)
     transition_recipe_json: Mapped[str | None] = mapped_column(Text, nullable=True)
 

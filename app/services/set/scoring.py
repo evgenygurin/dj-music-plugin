@@ -328,7 +328,7 @@ class SetScoringService:
         transition.timbral_score = score.timbral
         transition.hard_reject = score.hard_reject
         transition.reject_reason = score.reject_reason
-        transition.transition_type = str(recipe.fx_type) if recipe.fx_type else "unknown"
+        transition.fx_type = str(recipe.fx_type) if recipe.fx_type else "unknown"
         transition.transition_bars = recipe.bars
         transition.transition_recipe_json = recipe.to_json()
         await self._transitions.save_score(transition)
