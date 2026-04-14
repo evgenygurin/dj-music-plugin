@@ -10,7 +10,6 @@ from app.db.repositories.set import SetRepository
 from app.db.repositories.track import TrackRepository
 from app.transition.recipe import TransitionRecipe
 from app.transition.score import TransitionScore
-from app.transition.style import recommend_recipe
 
 if TYPE_CHECKING:
     from app.db.repositories.transition import TransitionRepository
@@ -18,12 +17,8 @@ if TYPE_CHECKING:
 
 def _format_recipe_box(recipe: TransitionRecipe, score: float | None = None) -> str:
     """Format a transition recipe as a text box for cheat sheet."""
-    type_label = recipe.transition_type.value.upper().replace("_", " ")
-    header = f"{type_label} · {recipe.bars} bars"
-    if recipe.djay_transition.value != "none":
-        header += f" ─── djay: {recipe.djay_transition.value.replace('_', ' ').title()}"
-    else:
-        header += " ─── djay: Manual EQ"
+    fx_label = recipe.fx_type.value.upper().replace("_", " ") if recipe.fx_type else "MANUAL EQ"
+    header = f"{fx_label} · {recipe.bars} bars"
 
     lines = [f"     ┌── {header} ──┐"]
     lines.append("     │")
@@ -168,7 +163,7 @@ class SetCheatSheetService:
                             timbral=0.5,
                             overall=0.5,
                         )
-                    recipe = recommend_recipe(
+                    recipe = TransitionSelector().build_recipe(
                         score,
                         prev_feat,
                         feat,
