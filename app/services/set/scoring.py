@@ -16,9 +16,6 @@ from app.transition import (
     SectionContext,
     TransitionRecipe,
     TransitionScore,
-    recommend_recipe,
-    recommend_style,
-    style_profile,
 )
 from app.transition.math_helpers import bpm_distance
 from app.transition.scorer import TransitionScorer
@@ -170,22 +167,30 @@ class SetScoringService:
                 hard_reject=bool(hard_reject) if hard_reject is not None else False,
                 reject_reason=reject_reason,
             )
-            style = recommend_style(synthetic)
-            recommended_style = style.value
-            profile_bars = style_profile(style)["bars"]
-            recommended_bars = profile_bars if isinstance(profile_bars, int | float) else None
+            from app.entities.audio.features import TrackFeatures as _TrackFeatures
+
+            _sel = TransitionSelector()
+            _tmp_recipe = _sel.build_recipe(synthetic, _TrackFeatures(), _TrackFeatures())
+            recommended_style = str(_tmp_recipe.fx_type) if _tmp_recipe.fx_type else "unknown"
+            recommended_bars = _tmp_recipe.bars
 
             persisted_recipe = TransitionRecipe.from_json(persisted_recipe_json)
             if persisted_recipe is not None:
-                transition_type = persisted_recipe.transition_type.value
+                transition_type = (
+                    str(persisted_recipe.fx_type) if persisted_recipe.fx_type else "unknown"
+                )
                 transition_bars = persisted_recipe.bars
-                djay_transition = persisted_recipe.djay_transition.value
+                djay_transition = (
+                    str(persisted_recipe.fx_type) if persisted_recipe.fx_type else "unknown"
+                )
                 recipe_confidence = persisted_recipe.confidence
             else:
-                recipe = recommend_recipe(synthetic)
-                transition_type = recipe.transition_type.value
+                recipe = TransitionSelector().build_recipe(
+                    synthetic, _TrackFeatures(), _TrackFeatures()
+                )
+                transition_type = str(recipe.fx_type) if recipe.fx_type else "unknown"
                 transition_bars = recipe.bars
-                djay_transition = recipe.djay_transition.value
+                djay_transition = str(recipe.fx_type) if recipe.fx_type else "unknown"
                 recipe_confidence = recipe.confidence
 
         return {
@@ -301,7 +306,7 @@ class SetScoringService:
             pass  # History bonus is non-critical; scoring works without it
 
         # Generate recipe with real features
-        recipe = recommend_recipe(
+        recipe = TransitionSelector().build_recipe(
             score,
             ft_from,
             ft_to,
@@ -323,7 +328,7 @@ class SetScoringService:
         transition.timbral_score = score.timbral
         transition.hard_reject = score.hard_reject
         transition.reject_reason = score.reject_reason
-        transition.transition_type = recipe.transition_type.value
+        transition.transition_type = str(recipe.fx_type) if recipe.fx_type else "unknown"
         transition.transition_bars = recipe.bars
         transition.transition_recipe_json = recipe.to_json()
         await self._transitions.save_score(transition)
