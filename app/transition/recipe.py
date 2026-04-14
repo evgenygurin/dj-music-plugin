@@ -17,6 +17,8 @@ class TransitionType(StrEnum):
     RISER = "riser"
     DROP_SWAP = "drop_swap"
     NEURAL_MIX_BLEND = "neural_mix_blend"
+    DRUM_SWAP = "drum_swap"
+    DRUM_CUT = "drum_cut"
     DISSOLVE = "dissolve"
     STEMS_CREATIVE = "stems_creative"
 
@@ -28,6 +30,8 @@ class DjayTransition(StrEnum):
     TREMOLO = "tremolo"
     RISER = "riser"
     NEURAL_MIX = "neural_mix"
+    NEURAL_MIX_DRUM_SWAP = "neural_mix_drum_swap"
+    NEURAL_MIX_DRUM_CUT = "neural_mix_drum_cut"
 
 
 class StemAction(StrEnum):
