@@ -2,17 +2,11 @@
 
 from __future__ import annotations
 
-from enum import StrEnum
-
 from app.core.constants import SetTemplate
+from app.transition.types import TransitionIntent
 
-
-class TransitionIntent(StrEnum):
-    MAINTAIN = "maintain"
-    RAMP_UP = "ramp_up"
-    COOL_DOWN = "cool_down"
-    CONTRAST = "contrast"
-
+# Re-export for backward compatibility (scorer.py, optimization/fitness.py, etc.)
+__all__ = ["INTENT_WEIGHT_MODIFIERS", "TransitionIntent", "infer_intent"]
 
 INTENT_WEIGHT_MODIFIERS: dict[TransitionIntent, dict[str, float]] = {
     TransitionIntent.MAINTAIN: {
