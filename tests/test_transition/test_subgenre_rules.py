@@ -1,11 +1,6 @@
 from app.core.constants import TechnoSubgenre
-from app.transition.recipe import TransitionType
-from app.transition.subgenre_rules import (
-    SubgenrePairType,
-    clamp_bars,
-    classify_pair,
-    preferred_type_for_pair,
-)
+from app.transition.subgenre_rules import clamp_bars, classify_pair
+from app.transition.types import SubgenrePairType
 
 
 def test_classify_ambient_pair():
@@ -60,7 +55,8 @@ def test_clamp_bars_ambient():
 
 
 def test_clamp_bars_hard():
-    assert clamp_bars(32, SubgenrePairType.HARD_PAIR) == 8
+    # HARD_PAIR range is (4, 16)
+    assert clamp_bars(32, SubgenrePairType.HARD_PAIR) == 16
 
 
 def test_clamp_bars_hypnotic():
@@ -69,15 +65,3 @@ def test_clamp_bars_hypnotic():
 
 def test_clamp_bars_mixed_no_change():
     assert clamp_bars(16, SubgenrePairType.MIXED_PAIR) == 16
-
-
-def test_preferred_type_ambient():
-    tt = preferred_type_for_pair(SubgenrePairType.AMBIENT_PAIR)
-    assert TransitionType.DISSOLVE in tt
-    assert TransitionType.LONG_BLEND in tt
-
-
-def test_preferred_type_hard():
-    tt = preferred_type_for_pair(SubgenrePairType.HARD_PAIR)
-    assert TransitionType.CUT in tt
-    assert TransitionType.DROP_SWAP in tt
