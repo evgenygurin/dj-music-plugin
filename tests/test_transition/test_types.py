@@ -20,9 +20,21 @@ def test_stem_action_values():
 def test_subgenre_pair_type_values():
     assert SubgenrePairType.AMBIENT_PAIR == "ambient_pair"
     assert SubgenrePairType.HARD_PAIR == "hard_pair"
+    assert SubgenrePairType.ACID_PAIR == "acid_pair"
+    assert SubgenrePairType.MELODIC_PAIR == "melodic_pair"
+    assert SubgenrePairType.HYPNOTIC_PAIR == "hypnotic_pair"
     assert SubgenrePairType.MIXED_PAIR == "mixed_pair"
 
 
 def test_transition_intent_ordering():
     assert TransitionIntent.MAINTAIN < TransitionIntent.RAMP_UP
     assert TransitionIntent.RAMP_UP < TransitionIntent.COOL_DOWN
+
+
+def test_transition_intent_as_dict_key():
+    from app.transition.intent import INTENT_WEIGHT_MODIFIERS
+
+    for intent in TransitionIntent:
+        assert intent in INTENT_WEIGHT_MODIFIERS, f"{intent} missing from INTENT_WEIGHT_MODIFIERS"
+        weights = INTENT_WEIGHT_MODIFIERS[intent]
+        assert "bpm" in weights
