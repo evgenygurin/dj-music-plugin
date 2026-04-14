@@ -5,6 +5,7 @@ from __future__ import annotations
 from fastmcp.dependencies import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.clients.ym.client import YandexMusicClient
 from app.controllers.dependencies.audio import get_audio_service, get_tiered_pipeline
 from app.controllers.dependencies.db import get_db_session
 from app.controllers.dependencies.external import get_ym_client
@@ -54,7 +55,6 @@ from app.services.workflows import (
     ImportTracksWorkflow,
     SyncPlaylistWorkflow,
 )
-from app.ym.client import YandexMusicClient
 
 
 def get_track_service(

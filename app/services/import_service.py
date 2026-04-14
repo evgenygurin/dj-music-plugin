@@ -14,6 +14,7 @@ logger = logging.getLogger(__name__)
 from pathlib import Path
 from typing import Any
 
+from app.clients.ym.client import YandexMusicClient
 from app.config import settings
 from app.core.errors import ValidationError
 from app.db.models.library import DjLibraryItem
@@ -21,7 +22,6 @@ from app.db.models.track import Track
 from app.db.repositories.ingestion import IngestionRepository
 from app.db.repositories.playlist import PlaylistRepository
 from app.db.repositories.track import TrackRepository
-from app.ym.client import YandexMusicClient
 
 
 def _sanitize_filename(title: str, max_len: int = 80) -> str:

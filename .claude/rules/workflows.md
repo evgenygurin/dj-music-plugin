@@ -1,5 +1,5 @@
 ---
-paths: app/services/workflows/**/*.py
+globs: app/services/workflows/**/*.py
 ---
 
 # Workflows (Orchestration Layer)
@@ -7,7 +7,7 @@ paths: app/services/workflows/**/*.py
 - Workflows coordinate multiple services for a single MCP tool call
 - Each workflow is a class with explicit `run_*` entrypoints
 - Injected via DI from `controllers/dependencies/services.py`
-- Workflows CAN import services and repositories — they sit at Band 2A
+- Workflows CAN import services and repositories — they sit at Application layer
 - Workflows CANNOT import MCP/FastMCP — framework-agnostic like services
 - MCP tools should only: parse inputs → delegate to workflow → report progress → map errors
 - Shared helpers go in `_helpers.py`, not duplicated across workflows

@@ -30,7 +30,8 @@ forbidden_modules =
     app.models
     app.controllers
     app.services
-    app.ym
+    app.clients
+    app.providers
     fastmcp
     sqlalchemy
     httpx
@@ -48,7 +49,8 @@ forbidden_modules =
     app.models
     app.controllers
     app.services
-    app.ym
+    app.clients
+    app.providers
     fastmcp
     sqlalchemy
     httpx
@@ -65,7 +67,8 @@ forbidden_modules =
     app.services
     app.controllers
     app.audio
-    app.ym
+    app.clients
+    app.providers
     app.transition
     app.optimization
     app.templates
@@ -83,13 +86,3 @@ forbidden_modules =
     app.db.repositories
 ignore_imports =
     app.api.server -> app.server
-
-# ── Contract 6: Engines stay below transport ───────────────────────
-[importlinter:contract:engines-no-transport]
-name = Engines must not depend on API or controllers
-type = forbidden
-source_modules =
-    app.engines
-forbidden_modules =
-    app.api
-    app.controllers

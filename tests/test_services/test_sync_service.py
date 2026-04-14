@@ -7,12 +7,12 @@ from unittest.mock import AsyncMock
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.clients.ym.models import YMPlaylist
 from app.db.models.playlist import Playlist
 from app.db.repositories.playlist import PlaylistRepository
 from app.db.repositories.set import SetRepository
 from app.db.repositories.track import TrackRepository
 from app.services.sync_service import SyncService
-from app.ym.models import YMPlaylist
 
 
 def _make_sync_service(db: AsyncSession, ym_mock: AsyncMock) -> SyncService:

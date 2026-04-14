@@ -8,6 +8,7 @@ from fastmcp.dependencies import Depends
 from fastmcp.exceptions import ToolError
 from fastmcp.tools import tool
 
+from app.clients.ym.client import YandexMusicClient
 from app.controllers.dependencies import get_ym_client
 from app.controllers.tools._shared import (
     ANNOTATIONS_READ_ONLY_OPEN_WORLD,
@@ -16,7 +17,6 @@ from app.controllers.tools._shared import (
     ToolCategory,
 )
 from app.controllers.tools.yandex._constants import MAX_SEARCH_LIMIT, VALID_SEARCH_TYPES
-from app.ym.client import YandexMusicClient
 
 
 @tool(

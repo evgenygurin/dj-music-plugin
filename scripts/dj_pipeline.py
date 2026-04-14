@@ -46,6 +46,8 @@ async def main(args: argparse.Namespace) -> None:
     from app.audio.level_config import AnalysisLevel
     from app.audio.pipeline import AnalysisPipeline
     from app.audio.timeseries import TimeseriesStorage
+    from app.clients.ym.client import YandexMusicClient
+    from app.clients.ym.rate_limiter import RateLimiter
     from app.config import Settings
     from app.db.repositories.audio import AudioRepository
     from app.db.repositories.feature import FeatureRepository
@@ -60,8 +62,6 @@ async def main(args: argparse.Namespace) -> None:
     from app.services.set.builder import SetBuilderService
     from app.services.set.scoring import SetScoringService
     from app.services.tiered_pipeline import TieredPipeline
-    from app.ym.client import YandexMusicClient
-    from app.ym.rate_limiter import RateLimiter
 
     settings = Settings()
     if not settings.ym_token or not settings.ym_user_id:

@@ -1,10 +1,10 @@
 # MCP Tool Catalog
 
-Quick reference for all 88 tools (61 visible + 27 hidden).
+Quick reference for all MCP tools (visible + hidden).
 
-## Core Tools (always visible — 23 tools)
+## Core Tools (always visible)
 
-### CRUD — Tracks (4 tools, tag: `core`, file: `tracks.py`)
+### CRUD — Tracks (tag: `core`, file: `tracks.py`)
 
 | Tool | Params | RO |
 |------|--------|-----|
@@ -13,7 +13,7 @@ Quick reference for all 88 tools (61 visible + 27 hidden).
 | `manage_tracks` | action(create\|update\|archive\|unarchive), data? | no |
 | `get_track_features` | id?, query?, include_sections? | yes |
 
-### CRUD — Playlists (3 tools, tag: `core`, file: `playlists.py`)
+### CRUD — Playlists (tag: `core`, file: `playlists.py`)
 
 | Tool | Params | RO |
 |------|--------|-----|
@@ -21,7 +21,7 @@ Quick reference for all 88 tools (61 visible + 27 hidden).
 | `get_playlist` | id?, query?, include_tracks? | yes |
 | `manage_playlist` | action(create\|update\|delete\|add_tracks\|remove_tracks\|reorder), data?, track_refs?, positions? | no |
 
-### CRUD — Sets (3 tools, tag: `core`, file: `crud.py`)
+### CRUD — Sets (tag: `core`, file: `crud.py`)
 
 | Tool | Params | RO |
 |------|--------|-----|
@@ -29,14 +29,14 @@ Quick reference for all 88 tools (61 visible + 27 hidden).
 | `get_set` | id?, query?, view(summary\|tracks\|transitions\|full) | yes |
 | `manage_set` | action(create\|update\|delete\|add_constraint\|remove_constraint\|add_feedback), data? | no |
 
-### Search (2 tools, tag: `core`, file: `search.py`)
+### Search (tag: `core`, file: `search.py`)
 
 | Tool | Params | RO |
 |------|--------|-----|
 | `search` | query, entity(tracks\|artists\|playlists\|sets\|all), limit | yes |
 | `filter_tracks` | bpm_min/max?, key?, key_compatible?, energy_min/max?, has_features?, exclude_set_id?, sort_by, limit, cursor | yes |
 
-### Set Building (4 tools, tag: `sets`, file: `sets.py`)
+### Set Building (tag: `sets`, file: `sets.py`)
 
 | Tool | Params | RO | Timeout |
 |------|--------|----|---------|
@@ -45,7 +45,7 @@ Quick reference for all 88 tools (61 visible + 27 hidden).
 | `score_transitions` | mode(set\|pair\|track_candidates), set_id?, from/to_track_id?, track_id?, top_n? | no | — |
 | `get_set_cheat_sheet` | set_id, version? | yes | — |
 
-### Set Reasoning (5 tools, tag: `sets`, file: `reasoning.py`)
+### Set Reasoning (tag: `sets`, file: `reasoning.py`)
 
 | Tool | Params | RO |
 |------|--------|-----|
@@ -55,23 +55,23 @@ Quick reference for all 88 tools (61 visible + 27 hidden).
 | `compare_set_versions` | set_id, version_a?, version_b? | yes |
 | `quick_set_review` | set_id | yes |
 
-### Admin (2 tools, tag: `admin`, file: `admin.py`)
+### Admin (tag: `admin`, file: `admin.py`)
 
 | Tool | Params | RO |
 |------|--------|-----|
 | `unlock_tools` | action(unlock\|lock\|status), category? | no |
 | `list_platforms` | — | yes |
 
-## Extended Tools (unlock per category — 20 tools)
+## Extended Tools (unlock per category)
 
-### Delivery & Export (2 tools, tag: `delivery`, file: `delivery.py`)
+### Delivery & Export (tag: `delivery`, file: `delivery.py`)
 
 | Tool | Params | Timeout |
 |------|---------|---------|
 | `deliver_set` | set_id, version?, output_dir?, copy_files?, sync_to_ym?, formats?, dry_run? | 300s |
 | `export_set` | set_id, format, output_path?, rekordbox_options? | — |
 
-### Discovery & Download (5 tools, tag: `discovery`)
+### Discovery & Download (tag: `discovery`)
 
 | Tool | File | Params | RO |
 |------|------|--------|-----|
@@ -81,7 +81,7 @@ Quick reference for all 88 tools (61 visible + 27 hidden).
 | `import_tracks` | import_download.py | track_refs, playlist_id?, auto_analyze? | no |
 | `download_tracks` | import_download.py | track_refs, target_dir?, skip_existing?, prefer_bitrate? | no |
 
-### Curation (5 tools, tag: `curation`, file: `curation.py`)
+### Curation (tag: `curation`, file: `curation.py`)
 
 | Tool | Params | RO |
 |------|--------|-----|
@@ -91,14 +91,14 @@ Quick reference for all 88 tools (61 visible + 27 hidden).
 | `distribute_to_subgenres` | source_playlist_id?, mode?, sync_to_ym?, dry_run? | no |
 | `get_library_stats` | — | yes |
 
-### Sync (2 tools, tag: `sync`, file: `sync.py`)
+### Sync (tag: `sync`, file: `sync.py`)
 
 | Tool | Params | RO |
 |------|--------|-----|
 | `sync_playlist` | playlist_id, direction(pull\|push\|diff)?, conflict_strategy?, dry_run?=true | no |
 | `push_set_to_ym` | set_id, ym_playlist_name?, mode(create\|update\|auto)? | no |
 
-### YM API (6 tools, tag: `ym`, package: `yandex/`)
+### YM API (tag: `ym`, package: `yandex/`)
 
 Each YM tool lives in its own submodule under `app/controllers/tools/yandex/`:
 
@@ -113,9 +113,9 @@ Each YM tool lives in its own submodule under `app/controllers/tools/yandex/`:
 
 `ym_playlists` and `ym_likes` dispatch via `ActionDispatcher` (Command + Registry) — adding a new action is `@_dispatcher.register("name")` plus a handler, no `if/elif` edits.
 
-## Hidden Tools (explicit unlock required — 7 tools)
+## Hidden Tools (explicit unlock required)
 
-### Audio Analysis (3 tools, tag: `audio`, file: `audio.py`)
+### Audio Analysis (tag: `audio`, file: `audio.py`)
 
 | Tool | Params | Timeout |
 |------|---------|---------|
@@ -123,7 +123,7 @@ Each YM tool lives in its own submodule under `app/controllers/tools/yandex/`:
 | `analyze_batch` | track_ids?\|playlist_id?, batch_size?, analyzers?, level?, force? | 600s |
 | `separate_stems` | track_id?, track_query?, stems? | 300s |
 
-### Atomic (4 tools, tag: `atomic`, file: `audio_atomic.py`)
+### Atomic (tag: `atomic`, file: `audio_atomic.py`)
 
 Low-level building blocks used by composite tools. Not intended for direct use.
 
@@ -136,32 +136,7 @@ Low-level building blocks used by composite tools. Not intended for direct use.
 
 ## New Tools (since v0.7.0)
 
-### Decks (8 tools, tag: `core`, file: `decks.py`)
-
-| Tool | Params | RO |
-|------|--------|-----|
-| `deck_load` | deck_id, track_id, duration_ms | no |
-| `deck_play` | deck_id | no |
-| `deck_pause` | deck_id | no |
-| `deck_cue` | deck_id | no |
-| `deck_unload` | deck_id | no |
-| `deck_set_pitch` | deck_id, pitch | no |
-| `deck_set_gain` | deck_id, gain | no |
-| `deck_state` | deck_id | yes |
-
-### Mixer (7 tools, tag: `core`, file: `mixer.py`)
-
-| Tool | Params | RO |
-|------|--------|-----|
-| `mixer_crossfader` | target | no |
-| `mixer_channel_gain` | deck_id, gain | no |
-| `mixer_state` | — | yes |
-| `set_eq` | deck_id, band, gain | no |
-| `kill_eq` | deck_id, band | no |
-| `reset_eq` | deck_id | no |
-| `set_filter` | deck_id, cutoff_hz | no |
-
-### Track Feedback (6 tools, tag: `core`, file: `track_feedback.py`)
+### Track Feedback (tag: `core`, file: `track_feedback.py`)
 
 | Tool | Params | RO |
 |------|--------|-----|
@@ -172,7 +147,7 @@ Low-level building blocks used by composite tools. Not intended for direct use.
 | `get_banned_tracks` | — | yes |
 | `get_liked_tracks` | — | yes |
 
-### Transition History (4 tools, tag: `core`, file: `transition_history.py`)
+### Transition History (tag: `core`, file: `transition_history.py`)
 
 | Tool | Params | RO |
 |------|--------|-----|
@@ -181,7 +156,7 @@ Low-level building blocks used by composite tools. Not intended for direct use.
 | `get_best_pairs` | track_id, limit? | yes |
 | `update_reaction` | entry_id, reaction | no |
 
-### Track Affinity (3 tools, tag: `core`, file: `track_affinity.py`)
+### Track Affinity (tag: `core`, file: `track_affinity.py`)
 
 | Tool | Params | RO |
 |------|--------|-----|
@@ -189,7 +164,7 @@ Low-level building blocks used by composite tools. Not intended for direct use.
 | `get_track_affinity` | track_a_id, track_b_id | yes |
 | `get_affinity_recommendations` | track_id, limit? | yes |
 
-### Scoring Profiles (3 tools, tag: `core`, file: `scoring_profile.py`)
+### Scoring Profiles (tag: `core`, file: `scoring_profile.py`)
 
 | Tool | Params | RO |
 |------|--------|-----|
@@ -197,7 +172,7 @@ Low-level building blocks used by composite tools. Not intended for direct use.
 | `list_scoring_profiles` | — | yes |
 | `get_scoring_weights` | profile_name? | yes |
 
-### Adaptive Arc (3 tools, tag: `core`, file: `adaptive_arc.py`)
+### Adaptive Arc (tag: `core`, file: `adaptive_arc.py`)
 
 | Tool | Params | RO |
 |------|--------|-----|
@@ -205,52 +180,41 @@ Low-level building blocks used by composite tools. Not intended for direct use.
 | `suggest_energy_direction` | last_n? | yes |
 | `get_session_arc` | limit? | yes |
 
-### Set Narrative (1 tool, tag: `sets`, file: `set_narrative.py`)
+### Set Narrative (tag: `sets`, file: `set_narrative.py`)
 
 | Tool | Params | RO |
 |------|--------|-----|
 | `analyze_set_narrative` | set_id | yes |
 
-### Monitoring (1 tool, tag: `core`, file: `monitoring.py`)
-
-| Tool | Params | RO |
-|------|--------|-----|
-| `watch_decks` | hz?, duration_s? | yes |
-
-### Misc (2 tools)
+### Misc
 
 | Tool | File | Params | RO |
 |------|------|--------|-----|
 | `get_set_templates` | sets_meta.py | — | yes |
-| `run_tool` | run_tool.py | name, arguments? | no |
 
 ## Summary
 
-| Category | Count | Tag | Visibility |
-|----------|-------|-----|-----------|
-| CRUD (tracks + playlists + sets) | 10 | `core` | Always |
-| Search | 2 | `core` | Always |
-| Set Building | 4 | `sets` | Always |
-| Set Reasoning | 5 | `sets` | Always |
-| Admin | 2 | `admin` | Always |
-| Decks | 8 | `core` | Always |
-| Mixer | 7 | `core` | Always |
-| Track Feedback | 6 | `core` | Always |
-| Transition History | 4 | `core` | Always |
-| Track Affinity | 3 | `core` | Always |
-| Scoring Profiles | 3 | `core` | Always |
-| Adaptive Arc | 3 | `core` | Always |
-| Set Narrative | 1 | `sets` | Always |
-| Monitoring | 1 | `core` | Always |
-| Misc (templates, run_tool) | 2 | `core` | Always |
-| Delivery & Export | 2 | `delivery` | Unlockable |
-| Discovery & Download | 5 | `discovery` | Unlockable |
-| Curation | 5 | `curation` | Unlockable |
-| Sync | 2 | `sync` | Unlockable |
-| YM API | 6 | `ym` | Unlockable |
-| Audio Analysis | 3 | `audio` | Unlockable |
-| Atomic | 4 | `atomic` | Unlockable |
-| **Total** | **88** | | |
+| Category | Tag | Visibility |
+|----------|-----|-----------|
+| CRUD (tracks + playlists + sets) | `core` | Always |
+| Search | `core` | Always |
+| Set Building | `sets` | Always |
+| Set Reasoning | `sets` | Always |
+| Admin | `admin` | Always |
+| Track Feedback | `core` | Always |
+| Transition History | `core` | Always |
+| Track Affinity | `core` | Always |
+| Scoring Profiles | `core` | Always |
+| Adaptive Arc | `core` | Always |
+| Set Narrative | `sets` | Always |
+| Misc (templates) | `core` | Always |
+| Delivery & Export | `delivery` | Unlockable |
+| Discovery & Download | `discovery` | Unlockable |
+| Curation | `curation` | Unlockable |
+| Sync | `sync` | Unlockable |
+| YM API | `ym` | Unlockable |
+| Audio Analysis | `audio` | Unlockable |
+| Atomic | `atomic` | Unlockable |
 
 > **Note:** All 7 extended/hidden categories start disabled. Use `unlock_tools(action="unlock", category="all")`
 > to enable them — this triggers `notifications/tools/list_changed` so the client re-fetches the tool list.

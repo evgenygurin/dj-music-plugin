@@ -991,9 +991,9 @@ async def _run_db_only(
 
 
 async def _run(args: argparse.Namespace) -> int:
+    from app.clients.ym.client import YandexMusicClient
+    from app.clients.ym.rate_limiter import RateLimiter
     from app.config import settings
-    from app.ym.client import YandexMusicClient
-    from app.ym.rate_limiter import RateLimiter
 
     gate_on = args.gate_mode == "l5"
 

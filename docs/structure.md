@@ -1,7 +1,7 @@
 # Project Structure & Database Schema
 
 > Структура директорий, файлов и таблиц БД проекта DJ Music Plugin.
-> Сгенерировано: 2026-04-07.
+> Обновлено: 2026-04-14.
 
 ## 1. Directory Tree
 
@@ -16,12 +16,10 @@ dj-music-plugin/
 ├── alembic.ini                     # Alembic config
 ├── pyproject.toml
 ├── start.sh                        # Backend + Panel dev runner
-├── app/api/server.py                   # FastAPI REST wrapper над MCP
 │
 ├── .claude/
 │   ├── settings.json
-│   ├── rules/                      # Правила по слоям (audio, models, tools, ...)
-│   └── worktrees/                  # git worktrees
+│   └── rules/                      # Правила по слоям (audio, models, tools, ...)
 │
 ├── .claude-plugin/
 │   ├── plugin.json
@@ -43,81 +41,119 @@ dj-music-plugin/
 │   └── superpowers/specs/
 │
 ├── app/                            # Backend (Python, FastMCP)
-│   ├── __init__.py
-│   ├── server.py                   # MCP server entry
+│   ├── server.py                   # MCP server entry → bootstrap/server_builder.py
 │   ├── config.py                   # Settings (env DJ_*)
 │   ├── telemetry.py                # Sentry / OTEL
+│   ├── _version.py
 │   │
-│   ├── core/                       # Shared (no external deps)
+│   ├── core/                       # Core — cross-cutting (no external deps)
 │   │   ├── constants.py
 │   │   ├── errors.py               # NotFoundError, ValidationError, ConflictError
-│   │   ├── camelot.py              # Camelot wheel math
-│   │   ├── cache.py
+│   │   └── utils/
+│   │       ├── cache.py            # TransitionCache (in-memory LRU)
+│   │       ├── files.py
+│   │       ├── pagination.py
+│   │       ├── parsing.py
+│   │       └── time.py             # utc_now(), sa_now()
+│   │
+│   ├── controllers/                # Interface — MCP entry (tools, prompts, resources)
 │   │   ├── elicitation.py
-│   │   ├── entity_resolver.py
-│   │   ├── pagination.py
-│   │   ├── parsing.py
-│   │   ├── seed.py
-│   │   ├── storage.py
-│   │   ├── track_features.py       # TrackFeatures dataclass + from_db()
-│   │   ├── transition_intent.py
-│   │   ├── ym_filters.py
-│   │   └── schemas/                # Pydantic models
-│   │       ├── common.py
-│   │       ├── track.py
-│   │       ├── playlist.py
-│   │       ├── set.py
-│   │       └── yandex.py
+│   │   ├── middleware.py           # logging, timing, rate limit
+│   │   ├── tools/                  # MCP tools (auto-discovered by FSProvider)
+│   │   │   ├── _shared/
+│   │   │   │   ├── taxonomy.py     # ToolCategory, annotations, timeouts, meta
+│   │   │   │   ├── resolvers.py
+│   │   │   │   ├── entity_resolver.py
+│   │   │   │   ├── context.py      # ToolContext wrapper
+│   │   │   │   ├── dispatch.py     # ActionDispatcher
+│   │   │   │   └── errors.py
+│   │   │   ├── tracks.py
+│   │   │   ├── playlists.py
+│   │   │   ├── crud.py             # Sets CRUD
+│   │   │   ├── search.py
+│   │   │   ├── sets.py             # build_set, rebuild_set, score_transitions
+│   │   │   ├── sets_meta.py
+│   │   │   ├── reasoning.py        # suggest_next, explain, replace, compare
+│   │   │   ├── delivery.py
+│   │   │   ├── discovery.py
+│   │   │   ├── import_download.py
+│   │   │   ├── curation.py         # mood, audit, distribute
+│   │   │   ├── sync.py
+│   │   │   ├── audio.py            # analyze_track / batch / stems (stub)
+│   │   │   ├── audio_atomic.py     # hidden atomic tools
+│   │   │   ├── admin.py            # unlock_tools, list_platforms
+│   │   │   ├── adaptive_arc.py
+│   │   │   ├── scoring_profile.py
+│   │   │   ├── set_narrative.py
+│   │   │   ├── track_affinity.py
+│   │   │   ├── track_feedback.py
+│   │   │   ├── transition_history.py
+│   │   │   └── yandex/             # YM API tools
+│   │   │       ├── _constants.py
+│   │   │       ├── search.py
+│   │   │       ├── tracks.py
+│   │   │       ├── albums.py
+│   │   │       ├── playlists.py
+│   │   │       └── likes.py
+│   │   ├── prompts/workflows/      # 6 workflow prompts
+│   │   │   ├── build_set.py
+│   │   │   ├── deliver_set.py
+│   │   │   ├── expand_playlist.py
+│   │   │   ├── full_pipeline.py
+│   │   │   ├── improve_set.py
+│   │   │   └── llm_discovery.py
+│   │   ├── resources/              # MCP resources (read-only)
+│   │   │   ├── status.py
+│   │   │   ├── templates.py
+│   │   │   └── reference/
+│   │   │       ├── camelot.py
+│   │   │       ├── subgenres.py
+│   │   │       └── templates.py
+│   │   └── dependencies/           # Depends() factories
+│   │       ├── db.py
+│   │       ├── repos.py
+│   │       ├── services.py
+│   │       ├── audio.py
+│   │       ├── external.py
+│   │       └── uow.py
 │   │
-│   ├── utils/
-│   │   ├── time.py                 # utc_now(), sa_now()
-│   │   └── files.py
+│   ├── bootstrap/                  # MCP composition root
+│   │   ├── server_builder.py       # build_mcp_server()
+│   │   ├── lifespans.py            # db | ym | analyzer | cache | audio
+│   │   ├── middleware.py
+│   │   ├── observability.py
+│   │   ├── sampling.py
+│   │   ├── transforms.py
+│   │   └── visibility.py
 │   │
-│   ├── models/                     # SQLAlchemy 2.0 модели
-│   │   ├── base.py                 # Base + TimestampMixin
+│   ├── api/                        # Interface — FastAPI REST wrapper
+│   │   ├── server.py
+│   │   ├── lifespan.py
+│   │   ├── state.py
+│   │   ├── openapi.py
+│   │   ├── schemas.py
+│   │   ├── routes/
+│   │   │   ├── audio.py
+│   │   │   ├── discovery.py
+│   │   │   ├── execution.py
+│   │   │   └── health.py
+│   │   ├── audio_proxy.py          # AudioStreamProxy (provider-agnostic)
+│   │   ├── signed_url_cache.py     # Signed URL TTL cache
+│   │   └── tool_registry.py        # Static MCP tool metadata
+│   │
+│   ├── schemas/                    # Interface — Pydantic DTOs
+│   │   ├── common.py
 │   │   ├── track.py
-│   │   ├── audio.py                # features, sections, embeddings, runs
-│   │   ├── library.py              # DJ library items, beatgrids, cues, loops
 │   │   ├── playlist.py
 │   │   ├── set.py
-│   │   ├── transition.py
-│   │   ├── platform.py             # YM/Spotify/Beatport/SoundCloud metadata
-│   │   ├── ingestion.py            # providers, raw responses
-│   │   ├── export.py
-│   │   └── key.py                  # 24 keys + camelot edges
+│   │   ├── yandex.py
+│   │   ├── track_affinity.py
+│   │   ├── track_feedback.py
+│   │   └── transition_history.py
 │   │
-│   ├── repositories/               # Data access (flush, никогда commit)
-│   │   ├── base.py                 # BaseRepository + cursor pagination
-│   │   ├── track/
-│   │   │   ├── core.py
-│   │   │   ├── filtering.py
-│   │   │   ├── library.py
-│   │   │   ├── external_ids.py
-│   │   │   └── stats.py
-│   │   ├── playlist.py
-│   │   ├── set.py
-│   │   ├── feature.py
-│   │   ├── transition.py
-│   │   ├── candidate.py
-│   │   ├── embedding.py
-│   │   ├── audio.py
-│   │   ├── metadata.py
-│   │   ├── ingestion.py
-│   │   └── export.py
-│   │
-│   ├── services/                   # Business logic (framework-agnostic)
+│   ├── services/                   # Application — request-scoped use cases
 │   │   ├── track_service.py
 │   │   ├── playlist_service.py
-│   │   ├── set/
-│   │   │   ├── facade.py
-│   │   │   ├── builder.py
-│   │   │   ├── scoring.py
-│   │   │   ├── crud.py
-│   │   │   └── cheatsheet.py
-│   │   ├── set_service.py
-│   │   ├── transition.py
-│   │   ├── transition_cache.py
-│   │   ├── optimizer.py
 │   │   ├── audio_service.py
 │   │   ├── tiered_pipeline.py
 │   │   ├── delivery_service.py
@@ -129,38 +165,81 @@ dj-music-plugin/
 │   │   ├── sync_service.py
 │   │   ├── metadata_service.py
 │   │   ├── embedding_service.py
-│   │   ├── export.py
-│   │   ├── templates.py
-│   │   ├── background_tasks.py
-│   │   ├── curation_service.py
-│   │   └── curation/
-│   │       ├── facade.py
-│   │       ├── audit.py
-│   │       ├── mood.py
-│   │       └── distribution.py
+│   │   ├── prefetch_service.py
+│   │   ├── mix_point_service.py
+│   │   ├── adaptive_arc.py
+│   │   ├── set_narrative.py
+│   │   ├── track_affinity.py
+│   │   ├── transition_history.py
+│   │   ├── set/
+│   │   │   ├── facade.py
+│   │   │   ├── builder.py
+│   │   │   ├── scoring.py
+│   │   │   ├── crud.py
+│   │   │   └── cheatsheet.py
+│   │   ├── curation/
+│   │   │   ├── facade.py
+│   │   │   ├── audit.py
+│   │   │   ├── mood.py
+│   │   │   └── distribution.py
+│   │   └── workflows/
+│   │       ├── _helpers.py
+│   │       ├── analyze_track_workflow.py
+│   │       ├── build_set_workflow.py
+│   │       ├── deliver_set_workflow.py
+│   │       ├── import_tracks_workflow.py
+│   │       └── sync_playlist_workflow.py
 │   │
-│   ├── domain/                     # Pure domain logic
-│   │   ├── transition/
-│   │   │   ├── scorer.py           # 6-component formula
-│   │   │   └── math_helpers.py
-│   │   ├── optimization/
-│   │   │   ├── genetic.py          # GA optimizer
-│   │   │   ├── greedy.py
-│   │   │   ├── fitness.py
-│   │   │   ├── protocol.py
-│   │   │   └── result.py
-│   │   ├── audit/rules.py
-│   │   ├── templates/
-│   │   │   ├── models.py
-│   │   │   └── registry.py         # 8 set templates
-│   │   └── export/
-│   │       ├── m3u8_writer.py      # Extended M3U8
-│   │       ├── rekordbox_writer.py
-│   │       ├── json_writer.py
-│   │       ├── cheatsheet_writer.py
-│   │       └── models.py
+│   ├── entities/                   # Domain — pure dataclass domain
+│   │   └── audio/
+│   │       └── features.py         # TrackFeatures dataclass + from_db()
 │   │
-│   ├── audio/                      # Audio analysis pipeline
+│   ├── transition/                 # Domain — 6-component scoring + intent
+│   │   ├── scorer.py               # TransitionScorer
+│   │   ├── score.py                # TransitionScore dataclass
+│   │   ├── hard_constraints.py
+│   │   ├── intent.py
+│   │   ├── math_helpers.py
+│   │   ├── neural_mix.py           # NeuralMixScorer
+│   │   ├── recipe.py
+│   │   ├── recipe_engine.py        # 12 djay Pro AI transition types
+│   │   ├── section_context.py
+│   │   ├── style.py
+│   │   ├── subgenre_rules.py
+│   │   ├── weights.py
+│   │   └── components/             # Scoring components
+│   │       ├── bpm.py
+│   │       ├── energy.py
+│   │       ├── groove.py
+│   │       ├── harmonic.py
+│   │       ├── spectral.py
+│   │       └── timbral.py
+│   │
+│   ├── optimization/               # Domain — GA, greedy, fitness
+│   │   ├── genetic.py
+│   │   ├── greedy.py
+│   │   ├── fitness.py
+│   │   ├── protocol.py
+│   │   └── result.py
+│   │
+│   ├── templates/                  # Domain — set templates registry
+│   │   ├── models.py
+│   │   └── registry.py             # 8 set templates
+│   │
+│   ├── audit/                      # Domain — techno audit specs
+│   │   └── rules.py
+│   │
+│   ├── export/                     # Domain — export writers
+│   │   ├── models.py
+│   │   ├── m3u8_writer.py
+│   │   ├── rekordbox_writer.py
+│   │   ├── json_writer.py
+│   │   └── cheatsheet_writer.py
+│   │
+│   ├── camelot/                    # Domain — Camelot wheel math
+│   │   └── wheel.py
+│   │
+│   ├── audio/                      # External — analysis pipeline
 │   │   ├── pipeline.py             # AnalysisPipeline orchestrator
 │   │   ├── temp_download.py
 │   │   ├── timeseries.py
@@ -169,99 +248,95 @@ dj-music-plugin/
 │   │   │   ├── loader.py
 │   │   │   ├── context.py          # AnalysisContext + shared STFT
 │   │   │   ├── framing.py
+│   │   │   ├── rhythm.py
 │   │   │   ├── spectral.py
+│   │   │   ├── tonal.py
 │   │   │   └── types.py
-│   │   ├── analyzers/              # 18 анализаторов
-│   │   │   ├── base.py             # BaseAnalyzer
-│   │   │   ├── loudness.py         # core
-│   │   │   ├── energy.py           # core
-│   │   │   ├── spectral.py         # core
-│   │   │   ├── bpm.py              # librosa
-│   │   │   ├── key.py              # librosa
-│   │   │   ├── beat.py             # librosa
-│   │   │   ├── mfcc.py             # librosa
-│   │   │   ├── tonnetz.py          # librosa
-│   │   │   ├── tempogram.py        # librosa
-│   │   │   ├── structure.py        # librosa
-│   │   │   ├── danceability.py     # essentia
-│   │   │   ├── dissonance.py       # essentia
-│   │   │   ├── dynamic_complexity.py
-│   │   │   ├── beats_loudness.py
-│   │   │   ├── spectral_complexity.py
-│   │   │   ├── pitch_salience.py
+│   │   ├── analyzers/
+│   │   │   ├── base.py
+│   │   │   ├── loudness.py, energy.py, spectral.py          # core (numpy)
+│   │   │   ├── bpm.py, key.py, beat.py, mfcc.py             # librosa
+│   │   │   ├── tonnetz.py, tempogram.py, structure.py        # librosa
+│   │   │   ├── danceability.py, dissonance.py                # essentia
+│   │   │   ├── dynamic_complexity.py, beats_loudness.py      # essentia
+│   │   │   ├── spectral_complexity.py, pitch_salience.py     # essentia
 │   │   │   ├── bpm_histogram.py
 │   │   │   └── phrase.py
 │   │   └── classification/
 │   │       ├── classifier.py       # Mood classifier (15 subgenres)
 │   │       └── profiles.py
 │   │
-│   ├── ym/                         # Yandex Music client
-│   │   ├── client.py               # YandexMusicClient (httpx async)
-│   │   ├── rate_limiter.py
-│   │   └── models.py
+│   ├── providers/                   # Music provider abstraction layer
+│   │   ├── protocol.py             # MusicProvider protocol (universal interface)
+│   │   ├── models.py               # ProviderTrack, ProviderAlbum, etc.
+│   │   └── registry.py             # ProviderRegistry (runtime container)
 │   │
-│   ├── infrastructure/
-│   │   ├── seed.py
-│   │   └── storage.py
+│   ├── clients/                     # External — platform-specific clients
+│   │   └── ym/                     # Yandex Music client
+│   │       ├── client.py           # YandexMusicClient (httpx async)
+│   │       ├── adapter.py          # YandexMusicAdapter (→ MusicProvider)
+│   │       ├── rate_limiter.py
+│   │       ├── factory.py          # build_ym_client() — shared factory
+│   │       ├── filters.py
+│   │       └── models.py
 │   │
-│   ├── mcp/                        # MCP server layer
-│   │   ├── dependencies.py         # DI factories (Depends)
-│   │   ├── middleware.py           # logging, timing, rate limit, retry
-│   │   ├── elicitation.py
-│   │   ├── tools/                  # 50 MCP tools (auto-discovered)
-│   │   │   ├── _shared/
-│   │   │   │   ├── taxonomy.py     # ToolCategory, annotations, timeouts
-│   │   │   │   ├── resolvers.py    # resolve_track_id, resolve_entity
-│   │   │   │   ├── context.py      # ToolContext wrapper
-│   │   │   │   ├── dispatch.py     # ActionDispatcher
-│   │   │   │   └── errors.py
-│   │   │   ├── tracks.py           # CRUD tracks
-│   │   │   ├── playlists.py
-│   │   │   ├── crud.py             # Sets CRUD
-│   │   │   ├── search.py
-│   │   │   ├── sets.py             # build_set, rebuild_set, score_transitions
-│   │   │   ├── reasoning.py        # suggest_next, explain, replace, compare
-│   │   │   ├── delivery.py
-│   │   │   ├── discovery.py
-│   │   │   ├── import_download.py
-│   │   │   ├── curation.py         # mood, audit, distribute
-│   │   │   ├── sync.py
-│   │   │   ├── audio.py            # analyze_track / batch / stems
-│   │   │   ├── audio_atomic.py     # 4 hidden atomic tools
-│   │   │   ├── admin.py            # unlock_tools, list_platforms
-│   │   │   ├── run_tool.py
-│   │   │   └── yandex/             # YM tools
-│   │   │       ├── search.py
-│   │   │       ├── tracks.py
-│   │   │       ├── albums.py
-│   │   │       ├── playlists.py
-│   │   │       ├── likes.py
-│   │   │       └── _constants.py
-│   │   ├── resources/              # MCP resources (read-only)
-│   │   │   ├── status.py
-│   │   │   ├── templates.py
-│   │   │   └── reference.py
-│   │   ├── prompts/
-│   │   │   └── workflows.py        # 5 workflow prompts
-│   │   └── schemas/
-│   │       └── sampling.py
-│   │
-│   └── migrations/                 # Alembic
-│       ├── env.py
-│       └── versions/               # 12 migration files
+│   └── db/                         # Persistence
+│       ├── seed.py                 # static reference data (24 keys, 4 providers)
+│       ├── session.py              # async_session_factory
+│       ├── models/                 # SQLAlchemy 2.0 ORM
+│       │   ├── base.py             # Base + TimestampMixin
+│       │   ├── track.py
+│       │   ├── audio.py            # features, sections, embeddings, runs
+│       │   ├── library.py          # DJ library items, beatgrids, cues, loops
+│       │   ├── playlist.py
+│       │   ├── set.py
+│       │   ├── transition.py
+│       │   ├── transition_history.py
+│       │   ├── platform.py         # YM/Spotify/Beatport/SoundCloud metadata
+│       │   ├── ingestion.py        # providers, raw responses
+│       │   ├── export.py
+│       │   ├── key.py              # 24 keys + camelot edges
+│       │   ├── scoring_profile.py
+│       │   ├── track_affinity.py
+│       │   └── track_feedback.py
+│       ├── repositories/           # Data access (flush, никогда commit)
+│       │   ├── base.py             # BaseRepository + cursor pagination
+│       │   ├── unit_of_work.py
+│       │   ├── track/
+│       │   │   ├── core.py
+│       │   │   ├── filtering.py
+│       │   │   ├── library.py
+│       │   │   ├── external_ids.py
+│       │   │   └── stats.py
+│       │   ├── playlist.py
+│       │   ├── set.py
+│       │   ├── feature.py
+│       │   ├── transition.py
+│       │   ├── transition_history.py
+│       │   ├── candidate.py
+│       │   ├── embedding.py
+│       │   ├── audio.py
+│       │   ├── metadata.py
+│       │   ├── ingestion.py
+│       │   ├── export.py
+│       │   ├── track_affinity.py
+│       │   └── track_feedback.py
+│       └── migrations/             # Alembic
+│           ├── env.py
+│           └── versions/
 │
 ├── tests/                          # Pytest (in-memory SQLite)
 │   ├── test_models/
 │   ├── test_repositories/
 │   ├── test_services/
 │   ├── test_tools/
-│   ├── test_mcp/
-│   ├── test_mcp_tools_shared/
+│   ├── test_domain/
+│   ├── test_transition/
 │   ├── test_resources/
 │   ├── test_prompts/
 │   ├── test_core/
 │   ├── test_audio/
-│   └── test_ym/
+│   └── test_ym/                    # → tests/test_ym/ (tests for clients/ym)
 │
 └── panel/                          # Frontend (Next.js 16, Bun)
     ├── package.json
@@ -270,79 +345,29 @@ dj-music-plugin/
     │   ├── layout.tsx
     │   ├── page.tsx                # Dashboard
     │   ├── library/
-    │   │   ├── page.tsx
-    │   │   ├── library-table.tsx
-    │   │   └── [id]/
-    │   │       ├── page.tsx
-    │   │       └── track-actions-menu.tsx
-    │   ├── playlists/[id]/page.tsx
-    │   ├── sets/[id]/page.tsx
+    │   ├── playlists/
+    │   ├── sets/
     │   ├── discover/
-    │   │   ├── page.tsx
-    │   │   ├── ym-search.tsx
-    │   │   └── discover-actions.tsx
-    │   ├── tools/[name]/
-    │   │   ├── page.tsx
-    │   │   └── tool-runner.tsx
-    │   ├── curation/page.tsx
-    │   ├── audio/page.tsx
-    │   ├── delivery/page.tsx
-    │   └── admin/page.tsx
-    │
+    │   ├── tools/
+    │   ├── curation/
+    │   ├── audio/
+    │   ├── delivery/
+    │   └── admin/
     ├── actions/                    # Server actions → MCP via REST
-    │   ├── analysis-actions.ts
-    │   ├── discovery-actions.ts
-    │   ├── set-actions.ts
-    │   ├── sync-actions.ts
-    │   ├── playlist-actions.ts
-    │   ├── track-actions.ts
-    │   └── tool-actions.ts
-    │
     ├── lib/
-    │   ├── mcp-client.ts           # HTTP wrapper
-    │   ├── constants.ts            # subgenre colors / labels
-    │   ├── utils.ts
+    │   ├── mcp-client.ts
+    │   ├── constants.ts
     │   ├── supabase/server.ts
-    │   └── queries/                # Direct Supabase queries
-    │       ├── dashboard.ts
-    │       ├── tracks.ts
-    │       ├── playlists.ts
-    │       └── sets.ts
-    │
+    │   └── queries/
     ├── components/
-    │   ├── ui/                     # 25+ shadcn components
-    │   ├── charts/                 # Recharts (cyberpunk neon)
-    │   │   ├── bpm-distribution.tsx
-    │   │   ├── lufs-range.tsx
-    │   │   ├── mood-distribution.tsx
-    │   │   ├── camelot-wheel.tsx
-    │   │   ├── energy-arc.tsx
-    │   │   ├── hp-ratio-distribution.tsx
-    │   │   ├── phrase-distribution.tsx
-    │   │   └── danceability-distribution.tsx
-    │   ├── data-table.tsx
-    │   ├── track-features.tsx
-    │   ├── section-cards.tsx
-    │   ├── sections-timeline.tsx
-    │   ├── transition-table.tsx
-    │   ├── set-actions-panel.tsx
-    │   ├── playlist-actions-bar.tsx
-    │   ├── cheat-sheet-tab.tsx
-    │   ├── command-palette.tsx
-    │   ├── mood-badge.tsx
-    │   ├── tool-form.tsx
-    │   ├── tool-runner.tsx (в app/tools)
-    │   ├── tool-result.tsx
-    │   ├── tool-action-card.tsx
-    │   ├── app-sidebar.tsx
-    │   └── site-header.tsx
-    │
-    └── hooks/use-mobile.ts
+    │   ├── ui/                     # shadcn components
+    │   └── charts/                 # Recharts (cyberpunk neon)
+    └── hooks/
 ```
 
 ---
 
-## 2. Database Schema (44 tables)
+## 2. Database Schema
 
 > Production: Supabase PostgreSQL 16. Tests: in-memory SQLite (aiosqlite).
 > Все таблицы (кроме join-table и `keys`/`key_edges`) имеют `created_at`, `updated_at`.

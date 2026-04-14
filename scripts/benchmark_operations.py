@@ -195,9 +195,9 @@ async def bench_score_transitions(set_svc: Any) -> TimingResult:
 
 def _make_ym_client():
     """Create a YM client with proper constructor args."""
+    from app.clients.ym.client import YandexMusicClient
+    from app.clients.ym.rate_limiter import RateLimiter
     from app.config import settings
-    from app.ym.client import YandexMusicClient
-    from app.ym.rate_limiter import RateLimiter
 
     rate_limiter = RateLimiter(
         delay=settings.ym_rate_limit_delay,

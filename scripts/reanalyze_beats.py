@@ -30,13 +30,13 @@ async def main() -> None:
     from app.audio.analyzers import AnalyzerRegistry
     from app.audio.level_config import AnalysisLevel
     from app.audio.pipeline import AnalysisPipeline
+    from app.clients.ym.client import YandexMusicClient
     from app.config import settings
     from app.models.audio import TrackAudioFeaturesComputed
     from app.models.track import Track
     from app.repositories.audio import AudioRepository
     from app.repositories.track import TrackRepository
     from app.services.tiered_pipeline import TieredPipeline
-    from app.ym.client import YandexMusicClient
 
     print("=" * 60)
     print("BEAT RE-ANALYSIS — all tracks with fixed BeatDetector")

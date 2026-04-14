@@ -8,12 +8,12 @@ from __future__ import annotations
 import json
 from typing import Any
 
+from app.clients.ym.client import YandexMusicClient
 from app.config import settings
 from app.core.errors import NotFoundError, ValidationError
 from app.db.repositories.playlist import PlaylistRepository
 from app.db.repositories.set import SetRepository
 from app.db.repositories.track import TrackRepository
-from app.ym.client import YandexMusicClient
 
 
 class SyncService:

@@ -1,7 +1,7 @@
 """FastMCP v3 server — DJ Music Plugin entry point.
 
 Usage:
-    uv run fastmcp dev app/server.py --reload   # development
+    uv run fastmcp run app/server.py --reload   # development
     uv run fastmcp run app/server.py            # production
 
 OpenTelemetry (optional, requires `uv sync --extra otel`):

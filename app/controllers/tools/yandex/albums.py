@@ -9,6 +9,7 @@ from fastmcp.exceptions import NotFoundError as FastMCPNotFoundError
 from fastmcp.exceptions import ToolError
 from fastmcp.tools import tool
 
+from app.clients.ym.client import YandexMusicClient
 from app.controllers.dependencies import get_ym_client
 from app.controllers.tools._shared import (
     ANNOTATIONS_READ_ONLY_OPEN_WORLD,
@@ -16,7 +17,6 @@ from app.controllers.tools._shared import (
     TOOL_META,
     ToolCategory,
 )
-from app.ym.client import YandexMusicClient
 
 
 @tool(

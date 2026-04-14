@@ -102,13 +102,12 @@ uv run python scripts/verify_audio_pipeline.py [path/to/track.mp3]
 FastMCP v3.1 + FileSystemProvider (standalone `@tool`, auto-discovery):
 
 ```text
-Band 0  Core         config · constants · errors · utils · middleware
-Band 1  Controllers  MCP tools/prompts/resources + REST routes + schemas
-Band 2A Services     request-scoped use cases (UoW, workflows, services)
-Band 2B Engines      long-lived runtime singletons (DeckEngine, MixerEngine)
-Band 3  Pure logic   entities · transition · optimization · templates · camelot · audit
-Band 4  Persistence  mappers ⇆ repositories ⇆ ORM models ⇆ Alembic
-Band 5  Infra        YM client · audio analyzers · sounddevice · storage
+Interface    controllers (MCP tools/prompts/resources) + api (REST routes) + schemas (DTOs)
+Application  services · workflows
+Domain       entities · transition · optimization · templates · audit · export · camelot
+Persistence  db (models · repositories · migrations)
+External     ym (Yandex Music client) · audio (analyzers · pipeline)
+Core         config · constants · errors · utils
 ```
 
 **Ключевые модули:**
@@ -118,7 +117,8 @@ Band 5  Infra        YM client · audio analyzers · sounddevice · storage
 - `app/services/workflows/` — orchestration (import, analyze, build_set, deliver, sync)
 - `app/controllers/tools/` — thin MCP wrappers with Depends() DI
 - `app/audio/` — layered audio analysis (see below)
-- `app/ym/` — async Yandex Music client (httpx, rate limiting)
+- `app/providers/` — MusicProvider protocol + registry (multi-platform abstraction)
+- `app/clients/ym/` — Yandex Music client + adapter (implements MusicProvider)
 
 ### Audio module (`app/audio/`)
 
@@ -153,8 +153,6 @@ pipeline.py       ← L3: orchestrator (asyncio.to_thread parallelism)
 - **Eager context**: STFT/magnitude/freqs computed once, shared read-only — thread-safe by design
 
 **Middleware:** structured logging, timing, YM rate limiting, retry, error masking.
-
-Подробности: [Design Specification](docs/superpowers/specs/2026-03-24-dj-music-plugin-design.md)
 
 ## Конфигурация
 

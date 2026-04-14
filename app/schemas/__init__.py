@@ -12,7 +12,7 @@ Layer organisation:
 - :mod:`yandex` — YMTrackSummary
 
 Domain helpers (``ym_track_summary``, ``is_excluded_title``, ``genre_ok``)
-live in :mod:`app.ym.filters` — they are filtering utilities, not
+live in :mod:`app.clients.ym.filters` — they are filtering utilities, not
 schemas, and were moved out of this module to keep concerns separated.
 """
 

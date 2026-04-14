@@ -1,7 +1,7 @@
 ---
 description: Yandex Music client patterns
 globs:
-  - app/ym/**/*.py
+  - app/clients/ym/**/*.py
   - app/controllers/tools/yandex/**/*.py
 ---
 

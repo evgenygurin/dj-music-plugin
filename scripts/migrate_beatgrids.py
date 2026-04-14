@@ -353,8 +353,8 @@ async def main() -> None:
     async_session = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
     # Initialize YM client with settings
-    from app.ym.client import YandexMusicClient
-    from app.ym.rate_limiter import RateLimiter
+    from app.clients.ym.client import YandexMusicClient
+    from app.clients.ym.rate_limiter import RateLimiter
 
     ym = YandexMusicClient(
         token=settings.ym_token,

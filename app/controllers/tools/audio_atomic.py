@@ -14,6 +14,8 @@ from fastmcp.exceptions import NotFoundError as FastMCPNotFoundError
 from fastmcp.server.context import Context
 from fastmcp.tools import tool
 
+from app.clients.ym.client import YandexMusicClient
+from app.clients.ym.filters import genre_ok, is_excluded_title, ym_track_summary
 from app.config import settings
 from app.controllers.dependencies import get_audio_service, get_ym_client
 from app.controllers.tools._shared import (
@@ -28,8 +30,6 @@ from app.controllers.tools._shared import (
 )
 from app.core.utils.parsing import ensure_list
 from app.services.audio_service import AudioService
-from app.ym.client import YandexMusicClient
-from app.ym.filters import genre_ok, is_excluded_title, ym_track_summary
 
 
 @tool(

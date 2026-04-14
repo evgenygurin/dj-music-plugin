@@ -28,10 +28,10 @@ globs: app/api/**/*.py
 - `app/api/routes/health.py` — `/api/health`
 - `app/api/routes/discovery.py` — `/api/tools`, `/api/tools/{name}`, `/api/tools/{name}/schema`
 - `app/api/routes/execution.py` — `POST /api/tools/{name}/call`
-- `app/api/routes/audio.py` — `GET /api/audio/stream/{ym_track_id}`
-- `app/api/services/tool_registry.py` — `ToolRegistry` (static tool metadata cache)
-- `app/api/services/signed_url_cache.py` — `SignedUrlCache` (YM download URL TTL cache)
-- `app/api/services/ym_audio_proxy.py` — `YmAudioProxy` (stream YM audio)
+- `app/api/routes/audio.py` — `GET /api/audio/stream/{track_id}`
+- `app/api/tool_registry.py` — `ToolRegistry` (static tool metadata cache)
+- `app/api/signed_url_cache.py` — `SignedUrlCache` (signed URL TTL cache)
+- `app/api/audio_proxy.py` — `AudioStreamProxy` (stream audio via MusicProvider)
 
 ## Patterns
 

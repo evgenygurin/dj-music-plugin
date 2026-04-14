@@ -2,14 +2,15 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, cast
 
 from fastapi import FastAPI, Request
 
-from app.api.services.signed_url_cache import SignedUrlCache
-from app.api.services.tool_registry import ToolRegistry
-from app.api.services.ym_audio_proxy import YmAudioProxy
+from app.api.audio_proxy import AudioStreamProxy
+from app.api.signed_url_cache import SignedUrlCache
+from app.api.tool_registry import ToolRegistry
+from app.providers.registry import ProviderRegistry
 
 
 @dataclass
@@ -20,8 +21,9 @@ class ApiRuntimeState:
     mcp_app: Any
     tool_registry: ToolRegistry
     signed_url_cache: SignedUrlCache
-    ym_audio_proxy: YmAudioProxy
+    audio_proxy: AudioStreamProxy
     ym_client: Any | None = None
+    provider_registry: ProviderRegistry = field(default_factory=ProviderRegistry)
     mcp_ready: bool = False
 
 
@@ -33,11 +35,13 @@ def build_api_runtime(mcp: Any) -> ApiRuntimeState:
         mcp_app=mcp.http_app(path="/"),
         tool_registry=ToolRegistry.discover(),
         signed_url_cache=signed_url_cache,
-        ym_audio_proxy=None,  # type: ignore[arg-type]
+        audio_proxy=None,  # type: ignore[arg-type]
     )
-    runtime.ym_audio_proxy = YmAudioProxy(
+    runtime.audio_proxy = AudioStreamProxy(
         signed_url_cache=signed_url_cache,
-        get_ym_client=lambda: runtime.ym_client,
+        get_provider=lambda: runtime.provider_registry.default
+        if runtime.provider_registry
+        else None,
     )
     return runtime
 

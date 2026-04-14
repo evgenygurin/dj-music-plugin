@@ -8,7 +8,7 @@ from unittest.mock import AsyncMock
 import pytest
 from fastmcp.exceptions import ToolError
 
-from app.ym.models import YMAlbum, YMPlaylist, YMTrack
+from app.clients.ym.models import YMAlbum, YMPlaylist, YMTrack
 
 # ── BUG-14: ym_get_album validation ───────────────────
 

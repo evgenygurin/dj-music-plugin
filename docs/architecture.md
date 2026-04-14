@@ -19,7 +19,7 @@
 │  ┌──────▼──────────────────────────────────────────────────┐│
 │  │              FileSystemProvider (auto-discover)          ││
 │  │  ┌──────────┐  ┌────────────┐  ┌──────────────────────┐││
-│  │  │ 88 Tools │  │10 Resources│  │ 6 Workflow Prompts   │││
+│  │  │  Tools   │  │ Resources  │  │  Workflow Prompts    │││
 │  │  └────┬─────┘  └──────┬─────┘  └──────────────────────┘││
 │  └───────┼───────────────┼─────────────────────────────────┘│
 └──────────┼───────────────┼──────────────────────────────────┘
@@ -46,7 +46,7 @@
     │    SQLAlchemy 2.0 Async       │
     │  Supabase PostgreSQL          │
     │  SQLite (tests only, in-mem)  │
-    │  44 tables, Alembic migrations│
+    │  Alembic migrations            │
     └──────────────────────────────┘
 
 External:

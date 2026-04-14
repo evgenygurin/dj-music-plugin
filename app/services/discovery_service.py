@@ -11,11 +11,11 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
+from app.clients.ym.client import YandexMusicClient
+from app.clients.ym.filters import genre_ok, is_excluded_title, ym_track_summary
 from app.config import settings
 from app.core.errors import NotFoundError, ValidationError
 from app.db.repositories.track import TrackRepository
-from app.ym.client import YandexMusicClient
-from app.ym.filters import genre_ok, is_excluded_title, ym_track_summary
 
 
 class DiscoveryService:

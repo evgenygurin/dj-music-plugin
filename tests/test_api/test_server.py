@@ -11,8 +11,8 @@ from fastapi.responses import Response
 from fastapi.testclient import TestClient
 
 from app.api.server import api
-from app.api.services.tool_registry import ToolRegistry
 from app.api.state import build_api_runtime
+from app.api.tool_registry import ToolRegistry
 from app.server import mcp
 
 
@@ -137,7 +137,7 @@ def test_call_tool_executes_and_preserves_response_shape(
 
 def test_audio_stream_route_delegates_to_proxy(api_client) -> None:
     client, runtime = api_client
-    runtime.ym_audio_proxy.stream = AsyncMock(
+    runtime.audio_proxy.stream = AsyncMock(
         return_value=Response(content=b"audio-bytes", media_type="audio/mpeg")
     )
 
@@ -145,8 +145,8 @@ def test_audio_stream_route_delegates_to_proxy(api_client) -> None:
 
     assert response.status_code == 200
     assert response.content == b"audio-bytes"
-    runtime.ym_audio_proxy.stream.assert_awaited_once_with(
-        ym_track_id="123",
+    runtime.audio_proxy.stream.assert_awaited_once_with(
+        track_id="123",
         range_header=None,
     )
 

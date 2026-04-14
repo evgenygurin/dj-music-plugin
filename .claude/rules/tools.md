@@ -15,8 +15,8 @@ globs: app/controllers/tools/**/*.py
   - `timeout=ToolTimeout.MEDIUM | HEAVY | BATCH`
 - **Title**: `title="Human Readable Name"` — REQUIRED on every tool (Claude Code displays it in UI)
 - **Icons**: `icons=ICON_TRACKS` / `ICON_SETS` / `ICON_YM` / etc — 16 SVG icon sets in `_shared.taxonomy`
-- **Meta**: `meta=TOOL_META` on every tool — `{"version": "0.7.0", "author": "dj-music-plugin"}`
-- **No BM25SearchTransform** — removed because it proxied all calls through `run_tool`. Use native `mcp.disable(tags=...)` visibility (see `bootstrap/visibility.py`)
+- **Meta**: `meta=TOOL_META` on every tool — auto-generated from `app._version.__version__`
+- **Visibility**: use native `mcp.disable(tags=...)` / `mcp.enable(tags=...)` (see `bootstrap/visibility.py`)
 - **Entity resolution**: use `resolve_track_id` / `resolve_entity` / `ensure_reference` from `_shared` — never re-implement `id|query` validation
 - **Context logging**: wrap `ctx` in `ToolContext(ctx)` and call `await log.info(...)`, `log.progress(...)`, `log.elicit(...)` — never write `if ctx: await ctx.info(...)` guards
 - **Action-dispatched tools** (`ym_playlists`, `ym_likes`, `manage_*`): use `ActionDispatcher[ResultT]` from `_shared.dispatch` — `@_dispatcher.register("name")` instead of `if/elif` chains. Duplicate registration raises at import time.
@@ -32,7 +32,7 @@ globs: app/controllers/tools/**/*.py
 ## Gotchas
 
 - `Depends()`: use `param=Depends(factory)`, NOT `Annotated[Type, Depends(factory)]` — FastMCP doesn't resolve Annotated
-- `list_page_size` in config must be >= tool count (100) — Claude Code doesn't follow nextCursor
+- `pagination_size` in config must be >= tool count — MCP clients may not follow nextCursor
 - Hidden tools: all 7 extended/hidden categories (delivery, discovery, curation, sync, ym, audio, atomic) are disabled at startup. `unlock_tools(action="unlock", category="...")` calls `ctx.fastmcp.enable(tags=...)` which triggers `notifications/tools/list_changed` — the client re-fetches the tool list automatically
 - `download_tracks` refs: accepts YM track IDs (`"135055088"`) or local IDs (auto-resolves via `resolve_local_ids_to_ym`). Numbers < 100000 = local, >= 100000 = YM
 - `download_tracks` automatically creates `DjLibraryItem` via `_link_file_to_track()` — no manual linking needed

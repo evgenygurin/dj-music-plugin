@@ -17,14 +17,14 @@ if TYPE_CHECKING:
     from app.audio.timeseries import TimeseriesStorage
     from app.db.repositories.audio import AudioRepository
     from app.db.repositories.track import TrackRepository
-    from app.ym.client import YandexMusicClient
+    from app.providers.protocol import MusicProvider
 
 
 class TieredPipeline:
     """Orchestrates tiered audio analysis with temp downloads.
 
-    Downloads audio from YM to temp files, runs level-appropriate analyzers,
-    persists features, and cleans up temp files automatically.
+    Downloads audio via MusicProvider to temp files, runs level-appropriate
+    analyzers, persists features, and cleans up temp files automatically.
     """
 
     def __init__(
@@ -32,13 +32,13 @@ class TieredPipeline:
         audio_repo: AudioRepository,
         track_repo: TrackRepository,
         pipeline: AnalysisPipeline,
-        ym_client: YandexMusicClient,
+        provider: MusicProvider,
         timeseries: TimeseriesStorage | None = None,
     ) -> None:
         self._audio = audio_repo
         self._tracks = track_repo
         self._pipeline = pipeline
-        self._ym = ym_client
+        self._provider = provider
         self._timeseries = timeseries
 
     async def ensure_level(
@@ -129,7 +129,7 @@ class TieredPipeline:
         save_ts = self._timeseries is not None and level >= AnalysisLevel.SCORING
 
         try:
-            async with temp_download_track(self._ym, ym_track_id) as tmp_path:
+            async with temp_download_track(self._provider, ym_track_id) as tmp_path:
                 result = await self._pipeline.analyze(
                     str(tmp_path),
                     analyzers=analyzers,

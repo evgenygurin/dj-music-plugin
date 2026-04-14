@@ -12,6 +12,7 @@ from fastmcp.dependencies import Depends
 from fastmcp.exceptions import ToolError
 from fastmcp.tools import tool
 
+from app.clients.ym.client import YandexMusicClient
 from app.controllers.dependencies import get_ym_client
 from app.controllers.tools._shared import (
     ANNOTATIONS_WRITE_OPEN_WORLD,
@@ -23,7 +24,6 @@ from app.controllers.tools._shared import (
 )
 from app.controllers.tools.yandex._constants import MAX_LIKED_PAGE
 from app.core.utils.parsing import ensure_list
-from app.ym.client import YandexMusicClient
 
 _dispatcher: ActionDispatcher[dict[str, Any]] = ActionDispatcher()
 

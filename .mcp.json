@@ -4,7 +4,7 @@
       "command": "bash",
       "args": [
         "-c",
-        "cd /Users/laptop/dev/dj-music-plugin && set -a && source .env 2>/dev/null && set +a && exec uv run fastmcp run app/server.py"
+        "if [ -f .env ]; then set -a && source .env && set +a; else echo '[dj-music] Warning: .env not found, starting with current environment' >&2; fi && exec uv run fastmcp run app/server.py --reload"
       ]
     },
     "ssh-manager": {

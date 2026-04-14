@@ -129,7 +129,7 @@ RESOURCE_META: Final[dict[str, Any]] = {
 #
 # Each list contains one Icon with an inline SVG data-URI.
 # Categories: tracks, playlists, sets, search, audio, delivery,
-# discovery, curation, sync, ym, admin, decks, mixer, memory.
+# discovery, curation, sync, ym, admin, memory.
 
 
 def _svg_icon(svg_body: str) -> list[Icon]:
@@ -228,32 +228,11 @@ ICON_ADMIN: Final[list[Icon]] = _svg_icon(
     "a1.65 1.65 0 00-1.51 1z'/%3E"
 )
 
-# Play — decks
-ICON_DECKS: Final[list[Icon]] = _svg_icon("%3Cpolygon points='5 3 19 12 5 21 5 3'/%3E")
-
-# Sliders — mixer
-ICON_MIXER: Final[list[Icon]] = _svg_icon(
-    "%3Cline x1='4' y1='21' x2='4' y2='14'/%3E"
-    "%3Cline x1='4' y1='10' x2='4' y2='3'/%3E"
-    "%3Cline x1='12' y1='21' x2='12' y2='12'/%3E"
-    "%3Cline x1='12' y1='8' x2='12' y2='3'/%3E"
-    "%3Cline x1='20' y1='21' x2='20' y2='16'/%3E"
-    "%3Cline x1='20' y1='12' x2='20' y2='3'/%3E"
-    "%3Cline x1='1' y1='14' x2='7' y2='14'/%3E"
-    "%3Cline x1='9' y1='8' x2='15' y2='8'/%3E"
-    "%3Cline x1='17' y1='16' x2='23' y2='16'/%3E"
-)
-
 # Brain — memory/affinity/feedback/scoring/history
 ICON_MEMORY: Final[list[Icon]] = _svg_icon(
     "%3Cpath d='M12 2a7 7 0 017 7c0 2.38-1.19 4.47-3 5.74V17a2 2 0 01-2 2h-4"
     "a2 2 0 01-2-2v-2.26C6.19 13.47 5 11.38 5 9a7 7 0 017-7z'/%3E"
     "%3Cline x1='9' y1='21' x2='15' y2='21'/%3E"
-)
-
-# Activity — monitoring
-ICON_MONITORING: Final[list[Icon]] = _svg_icon(
-    "%3Cpolyline points='22 12 18 12 15 21 9 3 6 12 2 12'/%3E"
 )
 
 # Database — resources/status
