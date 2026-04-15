@@ -26,7 +26,7 @@ def _mock_scorer() -> MagicMock:
 
 
 def test_ga_returns_all_tracks() -> None:
-    """GA возвращает все треки в результате."""
+    """GA returns all tracks in the result."""
     scorer = _mock_scorer()
     tracks = [_feat(130.0, 0, -10.0), _feat(131.0, 1, -11.0), _feat(132.0, 0, -10.5)]
     track_ids = [1, 2, 3]
@@ -38,7 +38,7 @@ def test_ga_returns_all_tracks() -> None:
 
 
 def test_ga_with_compatible_tracks() -> None:
-    """GA с треками прошедшими pre-filter возвращает корректный результат."""
+    """GA with pre-filter compatible tracks returns a valid result."""
     scorer = _mock_scorer()
     tracks = [_feat(130.0, 0, -10.0), _feat(131.0, 1, -11.0)]
     track_ids = [10, 20]

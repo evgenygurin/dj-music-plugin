@@ -14,12 +14,12 @@ def _feat(bpm: float, key_code: int, lufs: float) -> TrackFeatures:
 
 
 def test_greedy_skips_hard_rejected_pairs() -> None:
-    """Pre-filter сокращает вызовы scorer: несовместимые пары не оцениваются.
+    """Pre-filter reduces scorer calls: incompatible pairs are skipped.
 
-    3 трека: A(120) совместим с B(122), но не с C(135, diff=15>10).
-    Без фильтра в while-цикле scorer вызывается 2 раза (B и C от A).
-    С фильтром — только 1 раз (только B).
-    compute_fitness замокирован, чтобы не добавлять лишние вызовы scorer.
+    3 tracks: A(120) compatible with B(122), not with C(135, diff=15>10).
+    Without filter: scorer called 2 times (B and C from A).
+    With filter: only 1 time (only B).
+    compute_fitness is mocked to avoid extra scorer calls.
     """
     mock_result = MagicMock()
     mock_result.hard_reject = False
@@ -39,14 +39,14 @@ def test_greedy_skips_hard_rejected_pairs() -> None:
     # Результат содержит все 3 трека
     assert set(result.track_order) == {1, 2, 3}
     assert len(result.track_order) == 3
-    # С фильтром scorer вызывается меньше раз чем без (не 4, а ≤ 3)
-    # A→B (1 вызов) + B→C (1 вызов, единственный кандидат из adjacency или fallback)
-    # Итого ≤ 3 вызовов (без фильтра было бы A→B + A→C + B→A + B→C = 4)
+    # With filter: scorer called fewer times than without (not 4, but <= 3)
+    # A->B (1 call) + B->C (1 call, only candidate from adjacency or fallback)
+    # Total <= 3 calls (without filter: A->B + A->C + B->A + B->C = 4)
     assert mock_scorer.score.call_count <= 3
 
 
 def test_greedy_scores_valid_pairs() -> None:
-    """Greedy вызывает scorer для валидных пар в while-цикле."""
+    """Greedy calls scorer for valid pairs in the while loop."""
     mock_result = MagicMock()
     mock_result.hard_reject = False
     mock_result.overall = 0.8
@@ -66,7 +66,7 @@ def test_greedy_scores_valid_pairs() -> None:
 
 
 def test_greedy_fallback_when_all_filtered() -> None:
-    """Если все кандидаты отфильтрованы — greedy берёт любой оставшийся."""
+    """When all candidates are filtered out, greedy picks any remaining track."""
     mock_scorer = MagicMock(spec=TransitionScorer)
     tracks = [_feat(120.0, 0, -10.0), _feat(135.0, 0, -10.0), _feat(150.0, 0, -10.0)]
     track_ids = [1, 2, 3]
