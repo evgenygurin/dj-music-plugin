@@ -13,7 +13,7 @@ from fastmcp.server.context import Context
 from fastmcp.tools import tool
 from pydantic import Field
 
-from app.controllers.dependencies import get_build_set_workflow, get_set_service
+from app.controllers.dependencies import get_build_set_workflow, get_feature_repo, get_set_service
 from app.controllers.tools._shared import (
     ANNOTATIONS_READ_ONLY,
     ANNOTATIONS_WRITE,
@@ -27,9 +27,12 @@ from app.controllers.tools._shared import (
     map_domain_errors,
 )
 from app.core.utils.parsing import ensure_dict
+from app.db.repositories.feature import FeatureRepository
+from app.optimization.preview import PreviewResult, preview_arc
 from app.services.set.facade import SetService
 from app.services.workflows.build_set_workflow import BuildSetWorkflow
 from app.templates.registry import TEMPLATES
+from app.transition.scorer import TransitionScorer
 
 SetManageAction = Literal[
     "create", "update", "delete", "add_constraint", "remove_constraint", "add_feedback"
@@ -299,3 +302,52 @@ async def get_set_templates() -> dict[str, Any]:
             for tpl in TEMPLATES.values()
         ]
     }
+
+
+@tool(
+    title="Preview Set Arc",
+    tags={ToolCategory.SETS.value},
+    annotations=ANNOTATIONS_READ_ONLY,
+    icons=ICON_SETS,
+    meta=TOOL_META,
+)
+@map_domain_errors
+async def preview_set_arc(
+    track_ids: Annotated[list[int], Field(description="Ordered list of track IDs to evaluate")],
+    template: Annotated[
+        str | None,
+        Field(
+            description="Optional template name (e.g. 'roller_90') for template fitness scoring"
+        ),
+    ] = None,
+    feat_repo: FeatureRepository = Depends(get_feature_repo),  # noqa: B008
+) -> dict[str, Any]:
+    """Evaluate a track ordering's fitness without saving a set version.
+
+    Runs the same fitness function used by build_set, but non-destructively.
+    Use before committing to an ordering — compare multiple arc shapes and
+    identify weak transitions before calling build_set or rebuild_set.
+
+    Returns score (0-1), energy/BPM arcs, weak spot positions, and a
+    plain-language recommendation.
+    """
+    from dataclasses import asdict
+
+    if not track_ids:
+        return asdict(
+            PreviewResult(
+                score=1.0,
+                energy_arc=[],
+                bpm_arc=[],
+                weak_spots=[],
+                recommendation="No tracks provided.",
+                missing_track_ids=[],
+            )
+        )
+
+    features_map = await feat_repo.get_scoring_features_batch(track_ids)
+    scorer = TransitionScorer()
+    template_def = TEMPLATES.get(template) if template is not None else None
+
+    result = preview_arc(scorer, features_map, track_ids, template=template_def)
+    return asdict(result)

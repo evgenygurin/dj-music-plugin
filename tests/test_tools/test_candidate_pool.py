@@ -157,3 +157,67 @@ async def test_candidate_pool_respects_limit(client: Client, async_engine):
     data = _parse(result)
     assert len(data["tracks"]) == 5
     assert data["total"] == 20
+
+
+@pytest.mark.asyncio
+async def test_preview_set_arc_empty_ids(client: Client):
+    """preview_set_arc with empty track_ids returns score 1.0."""
+    result = await client.call_tool("preview_set_arc", {"track_ids": []})
+    data = _parse(result)
+    assert data["score"] == 1.0
+    assert data["energy_arc"] == []
+    assert data["bpm_arc"] == []
+    assert data["weak_spots"] == []
+
+
+@pytest.mark.asyncio
+async def test_preview_set_arc_with_tracks(client: Client, async_engine):
+    """preview_set_arc returns arc data for tracks with features."""
+    factory = async_sessionmaker(async_engine, expire_on_commit=False)
+    track_ids = []
+    async with factory() as session:
+        from app.db.models.audio import TrackAudioFeaturesComputed
+        from app.db.models.track import Track
+
+        for i, (bpm, lufs) in enumerate([(130.0, -13.0), (132.0, -12.0), (134.0, -11.0)]):
+            t = Track(title=f"Track {i}")
+            session.add(t)
+            await session.flush()
+            session.add(
+                TrackAudioFeaturesComputed(
+                    track_id=t.id, bpm=bpm, integrated_lufs=lufs, key_code=0
+                )
+            )
+            track_ids.append(t.id)
+        await session.commit()
+
+    result = await client.call_tool("preview_set_arc", {"track_ids": track_ids})
+    data = _parse(result)
+
+    assert 0.0 <= data["score"] <= 1.0
+    assert len(data["energy_arc"]) == 3
+    assert len(data["bpm_arc"]) == 3
+    assert data["energy_arc"] == [-13.0, -12.0, -11.0]
+    assert data["bpm_arc"] == [130.0, 132.0, 134.0]
+    assert isinstance(data["recommendation"], str)
+    assert len(data["recommendation"]) > 0
+
+
+@pytest.mark.asyncio
+async def test_preview_set_arc_missing_tracks_noted(client: Client, async_engine):
+    """preview_set_arc notes track IDs that have no features."""
+    factory = async_sessionmaker(async_engine, expire_on_commit=False)
+    async with factory() as session:
+        from app.db.models.audio import TrackAudioFeaturesComputed
+        from app.db.models.track import Track
+
+        t = Track(title="Has Features")
+        session.add(t)
+        await session.flush()
+        session.add(TrackAudioFeaturesComputed(track_id=t.id, bpm=132.0, integrated_lufs=-11.5))
+        real_id = t.id
+        await session.commit()
+
+    result = await client.call_tool("preview_set_arc", {"track_ids": [real_id, 99999]})
+    data = _parse(result)
+    assert 99999 in data["missing_track_ids"]
