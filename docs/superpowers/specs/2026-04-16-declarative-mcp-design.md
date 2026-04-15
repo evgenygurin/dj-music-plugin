@@ -25,9 +25,19 @@ Three layers, each independently useful and testable.
 
 ### Layer 1 — Knowledge Resources
 
-Four static JSON resources always available at `knowledge://`. No database
-access required. The AI reads these at session start as a professional reads
-a briefing document.
+Three new static resources at `knowledge://` plus one new dynamic resource
+at `library://`. No schema changes required.
+
+**Already exists — referenced, not recreated:**
+- `reference://subgenres` — 15 subgenres with `description`, `key_features`,
+  `typical_bpm_range`, `energy_level` (1–15). Foundation for the vocabulary map.
+- `reference://camelot` — Camelot wheel with compatibility rules.
+- `reference://templates` — 8 templates with `use_case` and `energy_arc` text.
+- `status://library` — track counts and feature coverage.
+- `catalog://stats` — mood distribution across the library.
+
+The session prompt reads these five existing resources directly.
+The three new resources add what they cannot provide.
 
 #### `knowledge://vocabulary`
 
@@ -59,23 +69,30 @@ Time-of-night context:
 | 03:00–05:00 | Peak | peak_hour_60, roller_90 |
 | 05:00+ | Closing | closing_60 |
 
-#### `knowledge://subgenre-guide`
+#### `knowledge://subgenre-culture`
 
-All 15 techno subgenres with cultural context, not just technical parameters.
+Cultural layer on top of `reference://subgenres`, which already provides
+`description`, `key_features`, and `typical_bpm_range`. This resource adds
+the three things the reference lacks: artists/labels, set position, and
+compatible neighbors.
 
-Each entry includes:
-- Human description (what it sounds like, cultural origin, typical artists)
-- Technical signature (BPM, energy, spectral profile)
-- Set position (warm-up / mid / peak / closing)
-- Compatible neighbors (which subgenres mix naturally before and after)
+Each of the 15 entries adds:
+- **Artists / labels** (cultural anchors the AI can reference conversationally)
+- **Set position**: `opener` | `early` | `mid` | `peak` | `closing`
+- **Flows from / flows into** (compatible subgenre neighbors for sequencing)
 
-Example entry for `detroit`:
+Example for `detroit`:
 ```text
-detroit — The birthplace. Mechanical, soulful, industrial undertones.
-Think Underground Resistance, Jeff Mills. Mid-to-peak energy.
-BPM 128–136. Mixes well after: melodic_deep, dub_techno.
-Mixes well before: industrial, peak_time.
+artists: Underground Resistance, Jeff Mills, Robert Hood, Surgeon
+set_position: mid-to-peak
+flows_from: [melodic_deep, dub_techno, minimal]
+flows_into: [industrial, peak_time, acid]
 ```
+
+This resource is static JSON. No database access. The implementer derives
+`flows_from` / `flows_into` from Camelot compatibility + energy adjacency
+rules in `reference://camelot` and the energy_level ordering in
+`reference://subgenres`.
 
 #### `knowledge://set-dynamics`
 
@@ -120,10 +137,14 @@ intent in natural language.
 
 What the prompt does:
 
-1. Reads `library://current-state` — actual library snapshot: which
-   subgenres are represented, how many tracks per subgenre, average quality
-   score, which playlists exist
-2. Reads all four `knowledge://` resources
+1. Reads `library://snapshot` — new aggregation resource: wraps
+   `status://library` + `catalog://stats` + playlist list into a single
+   call. Returns: track counts by subgenre, quality score distribution,
+   playlists with track counts, last-analyzed timestamp.
+2. Reads `reference://subgenres`, `reference://camelot`,
+   `reference://templates` (all existing).
+3. Reads `knowledge://vocabulary`, `knowledge://subgenre-culture`,
+   `knowledge://set-dynamics`, `knowledge://dancefloor-psychology`.
 3. Issues behavioral instructions to the AI:
    - Translate human intent; do not ask for BPM ranges
    - Make reasonable assumptions; state them briefly
@@ -197,9 +218,11 @@ noise in the set history. `preview_set_arc` is non-destructive.
 User: "dark and driving, late night, 90 minutes"
         ↓
 dj_expert_session() reads:
-  library://current-state   → "detroit: 11 tracks, industrial: 3 tracks"
+  library://snapshot        → "detroit: 11 tracks, industrial: 3 tracks"
   knowledge://vocabulary    → dark = detroit/industrial, driving = peak_time
   knowledge://set-dynamics  → late night → peak phase, roller_90 template
+  reference://subgenres     → energy levels, bpm ranges per subgenre
+  reference://templates     → roller_90 use_case, energy arc shape
         ↓
 AI (no questions asked):
   get_candidate_pool(subgenres=["detroit","industrial","peak_time"], bpm_min=130, limit=60)
@@ -228,11 +251,16 @@ AI (no questions asked):
 
 | File | Action | Responsibility |
 |---|---|---|
-| `app/controllers/resources/knowledge.py` | Create | All four `knowledge://` resources |
-| `app/controllers/prompts/workflows/dj_expert_session.py` | Create | Session initialization prompt |
-| `app/controllers/tools/candidate_pool.py` | Create | `get_candidate_pool` tool |
-| `app/optimization/preview.py` | Create | Pure `preview_set_arc` logic |
-| `app/controllers/tools/sets.py` | Modify | Add `preview_set_arc` tool |
+| `app/controllers/resources/knowledge.py` | Create | `knowledge://vocabulary`, `knowledge://subgenre-culture`, `knowledge://set-dynamics`, `knowledge://dancefloor-psychology` (3 static + 1 cultural) |
+| `app/controllers/resources/snapshot.py` | Create | `library://snapshot` — aggregates `status://library` + `catalog://stats` + playlist list |
+| `app/controllers/prompts/workflows/dj_expert_session.py` | Create | Session initialization prompt — reads 8 existing + new resources |
+| `app/controllers/tools/candidate_pool.py` | Create | `get_candidate_pool` tool — read-only track exploration |
+| `app/optimization/preview.py` | Create | Pure `preview_set_arc` logic — `compute_fitness` on arbitrary track_ids |
+| `app/controllers/tools/sets.py` | Modify | Add `preview_set_arc` tool wrapping `app.optimization.preview` |
+
+**Not created (already exist):**
+`reference://subgenres`, `reference://camelot`, `reference://templates`,
+`status://library`, `catalog://stats` — all used by the session prompt as-is.
 
 ---
 
