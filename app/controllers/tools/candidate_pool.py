@@ -86,13 +86,15 @@ async def get_candidate_pool(
     if bpm_max is not None:
         stmt = stmt.where(TrackAudioFeaturesComputed.bpm <= bpm_max)
 
-    # LUFS bounds: explicit params override energy_level tier
+    # LUFS bounds: explicit params override per-boundary; missing bound falls back to tier
     effective_lufs_min = lufs_min
     effective_lufs_max = lufs_max
-    if energy_level is not None and effective_lufs_min is None and effective_lufs_max is None:
+    if energy_level is not None:
         tier_min, tier_max = _ENERGY_LEVEL_LUFS[energy_level]
-        effective_lufs_min = tier_min
-        effective_lufs_max = tier_max
+        if effective_lufs_min is None:
+            effective_lufs_min = tier_min
+        if effective_lufs_max is None:
+            effective_lufs_max = tier_max
 
     if effective_lufs_min is not None:
         stmt = stmt.where(TrackAudioFeaturesComputed.integrated_lufs >= effective_lufs_min)

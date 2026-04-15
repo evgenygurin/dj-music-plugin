@@ -102,6 +102,41 @@ async def test_candidate_pool_energy_level_high(client: Client, async_engine):
 
 
 @pytest.mark.asyncio
+async def test_candidate_pool_energy_level_mixed_lufs_max_override(client: Client, async_engine):
+    """energy_level fills missing bound; explicit lufs_max overrides tier upper bound only."""
+    factory = async_sessionmaker(async_engine, expire_on_commit=False)
+    async with factory() as session:
+        from app.db.models.audio import TrackAudioFeaturesComputed
+        from app.db.models.track import Track
+
+        # Mid tier default max is -11; -10.5 is excluded without override.
+        for title, lufs in [
+            ("In mid core", -12.0),
+            ("Just above mid max", -10.5),
+            ("Above explicit max", -9.0),
+        ]:
+            t = Track(title=title)
+            session.add(t)
+            await session.flush()
+            session.add(TrackAudioFeaturesComputed(track_id=t.id, bpm=132.0, integrated_lufs=lufs))
+        await session.commit()
+
+    result_mid = await client.call_tool("get_candidate_pool", {"energy_level": "mid"})
+    data_mid = _parse(result_mid)
+    assert data_mid["total"] == 1
+    assert data_mid["tracks"][0]["title"] == "In mid core"
+
+    result_mixed = await client.call_tool(
+        "get_candidate_pool", {"energy_level": "mid", "lufs_max": -10.0}
+    )
+    data_mixed = _parse(result_mixed)
+    titles_mixed = {t["title"] for t in data_mixed["tracks"]}
+    assert titles_mixed == {"In mid core", "Just above mid max"}
+    assert data_mixed["filters_applied"]["lufs_min"] == -13.0
+    assert data_mixed["filters_applied"]["lufs_max"] == -10.0
+
+
+@pytest.mark.asyncio
 async def test_candidate_pool_respects_limit(client: Client, async_engine):
     """get_candidate_pool respects the limit parameter."""
     factory = async_sessionmaker(async_engine, expire_on_commit=False)
