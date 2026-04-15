@@ -12,6 +12,8 @@ redesign that produced this layout.
 
 from __future__ import annotations
 
+from app.camelot.wheel import camelot_distance
+from app.config import settings
 from app.core.constants import DEFAULT_TRANSITION_WEIGHTS, SectionType
 from app.entities.audio.features import TrackFeatures
 from app.transition.components import (
@@ -22,8 +24,6 @@ from app.transition.components import (
     score_spectral,
     score_timbral,
 )
-from app.camelot.wheel import camelot_distance
-from app.config import settings
 from app.transition.constants import (
     DRUM_ONLY_WEIGHT_OVERRIDE,
     GROOVE_CONFLICT_THRESHOLD,

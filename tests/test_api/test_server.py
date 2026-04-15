@@ -7,7 +7,6 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
 import pytest
-from fastapi.responses import Response
 from fastapi.testclient import TestClient
 
 from app.api.server import api

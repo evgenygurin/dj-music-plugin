@@ -29,7 +29,7 @@ from app.export import (
 from app.transition.models import TransitionRecommendation
 
 
-def _safe_parse_recommendation(raw: str | None) -> "TransitionRecommendation | None":
+def _safe_parse_recommendation(raw: str | None) -> TransitionRecommendation | None:
     if not raw:
         return None
     try:
