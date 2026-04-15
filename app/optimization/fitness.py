@@ -80,7 +80,13 @@ def energy_arc_score(
     order: list[int],
     idx_map: dict[int, int],
 ) -> float:
-    """Reward a natural energy arc (build up then ease off). Returns 0-1."""
+    """Reward a natural energy arc (build up then ease off). Returns 0-1.
+
+    Ideal arc for peak-time techno: quiet start (~-13 LUFS) builds to
+    loud peak at 70% (~-10 LUFS) then eases to ~-11 LUFS at outro.
+    Arc is clipped at 0 so early/late positions never target unrealistically
+    quiet levels (old formula reached -22 LUFS at position 0).
+    """
     if len(order) < 3:
         return 0.5
     n = len(order)
@@ -91,8 +97,11 @@ def energy_arc_score(
             continue
         pos = i / (n - 1)
         ideal_peak_pos = 0.7
-        arc = -(4.0 * (pos - ideal_peak_pos) ** 2) + 1.0
-        ideal_lufs = -14.0 + arc * 8.0
+        # Clip arc at 0: positions before ~0.2 and after ~1.0 stay at base level,
+        # instead of targeting unrealistic -22 LUFS that no techno track achieves.
+        arc = max(0.0, -(4.0 * (pos - ideal_peak_pos) ** 2) + 1.0)
+        # Realistic techno range: -13 LUFS (warm-up) → -10 LUFS (peak)
+        ideal_lufs = -13.0 + arc * 3.0
         diff = abs(feat.integrated_lufs - ideal_lufs)
         total += math.exp(-(diff**2) / 18.0)
     return total / n
