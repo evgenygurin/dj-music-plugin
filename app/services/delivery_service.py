@@ -38,7 +38,6 @@ def _safe_parse_recommendation(raw: str | None) -> TransitionRecommendation | No
         return None
 
 
-
 class DeliveryService:
     """Set delivery and export orchestration."""
 

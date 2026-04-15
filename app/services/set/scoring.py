@@ -27,6 +27,8 @@ def _safe_parse_recommendation(raw: str | None) -> TransitionRecommendation | No
         return TransitionRecommendation.model_validate_json(raw)
     except Exception:
         return None
+
+
 from app.transition.math_helpers import bpm_distance
 from app.transition.scorer import TransitionScorer
 
@@ -184,7 +186,9 @@ class SetScoringService:
             recommended_bars = None
 
             persisted = _safe_parse_recommendation(persisted_recipe_json)
-            rec = persisted or TransitionRecommender().recommend(synthetic, _TrackFeatures(), _TrackFeatures())
+            rec = persisted or TransitionRecommender().recommend(
+                synthetic, _TrackFeatures(), _TrackFeatures()
+            )
             transition_type = rec.fx_type.value
             transition_bars = None
             djay_transition = rec.fx_type.value
@@ -303,7 +307,9 @@ class SetScoringService:
             pass  # History bonus is non-critical; scoring works without it
 
         # Recommend Neural Mix FX with real features
-        recipe = TransitionRecommender().recommend(score, ft_from, ft_to, section_context=section_context)
+        recipe = TransitionRecommender().recommend(
+            score, ft_from, ft_to, section_context=section_context
+        )
 
         transition = existing or Transition(from_track_id=from_id, to_track_id=to_id)
         transition.from_section_id = from_section_id

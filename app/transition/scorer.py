@@ -61,7 +61,9 @@ def check_hard_constraints(
         return ConstraintResult(
             rejection=TransitionScore(
                 hard_reject=True,
-                reject_reason=f"BPM diff {bpm_diff:.1f} > {settings.transition_hard_reject_bpm_diff}",
+                reject_reason=(
+                    f"BPM diff {bpm_diff:.1f} > {settings.transition_hard_reject_bpm_diff}"
+                ),
             )
         )
 
@@ -73,11 +75,12 @@ def check_hard_constraints(
     else:
         key_dist = None
 
-    if key_dist is not None and key_dist >= settings.transition_hard_reject_camelot_dist:
+    camelot_limit = settings.transition_hard_reject_camelot_dist
+    if key_dist is not None and key_dist >= camelot_limit:
         return ConstraintResult(
             rejection=TransitionScore(
                 hard_reject=True,
-                reject_reason=f"Camelot distance {key_dist} >= {settings.transition_hard_reject_camelot_dist}",
+                reject_reason=f"Camelot distance {key_dist} >= {camelot_limit}",
             )
         )
 
@@ -89,11 +92,12 @@ def check_hard_constraints(
     else:
         energy_gap = None
 
-    if energy_gap is not None and energy_gap > settings.transition_hard_reject_energy_gap:
+    energy_limit = settings.transition_hard_reject_energy_gap
+    if energy_gap is not None and energy_gap > energy_limit:
         return ConstraintResult(
             rejection=TransitionScore(
                 hard_reject=True,
-                reject_reason=f"Energy gap {energy_gap:.1f} LUFS > {settings.transition_hard_reject_energy_gap}",
+                reject_reason=f"Energy gap {energy_gap:.1f} LUFS > {energy_limit}",
             )
         )
 

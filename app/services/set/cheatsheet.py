@@ -14,6 +14,8 @@ def _to_subgenre(mood: str | None) -> TechnoSubgenre | None:
         return TechnoSubgenre(mood)
     except ValueError:
         return None
+
+
 from app.core.errors import NotFoundError
 from app.db.repositories.feature import FeatureRepository
 from app.db.repositories.set import SetRepository
