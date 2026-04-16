@@ -51,14 +51,14 @@ Access in tools via DI helpers, not `ctx.lifespan_context` directly.
 
 | # | Middleware | Purpose |
 |---|-----------|---------|
-| 1 | `ToolCallTimeoutMiddleware` | per-tool timeouts (build_set=120s, analyze_batch=600s) |
-| 2 | `StructuredLoggingMiddleware` | JSON structured logs |
-| 3 | `DetailedTimingMiddleware` | latency tracking |
-| 4 | `ResponseLimitingMiddleware(max_size=50_000)` | truncate giant responses |
-| 5 | `ResponseCachingMiddleware` | **currently disabled** (both call_tool + read_resource) |
-| 6 | `YMRateLimitMiddleware` | rate-limit YM API calls |
-| 7 | `ErrorHandlingMiddleware` | structured errors + Sentry callback |
-| 8 | `RetryMiddleware(max_retries=2)` | retry transient errors |
+| 1 | `ErrorHandlingMiddleware` | structured errors + Sentry callback |
+| 2 | `RetryMiddleware(max_retries=2)` | retry transient errors |
+| 3 | `ResponseLimitingMiddleware(max_size=50_000)` | truncate giant responses |
+| 4 | `ResponseCachingMiddleware` | **currently disabled** (both call_tool + read_resource) |
+| 5 | `YMRateLimitMiddleware` | rate-limit YM API calls |
+| 6 | `ToolCallTimeoutMiddleware` | per-tool timeouts (build_set=120s, analyze_batch=600s) |
+| 7 | `DetailedTimingMiddleware` | latency tracking |
+| 8 | `DjMcpRpcLoggingMiddleware` | JSON-ish logs via `mcp_extra` (innermost) |
 
 To add a new middleware: `mcp.add_middleware(MyMiddleware(...))` in `register_middleware()`. First added = outermost layer.
 

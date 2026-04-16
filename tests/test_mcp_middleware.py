@@ -2,14 +2,13 @@
 
 Tests cover:
 - YMRateLimitMiddleware (platform API rate limiting)
-- StructuredLoggingMiddleware (JSON logging)
+- DjMcpRpcLoggingMiddleware (JSON-oriented MCP traffic logging)
 - DetailedTimingMiddleware (per-operation timing)
 """
 
 from __future__ import annotations
 
 import asyncio
-import json
 import logging
 import time
 from typing import Any
@@ -39,9 +38,21 @@ class MockMiddlewareContext:
 # Import middleware (all classes in one file now)
 from app.controllers.middleware import (
     DetailedTimingMiddleware,
-    StructuredLoggingMiddleware,
+    DjMcpRpcLoggingMiddleware,
     YMRateLimitMiddleware,
 )
+
+
+def _mcp_event(record: logging.LogRecord) -> dict[str, Any]:
+    """Structured MCP payload attached via ``extra=mcp_event`` (see :mod:`app.core.logging_config`)."""
+    return getattr(record, "mcp_event", {})
+
+
+def _record_with_message(records: list[logging.LogRecord], msg: str) -> logging.LogRecord:
+    found = [r for r in records if r.getMessage() == msg]
+    assert found, f"expected log message {msg!r}, got {[r.getMessage() for r in records]}"
+    return found[0]
+
 
 # ── Fixtures ─────────────────────────────────────────
 
@@ -158,7 +169,7 @@ async def test_ym_rate_limit_is_ym_tool_detection() -> None:
     assert not middleware._is_ym_tool("analyze_track")
 
 
-# ── StructuredLoggingMiddleware Tests ────────────────
+# ── DjMcpRpcLoggingMiddleware Tests ────────────────
 
 
 @pytest.mark.asyncio
@@ -169,7 +180,7 @@ async def test_structured_logging_basic(
 ) -> None:
     """Test basic structured logging without payloads."""
     caplog.set_level(logging.INFO)
-    middleware = StructuredLoggingMiddleware(include_payloads=False)
+    middleware = DjMcpRpcLoggingMiddleware(include_payloads=False)
 
     result = await middleware.on_message(mock_context, mock_call_next)
 
@@ -177,12 +188,13 @@ async def test_structured_logging_basic(
     assert len(caplog.records) == 1
 
     log_record = caplog.records[0]
-    log_data = json.loads(log_record.message)
+    log_data = _mcp_event(log_record)
+    assert log_record.getMessage() == "mcp.message"
 
     assert log_data["method"] == "tools/call"
     assert log_data["source"] == "client"
     assert log_data["type"] == "request"
-    assert "timestamp" in log_data
+    assert log_data["kind"] == "message"
     assert "duration_ms" in log_data
     assert log_data["duration_ms"] > 0
     assert "request" not in log_data  # Payloads not included
@@ -197,12 +209,12 @@ async def test_structured_logging_with_payloads(
 ) -> None:
     """Test structured logging with payloads included."""
     caplog.set_level(logging.INFO)
-    middleware = StructuredLoggingMiddleware(include_payloads=True, max_payload_length=100)
+    middleware = DjMcpRpcLoggingMiddleware(include_payloads=True, max_payload_length=100)
 
     result = await middleware.on_message(mock_context, mock_call_next)
 
     assert result == {"result": "success"}
-    log_data = json.loads(caplog.records[0].message)
+    log_data = _mcp_event(caplog.records[0])
 
     assert "request" in log_data
     assert "response" in log_data
@@ -214,14 +226,14 @@ async def test_structured_logging_truncation(
 ) -> None:
     """Test payload truncation for large responses."""
     caplog.set_level(logging.INFO)
-    middleware = StructuredLoggingMiddleware(include_payloads=True, max_payload_length=50)
+    middleware = DjMcpRpcLoggingMiddleware(include_payloads=True, max_payload_length=50)
 
     async def large_response(_context: MockMiddlewareContext) -> dict:
         return {"data": "x" * 1000}  # Large response
 
     await middleware.on_message(mock_context, large_response)
 
-    log_data = json.loads(caplog.records[0].message)
+    log_data = _mcp_event(caplog.records[0])
     assert len(log_data["response"]) <= 53  # 50 + "..." = 53
 
 
@@ -231,7 +243,7 @@ async def test_structured_logging_error(
 ) -> None:
     """Test structured logging on error."""
     caplog.set_level(logging.ERROR)
-    middleware = StructuredLoggingMiddleware(include_payloads=False)
+    middleware = DjMcpRpcLoggingMiddleware(include_payloads=False)
 
     async def failing_call(_context: MockMiddlewareContext) -> None:
         raise ValueError("Test error")
@@ -240,7 +252,7 @@ async def test_structured_logging_error(
         await middleware.on_message(mock_context, failing_call)
 
     assert len(caplog.records) == 1
-    log_data = json.loads(caplog.records[0].message)
+    log_data = _mcp_event(caplog.records[0])
 
     assert "error" in log_data
     assert log_data["error"]["type"] == "ValueError"
@@ -265,11 +277,12 @@ async def test_detailed_timing_tool(
     result = await middleware.on_call_tool(mock_context, mock_call_next)
 
     assert result == {"result": "success"}
-    assert any("Tool timing: test_tool completed" in r.message for r in caplog.records)
-    # Extract timing from log
-    timing_record = next(r for r in caplog.records if "Tool timing: test_tool" in r.message)
-    assert "ms" in timing_record.message
-    assert "completed" in timing_record.message
+    timing_records = [r for r in caplog.records if r.getMessage() == "mcp.timing.tool"]
+    assert timing_records
+    timing = _mcp_event(timing_records[0])
+    assert timing["name"] == "test_tool"
+    assert timing["kind"] == "timing_tool"
+    assert timing["duration_ms"] > 0
 
 
 @pytest.mark.asyncio
@@ -286,7 +299,9 @@ async def test_detailed_timing_resource(
     result = await middleware.on_read_resource(mock_context, mock_call_next)
 
     assert result == {"result": "success"}
-    assert any("Resource timing: test://resource read" in r.message for r in caplog.records)
+    mcp = _mcp_event(_record_with_message(caplog.records, "mcp.timing.resource"))
+    assert mcp["uri"] == "test://resource"
+    assert mcp["kind"] == "timing_resource"
 
 
 @pytest.mark.asyncio
@@ -303,7 +318,9 @@ async def test_detailed_timing_prompt(
     result = await middleware.on_get_prompt(mock_context, mock_call_next)
 
     assert result == {"result": "success"}
-    assert any("Prompt timing: test_prompt retrieved" in r.message for r in caplog.records)
+    mcp = _mcp_event(_record_with_message(caplog.records, "mcp.timing.prompt"))
+    assert mcp["name"] == "test_prompt"
+    assert mcp["kind"] == "timing_prompt"
 
 
 @pytest.mark.asyncio
@@ -313,14 +330,16 @@ async def test_detailed_timing_request(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
     """Test timing for overall request."""
-    caplog.set_level(logging.DEBUG)
     middleware = DetailedTimingMiddleware()
     mock_context.method = "tools/call"
 
-    result = await middleware.on_request(mock_context, mock_call_next)
+    with caplog.at_level(logging.DEBUG, logger="app.controllers.middleware"):
+        result = await middleware.on_request(mock_context, mock_call_next)
 
     assert result == {"result": "success"}
-    assert any("Request timing: tools/call completed" in r.message for r in caplog.records)
+    mcp = _mcp_event(_record_with_message(caplog.records, "mcp.timing.request"))
+    assert mcp["method"] == "tools/call"
+    assert mcp["kind"] == "timing_request"
 
 
 @pytest.mark.asyncio
@@ -339,10 +358,10 @@ async def test_detailed_timing_tool_failure(
     with pytest.raises(RuntimeError, match="Tool failed"):
         await middleware.on_call_tool(mock_context, failing_call)
 
-    assert any("Tool timing: failing_tool failed" in r.message for r in caplog.records)
-    timing_record = next(r for r in caplog.records if "Tool timing: failing_tool" in r.message)
-    assert "ms" in timing_record.message
-    assert "failed" in timing_record.message
+    timing_record = _record_with_message(caplog.records, "mcp.timing.tool.error")
+    mcp = _mcp_event(timing_record)
+    assert mcp["name"] == "failing_tool"
+    assert mcp["duration_ms"] > 0
 
 
 # ── Integration Test ─────────────────────────────────
@@ -357,7 +376,7 @@ async def test_middleware_chain_integration(
 
     # Create middleware chain
     ym_rate_limiter = YMRateLimitMiddleware(delay_seconds=0.1)
-    structured_logger = StructuredLoggingMiddleware(include_payloads=False)
+    structured_logger = DjMcpRpcLoggingMiddleware(include_payloads=False)
     detailed_timer = DetailedTimingMiddleware()
 
     async def final_handler(_context: MockMiddlewareContext) -> dict:
@@ -379,8 +398,7 @@ async def test_middleware_chain_integration(
 
     assert result == {"result": "success"}
 
-    # Check that both middleware logged
-    assert any("Tool timing: test_tool" in r.message for r in caplog.records)
-    # Structured logging should produce JSON
-    json_logs = [r for r in caplog.records if r.message.startswith("{")]
-    assert len(json_logs) >= 1
+    # Both timing and structured MCP logs attach mcp_event
+    assert any(r.getMessage() == "mcp.timing.tool" for r in caplog.records)
+    assert any(r.getMessage() == "mcp.message" for r in caplog.records)
+    assert any(_mcp_event(r).get("kind") == "timing_tool" for r in caplog.records)

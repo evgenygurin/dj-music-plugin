@@ -77,7 +77,7 @@ asyncio_mode = "auto"
 testpaths = ["tests"]
 # Run tests in parallel across CPU cores by default. Override with `-n 0` for
 # serial execution (e.g. when debugging with pdb or inspecting per-test output).
-addopts = "-n auto --dist loadfile"
+addopts = "-n auto --dist worksteal"
 filterwarnings = [
     "ignore::DeprecationWarning:sqlalchemy.*",
     # librosa is chatty when synthetic test signals are shorter than its

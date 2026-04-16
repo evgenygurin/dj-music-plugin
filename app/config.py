@@ -40,6 +40,9 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
     log_format: str = "json"  # json or text
     log_to_client_debug: bool = False
+    log_file: str = ""  # e.g. logs/mcp.log — mirror logs to this file; empty = stderr only
+    log_file_max_bytes: int = 10_485_760  # 10 MiB per segment before rotation
+    log_file_backup_count: int = 3
 
     # ── Transition Scoring ────────────────────────────
     transition_cache_ttl: int = 3600  # seconds

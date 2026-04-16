@@ -33,8 +33,15 @@ from app.controllers.tools._shared import (
 from app.core.utils.parsing import ensure_dict
 from app.db.repositories.feature import FeatureRepository
 from app.db.repositories.set import SetRepository
-from app.optimization.preview import PreviewResult, preview_arc
-from app.schemas.tool_responses import SetVersionResult
+from app.optimization.preview import preview_arc
+from app.schemas.tool_output import (
+    GetSetTemplatesResult,
+    ListSetsResult,
+    SetArcPreview,
+    SetTemplateEntry,
+    SetTemplateSlotRow,
+    SetVersionResult,
+)
 from app.services.set.facade import SetService
 from app.services.workflows.build_set_workflow import BuildSetWorkflow
 from app.templates.registry import TEMPLATES
@@ -64,9 +71,10 @@ async def list_sets(
         str | None, Field(description="Pagination cursor from previous page")
     ] = None,
     svc: SetService = Depends(get_set_service),  # noqa: B008
-) -> dict[str, Any]:
+) -> ListSetsResult:
     """Lists DJ sets with optional template filter and cursor pagination. Use when browsing the set catalog or fetching the next page of results."""
-    return await svc.list_sets(template=template, limit=limit, cursor=cursor)
+    raw = await svc.list_sets(template=template, limit=limit, cursor=cursor)
+    return ListSetsResult.model_validate(raw)
 
 
 @tool(
@@ -270,30 +278,30 @@ async def get_set_cheat_sheet(
     icons=ICON_SETS,
     meta=TOOL_META,
 )
-async def get_set_templates() -> dict[str, Any]:
+async def get_set_templates() -> GetSetTemplatesResult:
     """Lists registered DJ set templates with slot definitions (moods, BPM, energy). Use when choosing a ``template`` argument for ``commit_set_version`` or comparing archetypes."""
-    return {
-        "templates": [
-            {
-                "name": tpl.name,
-                "duration_min": tpl.duration_min,
-                "description": tpl.description,
-                "slots": [
-                    {
-                        "position": slot.position,
-                        "target_mood": slot.target_mood,
-                        "energy_lufs": slot.energy_lufs,
-                        "bpm_min": slot.bpm_min,
-                        "bpm_max": slot.bpm_max,
-                        "duration_ms": slot.duration_ms,
-                        "flexibility": slot.flexibility,
-                    }
+    return GetSetTemplatesResult(
+        templates=[
+            SetTemplateEntry(
+                name=tpl.name,
+                duration_min=tpl.duration_min,
+                description=tpl.description,
+                slots=[
+                    SetTemplateSlotRow(
+                        position=slot.position,
+                        target_mood=slot.target_mood,
+                        energy_lufs=slot.energy_lufs,
+                        bpm_min=slot.bpm_min,
+                        bpm_max=slot.bpm_max,
+                        duration_ms=slot.duration_ms,
+                        flexibility=slot.flexibility,
+                    )
                     for slot in tpl.slots
                 ],
-            }
+            )
             for tpl in TEMPLATES.values()
         ]
-    }
+    )
 
 
 @tool(
@@ -326,7 +334,7 @@ async def preview_set_arc(
     ] = None,
     feat_repo: FeatureRepository = Depends(get_feature_repo),  # noqa: B008
     set_repo: SetRepository = Depends(get_set_repo),  # noqa: B008
-) -> dict[str, Any]:
+) -> SetArcPreview:
     """Evaluate a track ordering's fitness without saving a set version.
 
     Accepts either an explicit ``track_ids`` list or a ``set_id`` that auto-
@@ -339,8 +347,6 @@ async def preview_set_arc(
     Returns score (0-1), energy/BPM arcs, weak spot positions, and a
     plain-language recommendation.
     """
-    from dataclasses import asdict
-
     from fastmcp.exceptions import ToolError
 
     resolved_ids: list[int] = list(track_ids)
@@ -354,15 +360,13 @@ async def preview_set_arc(
         ]
 
     if not resolved_ids:
-        return asdict(
-            PreviewResult(
-                score=1.0,
-                energy_arc=[],
-                bpm_arc=[],
-                weak_spots=[],
-                recommendation="No tracks provided. Pass track_ids or set_id.",
-                missing_track_ids=[],
-            )
+        return SetArcPreview(
+            score=1.0,
+            energy_arc=[],
+            bpm_arc=[],
+            weak_spots=[],
+            recommendation="No tracks provided. Pass track_ids or set_id.",
+            missing_track_ids=[],
         )
 
     features_map = await feat_repo.get_scoring_features_batch(resolved_ids)
@@ -370,4 +374,11 @@ async def preview_set_arc(
     template_def = TEMPLATES.get(template) if template is not None else None
 
     result = preview_arc(scorer, features_map, resolved_ids, template=template_def)
-    return asdict(result)
+    return SetArcPreview(
+        score=result.score,
+        energy_arc=result.energy_arc,
+        bpm_arc=result.bpm_arc,
+        weak_spots=result.weak_spots,
+        recommendation=result.recommendation,
+        missing_track_ids=result.missing_track_ids,
+    )

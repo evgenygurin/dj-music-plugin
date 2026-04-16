@@ -664,3 +664,46 @@ async def test_get_platform_tracks_returns_partial_for_mixed_ids() -> None:
     assert [track["id"] for track in result.tracks] == ["79672730", "127836770"]
     assert result.unresolved_track_ids == ["__bad_track_id__"]
     assert result.error is not None
+
+
+# ── platform_liked_tracks: discriminated output ─────────────
+
+
+@pytest.mark.asyncio
+async def test_platform_liked_tracks_get_liked_shape() -> None:
+    from app.controllers.tools.platform.likes import platform_liked_tracks
+
+    provider_mock = AsyncMock()
+    provider_mock.get_liked_ids = AsyncMock(return_value={"a", "b"})
+
+    result = await platform_liked_tracks(action="get_liked", offset=0, provider=provider_mock)
+    assert result.action == "get_liked"
+    assert result.count == 2
+    assert result.liked_ids == ["a", "b"]
+    assert result.truncated is False
+
+
+@pytest.mark.asyncio
+async def test_platform_liked_tracks_add_shape() -> None:
+    from app.controllers.tools.platform.likes import platform_liked_tracks
+
+    provider_mock = AsyncMock()
+    provider_mock.add_likes = AsyncMock(return_value=None)
+
+    result = await platform_liked_tracks(action="add", track_ids=["t1"], provider=provider_mock)
+    assert result.action == "add"
+    assert result.track_ids == ["t1"]
+    assert result.success is True
+
+
+@pytest.mark.asyncio
+async def test_platform_liked_tracks_remove_shape() -> None:
+    from app.controllers.tools.platform.likes import platform_liked_tracks
+
+    provider_mock = AsyncMock()
+    provider_mock.remove_likes = AsyncMock(return_value=None)
+
+    result = await platform_liked_tracks(action="remove", track_ids=["t1"], provider=provider_mock)
+    assert result.action == "remove"
+    assert result.track_ids == ["t1"]
+    assert result.success is True

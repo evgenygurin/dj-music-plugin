@@ -11,13 +11,13 @@ def test_build_mcp_server_registers_expected_middleware() -> None:
     middleware_names = [type(middleware).__name__ for middleware in mcp.middleware]
 
     assert middleware_names[-7:] == [
-        "StructuredLoggingMiddleware",
-        "DetailedTimingMiddleware",
+        "RetryMiddleware",
         "ResponseLimitingMiddleware",
         "ResponseCachingMiddleware",
         "YMRateLimitMiddleware",
-        "ErrorHandlingMiddleware",
-        "RetryMiddleware",
+        "ToolCallTimeoutMiddleware",
+        "DetailedTimingMiddleware",
+        "DjMcpRpcLoggingMiddleware",
     ]
 
 

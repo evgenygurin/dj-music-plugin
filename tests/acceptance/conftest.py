@@ -13,7 +13,6 @@ from fastmcp import Client
 from fastmcp.server.lifespan import lifespan
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
-from app.audio.analyzers import AnalyzerRegistry
 from app.clients.ym.models import YMPlaylist, YMTrack
 from app.core.constants import Provider
 from app.core.utils.cache import TransitionCache
@@ -144,13 +143,12 @@ def patch_tiered_noop(monkeypatch: pytest.MonkeyPatch):
 
 
 @pytest.fixture
-async def acceptance_harness(async_engine) -> AcceptanceHarness:  # type: ignore[no-untyped-def]
+async def acceptance_harness(async_engine, analyzer_registry) -> AcceptanceHarness:  # type: ignore[no-untyped-def]
     """FastMCP client harness with an in-memory DB and configurable YM mock."""
     factory = async_sessionmaker(async_engine, expire_on_commit=False)
     original_lifespan = mcp._lifespan
 
-    registry = AnalyzerRegistry()
-    registry.discover()
+    registry = analyzer_registry
     cache = TransitionCache(max_size=100, ttl=60)
 
     ym_mock = AsyncMock()

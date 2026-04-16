@@ -5,6 +5,7 @@ from __future__ import annotations
 import pytest
 from fastmcp import Client
 
+from app.schemas.tool_output import GetSetTemplatesResult
 from app.server import mcp
 
 
@@ -54,6 +55,5 @@ async def test_get_set_templates_has_read_only_annotation() -> None:
     # 1. The tool can be called and returns structured data
     # 2. No parameters are required (indicating it's safe/read-only)
     result = await get_set_templates()
-    assert isinstance(result, dict)
-    assert "templates" in result
-    assert isinstance(result["templates"], list)
+    assert isinstance(result, GetSetTemplatesResult)
+    assert len(result.templates) >= 8

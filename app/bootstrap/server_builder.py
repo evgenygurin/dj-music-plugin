@@ -18,12 +18,14 @@ from app.bootstrap.transforms import (
 )
 from app.bootstrap.visibility import apply_visibility_policy
 from app.config import settings
+from app.core.logging_config import configure_logging
 
 logger = logging.getLogger(__name__)
 
 
 def build_mcp_server() -> FastMCP:
     """Build the production FastMCP server instance."""
+    configure_logging()
     observability = setup_observability(logger)
     sampling_handler, sampling_handler_behavior = build_sampling_handler(logger)
 

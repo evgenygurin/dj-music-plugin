@@ -66,7 +66,7 @@ class ArtistTrackItem(BaseModel):
     id: str
     title: str
     duration_ms: int | None = None
-    albums: list[dict[str, object]] = []
+    albums: list[dict[str, object]] = Field(default_factory=list)
 
 
 class ArtistTracksPage(BaseModel):
@@ -194,15 +194,35 @@ PlaylistActionResult = Annotated[
 # ── platform_liked_tracks ────────────────────────────────────
 
 
-class LikesActionResult(BaseModel):
-    """Response from ``platform_liked_tracks`` (all actions)."""
+class LikesGetLikedResult(BaseModel):
+    """Response for ``platform_liked_tracks(action='get_liked')``."""
 
-    action: str
-    count: int | None = None
-    offset: int | None = None
-    limit: int | None = None
-    liked_ids: list[str] | None = None
+    action: Literal["get_liked"]
+    count: int
+    offset: int
+    limit: int
+    liked_ids: list[str]
     next_offset: int | None = None
-    truncated: bool | None = None
-    track_ids: list[str] | None = None
-    success: bool | None = None
+    truncated: bool
+
+
+class LikesAddResult(BaseModel):
+    """Response for ``platform_liked_tracks(action='add')``."""
+
+    action: Literal["add"]
+    track_ids: list[str]
+    success: bool
+
+
+class LikesRemoveResult(BaseModel):
+    """Response for ``platform_liked_tracks(action='remove')``."""
+
+    action: Literal["remove"]
+    track_ids: list[str]
+    success: bool
+
+
+LikesActionResult = Annotated[
+    LikesGetLikedResult | LikesAddResult | LikesRemoveResult,
+    Field(discriminator="action"),
+]

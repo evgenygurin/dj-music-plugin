@@ -7,7 +7,7 @@ from typing import Annotated, Any, Literal
 from fastmcp.dependencies import Depends
 from fastmcp.exceptions import ToolError
 from fastmcp.tools import tool
-from pydantic import Field
+from pydantic import Field, TypeAdapter
 
 from app.controllers.dependencies import get_music_provider
 from app.controllers.tools._shared import (
@@ -26,6 +26,7 @@ from app.schemas.platform_responses import LikesActionResult
 LikesAction = Literal["get_liked", "add", "remove"]
 
 _dispatcher: ActionDispatcher[dict[str, Any]] = ActionDispatcher()
+_likes_action_result_adapter: TypeAdapter[LikesActionResult] = TypeAdapter(LikesActionResult)
 
 
 @_dispatcher.register("get_liked")
@@ -115,4 +116,4 @@ async def platform_liked_tracks(
         )
     except UnknownActionError as e:
         raise ToolError(str(e)) from e
-    return LikesActionResult(**raw)
+    return _likes_action_result_adapter.validate_python(raw)
