@@ -299,7 +299,7 @@ class ImportService:
                         local_track.duration_ms = ym_track.duration_ms
                     await self._tracks.update(local_track)
 
-                await self._tracks.save_ym_metadata(
+                await self._tracks.save_platform_metadata(
                     track_id=local_track_id,
                     ym_id=ym_id_str,
                     ym_track=ym_track,

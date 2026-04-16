@@ -38,19 +38,19 @@ class LibraryMixin:
         await self.session.flush()
         return item
 
-    async def get_ym_metadata(self, track_id: int) -> YandexMetadata | None:
+    async def get_platform_metadata(self, track_id: int) -> YandexMetadata | None:
         """Get Yandex Music metadata for a track."""
         stmt = select(YandexMetadata).where(YandexMetadata.track_id == track_id)
         result = await self.session.execute(stmt)
         return result.scalar_one_or_none()
 
-    async def save_ym_metadata(
+    async def save_platform_metadata(
         self,
         track_id: int,
         ym_id: str,
         ym_track: Any,
     ) -> YandexMetadata:
-        """Save YM metadata from either a ProviderTrack or a YMTrack response object."""
+        """Save platform metadata from either a ProviderTrack or a YMTrack response object."""
         if hasattr(ym_track, "album_id"):
             # ProviderTrack — scalar album fields
             meta = YandexMetadata(

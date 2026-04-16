@@ -163,7 +163,7 @@ class MetadataService:
             return self._extract_from_ym_track(ym_track)
 
         # Fallback: load from YandexMetadata
-        meta = await self._repo.get_ym_metadata(track_id)
+        meta = await self._repo.get_platform_metadata(track_id)
         if meta is None:
             return None
 

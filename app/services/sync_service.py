@@ -247,7 +247,7 @@ class SyncService:
             if not ext:
                 continue
             ext_map[item.track_id] = ext.external_id
-            ym_meta = await self._tracks.get_ym_metadata(item.track_id)
+            ym_meta = await self._tracks.get_platform_metadata(item.track_id)
             if ym_meta and ym_meta.album_id:
                 album_map[ext.external_id] = ym_meta.album_id
             else:
