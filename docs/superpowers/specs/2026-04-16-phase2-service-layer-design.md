@@ -80,9 +80,9 @@ class YandexMusicAdapter:
         ]
 ```
 
-The adapter is a singleton (created once in lifespan), so `_album_cache` persists across requests within a server session.
+**Implementation note (discovered during planning):** `YandexMusicAdapter.add_tracks_to_playlist` ALREADY calls `self._client.resolve_track_ids_with_albums(track_ids)` (adapter.py line 148). The client-level method handles album ID resolution internally. This means `SyncService._collect_ym_track_ids` was redundant — it pre-built `"trackId:albumId"` strings that the adapter then re-processed. No `_album_cache` is needed in the adapter. The only adapter change required is updating `_parse_playlist_id` to accept bare kind strings (without `owner_id:`).
 
-**Trade-off:** First call for a set push now makes one extra `get_tracks()` API call for tracks missing album IDs. This is acceptable — the operation is rare and correctness is preserved. The previous DB write of `update_ym_album_id` is removed along with `SyncService._enrich_missing_album_ids` and `_update_ym_album_id`.
+The previous DB write of `update_ym_album_id` is removed along with `SyncService._enrich_missing_album_ids` and `_update_ym_album_id`.
 
 ---
 
