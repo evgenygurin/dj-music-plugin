@@ -11,9 +11,9 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
-from app.clients.ym.filters import is_excluded_title
 from app.config import settings
 from app.core.errors import NotFoundError, ValidationError
+from app.core.utils.filters import is_excluded_title
 from app.db.repositories.track import TrackRepository
 from app.providers.models import ProviderTrack
 from app.providers.protocol import MusicProvider

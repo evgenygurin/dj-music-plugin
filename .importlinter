@@ -86,3 +86,12 @@ forbidden_modules =
     app.db.repositories
 ignore_imports =
     app.api.server -> app.server
+
+# ── Contract 6: services must not import client layer ───────
+[importlinter:contract:services-no-clients]
+name = Services must not import client layer directly
+type = forbidden
+source_modules =
+    app.services
+forbidden_modules =
+    app.clients

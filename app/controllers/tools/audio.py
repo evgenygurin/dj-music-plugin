@@ -20,7 +20,6 @@ from fastmcp.server.context import Context
 from fastmcp.tools import tool
 from pydantic import Field
 
-from app.clients.ym.filters import is_excluded_title
 from app.config import settings
 from app.controllers.dependencies import (
     get_analyze_track_workflow,
@@ -40,6 +39,7 @@ from app.controllers.tools._shared import (
     map_domain_errors,
     resolve_track_id,
 )
+from app.core.utils.filters import is_excluded_title
 from app.core.utils.parsing import ensure_list
 from app.providers.protocol import MusicProvider
 from app.services.audio_service import AudioService
