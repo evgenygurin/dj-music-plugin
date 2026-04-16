@@ -16,6 +16,8 @@ globs: app/controllers/resources/**/*.py
 - Use `Depends()` for DB access, same as tools
 - **Context injection**: `ctx: Context = CurrentContext()  # noqa: B008` when resource needs session context
   - Import `Context` from `fastmcp.server.context`, `CurrentContext` from `fastmcp.dependencies`
+  - Shorthand also valid: `ctx: Context` (no default) — FastMCP injects automatically
+  - In nested helpers: `ctx = get_context()` from `fastmcp.server.dependencies`
 - Icons and meta: `icons=ICON_*`, `meta=RESOURCE_META` from `app.controllers.tools._shared.taxonomy`
 
 ## Gotchas

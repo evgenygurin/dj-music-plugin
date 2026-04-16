@@ -19,6 +19,7 @@ globs: app/controllers/prompts/**/*.py
   ```
 - `description` в `PromptResult` — динамическое, включает аргументы (например `f"Build set from '{playlist_name}'"`)
 - Prompts are synchronous functions (не async) — они только возвращают инструкции для LLM, не выполняют I/O
+  - Исключение: промпт может быть async если нужен `ctx` для `ctx.read_resource()` или `ctx.list_prompts()` — тогда `ctx: Context = CurrentContext()  # noqa: B008`
 - Tags: `tags={"sets", "workflow"}` для стандартных workflow. Теги `"curation"`, `"discovery"` скрыты по умолчанию (в `_DISABLED_AT_STARTUP` в `bootstrap/visibility.py`) — используй `"sets"` или `"core"` для видимых промптов
 - Все промпты регистрируются в `app/controllers/prompts/workflows/__init__.py` через `__all__`
 - `meta={"version": "1.0"}` обязателен на каждом промпте

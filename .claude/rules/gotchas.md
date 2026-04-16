@@ -29,3 +29,11 @@ class TrackRepo:
 ## Ruff removes unused imports
 
 Ruff auto-removes imports that aren't used yet. When adding an import + its usage, do both in a single edit — don't add the import first and the usage later.
+
+## `get_context()` outside request raises RuntimeError
+
+`get_context()` from `fastmcp.server.dependencies` only works inside a live MCP request. Do NOT call it at module level, in `__init__`, or in non-request code paths — raises `RuntimeError`.
+
+## Middleware `fastmcp_context` is None during initialization
+
+`MiddlewareContext.fastmcp_context` is `None` for `on_message` / `on_request` hooks fired before the MCP session handshake completes. Check `if context.fastmcp_context:` before accessing it in custom middleware.
