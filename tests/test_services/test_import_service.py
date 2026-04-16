@@ -16,6 +16,7 @@ from unittest.mock import AsyncMock
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.constants import Provider
 from app.db.models.playlist import Playlist
 from app.db.models.track import Track
 from app.db.repositories.playlist import PlaylistRepository
@@ -25,14 +26,15 @@ from app.services.import_service import ImportService
 
 def _make_service(db: AsyncSession) -> ImportService:
     track_repo = TrackRepository(db)
-    ym_mock = AsyncMock()
-    ym_mock.get_tracks = AsyncMock(return_value=[])
-    return ImportService(track_repo=track_repo, ym=ym_mock)
+    provider_mock = AsyncMock()
+    provider_mock.provider = Provider.YANDEX_MUSIC
+    provider_mock.get_tracks = AsyncMock(return_value=[])
+    return ImportService(track_repo=track_repo, provider=provider_mock)
 
 
 @pytest.mark.asyncio
 async def test_import_returns_id_mapping_for_new_tracks(db: AsyncSession) -> None:
-    """Newly created tracks must be returned in id_mapping (ym_id → local_id)."""
+    """Newly created tracks must be returned in id_mapping (external_id → local_id)."""
     svc = _make_service(db)
 
     result = await svc.import_tracks(track_refs=["111", "222"])

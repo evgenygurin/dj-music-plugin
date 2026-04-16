@@ -67,8 +67,8 @@ class TieredPipeline:
         if not need_analysis:
             return {"analyzed": 0, "skipped": len(track_ids), "failed": 0}
 
-        # Resolve local track IDs to YM IDs
-        ym_map = await self._tracks.resolve_local_ids_to_ym(need_analysis)
+        # Resolve local track IDs to external platform IDs
+        platform_map = await self._tracks.resolve_local_ids_to_platform(need_analysis)
 
         # Determine concurrency based on level (download+analyze phase only)
         if target_level <= AnalysisLevel.TRIAGE:
@@ -81,12 +81,12 @@ class TieredPipeline:
 
         async def download_and_analyze(track_id: int) -> tuple[int, Any] | None:
             """Download + analyze audio; return (track_id, pipeline_result) or None."""
-            ym_id = ym_map.get(track_id)
-            if not ym_id:
-                logger.warning("No YM ID for track %s — skipping", track_id)
+            external_id = platform_map.get(track_id)
+            if not external_id:
+                logger.warning("No platform external ID for track %s — skipping", track_id)
                 return None
             async with sem:
-                return await self._download_and_analyze(track_id, ym_id, target_level)
+                return await self._download_and_analyze(track_id, external_id, target_level)
 
         tasks = [download_and_analyze(tid) for tid in need_analysis]
         raw_results: list[tuple[int, Any] | None | BaseException] = await asyncio.gather(

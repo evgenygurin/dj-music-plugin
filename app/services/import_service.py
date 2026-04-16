@@ -33,17 +33,17 @@ def _sanitize_filename(title: str, max_len: int = 80) -> str:
 
 
 class ImportService:
-    """Import and download tracks from YM."""
+    """Import and download tracks from music platform."""
 
     def __init__(
         self,
         track_repo: TrackRepository,
-        ym: MusicProvider,
+        provider: MusicProvider,
         metadata_service: Any | None = None,
         ingestion_repo: IngestionRepository | None = None,
     ) -> None:
         self._tracks = track_repo
-        self._ym = ym
+        self._provider = provider
         self._metadata = metadata_service
         self._ingestion = ingestion_repo
 
@@ -52,9 +52,9 @@ class ImportService:
         track_refs: list[str],
         playlist_id: int | None = None,
     ) -> dict[str, Any]:
-        """Import YM track IDs into local DB. Idempotent — skips existing.
+        """Import platform track IDs into local DB. Idempotent — skips existing.
 
-        Returns ``id_mapping`` (ym_id → local_track_id) for **all** refs,
+        Returns ``id_mapping`` (external_id → local_track_id) for **all** refs,
         including skipped ones, so callers can drive subsequent operations
         (analyze_batch, manage_playlist) without re-querying the DB.
 
@@ -63,31 +63,32 @@ class ImportService:
         playlist are not duplicated).
         """
         if not track_refs:
-            raise ValidationError("track_refs is required (list of YM track IDs)")
+            raise ValidationError("track_refs is required (list of platform track IDs)")
 
         imported = 0
         skipped = 0
         imported_ids: list[str] = []
         id_mapping: dict[str, int] = {}
+        provider_key = self._provider.provider.value
 
         for ref in track_refs:
-            ym_id = str(ref).strip().removeprefix("ym:").removeprefix("YM:")
-            if not ym_id:
+            external_id = str(ref).strip().removeprefix("ym:").removeprefix("YM:")
+            if not external_id:
                 continue
 
-            existing = await self._tracks.get_by_external_id("yandex_music", ym_id)
+            existing = await self._tracks.get_by_external_id(provider_key, external_id)
             if existing is not None:
                 skipped += 1
-                id_mapping[ym_id] = existing.track_id
+                id_mapping[external_id] = existing.track_id
                 continue
 
-            track = await self._tracks.create(Track(title=f"YM:{ym_id}", status=0))
-            await self._tracks.add_external_id(track.id, "yandex_music", ym_id)
+            track = await self._tracks.create(Track(title=f"YM:{external_id}", status=0))
+            await self._tracks.add_external_id(track.id, provider_key, external_id)
             imported += 1
-            imported_ids.append(ym_id)
-            id_mapping[ym_id] = track.id
+            imported_ids.append(external_id)
+            id_mapping[external_id] = track.id
 
-        # Enrich with YM metadata (batch fetch) — best effort, only for new
+        # Enrich with platform metadata (batch fetch) — best effort, only for new
         enriched = await self._enrich_from_ym(imported_ids, id_mapping)
 
         # Optionally add all imported+existing tracks to a playlist
@@ -130,20 +131,20 @@ class ImportService:
         skip_existing: bool = True,
         prefer_bitrate: int = 320,
     ) -> dict[str, Any]:
-        """Download MP3 from YM and link to library.
+        """Download MP3 from platform and link to library.
 
         track_refs can be:
         - Local track IDs (small ints like "1", "42")
-        - YM track IDs (large ints like "12345678")
-        - Prefixed YM IDs ("ym:12345678")
+        - Platform track IDs (large ints like "12345678")
+        - Prefixed platform IDs ("ym:12345678")
 
-        Local IDs are resolved to YM IDs via track_external_ids table.
+        Local IDs are resolved to platform IDs via track_external_ids table.
         """
         if not track_refs:
             raise ValidationError("track_refs is required (list of track IDs)")
 
-        # Resolve local track IDs to YM track IDs
-        resolved_refs = await self._resolve_track_refs_to_ym(track_refs)
+        # Resolve local track IDs to platform track IDs
+        resolved_refs = await self._resolve_platform_track_refs(track_refs)
 
         dest_dir = Path(target_dir or settings.ym_library_path or "~/Music/DJ/").expanduser()
         dest_dir.mkdir(parents=True, exist_ok=True)
@@ -155,38 +156,40 @@ class ImportService:
         errors: list[dict[str, str]] = []
         files: list[dict[str, Any]] = []
 
-        for ym_id in resolved_refs:
-            if not ym_id:
+        for external_id in resolved_refs:
+            if not external_id:
                 continue
 
-            filename = await self._resolve_filename(ym_id)
+            filename = await self._resolve_filename(external_id)
             dest_path = dest_dir / filename
 
             # Skip existing files (but still link to library)
             if skip_existing and dest_path.exists() and dest_path.stat().st_size > 1000:
                 skipped_count += 1
-                files.append({"ym_id": ym_id, "path": str(dest_path), "status": "skipped"})
-                linked += await self._link_file_to_track(ym_id, dest_path)
+                files.append(
+                    {"external_id": external_id, "path": str(dest_path), "status": "skipped"}
+                )
+                linked += await self._link_file_to_track(external_id, dest_path)
                 continue
 
             try:
-                file_size = await self._ym.download_track(
-                    ym_id,
+                file_size = await self._provider.download_track(
+                    external_id,
                     str(dest_path),
                 )
                 downloaded += 1
                 files.append(
                     {
-                        "ym_id": ym_id,
+                        "external_id": external_id,
                         "path": str(dest_path),
                         "size_bytes": file_size,
                         "status": "downloaded",
                     }
                 )
-                linked += await self._link_file_to_track(ym_id, dest_path)
+                linked += await self._link_file_to_track(external_id, dest_path)
             except Exception as e:
                 failed += 1
-                errors.append({"ym_id": ym_id, "error": str(e)[:100]})
+                errors.append({"external_id": external_id, "error": str(e)[:100]})
 
         return {
             "requested": len(track_refs),
@@ -201,17 +204,17 @@ class ImportService:
 
     # ── Private ──────────────────────────────────────
 
-    async def _resolve_track_refs_to_ym(self, track_refs: list[str]) -> list[str]:
-        """Resolve track refs to YM track IDs.
+    async def _resolve_platform_track_refs(self, track_refs: list[str]) -> list[str]:
+        """Resolve track refs to platform track IDs.
 
         Handles three ref formats:
         - "ym:12345" / "YM:12345" -> strip prefix, use as YM ID
         - Small int (local track ID) -> look up YM ID via track_external_ids
         - Large int (YM track ID) -> use as-is
 
-        Returns list of YM track ID strings ready for download.
+        Returns list of platform track ID strings ready for download.
         """
-        # Separate refs into local IDs (need resolution) and YM IDs (pass-through)
+        # Separate refs into local IDs (need resolution) and platform IDs (pass-through)
         local_ids: list[int] = []
         local_id_positions: dict[int, list[int]] = {}  # local_id -> positions in result
         result_refs: list[str] = [""] * len(track_refs)
@@ -244,28 +247,30 @@ class ImportService:
                 # Non-numeric ref — skip
                 continue
 
-        # Batch-resolve local IDs to YM IDs
+        # Batch-resolve local IDs to platform IDs
         if local_ids:
-            id_to_ym = await self._tracks.resolve_local_ids_to_ym(local_ids)
+            id_to_platform = await self._tracks.resolve_local_ids_to_platform(local_ids)
             for local_id, positions in local_id_positions.items():
-                ym_id = id_to_ym.get(local_id)
-                if ym_id:
+                external_id = id_to_platform.get(local_id)
+                if external_id:
                     for pos in positions:
-                        result_refs[pos] = ym_id
+                        result_refs[pos] = external_id
 
         # Filter out unresolved empty strings
         return [r for r in result_refs if r]
 
-    async def _resolve_filename(self, ym_id: str) -> str:
-        """Resolve a human-readable filename from YM metadata."""
+    async def _resolve_filename(self, external_id: str) -> str:
+        """Resolve a human-readable filename from platform metadata."""
         try:
-            ym_tracks = await self._ym.get_tracks([ym_id])
-            if ym_tracks:
-                t = ym_tracks[0]
+            provider_tracks = await self._provider.get_tracks([external_id])
+            if provider_tracks:
+                t = provider_tracks[0]
                 return f"{_sanitize_filename(t.artist_names)} - {_sanitize_filename(t.title)}.mp3"
         except Exception:
-            logger.debug("Failed to resolve filename for ym=%s, using fallback", ym_id)
-        return f"ym_{ym_id}.mp3"
+            logger.debug(
+                "Failed to resolve filename for external_id=%s, using fallback", external_id
+            )
+        return f"ym_{external_id}.mp3"
 
     async def _enrich_from_ym(
         self,
@@ -278,7 +283,7 @@ class ImportService:
 
         enriched = 0
         try:
-            ym_tracks = await self._ym.get_tracks(imported_ids)
+            ym_tracks = await self._provider.get_tracks(imported_ids)
             ym_by_id = {str(t.id): t for t in ym_tracks}
 
             for ym_id_str, local_track_id in id_mapping.items():
@@ -350,14 +355,14 @@ class ImportService:
 
     async def _link_file_to_track(
         self,
-        ym_id: str,
+        external_id: str,
         file_path: Path,
     ) -> int:
         """Find local track by YM ID, create DjLibraryItem if missing.
 
         Returns 1 if linked, 0 if not (no track found or already linked).
         """
-        ext = await self._tracks.get_by_external_id("yandex_music", ym_id)
+        ext = await self._tracks.get_by_external_id(self._provider.provider.value, external_id)
         if ext is None:
             return 0
 

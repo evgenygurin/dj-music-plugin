@@ -25,10 +25,10 @@ class DiscoveryService:
     def __init__(
         self,
         track_repo: TrackRepository,
-        ym: MusicProvider,
+        provider: MusicProvider,
     ) -> None:
         self._tracks = track_repo
-        self._ym = ym
+        self._provider = provider
 
     async def find_similar_ym(
         self,
@@ -40,29 +40,32 @@ class DiscoveryService:
         genre_blacklist_list: list[str] | None = None,
         exclude_patterns_list: list[str] | None = None,
     ) -> dict[str, Any]:
-        """Find similar tracks via YM API with declarative filters."""
+        """Find similar tracks via platform API with declarative filters."""
         track = await self._tracks.get_by_id(track_id)
         if not track:
             raise NotFoundError("Track", track_id)
 
-        ext = await self._tracks.get_external_id(track_id, "yandex_music")
-        ym_id = ext.external_id if ext else None
+        provider_key = self._provider.provider.value
+        ext = await self._tracks.get_external_id(track_id, provider_key)
+        external_id = ext.external_id if ext else None
 
         # Fallback: search by title
-        if not ym_id:
-            search_result = await self._ym.search(track.title, search_type="track", page_size=1)
+        if not external_id:
+            search_result = await self._provider.search(
+                track.title, search_type="track", page_size=1
+            )
             if search_result.tracks:
-                ym_id = search_result.tracks[0].id
+                external_id = search_result.tracks[0].id
             else:
                 return {
                     "track_id": track_id,
                     "track_title": track.title,
-                    "strategy": "ym",
+                    "strategy": "platform",
                     "similar": [],
-                    "message": "Could not find this track on YM",
+                    "message": "Could not find this track on platform",
                 }
 
-        raw_similar = await self._ym.get_similar(ym_id)
+        raw_similar = await self._provider.get_similar(external_id)
 
         min_dur = min_duration_ms or settings.discovery_min_duration_ms
         max_dur = max_duration_ms or settings.discovery_max_duration_ms
@@ -80,8 +83,8 @@ class DiscoveryService:
         return {
             "track_id": track_id,
             "track_title": track.title,
-            "strategy": "ym",
-            "ym_id_used": ym_id,
+            "strategy": "platform",
+            "external_id_used": external_id,
             "total_raw": len(raw_similar),
             "after_filter": len(filtered),
             "similar": filtered,
@@ -104,7 +107,7 @@ class DiscoveryService:
         all_results = []
         for q in queries[:limit]:
             try:
-                sr = await self._ym.search(q, search_type="track", page_size=3)
+                sr = await self._provider.search(q, search_type="track", page_size=3)
                 for t in sr.tracks:
                     if not _provider_genre_ok(
                         t.album_genre,
@@ -116,15 +119,15 @@ class DiscoveryService:
                         continue
                     all_results.append(_provider_track_summary(t))
             except Exception:
-                logger.debug("YM similar query failed for seed, skipping", exc_info=True)
+                logger.debug("Platform similar query failed for seed, skipping", exc_info=True)
                 continue
 
-        # Dedup by ym_id
+        # Dedup by external_id
         seen: set[str] = set()
         deduped = []
         for r in all_results:
-            if r["ym_id"] not in seen:
-                seen.add(r["ym_id"])
+            if r["external_id"] not in seen:
+                seen.add(r["external_id"])
                 deduped.append(r)
 
         return {
@@ -175,9 +178,9 @@ class DiscoveryService:
         }
 
     async def get_feedback_sets(self) -> tuple[set[str], set[str]]:
-        """Fetch liked/disliked sets from YM API."""
-        liked_set = await self._ym.get_liked_ids()
-        disliked_set = await self._ym.get_disliked_ids()
+        """Fetch liked/disliked sets from platform API."""
+        liked_set = await self._provider.get_liked_ids()
+        disliked_set = await self._provider.get_disliked_ids()
         return liked_set, disliked_set
 
     async def expand_playlist_ym(
@@ -192,13 +195,14 @@ class DiscoveryService:
         use_feedback: bool = True,
         dry_run: bool = False,
     ) -> dict[str, Any]:
-        """Expand YM playlist with similar tracks. One-call orchestrator."""
+        """Expand platform playlist with similar tracks. One-call orchestrator."""
         import time as _time
 
         _t0 = _time.monotonic()
 
         # 1. Fetch current playlist
-        current = await self._ym.get_playlist_tracks(f"{settings.ym_user_id}:{ym_playlist_kind}")
+        platform_playlist_id = str(ym_playlist_kind)
+        current = await self._provider.get_playlist_tracks(platform_playlist_id)
         existing_ids = {t.id for t in current}
         need = max(0, target_count - len(current))
 
@@ -232,15 +236,15 @@ class DiscoveryService:
                 break
 
             try:
-                raw_similar = await self._ym.get_similar(seed.id)
+                raw_similar = await self._provider.get_similar(seed.id)
             except Exception:
-                logger.debug("YM get_similar failed for seed %s", seed.id, exc_info=True)
+                logger.debug("Platform get_similar failed for seed %s", seed.id, exc_info=True)
                 continue
 
             for t in raw_similar:
                 if t.id in existing_ids:
                     continue
-                if any(c["ym_id"] == t.id for c in candidates):
+                if any(c["external_id"] == t.id for c in candidates):
                     continue
                 if use_feedback and t.id in disliked:
                     blocked_count += 1
@@ -283,16 +287,17 @@ class DiscoveryService:
         # 6. Batch add
         added = 0
         batch_size = settings.discovery_batch_size
-        playlist_id = f"{settings.ym_user_id}:{ym_playlist_kind}"
 
         for batch_start in range(0, len(to_add), batch_size):
             batch = to_add[batch_start : batch_start + batch_size]
-            track_ids_batch = [c["ym_id"] for c in batch]
+            track_ids_batch = [c["external_id"] for c in batch]
             try:
-                await self._ym.add_tracks_to_playlist(playlist_id, track_ids_batch)
+                await self._provider.add_tracks_to_playlist(platform_playlist_id, track_ids_batch)
                 added += len(batch)
             except Exception:
-                logger.warning("YM playlist modify failed, stopping batch add", exc_info=True)
+                logger.warning(
+                    "Platform playlist modify failed, stopping batch add", exc_info=True
+                )
                 break
 
         elapsed_ms = int((_time.monotonic() - _t0) * 1000)
@@ -342,7 +347,7 @@ def _apply_discovery_filters(
 def _provider_track_summary(t: ProviderTrack) -> dict[str, Any]:
     """Convert a ProviderTrack to a compact summary dict."""
     return {
-        "ym_id": t.id,
+        "external_id": t.id,
         "title": t.title,
         "artists": t.artist_names,
         "duration_ms": t.duration_ms,

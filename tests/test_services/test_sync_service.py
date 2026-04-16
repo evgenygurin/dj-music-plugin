@@ -61,8 +61,8 @@ async def test_push_to_platform_calls_provider_with_playlist_id(db: AsyncSession
 
 
 @pytest.mark.asyncio
-async def test_push_to_platform_handles_bare_ids(db: AsyncSession) -> None:
-    """_push_to_platform passes bare IDs to provider as-is."""
+async def test_push_to_platform_single_track(db: AsyncSession) -> None:
+    """_push_to_platform delegates a single-track batch to the provider."""
     provider_mock = _make_provider_mock()
     svc = _make_sync_service(db, provider_mock)
 

@@ -187,7 +187,7 @@ async def acceptance_harness(async_engine) -> AcceptanceHarness:  # type: ignore
 
     provider_registry = ProviderRegistry()
     # ym_mock acts as both raw client and provider for tests
-    ym_mock.provider = "yandex_music"
+    ym_mock.provider = Provider.YANDEX_MUSIC
     ym_mock.get_stream_url = AsyncMock(return_value="https://fake.cdn/track.mp3")
     provider_registry._providers = {"yandex_music": ym_mock}  # type: ignore[dict-item]
     provider_registry._default = "yandex_music"  # type: ignore[assignment]

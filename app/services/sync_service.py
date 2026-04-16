@@ -34,7 +34,10 @@ class SyncService:
         """Extract platform playlist ID from platform_ids dict or JSON string."""
         pids = platform_ids or {}
         if isinstance(pids, str):
-            pids = json.loads(pids)
+            try:
+                pids = json.loads(pids)
+            except json.JSONDecodeError as exc:
+                raise ValidationError(f"Invalid platform_ids JSON: {exc}") from exc
         pid = pids.get(self._provider.provider.value)
         if not pid:
             raise ValidationError(
@@ -148,7 +151,7 @@ class SyncService:
 
         if mode in ("create", "auto"):
             pl = await self._provider.create_playlist(playlist_name)
-            platform_playlist_id = pl.id  # already "owner_id:kind" from adapter
+            platform_playlist_id = pl.id  # adapter returns a ready-to-use playlist ID
         else:
             raise ValidationError(
                 "mode='update' requires playlist_id — use platform_playlists(action='get') first"
