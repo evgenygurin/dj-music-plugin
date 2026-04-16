@@ -11,12 +11,12 @@ import math
 
 from app.config import settings
 from app.entities.audio.features import TrackFeatures
-from app.transition.math_helpers import bpm_distance
-from app.transition.weights import (
+from app.transition.constants import (
     BPM_CONFIDENCE_PENALTY_FLOOR,
     BPM_GAUSS_SIGMA,
     BPM_STABILITY_FLOOR,
 )
+from app.transition.math_helpers import bpm_distance
 
 
 def score_bpm(from_t: TrackFeatures, to_t: TrackFeatures) -> float:

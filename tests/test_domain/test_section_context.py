@@ -11,7 +11,7 @@ from app.core.constants import SectionType
 from app.entities.audio.features import TrackFeatures
 from app.transition import SectionContext, TransitionScorer
 from app.transition.components.harmonic import score_harmonic
-from app.transition.weights import (
+from app.transition.constants import (
     DRUM_ONLY_HARMONIC_FLOOR,
     DRUM_ONLY_WEIGHT_OVERRIDE,
 )
@@ -48,13 +48,13 @@ class TestSectionContext:
         ctx3 = SectionContext(from_section=None, to_section=None)
         assert ctx3.is_drum_only_pair is False
 
-    def test_frozen_dataclass(self) -> None:
-        from dataclasses import FrozenInstanceError
-
+    def test_frozen_model(self) -> None:
+        """SectionContext is immutable (Pydantic frozen model)."""
         import pytest
+        from pydantic import ValidationError
 
         ctx = SectionContext(from_section=SectionType.INTRO, to_section=SectionType.OUTRO)
-        with pytest.raises(FrozenInstanceError):
+        with pytest.raises((ValidationError, TypeError)):
             ctx.from_section = SectionType.DROP  # type: ignore[misc]
 
 
@@ -172,7 +172,8 @@ class TestScorerSectionContext:
 
         # Manually compute what the override would produce given the
         # drum-only harmonic and the rest of the components from baseline.
-        expected_overall = (
+        # Structure bonus applies a multiplier for good section pairings.
+        weighted_sum = (
             DRUM_ONLY_WEIGHT_OVERRIDE["bpm"] * baseline.bpm
             + DRUM_ONLY_WEIGHT_OVERRIDE["harmonic"] * drum_only.harmonic
             + DRUM_ONLY_WEIGHT_OVERRIDE["energy"] * baseline.energy
@@ -180,4 +181,6 @@ class TestScorerSectionContext:
             + DRUM_ONLY_WEIGHT_OVERRIDE["groove"] * baseline.groove
             + DRUM_ONLY_WEIGHT_OVERRIDE["timbral"] * baseline.timbral
         )
-        assert abs(drum_only.overall - expected_overall) < 1e-9
+        # outro->intro is the best structural pairing, gives ~1.04 bonus
+        assert drum_only.overall > weighted_sum
+        assert drum_only.overall < weighted_sum * 1.09

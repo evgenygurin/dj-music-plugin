@@ -147,3 +147,21 @@ class ToolContext:
         except Exception as exc:
             _log.debug("ctx.elicit failed (%s); returning default", exc)
             return default
+
+    async def confirm(self, message: str, *, default: bool = False) -> bool | None:
+        """Ask user for yes/no confirmation. Returns True/False/None(cancelled)."""
+        from app.controllers.elicitation import safe_confirm
+
+        return await safe_confirm(self._ctx, message, default=default)
+
+    async def choice(
+        self,
+        message: str,
+        choices: list[str],
+        *,
+        default: str | None = None,
+    ) -> str | None:
+        """Ask user to pick from a list. Returns selected string or None."""
+        from app.controllers.elicitation import safe_choice
+
+        return await safe_choice(self._ctx, message, choices, default=default)

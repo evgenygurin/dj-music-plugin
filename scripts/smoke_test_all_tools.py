@@ -228,12 +228,6 @@ async def main() -> int:
     registry.discover()
     cache = TransitionCache(max_size=100, ttl=60)
 
-    from app.engines.deck.engine import DeckEngine
-    from app.engines.mixer.engine import MixerEngine
-
-    decks = {i: DeckEngine(deck_id=i) for i in range(1, 5)}
-    mixer = MixerEngine(decks=decks)
-
     from fastmcp import Client
     from fastmcp.server.lifespan import lifespan
 
@@ -247,8 +241,6 @@ async def main() -> int:
             "ym_client": ym,
             "analyzer_registry": registry,
             "transition_cache": cache,
-            "decks": decks,
-            "mixer": mixer,
         }
 
     mcp._lifespan = _test

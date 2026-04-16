@@ -2,7 +2,7 @@
 
 Default: core, sets, admin always visible.
 Extended categories (delivery, discovery, curation, sync, ym) start disabled.
-Hidden categories (audio, atomic) start disabled.
+Hidden categories (audio, memory) start disabled.
 
 All disabled categories are unlockable at runtime via
 ``unlock_tools(action="unlock", category="...")``, which calls
@@ -23,7 +23,7 @@ _DISABLED_AT_STARTUP: frozenset[str] = frozenset(
         "sync",
         "ym",
         "audio",
-        "atomic",
+        "memory",
     }
 )
 

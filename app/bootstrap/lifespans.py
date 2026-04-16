@@ -10,7 +10,6 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 
 from app.config import settings
 from app.core.utils.cache import TransitionCache
-from app.engines.lifespan import audio_lifespan
 
 
 def build_db_session_factory() -> tuple[Any, async_sessionmaker[AsyncSession]]:
@@ -30,24 +29,6 @@ def build_db_session_factory() -> tuple[Any, async_sessionmaker[AsyncSession]]:
     return engine, session_factory
 
 
-def build_ym_client() -> Any:
-    """Create a configured Yandex Music client."""
-    from app.ym.client import YandexMusicClient
-    from app.ym.rate_limiter import RateLimiter
-
-    rate_limiter = RateLimiter(
-        delay=settings.ym_rate_limit_delay,
-        max_retries=settings.ym_retry_attempts,
-        backoff_factor=settings.ym_retry_backoff_factor,
-    )
-    return YandexMusicClient(
-        token=settings.ym_token,
-        user_id=settings.ym_user_id,
-        base_url=settings.ym_base_url,
-        rate_limiter=rate_limiter,
-    )
-
-
 @lifespan
 async def db_lifespan(server: Any) -> AsyncIterator[dict[str, Any]]:
     """Database engine + session factory lifecycle."""
@@ -64,13 +45,30 @@ async def db_lifespan(server: Any) -> AsyncIterator[dict[str, Any]]:
 
 
 @lifespan
-async def ym_lifespan(server: Any) -> AsyncIterator[dict[str, Any]]:
-    """Yandex Music client lifecycle with rate limiting."""
-    client = build_ym_client()
+async def provider_lifespan(server: Any) -> AsyncIterator[dict[str, Any]]:
+    """Music provider registry lifecycle.
+
+    Creates all configured providers (currently YM) and exposes them
+    via ProviderRegistry. Legacy ``ym_client`` key preserved for
+    backward compat during migration.
+    """
+    from app.clients.ym.adapter import YandexMusicAdapter
+    from app.clients.ym.factory import build_ym_client
+    from app.providers.registry import ProviderRegistry
+
+    ym_client = build_ym_client()
+    adapter = YandexMusicAdapter(ym_client)
+
+    registry = ProviderRegistry()
+    registry.register(adapter, default=True)
+
     try:
-        yield {"ym_client": client}
+        yield {
+            "provider_registry": registry,
+            "ym_client": ym_client,
+        }
     finally:
-        await client.close()
+        await registry.close_all()
 
 
 @lifespan
@@ -98,4 +96,4 @@ async def cache_lifespan(server: Any) -> AsyncIterator[dict[str, Any]]:
 
 def build_server_lifespan() -> Any:
     """Compose the production server lifespan."""
-    return db_lifespan | ym_lifespan | analyzer_lifespan | cache_lifespan | audio_lifespan
+    return db_lifespan | provider_lifespan | analyzer_lifespan | cache_lifespan

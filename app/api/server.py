@@ -16,7 +16,6 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.lifespan import api_lifespan
 from app.api.openapi import API_DESCRIPTION, OPENAPI_TAGS, project_version
-from app.api.routes.audio import router as audio_router
 from app.api.routes.discovery import router as discovery_router
 from app.api.routes.execution import router as execution_router
 from app.api.routes.health import router as health_router
@@ -46,6 +45,5 @@ api.add_middleware(
 api.include_router(health_router)
 api.include_router(discovery_router)
 api.include_router(execution_router)
-api.include_router(audio_router)
 
 api.mount("/mcp", api.state.runtime.mcp_app)

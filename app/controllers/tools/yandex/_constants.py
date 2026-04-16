@@ -13,10 +13,6 @@ YM_WRITE_ANNOTATIONS: Final[dict[str, Any]] = {
     "openWorldHint": True,
 }
 
-VALID_SEARCH_TYPES: Final[frozenset[str]] = frozenset(
-    {"tracks", "albums", "artists", "playlists", "all"},
-)
-VALID_ARTIST_SORTS: Final[frozenset[str]] = frozenset({"date", "popularity"})
 MAX_BATCH_TRACKS: Final[int] = 100
 MAX_SEARCH_LIMIT: Final[int] = 20
 MAX_LIKED_PAGE: Final[int] = 200

@@ -1,26 +1,27 @@
-"""Transition scoring domain — pure math, no I/O."""
+"""Public API for the app.transition package."""
 
 from app.transition.math_helpers import bpm_distance, correlation, cosine_similarity
-from app.transition.recipe import TransitionRecipe, TransitionType
-from app.transition.scorer import (
+from app.transition.models import (
+    ConstraintResult,
+    SectionContext,
+    TransitionRecommendation,
     TransitionScore,
-    TransitionScorer,
-    recommend_style,
-    style_profile,
 )
-from app.transition.section_context import SectionContext
-from app.transition.style import recommend_recipe
+from app.transition.recommender import TransitionRecommender
+from app.transition.scorer import TransitionScorer
+from app.transition.types import Stem, StemAction, TransitionIntent
 
 __all__ = [
+    "ConstraintResult",
     "SectionContext",
-    "TransitionRecipe",
+    "Stem",
+    "StemAction",
+    "TransitionIntent",
+    "TransitionRecommendation",
+    "TransitionRecommender",
     "TransitionScore",
     "TransitionScorer",
-    "TransitionType",
     "bpm_distance",
     "correlation",
     "cosine_similarity",
-    "recommend_recipe",
-    "recommend_style",
-    "style_profile",
 ]

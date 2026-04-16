@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -26,7 +28,7 @@ class TrackFeedbackRepository(BaseRepository[TrackFeedback]):
         result = await self.session.execute(stmt)
         return result.scalar_one_or_none()
 
-    async def upsert(self, track_id: int, **kwargs) -> TrackFeedback:
+    async def upsert(self, track_id: int, **kwargs: Any) -> TrackFeedback:
         existing = await self.get_by_track(track_id)
         if existing:
             for k, v in kwargs.items():

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from fastmcp.prompts import Message, prompt
+from fastmcp.prompts import Message, PromptResult, prompt
 from pydantic import Field
 
 
@@ -20,7 +20,7 @@ def deliver_set_workflow(
     sync_ym: Annotated[
         bool, Field(description="Whether to sync set to Yandex Music playlist")
     ] = False,
-) -> list[Message]:
+) -> PromptResult:
     """Guide through delivering a completed DJ set.
 
     Steps: Score -> Handle conflicts -> Export -> Copy files -> Verify -> Cheat sheet -> YM sync
@@ -35,9 +35,10 @@ def deliver_set_workflow(
         else ""
     )
 
-    return [
-        Message(
-            f"""Deliver the completed DJ set "{set_name}" with all export formats
+    return PromptResult(
+        messages=[
+            Message(
+                f"""Deliver the completed DJ set "{set_name}" with all export formats
 and optional Yandex Music sync.
 
 Prerequisites: `unlock_tools(category="delivery")` if delivery tools are locked.
@@ -72,11 +73,13 @@ Follow these steps:
 
 The set is ready for import into your DJ software (Traktor, Rekordbox, djay).
 Report the output directory path and any warnings."""
-        ),
-        Message(
-            f'Delivering "{set_name}". '
-            f"{'Will sync to Yandex Music after export. ' if sync_ym else ''}"
-            'Step 1: `score_transitions(mode="set", set_id=<id>)`...',
-            role="assistant",
-        ),
-    ]
+            ),
+            Message(
+                f'Delivering "{set_name}". '
+                f"{'Will sync to Yandex Music after export. ' if sync_ym else ''}"
+                'Step 1: `score_transitions(mode="set", set_id=<id>)`...',
+                role="assistant",
+            ),
+        ],
+        description=f"Deliver set '{set_name}'" + (" with YM sync" if sync_ym else ""),
+    )

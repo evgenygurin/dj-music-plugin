@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Annotated, Any, Literal
 
-from fastmcp.dependencies import Depends
+from fastmcp.dependencies import CurrentContext, Depends
 from fastmcp.exceptions import ToolError
 from fastmcp.server.context import Context
 from fastmcp.tools import tool
+from pydantic import Field
 
 from app.controllers.dependencies import get_track_service
 from app.controllers.tools._shared import (
@@ -31,7 +32,7 @@ _TOGGLEABLE_CATEGORIES: frozenset[str] = frozenset(
         ToolCategory.SYNC.value,
         ToolCategory.YM.value,
         ToolCategory.AUDIO.value,
-        ToolCategory.ATOMIC.value,
+        ToolCategory.MEMORY.value,
     }
 )
 
@@ -44,9 +45,6 @@ def _resolve_categories(category: str) -> set[str]:
     return tags
 
 
-_VALID_UNLOCK_ACTIONS: frozenset[str] = frozenset({"unlock", "lock", "status"})
-
-
 def _build_status(ctx: Context) -> dict[str, Any]:
     """Check which toggleable categories are currently enabled/disabled.
 
@@ -54,10 +52,12 @@ def _build_status(ctx: Context) -> dict[str, Any]:
     visibility transforms.  Each category is reported as "enabled" or
     "disabled" based on whether the server currently lists tools with
     that tag.
+
+    NOTE: This shows *global* server defaults, not per-session state.
+    Per-session overrides (via ``ctx.enable_components`` /
+    ``ctx.disable_components``) are not reflected here.
     """
     server = ctx.fastmcp
-    # Walk the server's visibility transforms to determine state.
-    # Transforms are Visibility objects with .enabled (bool) and .tags/.keys.
     effective: dict[str, str] = {}
     for category in sorted(_TOGGLEABLE_CATEGORIES):
         state = "enabled"
@@ -85,40 +85,33 @@ def _build_status(ctx: Context) -> dict[str, Any]:
 )
 @map_domain_errors
 async def unlock_tools(
-    action: str = "status",
-    category: str | None = None,
-    ctx: Context | None = None,
+    action: Annotated[
+        Literal["unlock", "lock", "status"],
+        Field(description="Operation to perform"),
+    ] = "status",
+    category: Annotated[
+        str | None,
+        Field(description="Tool category to toggle, or 'all'"),
+    ] = None,
+    ctx: Context = CurrentContext(),  # noqa: B008
 ) -> dict[str, Any]:
-    """Enable or disable tool categories at server level.
-
-    Uses ``ctx.fastmcp.enable/disable`` which triggers
-    ``notifications/tools/list_changed`` — the client re-fetches
-    the tool list automatically.
-    """
-    if action not in _VALID_UNLOCK_ACTIONS:
-        raise ToolError(f"Unknown action: {action}. Valid: {sorted(_VALID_UNLOCK_ACTIONS)}")
-
+    """Shows lock state or toggles hideable MCP tool categories via the server. Use when unlocking gated categories (for example delivery or YM) for the current session."""
     if action == "status":
-        if ctx is None:
-            raise ToolError("Context required for status")
         return _build_status(ctx)
 
-    # action ∈ {unlock, lock}
     if not category:
         raise ToolError(f"Category required for action={action}")
-    if ctx is None:
-        raise ToolError(f"Context required for {action}")
 
     tags = _resolve_categories(category)
-    server = ctx.fastmcp
 
     if action == "unlock":
-        # Server-level enable → triggers tools/list_changed notification
-        server.enable(tags=tags)
+        for tag in tags:
+            await ctx.enable_components(tags={tag})
         return {"action": "unlocked", "categories": sorted(tags)}
 
     # lock
-    server.disable(tags=tags)
+    for tag in tags:
+        await ctx.disable_components(tags={tag})
     return {"action": "locked", "categories": sorted(tags)}
 
 
@@ -133,7 +126,7 @@ async def unlock_tools(
 async def list_platforms(
     svc: TrackService = Depends(get_track_service),  # noqa: B008
 ) -> list[dict[str, Any]]:
-    """List available music platforms and linked track counts."""
+    """Lists music providers and how many tracks are linked per platform. Use when checking multi-platform coverage or import linkage."""
     db_platforms = await svc.get_platform_counts()
     return [
         {

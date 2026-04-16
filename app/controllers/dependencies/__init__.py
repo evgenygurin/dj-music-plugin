@@ -14,6 +14,8 @@ from app.controllers.dependencies.audio import (
 from app.controllers.dependencies.db import get_db_session
 from app.controllers.dependencies.external import (
     get_analyzer_registry,
+    get_music_provider,
+    get_provider_registry,
     get_transition_cache,
     get_ym_client,
 )
@@ -76,9 +78,11 @@ __all__ = [
     "get_import_tracks_workflow",
     "get_ingestion_repo",
     "get_metadata_service",
+    "get_music_provider",
     "get_playlist_repo",
     "get_playlist_service",
     "get_prefetch_service",
+    "get_provider_registry",
     "get_reasoning_service",
     "get_search_service",
     "get_set_repo",

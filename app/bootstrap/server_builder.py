@@ -33,9 +33,15 @@ def build_mcp_server() -> FastMCP:
     mcp = FastMCP(
         name=settings.server_name,
         instructions=(
-            "DJ techno music library management, set building, "
-            "and Yandex Music integration. "
-            "Use unlock_tools to access hidden tool categories."
+            "DJ techno music library management, set building, and platform integration.\n\n"
+            "Core workflow: search_library → get_candidate_pool → update_set_draft → "
+            "preview_draft → commit_draft.\n"
+            "For automated builds: build_set(algorithm='greedy'|'ga').\n\n"
+            "Start with dj_expert_session prompt to load knowledge base.\n"
+            "Use unlock_tools(action='status') to see categories, "
+            "unlock_tools(action='unlock', category='all') to enable all.\n\n"
+            "Resources: library://snapshot for library state, "
+            "reference:// for domain knowledge, session://set-draft for current draft."
         ),
         providers=[FileSystemProvider(mcp_dir)],
         transforms=server_transforms,

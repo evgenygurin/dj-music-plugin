@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from fastmcp.prompts import Message, prompt
+from fastmcp.prompts import Message, PromptResult, prompt
 from pydantic import Field
 
 
@@ -18,7 +18,7 @@ from pydantic import Field
 def expand_playlist_workflow(
     playlist_name: Annotated[str, Field(description="Playlist name or ID to expand")],
     target_count: Annotated[int, Field(description="Target number of tracks in playlist")] = 100,
-) -> list[Message]:
+) -> PromptResult:
     """Guide through expanding a playlist with similar tracks.
 
     Steps: Audit -> Find similar -> Import -> Download -> Analyze -> Re-audit -> Classify
@@ -27,9 +27,10 @@ def expand_playlist_workflow(
         playlist_name: Name or ID of playlist to expand
         target_count: Target number of tracks
     """
-    return [
-        Message(
-            f"""Expand playlist "{playlist_name}" to approximately {target_count} tracks
+    return PromptResult(
+        messages=[
+            Message(
+                f"""Expand playlist "{playlist_name}" to approximately {target_count} tracks
 by discovering and adding similar music from Yandex Music.
 
 Prerequisites: `unlock_tools(category="discovery")` if discovery tools are locked.
@@ -53,10 +54,12 @@ Follow these steps:
 7. **Classify**: `classify_mood(playlist_id=<id>)` to assign subgenres to new tracks
 
 Report progress after each step: similar tracks found, imported count, coverage changes."""
-        ),
-        Message(
-            f'Expanding "{playlist_name}" to ~{target_count} tracks. '
-            f'Step 1: `audit_playlist(playlist_query="{playlist_name}")`...',
-            role="assistant",
-        ),
-    ]
+            ),
+            Message(
+                f'Expanding "{playlist_name}" to ~{target_count} tracks. '
+                f'Step 1: `audit_playlist(playlist_query="{playlist_name}")`...',
+                role="assistant",
+            ),
+        ],
+        description=f"Expand playlist '{playlist_name}' to {target_count} tracks",
+    )

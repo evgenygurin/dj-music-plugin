@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable
 
 from app.entities.audio.features import TrackFeatures
+from app.optimization.candidate_filter import build_adjacency
 from app.optimization.fitness import compute_fitness
 from app.optimization.result import OptimizationResult
 from app.templates.models import SetTemplateDefinition
@@ -40,6 +41,9 @@ class GreedyChainBuilder:
             return OptimizationResult(track_order=[], quality_score=0.0)
 
         idx_map = {tid: i for i, tid in enumerate(track_ids)}
+        # Pre-compute adjacency graph (hard-constraint pre-filter)
+        features_map = {tid: tracks[idx_map[tid]] for tid in active_ids}
+        adjacency = build_adjacency(features_map)
         remaining = set(active_ids)
 
         def _opener_score(tid: int) -> float:
@@ -54,9 +58,14 @@ class GreedyChainBuilder:
         remaining.remove(current)
 
         while remaining:
+            # Use pre-filtered candidates; fall back to all remaining if graph gives nothing
+            candidates = adjacency.get(current, set()) & remaining
+            if not candidates:
+                candidates = remaining  # fallback: no valid transitions, take any
+
             best_tid = None
             best_score = -1.0
-            for candidate in remaining:
+            for candidate in candidates:
                 result = self.scorer.score(
                     tracks[idx_map[current]],
                     tracks[idx_map[candidate]],

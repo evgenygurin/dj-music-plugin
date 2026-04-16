@@ -5,11 +5,12 @@ Thin wrappers calling :class:`PlaylistService` via ``Depends()``.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Annotated, Any, Literal
 
 from fastmcp.dependencies import Depends
 from fastmcp.exceptions import ToolError
 from fastmcp.tools import tool
+from pydantic import Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.controllers.dependencies import (
@@ -32,9 +33,9 @@ from app.schemas import PaginatedResponse, PlaylistSummary
 from app.services.playlist_service import PlaylistService
 from app.services.track_service import TrackService
 
-_PLAYLIST_ACTIONS = frozenset(
-    {"create", "update", "delete", "add_tracks", "remove_tracks", "reorder"}
-)
+PlaylistManageAction = Literal[
+    "create", "update", "delete", "add_tracks", "remove_tracks", "reorder"
+]
 
 
 @tool(
@@ -46,12 +47,14 @@ _PLAYLIST_ACTIONS = frozenset(
 )
 @map_domain_errors
 async def list_playlists(
-    source: str | None = None,
-    limit: int = 20,
-    cursor: str | None = None,
+    source: Annotated[str | None, Field(description="Filter by playlist source of truth")] = None,
+    limit: Annotated[int, Field(description="Page size", ge=1)] = 20,
+    cursor: Annotated[
+        str | None, Field(description="Pagination cursor from previous page")
+    ] = None,
     svc: PlaylistService = Depends(get_playlist_service),  # noqa: B008
 ) -> PaginatedResponse[PlaylistSummary]:
-    """List playlists with optional source filter and cursor pagination."""
+    """Lists playlists with optional source filter and cursor pagination. Use when browsing playlists or fetching the next page of results."""
     page = await svc.list_all(limit=limit, cursor=cursor, source=source)
     return PaginatedResponse[PlaylistSummary](
         items=[svc.to_summary(p) for p in page.items],
@@ -69,13 +72,15 @@ async def list_playlists(
 )
 @map_domain_errors
 async def get_playlist(
-    id: int | None = None,
-    query: str | None = None,
-    include_tracks: bool = False,
+    id: Annotated[int | None, Field(description="Local playlist ID")] = None,
+    query: Annotated[str | None, Field(description="Resolve playlist by name query")] = None,
+    include_tracks: Annotated[
+        bool, Field(description="Include full track briefs in response")
+    ] = False,
     svc: PlaylistService = Depends(get_playlist_service),  # noqa: B008
     track_svc: TrackService = Depends(get_track_service),  # noqa: B008
 ) -> dict[str, Any]:
-    """Get playlist details by id or name query. Optionally include tracks."""
+    """Returns playlist details resolved by local id or name query, optionally with track briefs. Use when inspecting a playlist before editing tracks or exporting."""
     playlist = await resolve_entity(
         entity_id=id,
         query=query,
@@ -114,19 +119,43 @@ async def get_playlist(
 )
 @map_domain_errors
 async def manage_playlist(
-    action: str,
-    data: Any = None,
-    track_refs: Any = None,
-    positions: Any = None,
+    action: Annotated[PlaylistManageAction, Field(description="Operation to perform")],
+    data: Annotated[
+        Any,
+        Field(
+            description=(
+                "Action payload dict. Examples by action:\n"
+                "  create:        {name, source_of_truth?}\n"
+                "  update:        {id, name?, source_of_truth?}\n"
+                "  delete:        {id}\n"
+                "  add_tracks:    {id}  — also pass track_refs=[...] as a top-level param\n"
+                "  remove_tracks: {id}  — also pass positions=[0, 2] (0-based)\n"
+                "  reorder:       {id}  — also pass track_refs=[...] and positions=[...]"
+            )
+        ),
+    ] = None,
+    track_refs: Annotated[
+        Any,
+        Field(
+            description=(
+                "Top-level param for add_tracks / reorder — list of local track IDs or YM IDs. "
+                "NOT inside data. Example: track_refs=[179, 181, 183]"
+            )
+        ),
+    ] = None,
+    positions: Annotated[
+        Any,
+        Field(
+            description=(
+                "Top-level param for remove_tracks / reorder — list of 0-based positions. "
+                "NOT inside data. Example: positions=[0, 2]"
+            )
+        ),
+    ] = None,
     svc: PlaylistService = Depends(get_playlist_service),  # noqa: B008
     session: AsyncSession = Depends(get_db_session),  # noqa: B008
 ) -> dict[str, Any]:
-    """Manage playlists.
-
-    ``action`` ∈ ``{create, update, delete, add_tracks, remove_tracks, reorder}``.
-    """
-    if action not in _PLAYLIST_ACTIONS:
-        raise ToolError(f"Unknown action: {action}. Valid: {', '.join(sorted(_PLAYLIST_ACTIONS))}")
+    """Creates, updates, deletes, or changes track membership and order on a playlist. Use when curating playlist contents or metadata instead of read-only listing."""
 
     data_dict = ensure_dict(data)
     track_refs_list = ensure_list(track_refs) or None

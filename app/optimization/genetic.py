@@ -7,10 +7,33 @@ from collections.abc import Callable
 
 from app.config import settings
 from app.entities.audio.features import TrackFeatures
+from app.optimization.candidate_filter import build_adjacency
 from app.optimization.fitness import compute_fitness
 from app.optimization.result import OptimizationResult
 from app.templates.models import SetTemplateDefinition
 from app.transition.scorer import TransitionScorer
+
+
+def _build_chain(
+    track_ids: list[int],
+    pinned: set[int],
+    adjacency: dict[int, set[int]],
+) -> list[int]:
+    """Build one chain by following adjacency graph with random tie-breaking."""
+    remaining = set(track_ids)
+    chain: list[int] = []
+
+    current = random.choice(track_ids)
+    chain.append(current)
+    remaining.remove(current)
+
+    while remaining:
+        neighbors = adjacency.get(current, set()) & remaining
+        current = random.choice(list(neighbors)) if neighbors else random.choice(list(remaining))
+        chain.append(current)
+        remaining.remove(current)
+
+    return chain
 
 
 class GeneticAlgorithm:
@@ -80,7 +103,10 @@ class GeneticAlgorithm:
                 algorithm="ga",
             )
 
-        population = self._init_population(active_ids, pinned)
+        # Pre-compute adjacency graph for graph-aware population initialization
+        features_map = {tid: tracks[idx_map[tid]] for tid in active_ids}
+        adjacency = build_adjacency(features_map)
+        population = self._init_population(active_ids, pinned, adjacency)
         best_individual = population[0]
         best_fitness = self._fitness(tracks, best_individual, idx_map, template, moods)
         stagnant = 0
@@ -138,13 +164,31 @@ class GeneticAlgorithm:
 
     # ── Population initialization ───────────────────────
 
-    def _init_population(self, track_ids: list[int], pinned: set[int]) -> list[list[int]]:
-        """Create initial population of random permutations."""
+    def _init_population(
+        self,
+        track_ids: list[int],
+        pinned: set[int],
+        adjacency: dict[int, set[int]] | None = None,
+    ) -> list[list[int]]:
+        """Initialize population: half graph-guided chains, half random shuffles."""
         population: list[list[int]] = []
-        for _ in range(self.population_size):
-            individual = list(track_ids)
-            random.shuffle(individual)
-            population.append(individual)
+        half = self.population_size // 2
+
+        if adjacency:
+            for _ in range(half):
+                chain = _build_chain(track_ids, pinned, adjacency)
+                population.append(chain)
+
+        while len(population) < self.population_size:
+            shuffled = list(track_ids)
+            random.shuffle(shuffled)
+            if pinned:
+                pinned_positions = [i for i, t in enumerate(shuffled) if t in pinned]
+                pinned_ids = [t for t in track_ids if t in pinned]
+                for pos, pid in zip(pinned_positions, pinned_ids, strict=False):
+                    shuffled[pos] = pid
+            population.append(shuffled)
+
         return population
 
     # ── Fitness evaluation ──────────────────────────────

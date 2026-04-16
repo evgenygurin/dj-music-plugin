@@ -2,21 +2,24 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Annotated, Literal
 
 from fastmcp.dependencies import Depends
-from fastmcp.exceptions import ToolError
 from fastmcp.tools import tool
+from pydantic import Field
 
-from app.controllers.dependencies import get_ym_client
+from app.controllers.dependencies.external import get_music_provider
 from app.controllers.tools._shared import (
     ANNOTATIONS_READ_ONLY_OPEN_WORLD,
     ICON_YM,
     TOOL_META,
     ToolCategory,
 )
-from app.controllers.tools.yandex._constants import MAX_SEARCH_LIMIT, VALID_SEARCH_TYPES
-from app.ym.client import YandexMusicClient
+from app.controllers.tools.yandex._constants import MAX_SEARCH_LIMIT
+from app.providers.protocol import MusicProvider
+from app.schemas.ym_responses import YMSearchResponse
+
+SearchType = Literal["tracks", "albums", "artists", "playlists", "all"]
 
 
 @tool(
@@ -27,24 +30,20 @@ from app.ym.client import YandexMusicClient
     meta=TOOL_META,
 )
 async def ym_search(
-    query: str,
-    type: str = "all",
-    limit: int = 10,
-    ym: YandexMusicClient = Depends(get_ym_client),  # noqa: B008
-) -> dict[str, Any]:
-    """Search Yandex Music for tracks, albums, artists, playlists.
-
-    ``type`` ∈ ``{tracks, albums, artists, playlists, all}``.
-    """
-    if type not in VALID_SEARCH_TYPES:
-        raise ToolError(f"Invalid type: {type}. Valid: {', '.join(sorted(VALID_SEARCH_TYPES))}")
-
-    result = await ym.search(query, type=type, limit=min(limit, MAX_SEARCH_LIMIT))
-    return {
-        "query": query,
-        "type": type,
-        "tracks": [t.model_dump() for t in result.tracks],
-        "albums": [a.model_dump() for a in result.albums],
-        "artists": [a.model_dump() for a in result.artists],
-        "playlists": [p.model_dump() for p in result.playlists],
-    }
+    query: Annotated[str, Field(description="Search query text")],
+    type: Annotated[SearchType, Field(description="Entity type to search")] = "all",
+    limit: Annotated[
+        int, Field(description="Max results per entity type", ge=1, le=MAX_SEARCH_LIMIT)
+    ] = 10,
+    provider: MusicProvider = Depends(get_music_provider),  # noqa: B008
+) -> YMSearchResponse:
+    """Search Yandex Music by text across tracks, albums, artists, and playlists. Use when discovering titles on YM from a query outside the local library."""
+    result = await provider.search(query, search_type=type, page_size=min(limit, MAX_SEARCH_LIMIT))
+    return YMSearchResponse(
+        query=query,
+        type=type,
+        tracks=[t.model_dump() for t in result.tracks],
+        albums=[a.model_dump() for a in result.albums],
+        artists=[a.model_dump() for a in result.artists],
+        playlists=[p.model_dump() for p in result.playlists],
+    )

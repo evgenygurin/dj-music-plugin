@@ -12,7 +12,7 @@ Layer organisation:
 - :mod:`yandex` — YMTrackSummary
 
 Domain helpers (``ym_track_summary``, ``is_excluded_title``, ``genre_ok``)
-live in :mod:`app.ym.filters` — they are filtering utilities, not
+live in :mod:`app.clients.ym.filters` — they are filtering utilities, not
 schemas, and were moved out of this module to keep concerns separated.
 """
 
@@ -23,6 +23,14 @@ from app.schemas.playlist import PlaylistSummary
 from app.schemas.set import SetSummary
 from app.schemas.track import TrackBrief, TrackStandard
 from app.schemas.yandex import YMTrackSummary
+from app.schemas.ym_responses import (
+    YMAlbumResponse,
+    YMArtistTracksPage,
+    YMLikesActionResult,
+    YMPlaylistActionResult,
+    YMSearchResponse,
+    YMTrackBatch,
+)
 
 __all__ = [
     "PaginatedResponse",
@@ -30,5 +38,11 @@ __all__ = [
     "SetSummary",
     "TrackBrief",
     "TrackStandard",
+    "YMAlbumResponse",
+    "YMArtistTracksPage",
+    "YMLikesActionResult",
+    "YMPlaylistActionResult",
+    "YMSearchResponse",
+    "YMTrackBatch",
     "YMTrackSummary",
 ]

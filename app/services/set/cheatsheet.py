@@ -4,40 +4,49 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from app.core.constants import TechnoSubgenre
+
+
+def _to_subgenre(mood: str | None) -> TechnoSubgenre | None:
+    if not mood:
+        return None
+    try:
+        return TechnoSubgenre(mood)
+    except ValueError:
+        return None
+
+
 from app.core.errors import NotFoundError
 from app.db.repositories.feature import FeatureRepository
 from app.db.repositories.set import SetRepository
 from app.db.repositories.track import TrackRepository
-from app.transition.recipe import TransitionRecipe
-from app.transition.score import TransitionScore
-from app.transition.style import recommend_recipe
+from app.transition.models import TransitionRecommendation, TransitionScore
+from app.transition.recommender import TransitionRecommender
+
+
+def _safe_parse_recommendation(raw: str | None) -> TransitionRecommendation | None:
+    if not raw:
+        return None
+    try:
+        return TransitionRecommendation.model_validate_json(raw)
+    except Exception:
+        return None
+
 
 if TYPE_CHECKING:
     from app.db.repositories.transition import TransitionRepository
 
 
-def _format_recipe_box(recipe: TransitionRecipe, score: float | None = None) -> str:
-    """Format a transition recipe as a text box for cheat sheet."""
-    type_label = recipe.transition_type.value.upper().replace("_", " ")
-    header = f"{type_label} · {recipe.bars} bars"
-    if recipe.djay_transition.value != "none":
-        header += f" ─── djay: {recipe.djay_transition.value.replace('_', ' ').title()}"
-    else:
-        header += " ─── djay: Manual EQ"
-
-    lines = [f"     ┌── {header} ──┐"]
-    lines.append("     │")
-    for step in recipe.steps:
-        deck_label = step.deck.upper()
-        lines.append(f"     │  bar {step.bar:<3}  {deck_label}: {step.action}")
-    lines.append("     │")
-    eq = recipe.eq_plan
-    lines.append(f"     │  EQ: low={eq.low} · mid={eq.mid} · high={eq.high}")
-    for w in recipe.warnings:
-        lines.append(f"     │  ⚠ {w}")
-    lines.append(f"     │  Rescue: {recipe.rescue_move}")
+def _format_recipe_box(recipe: TransitionRecommendation, score: float | None = None) -> str:
+    """Format a Neural Mix FX recommendation as a text box for the cheat sheet."""
+    fx_label = recipe.fx_type.value.upper().replace("_", " ")
+    lines = [f"     ┌── {fx_label} ──┐"]
+    if recipe.reason:
+        lines.append(f"     │  {recipe.reason}")
+    if recipe.alt_fx_type:
+        lines.append(f"     │  Alt: {recipe.alt_fx_type.value.upper().replace('_', ' ')}")
     if score is not None:
-        lines.append(f"     │  Score: {score:.2f} · Confidence: {recipe.confidence:.2f}")
+        lines.append(f"     │  Score: {score:.2f} · Confidence: {recipe.confidence:.0%}")
     lines.append("     └" + "─" * 50 + "┘")
     return "\n".join(lines)
 
@@ -135,14 +144,14 @@ class SetCheatSheetService:
                     )
 
                 overall_score: float | None = None
-                recipe: TransitionRecipe | None = None
+                recipe: TransitionRecommendation | None = None
 
                 if transition is not None and transition.overall_quality is not None:
                     overall_score = transition.overall_quality
 
                     # Prefer persisted recipe (section-aware, from score_transitions)
                     if transition.transition_recipe_json:
-                        recipe = TransitionRecipe.from_json(transition.transition_recipe_json)
+                        recipe = _safe_parse_recommendation(transition.transition_recipe_json)
 
                 if recipe is None:
                     # Recompute from score + features
@@ -168,13 +177,7 @@ class SetCheatSheetService:
                             timbral=0.5,
                             overall=0.5,
                         )
-                    recipe = recommend_recipe(
-                        score,
-                        prev_feat,
-                        feat,
-                        mood_a=prev_feat.mood if prev_feat else None,
-                        mood_b=feat.mood if feat else None,
-                    )
+                    recipe = TransitionRecommender().recommend(score, prev_feat, feat)
 
                 lines.append(_format_recipe_box(recipe, score=overall_score))
 

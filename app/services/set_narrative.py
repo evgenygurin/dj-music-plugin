@@ -7,10 +7,18 @@ Used by Claude Code to explain WHY a set works and suggest improvements.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, TypedDict
+
+
+class _PhaseEntry(TypedDict):
+    phase: str
+    start: float
+    end: float
+    description: str
+
 
 # Narrative phases mapped from set position (0.0-1.0)
-NARRATIVE_PHASES = [
+NARRATIVE_PHASES: list[_PhaseEntry] = [
     {
         "phase": "opening",
         "start": 0.0,
@@ -74,16 +82,18 @@ class SetNarrativeEngine:
         phases: list[dict[str, Any]] = []
 
         for phase_def in NARRATIVE_PHASES:
-            start_idx = int(phase_def["start"] * total)
-            end_idx = max(start_idx + 1, int(phase_def["end"] * total))
+            start_idx = int(float(phase_def["start"]) * total)
+            end_idx = max(start_idx + 1, int(float(phase_def["end"]) * total))
             phase_tracks = tracks[start_idx:end_idx]
 
             if not phase_tracks:
                 continue
 
-            bpms = [t.get("bpm") for t in phase_tracks if t.get("bpm")]
-            moods = [t.get("mood") for t in phase_tracks if t.get("mood")]
-            energies = [t.get("energy_lufs") for t in phase_tracks if t.get("energy_lufs")]
+            bpms: list[float] = [float(t["bpm"]) for t in phase_tracks if t.get("bpm") is not None]
+            moods: list[str] = [str(t["mood"]) for t in phase_tracks if t.get("mood") is not None]
+            energies: list[float] = [
+                float(t["energy_lufs"]) for t in phase_tracks if t.get("energy_lufs") is not None
+            ]
 
             avg_bpm = sum(bpms) / len(bpms) if bpms else None
             avg_energy = sum(energies) / len(energies) if energies else None
@@ -124,12 +134,12 @@ class SetNarrativeEngine:
 
     def _score_flow(self, phases: list[dict[str, Any]]) -> float:
         """Score BPM flow smoothness (0-1)."""
-        bpms = [p["avg_bpm"] for p in phases if p["avg_bpm"] is not None]
+        bpms: list[float] = [float(p["avg_bpm"]) for p in phases if p["avg_bpm"] is not None]
         if len(bpms) < 2:
             return 0.5
         jumps = [abs(bpms[i + 1] - bpms[i]) for i in range(len(bpms) - 1)]
         avg_jump = sum(jumps) / len(jumps)
-        return max(0, 1.0 - avg_jump / 10)  # 10 BPM jump = 0 score
+        return float(max(0, 1.0 - avg_jump / 10))  # 10 BPM jump = 0 score
 
     def _score_variety(self, tracks: list[dict[str, Any]]) -> float:
         """Score mood variety (0-1)."""

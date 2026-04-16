@@ -176,7 +176,20 @@ class MetadataService:
         return raw
 
     def _extract_from_ym_track(self, ym_track: Any) -> dict[str, Any]:
-        """Extract data from a YMTrack API response object."""
+        """Extract data from a ProviderTrack or YMTrack API response object."""
+        if hasattr(ym_track, "album_id"):
+            # ProviderTrack — artists is list[ProviderArtist] with .name attribute
+            provider_artists = getattr(ym_track, "artists", None) or []
+            artists = [
+                {"name": a.name, "role": "primary"}
+                for a in provider_artists
+                if getattr(a, "name", None)
+            ]
+            genre = getattr(ym_track, "album_genre", None)
+            album_title = getattr(ym_track, "album_title", None)
+            album_data = {"title": album_title} if album_title else None
+            return {"artists": artists, "genre": genre, "label": None, "album": album_data}
+
         artists_raw: list[dict[str, Any]] = getattr(ym_track, "artists", None) or []
         artists = [
             {"name": str(a.get("name", "")), "role": "primary"}

@@ -3,7 +3,6 @@
 6-component weighted formula for evaluating track-to-track transitions, with optional section-aware relaxation for percussion-only mix windows.
 
 > Background and rebalance rationale: [docs/research/2026-04-08-techno-transitions-research.md](research/2026-04-08-techno-transitions-research.md)
-> Architecture decision: [docs/superpowers/specs/2026-04-08-transition-system-redesign.md](superpowers/specs/2026-04-08-transition-system-redesign.md)
 
 ## Module Layout
 
@@ -155,7 +154,7 @@ When `section_context=None` (the default), behaviour is **identical** to pre-red
 
 ## Context-Aware Intent (`infer_intent` v2)
 
-`app/core/transition_intent.py:infer_intent(set_position, energy_delta_lufs, template=None)`:
+`app/transition/intent.py:infer_intent(set_position, energy_delta_lufs, template=None)`:
 
 Phase boundaries are now per-template (`_TEMPLATE_PHASE_TABLE`):
 

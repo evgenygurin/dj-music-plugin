@@ -15,7 +15,7 @@ _PYPROJECT = Path(__file__).resolve().parents[1] / "pyproject.toml"
 
 def _read_version() -> str:
     with _PYPROJECT.open("rb") as f:
-        return tomllib.load(f)["project"]["version"]
+        return str(tomllib.load(f)["project"]["version"])
 
 
 __version__: str = _read_version()

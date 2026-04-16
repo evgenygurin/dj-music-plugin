@@ -1,6 +1,6 @@
 """Yandex Music tool package.
 
-Thin adapters that delegate to :class:`~app.ym.client.YandexMusicClient`.
+Thin adapters that delegate to :class:`~app.clients.ym.client.YandexMusicClient`.
 Split by YM entity for navigability; :class:`FileSystemProvider` picks
 up ``@tool`` definitions from every submodule automatically.
 

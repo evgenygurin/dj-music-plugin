@@ -15,7 +15,7 @@ from app.services.mix_point_service import (
     quantize_to_downbeat,
     section_at,
 )
-from app.transition.section_context import SectionContext
+from app.transition.models import SectionContext
 
 # ── quantize_to_downbeat ─────────────────────────────────────────────
 

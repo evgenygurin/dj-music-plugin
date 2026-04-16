@@ -25,21 +25,55 @@ class TrackCoreRepository(BaseRepository[Track]):
         return result.scalar_one_or_none()
 
     async def search_by_text(self, query: str, limit: int = 10) -> list[Track]:
-        """Case-insensitive search across track title and linked artist names."""
-        from sqlalchemy import or_
+        """Case-insensitive search across track title and linked artist names.
 
-        pattern = f"%{query}%"
-        stmt = (
+        Runs two passes and merges results (preserving order, deduplicating):
+        1. Whole-phrase ``ILIKE '%query%'`` — exact substring match.
+        2. Token-AND fallback — splits the query on non-alphanumeric chars
+           (spaces, ``&``, ``-``, ``.``, etc.) and requires all tokens to appear
+           somewhere in the title or artist name.  This lets "Dok Martin" find
+           "Dok & Martin" and "acid test" find "Acid Test (Remix)".
+        """
+        import re
+
+        from sqlalchemy import and_, or_
+
+        base = (
             select(Track)
             .outerjoin(TrackArtist, TrackArtist.track_id == Track.id)
             .outerjoin(Artist, Artist.id == TrackArtist.artist_id)
-            .where(or_(Track.title.ilike(pattern), Artist.name.ilike(pattern)))
             .distinct()
             .order_by(Track.id)
-            .limit(limit)
         )
-        result = await self.session.execute(stmt)
-        return list(result.scalars().all())
+
+        # Pass 1: exact phrase
+        phrase_pattern = f"%{query}%"
+        phrase_stmt = base.where(
+            or_(Track.title.ilike(phrase_pattern), Artist.name.ilike(phrase_pattern))
+        ).limit(limit)
+        phrase_rows = list((await self.session.execute(phrase_stmt)).scalars().all())
+
+        if len(phrase_rows) >= limit:
+            return phrase_rows
+
+        # Pass 2: token-AND fallback for queries with multiple words/special chars
+        tokens = [t for t in re.split(r"[^a-zA-Z0-9\u0400-\u04FF]+", query) if t]
+        if len(tokens) < 2:
+            return phrase_rows
+
+        token_conditions = [
+            or_(Track.title.ilike(f"%{tok}%"), Artist.name.ilike(f"%{tok}%")) for tok in tokens
+        ]
+        token_stmt = base.where(and_(*token_conditions)).limit(limit)
+        token_rows = list((await self.session.execute(token_stmt)).scalars().all())
+
+        seen_ids = {t.id for t in phrase_rows}
+        merged = list(phrase_rows)
+        for track in token_rows:
+            if track.id not in seen_ids:
+                seen_ids.add(track.id)
+                merged.append(track)
+        return merged[:limit]
 
     async def get_by_ids(self, ids: list[int]) -> dict[int, Track]:
         """Fetch multiple tracks by IDs in a single query.

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable, Coroutine
 from typing import Any
 
 from app.audio.level_config import AnalysisLevel
@@ -10,6 +11,8 @@ from app.db.repositories.playlist import PlaylistRepository
 from app.services.audio_service import AudioService
 from app.services.tiered_pipeline import TieredPipeline
 from app.services.workflows._helpers import call_async_method
+
+_OnProgress = Callable[[int, int], Coroutine[Any, Any, None]] | None
 
 
 class AnalyzeTrackWorkflow:
@@ -90,7 +93,7 @@ class AnalyzeTrackWorkflow:
         analyzers: list[str] | None = None,
         level: int = 3,
         force: bool = False,
-        progress: Any = None,
+        on_progress: _OnProgress = None,
     ) -> dict[str, Any]:
         """Analyze a batch of tracks by IDs or playlist membership."""
         if track_ids is None and playlist_id is None:
@@ -107,23 +110,14 @@ class AnalyzeTrackWorkflow:
 
         ids_list = ids_list[:batch_size]
         total = len(ids_list)
-        await call_async_method(progress, "set_total", total)
         target = self._resolve_level(level)
 
         if analyzers is not None:
             completed = 0
             failed = 0
             skipped = 0
-            await call_async_method(
-                progress,
-                "set_message",
-                f"Analyzing {total} tracks with custom analyzers...",
-            )
 
             for index, track_id in enumerate(ids_list):
-                await call_async_method(
-                    progress, "set_message", f"Track {index + 1}/{total} (id={track_id})"
-                )
                 result = await self._audio_service.analyze_track(
                     track_id,
                     analyzers=analyzers,
@@ -141,7 +135,8 @@ class AnalyzeTrackWorkflow:
                     skipped += 1
                 else:
                     failed += 1
-                await call_async_method(progress, "increment")
+                if on_progress is not None:
+                    await on_progress(index + 1, total)
 
             return {
                 "total_tracks": total,
@@ -150,9 +145,9 @@ class AnalyzeTrackWorkflow:
                 "skipped": skipped,
             }
 
-        await call_async_method(progress, "set_message", f"Tiered batch L{level}: {total} tracks")
         analysis = await self._tiered_pipeline.ensure_level(ids_list, target, force=force)
-        await call_async_method(progress, "increment", total)
+        if on_progress is not None:
+            await on_progress(total, total)
         return {
             "total_tracks": total,
             "completed": analysis["analyzed"],

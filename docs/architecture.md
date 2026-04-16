@@ -8,18 +8,20 @@
 └──────────────────────────┬──────────────────────────────────┘
                            │ stdio / streamable-http
 ┌──────────────────────────▼──────────────────────────────────┐
-│                   FastMCP v3.1 Server                        │
+│                   FastMCP v3.2 Server                        │
 │  ┌─────────────┐ ┌────────────┐ ┌─────────────────────────┐│
 │  │ Middleware   │ │ Transforms │ │ Visibility System       ││
-│  │ (logging,    │ │ (namespace,│ │ (core/extended/hidden)  ││
-│  │  rate limit, │ │  R→T, P→T) │ │                         ││
-│  │  timing)     │ │            │ │                         ││
+│  │ (logging,    │ │ (ToolTrans-│ │ (core/extended/hidden)  ││
+│  │  rate_limit, │ │  form,     │ │ per-session via         ││
+│  │  timing,     │ │  R→T, P→T) │ │ ctx.enable_components() ││
+│  │  resp_limit, │ │            │ │                         ││
+│  │  caching)    │ │            │ │                         ││
 │  └──────┬───────┘ └────────────┘ └─────────────────────────┘│
 │         │                                                    │
 │  ┌──────▼──────────────────────────────────────────────────┐│
 │  │              FileSystemProvider (auto-discover)          ││
 │  │  ┌──────────┐  ┌────────────┐  ┌──────────────────────┐││
-│  │  │ 88 Tools │  │10 Resources│  │ 6 Workflow Prompts   │││
+│  │  │  Tools   │  │ Resources  │  │  Workflow Prompts    │││
 │  │  └────┬─────┘  └──────┬─────┘  └──────────────────────┘││
 │  └───────┼───────────────┼─────────────────────────────────┘│
 └──────────┼───────────────┼──────────────────────────────────┘
@@ -46,7 +48,7 @@
     │    SQLAlchemy 2.0 Async       │
     │  Supabase PostgreSQL          │
     │  SQLite (tests only, in-mem)  │
-    │  44 tables, Alembic migrations│
+    │  Alembic migrations            │
     └──────────────────────────────┘
 
 External:
@@ -94,21 +96,35 @@ External:
                    └─────────────────────────┘
 ```
 
+## Middleware Pipeline (ordered)
+
+```text
+DereferenceRefsMiddleware       # FastMCP built-in
+ToolCallTimeoutMiddleware       # per-tool timeouts (120–600s for heavy ops)
+StructuredLoggingMiddleware     # JSON logs with tool/resource context
+DetailedTimingMiddleware        # per-tool timing breakdown
+ResponseLimitingMiddleware      # truncate oversized responses (50 KB)
+ResponseCachingMiddleware       # cache list_tools/list_prompts/list_resources
+YMRateLimitMiddleware           # Yandex Music API rate limiting
+ErrorHandlingMiddleware         # structured error wrapping + Sentry
+RetryMiddleware                 # up to 2 retries on transient errors
+```
+
 ## Data Flow: Tool Call Lifecycle
 
 ```text
 1. Client sends tool call → FastMCP
-2. Middleware pipeline: log → timing → rate limit → response limit → retry → error masking
+2. Middleware pipeline: log → timing → response_limit → caching → rate_limit → retry → error masking
 3. FastMCP resolves tool via FileSystemProvider
 4. DI chain activates:
    controllers/dependencies/db.py
    → repos.py / services.py / audio.py / external.py / uow.py
    (all cached per-request, same session across all repos)
-5. Tool function executes with injected services
+5. Tool function executes with injected services (ctx: Context = CurrentContext())
 6. On success: session.commit() (in get_db_session finally)
 7. On error: session.rollback() (in get_db_session except)
-8. ToolResult → structuredContent + content + meta
-9. Response through middleware (timing recorded, logged)
+8. ToolResult → structuredContent (from Pydantic model) + content + meta
+9. Response through middleware (timing recorded, logged, size-checked)
 10. Back to client
 ```
 
@@ -139,3 +155,6 @@ External:
 | Panel reads Supabase directly | Avoids MCP overhead for read-only dashboard data |
 | REST API wrapper over direct MCP | Panel needs HTTP transport; Swagger docs for debugging |
 | Supabase PostgreSQL (only DB) | Production-grade, panel reads directly, RLS available; SQLite only for tests |
+| CurrentContext() for DI | Unified context injection; session-scoped, no null checks needed |
+| ToolTransform dict in transforms.py | Centralizes LLM-facing descriptions and hidden params without touching tool files |
+| Pydantic response models | Auto-generates output_schema in FastMCP, helps LLMs parse tool results |

@@ -1,8 +1,17 @@
 """Tests for template resources (track://{id}/features, set://{id}/summary, etc)."""
 
 import json
+from typing import Any
 
 import pytest
+
+
+def _parse(result: str | dict[str, Any]) -> dict[str, Any]:
+    """Parse resource result — handles both str (old) and dict (new) returns."""
+    if isinstance(result, dict):
+        return result
+    return json.loads(result)
+
 
 from app.controllers.resources.templates import (
     catalog_stats,
@@ -38,7 +47,7 @@ async def test_track_features_no_analysis(db):
     await db.flush()
 
     result = await track_features(track_id=track.id, session=db)
-    data = json.loads(result)
+    data = _parse(result)
 
     assert data["track_id"] == track.id
     assert data["title"] == "Unanalyzed Track"
@@ -79,7 +88,7 @@ async def test_track_features_with_analysis(db):
     await db.flush()
 
     result = await track_features(track_id=track.id, session=db)
-    data = json.loads(result)
+    data = _parse(result)
 
     assert data["track_id"] == track.id
     assert data["title"] == "Analyzed Track"
@@ -113,7 +122,7 @@ async def test_set_summary_no_versions(db):
     await db.flush()
 
     result = await set_summary(set_id=dj_set.id, session=db)
-    data = json.loads(result)
+    data = _parse(result)
 
     assert data["set_id"] == dj_set.id
     assert data["name"] == "Empty Set"
@@ -141,7 +150,7 @@ async def test_set_summary_with_version(db):
     await db.flush()
 
     result = await set_summary(set_id=dj_set.id, session=db)
-    data = json.loads(result)
+    data = _parse(result)
 
     assert data["set_id"] == dj_set.id
     assert data["name"] == "Test Set"
@@ -174,7 +183,7 @@ async def test_playlist_status_basic(db):
     await db.flush()
 
     result = await playlist_status(playlist_id=playlist.id, session=db)
-    data = json.loads(result)
+    data = _parse(result)
 
     assert data["playlist_id"] == playlist.id
     assert data["name"] == "Test Playlist"
@@ -213,7 +222,7 @@ async def test_catalog_stats_no_filters(db):
     await db.flush()
 
     result = await catalog_stats(session=db)
-    data = json.loads(result)
+    data = _parse(result)
 
     assert data["total_tracks"] == 5
     assert data["filters_applied"]["mood"] is None
@@ -252,7 +261,7 @@ async def test_catalog_stats_with_mood_filter(db):
     from app.core.constants import TechnoSubgenre
 
     result = await catalog_stats(mood=TechnoSubgenre.DRIVING, session=db)
-    data = json.loads(result)
+    data = _parse(result)
 
     assert data["total_tracks"] == 2
     assert data["filters_applied"]["mood"] == "driving"
@@ -284,7 +293,7 @@ async def test_catalog_stats_with_bpm_range(db):
     await db.flush()
 
     result = await catalog_stats(bpm_min=130.0, bpm_max=140.0, session=db)
-    data = json.loads(result)
+    data = _parse(result)
 
     assert data["total_tracks"] == 3  # 130, 135, 140
     assert data["filters_applied"]["bpm_min"] == 130.0

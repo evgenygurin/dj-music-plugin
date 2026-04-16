@@ -16,7 +16,7 @@ ToolCategoryLiteral = Literal[
     "ym",
     "admin",
     "audio",
-    "atomic",
+    "memory",
 ]
 
 

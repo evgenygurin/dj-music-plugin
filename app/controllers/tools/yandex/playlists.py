@@ -1,21 +1,16 @@
-"""Yandex Music playlist operations.
-
-Action-parameterised tool ``ym_playlists`` dispatches to named handlers
-via :class:`~app.controllers.tools._shared.ActionDispatcher` (Command + Registry
-pattern). Adding a new action is a pure addition — no ``if/elif`` edit
-required, and duplicate registrations fail loudly at import time.
-"""
+"""Yandex Music playlist tools; ``ym_playlists`` dispatches CRUD/track actions via ActionDispatcher."""
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Annotated, Any, Literal
 
 from fastmcp.dependencies import Depends
 from fastmcp.exceptions import ToolError
 from fastmcp.tools import tool
+from pydantic import Field
 
 from app.config import settings
-from app.controllers.dependencies import get_ym_client
+from app.controllers.dependencies.external import get_music_provider
 from app.controllers.tools._shared import (
     ANNOTATIONS_WRITE_OPEN_WORLD,
     ICON_YM,
@@ -24,11 +19,14 @@ from app.controllers.tools._shared import (
     ToolCategory,
     UnknownActionError,
 )
-from app.controllers.tools.yandex._constants import (
-    MAX_PLAYLIST_TRACKS_PAGE,
-)
+from app.controllers.tools.yandex._constants import MAX_PLAYLIST_TRACKS_PAGE
 from app.core.utils.parsing import ensure_list
-from app.ym.client import YandexMusicClient
+from app.providers.protocol import MusicProvider
+from app.schemas.ym_responses import YMPlaylistActionResult
+
+PlaylistAction = Literal[
+    "list", "get", "get_tracks", "create", "rename", "delete", "add_tracks", "remove_tracks"
+]
 
 _dispatcher: ActionDispatcher[dict[str, Any]] = ActionDispatcher()
 
@@ -51,13 +49,18 @@ def _require_track_ids(track_ids: list[str] | None, action: str) -> list[str]:
     return track_ids
 
 
+def _playlist_id(kind: int) -> str:
+    """Format YM playlist ID as ``owner_id:kind`` for the provider adapter."""
+    return f"{settings.ym_user_id}:{kind}"
+
+
 @_dispatcher.register("list")
 async def _list(
     *,
-    ym: YandexMusicClient,
+    provider: MusicProvider,
     **_: Any,
 ) -> dict[str, Any]:
-    playlists = await ym.list_user_playlists()
+    playlists = await provider.list_user_playlists()
     return {"action": "list", "playlists": [p.model_dump() for p in playlists]}
 
 
@@ -65,10 +68,10 @@ async def _list(
 async def _get(
     *,
     kind: int | None,
-    ym: YandexMusicClient,
+    provider: MusicProvider,
     **_: Any,
 ) -> dict[str, Any]:
-    pl = await ym.get_playlist(settings.ym_user_id, _require_kind(kind, "get"))
+    pl = await provider.get_playlist(_playlist_id(_require_kind(kind, "get")))
     return {"action": "get", "playlist": pl.model_dump()}
 
 
@@ -76,7 +79,7 @@ async def _get(
 async def _get_tracks(
     *,
     kind: int | None,
-    ym: YandexMusicClient,
+    provider: MusicProvider,
     limit: int | None = None,
     offset: int = 0,
     **_: Any,
@@ -88,7 +91,7 @@ async def _get_tracks(
         MAX_PLAYLIST_TRACKS_PAGE if limit is None else min(max(limit, 1), MAX_PLAYLIST_TRACKS_PAGE)
     )
 
-    tracks = await ym.get_playlist_tracks(settings.ym_user_id, resolved_kind)
+    tracks = await provider.get_playlist_tracks(_playlist_id(resolved_kind))
     total = len(tracks)
     page = tracks[offset : offset + page_size]
     next_offset = offset + len(page)
@@ -104,9 +107,7 @@ async def _get_tracks(
             {
                 "id": t.id,
                 "title": t.title,
-                "artists": [
-                    a.get("name", "") if isinstance(a, dict) else a.name for a in (t.artists or [])
-                ],
+                "artists": [a.name for a in t.artists],
             }
             for t in page
         ],
@@ -119,10 +120,10 @@ async def _get_tracks(
 async def _create(
     *,
     name: str | None,
-    ym: YandexMusicClient,
+    provider: MusicProvider,
     **_: Any,
 ) -> dict[str, Any]:
-    pl = await ym.create_playlist(_require_name(name, "create"))
+    pl = await provider.create_playlist(_require_name(name, "create"))
     return {"action": "create", "playlist": pl.model_dump()}
 
 
@@ -131,12 +132,12 @@ async def _rename(
     *,
     kind: int | None,
     name: str | None,
-    ym: YandexMusicClient,
+    provider: MusicProvider,
     **_: Any,
 ) -> dict[str, Any]:
     resolved_kind = _require_kind(kind, "rename")
     resolved_name = _require_name(name, "rename")
-    await ym.rename_playlist(resolved_kind, resolved_name)
+    await provider.rename_playlist(_playlist_id(resolved_kind), resolved_name)
     return {"action": "rename", "kind": resolved_kind, "new_name": resolved_name}
 
 
@@ -144,11 +145,11 @@ async def _rename(
 async def _delete(
     *,
     kind: int | None,
-    ym: YandexMusicClient,
+    provider: MusicProvider,
     **_: Any,
 ) -> dict[str, Any]:
     resolved_kind = _require_kind(kind, "delete")
-    await ym.delete_playlist(resolved_kind)
+    await provider.delete_playlist(_playlist_id(resolved_kind))
     return {"action": "delete", "kind": resolved_kind}
 
 
@@ -157,17 +158,14 @@ async def _add_tracks(
     *,
     kind: int | None,
     track_ids: list[str] | None,
-    revision: int | None,
-    ym: YandexMusicClient,
+    provider: MusicProvider,
     **_: Any,
 ) -> dict[str, Any]:
     resolved_kind = _require_kind(kind, "add_tracks")
     resolved_ids = _require_track_ids(track_ids, "add_tracks")
-    if revision is None:
-        raise ToolError("revision required for action 'add_tracks'")
-    resolved_with_albums = await ym.resolve_track_ids_with_albums(resolved_ids)
-    result = await ym.add_tracks_to_playlist(resolved_kind, resolved_with_albums, revision)
-    return {"action": "add_tracks", "kind": resolved_kind, "result": result}
+    # Revision is managed internally by the provider adapter.
+    await provider.add_tracks_to_playlist(_playlist_id(resolved_kind), resolved_ids)
+    return {"action": "add_tracks", "kind": resolved_kind, "result": True}
 
 
 @_dispatcher.register("remove_tracks")
@@ -175,40 +173,13 @@ async def _remove_tracks(
     *,
     kind: int | None,
     track_ids: list[str] | None,
-    revision: int | None,
-    ym: YandexMusicClient,
+    provider: MusicProvider,
     **_: Any,
 ) -> dict[str, Any]:
     resolved_kind = _require_kind(kind, "remove_tracks")
     resolved_ids = _require_track_ids(track_ids, "remove_tracks")
-
-    pl_tracks = await ym.get_playlist_tracks(settings.ym_user_id, resolved_kind)
-    rev: int = revision or 0
-
-    id_to_indices: dict[str, list[int]] = {}
-    for idx, t in enumerate(pl_tracks):
-        if t.id in resolved_ids:
-            id_to_indices.setdefault(t.id, []).append(idx)
-
-    not_found = [tid for tid in resolved_ids if tid not in id_to_indices]
-    indices_to_remove = sorted(
-        [idx for indices in id_to_indices.values() for idx in indices],
-        reverse=True,
-    )
-
-    removed = 0
-    for idx in indices_to_remove:
-        result_data = await ym.remove_tracks_from_playlist(resolved_kind, idx, idx + 1, rev)
-        rev = result_data.get("revision", rev + 1)
-        removed += 1
-
-    return {
-        "action": "remove_tracks",
-        "kind": resolved_kind,
-        "removed": removed,
-        "not_found": not_found,
-        "revision": rev,
-    }
+    await provider.remove_tracks_from_playlist(_playlist_id(resolved_kind), resolved_ids)
+    return {"action": "remove_tracks", "kind": resolved_kind, "removed": len(resolved_ids)}
 
 
 @tool(
@@ -219,35 +190,44 @@ async def _remove_tracks(
     meta=TOOL_META,
 )
 async def ym_playlists(
-    action: str = "list",
-    kind: int | None = None,
-    name: str | None = None,
-    track_ids: Any = None,
-    revision: int | None = None,
-    limit: int | None = None,
-    offset: int = 0,
-    ym: YandexMusicClient = Depends(get_ym_client),  # noqa: B008
-) -> dict[str, Any]:
-    """Consolidated playlist operations on Yandex Music.
-
-    ``action`` ∈ ``{get, get_tracks, list, create, rename, delete,
-    add_tracks, remove_tracks}``. ``limit``/``offset`` apply only to
-    ``get_tracks`` and page through the playlist (default page size is
-    :data:`MAX_PLAYLIST_TRACKS_PAGE`) so very large playlists never
-    blow up the response budget. ``count`` is always the total length;
-    ``next_offset`` and ``truncated`` describe the next page.
-    """
+    action: Annotated[PlaylistAction, Field(description="Operation to perform")] = "list",
+    kind: Annotated[
+        int | None,
+        Field(
+            description="YM playlist number (from list action); required for get/get_tracks/rename/delete/add_tracks/remove_tracks"
+        ),
+    ] = None,
+    name: Annotated[
+        str | None, Field(description="Playlist name — required for create/rename")
+    ] = None,
+    track_ids: Annotated[
+        str | list[str] | None,
+        Field(description="YM track ID(s) — required for add_tracks/remove_tracks"),
+    ] = None,
+    revision: Annotated[
+        int | None,
+        Field(description="Ignored — revision is managed automatically by the provider adapter"),
+    ] = None,
+    limit: Annotated[
+        int | None,
+        Field(description="Page size for get_tracks (max 200)", ge=1, le=MAX_PLAYLIST_TRACKS_PAGE),
+    ] = None,
+    offset: Annotated[int, Field(description="Offset for get_tracks pagination", ge=0)] = 0,
+    provider: MusicProvider = Depends(get_music_provider),  # noqa: B008
+) -> YMPlaylistActionResult:
+    """List and mutate user playlists on Yandex Music (tracks, revisions, kinds). Use when exporting to YM, renaming playlists, or paging playlist tracks."""
+    del revision  # revision is now managed internally by the provider adapter
     ids = ensure_list(track_ids) or None
     try:
-        return await _dispatcher.dispatch(
+        raw = await _dispatcher.dispatch(
             action,
             kind=kind,
             name=name,
             track_ids=ids,
-            revision=revision,
             limit=limit,
             offset=offset,
-            ym=ym,
+            provider=provider,
         )
     except UnknownActionError as e:
         raise ToolError(str(e)) from e
+    return YMPlaylistActionResult(**raw)

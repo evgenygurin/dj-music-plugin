@@ -20,10 +20,10 @@ from pathlib import Path
 # Add project root to path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+from app.clients.ym.client import YandexMusicClient
+from app.clients.ym.models import YMTrack
+from app.clients.ym.rate_limiter import RateLimiter
 from app.config import Settings
-from app.ym.client import YandexMusicClient
-from app.ym.models import YMTrack
-from app.ym.rate_limiter import RateLimiter
 
 logging.basicConfig(
     level=logging.INFO,

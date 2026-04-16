@@ -6,7 +6,7 @@ from app.entities.audio.features import TrackFeatures
 from app.optimization.fitness import transition_quality
 from app.templates import get_template
 from app.transition.intent import TransitionIntent
-from app.transition.score import TransitionScore
+from app.transition.models import TransitionScore
 
 
 class _CaptureScorer:

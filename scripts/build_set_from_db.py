@@ -29,8 +29,8 @@ log = logging.getLogger("build_set")
 import httpx
 
 from app.entities.audio.features import TrackFeatures
+from app.transition.recommender import TransitionRecommender
 from app.transition.scorer import TransitionScorer
-from app.transition.style import recommend_style, style_profile
 
 
 def _load_supabase_creds() -> tuple[str, str]:
@@ -320,6 +320,7 @@ def main(args: argparse.Namespace) -> None:
     # Step 3: Greedy chain build with TransitionScorer
     log.info("Building greedy chain with 6-component TransitionScorer...")
     scorer = TransitionScorer()
+    recommender = TransitionRecommender()
     chain = _greedy_build(features, scorer)
     log.info("Chain built: %d tracks", len(chain))
 
@@ -352,8 +353,7 @@ def main(args: argparse.Namespace) -> None:
         if i > 0:
             prev = features[chain[i - 1]]
             score = scorer.score(prev, f)
-            style = recommend_style(score)
-            profile = style_profile(style)
+            rec = recommender.recommend(score, prev, f)
 
             if score.hard_reject:
                 hard_conflicts += 1
@@ -365,7 +365,8 @@ def main(args: argparse.Namespace) -> None:
                 total_score += score.overall
                 min_score = min(min_score, score.overall)
                 log.info(
-                    "       ↑ %.3f [bpm=%.2f harm=%.2f ener=%.2f spec=%.2f grv=%.2f tmb=%.2f] → %s (%d bars)",
+                    "       ↑ %.3f [bpm=%.2f harm=%.2f ener=%.2f spec=%.2f grv=%.2f tmb=%.2f] "
+                    "→ fx=%s",
                     score.overall,
                     score.bpm,
                     score.harmonic,
@@ -373,8 +374,7 @@ def main(args: argparse.Namespace) -> None:
                     score.spectral,
                     score.groove,
                     score.timbral,
-                    style.name,
-                    profile["bars"],
+                    rec.fx_type.value,
                 )
 
             transition_details.append(
@@ -382,7 +382,7 @@ def main(args: argparse.Namespace) -> None:
                     "from": titles.get(chain[i - 1], "?"),
                     "to": title,
                     "score": score,
-                    "style": style,
+                    "rec": rec,
                 }
             )
 

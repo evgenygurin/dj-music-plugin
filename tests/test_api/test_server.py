@@ -7,12 +7,11 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
 import pytest
-from fastapi.responses import Response
 from fastapi.testclient import TestClient
 
 from app.api.server import api
-from app.api.services.tool_registry import ToolRegistry
 from app.api.state import build_api_runtime
+from app.api.tool_registry import ToolRegistry
 from app.server import mcp
 
 
@@ -135,22 +134,6 @@ def test_call_tool_executes_and_preserves_response_shape(
     }
 
 
-def test_audio_stream_route_delegates_to_proxy(api_client) -> None:
-    client, runtime = api_client
-    runtime.ym_audio_proxy.stream = AsyncMock(
-        return_value=Response(content=b"audio-bytes", media_type="audio/mpeg")
-    )
-
-    response = client.get("/api/audio/stream/123")
-
-    assert response.status_code == 200
-    assert response.content == b"audio-bytes"
-    runtime.ym_audio_proxy.stream.assert_awaited_once_with(
-        ym_track_id="123",
-        range_header=None,
-    )
-
-
 def test_openapi_keeps_critical_routes_and_examples(api_client) -> None:
     client, _runtime = api_client
 
@@ -165,8 +148,8 @@ def test_openapi_keeps_critical_routes_and_examples(api_client) -> None:
     examples = payload["paths"]["/api/tools/{tool_name}/call"]["post"]["requestBody"]["content"][
         "application/json"
     ]["examples"]
-    assert "build_set" in examples
-    assert examples["build_set"]["value"]["arguments"]["algorithm"] == "ga"
+    assert "commit_set_version" in examples
+    assert examples["commit_set_version"]["value"]["arguments"]["name"] == "Peak Hour 60"
 
 
 def test_mcp_mount_is_present(api_client) -> None:

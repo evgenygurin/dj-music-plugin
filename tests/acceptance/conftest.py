@@ -14,9 +14,11 @@ from fastmcp.server.lifespan import lifespan
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
 from app.audio.analyzers import AnalyzerRegistry
+from app.clients.ym.models import YMPlaylist, YMTrack
+from app.core.constants import Provider
 from app.core.utils.cache import TransitionCache
+from app.providers.models import ProviderArtist, ProviderTrack
 from app.server import mcp
-from app.ym.models import YMPlaylist, YMTrack
 
 
 @dataclass
@@ -49,13 +51,36 @@ def make_ym_track(
     album_title: str = "Acceptance Album",
     duration_ms: int = 180000,
 ) -> YMTrack:
-    """Create a deterministic YM track fixture."""
+    """Create a deterministic YM track fixture (legacy dict-style)."""
     return YMTrack(
         id=track_id,
         title=title,
         duration_ms=duration_ms,
         artists=[{"name": artist}],
         albums=[{"id": album_id, "title": album_title, "genre": "techno", "year": 2024}],
+    )
+
+
+def make_provider_track(
+    track_id: str,
+    title: str,
+    *,
+    artist: str = "Acceptance Artist",
+    album_id: str = "9001",
+    album_title: str = "Acceptance Album",
+    album_genre: str = "techno",
+    duration_ms: int = 180000,
+) -> ProviderTrack:
+    """Create a deterministic ProviderTrack fixture for MusicProvider mocks."""
+    return ProviderTrack(
+        id=track_id,
+        title=title,
+        duration_ms=duration_ms,
+        artists=[ProviderArtist(id="1", name=artist, provider=Provider.YANDEX_MUSIC)],
+        album_id=album_id,
+        album_title=album_title,
+        album_genre=album_genre,
+        provider=Provider.YANDEX_MUSIC,
     )
 
 
@@ -145,8 +170,10 @@ async def acceptance_harness(async_engine) -> AcceptanceHarness:  # type: ignore
     ym_mock.resolve_track_ids_with_albums = AsyncMock(side_effect=lambda ids: ids)
     ym_mock.close = AsyncMock()
 
-    async def _download_track(ym_track_id: str, dest_path: str, prefer_bitrate: int = 320) -> int:
-        del ym_track_id, prefer_bitrate
+    async def _download_track(
+        track_id: str, dest_path: str | Path, *args: object, **kwargs: object
+    ) -> int:
+        del track_id, args, kwargs
         path = Path(dest_path)
         path.parent.mkdir(parents=True, exist_ok=True)
         payload = b"0" * 4096
@@ -155,12 +182,23 @@ async def acceptance_harness(async_engine) -> AcceptanceHarness:  # type: ignore
 
     ym_mock.download_track = AsyncMock(side_effect=_download_track)
 
+    # Build a mock ProviderRegistry that wraps the ym_mock
+    from app.providers.registry import ProviderRegistry
+
+    provider_registry = ProviderRegistry()
+    # ym_mock acts as both raw client and provider for tests
+    ym_mock.provider = "yandex_music"
+    ym_mock.get_stream_url = AsyncMock(return_value="https://fake.cdn/track.mp3")
+    provider_registry._providers = {"yandex_music": ym_mock}  # type: ignore[dict-item]
+    provider_registry._default = "yandex_music"  # type: ignore[assignment]
+
     @lifespan
     async def _test_lifespan(server):  # type: ignore[no-untyped-def]
         yield {
             "db_engine": async_engine,
             "db_session_factory": factory,
             "ym_client": ym_mock,
+            "provider_registry": provider_registry,
             "analyzer_registry": registry,
             "transition_cache": cache,
         }

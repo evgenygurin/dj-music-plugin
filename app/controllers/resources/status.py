@@ -7,7 +7,7 @@ Resources:
 
 from __future__ import annotations
 
-import json
+from typing import Any
 
 from fastmcp.dependencies import Depends
 from fastmcp.resources import resource
@@ -44,7 +44,7 @@ from app.db.models.track import Track
 )
 async def library_status(
     session: AsyncSession = Depends(get_db_session),  # noqa: B008
-) -> str:
+) -> dict[str, Any]:
     """Get library health statistics.
 
     Returns JSON with:
@@ -118,7 +118,7 @@ async def library_status(
         "health": health,
     }
 
-    return json.dumps(data, indent=2)
+    return data
 
 
 @resource(
@@ -134,7 +134,7 @@ async def library_status(
 )
 async def platforms_status(
     session: AsyncSession = Depends(get_db_session),  # noqa: B008
-) -> str:
+) -> dict[str, Any]:
     """Get platform connectivity status.
 
     Returns JSON with platform-specific stats:
@@ -190,4 +190,4 @@ async def platforms_status(
 
     data = {"platforms": platforms, "total_platforms": len(Provider)}
 
-    return json.dumps(data, indent=2)
+    return data

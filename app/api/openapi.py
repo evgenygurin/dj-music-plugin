@@ -55,33 +55,21 @@ CALL_EXAMPLES: dict[str, dict[str, Any]] = {
         "summary": "list_tracks — первые 10 треков",
         "value": {"arguments": {"limit": 10}},
     },
-    "search": {
-        "summary": "search — найти треки по запросу",
+    "search_library": {
+        "summary": "search_library — найти треки по запросу",
         "value": {"arguments": {"query": "techno", "entity": "tracks", "limit": 20}},
-    },
-    "filter_tracks": {
-        "summary": "filter_tracks — по BPM и тональности",
-        "value": {
-            "arguments": {
-                "bpm_min": 125,
-                "bpm_max": 132,
-                "key": "8A",
-                "limit": 20,
-            }
-        },
     },
     "ym_get_tracks": {
         "summary": "ym_get_tracks — batch fetch по YM IDs",
         "value": {"arguments": {"track_ids": ["54486493", "55516369"]}},
     },
-    "build_set": {
-        "summary": "build_set — собрать сет из плейлиста",
+    "commit_set_version": {
+        "summary": "commit_set_version — сохранить курируемый ИИ порядок треков",
         "value": {
             "arguments": {
-                "playlist_id": 1,
                 "name": "Peak Hour 60",
+                "track_ids": [101, 102, 103],
                 "template": "peak_hour_60",
-                "algorithm": "ga",
             }
         },
     },

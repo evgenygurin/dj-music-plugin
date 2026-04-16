@@ -21,7 +21,7 @@ def test_tool_category_values_match_legacy_tag_strings() -> None:
     assert ToolCategory.SYNC.value == "sync"
     assert ToolCategory.YM.value == "ym"
     assert ToolCategory.AUDIO.value == "audio"
-    assert ToolCategory.ATOMIC.value == "atomic"
+    assert ToolCategory.MEMORY.value == "memory"
     assert ToolCategory.ADMIN.value == "admin"
 
 

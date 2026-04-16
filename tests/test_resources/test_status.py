@@ -1,8 +1,16 @@
 """Tests for status resources (status://library, status://platforms)."""
 
 import json
+from typing import Any
 
 import pytest
+
+
+def _parse(result: str | dict[str, Any]) -> dict[str, Any]:
+    if isinstance(result, dict):
+        return result
+    return json.loads(result)
+
 
 from app.controllers.resources.status import library_status, platforms_status
 from app.core.constants import Provider
@@ -15,7 +23,7 @@ from app.db.models.track import Track
 async def test_library_status_empty(db):
     """Test library status with no tracks."""
     result = await library_status(session=db)
-    data = json.loads(result)
+    data = _parse(result)
 
     assert data["total_tracks"] == 0
     assert data["active_tracks"] == 0
@@ -63,7 +71,7 @@ async def test_library_status_with_tracks(db):
     await db.flush()
 
     result = await library_status(session=db)
-    data = json.loads(result)
+    data = _parse(result)
 
     assert data["total_tracks"] == 3
     assert data["active_tracks"] == 2
@@ -103,7 +111,7 @@ async def test_library_status_good_health(db):
     await db.flush()
 
     result = await library_status(session=db)
-    data = json.loads(result)
+    data = _parse(result)
 
     assert data["total_tracks"] == 10
     assert data["tracks_with_features"] == 9
@@ -115,7 +123,7 @@ async def test_library_status_good_health(db):
 async def test_platforms_status_empty(db):
     """Test platforms status with no linked tracks."""
     result = await platforms_status(session=db)
-    data = json.loads(result)
+    data = _parse(result)
 
     assert data["total_platforms"] == len(Provider)
     assert len(data["platforms"]) == 4
@@ -154,7 +162,7 @@ async def test_platforms_status_with_links(db):
     await db.flush()
 
     result = await platforms_status(session=db)
-    data = json.loads(result)
+    data = _parse(result)
 
     # Find YM platform
     ym_platform = next(

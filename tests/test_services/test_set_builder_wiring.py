@@ -52,7 +52,7 @@ def test_optimize_order_passes_template_and_moods_to_ga(monkeypatch) -> None:
         _feature(bpm=136.0, mood="industrial"),
     ]
 
-    order, quality, algo = SetBuilderService._optimize_order(
+    order, quality, algo = SetBuilderService._optimize_order_sync(
         track_ids,
         track_features,
         "ga",
@@ -106,7 +106,7 @@ def test_optimize_order_gracefully_ignores_unknown_template(monkeypatch) -> None
         _feature(bpm=130.0, mood="progressive"),
     ]
 
-    order, quality, algo = SetBuilderService._optimize_order(
+    order, quality, algo = SetBuilderService._optimize_order_sync(
         track_ids,
         track_features,
         "greedy",

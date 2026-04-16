@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from app.config import settings
 from app.entities.audio.features import TrackFeatures
-from app.transition.hard_constraints import check_hard_constraints
+from app.transition.scorer import check_hard_constraints
 
 
 def _features(**overrides: object) -> TrackFeatures:

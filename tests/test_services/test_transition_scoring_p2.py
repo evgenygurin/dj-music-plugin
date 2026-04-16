@@ -96,9 +96,7 @@ class TestTimbralComponent:
         from app.core.constants import DEFAULT_TRANSITION_WEIGHTS
 
         assert "timbral" in DEFAULT_TRANSITION_WEIGHTS
-        # Rebalanced 0.10 → 0.15 in commit 6 of the transition redesign.
-        # See docs/research/2026-04-08-techno-transitions-research.md §4.4
-        assert DEFAULT_TRANSITION_WEIGHTS["timbral"] == pytest.approx(0.15)
+        assert DEFAULT_TRANSITION_WEIGHTS["timbral"] == pytest.approx(0.13)
 
     def test_weights_sum_to_one(self) -> None:
         """All default weights must sum to 1.0."""

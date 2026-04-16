@@ -8,11 +8,12 @@ entity resolution, parsing and taxonomy live in
 from __future__ import annotations
 
 import json
-from typing import Any
+from typing import Annotated, Any, Literal
 
 from fastmcp.dependencies import Depends
 from fastmcp.exceptions import ToolError
 from fastmcp.tools import tool
+from pydantic import Field
 
 from app.controllers.dependencies import get_feature_repo, get_track_service
 from app.controllers.tools._shared import (
@@ -29,7 +30,7 @@ from app.db.repositories.feature import FeatureRepository
 from app.schemas import PaginatedResponse, TrackBrief, TrackStandard
 from app.services.track_service import TrackService
 
-_TRACK_ACTIONS = frozenset({"create", "update", "archive", "unarchive"})
+TrackManageAction = Literal["create", "update", "archive", "unarchive"]
 
 
 def _parse_json(value: str | None) -> Any:
@@ -51,19 +52,16 @@ def _parse_json(value: str | None) -> Any:
 )
 @map_domain_errors
 async def list_tracks(
-    limit: int = 20,
-    cursor: str | None = None,
-    bpm_min: float | None = None,
-    bpm_max: float | None = None,
+    limit: Annotated[int, Field(description="Page size", ge=1)] = 20,
+    cursor: Annotated[
+        str | None, Field(description="Pagination cursor from previous page")
+    ] = None,
+    bpm_min: Annotated[float | None, Field(description="Minimum BPM filter")] = None,
+    bpm_max: Annotated[float | None, Field(description="Maximum BPM filter")] = None,
     svc: TrackService = Depends(get_track_service),  # noqa: B008
     feat_repo: FeatureRepository = Depends(get_feature_repo),  # noqa: B008
 ) -> PaginatedResponse[TrackBrief]:
-    """List tracks with optional filters and cursor pagination.
-
-    BPM and Camelot key are populated from a single batched
-    ``FeatureRepository.get_features_batch`` query — no per-track N+1
-    lookup.
-    """
+    """Lists tracks with optional BPM bounds and cursor pagination. Use when exploring the catalog or narrowing candidates by tempo."""
     if bpm_min is not None or bpm_max is not None:
         page = await svc.filter_by_features(
             bpm_min=bpm_min, bpm_max=bpm_max, limit=limit, cursor=cursor
@@ -98,11 +96,11 @@ async def list_tracks(
 )
 @map_domain_errors
 async def get_track(
-    id: int | None = None,
-    query: str | None = None,
+    id: Annotated[int | None, Field(description="Local track ID")] = None,
+    query: Annotated[str | None, Field(description="Text search to resolve track")] = None,
     svc: TrackService = Depends(get_track_service),  # noqa: B008
 ) -> TrackStandard:
-    """Get full track details by id or text query."""
+    """Returns full track details resolved by local id or text search. Use when you need complete metadata for one specific track."""
     track_id = await resolve_track_id(entity_id=id, query=query, search=svc.search)
     track, features = await svc.get_with_features(track_id)
     artist_map = await svc.get_artist_names_batch([track_id])
@@ -118,16 +116,13 @@ async def get_track(
 )
 @map_domain_errors
 async def manage_tracks(
-    action: str,
-    data: Any = None,
+    action: Annotated[TrackManageAction, Field(description="Operation to perform")],
+    data: Annotated[
+        Any, Field(description="Dict with 'title' (create) or 'id' + fields (update/archive)")
+    ] = None,
     svc: TrackService = Depends(get_track_service),  # noqa: B008
 ) -> TrackStandard:
-    """Create, update, archive or unarchive a track.
-
-    ``action`` ∈ ``{create, update, archive, unarchive}``.
-    """
-    if action not in _TRACK_ACTIONS:
-        raise ToolError(f"Unknown action: {action}")
+    """Creates, updates, archives, or unarchives a track from an action and payload. Use when curating the library or correcting a single track record."""
 
     data_dict = ensure_dict(data)
 
@@ -163,14 +158,17 @@ async def manage_tracks(
 )
 @map_domain_errors
 async def get_track_features(
-    id: int | None = None,
-    query: str | None = None,
-    include_sections: bool = False,
+    id: Annotated[int | None, Field(description="Local track ID")] = None,
+    track_id: Annotated[int | None, Field(description="Local track ID (alias for id)")] = None,
+    query: Annotated[str | None, Field(description="Text search to resolve track")] = None,
+    include_sections: Annotated[
+        bool, Field(description="Include phrase/section breakdown when available")
+    ] = False,
     svc: TrackService = Depends(get_track_service),  # noqa: B008
 ) -> dict[str, Any]:
-    """Get audio features for a track by id or query. Optionally include sections."""
-    track_id = await resolve_track_id(entity_id=id, query=query, search=svc.search)
-    track, features = await svc.get_with_features(track_id)
+    """Returns analyzed audio features for a track resolved by id or query, optionally including phrase sections. Use when planning mixes, scoring transitions, or auditing analysis output."""
+    resolved_id = await resolve_track_id(entity_id=id or track_id, query=query, search=svc.search)
+    track, features = await svc.get_with_features(resolved_id)
 
     if features is None:
         return {"track_id": track.id, "title": track.title, "has_features": False}

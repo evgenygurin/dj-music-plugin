@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import asyncio
+import contextlib
 import json as _json
 from typing import Any
 
@@ -62,7 +64,7 @@ class SetBuilderService:
         features_map = await self._features.get_scoring_features_batch(track_ids)
         track_features_list = [features_map.get(tid, TrackFeatures()) for tid in track_ids]
 
-        optimized_order, quality, used_algorithm = self._optimize_order(
+        optimized_order, quality, used_algorithm = await self._optimize_order(
             track_ids,
             track_features_list,
             algorithm,
@@ -117,7 +119,7 @@ class SetBuilderService:
         features_map = await self._features.get_scoring_features_batch(track_ids)
         track_features_list = [features_map.get(tid, TrackFeatures()) for tid in track_ids]
 
-        optimized_order, quality, used_algorithm = self._optimize_order(
+        optimized_order, quality, used_algorithm = await self._optimize_order(
             track_ids,
             track_features_list,
             algorithm,
@@ -157,7 +159,7 @@ class SetBuilderService:
         # comparable to build_set.
         features_map = await self._features.get_scoring_features_batch(filtered)
         track_features_list = [features_map.get(tid, TrackFeatures()) for tid in filtered]
-        optimized_order, quality, _ = self._optimize_order(
+        optimized_order, quality, _ = await self._optimize_order(
             filtered,
             track_features_list,
             algorithm,
@@ -186,13 +188,13 @@ class SetBuilderService:
     # ── Private ──────────────────────────────────────
 
     @staticmethod
-    def _optimize_order(
+    def _optimize_order_sync(
         track_ids: list[int],
         track_features_list: list[TrackFeatures],
         algorithm: str,
         template_name: str | None = None,
     ) -> tuple[list[int], float | None, str]:
-        """Run optimizer and return (ordered_ids, quality_score, algorithm_used)."""
+        """Run optimizer synchronously — call via _optimize_order_async from async context."""
         from app.optimization.genetic import GeneticAlgorithm
         from app.optimization.greedy import GreedyChainBuilder
 
@@ -231,6 +233,106 @@ class SetBuilderService:
             )
 
         return opt_result.track_order, opt_result.quality_score, algorithm
+
+    @classmethod
+    async def _optimize_order(
+        cls,
+        track_ids: list[int],
+        track_features_list: list[TrackFeatures],
+        algorithm: str,
+        template_name: str | None = None,
+    ) -> tuple[list[int], float | None, str]:
+        """Async wrapper: runs the CPU-bound optimizer in a thread pool.
+
+        Prevents blocking the asyncio event loop during GA/greedy computation,
+        which would otherwise starve the MCP stdio transport and cause disconnects.
+        """
+        return await asyncio.to_thread(
+            cls._optimize_order_sync,
+            track_ids,
+            track_features_list,
+            algorithm,
+            template_name,
+        )
+
+    # ── Declarative commit (AI-curated order) ────────
+
+    async def commit_version(
+        self,
+        name: str,
+        track_ids: list[int],
+        *,
+        set_id: int | None = None,
+        template: str | None = None,
+        target_duration_min: int | None = None,
+        version_label: str | None = None,
+    ) -> tuple[DjSet, SetVersion, float | None]:
+        """Persist an AI-curated track order as a new set version.
+
+        No optimizer is run — the AI is responsible for the ordering.
+        ``preview_arc`` is computed for informational quality_score only.
+
+        Returns (dj_set, version, quality_score).
+        """
+        if set_id is not None:
+            existing = await self._sets.get_by_id(set_id)
+            if existing is None:
+                raise ValidationError(f"Set {set_id} not found")
+            dj_set = existing
+        else:
+            if not name:
+                raise ValidationError("name is required")
+            dj_set = DjSet(
+                name=name,
+                target_duration_ms=(target_duration_min * 60_000) if target_duration_min else None,
+                template_name=template,
+            )
+            dj_set = await self._sets.create(dj_set)
+
+        if not track_ids:
+            raise ValidationError("track_ids must not be empty")
+
+        # Compute quality score via preview_arc (non-blocking, informational)
+        quality: float | None = None
+        try:
+            from app.optimization.preview import preview_arc
+            from app.templates.registry import get_template
+            from app.transition.scorer import TransitionScorer
+
+            features_map = await self._features.get_scoring_features_batch(track_ids)
+            if features_map:
+                template_def = None
+                if template:
+                    with contextlib.suppress(KeyError):
+                        template_def = get_template(template)
+                result = preview_arc(
+                    TransitionScorer(), features_map, track_ids, template=template_def
+                )
+                quality = result.score
+        except Exception:
+            pass  # score is informational
+
+        from app.core.utils.time import utc_timestamp_iso
+
+        gen_meta = _json.dumps(
+            {
+                "algorithm": "ai_curated",
+                "track_count": len(track_ids),
+                "template": template,
+                "target_duration_min": target_duration_min,
+                "timestamp": utc_timestamp_iso(),
+            }
+        )
+        label = version_label or "v1"
+        version = await self._sets.create_version(
+            dj_set.id, track_ids, label=label, gen_meta=gen_meta
+        )
+
+        if quality is not None:
+            version.quality_score = quality
+            await self._sets.session.flush()
+
+        return dj_set, version, quality
 
     # ── Library mode ─────────────────────────────────
 
@@ -289,7 +391,7 @@ class SetBuilderService:
         features_map = await self._features.get_scoring_features_batch(track_ids)
         track_features_list = [features_map.get(tid, TrackFeatures()) for tid in track_ids]
 
-        optimized_order, quality, used_algorithm = self._optimize_order(
+        optimized_order, quality, used_algorithm = await self._optimize_order(
             track_ids,
             track_features_list,
             algorithm,

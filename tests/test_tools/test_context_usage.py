@@ -42,46 +42,33 @@ async def test_context_available_in_list_tracks(client: Client):
 
 async def test_context_available_in_search(client: Client):
     """search can access Context via CurrentContext()."""
-    result = await client.call_tool("search", {"query": "test"})
+    result = await client.call_tool("search_library", {"query": "test"})
     data = _parse_result(result)
     assert "results" in data
 
 
-async def test_context_logging_in_build_set(client: Client, async_engine):
-    """build_set uses ctx.info() for progress logging."""
+async def test_context_logging_in_commit_set_version(client: Client, async_engine):
+    """commit_set_version persists AI-curated track order."""
     from sqlalchemy.ext.asyncio import async_sessionmaker
 
-    from app.db.models.playlist import Playlist
     from app.db.models.track import Track
 
     factory = async_sessionmaker(async_engine, expire_on_commit=False)
     async with factory() as session:
-        playlist = Playlist(name="Test Playlist", source_of_truth="local")
-        session.add(playlist)
-        await session.flush()
-        playlist_id = playlist.id
-
         track = Track(title="Test Track")
         session.add(track)
         await session.flush()
-
-        from app.db.models.playlist import PlaylistItem
-
-        item = PlaylistItem(playlist_id=playlist_id, track_id=track.id, sort_index=0)
-        session.add(item)
+        track_id = track.id
         await session.commit()
 
-    # Call build_set — should use ctx.info() internally
     result = await client.call_tool(
-        "build_set",
-        {
-            "playlist_id": playlist_id,
-            "name": "Test Set",
-            "algorithm": "greedy",
-        },
+        "commit_set_version",
+        {"track_ids": [track_id], "name": "Test Commit Set"},
     )
     data = _parse_result(result)
-    assert "set_id" in data or "error" not in data
+    assert "set_id" in data
+    assert "version_id" in data
+    assert data["track_count"] == 1
 
 
 async def test_context_visibility_in_unlock_tools(client: Client):

@@ -11,11 +11,12 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
+from app.clients.ym.filters import is_excluded_title
 from app.config import settings
 from app.core.errors import NotFoundError, ValidationError
 from app.db.repositories.track import TrackRepository
-from app.ym.client import YandexMusicClient
-from app.ym.filters import genre_ok, is_excluded_title, ym_track_summary
+from app.providers.models import ProviderTrack
+from app.providers.protocol import MusicProvider
 
 
 class DiscoveryService:
@@ -24,7 +25,7 @@ class DiscoveryService:
     def __init__(
         self,
         track_repo: TrackRepository,
-        ym: YandexMusicClient,
+        ym: MusicProvider,
     ) -> None:
         self._tracks = track_repo
         self._ym = ym
@@ -49,7 +50,7 @@ class DiscoveryService:
 
         # Fallback: search by title
         if not ym_id:
-            search_result = await self._ym.search(track.title, type="tracks", limit=1)
+            search_result = await self._ym.search(track.title, search_type="track", page_size=1)
             if search_result.tracks:
                 ym_id = search_result.tracks[0].id
             else:
@@ -103,17 +104,17 @@ class DiscoveryService:
         all_results = []
         for q in queries[:limit]:
             try:
-                sr = await self._ym.search(q, type="tracks", limit=3)
+                sr = await self._ym.search(q, search_type="track", page_size=3)
                 for t in sr.tracks:
-                    if not genre_ok(
-                        t.albums or [],
+                    if not _provider_genre_ok(
+                        t.album_genre,
                         whitelist=genre_filter_list,
                         blacklist=genre_blacklist_list,
                     ):
                         continue
                     if is_excluded_title(t.title, exclude_patterns_list):
                         continue
-                    all_results.append(ym_track_summary(t))
+                    all_results.append(_provider_track_summary(t))
             except Exception:
                 logger.debug("YM similar query failed for seed, skipping", exc_info=True)
                 continue
@@ -197,7 +198,7 @@ class DiscoveryService:
         _t0 = _time.monotonic()
 
         # 1. Fetch current playlist
-        current = await self._ym.get_playlist_tracks(settings.ym_user_id, ym_playlist_kind)
+        current = await self._ym.get_playlist_tracks(f"{settings.ym_user_id}:{ym_playlist_kind}")
         existing_ids = {t.id for t in current}
         need = max(0, target_count - len(current))
 
@@ -249,14 +250,14 @@ class DiscoveryService:
                     continue
                 if is_excluded_title(t.title, exclude_patterns_list):
                     continue
-                if not genre_ok(
-                    t.albums or [],
+                if not _provider_genre_ok(
+                    t.album_genre,
                     whitelist=genre_filter_list,
                     blacklist=genre_blacklist_list,
                 ):
                     continue
 
-                entry = ym_track_summary(t)
+                entry = _provider_track_summary(t)
                 entry["is_liked"] = t.id in liked
                 candidates.append(entry)
 
@@ -280,23 +281,15 @@ class DiscoveryService:
             }
 
         # 6. Batch add
-        playlist_info = await self._ym.get_playlist(settings.ym_user_id, ym_playlist_kind)
-        revision = playlist_info.revision or 1
         added = 0
         batch_size = settings.discovery_batch_size
+        playlist_id = f"{settings.ym_user_id}:{ym_playlist_kind}"
 
         for batch_start in range(0, len(to_add), batch_size):
             batch = to_add[batch_start : batch_start + batch_size]
-            track_ids_batch = [
-                f"{c['ym_id']}:{c['album_id']}" if c.get("album_id") else c["ym_id"] for c in batch
-            ]
+            track_ids_batch = [c["ym_id"] for c in batch]
             try:
-                result = await self._ym.add_tracks_to_playlist(
-                    ym_playlist_kind,
-                    track_ids_batch,
-                    revision,
-                )
-                revision = result.get("revision", revision + 1)
+                await self._ym.add_tracks_to_playlist(playlist_id, track_ids_batch)
                 added += len(batch)
             except Exception:
                 logger.warning("YM playlist modify failed, stopping batch add", exc_info=True)
@@ -318,7 +311,7 @@ class DiscoveryService:
 
 
 def _apply_discovery_filters(
-    tracks: list[Any],
+    tracks: list[ProviderTrack],
     limit: int,
     min_dur: int,
     max_dur: int,
@@ -334,13 +327,40 @@ def _apply_discovery_filters(
             continue
         if is_excluded_title(t.title, exclude_patterns_list):
             continue
-        if not genre_ok(
-            t.albums or [],
+        if not _provider_genre_ok(
+            t.album_genre,
             whitelist=genre_filter_list,
             blacklist=genre_blacklist_list,
         ):
             continue
-        filtered.append(ym_track_summary(t))
+        filtered.append(_provider_track_summary(t))
         if len(filtered) >= limit:
             break
     return filtered
+
+
+def _provider_track_summary(t: ProviderTrack) -> dict[str, Any]:
+    """Convert a ProviderTrack to a compact summary dict."""
+    return {
+        "ym_id": t.id,
+        "title": t.title,
+        "artists": t.artist_names,
+        "duration_ms": t.duration_ms,
+        "album_id": t.album_id or "",
+        "album_genre": t.album_genre or "",
+    }
+
+
+def _provider_genre_ok(
+    album_genre: str | None,
+    whitelist: list[str] | None = None,
+    blacklist: list[str] | None = None,
+) -> bool:
+    """Check album genre against whitelist/blacklist. None genre → pass."""
+    genre = (album_genre or "").lower()
+    if not genre:
+        return True
+    if whitelist:
+        return genre in [g.lower() for g in whitelist]
+    bad = blacklist or settings.discovery_bad_genres.split(",")
+    return genre not in [b.strip() for b in bad]

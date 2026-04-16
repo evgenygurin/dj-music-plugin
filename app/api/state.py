@@ -2,14 +2,13 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, cast
 
 from fastapi import FastAPI, Request
 
-from app.api.services.signed_url_cache import SignedUrlCache
-from app.api.services.tool_registry import ToolRegistry
-from app.api.services.ym_audio_proxy import YmAudioProxy
+from app.api.tool_registry import ToolRegistry
+from app.providers.registry import ProviderRegistry
 
 
 @dataclass
@@ -19,27 +18,18 @@ class ApiRuntimeState:
     mcp: Any
     mcp_app: Any
     tool_registry: ToolRegistry
-    signed_url_cache: SignedUrlCache
-    ym_audio_proxy: YmAudioProxy
     ym_client: Any | None = None
+    provider_registry: ProviderRegistry = field(default_factory=ProviderRegistry)
     mcp_ready: bool = False
 
 
 def build_api_runtime(mcp: Any) -> ApiRuntimeState:
     """Construct the runtime state for the FastAPI wrapper."""
-    signed_url_cache = SignedUrlCache()
-    runtime = ApiRuntimeState(
+    return ApiRuntimeState(
         mcp=mcp,
         mcp_app=mcp.http_app(path="/"),
         tool_registry=ToolRegistry.discover(),
-        signed_url_cache=signed_url_cache,
-        ym_audio_proxy=None,  # type: ignore[arg-type]
     )
-    runtime.ym_audio_proxy = YmAudioProxy(
-        signed_url_cache=signed_url_cache,
-        get_ym_client=lambda: runtime.ym_client,
-    )
-    return runtime
 
 
 def get_runtime(source: Request | FastAPI) -> ApiRuntimeState:

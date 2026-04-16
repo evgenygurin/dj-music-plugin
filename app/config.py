@@ -130,6 +130,37 @@ class Settings(BaseSettings):
     # suggestion. Set False to force the pre-refactor sequential behaviour.
     prefetch_on_suggest: bool = True
 
+    # ── Neural Mix recipe decision (djay Crossfader FX) ───────────────
+    recipe_drum_only_groove_cut_threshold: float = 0.80
+    recipe_drum_only_groove_swap_threshold: float = 0.60
+    recipe_spectral_collision_threshold: float = 0.45
+    recipe_harmonic_clash_threshold: float = 0.55
+    recipe_key_clash_bpm_floor: float = 0.85
+    recipe_key_clash_groove_floor: float = 0.50
+    recipe_key_clash_groove_strong: float = 0.70
+    recipe_energy_gap_score_threshold: float = 0.40
+    recipe_energy_drop_groove_floor: float = 0.60
+    recipe_energy_drop_bpm_floor: float = 0.85
+    recipe_drum_swap_groove_floor: float = 0.55
+    recipe_drum_swap_overall_floor: float = 0.55
+    recipe_ambient_groove_swap_floor: float = 0.60
+    recipe_hard_pair_overall_floor: float = 0.70
+    recipe_hard_pair_bpm_floor: float = 0.85
+    recipe_hard_pair_groove_floor: float = 0.65
+    recipe_acid_spectral_floor: float = 0.60
+    recipe_hypnotic_groove_floor: float = 0.70
+    recipe_vocal_spectral_centroid_hz_threshold: float = 2500.0
+    recipe_vocal_overlap_overall_floor: float = 0.75
+    recipe_perfect_bpm_floor: float = 0.95
+    recipe_perfect_harmonic_floor: float = 0.85
+    recipe_perfect_groove_floor: float = 0.75
+    recipe_high_overall_floor: float = 0.80
+    recipe_high_overall_groove_floor: float = 0.75
+    recipe_high_overall_bpm_floor: float = 0.90
+    recipe_mid_overall_floor: float = 0.65
+    recipe_mid_overall_groove_floor: float = 0.65
+    recipe_low_overall_floor: float = 0.50
+
     # ── Techno Quality Criteria ───────────────────────
     techno_bpm_min: float = 120.0
     techno_bpm_max: float = 155.0

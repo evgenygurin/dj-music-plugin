@@ -14,8 +14,8 @@ from app.transition.intent import infer_intent
 from app.transition.scorer import TransitionScorer
 
 _FITNESS_WEIGHTS = {
-    "transition": 0.35,
-    "bpm_smooth": 0.20,
+    "transition": 0.40,
+    "bpm_smooth": 0.15,
     "energy_arc": 0.20,
     "variety": 0.10,
     "template": 0.15,
@@ -48,7 +48,10 @@ def transition_quality(
         energy_delta = (b.integrated_lufs or -8.0) - (a.integrated_lufs or -8.0)
         intent = infer_intent(position, energy_delta, template=template_enum)
         score = scorer.score(a, b, intent=intent)
-        total += 0.0 if score.hard_reject else score.overall
+        # "Nina Kraviz principle": hard-rejected pairs get a tiny floor (0.01)
+        # so GA can still explore unconventional but potentially interesting
+        # transitions instead of completely ignoring them.
+        total += 0.01 if score.hard_reject else score.overall
     return total / (n - 1)
 
 
@@ -57,7 +60,12 @@ def bpm_smoothness(
     order: list[int],
     idx_map: dict[int, int],
 ) -> float:
-    """Penalize large BPM jumps between consecutive tracks. Returns 0-1."""
+    """Penalize large BPM jumps between consecutive tracks. Returns 0-1.
+
+    When a pair lacks BPM data, falls back to spectral centroid similarity
+    as a timbral-smoothness proxy rather than ignoring the pair.
+    When neither BPM nor spectral data exist for a pair, that pair is skipped.
+    """
     if len(order) < 2:
         return 1.0
     total = 0.0
@@ -69,6 +77,11 @@ def bpm_smoothness(
             diff = abs(a.bpm - b.bpm)
             total += math.exp(-(diff**2) / 32.0)
             count += 1
+        elif a.spectral_centroid_hz is not None and b.spectral_centroid_hz is not None:
+            # Spectral centroid proxy: 500 Hz diff ≈ 0.78, 1500 Hz diff ≈ 0.29
+            diff = abs(a.spectral_centroid_hz - b.spectral_centroid_hz)
+            total += math.exp(-(diff**2) / 500_000.0)
+            count += 1
     return total / count if count > 0 else 0.5
 
 
@@ -77,22 +90,33 @@ def energy_arc_score(
     order: list[int],
     idx_map: dict[int, int],
 ) -> float:
-    """Reward a natural energy arc (build up then ease off). Returns 0-1."""
+    """Reward a natural energy arc (build up then ease off). Returns 0-1.
+
+    Ideal arc for peak-time techno: quiet start (~-13 LUFS) builds to
+    loud peak at 70% (~-10 LUFS) then eases to ~-11 LUFS at outro.
+    Arc is clipped at 0 so early/late positions never target unrealistically
+    quiet levels (old formula reached -22 LUFS at position 0).
+    """
     if len(order) < 3:
         return 0.5
     n = len(order)
+    counted = 0
     total = 0.0
     for i, tid in enumerate(order):
         feat = tracks[idx_map[tid]]
         if feat.integrated_lufs is None:
             continue
+        counted += 1
         pos = i / (n - 1)
         ideal_peak_pos = 0.7
-        arc = -(4.0 * (pos - ideal_peak_pos) ** 2) + 1.0
-        ideal_lufs = -14.0 + arc * 8.0
+        # Clip arc at 0: positions before ~0.2 and after ~1.0 stay at base level,
+        # instead of targeting unrealistic -22 LUFS that no techno track achieves.
+        arc = max(0.0, -(4.0 * (pos - ideal_peak_pos) ** 2) + 1.0)
+        # Realistic techno range: -13 LUFS (warm-up) → -10 LUFS (peak)
+        ideal_lufs = -13.0 + arc * 3.0
         diff = abs(feat.integrated_lufs - ideal_lufs)
         total += math.exp(-(diff**2) / 18.0)
-    return total / n
+    return total / counted if counted > 0 else 0.5
 
 
 def subgenre_variety(
@@ -101,15 +125,51 @@ def subgenre_variety(
     idx_map: dict[int, int],
     moods: dict[int, str | None] | None = None,
 ) -> float:
-    """Reward variety of moods/subgenres in the set. Returns 0-1."""
-    if moods is None or len(order) < 2:
+    """Reward variety of moods/subgenres in the set. Returns 0-1.
+
+    Priority order for mood resolution:
+    1. External moods dict (passed by builder from DB classify_mood results)
+    2. TrackFeatures.mood (stored on the feature object from DB)
+    3. LUFS spread proxy (when no mood data exists anywhere)
+    """
+    if len(order) < 2:
         return 0.5
-    unique = set()
+    unique: set[str] = set()
     for tid in order:
-        mood = moods.get(tid)
+        mood: str | None = None
+        if moods is not None:
+            mood = moods.get(tid)
+        if mood is None:
+            # Fall back to mood stored on the TrackFeatures object itself
+            feat = tracks[idx_map[tid]]
+            mood = feat.mood
         if mood is not None:
             unique.add(mood)
-    return min(1.0, len(unique) / 4.0)
+    if unique:
+        return min(1.0, len(unique) / 4.0)
+    # No mood data at all — use LUFS spread as a coarse diversity proxy
+    return _lufs_spread_variety(tracks, order, idx_map)
+
+
+def _lufs_spread_variety(
+    tracks: list[TrackFeatures],
+    order: list[int],
+    idx_map: dict[int, int],
+) -> float:
+    """Estimate variety from LUFS spread when no mood data is available.
+
+    A wider dynamic range suggests more tonal/energy diversity.
+    6 LUFS spread → 1.0; 0 LUFS spread → 0.0.
+    """
+    lufs: list[float] = [
+        tracks[idx_map[tid]].integrated_lufs  # type: ignore[misc]
+        for tid in order
+        if tracks[idx_map[tid]].integrated_lufs is not None
+    ]
+    if len(lufs) < 2:
+        return 0.5
+    spread = max(lufs) - min(lufs)
+    return min(1.0, spread / 6.0)
 
 
 def template_fitness(

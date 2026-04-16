@@ -6,13 +6,13 @@ from fastmcp.dependencies import Depends
 
 from app.audio.analyzers import AnalyzerRegistry
 from app.audio.timeseries import TimeseriesStorage
-from app.controllers.dependencies.external import get_analyzer_registry, get_ym_client
+from app.controllers.dependencies.external import get_analyzer_registry, get_music_provider
 from app.controllers.dependencies.repos import get_audio_repo, get_track_repo
 from app.db.repositories.audio import AudioRepository
 from app.db.repositories.track import TrackRepository
+from app.providers.protocol import MusicProvider
 from app.services.audio_service import AudioService
 from app.services.tiered_pipeline import TieredPipeline
-from app.ym.client import YandexMusicClient
 
 
 def get_audio_service(
@@ -32,11 +32,11 @@ def get_tiered_pipeline(
     audio_repo: AudioRepository = Depends(get_audio_repo),  # noqa: B008
     track_repo: TrackRepository = Depends(get_track_repo),  # noqa: B008
     registry: AnalyzerRegistry = Depends(get_analyzer_registry),  # noqa: B008
-    ym: YandexMusicClient = Depends(get_ym_client),  # noqa: B008
+    provider: MusicProvider = Depends(get_music_provider),  # noqa: B008
     timeseries: TimeseriesStorage = Depends(get_timeseries_storage),  # noqa: B008
 ) -> TieredPipeline:
     """Get TieredPipeline for level-aware audio analysis."""
     from app.audio.pipeline import AnalysisPipeline
 
     pipeline = AnalysisPipeline(registry)
-    return TieredPipeline(audio_repo, track_repo, pipeline, ym, timeseries=timeseries)
+    return TieredPipeline(audio_repo, track_repo, pipeline, provider, timeseries=timeseries)

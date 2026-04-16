@@ -412,9 +412,9 @@ async def main() -> None:
     from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
     from app.audio.analyzers.base import AnalyzerRegistry
+    from app.clients.ym.client import YandexMusicClient
+    from app.clients.ym.rate_limiter import RateLimiter
     from app.config import settings
-    from app.ym.client import YandexMusicClient
-    from app.ym.rate_limiter import RateLimiter
 
     log.info("=" * 70)
     log.info("DJ Music Plugin — YM Importer + Analyzer")

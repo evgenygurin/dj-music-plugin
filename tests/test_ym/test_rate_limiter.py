@@ -7,7 +7,7 @@ import time
 
 import pytest
 
-from app.ym.rate_limiter import RateLimiter
+from app.clients.ym.rate_limiter import RateLimiter
 
 
 @pytest.mark.asyncio

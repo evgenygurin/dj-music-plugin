@@ -26,10 +26,11 @@ from app.db.models.library import (  # noqa: F401
     DjLibraryItem,
     DjSavedLoop,
 )
+from app.db.models.platform import YandexMetadata  # noqa: F401
 from app.db.models.playlist import Playlist, PlaylistItem  # noqa: F401
 from app.db.models.scoring_profile import ScoringProfile  # noqa: F401
 from app.db.models.set import DjSet, SetConstraint, SetFeedback, SetItem, SetVersion  # noqa: F401
-from app.db.models.track import Track  # noqa: F401
+from app.db.models.track import Track, TrackExternalId  # noqa: F401
 from app.db.models.track_affinity import TrackAffinity  # noqa: F401
 from app.db.models.track_feedback import TrackFeedback  # noqa: F401
 from app.db.models.transition import Transition, TransitionCandidate  # noqa: F401
@@ -149,6 +150,17 @@ async def client(async_engine):  # type: ignore[no-untyped-def]
     ym_mock.get_liked_ids = AsyncMock(return_value=[])
     ym_mock.get_disliked_ids = AsyncMock(return_value=set())
 
+    # Mock ProviderRegistry (required after multi-provider refactor)
+    from unittest.mock import MagicMock
+
+    from app.core.constants import Provider
+    from app.providers.registry import ProviderRegistry
+
+    provider_mock = MagicMock()
+    provider_mock.provider = Provider.YANDEX_MUSIC
+    provider_registry = ProviderRegistry()
+    provider_registry.register(provider_mock, default=True)
+
     from fastmcp.server.lifespan import lifespan
 
     @lifespan
@@ -159,6 +171,7 @@ async def client(async_engine):  # type: ignore[no-untyped-def]
             "ym_client": ym_mock,
             "analyzer_registry": registry,
             "transition_cache": cache,
+            "provider_registry": provider_registry,
         }
 
     mcp._lifespan = _test_lifespan

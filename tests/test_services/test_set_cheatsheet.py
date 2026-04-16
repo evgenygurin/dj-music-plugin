@@ -5,45 +5,29 @@ from unittest.mock import AsyncMock
 
 import pytest
 
+from app.core.constants import NeuralMixCrossfaderFX
 from app.services.set.cheatsheet import SetCheatSheetService
-from app.transition.recipe import (
-    DjayTransition,
-    EQPlan,
-    RecipeStep,
-    TransitionRecipe,
-    TransitionType,
-)
+from app.transition.models import TransitionRecommendation
 
 
 @pytest.mark.asyncio
 async def test_get_cheat_sheet_falls_back_when_persisted_recipe_json_is_malformed(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    expected_recipe = TransitionRecipe(
-        transition_type=TransitionType.BASS_SWAP_SHORT,
-        bars=16,
-        djay_transition=DjayTransition.NONE,
-        djay_tempo_adjust="sync",
-        steps=(
-            RecipeStep(bar=0, deck="B", action="Start B, bass killed"),
-            RecipeStep(bar=8, deck="both", action="BASS SWAP on the one"),
-        ),
-        eq_plan=EQPlan(low="swap@bar8", mid="gradual", high="keep"),
-        mix_in_section=None,
-        mix_out_section=None,
-        phrase_align=True,
-        warnings=(),
+    expected = TransitionRecommendation(
+        fx_type=NeuralMixCrossfaderFX.NEURAL_MIX_DRUM_SWAP,
         confidence=0.87,
-        subgenre_modifier=None,
-        rescue_move="filter sweep + hard cut",
+        reason="both tracks drum-heavy — hard cut on phrase boundary",
     )
     calls: list[object] = []
 
-    def _fake_recommend_recipe(*args, **kwargs):
+    def _fake_recommend(*args, **kwargs):
         calls.append((args, kwargs))
-        return expected_recipe
+        return expected
 
-    monkeypatch.setattr("app.services.set.cheatsheet.recommend_recipe", _fake_recommend_recipe)
+    monkeypatch.setattr(
+        "app.transition.recommender.TransitionRecommender.recommend", _fake_recommend
+    )
 
     svc = SetCheatSheetService(
         set_repo=SimpleNamespace(
@@ -86,11 +70,7 @@ async def test_get_cheat_sheet_falls_back_when_persisted_recipe_json_is_malforme
             get_score=AsyncMock(
                 return_value=SimpleNamespace(
                     overall_quality=0.78,
-                    transition_recipe_json=(
-                        '{"transition_type":"cut","bars":4,"djay_transition":"none",'
-                        '"steps":[[]],"eq_plan":{"low":"keep","mid":"keep","high":"keep"},'
-                        '"confidence":0.9,"rescue_move":"hard cut"}'
-                    ),
+                    transition_recipe_json="NOT VALID JSON {",
                     bpm_score=0.7,
                     harmonic_score=0.7,
                     energy_score=0.7,
@@ -107,6 +87,4 @@ async def test_get_cheat_sheet_falls_back_when_persisted_recipe_json_is_malforme
     text = await svc.get_cheat_sheet(set_id=1)
 
     assert calls
-    assert "BASS SWAP SHORT" in text
-    assert "bar 8" in text
-    assert "swap@bar8" in text
+    assert "NEURAL MIX DRUM SWAP" in text

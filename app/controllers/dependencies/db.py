@@ -5,11 +5,12 @@ from __future__ import annotations
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from importlib import import_module
+from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
 
-def _get_context():  # type: ignore[no-untyped-def]
+def _get_context() -> Any:
     dependencies = import_module("app.controllers.dependencies")
     return dependencies.get_context()
 

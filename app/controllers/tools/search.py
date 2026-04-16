@@ -1,22 +1,19 @@
-"""Search and filter tools: cross-entity text search + parametric track filter.
+"""Search tool: cross-entity text search.
 
-Thin wrappers calling :class:`SearchService` via ``Depends()``.
+Thin wrapper calling :class:`SearchService` via ``Depends()``.
 """
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Annotated, Any, Literal
 
-from fastmcp.dependencies import Depends
+from fastmcp.dependencies import CurrentContext, Depends
 from fastmcp.exceptions import ToolError
 from fastmcp.server.context import Context
 from fastmcp.tools import tool
+from pydantic import Field
 
-from app.controllers.dependencies import (
-    get_feature_repo,
-    get_search_service,
-    get_track_service,
-)
+from app.controllers.dependencies import get_search_service
 from app.controllers.tools._shared import (
     ANNOTATIONS_READ_ONLY,
     ICON_SEARCH,
@@ -24,10 +21,9 @@ from app.controllers.tools._shared import (
     ToolCategory,
     map_domain_errors,
 )
-from app.db.repositories.feature import FeatureRepository
-from app.schemas import PaginatedResponse, TrackBrief
 from app.services.search_service import SearchService
-from app.services.track_service import TrackService
+
+SearchEntity = Literal["all", "tracks", "artists", "playlists", "sets"]
 
 
 @tool(
@@ -38,78 +34,14 @@ from app.services.track_service import TrackService
     meta=TOOL_META,
 )
 @map_domain_errors
-async def search(
-    query: str,
-    entity: str = "all",
-    limit: int = 10,
+async def search_library(
+    query: Annotated[str, Field(description="Search text")],
+    entity: Annotated[SearchEntity, Field(description="Entity type to search")] = "all",
+    limit: Annotated[int, Field(description="Max results", ge=1, le=50)] = 10,
     svc: SearchService = Depends(get_search_service),  # noqa: B008
-    ctx: Context | None = None,
+    ctx: Context = CurrentContext(),  # noqa: B008
 ) -> dict[str, Any]:
-    """Search across tracks, artists, playlists, and sets by text query."""
+    """Runs a text search across tracks, artists, playlists, and sets. Use when you know a fragment of a title or name but not the exact ID."""
     if not query or not query.strip():
         raise ToolError("Query must not be empty")
     return await svc.search(query=query, entity=entity, limit=limit)
-
-
-@tool(
-    title="Filter Tracks",
-    tags={ToolCategory.CORE.value},
-    annotations=ANNOTATIONS_READ_ONLY,
-    icons=ICON_SEARCH,
-    meta=TOOL_META,
-)
-@map_domain_errors
-async def filter_tracks(
-    bpm_min: float | None = None,
-    bpm_max: float | None = None,
-    key: str | None = None,
-    key_compatible: str | None = None,
-    energy_min: float | None = None,
-    energy_max: float | None = None,
-    has_features: bool | None = None,
-    exclude_set_id: int | None = None,
-    sort_by: str = "bpm",
-    limit: int = 20,
-    cursor: str | None = None,
-    svc: SearchService = Depends(get_search_service),  # noqa: B008
-    track_svc: TrackService = Depends(get_track_service),  # noqa: B008
-    feat_repo: FeatureRepository = Depends(get_feature_repo),  # noqa: B008
-    ctx: Context | None = None,
-) -> PaginatedResponse[TrackBrief]:
-    """Filter tracks by audio features: BPM, key, energy, mood.
-
-    Returns the same :class:`TrackBrief` projection as ``list_tracks``
-    — populated BPM, Camelot key, artists and duration via two batched
-    queries (artists + features). Identical ``structuredContent`` across
-    all list/filter tools.
-    """
-    page = await svc.filter_tracks(
-        bpm_min=bpm_min,
-        bpm_max=bpm_max,
-        key=key,
-        key_compatible=key_compatible,
-        energy_min=energy_min,
-        energy_max=energy_max,
-        has_features=has_features,
-        exclude_set_id=exclude_set_id,
-        sort_by=sort_by,
-        limit=limit,
-        cursor=cursor,
-    )
-
-    track_ids = [t.id for t in page.items]
-    artist_map = await track_svc.get_artist_names_batch(track_ids)
-    features_map = await feat_repo.get_features_batch(track_ids)
-
-    return PaginatedResponse[TrackBrief](
-        items=[
-            track_svc.to_brief(
-                t,
-                features=features_map.get(t.id),
-                artist_names=artist_map.get(t.id),
-            )
-            for t in page.items
-        ],
-        next_cursor=page.next_cursor,
-        total=page.total,
-    )
