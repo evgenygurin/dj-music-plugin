@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class ListSetsResult(BaseModel):
@@ -75,6 +75,71 @@ class GetSetTemplatesResult(BaseModel):
     templates: list[SetTemplateEntry]
 
 
+class TransitionSearchSortToken(BaseModel):
+    """One resolved sort column for ``search_transitions``."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    field: str = Field(description="Column name used in ORDER BY")
+    direction: Literal["asc", "desc"] = Field(description="Sort direction")
+
+
+class TransitionSearchStats(BaseModel):
+    """Aggregate stats for the current filter (omit when include_stats is false)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    total_rows: int
+    hard_reject_count: int
+    hard_reject_ratio: float | None = None
+    overall_quality: dict[str, Any] = Field(
+        description="avg/min/max overall_quality over the filtered rows (nulls when empty set)",
+    )
+    component_averages: dict[str, Any] = Field(
+        description="Named averages for BPM/harmonic/energy/spectral/groove/timbral components",
+    )
+    fx_type_top: list[dict[str, Any]] = Field(
+        description="Top fx_type values with counts (non-null fx_type only)",
+    )
+
+
+class SearchTransitionsResult(BaseModel):
+    """Structured MCP output for ``search_transitions`` (pagination, filters, projection)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    rows: list[dict[str, Any]] = Field(
+        description="Result rows; shape follows ``fields.selected`` (default: id only)",
+    )
+    offset: int
+    limit: int
+    returned: int
+    total: int
+    next_offset: int | None = Field(
+        default=None,
+        description="Offset value to pass for the next page, or null when at end",
+    )
+    truncated: bool = Field(description="True when more rows exist after this page")
+    sort: list[TransitionSearchSortToken]
+    filters_applied: dict[str, Any] = Field(
+        description="Normalized filter object applied to the query (may be empty)",
+    )
+    fields: dict[str, Any] = Field(
+        description=(
+            "Projection metadata: always ``selected`` and ``excluded``; when "
+            "``include_field_catalog`` is true also ``available``, ``groups``, ``include_macros``"
+        ),
+    )
+    stats: TransitionSearchStats | None = Field(
+        default=None,
+        description="Aggregate stats; null when include_stats is false",
+    )
+    filter_operators: list[str] | None = Field(
+        default=None,
+        description="Allowed filter operator names (only if include_field_catalog is true)",
+    )
+
+
 class GetSetCheatSheetResult(BaseModel):
     """Printable booth reference from ``get_set_cheat_sheet``."""
 
@@ -102,3 +167,6 @@ SetTemplateSlotRow.model_rebuild()
 SetTemplateEntry.model_rebuild()
 GetSetTemplatesResult.model_rebuild()
 GetSetCheatSheetResult.model_rebuild()
+TransitionSearchSortToken.model_rebuild()
+TransitionSearchStats.model_rebuild()
+SearchTransitionsResult.model_rebuild()

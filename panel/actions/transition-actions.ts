@@ -89,19 +89,23 @@ export async function getTransitionStyle(
           overall_quality?: number | null
           hard_reject?: boolean
           reject_reason?: string | null
+          /** Neural Mix FX id (single field; legacy alias `recommended_style`). */
+          fx_type?: string | null
           recommended_style?: string | null
           recommended_bars?: number | null
+          transition_bars?: number | null
         }
       | undefined
     if (!sc || sc.overall_quality == null) return null
+    const style = (sc.fx_type ?? sc.recommended_style ?? null) as TransitionStyle | null
     return {
       fromTrackId: sc.from_track_id ?? fromTrackId,
       toTrackId: sc.to_track_id ?? toTrackId,
       overall: sc.overall_quality ?? null,
       hardReject: sc.hard_reject ?? false,
       rejectReason: sc.reject_reason ?? null,
-      recommendedStyle: (sc.recommended_style ?? null) as TransitionStyle | null,
-      recommendedBars: sc.recommended_bars ?? null,
+      recommendedStyle: style,
+      recommendedBars: sc.recommended_bars ?? sc.transition_bars ?? null,
     }
   } catch {
     return null

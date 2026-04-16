@@ -434,6 +434,53 @@ async def test_sets_score_transitions(smoke: dict) -> None:
 
 
 @pytest.mark.asyncio
+async def test_sets_search_transitions(smoke: dict) -> None:
+    # Ensure at least one scored row exists, then search with filters/projection/sort.
+    await _tool(
+        smoke["client"],
+        "score_transitions",
+        {"mode": "pair", "from_track_id": smoke["track_id"], "to_track_id": smoke["track_id2"]},
+    )
+    r = await _tool(
+        smoke["client"],
+        "search_transitions",
+        {
+            "limit": 10,
+            "offset": 0,
+            "sort_by": "-overall_quality",
+            "filters": {"hard_reject": False},
+            "include_fields": ["from_track_id", "to_track_id", "overall_quality", "hard_reject"],
+            "include_stats": True,
+        },
+    )
+    assert "rows" in r
+    assert "fields" in r
+    assert "stats" in r
+    assert set(r["fields"]) == {"selected", "excluded"}
+    assert r.get("filter_operators") is None
+
+
+@pytest.mark.asyncio
+async def test_sets_search_transitions_default_projection_id_only(smoke: dict) -> None:
+    """Omit include_fields → each row must expose only ``id`` (slim MCP default)."""
+    await _tool(
+        smoke["client"],
+        "score_transitions",
+        {"mode": "pair", "from_track_id": smoke["track_id"], "to_track_id": smoke["track_id2"]},
+    )
+    r = await _tool(
+        smoke["client"],
+        "search_transitions",
+        {"limit": 5, "offset": 0, "include_stats": False},
+    )
+    assert r.get("rows"), "expected at least one transition row"
+    for row in r["rows"]:
+        assert set(row.keys()) == {"id"}, row
+    assert r.get("stats") is None
+    assert set(r["fields"]) == {"selected", "excluded"}
+
+
+@pytest.mark.asyncio
 async def test_sets_get_set_cheat_sheet(smoke: dict) -> None:
     r = await smoke["client"].call_tool("get_set_cheat_sheet", {"set_id": smoke["set_id"]})
     data = _parse(r)

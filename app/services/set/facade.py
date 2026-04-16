@@ -223,6 +223,33 @@ class SetService:
     async def score_set_transitions(self, set_id: int) -> dict[str, Any]:
         return await self._scoring.score_set_transitions(set_id)
 
+    async def search_transitions(
+        self,
+        *,
+        limit: int = 50,
+        offset: int = 0,
+        sort_by: str = "-overall_quality",
+        sort_order: str = "desc",
+        sort_direction: str | None = None,
+        filters: dict[str, Any] | None = None,
+        include_fields: list[str] | None = None,
+        exclude_fields: list[str] | None = None,
+        include_stats: bool = True,
+        include_field_catalog: bool = False,
+    ) -> dict[str, Any]:
+        return await self._scoring.search_transitions(
+            limit=limit,
+            offset=offset,
+            sort_by=sort_by,
+            sort_order=sort_order,
+            sort_direction=sort_direction,
+            filters=filters,
+            include_fields=include_fields,
+            exclude_fields=exclude_fields,
+            include_stats=include_stats,
+            include_field_catalog=include_field_catalog,
+        )
+
     # ── Cheat sheet — delegated to _cheatsheet ────────
 
     async def get_cheat_sheet(self, set_id: int, version: str | None = None) -> str:

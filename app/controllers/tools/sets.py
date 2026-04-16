@@ -29,7 +29,7 @@ from app.controllers.tools._shared import (
     map_domain_errors,
 )
 from app.controllers.tools._shared.structured_multiline import split_multiline_for_json_ui
-from app.core.utils.parsing import ensure_dict
+from app.core.utils.parsing import ensure_dict, ensure_list
 from app.db.repositories.feature import FeatureRepository
 from app.db.repositories.set import SetRepository
 from app.optimization.preview import preview_arc
@@ -37,6 +37,7 @@ from app.schemas.tool_output import (
     GetSetCheatSheetResult,
     GetSetTemplatesResult,
     ListSetsResult,
+    SearchTransitionsResult,
     SetArcPreview,
     SetTemplateEntry,
     SetTemplateSlotRow,
@@ -251,6 +252,106 @@ async def score_transitions(
                 result["transitions_total"] = total
     await ctx.report_progress(1, 1, "Done")
     return result
+
+
+@tool(
+    title="Search Transitions",
+    tags={ToolCategory.SETS.value},
+    annotations=ANNOTATIONS_READ_ONLY,
+    icons=ICON_SETS,
+    meta=TOOL_META,
+)
+@map_domain_errors
+async def search_transitions(
+    limit: Annotated[int, Field(description="Page size", ge=1, le=500)] = 50,
+    offset: Annotated[int, Field(description="Pagination offset", ge=0)] = 0,
+    sort_by: Annotated[
+        str,
+        Field(
+            description=(
+                "Sort fields, comma-separated. Prefix '-' for DESC, '+' for ASC "
+                "(example: '+from_bpm,-overall_quality')."
+            )
+        ),
+    ] = "-overall_quality",
+    sort_order: Annotated[
+        Literal["asc", "desc"],
+        Field(description="Fallback direction for sort_by tokens without +/- prefix"),
+    ] = "desc",
+    sort_direction: Annotated[
+        Literal["asc", "desc"] | None,
+        Field(
+            description=(
+                "Alias for sort_order. If provided, overrides sort_order for tokens "
+                "without +/- prefix."
+            )
+        ),
+    ] = None,
+    filters: Annotated[
+        Any,
+        Field(
+            description=(
+                "Filter object: {field: value} for equality or "
+                "{field: {op: value}} for advanced operators. "
+                "Supported ops: eq, ne, gt, gte, lt, lte, in, not_in, contains, is_null."
+            )
+        ),
+    ] = None,
+    include_fields: Annotated[
+        Any,
+        Field(
+            description=(
+                "Fields to return (list or comma-separated string). "
+                "If omitted, each row contains only ``id`` (use ``all`` or explicit names for full data). "
+                "Macros: all, all_transition_fields, all_track_fields, all_feature_fields, "
+                "transition_fields, track_fields, feature_fields. "
+                "Include ``id`` explicitly when using track/feature macros if you need transition row ids."
+            )
+        ),
+    ] = None,
+    exclude_fields: Annotated[
+        Any,
+        Field(description="Fields to remove from output (list or comma-separated string)."),
+    ] = None,
+    include_stats: Annotated[
+        bool,
+        Field(description="Include aggregate statistics over the filtered dataset."),
+    ] = True,
+    include_field_catalog: Annotated[
+        bool,
+        Field(
+            description=(
+                "If true, add ``fields.available``, ``fields.groups``, ``include_macros``, "
+                "and top-level ``filter_operators`` (large JSON). Default false for slim MCP replies."
+            )
+        ),
+    ] = False,
+    svc: SetService = Depends(get_set_service),  # noqa: B008
+) -> SearchTransitionsResult:
+    """Search scored transition pairs with pagination, filters, sorting, projection, and stats.
+
+    Default rows are ``id`` only; pass ``include_fields`` (or macro ``all``) for wide columns.
+    """
+    filters_dict = ensure_dict(filters)
+    if filters is not None and filters_dict is None:
+        raise ValueError("filters must be a JSON object / dict")
+
+    include_list = [str(item) for item in ensure_list(include_fields)] if include_fields else None
+    exclude_list = [str(item) for item in ensure_list(exclude_fields)] if exclude_fields else None
+
+    raw = await svc.search_transitions(
+        limit=limit,
+        offset=offset,
+        sort_by=sort_by,
+        sort_order=sort_order,
+        sort_direction=sort_direction,
+        filters=filters_dict or {},
+        include_fields=include_list,
+        exclude_fields=exclude_list,
+        include_stats=include_stats,
+        include_field_catalog=include_field_catalog,
+    )
+    return SearchTransitionsResult.model_validate(raw)
 
 
 @tool(

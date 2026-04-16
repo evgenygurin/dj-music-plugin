@@ -106,6 +106,14 @@ async def test_score_set_transitions_persists_each_pair(db: AsyncSession) -> Non
     for r in rows:
         assert r.overall_quality is not None
 
+    for row in result["transitions"]:
+        if row.get("overall_quality") is None:
+            continue
+        assert isinstance(row.get("fx_type"), str)
+        assert "recommended_style" not in row
+        assert "transition_type" not in row
+        assert "djay_transition" not in row
+
 
 @pytest.mark.asyncio
 async def test_score_set_transitions_uses_cache_on_second_call(db: AsyncSession) -> None:
