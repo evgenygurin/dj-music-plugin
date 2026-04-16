@@ -75,6 +75,25 @@ class GetSetTemplatesResult(BaseModel):
     templates: list[SetTemplateEntry]
 
 
+class GetSetCheatSheetResult(BaseModel):
+    """Printable booth reference from ``get_set_cheat_sheet``."""
+
+    set_id: int
+    version: str | None = Field(
+        default=None,
+        description="Resolved version label when provided",
+    )
+    cheat_sheet: str = Field(
+        description="Full text with newline separators (same as cheat_sheet_lines joined)",
+    )
+    cheat_sheet_lines: list[str] = Field(
+        description=(
+            "Same content as one line per entry. Prefer this field in JSON-heavy UIs "
+            "where strings show literal \\n instead of line breaks."
+        ),
+    )
+
+
 ListSetsResult.model_rebuild()
 SetVersionResult.model_rebuild()
 TransitionScoreResult.model_rebuild()
@@ -82,3 +101,4 @@ SetArcPreview.model_rebuild()
 SetTemplateSlotRow.model_rebuild()
 SetTemplateEntry.model_rebuild()
 GetSetTemplatesResult.model_rebuild()
+GetSetCheatSheetResult.model_rebuild()

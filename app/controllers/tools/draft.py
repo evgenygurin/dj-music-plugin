@@ -21,6 +21,7 @@ from mcp.shared.exceptions import McpError
 from pydantic import Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import settings
 from app.controllers.dependencies import get_db_session, get_set_service
 from app.controllers.tools._shared import (
     ANNOTATIONS_READ_ONLY,
@@ -31,6 +32,7 @@ from app.controllers.tools._shared import (
     ToolCategory,
     map_domain_errors,
 )
+from app.controllers.tools._shared.llm_sampling import sample_structured
 from app.core.errors import ValidationError
 from app.db.repositories.feature import FeatureRepository
 from app.optimization.preview import PreviewResult, preview_arc
@@ -137,7 +139,12 @@ async def preview_draft(
     ] = None,
     narrative: Annotated[
         bool,
-        Field(description="Generate narrative ArcCritique via LLM sampling (slower)"),
+        Field(
+            description=(
+                "Add ArcCritique: prefers MCP LLM sampling; if sampling is unavailable, "
+                "returns a metrics-only critique (no API key required)."
+            )
+        ),
     ] = False,
     ctx: Context = CurrentContext(),  # noqa: B008
     session: AsyncSession = Depends(get_db_session),  # noqa: B008
@@ -145,7 +152,8 @@ async def preview_draft(
     """Compute arc fitness for the current session draft.
 
     Fast mode (narrative=False): arc math only, no LLM call.
-    Full mode (narrative=True): adds ArcCritique narrative via ctx.sample().
+    Full mode (narrative=True): ArcCritique via ``sample_structured`` when sampling works;
+    otherwise metrics-only critique (no server API key required).
 
     Workflow: update_set_draft → preview_draft (iterate) → commit_draft.
     """
@@ -195,12 +203,34 @@ async def preview_draft(
     return output
 
 
+def _arc_critique_without_llm(result: PreviewResult, track_ids: list[int]) -> dict[str, Any]:
+    """Deterministic critique when MCP sampling is unavailable (no client, no server key)."""
+    from app.schemas.arc_critique import ArcCritique
+
+    bpm = [round(v, 1) for v in result.bpm_arc]
+    nrg = [round(v, 2) for v in result.energy_arc]
+    weak = [f"Indexed transition {i}: flagged by arc preview scorer" for i in result.weak_spots]
+    peak_i = 0
+    if nrg:
+        peak_i = max(range(len(nrg)), key=lambda i: nrg[i])
+    critique = ArcCritique(
+        crowd_journey=(
+            f"[Metrics-only] {len(track_ids)} tracks; BPM arc {bpm}; LUFS energy {nrg}. "
+            f"Overall arc score {result.score:.2f}."
+        ),
+        weak_transitions=weak,
+        strongest_moment=f"Highest energy segment around position {peak_i + 1} (0-based index {peak_i}).",
+        recommendation=result.recommendation or "Review weak_spots and BPM/energy flow.",
+    )
+    return critique.model_dump()
+
+
 async def _generate_narrative(
     ctx: Context,
     result: PreviewResult,
     track_ids: list[int],
-) -> dict[str, Any] | None:
-    """Generate ArcCritique via ctx.sample(). Returns None on any failure."""
+) -> dict[str, Any]:
+    """Generate ArcCritique via ``sample_structured``, or metrics-only fallback without LLM."""
     from app.schemas.arc_critique import ArcCritique
 
     try:
@@ -224,17 +254,24 @@ async def _generate_narrative(
             f"Weak spot positions: {result.weak_spots}\n"
             f"Arc recommendation: {result.recommendation}"
         )
-        sample_result = await ctx.sample(
-            messages=arc_summary,
+        sample_result = await sample_structured(
+            ctx,
+            arc_summary,
             system_prompt=system_prompt,
             result_type=ArcCritique,
-            max_tokens=400,
+            max_tokens=settings.sampling_narrative_max_tokens,
         )
-        critique: ArcCritique = sample_result.result
-        return critique.model_dump()
+        if sample_result.result is not None:
+            return sample_result.result.model_dump()
+        await ctx.warning(
+            "LLM narrative empty — using metrics-only arc critique (no sampling result)."
+        )
+        return _arc_critique_without_llm(result, track_ids)
     except Exception:
-        await ctx.warning("Narrative generation unavailable — returning arc scores only")
-        return None
+        await ctx.warning(
+            "LLM narrative unavailable — using metrics-only arc critique (works without API key)."
+        )
+        return _arc_critique_without_llm(result, track_ids)
 
 
 @tool(

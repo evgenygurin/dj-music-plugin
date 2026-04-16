@@ -4,8 +4,6 @@ Thin wrappers calling :class:`SetService` / :class:`BuildSetWorkflow`
 via ``Depends()``.
 """
 
-from __future__ import annotations
-
 from typing import Annotated, Any, Literal
 
 from fastmcp.dependencies import CurrentContext, Depends
@@ -30,11 +28,13 @@ from app.controllers.tools._shared import (
     ensure_reference,
     map_domain_errors,
 )
+from app.controllers.tools._shared.structured_multiline import split_multiline_for_json_ui
 from app.core.utils.parsing import ensure_dict
 from app.db.repositories.feature import FeatureRepository
 from app.db.repositories.set import SetRepository
 from app.optimization.preview import preview_arc
 from app.schemas.tool_output import (
+    GetSetCheatSheetResult,
     GetSetTemplatesResult,
     ListSetsResult,
     SetArcPreview,
@@ -266,9 +266,19 @@ async def get_set_cheat_sheet(
     version: Annotated[str | None, Field(description="Set version label (optional)")] = None,
     svc: SetService = Depends(get_set_service),  # noqa: B008
     ctx: Context = CurrentContext(),  # noqa: B008
-) -> str:
-    """Returns a human-readable BPM, key, and energy-arc summary for a set version. Use when reviewing flow on paper or in the booth before playback."""
-    return await svc.get_cheat_sheet(set_id, version=version)
+) -> GetSetCheatSheetResult:
+    """Returns a human-readable BPM, key, and energy-arc summary for a set version. Use when reviewing flow on paper or in the booth before playback.
+
+    Structured output includes ``cheat_sheet_lines`` so MCP clients that render JSON
+    literally can show line breaks (the ``cheat_sheet`` string may display as ``\\n`` text).
+    """
+    text, lines = split_multiline_for_json_ui(await svc.get_cheat_sheet(set_id, version=version))
+    return GetSetCheatSheetResult(
+        set_id=set_id,
+        version=version,
+        cheat_sheet=text,
+        cheat_sheet_lines=lines,
+    )
 
 
 @tool(

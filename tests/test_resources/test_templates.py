@@ -4,10 +4,21 @@ import json
 from typing import Any
 
 import pytest
+from fastmcp.resources import ResourceResult
 
 
-def _parse(result: str | dict[str, Any]) -> dict[str, Any]:
-    """Parse resource result — handles both str (old) and dict (new) returns."""
+def _parse(result: str | dict[str, Any] | ResourceResult) -> dict[str, Any]:
+    """Parse resource result from legacy and explicit ResourceResult contracts."""
+    if isinstance(result, ResourceResult):
+        item = result.contents[0] if result.contents else None
+        if item is None:
+            return {}
+        content = item.content
+        if isinstance(content, dict):
+            return content
+        if isinstance(content, str):
+            return json.loads(content)
+        return dict(content) if content else {}
     if isinstance(result, dict):
         return result
     return json.loads(result)
@@ -83,6 +94,7 @@ async def test_track_features_with_analysis(db):
         kick_prominence=0.75,
         pulse_clarity=0.88,
         onset_rate=2.5,
+        danceability=2.4,
     )
     db.add(features)
     await db.flush()
@@ -101,6 +113,10 @@ async def test_track_features_with_analysis(db):
     assert data["energy"]["lufs_integrated"] == -11.2
     assert data["spectral"]["centroid_hz"] == 3200.0
     assert data["rhythm"]["kick_prominence"] == 0.75
+    assert "audio_features" in data
+    assert data["audio_features"]["track_id"] == track.id
+    assert data["audio_features"]["bpm"] == 132.0
+    assert data["audio_features"]["danceability"] == 2.4
 
 
 @pytest.mark.asyncio

@@ -71,7 +71,7 @@ Quick reference for all MCP tools (~51 total, visible + hidden).
 |------|---------|---------|
 | `deliver_set` | set_id, version?, output_dir?, copy_files?, sync_to_ym?, formats?, dry_run? | 300s |
 
-### Discovery & Download (tag: `discovery`)
+### Discovery & Download (tag: `discovery`; `find_similar_tracks` uses tag `core` — visible on MCP connect)
 
 | Tool | File | Params | RO |
 |------|------|--------|-----|

@@ -6,6 +6,7 @@ Prefer importing from this package; :mod:`app.schemas.tool_responses` re-exports
 from __future__ import annotations
 
 from app.schemas.tool_output.dj_set_tools import (
+    GetSetCheatSheetResult,
     GetSetTemplatesResult,
     ListSetsResult,
     SetArcPreview,
@@ -23,6 +24,7 @@ from app.schemas.tool_output.library_tools import (
 __all__ = [
     "CandidatePoolTrackRow",
     "GetCandidatePoolResult",
+    "GetSetCheatSheetResult",
     "GetSetTemplatesResult",
     "ListSetsResult",
     "SearchLibraryResult",

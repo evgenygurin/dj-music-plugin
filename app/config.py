@@ -5,6 +5,8 @@ All tunable values live here. Use `settings.*` everywhere — no magic numbers.
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from app.core.constants import MCP_TOOL_RESPONSE_MAX_BYTES_DEFAULT
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
@@ -33,6 +35,9 @@ class Settings(BaseSettings):
     cache_dir: str = "cache/"
     mcp_retry_attempts: int = 3
     mcp_retry_delay: float = 1.0  # seconds
+    # ResponseLimitingMiddleware cap — exceed largest ``ToolResult`` wire payloads
+    # (structured JSON may double-count; see ``MCP_TOOL_RESPONSE_MAX_BYTES_DEFAULT``).
+    mcp_tool_response_max_bytes: int = MCP_TOOL_RESPONSE_MAX_BYTES_DEFAULT
     payload_logging: bool = False
     debug: bool = False
 
@@ -202,12 +207,13 @@ class Settings(BaseSettings):
     delivery_icloud_stub_threshold: float = 0.9  # blocks/size ratio
 
     # ── LLM Sampling ─────────────────────────────────
-    # Optional: only needed for server-side sampling (ctx.sample() fallback).
-    # Claude Code MAX users don't need this — Claude generates queries directly
-    # and passes them to tools via search_queries parameter (client-driven mode).
+    # Default: MCP client handles ctx.sample() (Cursor / Claude Code) — no key here.
+    # anthropic_api_key: optional server-side fallback only (headless, CI without a model).
     anthropic_api_key: str = ""
     sampling_model: str = "claude-sonnet-4-5"
     sampling_max_tokens: int = 512
+    # ArcCritique narrative in preview_draft (longer than short LLM query lists).
+    sampling_narrative_max_tokens: int = 1024
     sampling_temperature: float = 0.8
 
     # ── Observability ────────────────────────────────

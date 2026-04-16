@@ -1,11 +1,16 @@
 """DJ Expert Session initialization prompt."""
 
-from __future__ import annotations
-
 from typing import Annotated
 
-from fastmcp.prompts import Message, PromptResult, prompt
+from fastmcp.prompts import PromptResult, prompt
 from pydantic import Field
+
+from app.controllers.prompts.workflow_shared import (
+    WORKFLOW_PROMPT_VERSION,
+    make_prompt_result,
+    message_assistant,
+    message_user,
+)
 
 
 @prompt(
@@ -18,7 +23,7 @@ from pydantic import Field
         "for technical parameters."
     ),
     tags={"knowledge", "workflow"},
-    meta={"version": "1.0"},
+    meta={"version": WORKFLOW_PROMPT_VERSION, "kind": "session_bootstrap"},
 )
 def dj_expert_session(
     goal: Annotated[
@@ -47,6 +52,8 @@ Complete the following setup steps before responding to the user:
 - `reference://templates` — 8 set templates with slot definitions and energy arcs
 
 **Step 3 — Read knowledge resources:**
+- `knowledge://audio-features-field-guide` — what each library/analysis column means for DJing
+  (techno ranges, mixing cues); pair with `track://{{track_id}}/features` for live values
 - `knowledge://vocabulary` — map human descriptors (dark, driving, hypnotic) to
   subgenres/BPM/features
 - `knowledge://subgenre-culture` — artists, set position, transition neighbors per subgenre
@@ -104,10 +111,10 @@ After completing setup, greet the user as a DJ assistant ready to work."""
             "I won't ask you for BPM ranges."
         )
 
-    return PromptResult(
-        messages=[
-            Message(user_message, role="user"),
-            Message(assistant_message, role="assistant"),
+    return make_prompt_result(
+        [
+            message_user(user_message),
+            message_assistant(assistant_message),
         ],
         description="DJ expert session" + (f" — goal: {goal}" if goal else ""),
     )

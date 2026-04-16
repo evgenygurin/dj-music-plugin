@@ -90,6 +90,7 @@ def test_imports_message_and_prompt_from_fastmcp() -> None:
     for filename in EXPECTED:
         tree = _parse(filename)
         has_message = has_prompt = False
+        uses_shared_wrappers = False
         for node in ast.walk(tree):
             if isinstance(node, ast.ImportFrom) and node.module == "fastmcp.prompts":
                 names = {alias.name for alias in node.names}
@@ -97,5 +98,15 @@ def test_imports_message_and_prompt_from_fastmcp() -> None:
                     has_message = True
                 if "prompt" in names:
                     has_prompt = True
-        assert has_message, f"{filename} missing 'from fastmcp.prompts import Message'"
+            if (
+                isinstance(node, ast.ImportFrom)
+                and node.module == "app.controllers.prompts.workflow_shared"
+            ):
+                names = {alias.name for alias in node.names}
+                if "message_user" in names and "message_assistant" in names:
+                    uses_shared_wrappers = True
+        assert has_message or uses_shared_wrappers, (
+            f"{filename} must import Message from fastmcp.prompts or "
+            "message_user/message_assistant from workflow_shared"
+        )
         assert has_prompt, f"{filename} missing 'from fastmcp.prompts import prompt'"

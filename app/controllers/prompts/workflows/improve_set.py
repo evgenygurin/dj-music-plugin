@@ -1,11 +1,16 @@
 """Workflow prompt — split from monolithic workflows.py (Phase 10)."""
 
-from __future__ import annotations
-
 from typing import Annotated
 
-from fastmcp.prompts import Message, PromptResult, prompt
+from fastmcp.prompts import PromptResult, prompt
 from pydantic import Field
+
+from app.controllers.prompts.workflow_shared import (
+    WORKFLOW_PROMPT_VERSION,
+    make_prompt_result,
+    message_assistant,
+    message_user,
+)
 
 
 @prompt(
@@ -13,7 +18,7 @@ from pydantic import Field
     title="Improve DJ Set",
     description="Identify and fix weak transitions in an existing DJ set",
     tags={"sets", "workflow"},
-    meta={"version": "1.1", "steps": 6},
+    meta={"version": WORKFLOW_PROMPT_VERSION, "steps": 6},
 )
 def improve_set_workflow(
     set_name: Annotated[str, Field(description="DJ set name or ID to improve")],
@@ -25,9 +30,9 @@ def improve_set_workflow(
     Args:
         set_name: Name or ID of the set to improve
     """
-    return PromptResult(
-        messages=[
-            Message(
+    return make_prompt_result(
+        [
+            message_user(
                 f"""Improve the quality of DJ set "{set_name}" by identifying and fixing
 weak transitions.
 
@@ -62,9 +67,8 @@ Follow these steps:
 
 Report score improvements and specific transition fixes after each rebuild."""
             ),
-            Message(
+            message_assistant(
                 f'Improving "{set_name}". Step 1: `quick_set_review(set_id=<id>)`...',
-                role="assistant",
             ),
         ],
         description=f"Improve DJ set '{set_name}'",

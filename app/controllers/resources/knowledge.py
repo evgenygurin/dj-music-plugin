@@ -10,6 +10,7 @@ from app.controllers.tools._shared.taxonomy import (
     ANNOTATIONS_READ_ONLY,
     ICON_REFERENCE,
     RESOURCE_META,
+    RESOURCE_VERSION,
 )
 from app.core.constants import TechnoSubgenre
 
@@ -27,6 +28,7 @@ from app.core.constants import TechnoSubgenre
     annotations=ANNOTATIONS_READ_ONLY,
     icons=ICON_REFERENCE,
     meta=RESOURCE_META,
+    version=RESOURCE_VERSION,
 )
 async def vocabulary() -> str:
     """Return vocabulary terms with subgenre coverage and night phases."""
@@ -305,6 +307,7 @@ def _subgenre_culture_entries() -> list[dict[str, object]]:
     annotations=ANNOTATIONS_READ_ONLY,
     icons=ICON_REFERENCE,
     meta=RESOURCE_META,
+    version=RESOURCE_VERSION,
 )
 async def subgenre_culture() -> str:
     data = {"subgenres": _subgenre_culture_entries()}
@@ -321,6 +324,7 @@ async def subgenre_culture() -> str:
     annotations=ANNOTATIONS_READ_ONLY,
     icons=ICON_REFERENCE,
     meta=RESOURCE_META,
+    version=RESOURCE_VERSION,
 )
 async def set_dynamics() -> str:
     data = {
@@ -437,6 +441,7 @@ async def set_dynamics() -> str:
     annotations=ANNOTATIONS_READ_ONLY,
     icons=ICON_REFERENCE,
     meta=RESOURCE_META,
+    version=RESOURCE_VERSION,
 )
 async def dancefloor_psychology() -> str:
     data = {

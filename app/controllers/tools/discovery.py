@@ -1,6 +1,10 @@
-"""Discovery, filtering & expansion tools (3 tools, tag: discovery).
+"""Discovery, filtering & expansion tools (3 tools).
 
 Thin wrappers calling :class:`DiscoveryService` via ``Depends()``.
+
+``find_similar_tracks`` is tagged ``core`` so it appears in the default MCP ``tools/list``
+(Cursor and similar clients snapshot tools on connect; discovery-only tools stay hidden
+until ``unlock_tools``).
 
 Tools:
 - ``find_similar_tracks`` — platform API with declarative filters (+ optional LLM mode)
@@ -30,6 +34,10 @@ from app.controllers.tools._shared import (
     ToolTimeout,
     map_domain_errors,
 )
+from app.controllers.tools._shared.llm_sampling import (
+    format_sampling_unavailable_note,
+    sample_structured,
+)
 from app.core.utils.parsing import ensure_list
 from app.services.discovery_service import DiscoveryService
 
@@ -45,31 +53,51 @@ class _LLMSearchQueries(BaseModel):
 async def _find_similar_llm(
     track_id: int,
     limit: int,
+    min_duration_ms: int | None,
+    max_duration_ms: int | None,
     genre_filter_list: list[str] | None,
     genre_blacklist_list: list[str] | None,
     exclude_patterns_list: list[str] | None,
     svc: DiscoveryService,
     ctx: Context,
 ) -> dict[str, Any]:
-    """LLM-assisted similar-track discovery — ``ctx.sample()`` is MCP-specific."""
+    """LLM-assisted discovery; falls back to YM ``get_similar`` if sampling is unavailable."""
     track = await svc._tracks.get_by_id(track_id)
     if not track:
         raise ToolError(f"Track {track_id} not found")
 
+    async def _ym_platform_fallback(note: str) -> dict[str, Any]:
+        out = await svc.find_similar_ym(
+            track_id=track_id,
+            limit=limit,
+            min_duration_ms=min_duration_ms,
+            max_duration_ms=max_duration_ms,
+            genre_filter_list=genre_filter_list,
+            genre_blacklist_list=genre_blacklist_list,
+            exclude_patterns_list=exclude_patterns_list,
+        )
+        out["strategy_requested"] = "llm"
+        out["sampling_note"] = note
+        return out
+
     try:
-        result = await ctx.sample(
+        result = await sample_structured(
+            ctx,
             f"Generate {limit} Yandex Music search queries to find techno tracks "
             f"similar to '{track.title}'. Return ONLY track/artist names, no explanations.",
             result_type=_LLMSearchQueries,
         )
         queries = result.result.queries if result.result else []
     except Exception as e:
-        return {
-            "track_id": track_id,
-            "strategy": "llm",
-            "similar": [],
-            "message": f"LLM sampling failed: {e}. Configure ANTHROPIC_API_KEY for fallback.",
-        }
+        return await _ym_platform_fallback(
+            f"LLM sampling unavailable ({format_sampling_unavailable_note(e)}); "
+            "using platform similarity instead.",
+        )
+
+    if not queries:
+        return await _ym_platform_fallback(
+            "LLM returned no search queries; using platform similarity instead.",
+        )
 
     return await svc.find_similar_llm(
         track_id=track_id,
@@ -83,7 +111,7 @@ async def _find_similar_llm(
 
 @tool(
     title="Find Similar Tracks",
-    tags={ToolCategory.DISCOVERY.value},
+    tags={ToolCategory.CORE.value},
     annotations=ANNOTATIONS_READ_ONLY_OPEN_WORLD,
     icons=ICON_DISCOVERY,
     meta=TOOL_META,
@@ -91,7 +119,15 @@ async def _find_similar_llm(
 @map_domain_errors
 async def find_similar_tracks(
     track_id: Annotated[int, Field(description="Local track ID")],
-    strategy: Annotated[Literal["ym", "llm"], Field(description="Discovery strategy")] = "ym",
+    strategy: Annotated[
+        Literal["ym", "llm"],
+        Field(
+            description=(
+                "ym = Yandex Music similar API. llm = query generation via MCP sampling; "
+                "if sampling is unavailable, automatically uses the same platform path as ym."
+            )
+        ),
+    ] = "ym",
     limit: Annotated[int, Field(description="Max similar tracks to return", ge=1)] = 20,
     min_duration_ms: Annotated[
         int | None, Field(description="Minimum track duration (ms)")
@@ -117,6 +153,8 @@ async def find_similar_tracks(
         return await _find_similar_llm(
             track_id,
             limit,
+            min_duration_ms,
+            max_duration_ms,
             genre_filter_list,
             genre_blacklist_list,
             exclude_patterns_list,

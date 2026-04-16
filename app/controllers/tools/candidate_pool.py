@@ -4,8 +4,6 @@ Tools:
 - get_candidate_pool — explore the library before committing to build_set
 """
 
-from __future__ import annotations
-
 from typing import Annotated, Literal
 
 from fastmcp.dependencies import Depends

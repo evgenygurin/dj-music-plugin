@@ -8,6 +8,7 @@ from __future__ import annotations
 from app.schemas.tool_output import (
     CandidatePoolTrackRow,
     GetCandidatePoolResult,
+    GetSetCheatSheetResult,
     GetSetTemplatesResult,
     ListSetsResult,
     SearchLibraryResult,
@@ -21,6 +22,7 @@ from app.schemas.tool_output import (
 __all__ = [
     "CandidatePoolTrackRow",
     "GetCandidatePoolResult",
+    "GetSetCheatSheetResult",
     "GetSetTemplatesResult",
     "ListSetsResult",
     "SearchLibraryResult",

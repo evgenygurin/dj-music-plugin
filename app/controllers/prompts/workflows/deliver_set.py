@@ -1,11 +1,16 @@
 """Workflow prompt — split from monolithic workflows.py (Phase 10)."""
 
-from __future__ import annotations
-
 from typing import Annotated
 
-from fastmcp.prompts import Message, PromptResult, prompt
+from fastmcp.prompts import PromptResult, prompt
 from pydantic import Field
+
+from app.controllers.prompts.workflow_shared import (
+    WORKFLOW_PROMPT_VERSION,
+    make_prompt_result,
+    message_assistant,
+    message_user,
+)
 
 
 @prompt(
@@ -13,7 +18,7 @@ from pydantic import Field
     title="Deliver DJ Set",
     description="Export a completed DJ set: score, handle conflicts, generate files, YM sync",
     tags={"delivery", "workflow"},
-    meta={"version": "1.1", "steps": 7},
+    meta={"version": WORKFLOW_PROMPT_VERSION, "steps": 7},
 )
 def deliver_set_workflow(
     set_name: Annotated[str, Field(description="DJ set name or ID to deliver")],
@@ -36,9 +41,9 @@ def deliver_set_workflow(
         else ""
     )
 
-    return PromptResult(
-        messages=[
-            Message(
+    return make_prompt_result(
+        [
+            message_user(
                 f"""Deliver the completed DJ set "{set_name}" with all export formats
 and optional Yandex Music sync.
 
@@ -75,11 +80,10 @@ Follow these steps:
 The set is ready for import into your DJ software (Traktor, Rekordbox, djay).
 Report the output directory path and any warnings."""
             ),
-            Message(
+            message_assistant(
                 f'Delivering "{set_name}". '
                 f"{'Will sync to Yandex Music after export. ' if sync_ym else ''}"
                 'Step 1: `score_transitions(mode="set", set_id=<id>)`...',
-                role="assistant",
             ),
         ],
         description=f"Deliver set '{set_name}'" + (" with YM sync" if sync_ym else ""),

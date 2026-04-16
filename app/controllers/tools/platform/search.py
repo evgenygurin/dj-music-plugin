@@ -1,7 +1,5 @@
 """Platform full-text search tool."""
 
-from __future__ import annotations
-
 from typing import Annotated, Literal
 
 from fastmcp.dependencies import Depends

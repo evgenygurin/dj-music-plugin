@@ -218,3 +218,10 @@ DEFAULT_TRANSITION_WEIGHTS: dict[str, float] = {
     "groove": 0.13,  # onset density + kick prominence
     "timbral": 0.13,  # spectral contrast, danceability, pitch salience
 }
+
+# ``ResponseLimitingMiddleware`` default cap (bytes). Serialized ``ToolResult`` can exceed ~2x
+# raw JSON (e.g. ``reference://key-graph`` ~58 KiB → pydantic JSON ~116 KiB).
+MCP_TOOL_RESPONSE_MAX_BYTES_DEFAULT: int = 192_000
+
+# Optional FastMCP server-side ``ctx.sample`` fallback (Anthropic handler); see bootstrap sampling.
+MCP_SAMPLING_API_KEY_ENV_NAME = "DJ_ANTHROPIC_API_KEY"

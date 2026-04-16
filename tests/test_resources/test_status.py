@@ -4,9 +4,20 @@ import json
 from typing import Any
 
 import pytest
+from fastmcp.resources import ResourceResult
 
 
-def _parse(result: str | dict[str, Any]) -> dict[str, Any]:
+def _parse(result: str | dict[str, Any] | ResourceResult) -> dict[str, Any]:
+    if isinstance(result, ResourceResult):
+        item = result.contents[0] if result.contents else None
+        if item is None:
+            return {}
+        content = item.content
+        if isinstance(content, dict):
+            return content
+        if isinstance(content, str):
+            return json.loads(content)
+        return dict(content) if content else {}
     if isinstance(result, dict):
         return result
     return json.loads(result)

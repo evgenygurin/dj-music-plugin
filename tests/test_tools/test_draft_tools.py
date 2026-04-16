@@ -450,12 +450,12 @@ async def test_commit_draft_accepts_stateless_track_ids(client: Client, async_en
     assert result["track_count"] == 2
 
 
-# ── _generate_narrative — ctx.sample() fallback ──────
+# ── _generate_narrative — sample_structured / ctx.sample fallback ─
 
 
 @pytest.mark.asyncio
-async def test_generate_narrative_returns_none_when_sample_raises():
-    """_generate_narrative must return None (not crash) when ctx.sample() raises."""
+async def test_generate_narrative_metrics_fallback_when_sample_raises():
+    """When sampling raises, return metrics-only ArcCritique (no API key required)."""
     from unittest.mock import AsyncMock, MagicMock
 
     from app.controllers.tools.draft import _generate_narrative
@@ -479,7 +479,9 @@ async def test_generate_narrative_returns_none_when_sample_raises():
     )
 
     output = await _generate_narrative(ctx, result, [1, 2])
-    assert output is None
+    assert output is not None
+    assert "[Metrics-only]" in output["crowd_journey"]
+    assert output["recommendation"] == "Decent arc."
     ctx.warning.assert_called_once()
 
 

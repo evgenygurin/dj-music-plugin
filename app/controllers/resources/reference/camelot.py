@@ -16,6 +16,7 @@ from app.controllers.tools._shared.taxonomy import (
     ANNOTATIONS_READ_ONLY,
     ICON_REFERENCE,
     RESOURCE_META,
+    RESOURCE_VERSION,
 )
 from app.core.constants import CAMELOT_KEYS
 
@@ -30,6 +31,7 @@ from app.core.constants import CAMELOT_KEYS
     annotations=ANNOTATIONS_READ_ONLY,
     icons=ICON_REFERENCE,
     meta=RESOURCE_META,
+    version=RESOURCE_VERSION,
 )
 async def camelot_reference() -> str:
     """Get Camelot wheel reference data.

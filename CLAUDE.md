@@ -6,6 +6,7 @@
 
 ```bash
 uv sync --all-extras                       # Install all deps
+# Sampling: index https://gofastmcp.com/llms.txt — page https://gofastmcp.com/servers/sampling (client default; optional ``--extra llm`` + ``DJ_ANTHROPIC_API_KEY``)
 make check                                 # lint + typecheck + arch + test
 uv run fastmcp run app/server.py --reload  # MCP dev server
 cd panel && bun dev                        # Panel on :3000

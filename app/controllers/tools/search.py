@@ -3,8 +3,6 @@
 Thin wrapper calling :class:`SearchService` via ``Depends()``.
 """
 
-from __future__ import annotations
-
 from typing import Annotated, Literal
 
 from fastmcp.dependencies import CurrentContext, Depends
@@ -37,7 +35,15 @@ SearchEntity = Literal["all", "tracks", "artists", "playlists", "sets"]
 @map_domain_errors
 async def search_library(
     query: Annotated[str, Field(description="Search text")],
-    entity: Annotated[SearchEntity, Field(description="Entity type to search")] = "all",
+    entity: Annotated[
+        SearchEntity,
+        Field(
+            description=(
+                "Which catalog slice to search: all | tracks | artists | playlists | sets. "
+                "Use plural **tracks**, not `track`."
+            ),
+        ),
+    ] = "all",
     limit: Annotated[int, Field(description="Max results", ge=1, le=50)] = 10,
     svc: SearchService = Depends(get_search_service),  # noqa: B008
     ctx: Context = CurrentContext(),  # noqa: B008

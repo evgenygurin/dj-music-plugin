@@ -26,7 +26,7 @@ typecheck:
 arch:
 	uv run lint-imports
 
-check: lint typecheck test-smoke
+check: lint typecheck arch test
 
 check-full: lint typecheck arch test
 

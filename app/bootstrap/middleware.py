@@ -45,7 +45,9 @@ def register_middleware(
     try:
         from fastmcp.server.middleware.response_limiting import ResponseLimitingMiddleware
 
-        mcp.add_middleware(ResponseLimitingMiddleware(max_size=50_000))
+        mcp.add_middleware(
+            ResponseLimitingMiddleware(max_size=settings.mcp_tool_response_max_bytes),
+        )
     except ImportError:
         log.debug("ResponseLimitingMiddleware unavailable")
 

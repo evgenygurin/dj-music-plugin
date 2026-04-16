@@ -1,11 +1,16 @@
 """Workflow prompt — split from monolithic workflows.py (Phase 10)."""
 
-from __future__ import annotations
-
 from typing import Annotated
 
-from fastmcp.prompts import Message, PromptResult, prompt
+from fastmcp.prompts import PromptResult, prompt
 from pydantic import Field
+
+from app.controllers.prompts.workflow_shared import (
+    WORKFLOW_PROMPT_VERSION,
+    make_prompt_result,
+    message_assistant,
+    message_user,
+)
 
 
 @prompt(
@@ -13,7 +18,7 @@ from pydantic import Field
     title="Build DJ Set",
     description="Step-by-step: build an optimized DJ set from a playlist",
     tags={"sets", "workflow"},
-    meta={"version": "1.1", "steps": 7},
+    meta={"version": WORKFLOW_PROMPT_VERSION, "steps": 7},
 )
 def build_set_workflow(
     playlist_name: Annotated[str, Field(description="Playlist name or ID to build set from")],
@@ -37,9 +42,9 @@ def build_set_workflow(
         template: Set template name (classic_60, peak_hour_60, etc.)
         duration_min: Target duration in minutes
     """
-    return PromptResult(
-        messages=[
-            Message(
+    return make_prompt_result(
+        [
+            message_user(
                 f"""Build a DJ set from playlist "{playlist_name}" using the "{template}" template
 with target duration {duration_min} minutes.
 
@@ -62,10 +67,9 @@ Follow these steps:
 
 Report progress and findings after each step."""
             ),
-            Message(
+            message_assistant(
                 f'Building DJ set from "{playlist_name}" ({template}, {duration_min} min). '
                 f'Step 1: `get_playlist(query="{playlist_name}", include_tracks=True)`...',
-                role="assistant",
             ),
         ],
         description=(

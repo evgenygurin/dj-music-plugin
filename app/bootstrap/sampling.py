@@ -1,17 +1,27 @@
-"""Sampling bootstrap helpers."""
+"""Sampling bootstrap helpers.
+
+Official behaviour: https://gofastmcp.com/servers/sampling
+Default route is the **client** LLM; ``AnthropicSamplingHandler`` is optional
+**fallback** when the client does not implement MCP sampling.
+"""
 
 from __future__ import annotations
 
 import logging
-from typing import Any, Literal
+from typing import Any
 
 from app.config import settings
+from app.core.constants import MCP_SAMPLING_API_KEY_ENV_NAME
 
 
 def build_sampling_handler(
     logger: logging.Logger | None = None,
-) -> tuple[Any | None, Literal["always", "fallback"] | None]:
-    """Build the optional fallback sampling handler."""
+) -> Any | None:
+    """Return ``AnthropicSamplingHandler`` when API key is set, else ``None``.
+
+    ``server_builder`` passes ``sampling_handler_behavior="fallback"`` so the handler
+    runs only when the MCP client does not support sampling (FastMCP default).
+    """
     log = logger or logging.getLogger(__name__)
     sampling_handler: Any | None = None
 
@@ -31,14 +41,16 @@ def build_sampling_handler(
                 settings.sampling_model,
             )
         except ImportError:
-            log.warning("DJ_ANTHROPIC_API_KEY set but anthropic package not installed")
+            log.warning(
+                "%s set but anthropic package not installed",
+                MCP_SAMPLING_API_KEY_ENV_NAME,
+            )
     else:
         log.info(
-            "No DJ_ANTHROPIC_API_KEY configured. "
-            "LLM-assisted tools use client-driven mode: Claude Code generates queries "
-            "and passes them via tool parameters (e.g. search_queries=[...]). "
-            "For server-side sampling, set DJ_ANTHROPIC_API_KEY."
+            "Sampling default: MCP client LLM (ctx.sample) — no %s required. "
+            "Optional server-side Anthropic fallback: set %s and ``uv sync --extra llm``.",
+            MCP_SAMPLING_API_KEY_ENV_NAME,
+            MCP_SAMPLING_API_KEY_ENV_NAME,
         )
 
-    behavior: Literal["always", "fallback"] | None = "fallback" if sampling_handler else None
-    return sampling_handler, behavior
+    return sampling_handler
