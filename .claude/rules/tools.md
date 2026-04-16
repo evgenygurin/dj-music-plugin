@@ -16,8 +16,9 @@ globs: app/controllers/tools/**/*.py
 - **Title**: `title="Human Readable Name"` — REQUIRED on every tool (Claude Code displays it in UI)
 - **Icons**: `icons=ICON_TRACKS` / `ICON_SETS` / `ICON_YM` / etc — 16 SVG icon sets in `_shared.taxonomy`
 - **Meta**: `meta=TOOL_META` on every tool — auto-generated from `app._version.__version__`
-- **Visibility**: use native `mcp.disable(tags=...)` / `mcp.enable(tags=...)` (see `bootstrap/visibility.py`)
+- **Visibility**: default visibility configured in `bootstrap/visibility.py`. Per-session changes via `ctx.enable_components(tags={...})` / `ctx.disable_components(tags={...})` — NOT `ctx.fastmcp.enable()`
 - **Entity resolution**: use `resolve_track_id` / `resolve_entity` / `ensure_reference` from `_shared` — never re-implement `id|query` validation
+- **Context injection**: `ctx: Context = CurrentContext()  # noqa: B008` — import `Context` from `fastmcp.server.context`, `CurrentContext` from `fastmcp.dependencies`. NEVER use `Annotated[Context | None, Field(...)] = None`
 - **Context logging**: wrap `ctx` in `ToolContext(ctx)` and call `await log.info(...)`, `log.progress(...)`, `log.elicit(...)` — never write `if ctx: await ctx.info(...)` guards
 - **Action-dispatched tools** (`ym_playlists`, `ym_likes`, `manage_*`): use `ActionDispatcher[ResultT]` from `_shared.dispatch` — `@_dispatcher.register("name")` instead of `if/elif` chains. Duplicate registration raises at import time.
 - Tool descriptions ≤50 words — details go in parameter descriptions
@@ -33,7 +34,7 @@ globs: app/controllers/tools/**/*.py
 
 - `Depends()`: use `param=Depends(factory)`, NOT `Annotated[Type, Depends(factory)]` — FastMCP doesn't resolve Annotated
 - `pagination_size` in config must be >= tool count — MCP clients may not follow nextCursor
-- Hidden tools: all 7 extended/hidden categories (delivery, discovery, curation, sync, ym, audio, atomic) are disabled at startup. `unlock_tools(action="unlock", category="...")` calls `ctx.fastmcp.enable(tags=...)` which triggers `notifications/tools/list_changed` — the client re-fetches the tool list automatically
+- Hidden tools: all 7 extended/hidden categories (delivery, discovery, curation, sync, ym, audio, atomic) are disabled at startup. `unlock_tools(action="unlock", category="...")` calls `ctx.enable_components(tags={category})` — per-session, triggers `notifications/tools/list_changed` so the client re-fetches automatically
 - `download_tracks` refs: accepts YM track IDs (`"135055088"`) or local IDs (auto-resolves via `resolve_local_ids_to_ym`). Numbers < 100000 = local, >= 100000 = YM
 - `download_tracks` automatically creates `DjLibraryItem` via `_link_file_to_track()` — no manual linking needed
 - `score_delivery_transitions` returns `tuple[int, int]` (scored, conflicts), NOT dict
