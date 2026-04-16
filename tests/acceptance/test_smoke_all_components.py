@@ -147,6 +147,7 @@ async def smoke(async_engine, patch_audio, patch_tiered):  # type: ignore[no-unt
 
     # ── YM mock ──────────────────────────────────────────────────────
     ym = AsyncMock()
+    ym.provider = Provider.YANDEX_MUSIC
     ym.__aenter__.return_value = ym
     ym.__aexit__.return_value = None
     ym.search = AsyncMock(
