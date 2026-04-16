@@ -102,9 +102,15 @@ class YandexMusicAdapter:
     # ── Playlists ─────────────────────────────────────────────────────
 
     def _parse_playlist_id(self, playlist_id: str) -> tuple[str, int]:
-        """Parse ``"owner_id:kind"`` → (owner_id, kind)."""
-        owner, kind_str = playlist_id.split(":", 1)
-        return owner, int(kind_str)
+        """Parse playlist_id to (owner_id, kind).
+
+        Accepts both ``"owner_id:kind"`` (full) and ``"kind"`` (bare).
+        Bare kind uses the authenticated user's ID from the client.
+        """
+        if ":" in playlist_id:
+            owner, kind_str = playlist_id.split(":", 1)
+            return owner, int(kind_str)
+        return self._client._user_id, int(playlist_id)
 
     def _make_playlist_id(self, owner_id: str | None, kind: int) -> str:
         return f"{owner_id or self._client._user_id}:{kind}"
