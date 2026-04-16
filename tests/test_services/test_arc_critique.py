@@ -15,6 +15,7 @@ def test_arc_critique_validates_required_fields():
     assert critique.crowd_journey.startswith("Opens")
     assert len(critique.weak_transitions) == 1
     assert "10" in critique.strongest_moment
+    assert "Swap" in critique.recommendation
 
 
 def test_arc_critique_accepts_empty_weak_transitions():
@@ -37,4 +38,6 @@ def test_arc_critique_serializes_to_json():
     data = critique.model_dump()
     assert "crowd_journey" in data
     assert "weak_transitions" in data
+    assert "strongest_moment" in data
+    assert "recommendation" in data
     assert isinstance(data["weak_transitions"], list)
