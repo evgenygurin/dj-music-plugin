@@ -15,7 +15,9 @@ from typing import Annotated, Any
 
 from fastmcp.dependencies import CurrentContext, Depends
 from fastmcp.server.context import Context
+from fastmcp.server.elicitation import CancelledElicitation, DeclinedElicitation
 from fastmcp.tools import tool
+from mcp.shared.exceptions import McpError
 from pydantic import Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -263,9 +265,9 @@ async def commit_draft(
 
     try:
         elicit_result = await ctx.elicit(elicit_msg, response_type=None)
-        if elicit_result.action != "accept":
+        if isinstance(elicit_result, DeclinedElicitation | CancelledElicitation):
             return {"cancelled": True}
-    except Exception:
+    except McpError:
         await ctx.info("Elicitation not supported — saving draft without confirmation.")
 
     dj_set, version, scored_quality = await svc.commit_version(

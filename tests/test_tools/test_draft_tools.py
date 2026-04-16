@@ -293,8 +293,8 @@ async def test_commit_draft_decline_returns_cancelled_no_db_write(
     Context.elicit at class level to return a decline result directly — this
     isolates the commit_draft branch logic from the transport implementation.
     """
-    from fastmcp.client.elicitation import ElicitResult
     from fastmcp.server.context import Context
+    from fastmcp.server.elicitation import DeclinedElicitation
     from sqlalchemy.ext.asyncio import async_sessionmaker
 
     from app.db.models.track import Track
@@ -307,7 +307,7 @@ async def test_commit_draft_decline_returns_cancelled_no_db_write(
         track_id = t.id
 
     async def _fake_elicit(self, message, *, response_type=None, **kwargs):  # type: ignore[no-untyped-def]
-        return ElicitResult(action="decline", content=None)
+        return DeclinedElicitation()
 
     monkeypatch.setattr(Context, "elicit", _fake_elicit)
 
