@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import pytest
+from pydantic import ValidationError
+
 from app.schemas.arc_critique import ArcCritique
 
 
@@ -28,7 +31,16 @@ def test_arc_critique_accepts_empty_weak_transitions():
     assert critique.weak_transitions == []
 
 
-def test_arc_critique_serializes_to_json():
+def test_arc_critique_requires_all_fields():
+    with pytest.raises(ValidationError):
+        ArcCritique(
+            crowd_journey="journey",
+            weak_transitions=[],
+            # missing strongest_moment and recommendation
+        )
+
+
+def test_arc_critique_model_dump():
     critique = ArcCritique(
         crowd_journey="Journey",
         weak_transitions=["t1→t2"],
