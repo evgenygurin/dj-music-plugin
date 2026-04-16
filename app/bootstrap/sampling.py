@@ -3,14 +3,14 @@
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import Any, Literal
 
 from app.config import settings
 
 
 def build_sampling_handler(
     logger: logging.Logger | None = None,
-) -> tuple[Any | None, str | None]:
+) -> tuple[Any | None, Literal["always", "fallback"] | None]:
     """Build the optional fallback sampling handler."""
     log = logger or logging.getLogger(__name__)
     sampling_handler: Any | None = None
@@ -40,4 +40,5 @@ def build_sampling_handler(
             "For server-side sampling, set DJ_ANTHROPIC_API_KEY."
         )
 
-    return sampling_handler, ("fallback" if sampling_handler else None)
+    behavior: Literal["always", "fallback"] | None = "fallback" if sampling_handler else None
+    return sampling_handler, behavior

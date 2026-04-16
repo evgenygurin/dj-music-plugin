@@ -159,6 +159,7 @@ async def manage_tracks(
 @map_domain_errors
 async def get_track_features(
     id: Annotated[int | None, Field(description="Local track ID")] = None,
+    track_id: Annotated[int | None, Field(description="Local track ID (alias for id)")] = None,
     query: Annotated[str | None, Field(description="Text search to resolve track")] = None,
     include_sections: Annotated[
         bool, Field(description="Include phrase/section breakdown when available")
@@ -166,8 +167,8 @@ async def get_track_features(
     svc: TrackService = Depends(get_track_service),  # noqa: B008
 ) -> dict[str, Any]:
     """Returns analyzed audio features for a track resolved by id or query, optionally including phrase sections. Use when planning mixes, scoring transitions, or auditing analysis output."""
-    track_id = await resolve_track_id(entity_id=id, query=query, search=svc.search)
-    track, features = await svc.get_with_features(track_id)
+    resolved_id = await resolve_track_id(entity_id=id or track_id, query=query, search=svc.search)
+    track, features = await svc.get_with_features(resolved_id)
 
     if features is None:
         return {"track_id": track.id, "title": track.title, "has_features": False}

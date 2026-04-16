@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from importlib import import_module
+from typing import Any
 
 from app.audio.analyzers import AnalyzerRegistry
 from app.clients.ym.client import YandexMusicClient
@@ -11,7 +12,7 @@ from app.providers.protocol import MusicProvider
 from app.providers.registry import ProviderRegistry
 
 
-def _get_context():  # type: ignore[no-untyped-def]
+def _get_context() -> Any:
     dependencies = import_module("app.controllers.dependencies")
     return dependencies.get_context()
 

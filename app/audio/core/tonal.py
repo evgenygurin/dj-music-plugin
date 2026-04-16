@@ -75,7 +75,7 @@ def compute_mfcc(
     mel_spec = filterbank @ power
     mel_spec = np.maximum(mel_spec, 1e-10)
     log_mel = np.log(mel_spec)
-    coeffs = dct(log_mel, type=2, axis=0, norm="ortho")[:n_mfcc]
+    coeffs: np.ndarray = dct(log_mel, type=2, axis=0, norm="ortho")[:n_mfcc]
     return coeffs
 
 
@@ -85,7 +85,7 @@ def mel_filterbank(freqs: np.ndarray, sr: int, *, n_mels: int) -> np.ndarray:
     mel_min = hz_to_mel(0.0)
     mel_max = hz_to_mel(nyquist)
     mel_points = np.linspace(mel_min, mel_max, n_mels + 2)
-    hz_points = mel_to_hz(mel_points)
+    hz_points: np.ndarray = np.asarray(mel_to_hz(mel_points), dtype=np.float64)
 
     filterbank = np.zeros((n_mels, len(freqs)), dtype=np.float64)
     for mel_bin in range(n_mels):
