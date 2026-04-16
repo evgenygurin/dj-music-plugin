@@ -11,7 +11,7 @@ Layer organisation:
 - :mod:`platform_responses` — platform-agnostic tool response DTOs
 
 Domain helpers (``is_excluded_title``, ``genre_ok``)
-live in :mod:`app.core.utils.filters` and :mod:`app.clients.ym.filters`.
+live in :mod:`app.clients.ym.filters` (moved to :mod:`app.core.utils.filters` in Phase 1, Task 3).
 """
 
 from __future__ import annotations
