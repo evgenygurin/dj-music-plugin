@@ -8,12 +8,14 @@
 └──────────────────────────┬──────────────────────────────────┘
                            │ stdio / streamable-http
 ┌──────────────────────────▼──────────────────────────────────┐
-│                   FastMCP v3.1 Server                        │
+│                   FastMCP v3.2 Server                        │
 │  ┌─────────────┐ ┌────────────┐ ┌─────────────────────────┐│
 │  │ Middleware   │ │ Transforms │ │ Visibility System       ││
 │  │ (logging,    │ │ (namespace,│ │ (core/extended/hidden)  ││
-│  │  rate limit, │ │  R→T, P→T) │ │                         ││
-│  │  timing)     │ │            │ │                         ││
+│  │  rate_limit, │ │  R→T, P→T) │ │                         ││
+│  │  timing,     │ │            │ │                         ││
+│  │  resp_limit, │ │            │ │                         ││
+│  │  caching)    │ │            │ │                         ││
 │  └──────┬───────┘ └────────────┘ └─────────────────────────┘│
 │         │                                                    │
 │  ┌──────▼──────────────────────────────────────────────────┐│
@@ -98,7 +100,7 @@ External:
 
 ```text
 1. Client sends tool call → FastMCP
-2. Middleware pipeline: log → timing → rate limit → response limit → retry → error masking
+2. Middleware pipeline: log → timing → response_limit → caching → rate_limit → retry → error masking
 3. FastMCP resolves tool via FileSystemProvider
 4. DI chain activates:
    controllers/dependencies/db.py
@@ -139,3 +141,6 @@ External:
 | Panel reads Supabase directly | Avoids MCP overhead for read-only dashboard data |
 | REST API wrapper over direct MCP | Panel needs HTTP transport; Swagger docs for debugging |
 | Supabase PostgreSQL (only DB) | Production-grade, panel reads directly, RLS available; SQLite only for tests |
+| CurrentContext() for DI | Unified context injection; session-scoped, no null checks needed |
+| ToolTransform dict in transforms.py | Centralizes LLM-facing descriptions and hidden params without touching tool files |
+| Pydantic response models | Auto-generates output_schema in FastMCP, helps LLMs parse tool results |

@@ -41,7 +41,7 @@ Quick reference for all MCP tools (~51 total, visible + hidden).
 |------|--------|----|---------|
 | `build_set` | playlist_id, name, template?, target_duration_min?, algorithm(greedy\|ga), dry_run? | no | 120s |
 | `rebuild_set` | set_id, pin_tracks?, exclude_tracks?, algorithm, version_label? | no | 120s |
-| `score_transitions` | mode(set\|pair\|track_candidates), set_id?, from/to_track_id?, track_id?, top_n? | no | — |
+| `score_transitions` | mode(set\|pair\|track_candidates), set_id?, from/to_track_id?, track_id? | no | — |
 | `get_set_cheat_sheet` | set_id, version? | yes | — |
 | `get_set_templates` | — | yes | — |
 
@@ -60,7 +60,7 @@ Quick reference for all MCP tools (~51 total, visible + hidden).
 
 | Tool | Params | RO |
 |------|--------|-----|
-| `unlock_tools` | action(unlock\|lock\|status), category? | no |
+| `unlock_tools` | action(unlock\|lock\|status), category? — **per-session** | no |
 | `list_platforms` | — | yes |
 
 ## Extended Tools (unlock per category)
@@ -119,7 +119,7 @@ Each YM tool lives in its own submodule under `app/controllers/tools/yandex/`:
 | Tool | Params | Timeout |
 |------|---------|---------|
 | `analyze_track` | track_id?, track_query?, analyzers?, force?, level? | 120s |
-| `analyze_batch` | track_ids?\|playlist_id?, batch_size?, analyzers?, level?, force? | 600s |
+| `analyze_batch` | track_ids?\|playlist_id?, analyzers?, level?, force? | 600s |
 | `separate_stems` | track_id?, track_query?, stems? | 300s |
 | `classify_track` | track_id | — |
 | `gate_track` | track_id, criteria? | — |
@@ -153,9 +153,12 @@ Hidden by default; unlock via `unlock_tools`. Dispatch tools consolidate prior p
 | YM API | `ym` | Unlockable |
 | Audio Analysis | `audio` | Unlockable |
 | Memory | `memory` | Unlockable |
+| `transition://{from_id}/{to_id}/score` (resource) | — | Always |
+| `session://tool-history` (resource) | — | Always |
 
 > **Note:** All 7 extended/hidden categories start disabled. Use `unlock_tools(action="unlock", category="all")`
 > to enable them — this triggers `notifications/tools/list_changed` so the client re-fetches the tool list.
+> `unlock_tools` is **per-session**: visibility changes affect only the current MCP session, not other clients.
 
 ## Legend
 
