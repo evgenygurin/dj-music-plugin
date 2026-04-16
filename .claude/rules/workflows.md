@@ -1,4 +1,5 @@
 ---
+description: Workflow orchestration patterns — multi-service coordination per MCP tool call
 globs: app/services/workflows/**/*.py
 ---
 
