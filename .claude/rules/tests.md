@@ -31,6 +31,20 @@ globs: tests/**/*.py
 - Audio tests use synthetic WAV fixtures (440Hz sine, 128 BPM click, white noise)
 - Name test files to mirror source: `app/services/track_service.py` → `tests/test_services/test_track_service.py`
 
+- **inline-snapshot** (`pytest-inline-snapshot`): snapshot testing without separate fixture files:
+  ```python
+  from inline_snapshot import snapshot
+  assert result.content[0].text == snapshot("expected text here")
+  # First run: add --snapshot-update flag to auto-fill the expected value
+  ```
+- **dirty-equals** for flexible type assertions:
+  ```python
+  from dirty_equals import IsStr, IsInt, IsPositive
+  assert result.data.track_id == IsInt()
+  assert result.data.title == IsStr(min_length=1)
+  ```
+- **Progress testing**: tools with `ctx.report_progress()` — use `Client(mcp)` in-memory. Progress calls are no-ops without a progress token. Test behavior and return values, not progress events.
+
 ## Gotchas
 
 - **Sort/order assertions**: всегда `assert len(result) > 0` ПЕРЕД проверкой порядка. `[] == sorted([])` тривиально true и даёт false-positive PASS — баг сортировки пройдёт незамеченным

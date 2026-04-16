@@ -23,6 +23,8 @@ globs: app/controllers/tools/**/*.py
   - In helper functions that don't receive ctx as param: `ctx = get_context()` from `fastmcp.server.dependencies`
 - **Context properties**: `ctx.transport` (stdio/sse/streamable-http), `ctx.session_id`, `ctx.client_id`, `ctx.request_id` — useful for observability and per-transport behaviour
 - **Context logging**: wrap `ctx` in `ToolContext(ctx)` and call `await log.info(...)`, `log.progress(...)`, `log.elicit(...)` — never write `if ctx: await ctx.info(...)` guards
+- **Progress reporting**: `await ctx.report_progress(progress=i, total=n)` for long-running loops. Both `progress` and `total` can be any unit (items, percentage, bytes). `total` is optional (indeterminate). No-op if client sent no progress token — safe to call always.
+- **Sampling** (`ctx.sample()`): server-initiated LLM call. Requires `DJ_ANTHROPIC_API_KEY` (fallback mode) or client support. Tools that reason over library data use `search_queries: list[str]` parameter instead — the LLM client generates queries and passes them as tool input.
 - **Action-dispatched tools** (`ym_playlists`, `ym_likes`, `manage_*`): use `ActionDispatcher[ResultT]` from `_shared.dispatch` — `@_dispatcher.register("name")` instead of `if/elif` chains. Duplicate registration raises at import time.
 - Tool descriptions ≤50 words — details go in parameter descriptions
 - Use `Depends()` for DI — hidden from tool schema automatically

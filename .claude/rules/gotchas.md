@@ -37,3 +37,19 @@ Ruff auto-removes imports that aren't used yet. When adding an import + its usag
 ## Middleware `fastmcp_context` is None during initialization
 
 `MiddlewareContext.fastmcp_context` is `None` for `on_message` / `on_request` hooks fired before the MCP session handshake completes. Check `if context.fastmcp_context:` before accessing it in custom middleware.
+
+## Lifespan context key collisions
+
+`db_lifespan | provider_lifespan | ...` merges yielded dicts left→right. Later lifespans overwrite earlier on key conflict. Reserved keys: `db_engine`, `db_session_factory`, `provider_registry`, `ym_client`, `analyzer_registry`, `transition_cache`. Use unique keys in new lifespans.
+
+## `@asynccontextmanager` lifespans can't compose with `|`
+
+Legacy `@asynccontextmanager` lifespans aren't composable with `|` directly. Wrap with `ContextManagerLifespan`:
+```python
+from fastmcp.server.lifespan import ContextManagerLifespan
+combined = ContextManagerLifespan(legacy_lifespan) | new_lifespan
+```
+
+## `FileSystemProvider` scans at construction
+
+Tool/resource/prompt discovery happens when `FastMCP(providers=[FileSystemProvider(...)])` is called. Adding a new `@tool` file after construction has no effect — server must restart to discover it.
