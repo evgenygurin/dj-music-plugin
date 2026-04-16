@@ -126,8 +126,8 @@ class YandexMusicAdapter:
         return [_convert_track(t) for t in ym_tracks]
 
     async def list_user_playlists(self) -> list[ProviderPlaylist]:
-        ym_playlists = await self._client.list_user_playlists()
-        return [_convert_playlist(p) for p in ym_playlists]
+        provider_playlists = await self._client.list_user_playlists()
+        return [_convert_playlist(p) for p in provider_playlists]
 
     async def create_playlist(
         self, title: str, *, visibility: str = "private"

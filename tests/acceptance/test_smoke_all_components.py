@@ -232,7 +232,7 @@ async def smoke(async_engine, patch_audio, patch_tiered):  # type: ignore[no-unt
             ]
         )
 
-        # YM metadata for tracks (needed for push_set_to_ym)
+        # YM metadata for tracks (needed for push_set_to_platform)
         session.add(YandexMetadata(track_id=t1.id, yandex_track_id="100", album_id="9"))
         session.add(YandexMetadata(track_id=t2.id, yandex_track_id="101", album_id="9"))
         # TrackExternalId links used by sync_service._collect_ym_track_ids
@@ -689,11 +689,11 @@ async def test_discovery_filter_by_feedback(smoke: dict) -> None:
 
 
 @pytest.mark.asyncio
-async def test_discovery_expand_playlist_ym(smoke: dict) -> None:
+async def test_discovery_expand_platform_playlist(smoke: dict) -> None:
     r = await _tool(
         smoke["client"],
-        "expand_playlist_ym",
-        {"ym_playlist_kind": 42, "target_count": 5},
+        "expand_platform_playlist",
+        {"playlist_id": "42", "target_count": 5},
     )
     assert isinstance(r, dict)
 
@@ -737,10 +737,10 @@ async def test_sync_playlist_diff(smoke: dict) -> None:
 
 
 @pytest.mark.asyncio
-async def test_sync_push_set_to_ym(smoke: dict) -> None:
+async def test_sync_push_set_to_platform(smoke: dict) -> None:
     r = await _tool(
         smoke["client"],
-        "push_set_to_ym",
+        "push_set_to_platform",
         {"set_id": smoke["set_id"]},
     )
     assert isinstance(r, dict)

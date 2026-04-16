@@ -194,6 +194,20 @@ async def score_transitions(
     top_n: Annotated[
         int, Field(description="Max ranked transitions or candidates to persist")
     ] = 10,
+    include_transitions: Annotated[
+        bool,
+        Field(description="Include full transition list in set mode (can be large)"),
+    ] = False,
+    transitions_limit: Annotated[
+        int,
+        Field(
+            description="Max transitions returned in set mode when include_transitions=true", ge=1
+        ),
+    ] = 50,
+    transitions_offset: Annotated[
+        int,
+        Field(description="Transition offset for set mode pagination", ge=0),
+    ] = 0,
     workflow: BuildSetWorkflow = Depends(get_build_set_workflow),  # noqa: B008
     ctx: Context = CurrentContext(),  # noqa: B008
 ) -> dict[str, Any]:
@@ -208,6 +222,25 @@ async def score_transitions(
         top_n=top_n,
         log=ToolContext(ctx),
     )
+    # Keep set-mode responses bounded so structured content is not dropped by FastMCP
+    # response size limits on large sets.
+    if mode == "set":
+        transitions = result.get("transitions")
+        if isinstance(transitions, list):
+            total = len(transitions)
+            if include_transitions:
+                page = transitions[transitions_offset : transitions_offset + transitions_limit]
+                next_offset = transitions_offset + len(page)
+                result["transitions"] = page
+                result["transitions_offset"] = transitions_offset
+                result["transitions_limit"] = transitions_limit
+                result["transitions_total"] = total
+                result["transitions_truncated"] = next_offset < total
+                result["transitions_next_offset"] = next_offset if next_offset < total else None
+            else:
+                result.pop("transitions", None)
+                result["transitions_included"] = False
+                result["transitions_total"] = total
     await ctx.report_progress(1, 1, "Done")
     return result
 

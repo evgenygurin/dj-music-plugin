@@ -45,6 +45,7 @@ class ToolCategory(StrEnum):
     DISCOVERY = "discovery"
     CURATION = "curation"
     SYNC = "sync"
+    PLATFORM = "platform"
     YM = "ym"
     AUDIO = "audio"
     MEMORY = "memory"

@@ -183,9 +183,9 @@ class DiscoveryService:
         disliked_set = await self._provider.get_disliked_ids()
         return liked_set, disliked_set
 
-    async def expand_playlist_ym(
+    async def expand_platform_playlist(
         self,
-        ym_playlist_kind: int,
+        playlist_id: str,
         target_count: int = 100,
         genre_filter_list: list[str] | None = None,
         genre_blacklist_list: list[str] | None = None,
@@ -201,14 +201,14 @@ class DiscoveryService:
         _t0 = _time.monotonic()
 
         # 1. Fetch current playlist
-        platform_playlist_id = str(ym_playlist_kind)
+        platform_playlist_id = playlist_id
         current = await self._provider.get_playlist_tracks(platform_playlist_id)
         existing_ids = {t.id for t in current}
         need = max(0, target_count - len(current))
 
         if need == 0:
             return {
-                "playlist_kind": ym_playlist_kind,
+                "playlist_id": platform_playlist_id,
                 "current_count": len(current),
                 "target_count": target_count,
                 "added": 0,
@@ -274,7 +274,7 @@ class DiscoveryService:
         if dry_run:
             return {
                 "dry_run": True,
-                "playlist_kind": ym_playlist_kind,
+                "playlist_id": platform_playlist_id,
                 "current_count": len(current),
                 "target_count": target_count,
                 "candidates_found": len(candidates),
@@ -303,7 +303,7 @@ class DiscoveryService:
         elapsed_ms = int((_time.monotonic() - _t0) * 1000)
 
         return {
-            "playlist_kind": ym_playlist_kind,
+            "playlist_id": platform_playlist_id,
             "before_count": len(current),
             "after_count": len(current) + added,
             "added": added,

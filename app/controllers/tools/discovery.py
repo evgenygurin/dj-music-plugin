@@ -3,9 +3,9 @@
 Thin wrappers calling :class:`DiscoveryService` via ``Depends()``.
 
 Tools:
-- ``find_similar_tracks`` — YM API with declarative filters (+ optional LLM mode)
-- ``filter_by_feedback`` — liked/disliked gate for YM track IDs
-- ``expand_playlist_ym`` — high-level orchestrator (seeds → similar → filter → add)
+- ``find_similar_tracks`` — platform API with declarative filters (+ optional LLM mode)
+- ``filter_by_feedback`` — liked/disliked gate for platform track IDs
+- ``expand_platform_playlist`` — high-level orchestrator (seeds → similar → filter → add)
 """
 
 from __future__ import annotations
@@ -211,8 +211,8 @@ async def filter_by_feedback(
     timeout=ToolTimeout.BATCH,
 )
 @map_domain_errors
-async def expand_playlist_ym(
-    ym_playlist_kind: Annotated[int, Field(description="YM playlist kind number")],
+async def expand_platform_playlist(
+    playlist_id: Annotated[str, Field(description="Platform playlist ID")],
     target_count: Annotated[int, Field(description="Target playlist size", ge=1)] = 100,
     genre_filter: Annotated[list[str] | None, Field(description="Genre whitelist")] = None,
     genre_blacklist: Annotated[list[str] | None, Field(description="Genre blacklist")] = None,
@@ -230,12 +230,12 @@ async def expand_playlist_ym(
     svc: DiscoveryService = Depends(get_discovery_service),  # noqa: B008
     ctx: Context = CurrentContext(),  # noqa: B008
 ) -> dict[str, Any]:
-    """Grows a Yandex Music playlist toward a target size with similar tracks and filters. Use when you want one-shot expansion instead of chaining finer discovery tools."""
+    """Grows a platform playlist toward a target size with similar tracks and filters."""
     log = ToolContext(ctx)
     await log.info("Fetching playlist tracks...")
 
-    return await svc.expand_playlist_ym(
-        ym_playlist_kind=ym_playlist_kind,
+    return await svc.expand_platform_playlist(
+        playlist_id=playlist_id,
         target_count=target_count,
         genre_filter_list=ensure_list(genre_filter) or None,
         genre_blacklist_list=ensure_list(genre_blacklist) or None,

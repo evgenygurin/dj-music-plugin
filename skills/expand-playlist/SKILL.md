@@ -10,12 +10,12 @@ Guide the user through discovering and importing new tracks to fill playlist gap
 
 ## Quick Path (one-call)
 
-Use `expand_playlist_ym` for automated expansion against a YM playlist:
+Use `expand_platform_playlist` for automated expansion against a platform playlist:
 ```text
-expand_playlist_ym(ym_playlist_kind=1234, target_count=100, genre_filter=["techno"], dry_run=true)
+expand_platform_playlist(playlist_id="1234", target_count=100, genre_filter=["techno"], dry_run=true)
 ```
 
-Note: the param is `ym_playlist_kind` (numeric YM playlist `kind`), NOT a local `playlist_id`. Run with `dry_run=true` first to preview, then re-run without it.
+Note: use `playlist_id` (opaque remote playlist ID). Run with `dry_run=true` first to preview, then re-run without it.
 
 ## Granular Path (step-by-step)
 
@@ -34,7 +34,7 @@ Note: the param is `ym_playlist_kind` (numeric YM playlist `kind`), NOT a local 
 
 4. **Review candidates**
    - Present found tracks with BPM, key, energy info
-   - For manual lookups: `ym_search(query="...", type="track")`
+   - For manual lookups: `search_platform(query="...", type="tracks")`
 
 5. **Import selected tracks**
    - `import_tracks(track_refs=[...], playlist_id=..., auto_analyze=true)`
@@ -64,4 +64,4 @@ full_expansion_pipeline source_playlist="TECHNO FOR DJ SETS" target_per_subgenre
 - `strategy="ym"` is the fast/free path; `"llm"` requires `DJ_ANTHROPIC_API_KEY` or a sampling-capable client
 - `filter_tracks(exclude_set_id=N)` finds tracks not yet in a given set — useful for picking imports
 - Always download before `deliver_set` — iCloud stubs (<90% size) cannot be copied
-- Tool reference: @docs/tool-catalog.md (find_similar_tracks, filter_by_feedback, expand_playlist_ym, import_tracks, download_tracks)
+- Tool reference: @docs/tool-catalog.md (find_similar_tracks, filter_by_feedback, expand_platform_playlist, import_tracks, download_tracks)

@@ -32,7 +32,7 @@ Guide the user through exporting a completed DJ set in various formats.
 
 3. **Optional: Sync to Yandex Music**
    - `deliver_set(set_id=..., sync_to_ym=true)` — push as YM playlist
-   - Or standalone: `push_set_to_ym(set_id=..., ym_playlist_name="...", mode="auto")`
+   - Or standalone: `push_set_to_platform(set_id=..., platform_playlist_name="...", mode="auto")`
    - `mode` ∈ `{create, update, auto}` — `auto` updates an existing YM playlist with the same name, otherwise creates a new one
 
 4. **Verify output**

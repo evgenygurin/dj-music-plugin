@@ -1,4 +1,4 @@
-"""Yandex Music likes tools; ``ym_likes`` dispatches list/add/remove via ActionDispatcher."""
+"""Platform liked-tracks tool; ``platform_liked_tracks`` dispatches list/add/remove."""
 
 from __future__ import annotations
 
@@ -18,10 +18,10 @@ from app.controllers.tools._shared import (
     ToolCategory,
     UnknownActionError,
 )
-from app.controllers.tools.yandex._constants import MAX_LIKED_PAGE
+from app.controllers.tools.platform._constants import MAX_LIKED_PAGE
 from app.core.utils.parsing import ensure_list
 from app.providers.protocol import MusicProvider
-from app.schemas.ym_responses import YMLikesActionResult
+from app.schemas.platform_responses import LikesActionResult
 
 LikesAction = Literal["get_liked", "add", "remove"]
 
@@ -84,17 +84,17 @@ async def _remove(
 
 
 @tool(
-    title="YM Likes",
-    tags={ToolCategory.YM.value},
+    title="Platform Liked Tracks",
+    tags={ToolCategory.PLATFORM.value},
     annotations=ANNOTATIONS_WRITE_OPEN_WORLD,
     icons=ICON_YM,
     meta=TOOL_META,
 )
-async def ym_likes(
+async def platform_liked_tracks(
     action: Annotated[LikesAction, Field(description="Operation to perform")] = "get_liked",
     track_ids: Annotated[
         str | list[str] | None,
-        Field(description="YM track ID(s) — required for 'add' and 'remove'"),
+        Field(description="Platform track ID(s) — required for 'add' and 'remove'"),
     ] = None,
     limit: Annotated[
         int | None,
@@ -102,8 +102,8 @@ async def ym_likes(
     ] = None,
     offset: Annotated[int, Field(description="Offset for get_liked pagination", ge=0)] = 0,
     provider: MusicProvider = Depends(get_music_provider),  # noqa: B008
-) -> YMLikesActionResult:
-    """List, add, or remove liked tracks on the user's Yandex Music account. Use when syncing hearts, curating a liked pool, or undoing likes."""
+) -> LikesActionResult:
+    """List, add, or remove liked tracks on the active music platform."""
     ids = ensure_list(track_ids) or None
     try:
         raw = await _dispatcher.dispatch(
@@ -115,4 +115,4 @@ async def ym_likes(
         )
     except UnknownActionError as e:
         raise ToolError(str(e)) from e
-    return YMLikesActionResult(**raw)
+    return LikesActionResult(**raw)

@@ -76,7 +76,7 @@ Quick reference for all MCP tools (~51 total, visible + hidden).
 | Tool | File | Params | RO |
 |------|------|--------|-----|
 | `find_similar_tracks` | discovery.py | track_id, strategy(ym\|llm)?, limit?, min/max_duration_ms?, genre_filter?, genre_blacklist?, exclude_patterns? | yes |
-| `expand_playlist_ym` | discovery.py | ym_playlist_kind, target_count?, genre_filter?, genre_blacklist?, exclude_patterns?, min/max_duration_ms?, use_feedback?, dry_run? | no |
+| `expand_platform_playlist` | discovery.py | playlist_id, target_count?, genre_filter?, genre_blacklist?, exclude_patterns?, min/max_duration_ms?, use_feedback?, dry_run? | no |
 | `filter_by_feedback` | discovery.py | ym_track_ids (returns passed/blocked/boosted) | yes |
 | `import_tracks` | importing.py | track_refs, playlist_id?, auto_analyze? | no |
 | `download_tracks` | importing.py | track_refs, target_dir?, skip_existing?, prefer_bitrate? | no |
@@ -95,22 +95,22 @@ Quick reference for all MCP tools (~51 total, visible + hidden).
 | Tool | Params | RO |
 |------|--------|-----|
 | `sync_playlist` | playlist_id, direction(pull\|push\|diff)?, conflict_strategy?, dry_run?=true | no |
-| `push_set_to_ym` | set_id, ym_playlist_name?, mode(create\|update\|auto)? | no |
+| `push_set_to_platform` | set_id, platform_playlist_name?, mode(create\|update\|auto)? | no |
 
-### YM API (tag: `ym`, package: `yandex/`)
+### Platform API (tag: `platform`, package: `platform/`)
 
-Each YM tool lives in its own submodule under `app/controllers/tools/yandex/`:
+Each platform tool lives in its own submodule under `app/controllers/tools/platform/`:
 
 | Tool | File | Params | RO |
 |------|------|--------|-----|
-| `ym_search` | `yandex/search.py` | query, type(tracks\|albums\|artists\|playlists\|all)?, limit? | yes |
-| `ym_get_tracks` | `yandex/tracks.py` | track_ids, fields? | yes |
-| `ym_artist_tracks` | `yandex/tracks.py` | artist_id, page?, sort_by(date\|popularity)? | yes |
-| `ym_get_album` | `yandex/albums.py` | album_id, include_tracks? | yes |
-| `ym_playlists` | `yandex/playlists.py` | action(get\|get_tracks\|list\|create\|rename\|delete\|add_tracks\|remove_tracks), kind?, name?, track_ids?, revision? | varies |
-| `ym_likes` | `yandex/likes.py` | action(get_liked\|add\|remove), track_ids? | varies |
+| `search_platform` | `platform/search.py` | query, type(tracks\|albums\|artists\|playlists\|all)?, limit? | yes |
+| `get_platform_tracks` | `platform/tracks.py` | track_ids, fields? | yes |
+| `get_platform_artist_tracks` | `platform/tracks.py` | artist_id, offset?, limit?, sort_by(date\|popularity)? | yes |
+| `get_platform_album` | `platform/albums.py` | album_id, include_tracks? | yes |
+| `platform_playlists` | `platform/playlists.py` | action(get\|get_tracks\|list\|create\|rename\|delete\|add_tracks\|remove_tracks), playlist_id?, name?, track_ids?, revision? | varies |
+| `platform_liked_tracks` | `platform/likes.py` | action(get_liked\|add\|remove), track_ids? | varies |
 
-`ym_playlists` and `ym_likes` dispatch via `ActionDispatcher` (Command + Registry) — adding a new action is `@_dispatcher.register("name")` plus a handler, no `if/elif` edits.
+`platform_playlists` and `platform_liked_tracks` dispatch via `ActionDispatcher` (Command + Registry) — adding a new action is `@_dispatcher.register("name")` plus a handler, no `if/elif` edits.
 
 ## Hidden Tools (explicit unlock required)
 
@@ -150,7 +150,7 @@ Hidden by default; unlock via `unlock_tools`. Dispatch tools consolidate prior p
 | Discovery & Download | `discovery` | Unlockable |
 | Curation | `curation` | Unlockable |
 | Sync | `sync` | Unlockable |
-| YM API | `ym` | Unlockable |
+| Platform API | `platform` | Unlockable |
 | Audio Analysis | `audio` | Unlockable |
 | Memory | `memory` | Unlockable |
 | `transition://{from_id}/{to_id}/score` (resource) | — | Always |

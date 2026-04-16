@@ -59,8 +59,8 @@ CALL_EXAMPLES: dict[str, dict[str, Any]] = {
         "summary": "search_library — найти треки по запросу",
         "value": {"arguments": {"query": "techno", "entity": "tracks", "limit": 20}},
     },
-    "ym_get_tracks": {
-        "summary": "ym_get_tracks — batch fetch по YM IDs",
+    "get_platform_tracks": {
+        "summary": "get_platform_tracks — batch fetch по platform IDs",
         "value": {"arguments": {"track_ids": ["54486493", "55516369"]}},
     },
     "commit_set_version": {

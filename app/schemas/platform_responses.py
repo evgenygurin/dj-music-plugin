@@ -6,7 +6,9 @@ the exact shape of every platform tool response.
 
 from __future__ import annotations
 
-from pydantic import BaseModel
+from typing import Annotated, Literal
+
+from pydantic import BaseModel, Field
 
 # ── search ──────────────────────────────────────────────────
 
@@ -32,7 +34,25 @@ class PlatformTrackBatch(BaseModel):
     tracks: list[dict[str, object]]
 
 
-# ── get_artist_tracks ────────────────────────────────────────
+class PlatformTrackIdMapItem(BaseModel):
+    """Single local->platform ID mapping row."""
+
+    local_track_id: int
+    platform_track_id: str | None = None
+    found: bool
+
+
+class PlatformTrackIdMapResult(BaseModel):
+    """Response from ``resolve_platform_track_ids``."""
+
+    platform: str
+    requested: int
+    resolved: int
+    unresolved_track_ids: list[int]
+    mappings: list[PlatformTrackIdMapItem]
+
+
+# ── get_platform_artist_tracks ───────────────────────────────
 
 
 class ArtistTrackItem(BaseModel):
@@ -45,7 +65,7 @@ class ArtistTrackItem(BaseModel):
 
 
 class ArtistTracksPage(BaseModel):
-    """Response from ``get_artist_tracks``."""
+    """Response from ``get_platform_artist_tracks``."""
 
     artist_id: str
     offset: int
@@ -56,11 +76,11 @@ class ArtistTracksPage(BaseModel):
     has_next: bool
 
 
-# ── get_album ────────────────────────────────────────────────
+# ── get_platform_album ───────────────────────────────────────
 
 
 class AlbumResult(BaseModel):
-    """Response from ``get_album``."""
+    """Response from ``get_platform_album``."""
 
     album_id: str
     album: dict[str, object]
@@ -69,32 +89,96 @@ class AlbumResult(BaseModel):
 # ── platform_playlists ───────────────────────────────────────
 
 
-class PlaylistActionResult(BaseModel):
-    """Response from ``platform_playlists`` (all actions)."""
+class PlaylistListResult(BaseModel):
+    """Response for ``platform_playlists(action='list')``."""
 
-    action: str
-    playlists: list[dict[str, object]] | None = None
-    playlist: dict[str, object] | None = None
-    kind: int | None = None
-    new_name: str | None = None
-    result: dict[str, object] | None = None
-    count: int | None = None
-    offset: int | None = None
-    limit: int | None = None
-    track_ids: list[str] | None = None
-    tracks: list[dict[str, object]] | None = None
+    action: Literal["list"]
+    playlists: list[dict[str, object]]
+    count: int
+    offset: int
+    limit: int
     next_offset: int | None = None
-    truncated: bool | None = None
-    removed: int | None = None
-    not_found: list[str] | None = None
-    revision: int | None = None
+    truncated: bool
 
 
-# ── platform_likes ───────────────────────────────────────────
+class PlaylistGetResult(BaseModel):
+    """Response for ``platform_playlists(action='get')``."""
+
+    action: Literal["get"]
+    playlist_id: str
+    playlist: dict[str, object]
+
+
+class PlaylistGetTracksResult(BaseModel):
+    """Response for ``platform_playlists(action='get_tracks')``."""
+
+    action: Literal["get_tracks"]
+    playlist_id: str
+    count: int
+    offset: int
+    limit: int
+    track_ids: list[str]
+    tracks: list[dict[str, object]]
+    next_offset: int | None = None
+    truncated: bool
+
+
+class PlaylistCreateResult(BaseModel):
+    """Response for ``platform_playlists(action='create')``."""
+
+    action: Literal["create"]
+    playlist: dict[str, object]
+
+
+class PlaylistRenameResult(BaseModel):
+    """Response for ``platform_playlists(action='rename')``."""
+
+    action: Literal["rename"]
+    playlist_id: str
+    new_name: str
+
+
+class PlaylistDeleteResult(BaseModel):
+    """Response for ``platform_playlists(action='delete')``."""
+
+    action: Literal["delete"]
+    playlist_id: str
+
+
+class PlaylistAddTracksResult(BaseModel):
+    """Response for ``platform_playlists(action='add_tracks')``."""
+
+    action: Literal["add_tracks"]
+    playlist_id: str
+    result: dict[str, object] | bool
+
+
+class PlaylistRemoveTracksResult(BaseModel):
+    """Response for ``platform_playlists(action='remove_tracks')``."""
+
+    action: Literal["remove_tracks"]
+    playlist_id: str
+    removed: int
+
+
+PlaylistActionResult = Annotated[
+    PlaylistListResult
+    | PlaylistGetResult
+    | PlaylistGetTracksResult
+    | PlaylistCreateResult
+    | PlaylistRenameResult
+    | PlaylistDeleteResult
+    | PlaylistAddTracksResult
+    | PlaylistRemoveTracksResult,
+    Field(discriminator="action"),
+]
+
+
+# ── platform_liked_tracks ────────────────────────────────────
 
 
 class LikesActionResult(BaseModel):
-    """Response from ``platform_likes`` (all actions)."""
+    """Response from ``platform_liked_tracks`` (all actions)."""
 
     action: str
     count: int | None = None

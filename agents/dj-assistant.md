@@ -50,10 +50,10 @@ color: pink
 - **Set building (core)**: `build_set`, `rebuild_set`, `score_transitions`, `get_set_cheat_sheet`
 - **Set reasoning (core)**: `suggest_next_track`, `explain_transition`, `find_replacement`, `compare_set_versions`, `quick_set_review`
 - **Delivery (extended)**: `deliver_set`, `export_set` (M3U8, Rekordbox XML, JSON guide)
-- **Discovery (extended)**: `find_similar_tracks`, `expand_playlist_ym`, `import_tracks`, `download_tracks`, `filter_by_feedback`
+- **Discovery (extended)**: `find_similar_tracks`, `expand_platform_playlist`, `import_tracks`, `download_tracks`, `filter_by_feedback`
 - **Curation (extended)**: `classify_mood`, `audit_playlist`, `review_set_quality`, `distribute_to_subgenres`, `get_library_stats`
-- **Sync (extended)**: `sync_playlist`, `push_set_to_ym`
-- **YM API (extended)**: `ym_search`, `ym_get_tracks`, `ym_artist_tracks`, `ym_get_album`, `ym_playlists`, `ym_likes`
+- **Sync (extended)**: `sync_playlist`, `push_set_to_platform`
+- **Platform API (extended)**: `search_platform`, `get_platform_tracks`, `get_platform_artist_tracks`, `get_platform_album`, `platform_playlists`, `platform_liked_tracks`
 - **Audio (hidden)**: `analyze_track`, `analyze_batch`, `separate_stems`
 - **Admin**: `unlock_tools`, `list_platforms`
 

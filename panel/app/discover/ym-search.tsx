@@ -18,7 +18,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Search } from 'lucide-react'
-import { ymSearch, importTracks } from '@/actions/discovery-actions'
+import { importTracks, searchPlatform } from '@/actions/discovery-actions'
 
 interface YmTrack {
   id: string | number
@@ -64,7 +64,7 @@ export function YmSearch() {
     setError(null)
     startSearch(async () => {
       try {
-        const result = await ymSearch(query.trim(), searchType)
+        const result = await searchPlatform(query.trim(), searchType)
         if (result.is_error) {
           setError(result.content[0]?.text ?? 'Search failed')
           setResults([])
@@ -102,8 +102,8 @@ export function YmSearch() {
   return (
     <Card className="shadow-none border-border/20 bg-card/50">
       <CardHeader>
-        <CardTitle className="display-heading text-lg">Search Yandex Music</CardTitle>
-        <CardDescription>Search for tracks, albums, artists, and playlists on Yandex Music.</CardDescription>
+        <CardTitle className="display-heading text-lg">Search Platform</CardTitle>
+        <CardDescription>Search for tracks, albums, artists, and playlists on the active platform.</CardDescription>
       </CardHeader>
       <CardContent className="grid gap-4">
         <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_140px_auto]">
@@ -114,7 +114,7 @@ export function YmSearch() {
               </InputGroupText>
             </InputGroupAddon>
             <InputGroupInput
-              placeholder="Search Yandex Music..."
+              placeholder="Search platform catalog..."
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               onKeyDown={handleKeyDown}

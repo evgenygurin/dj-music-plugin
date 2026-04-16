@@ -214,7 +214,7 @@ def _make_ym_client():
 
 async def bench_ym_search() -> TimingResult:
     client = _make_ym_client()
-    with Timer("ym_search('techno', type=tracks, limit=10)") as t:
+    with Timer("platform_search('techno', type=tracks, limit=10)") as t:
         try:
             result = await client.search("techno", type="tracks", limit=10)
             t.detail = f"{len(result.tracks)} tracks found"
@@ -227,7 +227,7 @@ async def bench_ym_search() -> TimingResult:
 
 async def bench_ym_get_tracks() -> TimingResult:
     client = _make_ym_client()
-    with Timer("ym_get_tracks(5 IDs)") as t:
+    with Timer("get_platform_tracks(5 IDs)") as t:
         try:
             result = await client.get_tracks(
                 ["135055088", "121211014", "123713038", "123713036", "127563463"]

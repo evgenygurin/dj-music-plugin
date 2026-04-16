@@ -218,7 +218,10 @@ async def test_deliver_set_syncs_to_ym_when_requested(tmp_path) -> None:
     tiered_pipeline = AsyncMock()
     tiered_pipeline.ensure_level.return_value = {"analyzed": 0, "failed": 0, "skipped": 2}
     sync_workflow = AsyncMock()
-    sync_workflow.push_set_to_ym.return_value = {"ym_playlist_kind": 321, "tracks_pushed": 2}
+    sync_workflow.push_set_to_platform.return_value = {
+        "platform_playlist_id": "321",
+        "tracks_pushed": 2,
+    }
     workflow = DeliverSetWorkflow(delivery_service, tiered_pipeline, sync_workflow)
     log = _make_log()
 
@@ -231,10 +234,10 @@ async def test_deliver_set_syncs_to_ym_when_requested(tmp_path) -> None:
         log=log,
     )
 
-    assert result["synced_to_ym"] is True
-    assert result["ym_sync"] == {"ym_playlist_kind": 321, "tracks_pushed": 2}
-    sync_workflow.push_set_to_ym.assert_awaited_once_with(set_id=12, mode="auto")
-    assert call("Syncing delivered set to Yandex Music...") in log.info.await_args_list
+    assert result["synced_to_platform"] is True
+    assert result["platform_sync"] == {"platform_playlist_id": "321", "tracks_pushed": 2}
+    sync_workflow.push_set_to_platform.assert_awaited_once_with(set_id=12, mode="auto")
+    assert call("Syncing delivered set to platform...") in log.info.await_args_list
 
 
 @pytest.mark.asyncio
@@ -267,18 +270,18 @@ async def test_deliver_set_aborts_when_user_declines_conflicts() -> None:
 @pytest.mark.asyncio
 async def test_sync_playlist_workflow_forwards_push_set_arguments() -> None:
     sync_service = AsyncMock()
-    sync_service.push_set_to_ym.return_value = {"tracks_pushed": 5}
+    sync_service.push_set_to_platform.return_value = {"tracks_pushed": 5}
     workflow = SyncPlaylistWorkflow(sync_service)
 
-    result = await workflow.push_set_to_ym(
+    result = await workflow.push_set_to_platform(
         set_id=9,
-        ym_playlist_name="Road Test",
+        platform_playlist_name="Road Test",
         mode="create",
     )
 
     assert result == {"tracks_pushed": 5}
-    sync_service.push_set_to_ym.assert_awaited_once_with(
+    sync_service.push_set_to_platform.assert_awaited_once_with(
         set_id=9,
-        ym_playlist_name="Road Test",
+        platform_playlist_name="Road Test",
         mode="create",
     )

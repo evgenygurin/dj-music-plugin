@@ -164,12 +164,14 @@ class DeliverSetWorkflow:
             await self._copy_audio_bundle(export_data, set_dir, log) if copy_files else 0
         )
 
-        ym_sync: dict[str, Any] | None = None
+        platform_sync: dict[str, Any] | None = None
         if sync_to_ym:
             if self._sync_workflow is None:
-                raise ValidationError("Yandex Music sync is unavailable")
-            await call_async_method(log, "info", "Syncing delivered set to Yandex Music...")
-            ym_sync = await self._sync_workflow.push_set_to_ym(set_id=set_id, mode="auto")
+                raise ValidationError("Platform sync is unavailable")
+            await call_async_method(log, "info", "Syncing delivered set to platform...")
+            platform_sync = await self._sync_workflow.push_set_to_platform(
+                set_id=set_id, mode="auto"
+            )
 
         await call_async_method(log, "info", "Stage 4/4: Delivery complete")
         await call_async_method(log, "progress", 4, 4)
@@ -184,8 +186,8 @@ class DeliverSetWorkflow:
             "output_dir": str(set_dir),
             "generated_files": generated_files,
             "copied_audio_files": copied_files,
-            "synced_to_ym": ym_sync is not None,
-            "ym_sync": ym_sync,
+            "synced_to_platform": platform_sync is not None,
+            "platform_sync": platform_sync,
         }
 
     async def export_set(

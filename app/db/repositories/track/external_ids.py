@@ -62,6 +62,7 @@ class ExternalIdMixin:
     async def resolve_local_ids_to_platform(
         self,
         local_ids: list[int],
+        platform: str = "yandex_music",
     ) -> dict[int, str]:
         """Resolve local track IDs to external platform IDs.
 
@@ -72,7 +73,7 @@ class ExternalIdMixin:
 
         stmt = select(TrackExternalId.track_id, TrackExternalId.external_id).where(
             TrackExternalId.track_id.in_(local_ids),
-            TrackExternalId.platform == "yandex_music",
+            TrackExternalId.platform == platform,
         )
         result = await self.session.execute(stmt)
         return {row.track_id: row.external_id for row in result.all()}

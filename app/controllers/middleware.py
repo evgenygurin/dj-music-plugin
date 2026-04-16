@@ -63,21 +63,32 @@ class ToolCallTimeoutMiddleware(Middleware):
 
 
 class YMRateLimitMiddleware(Middleware):
-    """Rate limiting for Yandex Music API tool calls.
+    """Rate limiting for platform API tool calls.
 
-    Enforces minimum delay between consecutive YM tool calls
-    to respect YM API rate limits (default 1.5s).
+    Enforces minimum delay between consecutive platform tool calls
+    to respect provider API rate limits (default 1.5s).
     """
 
     def __init__(self, delay_seconds: float = 1.5) -> None:
         super().__init__()
         self.delay_seconds = delay_seconds
         self.last_call_time: float | None = None
-        self._ym_tool_prefix = "ym_"
+        self._rate_limited_tools: frozenset[str] = frozenset(
+            {
+                "search_platform",
+                "get_platform_tracks",
+                "get_platform_artist_tracks",
+                "get_platform_album",
+                "platform_playlists",
+                "platform_liked_tracks",
+                "expand_platform_playlist",
+                "push_set_to_platform",
+            }
+        )
         self._lock = asyncio.Lock()
 
     def _is_ym_tool(self, tool_name: str) -> bool:
-        return tool_name.startswith(self._ym_tool_prefix)
+        return tool_name in self._rate_limited_tools or tool_name.startswith("ym_")
 
     async def on_call_tool(self, context: MiddlewareContext, call_next: Any) -> Any:
         tool_name = context.message.name
@@ -91,7 +102,9 @@ class YMRateLimitMiddleware(Middleware):
                 elapsed = now - self.last_call_time
                 if elapsed < self.delay_seconds:
                     sleep_time = self.delay_seconds - elapsed
-                    logger.debug("YM rate limit: sleeping %.2fs before %s", sleep_time, tool_name)
+                    logger.debug(
+                        "Platform rate limit: sleeping %.2fs before %s", sleep_time, tool_name
+                    )
                     await asyncio.sleep(sleep_time)
 
             result = await call_next(context)

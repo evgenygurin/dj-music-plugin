@@ -11,7 +11,7 @@ globs: app/controllers/tools/**/*.py
   - `annotations=ANNOTATIONS_READ_ONLY` / `ANNOTATIONS_WRITE` / `ANNOTATIONS_WRITE_IDEMPOTENT` / `ANNOTATIONS_WRITE_DESTRUCTIVE` / `ANNOTATIONS_WRITE_OPEN_WORLD` / `ANNOTATIONS_WRITE_DESTRUCTIVE_OPEN` / `ANNOTATIONS_READ_ONLY_OPEN_WORLD`
   - `idempotentHint=True` — classify_mood, analyze_track, score_transitions (safe to retry)
   - `destructiveHint=True` — ban_track, distribute_to_subgenres(clean)
-  - `openWorldHint=True` — import_tracks, download_tracks, ym_*, sync_playlist
+  - `openWorldHint=True` — import_tracks, download_tracks, platform_*, sync_playlist
   - `timeout=ToolTimeout.MEDIUM | HEAVY | BATCH`
 - **Title**: `title="Human Readable Name"` — REQUIRED on every tool (Claude Code displays it in UI)
 - **Icons**: `icons=ICON_TRACKS` / `ICON_SETS` / `ICON_YM` / etc — 16 SVG icon sets in `_shared.taxonomy`
@@ -25,7 +25,7 @@ globs: app/controllers/tools/**/*.py
 - **Context logging**: wrap `ctx` in `ToolContext(ctx)` and call `await log.info(...)`, `log.progress(...)`, `log.elicit(...)` — never write `if ctx: await ctx.info(...)` guards
 - **Progress reporting**: `await ctx.report_progress(progress=i, total=n)` for long-running loops. Both `progress` and `total` can be any unit (items, percentage, bytes). `total` is optional (indeterminate). No-op if client sent no progress token — safe to call always.
 - **Sampling** (`ctx.sample()`): server-initiated LLM call. Requires `DJ_ANTHROPIC_API_KEY` (fallback mode) or client support. Tools that reason over library data use `search_queries: list[str]` parameter instead — the LLM client generates queries and passes them as tool input.
-- **Action-dispatched tools** (`ym_playlists`, `ym_likes`, `manage_*`): use `ActionDispatcher[ResultT]` from `_shared.dispatch` — `@_dispatcher.register("name")` instead of `if/elif` chains. Duplicate registration raises at import time.
+- **Action-dispatched tools** (`platform_playlists`, `platform_liked_tracks`, `manage_*`): use `ActionDispatcher[ResultT]` from `_shared.dispatch` — `@_dispatcher.register("name")` instead of `if/elif` chains. Duplicate registration raises at import time.
 - Tool descriptions ≤50 words — details go in parameter descriptions
 - Use `Depends()` for DI — hidden from tool schema automatically
 - Return Pydantic models for `structuredContent` (not dicts) where the service supports it
@@ -33,7 +33,7 @@ globs: app/controllers/tools/**/*.py
 - Never import repositories directly — use services via `Depends`
 - Never call `session.commit()` — DI handles transaction lifecycle
 - **No lazy imports inside function bodies** — hoist to module top. Lazy import = code smell.
-- YM tools live in `app/controllers/tools/yandex/` (one file per entity), not in a flat `ym.py`
+- Platform tools live in `app/controllers/tools/platform/` (one file per entity), not in a flat `platform.py`
 
 ## Gotchas
 
@@ -51,5 +51,5 @@ globs: app/controllers/tools/**/*.py
 - `TransitionIntent`: context-aware enum (maintain/ramp_up/cool_down/contrast) affects GA optimizer weights by track position
 - `score_timbral`: 6th component of TransitionScorer, total weights = 1.0 (bpm 0.20 + harmonic 0.12 + energy 0.18 + spectral 0.20 + groove 0.15 + timbral 0.15). Source of truth: `app/core/constants.py:DEFAULT_TRANSITION_WEIGHTS`
 - `import_tracks`: возвращает `id_mapping: dict[str, int]` (ym_id → local_id) для **всех** refs, включая skipped. `playlist_id` реально добавляет треки в плейлист (idempotent — пропускает уже существующие). `auto_analyze=True` запускает `TieredPipeline.ensure_level(...L3)` на impoted+existing IDs.
-- `ym_playlists action=get_tracks`: `limit` (default 100, max 500) + `offset` обязательны для больших плейлистов. Ответ содержит `total`, `count`, `offset`, `limit`, `has_more`. Без них на плейлисте 1377 треков ответ ≈106k символов и переполняет MCP клиент.
+- `platform_playlists action=get_tracks`: `limit` (default 100, max 500) + `offset` обязательны для больших плейлистов. Ответ содержит `total`, `count`, `offset`, `limit`, `has_more`. Без них на плейлисте 1377 треков ответ ≈106k символов и переполняет MCP клиент.
 - `get_track` / `TrackService.search` распознают `ym:12345` / `YM:12345` префикс и резолвят через `track_external_ids` (`yandex_music`). Plain text query — fallback по title/artist. Implementation в `app/services/track_service.py:_extract_ym_id`.

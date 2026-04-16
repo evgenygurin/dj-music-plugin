@@ -1,14 +1,14 @@
-"""Shared constants and annotation presets for Yandex Music tools.
+"""Shared constants and annotation presets for platform tools.
 
-Kept private (underscore prefix) so the module is imported by the
-tool submodules but not by anything outside the ``yandex`` package.
+Kept private (underscore prefix) so this module is imported by the
+tool submodules but not by anything outside the ``platform`` package.
 """
 
 from __future__ import annotations
 
 from typing import Any, Final
 
-YM_WRITE_ANNOTATIONS: Final[dict[str, Any]] = {
+PLATFORM_WRITE_ANNOTATIONS: Final[dict[str, Any]] = {
     "readOnlyHint": False,
     "openWorldHint": True,
 }

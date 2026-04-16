@@ -73,7 +73,8 @@ Beyond set building, you can handle any library or taste analysis task autonomou
 
 *Taste profile analysis* — when the user asks to analyse liked/disliked tracks or
 understand their preferences:
-1. Collect liked IDs: `ym_likes(action="get_liked")` — paginate until `truncated=False`
+1. Collect liked IDs: `platform_liked_tracks(action="get_liked")` — paginate until
+   `truncated=False`
 2. Identify disliked in local library: `filter_by_feedback(track_ids=<local_ym_ids>)`
 3. Pull audio features: `get_candidate_pool(limit=500)`, cross-reference with both sets
 4. Compare dimensions: subgenre distribution, BPM range, energy_lufs, dissonance_mean,

@@ -30,7 +30,8 @@ def deliver_set_workflow(
         sync_ym: Whether to sync to Yandex Music playlist
     """
     sync_note = (
-        "\n7. **YM Sync**: `push_set_to_ym(set_id=<id>)` to push the set as a YM playlist"
+        "\n7. **Platform Sync**: `push_set_to_platform(set_id=<id>)` "
+        "to push the set to the active platform"
         if sync_ym
         else ""
     )

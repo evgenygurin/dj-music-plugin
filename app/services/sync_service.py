@@ -123,10 +123,10 @@ class SyncService:
             "on_local_only": len(on_local_only),
         }
 
-    async def push_set_to_ym(
+    async def push_set_to_platform(
         self,
         set_id: int,
-        ym_playlist_name: str | None = None,
+        platform_playlist_name: str | None = None,
         mode: str = "auto",
     ) -> dict[str, Any]:
         """Push DJ set as platform playlist."""
@@ -147,7 +147,7 @@ class SyncService:
         if not platform_track_ids:
             raise ValidationError("No tracks in this set have platform IDs")
 
-        playlist_name = ym_playlist_name or dj_set.name
+        playlist_name = platform_playlist_name or dj_set.name
 
         if mode in ("create", "auto"):
             pl = await self._provider.create_playlist(playlist_name)

@@ -30,7 +30,7 @@ _TOGGLEABLE_CATEGORIES: frozenset[str] = frozenset(
         ToolCategory.DISCOVERY.value,
         ToolCategory.CURATION.value,
         ToolCategory.SYNC.value,
-        ToolCategory.YM.value,
+        ToolCategory.PLATFORM.value,
         ToolCategory.AUDIO.value,
         ToolCategory.MEMORY.value,
     }
@@ -95,7 +95,7 @@ async def unlock_tools(
     ] = None,
     ctx: Context = CurrentContext(),  # noqa: B008
 ) -> dict[str, Any]:
-    """Shows lock state or toggles hideable MCP tool categories via the server. Use when unlocking gated categories (for example delivery or YM) for the current session."""
+    """Shows lock state or toggles hideable MCP tool categories for the current session."""
     if action == "status":
         return _build_status(ctx)
 

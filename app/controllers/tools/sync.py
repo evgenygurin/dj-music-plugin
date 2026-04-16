@@ -1,4 +1,4 @@
-"""Sync tools — bidirectional playlist sync with Yandex Music (2 tools).
+"""Sync tools — bidirectional playlist sync with music platform (2 tools).
 
 Thin wrappers calling :class:`SyncService` via ``Depends()``.
 """
@@ -44,7 +44,7 @@ async def sync_playlist(
     workflow: SyncPlaylistWorkflow = Depends(get_sync_playlist_workflow),  # noqa: B008
     ctx: Context = CurrentContext(),  # noqa: B008
 ) -> dict[str, Any]:
-    """Synchronizes a local playlist with Yandex Music via pull, push, or diff. Use when mirroring curation to or from YM or previewing conflicts before applying changes."""
+    """Synchronizes a local playlist with the active music platform via pull, push, or diff."""
     await ctx.report_progress(0, 1)
     result = await workflow.sync_playlist(
         playlist_id=playlist_id,
@@ -57,27 +57,27 @@ async def sync_playlist(
 
 
 @tool(
-    title="Push Set to YM",
+    title="Push Set to Platform",
     tags={ToolCategory.SYNC.value},
     annotations=ANNOTATIONS_WRITE_OPEN_WORLD,
     icons=ICON_SYNC,
     meta=TOOL_META,
 )
 @map_domain_errors
-async def push_set_to_ym(
+async def push_set_to_platform(
     set_id: Annotated[int, Field(description="DJ set ID to push")],
-    ym_playlist_name: Annotated[
-        str | None, Field(description="Target YM playlist name (optional)")
+    platform_playlist_name: Annotated[
+        str | None, Field(description="Target platform playlist name (optional)")
     ] = None,
     mode: Annotated[Literal["create", "update", "auto"], Field(description="Push mode")] = "auto",
     workflow: SyncPlaylistWorkflow = Depends(get_sync_playlist_workflow),  # noqa: B008
     ctx: Context = CurrentContext(),  # noqa: B008
 ) -> dict[str, Any]:
-    """Publishes a DJ set as a Yandex Music playlist with create, update, or auto behavior. Use when exporting a finished set to your streaming library."""
+    """Publishes a DJ set as a playlist on the active music platform."""
     await ctx.report_progress(0, 1)
-    result = await workflow.push_set_to_ym(
+    result = await workflow.push_set_to_platform(
         set_id=set_id,
-        ym_playlist_name=ym_playlist_name,
+        platform_playlist_name=platform_playlist_name,
         mode=mode,
     )
     await ctx.report_progress(1, 1)

@@ -2,7 +2,7 @@
 description: Yandex Music client patterns
 globs:
   - app/clients/ym/**/*.py
-  - app/controllers/tools/yandex/**/*.py
+  - app/controllers/tools/platform/**/*.py
 ---
 
 # Yandex Music Client
@@ -24,4 +24,4 @@ globs:
 
 - Search API: `type=tracks` (plural), not `type=track`
 - Playlist add_tracks: albumId resolves automatically via `ym.resolve_track_ids_with_albums()` — pass bare track IDs, `"trackId:albumId"` formatting happens under the hood
-- `ym_playlists` supports `action=get_tracks` (returns tracks with id/title/artists) and working `action=remove_tracks` (removes by track_id, not by index)
+- `platform_playlists` supports `action=get_tracks` (returns tracks with id/title/artists) and working `action=remove_tracks` (removes by track_id, not by index)

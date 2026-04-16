@@ -1,7 +1,7 @@
 """Tests for custom MCP middleware.
 
 Tests cover:
-- YMRateLimitMiddleware (YM-specific rate limiting)
+- YMRateLimitMiddleware (platform API rate limiting)
 - StructuredLoggingMiddleware (JSON logging)
 - DetailedTimingMiddleware (per-operation timing)
 """
@@ -70,9 +70,9 @@ def mock_call_next() -> Any:
 async def test_ym_rate_limit_non_ym_tool(
     mock_context: MockMiddlewareContext, mock_call_next: Any
 ) -> None:
-    """Non-YM tools should pass through without delay."""
+    """Non-platform tools should pass through without delay."""
     middleware = YMRateLimitMiddleware(delay_seconds=1.0)
-    mock_context.message.name = "list_tracks"  # Not a YM tool
+    mock_context.message.name = "list_tracks"  # Not a platform API tool
 
     start = time.monotonic()
     result = await middleware.on_call_tool(mock_context, mock_call_next)
@@ -86,9 +86,9 @@ async def test_ym_rate_limit_non_ym_tool(
 async def test_ym_rate_limit_first_call(
     mock_context: MockMiddlewareContext, mock_call_next: Any
 ) -> None:
-    """First YM tool call should not be delayed."""
+    """First platform tool call should not be delayed."""
     middleware = YMRateLimitMiddleware(delay_seconds=1.0)
-    mock_context.message.name = "ym_search"
+    mock_context.message.name = "search_platform"
 
     start = time.monotonic()
     result = await middleware.on_call_tool(mock_context, mock_call_next)
@@ -102,10 +102,10 @@ async def test_ym_rate_limit_first_call(
 async def test_ym_rate_limit_consecutive_calls(
     mock_context: MockMiddlewareContext, mock_call_next: Any
 ) -> None:
-    """Consecutive YM tool calls should be rate limited."""
+    """Consecutive platform tool calls should be rate limited."""
     delay_seconds = 0.2
     middleware = YMRateLimitMiddleware(delay_seconds=delay_seconds)
-    mock_context.message.name = "ym_search"
+    mock_context.message.name = "search_platform"
 
     # First call
     await middleware.on_call_tool(mock_context, mock_call_next)
@@ -123,22 +123,22 @@ async def test_ym_rate_limit_consecutive_calls(
 async def test_ym_rate_limit_mixed_tools(
     mock_context: MockMiddlewareContext, mock_call_next: Any
 ) -> None:
-    """YM rate limit should only apply to YM tools."""
+    """Rate limit should only apply to platform API tools."""
     middleware = YMRateLimitMiddleware(delay_seconds=0.2)
 
-    # First YM call
-    mock_context.message.name = "ym_search"
+    # First platform call
+    mock_context.message.name = "search_platform"
     await middleware.on_call_tool(mock_context, mock_call_next)
 
-    # Non-YM call should not be delayed
+    # Non-platform call should not be delayed
     mock_context.message.name = "list_tracks"
     start = time.monotonic()
     await middleware.on_call_tool(mock_context, mock_call_next)
     elapsed = time.monotonic() - start
     assert elapsed < 0.1
 
-    # Second YM call should be delayed from first YM call
-    mock_context.message.name = "ym_get_tracks"
+    # Second platform call should be delayed from first platform call
+    mock_context.message.name = "get_platform_tracks"
     start = time.monotonic()
     await middleware.on_call_tool(mock_context, mock_call_next)
     elapsed = time.monotonic() - start
@@ -150,9 +150,9 @@ async def test_ym_rate_limit_is_ym_tool_detection() -> None:
     """Test _is_ym_tool detection logic."""
     middleware = YMRateLimitMiddleware()
 
-    assert middleware._is_ym_tool("ym_search")
-    assert middleware._is_ym_tool("ym_get_tracks")
-    assert middleware._is_ym_tool("ym_playlists")
+    assert middleware._is_ym_tool("search_platform")
+    assert middleware._is_ym_tool("get_platform_tracks")
+    assert middleware._is_ym_tool("platform_playlists")
     assert not middleware._is_ym_tool("list_tracks")
     assert not middleware._is_ym_tool("build_set")
     assert not middleware._is_ym_tool("analyze_track")

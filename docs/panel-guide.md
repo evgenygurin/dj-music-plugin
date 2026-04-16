@@ -25,7 +25,7 @@ Next.js dashboard for monitoring and analytics of the DJ music library.
 | `/playlists/[id]` | Playlist detail | Playlist tracks with features |
 | `/sets` | Set list | `queries/sets.ts` — with version info |
 | `/sets/[id]` | Set detail | Set tracks, transitions, energy arc |
-| `/discover` | YM Search | Server action `ymSearch` → MCP `ym_search` |
+| `/discover` | Platform Search | Server action `searchPlatform` → MCP `search_platform` |
 
 ## Data Flow
 
@@ -43,7 +43,7 @@ WRITE path (mutations):
 | File | Actions | MCP Tools Called |
 |------|---------|-----------------|
 | `analysis-actions.ts` | classifyMood, analyzeTrack | classify_mood, analyze_track |
-| `discovery-actions.ts` | ymSearch, importTracks | ym_search, import_tracks |
+| `discovery-actions.ts` | searchPlatform, importTracks | search_platform, import_tracks |
 | `set-actions.ts` | buildSet, rebuildSet, deliverSet, scoreTransitions | build_set, rebuild_set, deliver_set, score_transitions |
 | `sync-actions.ts` | syncPlaylist | sync_playlist |
 

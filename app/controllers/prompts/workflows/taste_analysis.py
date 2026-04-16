@@ -27,7 +27,7 @@ def taste_analysis(
         messages=[
             Message(
                 f"Analyze the user's music taste profile (up to {limit} tracks):\n\n"
-                f"1. **Collect liked tracks**: `ym_likes(action='get_liked')` — "
+                f"1. **Collect liked tracks**: `platform_liked_tracks(action='get_liked')` — "
                 f"paginate until truncated=False\n"
                 f"2. **Identify dislikes**: `filter_by_feedback(ym_track_ids=<local_ids>)` "
                 f"to get banned/boosted tracks\n"

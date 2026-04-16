@@ -34,7 +34,7 @@ export function DiscoverActions({
           <ToolDialogButton toolName="import_tracks" schema={importSchema} label="Import Tracks" />
           <ToolDialogButton toolName="download_tracks" schema={downloadSchema} label="Download Tracks" />
           <ToolDialogButton toolName="find_similar_tracks" schema={similarSchema} label="Find Similar" />
-          <ToolDialogButton toolName="expand_playlist_ym" schema={expandSchema} label="Expand Playlist" />
+          <ToolDialogButton toolName="expand_platform_playlist" schema={expandSchema} label="Expand Playlist" />
         </div>
       </CardContent>
     </Card>
