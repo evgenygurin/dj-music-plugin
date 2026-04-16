@@ -3,9 +3,9 @@
 fx_type stores NeuralMixCrossfaderFX values (7 Neural Mix presets).
 transition_type (legacy 14-value style enum) removed from model and table.
 
-Revision ID: a1b2c3d4e5f6
-Revises: f4a1b2c3d5e6
-Create Date: 2026-04-15 00:00:00.000000
+Revision ID: f3702c8a41cd
+Revises: b8f2a1c3d4e7
+Create Date: 2026-04-16 00:00:00.000000
 """
 
 from __future__ import annotations
@@ -16,8 +16,8 @@ import sqlalchemy as sa
 from alembic import op
 
 # revision identifiers, used by Alembic.
-revision: str = "a1b2c3d4e5f6"
-down_revision: str | None = "f4a1b2c3d5e6"
+revision: str = "f3702c8a41cd"
+down_revision: str | None = "b8f2a1c3d4e7"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
