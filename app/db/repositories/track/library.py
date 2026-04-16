@@ -1,4 +1,4 @@
-"""Library mixin: file path, DjLibraryItem, and Yandex Music metadata."""
+"""Library mixin: file path, DjLibraryItem, and platform metadata."""
 
 from __future__ import annotations
 
@@ -12,7 +12,7 @@ from app.db.models.platform import YandexMetadata
 
 
 class LibraryMixin:
-    """Mixin providing DJ library file and YM metadata operations.
+    """Mixin providing DJ library file and platform metadata operations.
 
     Expects ``self.session`` to be an :class:`AsyncSession` instance,
     set by :class:`TrackCoreRepository` via ``BaseRepository.__init__``.
@@ -39,7 +39,7 @@ class LibraryMixin:
         return item
 
     async def get_platform_metadata(self, track_id: int) -> YandexMetadata | None:
-        """Get Yandex Music metadata for a track."""
+        """Get platform metadata for a track."""
         stmt = select(YandexMetadata).where(YandexMetadata.track_id == track_id)
         result = await self.session.execute(stmt)
         return result.scalar_one_or_none()
