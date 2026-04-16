@@ -76,12 +76,17 @@ async def test_get_platform_album_rejects_blank_id() -> None:
 # ── B4: platform_playlists remove_tracks ──────────────
 
 
+async def _mock_get_tracks_for_ids(track_ids: list[str]) -> list[ProviderTrack]:
+    return [ProviderTrack(id=tid, title="T", provider=Provider.YANDEX_MUSIC) for tid in track_ids]
+
+
 @pytest.mark.asyncio
 async def test_remove_tracks_calls_provider_once() -> None:
     """platform_playlists remove_tracks delegates directly to provider.remove_tracks_from_playlist."""
     from app.controllers.tools.platform.playlists import platform_playlists
 
     provider_mock = AsyncMock()
+    provider_mock.get_tracks = AsyncMock(side_effect=_mock_get_tracks_for_ids)
     provider_mock.remove_tracks_from_playlist = AsyncMock(return_value=None)
     provider_mock.get_playlist_tracks = AsyncMock(
         side_effect=[
@@ -102,6 +107,9 @@ async def test_remove_tracks_calls_provider_once() -> None:
 
     assert result.action == "remove_tracks"
     assert result.removed == 1
+    assert isinstance(result.result, dict)
+    assert result.result.get("ok") is True
+    assert result.result.get("changed_count") == 1
     provider_mock.remove_tracks_from_playlist.assert_called_once_with("10", ["200"])
 
 
@@ -111,6 +119,7 @@ async def test_remove_tracks_multiple_ids() -> None:
     from app.controllers.tools.platform.playlists import platform_playlists
 
     provider_mock = AsyncMock()
+    provider_mock.get_tracks = AsyncMock(side_effect=_mock_get_tracks_for_ids)
     provider_mock.remove_tracks_from_playlist = AsyncMock(return_value=None)
     provider_mock.get_playlist_tracks = AsyncMock(
         side_effect=[
@@ -130,6 +139,8 @@ async def test_remove_tracks_multiple_ids() -> None:
     )
 
     assert result.removed == 1
+    assert result.result.get("ok") is True
+    assert result.result.get("changed_count") == 1
     provider_mock.remove_tracks_from_playlist.assert_called_once()
 
 
@@ -139,6 +150,7 @@ async def test_remove_tracks_single_track() -> None:
     from app.controllers.tools.platform.playlists import platform_playlists
 
     provider_mock = AsyncMock()
+    provider_mock.get_tracks = AsyncMock(side_effect=_mock_get_tracks_for_ids)
     provider_mock.remove_tracks_from_playlist = AsyncMock(return_value=None)
     provider_mock.get_playlist_tracks = AsyncMock(
         side_effect=[
@@ -155,7 +167,35 @@ async def test_remove_tracks_single_track() -> None:
     )
 
     assert result.removed == 1
+    assert result.result.get("ok") is True
     provider_mock.remove_tracks_from_playlist.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_remove_tracks_rejects_unknown_track_ids_before_mutation() -> None:
+    """remove_tracks should return structured failure and skip mutation on unknown IDs."""
+    from app.controllers.tools.platform.playlists import platform_playlists
+
+    provider_mock = AsyncMock()
+    provider_mock.get_tracks = AsyncMock(
+        return_value=[ProviderTrack(id="200", title="Known", provider=Provider.YANDEX_MUSIC)]
+    )
+    provider_mock.remove_tracks_from_playlist = AsyncMock(return_value=None)
+
+    result = await platform_playlists(
+        action="remove_tracks",
+        playlist_id="10",
+        track_ids=["200", "bad-id"],
+        provider=provider_mock,
+    )
+
+    assert result.action == "remove_tracks"
+    assert result.removed == 0
+    assert isinstance(result.result, dict)
+    assert result.result.get("ok") is False
+    assert result.result.get("changed_count") == 0
+    assert "Unknown platform track_ids: bad-id" in str(result.result.get("error"))
+    provider_mock.remove_tracks_from_playlist.assert_not_called()
 
 
 @pytest.mark.asyncio
@@ -179,6 +219,63 @@ async def test_create_playlist_accepts_title_alias() -> None:
     )
     assert result.action == "create"
     provider_mock.create_playlist.assert_called_once_with("Alias Playlist")
+
+
+@pytest.mark.asyncio
+async def test_add_tracks_rejects_unknown_track_ids_before_mutation() -> None:
+    """add_tracks should return structured failure and skip mutation on unknown IDs."""
+    from app.controllers.tools.platform.playlists import platform_playlists
+
+    provider_mock = AsyncMock()
+    provider_mock.get_tracks = AsyncMock(
+        return_value=[ProviderTrack(id="ok-1", title="Known", provider=Provider.YANDEX_MUSIC)]
+    )
+    provider_mock.add_tracks_to_playlist = AsyncMock(return_value=True)
+
+    result = await platform_playlists(
+        action="add_tracks",
+        playlist_id="10",
+        track_ids=["ok-1", "bad-id"],
+        provider=provider_mock,
+    )
+
+    assert result.action == "add_tracks"
+    assert isinstance(result.result, dict)
+    assert result.result.get("ok") is False
+    assert result.result.get("added") == 0
+    assert result.result.get("removed") == 0
+    assert result.result.get("changed_count") == 0
+    assert "Unknown platform track_ids: bad-id" in str(result.result.get("error"))
+    provider_mock.add_tracks_to_playlist.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_add_tracks_surfaces_validation_failure_message() -> None:
+    """Provider validation failures should be returned in structured add_tracks result."""
+    from app.controllers.tools.platform.playlists import platform_playlists
+
+    provider_mock = AsyncMock()
+    provider_mock.get_tracks = AsyncMock(side_effect=RuntimeError("provider failure"))
+    provider_mock.add_tracks_to_playlist = AsyncMock(return_value=True)
+
+    result = await platform_playlists(
+        action="add_tracks",
+        playlist_id="10",
+        track_ids=["ok-1", "bad-id"],
+        provider=provider_mock,
+    )
+
+    assert result.action == "add_tracks"
+    assert isinstance(result.result, dict)
+    assert result.result.get("ok") is False
+    assert result.result.get("added") == 0
+    assert result.result.get("removed") == 0
+    assert result.result.get("changed_count") == 0
+    assert (
+        "Could not validate platform track_ids. Check IDs with get_platform_tracks first."
+        in str(result.result.get("error"))
+    )
+    provider_mock.add_tracks_to_playlist.assert_not_called()
 
 
 @pytest.mark.asyncio
@@ -212,13 +309,16 @@ async def test_update_playlist_replaces_tracks() -> None:
     assert result.action == "update"
     assert result.removed == 2
     assert result.added == 2
+    assert isinstance(result.result, dict)
+    assert result.result.get("ok") is True
+    assert result.result.get("changed_count") == 4
     provider_mock.remove_tracks_from_playlist.assert_called_once_with("10", ["old-1", "old-2"])
     provider_mock.add_tracks_to_playlist.assert_called_once_with("10", ["new-1", "new-2"])
 
 
 @pytest.mark.asyncio
 async def test_update_playlist_rejects_unknown_track_ids_before_removal() -> None:
-    """update must fail fast and keep playlist intact on invalid target track IDs."""
+    """update should return structured failure and keep playlist intact on invalid IDs."""
     from app.controllers.tools.platform.playlists import platform_playlists
 
     provider_mock = AsyncMock()
@@ -231,21 +331,27 @@ async def test_update_playlist_rejects_unknown_track_ids_before_removal() -> Non
     provider_mock.remove_tracks_from_playlist = AsyncMock(return_value=True)
     provider_mock.add_tracks_to_playlist = AsyncMock(return_value=True)
 
-    with pytest.raises(ToolError, match="Unknown platform track_ids: bad-id"):
-        await platform_playlists(
-            action="update",
-            playlist_id="10",
-            track_ids=["new-1", "bad-id"],
-            provider=provider_mock,
-        )
+    result = await platform_playlists(
+        action="update",
+        playlist_id="10",
+        track_ids=["new-1", "bad-id"],
+        provider=provider_mock,
+    )
 
+    assert result.action == "update"
+    assert result.removed == 0
+    assert result.added == 0
+    assert isinstance(result.result, dict)
+    assert result.result.get("ok") is False
+    assert result.result.get("changed_count") == 0
+    assert "Unknown platform track_ids: bad-id" in str(result.result.get("error"))
     provider_mock.remove_tracks_from_playlist.assert_not_called()
     provider_mock.add_tracks_to_playlist.assert_not_called()
 
 
 @pytest.mark.asyncio
 async def test_update_playlist_surfaces_track_validation_failure() -> None:
-    """Provider validation errors should become actionable ToolError for MCP clients."""
+    """Provider validation failures should be returned in structured update result."""
     from app.controllers.tools.platform.playlists import platform_playlists
 
     provider_mock = AsyncMock()
@@ -256,17 +362,23 @@ async def test_update_playlist_surfaces_track_validation_failure() -> None:
     provider_mock.remove_tracks_from_playlist = AsyncMock(return_value=True)
     provider_mock.add_tracks_to_playlist = AsyncMock(return_value=True)
 
-    with pytest.raises(
-        ToolError,
-        match="Could not validate platform track_ids\\. Check IDs with get_platform_tracks first\\.",
-    ):
-        await platform_playlists(
-            action="update",
-            playlist_id="10",
-            track_ids=["new-1", "bad-id"],
-            provider=provider_mock,
-        )
+    result = await platform_playlists(
+        action="update",
+        playlist_id="10",
+        track_ids=["new-1", "bad-id"],
+        provider=provider_mock,
+    )
 
+    assert result.action == "update"
+    assert result.removed == 0
+    assert result.added == 0
+    assert isinstance(result.result, dict)
+    assert result.result.get("ok") is False
+    assert result.result.get("changed_count") == 0
+    assert (
+        "Could not validate platform track_ids. Check IDs with get_platform_tracks first."
+        in str(result.result.get("error"))
+    )
     provider_mock.remove_tracks_from_playlist.assert_not_called()
     provider_mock.add_tracks_to_playlist.assert_not_called()
 
@@ -494,3 +606,61 @@ async def test_resolve_platform_track_ids_strict_reports_unmapped_structured() -
     assert result.strict_violation is True
     assert result.error is not None
     assert "Missing yandex_music mapping for track_ids" in result.error
+
+
+@pytest.mark.asyncio
+async def test_get_platform_tracks_surfaces_provider_failures_as_partial_result() -> None:
+    """Provider failures should produce structured partial result, not transport error."""
+    from app.controllers.tools.platform.tracks import get_platform_tracks
+
+    provider_mock = AsyncMock()
+    provider_mock.get_tracks = AsyncMock(side_effect=RuntimeError("provider down"))
+
+    result = await get_platform_tracks(
+        track_ids=["79672730", "__bad_track_id__"],
+        fields="id,title",
+        provider=provider_mock,
+    )
+    assert result.requested == 2
+    assert result.count == 0
+    assert result.unresolved_track_ids == ["79672730", "__bad_track_id__"]
+    assert result.error is not None
+
+
+@pytest.mark.asyncio
+async def test_get_platform_tracks_returns_partial_for_mixed_ids() -> None:
+    """Mixed valid/invalid IDs should return resolved tracks plus unresolved list."""
+    from app.controllers.tools.platform.tracks import get_platform_tracks
+
+    def _provider_side_effect(track_ids):  # type: ignore[no-untyped-def]
+        if track_ids == ["79672730", "127836770", "__bad_track_id__"]:
+            raise RuntimeError("batch failure on bad id")
+        if track_ids == ["79672730"]:
+            return [
+                ProviderTrack(id="79672730", title="Boeing 737", provider=Provider.YANDEX_MUSIC)
+            ]
+        if track_ids == ["127836770"]:
+            return [
+                ProviderTrack(
+                    id="127836770",
+                    title="Winter (Techno 2024)",
+                    provider=Provider.YANDEX_MUSIC,
+                )
+            ]
+        if track_ids == ["__bad_track_id__"]:
+            raise RuntimeError("not found")
+        return []
+
+    provider_mock = AsyncMock()
+    provider_mock.get_tracks = AsyncMock(side_effect=_provider_side_effect)
+
+    result = await get_platform_tracks(
+        track_ids=["79672730", "127836770", "__bad_track_id__"],
+        fields="id,title",
+        provider=provider_mock,
+    )
+    assert result.requested == 3
+    assert result.count == 2
+    assert [track["id"] for track in result.tracks] == ["79672730", "127836770"]
+    assert result.unresolved_track_ids == ["__bad_track_id__"]
+    assert result.error is not None

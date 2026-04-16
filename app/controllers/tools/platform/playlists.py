@@ -37,7 +37,9 @@ PlaylistAction = Literal[
 
 _dispatcher: ActionDispatcher[dict[str, Any]] = ActionDispatcher()
 DEFAULT_PLAYLISTS_PAGE = 50
-_playlist_action_result_adapter = TypeAdapter(PlaylistActionResult)
+_playlist_action_result_adapter: TypeAdapter[PlaylistActionResult] = TypeAdapter(
+    PlaylistActionResult
+)
 
 
 def _require_playlist_id(playlist_id: str | None, action: str) -> str:
@@ -203,8 +205,32 @@ async def _add_tracks(
 ) -> dict[str, Any]:
     resolved_playlist_id = _require_playlist_id(playlist_id, "add_tracks")
     resolved_ids = _require_track_ids(track_ids, "add_tracks")
-    await provider.add_tracks_to_playlist(resolved_playlist_id, resolved_ids)
-    return {"action": "add_tracks", "playlist_id": resolved_playlist_id, "result": True}
+    try:
+        await _validate_track_ids_exist(provider, resolved_ids)
+        await provider.add_tracks_to_playlist(resolved_playlist_id, resolved_ids)
+    except ToolError as exc:
+        return {
+            "action": "add_tracks",
+            "playlist_id": resolved_playlist_id,
+            "result": {
+                "ok": False,
+                "added": 0,
+                "removed": 0,
+                "changed_count": 0,
+                "error": str(exc),
+            },
+        }
+    n = len(resolved_ids)
+    return {
+        "action": "add_tracks",
+        "playlist_id": resolved_playlist_id,
+        "result": {
+            "ok": True,
+            "added": n,
+            "removed": 0,
+            "changed_count": n,
+        },
+    }
 
 
 @_dispatcher.register("remove_tracks")
@@ -217,6 +243,21 @@ async def _remove_tracks(
 ) -> dict[str, Any]:
     resolved_playlist_id = _require_playlist_id(playlist_id, "remove_tracks")
     resolved_ids = _require_track_ids(track_ids, "remove_tracks")
+    try:
+        await _validate_track_ids_exist(provider, resolved_ids)
+    except ToolError as exc:
+        return {
+            "action": "remove_tracks",
+            "playlist_id": resolved_playlist_id,
+            "removed": 0,
+            "result": {
+                "ok": False,
+                "added": 0,
+                "removed": 0,
+                "changed_count": 0,
+                "error": str(exc),
+            },
+        }
     before_tracks = await provider.get_playlist_tracks(resolved_playlist_id)
     before_ids = [track.id for track in before_tracks]
     await provider.remove_tracks_from_playlist(resolved_playlist_id, resolved_ids)
@@ -227,6 +268,12 @@ async def _remove_tracks(
         "action": "remove_tracks",
         "playlist_id": resolved_playlist_id,
         "removed": removed_count,
+        "result": {
+            "ok": True,
+            "added": 0,
+            "removed": removed_count,
+            "changed_count": removed_count,
+        },
     }
 
 
@@ -243,7 +290,22 @@ async def _update(
     if track_ids is None:
         raise ToolError("track_ids required for action 'update'")
     if track_ids:
-        await _validate_track_ids_exist(provider, track_ids)
+        try:
+            await _validate_track_ids_exist(provider, track_ids)
+        except ToolError as exc:
+            return {
+                "action": "update",
+                "playlist_id": resolved_playlist_id,
+                "removed": 0,
+                "added": 0,
+                "result": {
+                    "ok": False,
+                    "added": 0,
+                    "removed": 0,
+                    "changed_count": 0,
+                    "error": str(exc),
+                },
+            }
 
     existing_tracks = await provider.get_playlist_tracks(resolved_playlist_id)
     existing_ids = [track.id for track in existing_tracks]
@@ -252,12 +314,19 @@ async def _update(
     if track_ids:
         await provider.add_tracks_to_playlist(resolved_playlist_id, track_ids)
 
+    n_removed = len(existing_ids)
+    n_added = len(track_ids)
     return {
         "action": "update",
         "playlist_id": resolved_playlist_id,
-        "removed": len(existing_ids),
-        "added": len(track_ids),
-        "result": True,
+        "removed": n_removed,
+        "added": n_added,
+        "result": {
+            "ok": True,
+            "removed": n_removed,
+            "added": n_added,
+            "changed_count": n_removed + n_added,
+        },
     }
 
 

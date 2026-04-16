@@ -22,6 +22,7 @@ from app.controllers.tools.platform._constants import MAX_BATCH_TRACKS, MAX_SEAR
 from app.core.constants import Provider
 from app.core.utils.parsing import ensure_list
 from app.db.repositories.track import TrackRepository
+from app.providers.models import ProviderTrack
 from app.providers.protocol import MusicProvider
 from app.schemas.platform_responses import (
     ArtistTrackItem,
@@ -66,13 +67,42 @@ async def get_platform_tracks(
     if len(ids) > MAX_BATCH_TRACKS:
         raise ToolError(f"Maximum {MAX_BATCH_TRACKS} track IDs per request")
 
-    tracks = await provider.get_tracks(ids)
+    tracks: list[ProviderTrack] = []
+    unresolved_ids: list[str] = []
+    try:
+        tracks = await provider.get_tracks(ids)
+        returned_ids = {track.id for track in tracks}
+        unresolved_ids = [track_id for track_id in ids if track_id not in returned_ids]
+    except Exception:
+        # Fallback for providers that fail the whole batch on a single bad ID.
+        for track_id in ids:
+            try:
+                one_track = await provider.get_tracks([track_id])
+            except Exception:
+                unresolved_ids.append(track_id)
+                continue
+            match = next((track for track in one_track if track.id == track_id), None)
+            if match is None:
+                unresolved_ids.append(track_id)
+                continue
+            tracks.append(match)
+
     if fields == "all":
         tracks_data = [t.model_dump() for t in tracks]
     else:
         wanted = {f.strip() for f in fields.split(",")}
         tracks_data = [{k: v for k, v in t.model_dump().items() if k in wanted} for t in tracks]
-    return PlatformTrackBatch(count=len(tracks_data), tracks=tracks_data)
+    error_message: str | None = None
+    if unresolved_ids:
+        sample = ", ".join(unresolved_ids[:10])
+        error_message = f"Some platform track_ids could not be loaded: {sample}"
+    return PlatformTrackBatch(
+        requested=len(ids),
+        count=len(tracks_data),
+        unresolved_track_ids=unresolved_ids,
+        error=error_message,
+        tracks=tracks_data,
+    )
 
 
 @tool(

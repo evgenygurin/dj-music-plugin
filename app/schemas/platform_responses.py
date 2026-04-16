@@ -30,7 +30,10 @@ class PlatformSearchResult(BaseModel):
 class PlatformTrackBatch(BaseModel):
     """Response from ``get_platform_tracks``."""
 
+    requested: int | None = None
     count: int
+    unresolved_track_ids: list[str] = Field(default_factory=list)
+    error: str | None = None
     tracks: list[dict[str, object]]
 
 
@@ -161,6 +164,7 @@ class PlaylistRemoveTracksResult(BaseModel):
     action: Literal["remove_tracks"]
     playlist_id: str
     removed: int
+    result: dict[str, object]
 
 
 class PlaylistUpdateResult(BaseModel):
@@ -170,7 +174,7 @@ class PlaylistUpdateResult(BaseModel):
     playlist_id: str
     removed: int
     added: int
-    result: bool
+    result: dict[str, object] | bool
 
 
 PlaylistActionResult = Annotated[
