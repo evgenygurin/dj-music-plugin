@@ -1,4 +1,4 @@
-"""Set tools: CRUD, build, rebuild, score, cheat sheet, templates (8 tools).
+"""Set tools: CRUD, commit, score, cheat sheet, templates.
 
 Thin wrappers calling :class:`SetService` / :class:`BuildSetWorkflow`
 via ``Depends()``.
@@ -22,7 +22,6 @@ from app.controllers.tools._shared import (
     TOOL_META,
     ToolCategory,
     ToolContext,
-    ToolTimeout,
     ensure_reference,
     map_domain_errors,
 )
@@ -99,107 +98,60 @@ async def manage_set(
     return await svc.manage_set(action=action, data=ensure_dict(data))
 
 
-# ── Building ─────────────────────────────────────────────────────────
+# ── Declarative commit ───────────────────────────────────────────────
 
 
 @tool(
-    title="Build Set",
+    title="Commit Set Version",
     tags={ToolCategory.SETS.value},
     annotations=ANNOTATIONS_WRITE,
     icons=ICON_SETS,
     meta=TOOL_META,
-    timeout=ToolTimeout.BATCH,
 )
 @map_domain_errors
-async def build_set(
-    name: Annotated[str, Field(description="Set name")],
-    playlist_id: Annotated[int | None, Field(description="Source playlist ID")] = None,
-    source: Annotated[
-        Literal["playlist", "library"], Field(description="Track source")
-    ] = "playlist",
-    template: Annotated[str | None, Field(description="Set template name")] = None,
+async def commit_set_version(
+    name: Annotated[str, Field(description="Set name (used when creating a new set)")],
+    track_ids: Annotated[
+        list[int], Field(description="Ordered list of track IDs chosen by the AI")
+    ],
+    set_id: Annotated[
+        int | None,
+        Field(description="Existing set ID to add a new version to (omit to create a new set)"),
+    ] = None,
+    template: Annotated[str | None, Field(description="Set template name for arc scoring")] = None,
     target_duration_min: Annotated[
         int | None, Field(description="Target set duration in minutes")
     ] = None,
-    algorithm: Annotated[
-        Literal["greedy", "ga"], Field(description="Optimization algorithm")
-    ] = "greedy",
-    dry_run: Annotated[bool, Field(description="Preview without saving")] = False,
-    bpm_min: Annotated[float | None, Field(description="Minimum BPM filter")] = None,
-    bpm_max: Annotated[float | None, Field(description="Maximum BPM filter")] = None,
-    moods: Annotated[list[str] | None, Field(description="Filter by subgenre moods")] = None,
-    energy_min: Annotated[float | None, Field(description="Minimum energy (LUFS-related)")] = None,
-    energy_max: Annotated[float | None, Field(description="Maximum energy (LUFS-related)")] = None,
-    pool_size: Annotated[int, Field(description="Max candidate pool size", ge=10)] = 500,
-    workflow: Annotated[
-        BuildSetWorkflow,
-        Field(description="Injected build-set workflow"),
-    ] = Depends(get_build_set_workflow),  # noqa: B008
-    ctx: Annotated[
-        Context | None,
-        Field(description="Optional MCP request context"),
+    version_label: Annotated[
+        str | None, Field(description="Version label, e.g. 'v2-peak-hour'")
     ] = None,
+    svc: Annotated[
+        SetService,
+        Field(description="Injected set service"),
+    ] = Depends(get_set_service),  # noqa: B008
 ) -> dict[str, Any]:
-    """Builds an optimized DJ set from a playlist or the library with greedy or GA optimization. Use when creating or dry-running a set from a playlist or filtered pool. ``source="playlist"`` requires ``playlist_id``; ``source="library"`` uses BPM/mood/energy filters without downloading audio."""
-    return await workflow.build_set(
-        playlist_id=playlist_id,
+    """Persist an AI-curated track order as a set version — no optimizer runs.
+
+    Workflow: get_candidate_pool → preview_set_arc → commit_set_version.
+    The AI selects and orders the tracks; this tool only saves the decision
+    and computes a quality_score via arc preview for reference.
+    """
+    dj_set, version, quality = await svc.commit_version(
         name=name,
-        source=source,
+        track_ids=track_ids,
+        set_id=set_id,
         template=template,
         target_duration_min=target_duration_min,
-        algorithm=algorithm,
-        dry_run=dry_run,
-        bpm_min=bpm_min,
-        bpm_max=bpm_max,
-        moods=moods,
-        energy_min=energy_min,
-        energy_max=energy_max,
-        pool_size=pool_size,
-        log=ToolContext(ctx),
-    )
-
-
-@tool(
-    title="Rebuild Set",
-    tags={ToolCategory.SETS.value},
-    annotations=ANNOTATIONS_WRITE,
-    icons=ICON_SETS,
-    meta=TOOL_META,
-    timeout=ToolTimeout.BATCH,
-)
-@map_domain_errors
-async def rebuild_set(
-    set_id: Annotated[int, Field(description="DJ set ID to rebuild")],
-    pin_tracks: Annotated[
-        list[int] | None, Field(description="Track IDs that must stay in order")
-    ] = None,
-    exclude_tracks: Annotated[
-        list[int] | None, Field(description="Track IDs to remove from the pool")
-    ] = None,
-    algorithm: Annotated[
-        Literal["greedy", "ga"], Field(description="Optimization algorithm")
-    ] = "greedy",
-    version_label: Annotated[
-        str | None, Field(description="Label for the new set version")
-    ] = None,
-    workflow: Annotated[
-        BuildSetWorkflow,
-        Field(description="Injected build-set workflow"),
-    ] = Depends(get_build_set_workflow),  # noqa: B008
-    ctx: Annotated[
-        Context | None,
-        Field(description="Optional MCP request context"),
-    ] = None,
-) -> dict[str, Any]:
-    """Rebuilds an existing set into a new version with optional pinned or excluded tracks. Use when refining order while keeping anchors or shrinking the candidate pool."""
-    return await workflow.rebuild_set(
-        set_id=set_id,
-        pin_tracks=pin_tracks,
-        exclude_tracks=exclude_tracks,
-        algorithm=algorithm,
         version_label=version_label,
-        log=ToolContext(ctx),
     )
+    return {
+        "set_id": dj_set.id,
+        "version_id": version.id,
+        "version_label": version.label,
+        "track_count": len(track_ids),
+        "quality_score": round(quality, 4) if quality is not None else None,
+        "template": template,
+    }
 
 
 @tool(
@@ -236,7 +188,9 @@ async def score_transitions(
     ] = None,
 ) -> dict[str, Any]:
     """Scores transitions for a set, a single pair, or anchor candidates and persists results. Use when auditing blends, ranking options, or refreshing stored transition scores."""
-    return await workflow.score_transitions(
+    if ctx is not None:
+        await ctx.report_progress(0, 1, "Scoring transitions")
+    result = await workflow.score_transitions(
         mode=mode,
         set_id=set_id,
         from_track_id=from_track_id,
@@ -245,6 +199,9 @@ async def score_transitions(
         top_n=top_n,
         log=ToolContext(ctx),
     )
+    if ctx is not None:
+        await ctx.report_progress(1, 1, "Done")
+    return result
 
 
 @tool(
@@ -279,7 +236,7 @@ async def get_set_cheat_sheet(
     meta=TOOL_META,
 )
 async def get_set_templates() -> dict[str, Any]:
-    """Lists registered DJ set templates with slot definitions (moods, BPM, energy). Use when choosing a ``template`` argument for ``build_set`` or comparing archetypes."""
+    """Lists registered DJ set templates with slot definitions (moods, BPM, energy). Use when choosing a ``template`` argument for ``commit_set_version`` or comparing archetypes."""
     return {
         "templates": [
             {
