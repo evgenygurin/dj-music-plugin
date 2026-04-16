@@ -1,7 +1,7 @@
 # Project Structure & Database Schema
 
 > Структура директорий, файлов и таблиц БД проекта DJ Music Plugin.
-> Обновлено: 2026-04-14.
+> Обновлено: 2026-04-16.
 
 ## 1. Directory Tree
 
@@ -95,16 +95,23 @@ dj-music-plugin/
 │   │   │       ├── albums.py
 │   │   │       ├── playlists.py
 │   │   │       └── likes.py
-│   │   ├── prompts/workflows/      # 6 workflow prompts
+│   │   ├── prompts/workflows/      # 8 workflow prompts (→ PromptResult)
 │   │   │   ├── build_set.py
 │   │   │   ├── deliver_set.py
+│   │   │   ├── dj_expert_session.py
 │   │   │   ├── expand_playlist.py
 │   │   │   ├── full_pipeline.py
 │   │   │   ├── improve_set.py
-│   │   │   └── llm_discovery.py
-│   │   ├── resources/              # MCP resources (read-only)
-│   │   │   ├── status.py
-│   │   │   ├── templates.py
+│   │   │   ├── llm_discovery.py
+│   │   │   ├── quick_mix_check.py  # ← NEW: pair compatibility check
+│   │   │   └── taste_analysis.py   # ← NEW: taste profile from likes
+│   │   ├── resources/              # MCP resources (read-only, → dict[str,Any])
+│   │   │   ├── session_draft.py    # session://set-draft
+│   │   │   ├── session_history.py  # ← NEW: session://tool-history
+│   │   │   ├── snapshot.py         # library://snapshot
+│   │   │   ├── status.py           # status://library, status://platforms
+│   │   │   ├── templates.py        # track://{id}/features, set://{id}/summary, etc.
+│   │   │   ├── transition_score.py # ← NEW: transition://{from_id}/{to_id}/score
 │   │   │   └── reference/
 │   │   │       ├── camelot.py
 │   │   │       ├── subgenres.py
@@ -149,7 +156,8 @@ dj-music-plugin/
 │   │   ├── yandex.py
 │   │   ├── track_affinity.py
 │   │   ├── track_feedback.py
-│   │   └── transition_history.py
+│   │   ├── transition_history.py
+│   │   └── tool_responses.py       # ← NEW: SetVersionResult, TransitionScoreResult, etc.
 │   │
 │   ├── services/                   # Application — request-scoped use cases
 │   │   ├── track_service.py
@@ -326,6 +334,7 @@ dj-music-plugin/
 │           └── versions/
 │
 ├── tests/                          # Pytest (in-memory SQLite)
+│   ├── acceptance/                 # Live end-to-end tests (real MCP client)
 │   ├── test_models/
 │   ├── test_repositories/
 │   ├── test_services/

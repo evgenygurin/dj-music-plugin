@@ -11,9 +11,9 @@
 │                   FastMCP v3.2 Server                        │
 │  ┌─────────────┐ ┌────────────┐ ┌─────────────────────────┐│
 │  │ Middleware   │ │ Transforms │ │ Visibility System       ││
-│  │ (logging,    │ │ (namespace,│ │ (core/extended/hidden)  ││
-│  │  rate_limit, │ │  R→T, P→T) │ │                         ││
-│  │  timing,     │ │            │ │                         ││
+│  │ (logging,    │ │ (ToolTrans-│ │ (core/extended/hidden)  ││
+│  │  rate_limit, │ │  form,     │ │ per-session via         ││
+│  │  timing,     │ │  R→T, P→T) │ │ ctx.enable_components() ││
 │  │  resp_limit, │ │            │ │                         ││
 │  │  caching)    │ │            │ │                         ││
 │  └──────┬───────┘ └────────────┘ └─────────────────────────┘│
@@ -96,6 +96,20 @@ External:
                    └─────────────────────────┘
 ```
 
+## Middleware Pipeline (ordered)
+
+```text
+DereferenceRefsMiddleware       # FastMCP built-in
+ToolCallTimeoutMiddleware       # per-tool timeouts (120–600s for heavy ops)
+StructuredLoggingMiddleware     # JSON logs with tool/resource context
+DetailedTimingMiddleware        # per-tool timing breakdown
+ResponseLimitingMiddleware      # truncate oversized responses (50 KB)
+ResponseCachingMiddleware       # cache list_tools/list_prompts/list_resources
+YMRateLimitMiddleware           # Yandex Music API rate limiting
+ErrorHandlingMiddleware         # structured error wrapping + Sentry
+RetryMiddleware                 # up to 2 retries on transient errors
+```
+
 ## Data Flow: Tool Call Lifecycle
 
 ```text
@@ -106,11 +120,11 @@ External:
    controllers/dependencies/db.py
    → repos.py / services.py / audio.py / external.py / uow.py
    (all cached per-request, same session across all repos)
-5. Tool function executes with injected services
+5. Tool function executes with injected services (ctx: Context = CurrentContext())
 6. On success: session.commit() (in get_db_session finally)
 7. On error: session.rollback() (in get_db_session except)
-8. ToolResult → structuredContent + content + meta
-9. Response through middleware (timing recorded, logged)
+8. ToolResult → structuredContent (from Pydantic model) + content + meta
+9. Response through middleware (timing recorded, logged, size-checked)
 10. Back to client
 ```
 
