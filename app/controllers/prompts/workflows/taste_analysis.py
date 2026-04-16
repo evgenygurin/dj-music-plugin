@@ -16,7 +16,7 @@ from pydantic import Field
         "Produces a structured report with subgenre preferences, BPM ranges, "
         "energy patterns, and actionable insights for set building."
     ),
-    tags={"curation", "workflow"},
+    tags={"sets", "workflow"},
     meta={"version": "1.0"},
 )
 def taste_analysis(
