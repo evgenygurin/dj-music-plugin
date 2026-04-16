@@ -3,9 +3,16 @@
 from __future__ import annotations
 
 import json
+from typing import Any
 
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
+
+
+def _parse(result: str | dict[str, Any]) -> dict[str, Any]:
+    if isinstance(result, dict):
+        return result
+    return json.loads(result)
 
 
 @pytest.mark.asyncio
@@ -14,7 +21,7 @@ async def test_snapshot_empty_db(db: AsyncSession):
     from app.controllers.resources.snapshot import library_snapshot
 
     result = await library_snapshot(session=db)
-    data = json.loads(result)
+    data = _parse(result)
 
     assert "total_tracks" in data
     assert "tracks_with_features" in data
@@ -54,7 +61,7 @@ async def test_snapshot_with_tracks(db: AsyncSession, async_engine):
         await session.commit()
 
     result = await library_snapshot(session=db)
-    data = json.loads(result)
+    data = _parse(result)
     assert data["total_tracks"] == 3
     assert data["tracks_with_features"] == 2
     assert data["mood_distribution"].get("detroit", 0) == 1
@@ -82,7 +89,7 @@ async def test_snapshot_playlists(db: AsyncSession, async_engine):
         await session.commit()
 
     result = await library_snapshot(session=db)
-    data = json.loads(result)
+    data = _parse(result)
     assert len(data["playlists"]) == 1
     assert data["playlists"][0]["name"] == "Dark Rollers"
     assert data["playlists"][0]["track_count"] == 1

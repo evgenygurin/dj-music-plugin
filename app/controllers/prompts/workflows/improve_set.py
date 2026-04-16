@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from fastmcp.prompts import Message, prompt
+from fastmcp.prompts import Message, PromptResult, prompt
 from pydantic import Field
 
 
@@ -17,7 +17,7 @@ from pydantic import Field
 )
 def improve_set_workflow(
     set_name: Annotated[str, Field(description="DJ set name or ID to improve")],
-) -> list[Message]:
+) -> PromptResult:
     """Guide through improving an existing DJ set.
 
     Steps: Review -> Explain weak transitions -> Find replacements -> Rebuild -> Compare -> Iterate
@@ -25,9 +25,10 @@ def improve_set_workflow(
     Args:
         set_name: Name or ID of the set to improve
     """
-    return [
-        Message(
-            f"""Improve the quality of DJ set "{set_name}" by identifying and fixing
+    return PromptResult(
+        messages=[
+            Message(
+                f"""Improve the quality of DJ set "{set_name}" by identifying and fixing
 weak transitions.
 
 Follow these steps:
@@ -60,9 +61,11 @@ Follow these steps:
 6. **Iterate**: If problems remain, repeat steps 2-5 focusing on remaining weak spots
 
 Report score improvements and specific transition fixes after each rebuild."""
-        ),
-        Message(
-            f'Improving "{set_name}". Step 1: `quick_set_review(set_id=<id>)`...',
-            role="assistant",
-        ),
-    ]
+            ),
+            Message(
+                f'Improving "{set_name}". Step 1: `quick_set_review(set_id=<id>)`...',
+                role="assistant",
+            ),
+        ],
+        description=f"Improve DJ set '{set_name}'",
+    )

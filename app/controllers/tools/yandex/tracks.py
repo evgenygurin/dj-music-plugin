@@ -46,11 +46,7 @@ async def ym_get_tracks(
             examples=["id,title,artists,albums,duration_ms", "all"],
         ),
     ] = "id,title,artists,albums,duration_ms",
-    ym: Annotated[
-        YandexMusicClient,
-        Field(description="Yandex Music API client (injected)."),
-        Depends(get_ym_client),
-    ] = Depends(get_ym_client),  # noqa: B008
+    ym: YandexMusicClient = Depends(get_ym_client),  # noqa: B008
 ) -> YMTrackBatch:
     """Batch-load tracks from Yandex Music by ID with optional field projection. Use when resolving IDs from search or albums into titles, artists, and durations."""
     ids = ensure_list(track_ids)
@@ -80,11 +76,7 @@ async def ym_artist_tracks(
     offset: Annotated[int, Field(description="Number of tracks to skip", ge=0)] = 0,
     limit: Annotated[int, Field(description="Max tracks to return", ge=1, le=100)] = _PAGE_SIZE,
     sort_by: Annotated[ArtistSortBy, Field(description="Sort order")] = "date",
-    ym: Annotated[
-        YandexMusicClient,
-        Field(description="Yandex Music API client (injected)."),
-        Depends(get_ym_client),
-    ] = Depends(get_ym_client),  # noqa: B008
+    ym: YandexMusicClient = Depends(get_ym_client),  # noqa: B008
 ) -> YMArtistTracksPage:
     """Return a paginated slice of tracks for a Yandex Music artist. Use when browsing an artist catalog or paging through their releases on YM."""
     page = offset // limit

@@ -35,11 +35,7 @@ async def ym_search(
     limit: Annotated[
         int, Field(description="Max results per entity type", ge=1, le=MAX_SEARCH_LIMIT)
     ] = 10,
-    ym: Annotated[
-        YandexMusicClient,
-        Field(description="Yandex Music API client (injected)."),
-        Depends(get_ym_client),
-    ] = Depends(get_ym_client),  # noqa: B008
+    ym: YandexMusicClient = Depends(get_ym_client),  # noqa: B008
 ) -> YMSearchResponse:
     """Search Yandex Music by text across tracks, albums, artists, and playlists. Use when discovering titles on YM from a query outside the local library."""
     result = await ym.search(query, type=type, limit=min(limit, MAX_SEARCH_LIMIT))

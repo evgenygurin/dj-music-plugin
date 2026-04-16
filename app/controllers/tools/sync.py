@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from typing import Annotated, Any, Literal
 
-from fastmcp.dependencies import Depends
+from fastmcp.dependencies import CurrentContext, Depends
 from fastmcp.server.context import Context
 from fastmcp.tools import tool
 from pydantic import Field
@@ -41,14 +41,8 @@ async def sync_playlist(
         Field(description="Conflict resolution"),
     ] = "source_wins",
     dry_run: Annotated[bool, Field(description="Preview without applying changes")] = True,
-    workflow: Annotated[
-        SyncPlaylistWorkflow,
-        Field(description="Injected playlist sync workflow."),
-    ] = Depends(get_sync_playlist_workflow),  # noqa: B008
-    ctx: Annotated[
-        Context | None,
-        Field(description="MCP context (unused; reserved for future logging)."),
-    ] = None,
+    workflow: SyncPlaylistWorkflow = Depends(get_sync_playlist_workflow),  # noqa: B008
+    ctx: Context = CurrentContext(),  # noqa: B008
 ) -> dict[str, Any]:
     """Synchronizes a local playlist with Yandex Music via pull, push, or diff. Use when mirroring curation to or from YM or previewing conflicts before applying changes."""
     del ctx
@@ -74,14 +68,8 @@ async def push_set_to_ym(
         str | None, Field(description="Target YM playlist name (optional)")
     ] = None,
     mode: Annotated[Literal["create", "update", "auto"], Field(description="Push mode")] = "auto",
-    workflow: Annotated[
-        SyncPlaylistWorkflow,
-        Field(description="Injected playlist sync workflow."),
-    ] = Depends(get_sync_playlist_workflow),  # noqa: B008
-    ctx: Annotated[
-        Context | None,
-        Field(description="MCP context (unused; reserved for future logging)."),
-    ] = None,
+    workflow: SyncPlaylistWorkflow = Depends(get_sync_playlist_workflow),  # noqa: B008
+    ctx: Context = CurrentContext(),  # noqa: B008
 ) -> dict[str, Any]:
     """Publishes a DJ set as a Yandex Music playlist with create, update, or auto behavior. Use when exporting a finished set to your streaming library."""
     del ctx

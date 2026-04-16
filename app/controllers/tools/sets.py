@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from typing import Annotated, Any, Literal
 
-from fastmcp.dependencies import Depends
+from fastmcp.dependencies import CurrentContext, Depends
 from fastmcp.server.context import Context
 from fastmcp.tools import tool
 from pydantic import Field
@@ -34,6 +34,7 @@ from app.core.utils.parsing import ensure_dict
 from app.db.repositories.feature import FeatureRepository
 from app.db.repositories.set import SetRepository
 from app.optimization.preview import PreviewResult, preview_arc
+from app.schemas.tool_responses import SetVersionResult
 from app.services.set.facade import SetService
 from app.services.workflows.build_set_workflow import BuildSetWorkflow
 from app.templates.registry import TEMPLATES
@@ -143,11 +144,8 @@ async def commit_set_version(
     version_label: Annotated[
         str | None, Field(description="Version label, e.g. 'v2-peak-hour'")
     ] = None,
-    svc: Annotated[
-        SetService,
-        Field(description="Injected set service"),
-    ] = Depends(get_set_service),  # noqa: B008
-) -> dict[str, Any]:
+    svc: SetService = Depends(get_set_service),  # noqa: B008
+) -> SetVersionResult:
     """Persist an AI-curated track order as a set version — no optimizer runs.
 
     Workflow: get_candidate_pool → preview_set_arc → commit_set_version.
@@ -162,14 +160,14 @@ async def commit_set_version(
         target_duration_min=target_duration_min,
         version_label=version_label,
     )
-    return {
-        "set_id": dj_set.id,
-        "version_id": version.id,
-        "version_label": version.label,
-        "track_count": len(track_ids),
-        "quality_score": round(quality, 4) if quality is not None else None,
-        "template": template,
-    }
+    return SetVersionResult(
+        set_id=dj_set.id,
+        version_id=version.id,
+        version_label=version.label,
+        track_count=len(track_ids),
+        quality_score=round(quality, 4) if quality is not None else None,
+        template=template,
+    )
 
 
 @tool(
@@ -196,14 +194,8 @@ async def score_transitions(
     top_n: Annotated[
         int, Field(description="Max ranked transitions or candidates to persist")
     ] = 10,
-    workflow: Annotated[
-        BuildSetWorkflow,
-        Field(description="Injected build-set workflow"),
-    ] = Depends(get_build_set_workflow),  # noqa: B008
-    ctx: Annotated[
-        Context | None,
-        Field(description="Optional MCP request context"),
-    ] = None,
+    workflow: BuildSetWorkflow = Depends(get_build_set_workflow),  # noqa: B008
+    ctx: Context = CurrentContext(),  # noqa: B008
 ) -> dict[str, Any]:
     """Scores transitions for a set, a single pair, or anchor candidates and persists results. Use when auditing blends, ranking options, or refreshing stored transition scores."""
     if ctx is not None:
@@ -233,14 +225,8 @@ async def score_transitions(
 async def get_set_cheat_sheet(
     set_id: Annotated[int, Field(description="DJ set ID")],
     version: Annotated[str | None, Field(description="Set version label (optional)")] = None,
-    svc: Annotated[
-        SetService,
-        Field(description="Injected set service"),
-    ] = Depends(get_set_service),  # noqa: B008
-    ctx: Annotated[
-        Context | None,
-        Field(description="Optional MCP request context"),
-    ] = None,
+    svc: SetService = Depends(get_set_service),  # noqa: B008
+    ctx: Context = CurrentContext(),  # noqa: B008
 ) -> str:
     """Returns a human-readable BPM, key, and energy-arc summary for a set version. Use when reviewing flow on paper or in the booth before playback."""
     return await svc.get_cheat_sheet(set_id, version=version)

@@ -22,7 +22,6 @@ def register_middleware(
             DetailedTimingMiddleware,
             StructuredLoggingMiddleware,
             ToolCallTimeoutMiddleware,
-            YMRateLimitMiddleware,
         )
 
         mcp.add_middleware(
@@ -31,6 +30,10 @@ def register_middleware(
                     "build_set": 120.0,
                     "rebuild_set": 120.0,
                     "score_transitions": 60.0,
+                    "deliver_set": 300.0,
+                    "analyze_track": 120.0,
+                    "analyze_batch": 600.0,
+                    "separate_stems": 300.0,
                 },
             )
         )
@@ -41,13 +44,38 @@ def register_middleware(
             )
         )
         mcp.add_middleware(DetailedTimingMiddleware())
+    except ImportError:
+        log.warning("Custom middleware not available")
+
+    try:
+        from fastmcp.server.middleware.response_limiting import ResponseLimitingMiddleware
+
+        mcp.add_middleware(ResponseLimitingMiddleware(max_size=50_000))
+    except ImportError:
+        log.debug("ResponseLimitingMiddleware unavailable")
+
+    try:
+        from fastmcp.server.middleware.caching import ResponseCachingMiddleware
+
+        mcp.add_middleware(
+            ResponseCachingMiddleware(
+                read_resource_settings={"enabled": False},
+                call_tool_settings={"enabled": False},
+            )
+        )
+    except ImportError:
+        log.debug("ResponseCachingMiddleware unavailable")
+
+    try:
+        from app.controllers.middleware import YMRateLimitMiddleware
+
         mcp.add_middleware(
             YMRateLimitMiddleware(
                 delay_seconds=settings.ym_rate_limit_delay,
             )
         )
     except ImportError:
-        log.warning("Custom middleware not available")
+        log.debug("YMRateLimitMiddleware unavailable")
 
     try:
         from fastmcp.server.middleware.error_handling import (

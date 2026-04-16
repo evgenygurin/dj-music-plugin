@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from fastmcp.prompts import Message, prompt
+from fastmcp.prompts import Message, PromptResult, prompt
 from pydantic import Field
 
 
@@ -23,7 +23,7 @@ def llm_discovery_workflow(
         int | None, Field(description="Local DB track ID (if known, enables audio feature lookup)")
     ] = None,
     limit: Annotated[int, Field(description="How many similar tracks to find")] = 20,
-) -> list[Message]:
+) -> PromptResult:
     """Client-driven discovery: generate search queries and find similar tracks.
 
     Steps: Analyze track -> Generate queries -> Call find_similar_tracks -> Review -> Import
@@ -43,9 +43,10 @@ def llm_discovery_workflow(
             "to get BPM, Camelot key, energy, mood"
         )
 
-    return [
-        Message(
-            f"""Find {limit} tracks similar to "{track_name}" using client-driven discovery.
+    return PromptResult(
+        messages=[
+            Message(
+                f"""Find {limit} tracks similar to "{track_name}" using client-driven discovery.
 
 This workflow does NOT require an API key — you generate the search queries yourself.
 
@@ -81,11 +82,13 @@ Follow these steps:
    best matches to the library.
 
 This is the recommended workflow for Claude Code MAX subscribers (no API key needed)."""
-        ),
-        Message(
-            f'Finding tracks similar to "{track_name}" via client-driven discovery. '
-            f"Step 1: analyzing track characteristics"
-            f"{f' — `get_track(id={track_id})`' if track_id else ''}...",
-            role="assistant",
-        ),
-    ]
+            ),
+            Message(
+                f'Finding tracks similar to "{track_name}" via client-driven discovery. '
+                f"Step 1: analyzing track characteristics"
+                f"{f' — `get_track(id={track_id})`' if track_id else ''}...",
+                role="assistant",
+            ),
+        ],
+        description=f"LLM-assisted discovery from '{track_name}'",
+    )

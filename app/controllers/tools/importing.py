@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from typing import Annotated, Any
 
-from fastmcp.dependencies import Depends
+from fastmcp.dependencies import CurrentContext, Depends
 from fastmcp.exceptions import ToolError
 from fastmcp.server.context import Context
 from fastmcp.tools import tool
@@ -44,14 +44,8 @@ async def import_tracks(
         int | None, Field(description="Append imported tracks to this playlist")
     ] = None,
     auto_analyze: Annotated[bool, Field(description="Run L3 analysis after import")] = False,
-    workflow: Annotated[
-        ImportTracksWorkflow,
-        Field(description="Injected import-tracks workflow."),
-    ] = Depends(get_import_tracks_workflow),  # noqa: B008
-    ctx: Annotated[
-        Context | None,
-        Field(description="MCP context for logging and progress reporting."),
-    ] = None,
+    workflow: ImportTracksWorkflow = Depends(get_import_tracks_workflow),  # noqa: B008
+    ctx: Context = CurrentContext(),  # noqa: B008
 ) -> dict[str, Any]:
     """Imports Yandex Music track IDs into the local library with optional playlist append and analysis. Use when onboarding tracks after search or discovery."""
     log = ToolContext(ctx)
@@ -86,14 +80,8 @@ async def download_tracks(
     ] = None,
     skip_existing: Annotated[bool, Field(description="Skip already downloaded files")] = True,
     prefer_bitrate: Annotated[int, Field(description="Preferred bitrate: 128, 192, or 320")] = 320,
-    workflow: Annotated[
-        ImportTracksWorkflow,
-        Field(description="Injected import-tracks workflow."),
-    ] = Depends(get_import_tracks_workflow),  # noqa: B008
-    ctx: Annotated[
-        Context | None,
-        Field(description="MCP context for logging and progress reporting."),
-    ] = None,
+    workflow: ImportTracksWorkflow = Depends(get_import_tracks_workflow),  # noqa: B008
+    ctx: Context = CurrentContext(),  # noqa: B008
 ) -> dict[str, Any]:
     """Downloads MP3s for local or YM track references into the library or a target folder. Use when preparing files for analysis or offline playback."""
     log = ToolContext(ctx)

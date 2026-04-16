@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from typing import Annotated, Any, Literal
 
-from fastmcp.dependencies import Depends
+from fastmcp.dependencies import CurrentContext, Depends
 from fastmcp.server.context import Context
 from fastmcp.tools import tool
 from pydantic import Field
@@ -48,14 +48,8 @@ async def suggest_next_track(
     energy_direction: Annotated[
         Literal["up", "down", "any"], Field(description="Energy direction bias")
     ] = "any",
-    svc: Annotated[
-        ReasoningService,
-        Field(description="Injected reasoning service"),
-    ] = Depends(get_reasoning_service),  # noqa: B008
-    ctx: Annotated[
-        Context | None,
-        Field(description="Optional MCP request context"),
-    ] = None,
+    svc: ReasoningService = Depends(get_reasoning_service),  # noqa: B008
+    ctx: Context = CurrentContext(),  # noqa: B008
 ) -> dict[str, Any]:
     """Suggests ranked next tracks after a slot using neighbor-aware transition scoring. Use when extending a set with mood or energy-direction bias."""
     return await svc.suggest_next_track(
@@ -78,14 +72,8 @@ async def suggest_next_track(
 async def explain_transition(
     from_track_id: Annotated[int, Field(description="Outgoing local track ID")],
     to_track_id: Annotated[int, Field(description="Incoming local track ID")],
-    svc: Annotated[
-        ReasoningService,
-        Field(description="Injected reasoning service"),
-    ] = Depends(get_reasoning_service),  # noqa: B008
-    ctx: Annotated[
-        Context | None,
-        Field(description="Optional MCP request context"),
-    ] = None,
+    svc: ReasoningService = Depends(get_reasoning_service),  # noqa: B008
+    ctx: Context = CurrentContext(),  # noqa: B008
 ) -> dict[str, Any]:
     """Explains transition quality with a per-component score breakdown. Use when debugging a blend or understanding why a pair passes or fails."""
     return await svc.explain_transition(from_track_id, to_track_id)
@@ -103,14 +91,8 @@ async def find_replacement(
     set_id: Annotated[int, Field(description="DJ set ID")],
     position: Annotated[int, Field(description="0-based slot to replace")],
     count: Annotated[int, Field(description="Number of replacement candidates", ge=1)] = 5,
-    svc: Annotated[
-        ReasoningService,
-        Field(description="Injected reasoning service"),
-    ] = Depends(get_reasoning_service),  # noqa: B008
-    ctx: Annotated[
-        Context | None,
-        Field(description="Optional MCP request context"),
-    ] = None,
+    svc: ReasoningService = Depends(get_reasoning_service),  # noqa: B008
+    ctx: Context = CurrentContext(),  # noqa: B008
 ) -> dict[str, Any]:
     """Finds replacement candidates for one slot scored against adjacent tracks. Use when swapping a weak track without rebuilding the whole set."""
     return await svc.find_replacement(
@@ -132,14 +114,8 @@ async def compare_set_versions(
     set_id: Annotated[int, Field(description="DJ set ID")],
     version_a: Annotated[int | None, Field(description="First version number to compare")] = None,
     version_b: Annotated[int | None, Field(description="Second version number to compare")] = None,
-    svc: Annotated[
-        ReasoningService,
-        Field(description="Injected reasoning service"),
-    ] = Depends(get_reasoning_service),  # noqa: B008
-    ctx: Annotated[
-        Context | None,
-        Field(description="Optional MCP request context"),
-    ] = None,
+    svc: ReasoningService = Depends(get_reasoning_service),  # noqa: B008
+    ctx: Context = CurrentContext(),  # noqa: B008
 ) -> dict[str, Any]:
     """Compares two set versions for track churn and transition-score deltas. Use when reviewing what changed between rebuilds or edits."""
     return await svc.compare_set_versions(
@@ -159,14 +135,8 @@ async def compare_set_versions(
 @map_domain_errors
 async def quick_set_review(
     set_id: Annotated[int, Field(description="DJ set ID")],
-    svc: Annotated[
-        ReasoningService,
-        Field(description="Injected reasoning service"),
-    ] = Depends(get_reasoning_service),  # noqa: B008
-    ctx: Annotated[
-        Context | None,
-        Field(description="Optional MCP request context"),
-    ] = None,
+    svc: ReasoningService = Depends(get_reasoning_service),  # noqa: B008
+    ctx: Context = CurrentContext(),  # noqa: B008
 ) -> dict[str, Any]:
     """Returns tracks, weak transitions, and problem flags in one pass. Use when doing a fast QA sweep before export or playback."""
     return await svc.quick_set_review(set_id)
@@ -182,10 +152,7 @@ async def quick_set_review(
 @map_domain_errors
 async def analyze_set_narrative(
     set_id: Annotated[int, Field(description="DJ set ID to analyze")],
-    repo: Annotated[
-        SetRepository,
-        Field(description="Injected set repository"),
-    ] = Depends(_get_set_repo),  # noqa: B008
+    repo: SetRepository = Depends(_get_set_repo),  # noqa: B008
 ) -> dict[str, Any]:
     """Analyzes narrative arc, phases, variety, and flow from stored track features. Use when evaluating story quality after ``build_set`` or before narrative tweaks."""
     from app.db.repositories.feature import FeatureRepository

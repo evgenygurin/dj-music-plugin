@@ -33,11 +33,7 @@ async def ym_get_album(
     include_tracks: Annotated[
         bool, Field(description="Include track listing in response")
     ] = False,
-    ym: Annotated[
-        YandexMusicClient,
-        Field(description="Yandex Music API client (injected)."),
-        Depends(get_ym_client),
-    ] = Depends(get_ym_client),  # noqa: B008
+    ym: YandexMusicClient = Depends(get_ym_client),  # noqa: B008
 ) -> YMAlbumResponse:
     """Fetch album metadata from Yandex Music, optionally including tracks. Use when resolving an album ID or showing album details from YM."""
     if not album_id or not str(album_id).strip():

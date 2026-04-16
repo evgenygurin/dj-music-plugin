@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from fastmcp.prompts import Message, prompt
+from fastmcp.prompts import Message, PromptResult, prompt
 from pydantic import Field
 
 
@@ -27,7 +27,7 @@ def dj_expert_session(
             description="Optional session goal (e.g. 'dark and driving, 90 min, after midnight')"
         ),
     ] = None,
-) -> list[Message]:
+) -> PromptResult:
     """Initialize the AI as a professional DJ expert.
 
     Args:
@@ -103,7 +103,10 @@ After completing setup, greet the user as a DJ assistant ready to work."""
             "I won't ask you for BPM ranges."
         )
 
-    return [
-        Message(user_message, role="user"),
-        Message(assistant_message, role="assistant"),
-    ]
+    return PromptResult(
+        messages=[
+            Message(user_message, role="user"),
+            Message(assistant_message, role="assistant"),
+        ],
+        description="DJ expert session" + (f" — goal: {goal}" if goal else ""),
+    )

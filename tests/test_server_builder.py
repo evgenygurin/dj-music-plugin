@@ -10,9 +10,11 @@ def test_build_mcp_server_registers_expected_middleware() -> None:
     mcp = build_mcp_server()
     middleware_names = [type(middleware).__name__ for middleware in mcp.middleware]
 
-    assert middleware_names[-5:] == [
+    assert middleware_names[-7:] == [
         "StructuredLoggingMiddleware",
         "DetailedTimingMiddleware",
+        "ResponseLimitingMiddleware",
+        "ResponseCachingMiddleware",
         "YMRateLimitMiddleware",
         "ErrorHandlingMiddleware",
         "RetryMiddleware",
@@ -24,7 +26,7 @@ def test_build_mcp_server_registers_resource_and_prompt_transforms() -> None:
     mcp = build_mcp_server()
     transform_names = [type(transform).__name__ for transform in mcp.transforms]
 
-    # BM25SearchTransform was removed — only ResourcesAsTools + PromptsAsTools remain
+    assert "ToolTransform" in transform_names
     assert "ResourcesAsTools" in transform_names
     assert "PromptsAsTools" in transform_names
 

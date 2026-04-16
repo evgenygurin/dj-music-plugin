@@ -142,7 +142,6 @@ async def safe_choice(
             if member.value == default:
                 default_data = ChoiceSchema(choice=member)
                 break
-                break
 
     action, data = await safe_elicit(
         ctx,

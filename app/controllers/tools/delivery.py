@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from typing import Annotated, Any
 
-from fastmcp.dependencies import Depends
+from fastmcp.dependencies import CurrentContext, Depends
 from fastmcp.server.context import Context
 from fastmcp.tools import tool
 from pydantic import Field
@@ -52,14 +52,8 @@ async def deliver_set(
     dry_run: Annotated[
         bool, Field(description="Preview without writing files or syncing")
     ] = False,
-    workflow: Annotated[
-        DeliverSetWorkflow,
-        Field(description="Injected deliver-set workflow."),
-    ] = Depends(get_deliver_set_workflow),  # noqa: B008
-    ctx: Annotated[
-        Context | None,
-        Field(description="MCP context for logging delivery progress."),
-    ] = None,
+    workflow: DeliverSetWorkflow = Depends(get_deliver_set_workflow),  # noqa: B008
+    ctx: Context = CurrentContext(),  # noqa: B008
 ) -> dict[str, Any]:
     """Runs the delivery pipeline for a set: transitions, exports, optional file copy, and optional YM sync. Use when shipping a set to decks, files, or streaming."""
     return await workflow.deliver_set(

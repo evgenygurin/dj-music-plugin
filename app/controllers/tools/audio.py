@@ -14,7 +14,7 @@ from __future__ import annotations
 
 from typing import Annotated, Any
 
-from fastmcp.dependencies import Depends, Progress
+from fastmcp.dependencies import CurrentContext, Depends, Progress
 from fastmcp.exceptions import NotFoundError as FastMCPNotFoundError
 from fastmcp.server.context import Context
 from fastmcp.tools import tool
@@ -67,18 +67,9 @@ async def analyze_track(
         int,
         Field(description="Analysis level: 2=TRIAGE, 3=SCORING, 4=TRANSITION", ge=2, le=5),
     ] = 3,
-    workflow: Annotated[
-        AnalyzeTrackWorkflow,
-        Field(description="Injected analyze-track workflow"),
-    ] = Depends(get_analyze_track_workflow),  # noqa: B008
-    track_svc: Annotated[
-        TrackService,
-        Field(description="Injected track service for ID resolution"),
-    ] = Depends(get_track_service),  # noqa: B008
-    ctx: Annotated[
-        Context | None,
-        Field(description="Optional MCP request context"),
-    ] = None,
+    workflow: AnalyzeTrackWorkflow = Depends(get_analyze_track_workflow),  # noqa: B008
+    track_svc: TrackService = Depends(get_track_service),  # noqa: B008
+    ctx: Context = CurrentContext(),  # noqa: B008
 ) -> dict[str, Any]:
     """Runs tiered or custom-pipeline audio analysis for one resolved track. Use when scoring, triage, or transition prep needs up-to-date features. ``level`` 2-5 maps TRIAGE through ADVANCED; explicit ``analyzers`` selects the local-file pipeline instead of tiered."""
     log = ToolContext(ctx)
@@ -118,18 +109,9 @@ async def analyze_batch(
         Field(description="Analysis level: 2=TRIAGE, 3=SCORING, 4=TRANSITION", ge=2, le=5),
     ] = 3,
     force: Annotated[bool, Field(description="Re-analyze even if results exist")] = False,
-    workflow: Annotated[
-        AnalyzeTrackWorkflow,
-        Field(description="Injected analyze-track workflow"),
-    ] = Depends(get_analyze_track_workflow),  # noqa: B008
-    progress: Annotated[
-        Progress,
-        Field(description="Progress handle for batch reporting"),
-    ] = Progress(),  # noqa: B008
-    ctx: Annotated[
-        Context | None,
-        Field(description="Optional MCP request context"),
-    ] = None,
+    workflow: AnalyzeTrackWorkflow = Depends(get_analyze_track_workflow),  # noqa: B008
+    progress: Progress = Progress(),  # noqa: B008
+    ctx: Context = CurrentContext(),  # noqa: B008
 ) -> dict[str, Any]:
     """Runs analysis across track IDs or a whole playlist in batches with progress reporting. Use when bulk-refreshing many tracks; ``level`` and ``analyzers`` behave like ``analyze_track``."""
     del ctx
@@ -154,10 +136,7 @@ async def analyze_batch(
 @map_domain_errors
 async def classify_track(
     track_id: Annotated[int, Field(description="Local track ID")],
-    svc: Annotated[
-        AudioService,
-        Field(description="Injected audio service"),
-    ] = Depends(get_audio_service),  # noqa: B008
+    svc: AudioService = Depends(get_audio_service),  # noqa: B008
 ) -> dict[str, Any]:
     """Classifies mood/subgenre from stored audio features and persists labels. Use when labeling tracks that already have features; run ``analyze_track`` first if analysis is missing."""
     result = await svc.classify_track(track_id)
@@ -181,10 +160,7 @@ async def gate_track(
     criteria: Annotated[
         dict[str, float] | None, Field(description="Numeric thresholds for quality gates")
     ] = None,
-    svc: Annotated[
-        AudioService,
-        Field(description="Injected audio service"),
-    ] = Depends(get_audio_service),  # noqa: B008
+    svc: AudioService = Depends(get_audio_service),  # noqa: B008
 ) -> dict[str, Any]:
     """Evaluates one track against numeric quality gates and returns pass/fail with reasons. Use when gatekeeping library additions or pre-export checks."""
     return await svc.gate_track(track_id, criteria=criteria)
@@ -212,10 +188,7 @@ async def get_similar_tracks(
     exclude_patterns: Annotated[
         list[str] | None, Field(description="Title patterns to exclude")
     ] = None,
-    ym: Annotated[
-        YandexMusicClient,
-        Field(description="Injected Yandex Music client"),
-    ] = Depends(get_ym_client),  # noqa: B008
+    ym: YandexMusicClient = Depends(get_ym_client),  # noqa: B008
 ) -> dict[str, Any]:
     """Fetches Yandex Music similar tracks for a seed and applies duration, genre, and title filters. Use when discovering candidates from an existing YM track."""
     raw_similar = await ym.get_similar(ym_track_id)

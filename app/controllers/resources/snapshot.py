@@ -6,7 +6,7 @@ Resources:
 
 from __future__ import annotations
 
-import json
+from typing import Any
 
 from fastmcp.dependencies import Depends
 from fastmcp.resources import resource
@@ -41,7 +41,7 @@ from app.db.models.track import Track
 )
 async def library_snapshot(
     session: AsyncSession = Depends(get_db_session),  # noqa: B008
-) -> str:
+) -> dict[str, Any]:
     """Get library snapshot for AI session initialization."""
     total_result = await session.execute(select(func.count(Track.id)))
     total_tracks = total_result.scalar() or 0
@@ -92,4 +92,4 @@ async def library_snapshot(
         "playlists": playlists,
         "last_analyzed": last_analyzed,
     }
-    return json.dumps(data, indent=2)
+    return data

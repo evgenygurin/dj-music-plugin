@@ -101,11 +101,7 @@ async def ym_likes(
         Field(description="Page size for get_liked (max 200)", ge=1, le=MAX_LIKED_PAGE),
     ] = None,
     offset: Annotated[int, Field(description="Offset for get_liked pagination", ge=0)] = 0,
-    ym: Annotated[
-        YandexMusicClient,
-        Field(description="Yandex Music API client (injected)."),
-        Depends(get_ym_client),
-    ] = Depends(get_ym_client),  # noqa: B008
+    ym: YandexMusicClient = Depends(get_ym_client),  # noqa: B008
 ) -> YMLikesActionResult:
     """List, add, or remove liked tracks on the user's Yandex Music account. Use when syncing hearts, curating a liked pool, or undoing likes."""
     ids = ensure_list(track_ids) or None

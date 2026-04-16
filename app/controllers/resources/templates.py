@@ -9,8 +9,7 @@ Resources:
 
 from __future__ import annotations
 
-import json
-from typing import Annotated
+from typing import Annotated, Any
 
 from fastmcp.dependencies import Depends
 from fastmcp.resources import resource
@@ -45,7 +44,7 @@ from app.db.models.track import Track
 async def track_features(
     track_id: Annotated[int, "Track ID"],
     session: AsyncSession = Depends(get_db_session),  # noqa: B008
-) -> str:
+) -> dict[str, Any]:
     """Get audio features summary for a track.
 
     Returns JSON with key audio features:
@@ -76,7 +75,7 @@ async def track_features(
             "features_available": False,
             "message": "Audio features not yet analyzed",
         }
-        return json.dumps(data, indent=2)
+        return data
 
     # Build Camelot key notation
     key_name = None
@@ -118,7 +117,7 @@ async def track_features(
         "mood_confidence": features.mood_confidence,
     }
 
-    return json.dumps(data, indent=2)
+    return data
 
 
 @resource(
@@ -135,7 +134,7 @@ async def track_features(
 async def set_summary(
     set_id: Annotated[int, "DJ Set ID"],
     session: AsyncSession = Depends(get_db_session),  # noqa: B008
-) -> str:
+) -> dict[str, Any]:
     """Get latest version summary for a DJ set.
 
     Returns JSON with:
@@ -168,7 +167,7 @@ async def set_summary(
             "has_versions": False,
             "message": "No versions generated yet",
         }
-        return json.dumps(data, indent=2)
+        return data
 
     # Count tracks in latest version
     from app.db.models.set import SetItem
@@ -204,7 +203,7 @@ async def set_summary(
         "problems": [],  # TODO: calculate from transition scores
     }
 
-    return json.dumps(data, indent=2)
+    return data
 
 
 @resource(
@@ -221,7 +220,7 @@ async def set_summary(
 async def playlist_status(
     playlist_id: Annotated[int, "Playlist ID"],
     session: AsyncSession = Depends(get_db_session),  # noqa: B008
-) -> str:
+) -> dict[str, Any]:
     """Get status information for a playlist.
 
     Returns JSON with:
@@ -255,7 +254,7 @@ async def playlist_status(
         "last_synced": None,  # TODO: track sync timestamps
     }
 
-    return json.dumps(data, indent=2)
+    return data
 
 
 @resource(
@@ -274,7 +273,7 @@ async def catalog_stats(
     bpm_min: Annotated[float | None, "Minimum BPM"] = None,
     bpm_max: Annotated[float | None, "Maximum BPM"] = None,
     session: AsyncSession = Depends(get_db_session),  # noqa: B008
-) -> str:
+) -> dict[str, Any]:
     """Get filtered catalog statistics.
 
     Query params:
@@ -341,4 +340,4 @@ async def catalog_stats(
                 mood_distribution[subgenre.value] = count
         data["mood_distribution"] = mood_distribution
 
-    return json.dumps(data, indent=2)
+    return data

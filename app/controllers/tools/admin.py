@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Annotated, Any, Literal
 
-from fastmcp.dependencies import Depends
+from fastmcp.dependencies import CurrentContext, Depends
 from fastmcp.exceptions import ToolError
 from fastmcp.server.context import Context
 from fastmcp.tools import tool
@@ -52,10 +52,12 @@ def _build_status(ctx: Context) -> dict[str, Any]:
     visibility transforms.  Each category is reported as "enabled" or
     "disabled" based on whether the server currently lists tools with
     that tag.
+
+    NOTE: This shows *global* server defaults, not per-session state.
+    Per-session overrides (via ``ctx.enable_components`` /
+    ``ctx.disable_components``) are not reflected here.
     """
     server = ctx.fastmcp
-    # Walk the server's visibility transforms to determine state.
-    # Transforms are Visibility objects with .enabled (bool) and .tags/.keys.
     effective: dict[str, str] = {}
     for category in sorted(_TOGGLEABLE_CATEGORIES):
         state = "enabled"
@@ -91,33 +93,25 @@ async def unlock_tools(
         str | None,
         Field(description="Tool category to toggle, or 'all'"),
     ] = None,
-    ctx: Annotated[
-        Context | None,
-        Field(description="MCP server context; required for status, lock, and unlock"),
-    ] = None,
+    ctx: Context = CurrentContext(),  # noqa: B008
 ) -> dict[str, Any]:
     """Shows lock state or toggles hideable MCP tool categories via the server. Use when unlocking gated categories (for example delivery or YM) for the current session."""
     if action == "status":
-        if ctx is None:
-            raise ToolError("Context required for status")
         return _build_status(ctx)
 
-    # action ∈ {unlock, lock}
     if not category:
         raise ToolError(f"Category required for action={action}")
-    if ctx is None:
-        raise ToolError(f"Context required for {action}")
 
     tags = _resolve_categories(category)
-    server = ctx.fastmcp
 
     if action == "unlock":
-        # Server-level enable → triggers tools/list_changed notification
-        server.enable(tags=tags)
+        for tag in tags:
+            await ctx.enable_components(tags={tag})
         return {"action": "unlocked", "categories": sorted(tags)}
 
     # lock
-    server.disable(tags=tags)
+    for tag in tags:
+        await ctx.disable_components(tags={tag})
     return {"action": "locked", "categories": sorted(tags)}
 
 
@@ -130,10 +124,7 @@ async def unlock_tools(
 )
 @map_domain_errors
 async def list_platforms(
-    svc: Annotated[
-        TrackService,
-        Field(description="Track service for per-platform link counts"),
-    ] = Depends(get_track_service),  # noqa: B008
+    svc: TrackService = Depends(get_track_service),  # noqa: B008
 ) -> list[dict[str, Any]]:
     """Lists music providers and how many tracks are linked per platform. Use when checking multi-platform coverage or import linkage."""
     db_platforms = await svc.get_platform_counts()

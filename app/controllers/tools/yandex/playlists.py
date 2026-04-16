@@ -242,11 +242,7 @@ async def ym_playlists(
         Field(description="Page size for get_tracks (max 200)", ge=1, le=MAX_PLAYLIST_TRACKS_PAGE),
     ] = None,
     offset: Annotated[int, Field(description="Offset for get_tracks pagination", ge=0)] = 0,
-    ym: Annotated[
-        YandexMusicClient,
-        Field(description="Yandex Music API client (injected)."),
-        Depends(get_ym_client),
-    ] = Depends(get_ym_client),  # noqa: B008
+    ym: YandexMusicClient = Depends(get_ym_client),  # noqa: B008
 ) -> YMPlaylistActionResult:
     """List and mutate user playlists on Yandex Music (tracks, revisions, kinds). Use when exporting to YM, renaming playlists, or paging playlist tracks."""
     ids = ensure_list(track_ids) or None

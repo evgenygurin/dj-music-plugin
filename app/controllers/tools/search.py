@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from typing import Annotated, Any, Literal
 
-from fastmcp.dependencies import Depends
+from fastmcp.dependencies import CurrentContext, Depends
 from fastmcp.exceptions import ToolError
 from fastmcp.server.context import Context
 from fastmcp.tools import tool
@@ -38,14 +38,8 @@ async def search_library(
     query: Annotated[str, Field(description="Search text")],
     entity: Annotated[SearchEntity, Field(description="Entity type to search")] = "all",
     limit: Annotated[int, Field(description="Max results", ge=1, le=50)] = 10,
-    svc: Annotated[
-        SearchService,
-        Field(description="Search service for library-wide text queries"),
-    ] = Depends(get_search_service),  # noqa: B008
-    ctx: Annotated[
-        Context | None,
-        Field(description="Optional MCP context for tool logging"),
-    ] = None,
+    svc: SearchService = Depends(get_search_service),  # noqa: B008
+    ctx: Context = CurrentContext(),  # noqa: B008
 ) -> dict[str, Any]:
     """Runs a text search across tracks, artists, playlists, and sets. Use when you know a fragment of a title or name but not the exact ID."""
     if not query or not query.strip():

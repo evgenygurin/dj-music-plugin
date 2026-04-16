@@ -13,7 +13,7 @@ from __future__ import annotations
 import logging
 from typing import Annotated, Any, Literal
 
-from fastmcp.dependencies import Depends
+from fastmcp.dependencies import CurrentContext, Depends
 from fastmcp.exceptions import ToolError
 from fastmcp.server.context import Context
 from fastmcp.tools import tool
@@ -104,14 +104,8 @@ async def find_similar_tracks(
     exclude_patterns: Annotated[
         list[str] | None, Field(description="Title patterns to exclude")
     ] = None,
-    svc: Annotated[
-        DiscoveryService,
-        Field(description="Injected discovery service."),
-    ] = Depends(get_discovery_service),  # noqa: B008
-    ctx: Annotated[
-        Context | None,
-        Field(description="MCP context for logging and optional LLM sampling."),
-    ] = None,
+    svc: DiscoveryService = Depends(get_discovery_service),  # noqa: B008
+    ctx: Context = CurrentContext(),  # noqa: B008
 ) -> dict[str, Any]:
     """Finds similar tracks via YM or optional LLM search with declarative filters. Use when expanding from a seed track or generating alternatives that match your rules."""
     log = ToolContext(ctx)
@@ -162,14 +156,8 @@ async def filter_by_feedback(
     ym_track_ids: Annotated[
         str | list[str] | None, Field(description="YM track IDs to filter")
     ] = None,
-    svc: Annotated[
-        DiscoveryService,
-        Field(description="Injected discovery service."),
-    ] = Depends(get_discovery_service),  # noqa: B008
-    ctx: Annotated[
-        Context | None,
-        Field(description="MCP context for logging and optional feedback session cache."),
-    ] = None,
+    svc: DiscoveryService = Depends(get_discovery_service),  # noqa: B008
+    ctx: Context = CurrentContext(),  # noqa: B008
 ) -> dict[str, Any]:
     """Splits YM track IDs into liked, disliked, and neutral buckets using YM feedback. Use when pruning discovery results or prioritizing tracks that match your taste."""
     log = ToolContext(ctx)
@@ -239,14 +227,8 @@ async def expand_playlist_ym(
     ] = None,
     use_feedback: Annotated[bool, Field(description="Apply liked/disliked feedback gate")] = True,
     dry_run: Annotated[bool, Field(description="Preview without modifying the playlist")] = False,
-    svc: Annotated[
-        DiscoveryService,
-        Field(description="Injected discovery service."),
-    ] = Depends(get_discovery_service),  # noqa: B008
-    ctx: Annotated[
-        Context | None,
-        Field(description="MCP context for logging."),
-    ] = None,
+    svc: DiscoveryService = Depends(get_discovery_service),  # noqa: B008
+    ctx: Context = CurrentContext(),  # noqa: B008
 ) -> dict[str, Any]:
     """Grows a Yandex Music playlist toward a target size with similar tracks and filters. Use when you want one-shot expansion instead of chaining finer discovery tools."""
     log = ToolContext(ctx)

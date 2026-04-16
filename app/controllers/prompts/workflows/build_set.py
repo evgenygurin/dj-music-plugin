@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from fastmcp.prompts import Message, prompt
+from fastmcp.prompts import Message, PromptResult, prompt
 from pydantic import Field
 
 
@@ -27,7 +27,7 @@ def build_set_workflow(
         ),
     ] = "classic_60",
     duration_min: Annotated[int, Field(description="Target set duration in minutes")] = 60,
-) -> list[Message]:
+) -> PromptResult:
     """Guide through building a DJ set from scratch.
 
     Steps: Get playlist -> Audit -> Fill gaps -> Build -> Review -> Fix -> Deliver
@@ -37,9 +37,10 @@ def build_set_workflow(
         template: Set template name (classic_60, peak_hour_60, etc.)
         duration_min: Target duration in minutes
     """
-    return [
-        Message(
-            f"""Build a DJ set from playlist "{playlist_name}" using the "{template}" template
+    return PromptResult(
+        messages=[
+            Message(
+                f"""Build a DJ set from playlist "{playlist_name}" using the "{template}" template
 with target duration {duration_min} minutes.
 
 Follow these steps:
@@ -60,10 +61,14 @@ Follow these steps:
 7. **Deliver**: When satisfied, use `deliver_set` tool or `deliver_set_workflow` prompt
 
 Report progress and findings after each step."""
+            ),
+            Message(
+                f'Building DJ set from "{playlist_name}" ({template}, {duration_min} min). '
+                f'Step 1: `get_playlist(query="{playlist_name}", include_tracks=True)`...',
+                role="assistant",
+            ),
+        ],
+        description=(
+            f"Build DJ set from '{playlist_name}' using {template} template ({duration_min} min)"
         ),
-        Message(
-            f'Building DJ set from "{playlist_name}" ({template}, {duration_min} min). '
-            f'Step 1: `get_playlist(query="{playlist_name}", include_tracks=True)`...',
-            role="assistant",
-        ),
-    ]
+    )
