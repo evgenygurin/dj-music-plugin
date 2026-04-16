@@ -83,6 +83,15 @@ async def test_remove_tracks_calls_provider_once() -> None:
 
     provider_mock = AsyncMock()
     provider_mock.remove_tracks_from_playlist = AsyncMock(return_value=None)
+    provider_mock.get_playlist_tracks = AsyncMock(
+        side_effect=[
+            [
+                ProviderTrack(id="200", title="Old 1", provider=Provider.YANDEX_MUSIC),
+                ProviderTrack(id="201", title="Old 2", provider=Provider.YANDEX_MUSIC),
+            ],
+            [ProviderTrack(id="201", title="Old 2", provider=Provider.YANDEX_MUSIC)],
+        ]
+    )
 
     result = await platform_playlists(
         action="remove_tracks",
@@ -103,6 +112,15 @@ async def test_remove_tracks_multiple_ids() -> None:
 
     provider_mock = AsyncMock()
     provider_mock.remove_tracks_from_playlist = AsyncMock(return_value=None)
+    provider_mock.get_playlist_tracks = AsyncMock(
+        side_effect=[
+            [
+                ProviderTrack(id="200", title="Old 1", provider=Provider.YANDEX_MUSIC),
+                ProviderTrack(id="201", title="Old 2", provider=Provider.YANDEX_MUSIC),
+            ],
+            [ProviderTrack(id="201", title="Old 2", provider=Provider.YANDEX_MUSIC)],
+        ]
+    )
 
     result = await platform_playlists(
         action="remove_tracks",
@@ -111,7 +129,7 @@ async def test_remove_tracks_multiple_ids() -> None:
         provider=provider_mock,
     )
 
-    assert result.removed == 2
+    assert result.removed == 1
     provider_mock.remove_tracks_from_playlist.assert_called_once()
 
 
@@ -122,6 +140,12 @@ async def test_remove_tracks_single_track() -> None:
 
     provider_mock = AsyncMock()
     provider_mock.remove_tracks_from_playlist = AsyncMock(return_value=None)
+    provider_mock.get_playlist_tracks = AsyncMock(
+        side_effect=[
+            [ProviderTrack(id="200", title="Old 1", provider=Provider.YANDEX_MUSIC)],
+            [],
+        ]
+    )
 
     result = await platform_playlists(
         action="remove_tracks",
@@ -132,6 +156,137 @@ async def test_remove_tracks_single_track() -> None:
 
     assert result.removed == 1
     provider_mock.remove_tracks_from_playlist.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_create_playlist_accepts_title_alias() -> None:
+    """platform_playlists create should accept title alias for name."""
+    from app.controllers.tools.platform.playlists import platform_playlists
+
+    provider_mock = AsyncMock()
+    provider_mock.create_playlist = AsyncMock(
+        return_value=ProviderPlaylist(
+            id="uid:1",
+            owner_id="uid",
+            title="Alias Playlist",
+            track_count=0,
+            provider=Provider.YANDEX_MUSIC,
+        )
+    )
+
+    result = await platform_playlists(
+        action="create", title="Alias Playlist", provider=provider_mock
+    )
+    assert result.action == "create"
+    provider_mock.create_playlist.assert_called_once_with("Alias Playlist")
+
+
+@pytest.mark.asyncio
+async def test_update_playlist_replaces_tracks() -> None:
+    """platform_playlists update should replace existing track list."""
+    from app.controllers.tools.platform.playlists import platform_playlists
+
+    provider_mock = AsyncMock()
+    provider_mock.get_tracks = AsyncMock(
+        return_value=[
+            ProviderTrack(id="new-1", title="New 1", provider=Provider.YANDEX_MUSIC),
+            ProviderTrack(id="new-2", title="New 2", provider=Provider.YANDEX_MUSIC),
+        ]
+    )
+    provider_mock.get_playlist_tracks = AsyncMock(
+        return_value=[
+            ProviderTrack(id="old-1", title="Old 1", provider=Provider.YANDEX_MUSIC),
+            ProviderTrack(id="old-2", title="Old 2", provider=Provider.YANDEX_MUSIC),
+        ]
+    )
+    provider_mock.remove_tracks_from_playlist = AsyncMock(return_value=True)
+    provider_mock.add_tracks_to_playlist = AsyncMock(return_value=True)
+
+    result = await platform_playlists(
+        action="update",
+        playlist_id="10",
+        track_ids=["new-1", "new-2"],
+        provider=provider_mock,
+    )
+
+    assert result.action == "update"
+    assert result.removed == 2
+    assert result.added == 2
+    provider_mock.remove_tracks_from_playlist.assert_called_once_with("10", ["old-1", "old-2"])
+    provider_mock.add_tracks_to_playlist.assert_called_once_with("10", ["new-1", "new-2"])
+
+
+@pytest.mark.asyncio
+async def test_update_playlist_rejects_unknown_track_ids_before_removal() -> None:
+    """update must fail fast and keep playlist intact on invalid target track IDs."""
+    from app.controllers.tools.platform.playlists import platform_playlists
+
+    provider_mock = AsyncMock()
+    provider_mock.get_tracks = AsyncMock(
+        return_value=[ProviderTrack(id="new-1", title="New 1", provider=Provider.YANDEX_MUSIC)]
+    )
+    provider_mock.get_playlist_tracks = AsyncMock(
+        return_value=[ProviderTrack(id="old-1", title="Old 1", provider=Provider.YANDEX_MUSIC)]
+    )
+    provider_mock.remove_tracks_from_playlist = AsyncMock(return_value=True)
+    provider_mock.add_tracks_to_playlist = AsyncMock(return_value=True)
+
+    with pytest.raises(ToolError, match="Unknown platform track_ids: bad-id"):
+        await platform_playlists(
+            action="update",
+            playlist_id="10",
+            track_ids=["new-1", "bad-id"],
+            provider=provider_mock,
+        )
+
+    provider_mock.remove_tracks_from_playlist.assert_not_called()
+    provider_mock.add_tracks_to_playlist.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_update_playlist_surfaces_track_validation_failure() -> None:
+    """Provider validation errors should become actionable ToolError for MCP clients."""
+    from app.controllers.tools.platform.playlists import platform_playlists
+
+    provider_mock = AsyncMock()
+    provider_mock.get_tracks = AsyncMock(side_effect=RuntimeError("provider failure"))
+    provider_mock.get_playlist_tracks = AsyncMock(
+        return_value=[ProviderTrack(id="old-1", title="Old 1", provider=Provider.YANDEX_MUSIC)]
+    )
+    provider_mock.remove_tracks_from_playlist = AsyncMock(return_value=True)
+    provider_mock.add_tracks_to_playlist = AsyncMock(return_value=True)
+
+    with pytest.raises(
+        ToolError,
+        match="Could not validate platform track_ids\\. Check IDs with get_platform_tracks first\\.",
+    ):
+        await platform_playlists(
+            action="update",
+            playlist_id="10",
+            track_ids=["new-1", "bad-id"],
+            provider=provider_mock,
+        )
+
+    provider_mock.remove_tracks_from_playlist.assert_not_called()
+    provider_mock.add_tracks_to_playlist.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_list_ignores_platform_and_page_aliases() -> None:
+    """Client-compat aliases platform/page should not break list action."""
+    from app.controllers.tools.platform.playlists import platform_playlists
+
+    provider_mock = AsyncMock()
+    provider_mock.list_user_playlists = AsyncMock(return_value=[])
+
+    result = await platform_playlists(
+        action="list",
+        platform="yandex_music",
+        page=1,
+        provider=provider_mock,
+    )
+    assert result.action == "list"
+    assert result.count == 0
 
 
 # ── BUG-018: platform_playlists get_tracks pagination ─
@@ -320,17 +475,22 @@ async def test_resolve_platform_track_ids_returns_ordered_mapping() -> None:
 
 
 @pytest.mark.asyncio
-async def test_resolve_platform_track_ids_strict_rejects_unmapped() -> None:
-    """strict=true should fail if at least one local track has no external mapping."""
+async def test_resolve_platform_track_ids_strict_reports_unmapped_structured() -> None:
+    """strict=true should return structured violation details for unmapped IDs."""
     from app.controllers.tools.platform.tracks import resolve_platform_track_ids
 
     repo_mock = AsyncMock()
     repo_mock.resolve_local_ids_to_platform = AsyncMock(return_value={101: "ym:abc"})
 
-    with pytest.raises(ToolError, match="Missing yandex_music mapping"):
-        await resolve_platform_track_ids(
-            track_ids=[101, 202],
-            platform="yandex_music",
-            strict=True,
-            track_repo=repo_mock,
-        )
+    result = await resolve_platform_track_ids(
+        track_ids=[101, 202],
+        platform="yandex_music",
+        strict=True,
+        track_repo=repo_mock,
+    )
+    assert result.requested == 2
+    assert result.resolved == 1
+    assert result.unresolved_track_ids == [202]
+    assert result.strict_violation is True
+    assert result.error is not None
+    assert "Missing yandex_music mapping for track_ids" in result.error

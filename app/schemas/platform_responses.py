@@ -49,6 +49,8 @@ class PlatformTrackIdMapResult(BaseModel):
     requested: int
     resolved: int
     unresolved_track_ids: list[int]
+    strict_violation: bool = False
+    error: str | None = None
     mappings: list[PlatformTrackIdMapItem]
 
 
@@ -161,6 +163,16 @@ class PlaylistRemoveTracksResult(BaseModel):
     removed: int
 
 
+class PlaylistUpdateResult(BaseModel):
+    """Response for ``platform_playlists(action='update')``."""
+
+    action: Literal["update"]
+    playlist_id: str
+    removed: int
+    added: int
+    result: bool
+
+
 PlaylistActionResult = Annotated[
     PlaylistListResult
     | PlaylistGetResult
@@ -169,7 +181,8 @@ PlaylistActionResult = Annotated[
     | PlaylistRenameResult
     | PlaylistDeleteResult
     | PlaylistAddTracksResult
-    | PlaylistRemoveTracksResult,
+    | PlaylistRemoveTracksResult
+    | PlaylistUpdateResult,
     Field(discriminator="action"),
 ]
 

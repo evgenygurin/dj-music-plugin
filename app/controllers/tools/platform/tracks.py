@@ -134,7 +134,12 @@ async def resolve_platform_track_ids(
     ] = Provider.YANDEX_MUSIC.value,
     strict: Annotated[
         bool,
-        Field(description="Fail if any local track has no mapping on the selected platform"),
+        Field(
+            description=(
+                "If true, mark response with strict_violation/error when at least one "
+                "local track has no mapping on the selected platform"
+            )
+        ),
     ] = False,
     track_repo: TrackRepository = Depends(get_track_repo),  # noqa: B008
 ) -> PlatformTrackIdMapResult:
@@ -145,9 +150,11 @@ async def resolve_platform_track_ids(
     mapping = await track_repo.resolve_local_ids_to_platform(track_ids, platform=platform)
 
     unresolved = [track_id for track_id in track_ids if track_id not in mapping]
-    if strict and unresolved:
+    strict_violation = bool(strict and unresolved)
+    error_message: str | None = None
+    if strict_violation:
         missing = ", ".join(str(track_id) for track_id in unresolved[:10])
-        raise ToolError(f"Missing {platform} mapping for track_ids: {missing}")
+        error_message = f"Missing {platform} mapping for track_ids: {missing}"
 
     items = [
         PlatformTrackIdMapItem(
@@ -162,5 +169,7 @@ async def resolve_platform_track_ids(
         requested=len(track_ids),
         resolved=len(track_ids) - len(unresolved),
         unresolved_track_ids=unresolved,
+        strict_violation=strict_violation,
+        error=error_message,
         mappings=items,
     )

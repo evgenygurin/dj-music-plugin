@@ -24,7 +24,15 @@ from app.providers.protocol import MusicProvider
 from app.schemas.platform_responses import PlaylistActionResult
 
 PlaylistAction = Literal[
-    "list", "get", "get_tracks", "create", "rename", "delete", "add_tracks", "remove_tracks"
+    "list",
+    "get",
+    "get_tracks",
+    "create",
+    "rename",
+    "delete",
+    "add_tracks",
+    "remove_tracks",
+    "update",
 ]
 
 _dispatcher: ActionDispatcher[dict[str, Any]] = ActionDispatcher()
@@ -48,6 +56,21 @@ def _require_track_ids(track_ids: list[str] | None, action: str) -> list[str]:
     if not track_ids:
         raise ToolError(f"track_ids required for action {action!r}")
     return track_ids
+
+
+async def _validate_track_ids_exist(provider: MusicProvider, track_ids: list[str]) -> None:
+    """Fail fast when requested platform IDs are not resolvable."""
+    try:
+        tracks = await provider.get_tracks(track_ids)
+    except Exception as exc:  # pragma: no cover - provider-specific transport errors
+        raise ToolError(
+            "Could not validate platform track_ids. Check IDs with get_platform_tracks first."
+        ) from exc
+    returned_ids = {track.id for track in tracks}
+    missing = [track_id for track_id in track_ids if track_id not in returned_ids]
+    if missing:
+        sample = ", ".join(missing[:10])
+        raise ToolError(f"Unknown platform track_ids: {sample}")
 
 
 @_dispatcher.register("list")
@@ -135,10 +158,12 @@ async def _get_tracks(
 async def _create(
     *,
     name: str | None,
+    title: str | None,
     provider: MusicProvider,
     **_: Any,
 ) -> dict[str, Any]:
-    pl = await provider.create_playlist(_require_name(name, "create"))
+    resolved_name = name or title
+    pl = await provider.create_playlist(_require_name(resolved_name, "create"))
     return {"action": "create", "playlist": pl.model_dump()}
 
 
@@ -192,11 +217,47 @@ async def _remove_tracks(
 ) -> dict[str, Any]:
     resolved_playlist_id = _require_playlist_id(playlist_id, "remove_tracks")
     resolved_ids = _require_track_ids(track_ids, "remove_tracks")
+    before_tracks = await provider.get_playlist_tracks(resolved_playlist_id)
+    before_ids = [track.id for track in before_tracks]
     await provider.remove_tracks_from_playlist(resolved_playlist_id, resolved_ids)
+    after_tracks = await provider.get_playlist_tracks(resolved_playlist_id)
+    after_ids = {track.id for track in after_tracks}
+    removed_count = sum(1 for track_id in before_ids if track_id not in after_ids)
     return {
         "action": "remove_tracks",
         "playlist_id": resolved_playlist_id,
-        "removed": len(resolved_ids),
+        "removed": removed_count,
+    }
+
+
+@_dispatcher.register("update")
+async def _update(
+    *,
+    playlist_id: str | None,
+    track_ids: list[str] | None,
+    provider: MusicProvider,
+    **_: Any,
+) -> dict[str, Any]:
+    """Replace playlist tracks in one action for MCP clients."""
+    resolved_playlist_id = _require_playlist_id(playlist_id, "update")
+    if track_ids is None:
+        raise ToolError("track_ids required for action 'update'")
+    if track_ids:
+        await _validate_track_ids_exist(provider, track_ids)
+
+    existing_tracks = await provider.get_playlist_tracks(resolved_playlist_id)
+    existing_ids = [track.id for track in existing_tracks]
+    if existing_ids:
+        await provider.remove_tracks_from_playlist(resolved_playlist_id, existing_ids)
+    if track_ids:
+        await provider.add_tracks_to_playlist(resolved_playlist_id, track_ids)
+
+    return {
+        "action": "update",
+        "playlist_id": resolved_playlist_id,
+        "removed": len(existing_ids),
+        "added": len(track_ids),
+        "result": True,
     }
 
 
@@ -218,9 +279,13 @@ async def platform_playlists(
     name: Annotated[
         str | None, Field(description="Playlist name — required for create/rename")
     ] = None,
+    title: Annotated[
+        str | None,
+        Field(description="Alias for name in create/rename (backward-compatible)"),
+    ] = None,
     track_ids: Annotated[
         str | list[str] | None,
-        Field(description="Platform track ID(s) — required for add_tracks/remove_tracks"),
+        Field(description="Platform track ID(s) — required for add_tracks/remove_tracks/update"),
     ] = None,
     revision: Annotated[
         int | None,
@@ -235,16 +300,29 @@ async def platform_playlists(
         ),
     ] = None,
     offset: Annotated[int, Field(description="Offset for get_tracks pagination", ge=0)] = 0,
+    page: Annotated[
+        int | None,
+        Field(
+            description="Optional page number alias for clients that send page instead of offset"
+        ),
+    ] = None,
+    platform: Annotated[
+        str | None,
+        Field(description="Ignored. Platform is selected by active provider session."),
+    ] = None,
     provider: MusicProvider = Depends(get_music_provider),  # noqa: B008
 ) -> PlaylistActionResult:
     """List and mutate user playlists on the active music platform."""
     del revision  # revision is now managed internally by the provider adapter
-    ids = ensure_list(track_ids) or None
+    del page  # compatibility alias; offset remains canonical
+    del platform  # provider is resolved via dependency
+    ids = None if track_ids is None else ensure_list(track_ids)
     try:
         raw = await _dispatcher.dispatch(
             action,
             playlist_id=playlist_id,
             name=name,
+            title=title,
             track_ids=ids,
             limit=limit,
             offset=offset,

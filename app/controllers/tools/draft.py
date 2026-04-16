@@ -39,6 +39,10 @@ from app.templates.registry import get_template
 from app.transition.scorer import TransitionScorer
 
 _DRAFT_KEY = "set_draft"
+_NO_DRAFT_MESSAGE = (
+    "No draft set in this MCP session. Call update_set_draft first, then run "
+    "preview_draft/commit_draft in the same active client session."
+)
 
 
 @tool(
@@ -58,6 +62,10 @@ async def update_set_draft(
         str | None,
         Field(description="Set name (required on first call, remembered afterwards)"),
     ] = None,
+    set_name: Annotated[
+        str | None,
+        Field(description="Alias for name (backward-compatible)"),
+    ] = None,
     template: Annotated[
         str | None,
         Field(description="Set template for arc scoring (e.g. 'roller_90')"),
@@ -75,8 +83,9 @@ async def update_set_draft(
         raise ValidationError("track_ids must not be empty")
 
     existing: dict[str, Any] = await ctx.get_state(_DRAFT_KEY) or {}
+    draft_name = name if name is not None else set_name
     draft: dict[str, Any] = {
-        "name": name or existing.get("name") or "Untitled Set",
+        "name": draft_name or existing.get("name") or "Untitled Set",
         "template": template if template is not None else existing.get("template"),
         "track_ids": track_ids,
     }
@@ -113,6 +122,19 @@ async def clear_draft(
 )
 @map_domain_errors
 async def preview_draft(
+    track_ids: Annotated[
+        list[int] | None,
+        Field(
+            description=(
+                "Optional ordered track IDs for stateless clients. "
+                "If provided, state draft is not required."
+            )
+        ),
+    ] = None,
+    template: Annotated[
+        str | None,
+        Field(description="Optional template override for this preview call"),
+    ] = None,
     narrative: Annotated[
         bool,
         Field(description="Generate narrative ArcCritique via LLM sampling (slower)"),
@@ -128,16 +150,21 @@ async def preview_draft(
     Workflow: update_set_draft → preview_draft (iterate) → commit_draft.
     """
     draft: dict[str, Any] | None = await ctx.get_state(_DRAFT_KEY)
-    if not draft or not draft.get("track_ids"):
-        raise ValidationError("No draft set. Call update_set_draft first.")
-
-    track_ids: list[int] = draft["track_ids"]
-    template_name: str | None = draft.get("template")
+    if track_ids is not None:
+        if not track_ids:
+            raise ValidationError("track_ids must not be empty")
+        active_track_ids = track_ids
+        template_name: str | None = template
+    elif draft and draft.get("track_ids"):
+        active_track_ids = draft["track_ids"]
+        template_name = template if template is not None else draft.get("template")
+    else:
+        raise ValidationError(_NO_DRAFT_MESSAGE)
 
     await ctx.report_progress(0, 3 if narrative else 2, "Loading features")
 
     feature_repo = FeatureRepository(session)
-    features_map = await feature_repo.get_scoring_features_batch(track_ids)
+    features_map = await feature_repo.get_scoring_features_batch(active_track_ids)
 
     await ctx.report_progress(1, 3 if narrative else 2, "Computing arc")
 
@@ -147,20 +174,22 @@ async def preview_draft(
             template_def = get_template(template_name)
 
     scorer = TransitionScorer()
-    result: PreviewResult = preview_arc(scorer, features_map, track_ids, template=template_def)
+    result: PreviewResult = preview_arc(
+        scorer, features_map, active_track_ids, template=template_def
+    )
 
     output: dict[str, Any] = {
         "score": round(result.score, 4),
         "energy_arc": [round(v, 3) for v in result.energy_arc],
         "bpm_arc": [round(v, 1) for v in result.bpm_arc],
         "weak_spots": result.weak_spots,
-        "track_count": len(track_ids),
+        "track_count": len(active_track_ids),
         "template": template_name,
     }
 
     if narrative:
         await ctx.report_progress(2, 3, "Generating narrative")
-        output["critique"] = await _generate_narrative(ctx, result, track_ids)
+        output["critique"] = await _generate_narrative(ctx, result, active_track_ids)
 
     await ctx.report_progress(3 if narrative else 2, 3 if narrative else 2, "Done")
     return output
@@ -217,6 +246,23 @@ async def _generate_narrative(
 )
 @map_domain_errors
 async def commit_draft(
+    track_ids: Annotated[
+        list[int] | None,
+        Field(
+            description=(
+                "Optional ordered track IDs for stateless clients. "
+                "If provided, state draft is not required."
+            )
+        ),
+    ] = None,
+    set_name: Annotated[
+        str | None,
+        Field(description="Optional set name override for this commit"),
+    ] = None,
+    template: Annotated[
+        str | None,
+        Field(description="Optional template override for this commit"),
+    ] = None,
     version_label: Annotated[
         str | None,
         Field(description="Version label, e.g. 'v2-peak-hour'"),
@@ -234,24 +280,36 @@ async def commit_draft(
     If the client does not support elicitation, saves directly without confirmation.
     """
     draft: dict[str, Any] | None = await ctx.get_state(_DRAFT_KEY)
-    if not draft or not draft.get("track_ids"):
-        raise ValidationError("No draft set. Call update_set_draft first.")
-
-    track_ids: list[int] = draft["track_ids"]
-    name: str = draft.get("name") or "Untitled Set"
-    template_name: str | None = draft.get("template")
+    using_state_draft = track_ids is None
+    if track_ids is not None:
+        if not track_ids:
+            raise ValidationError("track_ids must not be empty")
+        active_track_ids = track_ids
+        name = set_name or "Untitled Set"
+        template_name: str | None = template
+    elif draft and draft.get("track_ids"):
+        active_track_ids = draft["track_ids"]
+        name = set_name or draft.get("name") or "Untitled Set"
+        template_name = template if template is not None else draft.get("template")
+    else:
+        raise ValidationError(_NO_DRAFT_MESSAGE)
 
     quality: float | None = None
     weak_count = 0
     try:
         feature_repo = FeatureRepository(session)
-        features_map = await feature_repo.get_scoring_features_batch(track_ids)
+        features_map = await feature_repo.get_scoring_features_batch(active_track_ids)
         if features_map:
             template_def = None
             if template_name:
                 with contextlib.suppress(KeyError):
                     template_def = get_template(template_name)
-            arc = preview_arc(TransitionScorer(), features_map, track_ids, template=template_def)
+            arc = preview_arc(
+                TransitionScorer(),
+                features_map,
+                active_track_ids,
+                template=template_def,
+            )
             quality = arc.score
             weak_count = len(arc.weak_spots)
     except Exception:
@@ -259,7 +317,7 @@ async def commit_draft(
 
     score_str = f"{quality:.2f}" if quality is not None else "n/a"
     elicit_msg = (
-        f"Save '{name}': {len(track_ids)} tracks, score {score_str}, "
+        f"Save '{name}': {len(active_track_ids)} tracks, score {score_str}, "
         f"{weak_count} weak transition(s). Confirm?"
     )
 
@@ -272,16 +330,17 @@ async def commit_draft(
 
     dj_set, version, scored_quality = await svc.commit_version(
         name=name,
-        track_ids=track_ids,
+        track_ids=active_track_ids,
         template=template_name,
         version_label=version_label,
     )
-    await ctx.delete_state(_DRAFT_KEY)
+    if using_state_draft:
+        await ctx.delete_state(_DRAFT_KEY)
 
     return {
         "set_id": dj_set.id,
         "version_id": version.id,
         "version_label": version.label,
-        "track_count": len(track_ids),
+        "track_count": len(active_track_ids),
         "quality_score": round(scored_quality, 4) if scored_quality is not None else None,
     }
