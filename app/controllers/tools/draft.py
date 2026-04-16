@@ -60,7 +60,7 @@ async def update_set_draft(
         str | None,
         Field(description="Set template for arc scoring (e.g. 'roller_90')"),
     ] = None,
-    ctx: Context = CurrentContext(),  # type: ignore[assignment]  # noqa: B008
+    ctx: Context = CurrentContext(),  # noqa: B008
 ) -> dict[str, Any]:
     """Store an ordered track list as the current session draft.
 
@@ -95,7 +95,7 @@ async def update_set_draft(
     meta=TOOL_META,
 )
 async def clear_draft(
-    ctx: Context = CurrentContext(),  # type: ignore[assignment]  # noqa: B008
+    ctx: Context = CurrentContext(),  # noqa: B008
 ) -> dict[str, Any]:
     """Reset the current session draft. Safe to call on an empty session."""
     await ctx.delete_state(_DRAFT_KEY)
@@ -115,7 +115,7 @@ async def preview_draft(
         bool,
         Field(description="Generate narrative ArcCritique via LLM sampling (slower)"),
     ] = False,
-    ctx: Context = CurrentContext(),  # type: ignore[assignment]  # noqa: B008
+    ctx: Context = CurrentContext(),  # noqa: B008
     session: AsyncSession = Depends(get_db_session),  # noqa: B008
 ) -> dict[str, Any]:
     """Compute arc fitness for the current session draft.
@@ -173,10 +173,12 @@ async def _generate_narrative(
     from app.schemas.arc_critique import ArcCritique
 
     try:
-        psychology_parts = await ctx.read_resource("knowledge://dancefloor-psychology")
-        dynamics_parts = await ctx.read_resource("knowledge://set-dynamics")
-        psychology = psychology_parts[0].text if psychology_parts else ""
-        dynamics = dynamics_parts[0].text if dynamics_parts else ""
+        psychology_result = await ctx.read_resource("knowledge://dancefloor-psychology")
+        dynamics_result = await ctx.read_resource("knowledge://set-dynamics")
+        _psych_raw = psychology_result.contents[0].content if psychology_result.contents else b""
+        _dyn_raw = dynamics_result.contents[0].content if dynamics_result.contents else b""
+        psychology = _psych_raw.decode() if isinstance(_psych_raw, bytes) else _psych_raw
+        dynamics = _dyn_raw.decode() if isinstance(_dyn_raw, bytes) else _dyn_raw
         system_prompt = (
             "You are a professional DJ analyst. Analyze the following set arc data "
             "and return a structured critique.\n\n"
@@ -217,7 +219,7 @@ async def commit_draft(
         str | None,
         Field(description="Version label, e.g. 'v2-peak-hour'"),
     ] = None,
-    ctx: Context = CurrentContext(),  # type: ignore[assignment]  # noqa: B008
+    ctx: Context = CurrentContext(),  # noqa: B008
     svc: SetService = Depends(get_set_service),  # noqa: B008
     session: AsyncSession = Depends(get_db_session),  # noqa: B008
 ) -> dict[str, Any]:

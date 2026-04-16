@@ -15,7 +15,7 @@ class ArcCritique(BaseModel):
     crowd_journey: str = Field(
         description=(
             "Narrative description of crowd experience across the set phases. "
-            "E.g. 'Opens hypnotic 130 BPM → industrial build at 5–8 → peak at 10 → release'"
+            "E.g. 'Opens hypnotic 130 BPM → industrial build at 5-8 → peak at 10 → release'"
         )
     )
     weak_transitions: list[str] = Field(
