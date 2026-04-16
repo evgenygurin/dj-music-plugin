@@ -9,6 +9,13 @@ from fastmcp import Client
 
 from tests.conftest import _parse_tool_result as _parse
 
+
+def _read_draft(result) -> dict:  # type: ignore[no-untyped-def]
+    item = result[0] if result else None
+    text = getattr(item, "text", None) or "{}"
+    return json.loads(text) if isinstance(text, str) else (text or {})
+
+
 # ── update_set_draft ─────────────────────────────────
 
 
@@ -32,9 +39,7 @@ async def test_update_set_draft_replaces_previous(client: Client):
     await client.call_tool("update_set_draft", {"track_ids": [1, 2], "name": "A"})
     await client.call_tool("update_set_draft", {"track_ids": [10, 20, 30], "name": "B"})
     result = await client.read_resource("session://set-draft")
-    item = result[0] if result else None
-    text = getattr(item, "text", None) or "{}"
-    data = json.loads(text) if isinstance(text, str) else (text or {})
+    data = _read_draft(result)
     assert data["track_ids"] == [10, 20, 30]
     assert data["name"] == "B"
 
@@ -47,6 +52,24 @@ async def test_update_set_draft_rejects_empty_track_ids(client: Client):
         await client.call_tool("update_set_draft", {"track_ids": [], "name": "Empty"})
 
 
+@pytest.mark.asyncio
+async def test_update_set_draft_preserves_name_when_omitted(client: Client):
+    """Second call without name keeps the name from the first call."""
+    await client.call_tool("update_set_draft", {"track_ids": [1, 2], "name": "Keeper"})
+    result = await client.call_tool("update_set_draft", {"track_ids": [3, 4]})
+    data = _parse(result)
+    assert data["name"] == "Keeper"
+
+
+@pytest.mark.asyncio
+async def test_update_set_draft_same_ids_no_duplicates(client: Client):
+    """Calling with identical track_ids is idempotent — no list growth."""
+    await client.call_tool("update_set_draft", {"track_ids": [5, 6, 7], "name": "Idem"})
+    await client.call_tool("update_set_draft", {"track_ids": [5, 6, 7]})
+    draft = _read_draft(await client.read_resource("session://set-draft"))
+    assert draft["track_ids"] == [5, 6, 7]
+
+
 # ── clear_draft ──────────────────────────────────────
 
 
@@ -57,10 +80,7 @@ async def test_clear_draft_removes_state(client: Client):
     data = _parse(result)
     assert data["cleared"] is True
 
-    resource_result = await client.read_resource("session://set-draft")
-    item = resource_result[0] if resource_result else None
-    text = getattr(item, "text", None) or "{}"
-    draft = json.loads(text) if isinstance(text, str) else (text or {})
+    draft = _read_draft(await client.read_resource("session://set-draft"))
     assert draft == {}
 
 
@@ -130,6 +150,94 @@ async def test_preview_draft_returns_arc_fields(client: Client, async_engine):
     assert "critique" not in data  # narrative=False → no critique
 
 
+@pytest.mark.asyncio
+async def test_preview_draft_partial_features_does_not_crash(client: Client, async_engine):
+    """preview_draft survives when only some tracks have audio features."""
+    from sqlalchemy.ext.asyncio import async_sessionmaker
+
+    from app.db.models.audio import TrackAudioFeaturesComputed
+    from app.db.models.track import Track
+
+    factory = async_sessionmaker(async_engine, expire_on_commit=False)
+    track_ids: list[int] = []
+    async with factory() as session:
+        for i in range(4):
+            t = Track(title=f"Partial Track {i}", status=0, duration_ms=180000)
+            session.add(t)
+            await session.flush()
+            track_ids.append(t.id)
+            # Only even-indexed tracks get features
+            if i % 2 == 0:
+                session.add(
+                    TrackAudioFeaturesComputed(
+                        track_id=t.id,
+                        bpm=128.0 + i,
+                        key_code=5,
+                        integrated_lufs=-10.0,
+                        energy_mean=0.65,
+                        spectral_centroid_hz=2200.0,
+                        onset_rate=3.8,
+                        kick_prominence=0.55,
+                    )
+                )
+        await session.commit()
+
+    await client.call_tool(
+        "update_set_draft", {"track_ids": track_ids, "name": "Partial Features"}
+    )
+    result = await client.call_tool("preview_draft", {"narrative": False})
+    data = _parse(result)
+    # Must return valid structure without crashing
+    assert "score" in data
+    assert "track_count" in data
+    assert data["track_count"] == 4
+
+
+@pytest.mark.asyncio
+async def test_preview_draft_single_track(client: Client, async_engine):
+    """1-track draft has no transitions — score=1.0, empty weak_spots."""
+    from sqlalchemy.ext.asyncio import async_sessionmaker
+
+    from app.db.models.audio import TrackAudioFeaturesComputed
+    from app.db.models.track import Track
+
+    factory = async_sessionmaker(async_engine, expire_on_commit=False)
+    async with factory() as session:
+        t = Track(title="Solo Track", status=0, duration_ms=240000)
+        session.add(t)
+        await session.flush()
+        session.add(
+            TrackAudioFeaturesComputed(
+                track_id=t.id,
+                bpm=132.0,
+                key_code=3,
+                integrated_lufs=-9.0,
+                energy_mean=0.7,
+                spectral_centroid_hz=2500.0,
+                onset_rate=4.2,
+                kick_prominence=0.65,
+            )
+        )
+        await session.commit()
+        track_id = t.id
+
+    await client.call_tool("update_set_draft", {"track_ids": [track_id], "name": "Solo"})
+    data = _parse(await client.call_tool("preview_draft", {}))
+    assert data["score"] == 1.0
+    assert data["weak_spots"] == []
+    assert data["track_count"] == 1
+
+
+@pytest.mark.asyncio
+async def test_preview_draft_nonexistent_track_ids(client: Client):
+    """Nonexistent IDs → preview_arc returns gracefully (all missing)."""
+    await client.call_tool("update_set_draft", {"track_ids": [999_001, 999_002], "name": "Ghost"})
+    # Should not raise — preview_arc handles an empty features_map
+    data = _parse(await client.call_tool("preview_draft", {}))
+    assert "score" in data
+    assert data["track_count"] == 2
+
+
 # ── commit_draft ─────────────────────────────────────
 
 
@@ -139,3 +247,162 @@ async def test_commit_draft_raises_when_no_draft(client: Client):
 
     with pytest.raises(ToolError):
         await client.call_tool("commit_draft", {})
+
+
+@pytest.mark.asyncio
+async def test_commit_draft_without_elicitation_handler_saves(client: Client, async_engine):
+    """No elicitation_handler → commit saves directly, clears draft."""
+    from sqlalchemy.ext.asyncio import async_sessionmaker
+
+    from app.db.models.track import Track
+    from app.db.repositories.set import SetRepository
+
+    factory = async_sessionmaker(async_engine, expire_on_commit=False)
+    async with factory() as session:
+        t = Track(title="NoElicit Track", status=0, duration_ms=180000)
+        session.add(t)
+        await session.commit()
+        track_id = t.id
+
+    # `client` fixture has no elicitation_handler — ctx.elicit() will raise,
+    # commit_draft must catch and save anyway.
+    await client.call_tool("update_set_draft", {"track_ids": [track_id], "name": "NoElicit Set"})
+    result = _parse(await client.call_tool("commit_draft", {}))
+    assert result["set_id"] > 0
+    assert result["track_count"] == 1
+
+    # Draft must be cleared
+    draft = _read_draft(await client.read_resource("session://set-draft"))
+    assert draft == {}
+
+    # Version exists in DB
+    async with factory() as session:
+        repo = SetRepository(session)
+        version = await repo.get_latest_version(result["set_id"])
+    assert version is not None
+
+
+@pytest.mark.asyncio
+async def test_commit_draft_decline_returns_cancelled_no_db_write(
+    client: Client, async_engine, monkeypatch
+):
+    """When ctx.elicit() returns action='decline', commit must cancel without DB write.
+
+    NOTE: In-memory FastMCP transport raises on ctx.elicit() even when an
+    elicitation_handler is attached (transport limitation). We therefore patch
+    Context.elicit at class level to return a decline result directly — this
+    isolates the commit_draft branch logic from the transport implementation.
+    """
+    from fastmcp.client.elicitation import ElicitResult
+    from fastmcp.server.context import Context
+    from sqlalchemy.ext.asyncio import async_sessionmaker
+
+    from app.db.models.track import Track
+
+    factory = async_sessionmaker(async_engine, expire_on_commit=False)
+    async with factory() as session:
+        t = Track(title="Decline Track", status=0, duration_ms=180000)
+        session.add(t)
+        await session.commit()
+        track_id = t.id
+
+    async def _fake_elicit(self, message, *, response_type=None, **kwargs):  # type: ignore[no-untyped-def]
+        return ElicitResult(action="decline", content=None)
+
+    monkeypatch.setattr(Context, "elicit", _fake_elicit)
+
+    await client.call_tool("update_set_draft", {"track_ids": [track_id], "name": "Decline Test"})
+    result = _parse(await client.call_tool("commit_draft", {}))
+    assert result.get("cancelled") is True, f"Expected cancelled=True, got: {result}"
+
+    # Verify nothing was written to DB
+    from sqlalchemy import select
+
+    from app.db.models.set import DjSet
+
+    async with factory() as session:
+        count = len((await session.execute(select(DjSet))).scalars().all())
+    assert count == 0, f"Expected no sets in DB after decline, found {count}"
+
+
+@pytest.mark.asyncio
+async def test_commit_draft_db_error_propagates(client: Client, async_engine, monkeypatch):
+    """An exception from svc.commit_version must NOT be silently swallowed."""
+    from fastmcp.exceptions import ToolError
+    from sqlalchemy.ext.asyncio import async_sessionmaker
+
+    from app.db.models.track import Track
+
+    factory = async_sessionmaker(async_engine, expire_on_commit=False)
+    async with factory() as session:
+        t = Track(title="Err Track", status=0, duration_ms=180000)
+        session.add(t)
+        await session.commit()
+        track_id = t.id
+
+    async def _boom(*args, **kwargs):  # type: ignore[no-untyped-def]
+        raise RuntimeError("DB exploded")
+
+    monkeypatch.setattr("app.services.set.facade.SetService.commit_version", _boom)
+
+    await client.call_tool("update_set_draft", {"track_ids": [track_id], "name": "Err Set"})
+    with pytest.raises((ToolError, RuntimeError)):
+        await client.call_tool("commit_draft", {})
+
+
+# ── _generate_narrative — ctx.sample() fallback ──────
+
+
+@pytest.mark.asyncio
+async def test_generate_narrative_returns_none_when_sample_raises():
+    """_generate_narrative must return None (not crash) when ctx.sample() raises."""
+    from unittest.mock import AsyncMock, MagicMock
+
+    from app.controllers.tools.draft import _generate_narrative
+    from app.optimization.preview import PreviewResult
+
+    ctx = MagicMock()
+    ctx.sample = AsyncMock(side_effect=Exception("LLM unavailable"))
+    ctx.warning = AsyncMock()
+
+    mock_resource_result = MagicMock()
+    mock_resource_result.contents = []
+    ctx.read_resource = AsyncMock(return_value=mock_resource_result)
+
+    result = PreviewResult(
+        score=0.7,
+        energy_arc=[-10.0, -11.0],
+        bpm_arc=[130.0, 132.0],
+        weak_spots=[],
+        recommendation="Decent arc.",
+        missing_track_ids=[],
+    )
+
+    output = await _generate_narrative(ctx, result, [1, 2])
+    assert output is None
+    ctx.warning.assert_called_once()
+
+
+# ── score_transitions — ctx=None regression ──────────
+
+
+@pytest.mark.asyncio
+async def test_score_transitions_ctx_none_does_not_crash():
+    """score_transitions tool must not raise when ctx=None (guard: if ctx is not None)."""
+    from unittest.mock import AsyncMock
+
+    from app.controllers.tools.sets import score_transitions
+
+    mock_workflow = AsyncMock()
+    mock_workflow.score_transitions.return_value = {"scored": 1, "transitions": []}
+
+    # Call the tool function directly with ctx=None (no FastMCP DI)
+    result = await score_transitions(
+        mode="pair",
+        from_track_id=1,
+        to_track_id=2,
+        workflow=mock_workflow,
+        ctx=None,
+    )
+    assert isinstance(result, dict)
+    mock_workflow.score_transitions.assert_awaited_once()

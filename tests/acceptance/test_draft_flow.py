@@ -1,7 +1,8 @@
-"""Acceptance test for the declarative draft set flow."""
+"""Acceptance tests for the declarative draft set flow."""
 
 from __future__ import annotations
 
+import json
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -19,6 +20,12 @@ from app.db.repositories.set import SetRepository
 from app.providers.registry import ProviderRegistry
 from app.server import mcp
 from tests.acceptance.conftest import parse_tool_result
+
+
+def _read_draft_resource(result) -> dict:  # type: ignore[no-untyped-def]
+    item = result[0] if result else None
+    text = getattr(item, "text", None) or "{}"
+    return json.loads(text) if isinstance(text, str) else {}
 
 
 def _build_lifespan(async_engine, factory):  # type: ignore[no-untyped-def]
@@ -129,6 +136,86 @@ async def test_full_draft_flow_creates_ordered_version(
             assert version is not None
             items = await repo.get_version_items(version.id)
             assert [item.track_id for item in items] == reversed_ids
+    finally:
+        mcp._lifespan_result = None
+        mcp._lifespan_result_set = False
+        mcp._lifespan = original_lifespan
+
+
+@pytest.mark.asyncio
+async def test_session_state_isolation(async_engine, patch_tiered_noop) -> None:
+    """Session A's draft must NOT be visible in Session B (opened after A closes)."""
+    factory = async_sessionmaker(async_engine, expire_on_commit=False)
+
+    original_lifespan = mcp._lifespan
+    mcp._lifespan = _build_lifespan(async_engine, factory)
+    mcp._lifespan_result = None
+    mcp._lifespan_result_set = False
+    try:
+        # Session A: set a draft
+        async with Client(mcp) as client_a:
+            await client_a.call_tool(
+                "update_set_draft",
+                {"track_ids": [101, 102, 103], "name": "Session A Draft"},
+            )
+            draft_a = _read_draft_resource(await client_a.read_resource("session://set-draft"))
+            assert draft_a["track_ids"] == [101, 102, 103]
+
+        # Reset lifespan so Session B gets a fresh connection
+        mcp._lifespan_result = None
+        mcp._lifespan_result_set = False
+
+        # Session B: must NOT see Session A's draft
+        async with Client(mcp) as client_b:
+            draft_b = _read_draft_resource(await client_b.read_resource("session://set-draft"))
+            assert draft_b == {}, f"Session B should see empty draft but got: {draft_b}"
+    finally:
+        mcp._lifespan_result = None
+        mcp._lifespan_result_set = False
+        mcp._lifespan = original_lifespan
+
+
+@pytest.mark.asyncio
+async def test_preview_draft_100_tracks_performance(async_engine, patch_tiered_noop) -> None:
+    """preview_draft with 100 tracks must complete without error."""
+    factory = async_sessionmaker(async_engine, expire_on_commit=False)
+
+    track_ids: list[int] = []
+    async with factory() as session:
+        for i in range(100):
+            t = Track(title=f"Bulk Track {i}", status=0, duration_ms=180000)
+            session.add(t)
+            await session.flush()
+            track_ids.append(t.id)
+            session.add(
+                TrackAudioFeaturesComputed(
+                    track_id=t.id,
+                    bpm=128.0 + (i % 10),
+                    key_code=i % 24,  # 0..23
+                    integrated_lufs=-10.0 - (i % 5),
+                    energy_mean=0.5 + (i % 5) * 0.05,
+                    spectral_centroid_hz=2000.0 + i * 10,
+                    onset_rate=3.5 + (i % 4) * 0.3,
+                    kick_prominence=0.5 + (i % 3) * 0.1,
+                )
+            )
+        await session.commit()
+
+    original_lifespan = mcp._lifespan
+    mcp._lifespan = _build_lifespan(async_engine, factory)
+    mcp._lifespan_result = None
+    mcp._lifespan_result_set = False
+    try:
+        async with Client(mcp) as c:
+            await c.call_tool(
+                "update_set_draft",
+                {"track_ids": track_ids, "name": "100 Track Set"},
+            )
+            data = parse_tool_result(await c.call_tool("preview_draft", {"narrative": False}))
+            assert data["track_count"] == 100
+            assert "score" in data
+            assert isinstance(data["bpm_arc"], list)
+            assert len(data["bpm_arc"]) == 100
     finally:
         mcp._lifespan_result = None
         mcp._lifespan_result_set = False
