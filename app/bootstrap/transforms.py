@@ -6,7 +6,7 @@ import logging
 from typing import Any
 
 
-def build_pre_constructor_transforms(logger: logging.Logger | None = None) -> list[Any]:
+def build_pre_constructor_transforms(_logger: logging.Logger | None = None) -> list[Any]:
     """Build transforms passed into the FastMCP constructor.
 
     BM25SearchTransform was removed because it forces Claude Code to call
@@ -14,6 +14,9 @@ def build_pre_constructor_transforms(logger: logging.Logger | None = None) -> li
     instead of the actual tool name/title.  The native tag-based visibility
     system (``mcp.disable(tags=...)``) is used instead — see
     ``visibility.py``.
+
+    ``build_set`` / ``rebuild_set`` are removed; the declarative flow uses
+    ``commit_set_version`` instead — no transforms needed.
     """
     return []
 

@@ -21,9 +21,19 @@ def register_middleware(
         from app.controllers.middleware import (
             DetailedTimingMiddleware,
             StructuredLoggingMiddleware,
+            ToolCallTimeoutMiddleware,
             YMRateLimitMiddleware,
         )
 
+        mcp.add_middleware(
+            ToolCallTimeoutMiddleware(
+                tool_timeouts={
+                    "build_set": 120.0,
+                    "rebuild_set": 120.0,
+                    "score_transitions": 60.0,
+                },
+            )
+        )
         mcp.add_middleware(
             StructuredLoggingMiddleware(
                 include_payloads=settings.payload_logging,

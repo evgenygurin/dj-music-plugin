@@ -63,14 +63,13 @@ CALL_EXAMPLES: dict[str, dict[str, Any]] = {
         "summary": "ym_get_tracks — batch fetch по YM IDs",
         "value": {"arguments": {"track_ids": ["54486493", "55516369"]}},
     },
-    "build_set": {
-        "summary": "build_set — собрать сет из плейлиста",
+    "commit_set_version": {
+        "summary": "commit_set_version — сохранить курируемый ИИ порядок треков",
         "value": {
             "arguments": {
-                "playlist_id": 1,
                 "name": "Peak Hour 60",
+                "track_ids": [101, 102, 103],
                 "template": "peak_hour_60",
-                "algorithm": "ga",
             }
         },
     },

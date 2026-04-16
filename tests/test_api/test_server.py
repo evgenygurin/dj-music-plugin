@@ -148,8 +148,8 @@ def test_openapi_keeps_critical_routes_and_examples(api_client) -> None:
     examples = payload["paths"]["/api/tools/{tool_name}/call"]["post"]["requestBody"]["content"][
         "application/json"
     ]["examples"]
-    assert "build_set" in examples
-    assert examples["build_set"]["value"]["arguments"]["algorithm"] == "ga"
+    assert "commit_set_version" in examples
+    assert examples["commit_set_version"]["value"]["arguments"]["name"] == "Peak Hour 60"
 
 
 def test_mcp_mount_is_present(api_client) -> None:

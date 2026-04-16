@@ -138,6 +138,25 @@ class SetService:
             algorithm=algorithm,
         )
 
+    async def commit_version(
+        self,
+        name: str,
+        track_ids: list[int],
+        *,
+        set_id: int | None = None,
+        template: str | None = None,
+        target_duration_min: int | None = None,
+        version_label: str | None = None,
+    ) -> tuple[DjSet, SetVersion, float | None]:
+        return await self._builder.commit_version(
+            name=name,
+            track_ids=track_ids,
+            set_id=set_id,
+            template=template,
+            target_duration_min=target_duration_min,
+            version_label=version_label,
+        )
+
     async def build_set_from_library(
         self,
         name: str,

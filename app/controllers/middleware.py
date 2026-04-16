@@ -1,4 +1,4 @@
-"""FastMCP middleware: rate limiting, structured logging, timing.
+"""FastMCP middleware: rate limiting, structured logging, timing, timeout.
 
 All middleware inherit from fastmcp.server.middleware.Middleware.
 """
@@ -16,6 +16,50 @@ from fastmcp.server.middleware import Middleware, MiddlewareContext
 from app.core.utils.time import utc_timestamp_iso
 
 logger = logging.getLogger(__name__)
+
+
+class ToolCallTimeoutMiddleware(Middleware):
+    """Enforce per-tool execution timeouts on tools/call requests.
+
+    FastMCP stores ``Tool.timeout`` as metadata but does not enforce it
+    server-side. This middleware wraps ``on_call_tool`` with
+    ``asyncio.wait_for`` so that long-running or blocking tool calls are
+    cancelled and return a clean error to the client instead of starving
+    the MCP stdio transport.
+
+    Usage::
+
+        middleware.add_middleware(
+            ToolCallTimeoutMiddleware(
+                tool_timeouts={"build_set": 120.0, "rebuild_set": 120.0},
+                default_timeout=None,
+            )
+        )
+    """
+
+    def __init__(
+        self,
+        tool_timeouts: dict[str, float] | None = None,
+        default_timeout: float | None = None,
+    ) -> None:
+        super().__init__()
+        self._tool_timeouts: dict[str, float] = tool_timeouts or {}
+        self._default_timeout = default_timeout
+
+    async def on_call_tool(self, context: MiddlewareContext, call_next: Any) -> Any:
+        tool_name: str = context.message.name
+        timeout = self._tool_timeouts.get(tool_name, self._default_timeout)
+        if timeout is None:
+            return await call_next(context)
+        try:
+            return await asyncio.wait_for(call_next(context), timeout=timeout)
+        except TimeoutError:
+            logger.error(
+                "Tool %s exceeded timeout of %.1fs and was cancelled",
+                tool_name,
+                timeout,
+            )
+            raise
 
 
 class YMRateLimitMiddleware(Middleware):

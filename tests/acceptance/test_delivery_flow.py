@@ -61,9 +61,16 @@ async def test_delivery_flow_creates_export_artifacts_and_logs_metadata(
             )
         await session.commit()
 
+    track_ids_for_set: list[int] = []
+    async with acceptance_harness.session_factory() as session:
+        items_result = await session.execute(
+            select(PlaylistItem).where(PlaylistItem.playlist_id == playlist_id)
+        )
+        track_ids_for_set = [item.track_id for item in items_result.scalars().all()]
+
     built = await acceptance_harness.client.call_tool(
-        "build_set",
-        {"playlist_id": playlist_id, "name": "Acceptance Delivery Set", "algorithm": "greedy"},
+        "commit_set_version",
+        {"track_ids": track_ids_for_set, "name": "Acceptance Delivery Set"},
     )
     built_data = parse_tool_result(built)
 
