@@ -25,7 +25,7 @@ from app.controllers.tools._shared import ANNOTATIONS_READ_ONLY, ICON_SETS, RESO
     icons=ICON_SETS,
     meta=RESOURCE_META,
 )
-async def get_set_draft(ctx: Context = CurrentContext()) -> str:  # type: ignore[assignment]
+async def get_set_draft(ctx: Context = CurrentContext()) -> str:  # type: ignore[assignment]  # noqa: B008
     """Return the current set draft stored in session state as JSON."""
     draft = await ctx.get_state("set_draft") or {}
     return json.dumps(draft)
