@@ -13,7 +13,12 @@ from fastmcp.server.context import Context
 from fastmcp.tools import tool
 from pydantic import Field
 
-from app.controllers.dependencies import get_build_set_workflow, get_feature_repo, get_set_service
+from app.controllers.dependencies import (
+    get_build_set_workflow,
+    get_feature_repo,
+    get_set_repo,
+    get_set_service,
+)
 from app.controllers.tools._shared import (
     ANNOTATIONS_READ_ONLY,
     ANNOTATIONS_WRITE,
@@ -27,6 +32,7 @@ from app.controllers.tools._shared import (
 )
 from app.core.utils.parsing import ensure_dict
 from app.db.repositories.feature import FeatureRepository
+from app.db.repositories.set import SetRepository
 from app.optimization.preview import PreviewResult, preview_arc
 from app.services.set.facade import SetService
 from app.services.workflows.build_set_workflow import BuildSetWorkflow
@@ -91,7 +97,19 @@ async def get_set(
 @map_domain_errors
 async def manage_set(
     action: Annotated[SetManageAction, Field(description="Operation to perform")],
-    data: Annotated[Any, Field(description="Action-specific payload dict")] = None,
+    data: Annotated[
+        Any,
+        Field(
+            description=(
+                "Action payload dict. Examples by action:\n"
+                "  create: {name, template_name?}\n"
+                "  update: {id, name?, template_name?}\n"
+                "  delete: {id}\n"
+                "  add_constraint: {id, constraint_type, value}\n"
+                "  add_feedback:   {id, feedback}"
+            )
+        ),
+    ] = None,
     svc: SetService = Depends(get_set_service),  # noqa: B008
 ) -> dict[str, Any]:
     """Applies create, update, delete, constraint, or feedback changes to a set via one action and payload. Use when mutating set metadata or structure rather than read-only inspection."""
@@ -270,7 +288,19 @@ async def get_set_templates() -> dict[str, Any]:
 )
 @map_domain_errors
 async def preview_set_arc(
-    track_ids: Annotated[list[int], Field(description="Ordered list of track IDs to evaluate")],
+    track_ids: Annotated[
+        list[int],
+        Field(description="Ordered list of track IDs to evaluate (takes priority over set_id)"),
+    ] = [],  # noqa: B006
+    set_id: Annotated[
+        int | None,
+        Field(
+            description=(
+                "DJ set ID — loads track order from the latest version. "
+                "Ignored when track_ids is provided."
+            )
+        ),
+    ] = None,
     template: Annotated[
         str | None,
         Field(
@@ -278,10 +308,14 @@ async def preview_set_arc(
         ),
     ] = None,
     feat_repo: FeatureRepository = Depends(get_feature_repo),  # noqa: B008
+    set_repo: SetRepository = Depends(get_set_repo),  # noqa: B008
 ) -> dict[str, Any]:
     """Evaluate a track ordering's fitness without saving a set version.
 
-    Runs the same fitness function used by build_set, but non-destructively.
+    Accepts either an explicit ``track_ids`` list or a ``set_id`` that auto-
+    loads the latest version's track order.  Runs the same fitness function
+    used by build_set, non-destructively.
+
     Use before committing to an ordering — compare multiple arc shapes and
     identify weak transitions before calling build_set or rebuild_set.
 
@@ -290,21 +324,33 @@ async def preview_set_arc(
     """
     from dataclasses import asdict
 
-    if not track_ids:
+    from fastmcp.exceptions import ToolError
+
+    resolved_ids: list[int] = list(track_ids)
+
+    if not resolved_ids and set_id is not None:
+        version = await set_repo.get_latest_version(set_id)
+        if version is None:
+            raise ToolError(f"Set {set_id} has no versions yet")
+        resolved_ids = [
+            item.track_id for item in sorted(version.items, key=lambda i: i.sort_index)
+        ]
+
+    if not resolved_ids:
         return asdict(
             PreviewResult(
                 score=1.0,
                 energy_arc=[],
                 bpm_arc=[],
                 weak_spots=[],
-                recommendation="No tracks provided.",
+                recommendation="No tracks provided. Pass track_ids or set_id.",
                 missing_track_ids=[],
             )
         )
 
-    features_map = await feat_repo.get_scoring_features_batch(track_ids)
+    features_map = await feat_repo.get_scoring_features_batch(resolved_ids)
     scorer = TransitionScorer()
     template_def = TEMPLATES.get(template) if template is not None else None
 
-    result = preview_arc(scorer, features_map, track_ids, template=template_def)
+    result = preview_arc(scorer, features_map, resolved_ids, template=template_def)
     return asdict(result)

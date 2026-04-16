@@ -123,12 +123,34 @@ async def manage_playlist(
     data: Annotated[
         Any,
         Field(
-            description="Dict with 'id' (required for most actions) and 'name' (for create/update)"
+            description=(
+                "Action payload dict. Examples by action:\n"
+                "  create:        {name, source_of_truth?}\n"
+                "  update:        {id, name?, source_of_truth?}\n"
+                "  delete:        {id}\n"
+                "  add_tracks:    {id}  — also pass track_refs=[...] as a top-level param\n"
+                "  remove_tracks: {id}  — also pass positions=[0, 2] (0-based)\n"
+                "  reorder:       {id}  — also pass track_refs=[...] and positions=[...]"
+            )
         ),
     ] = None,
-    track_refs: Annotated[Any, Field(description="Track IDs or YM IDs to add/reorder")] = None,
+    track_refs: Annotated[
+        Any,
+        Field(
+            description=(
+                "Top-level param for add_tracks / reorder — list of local track IDs or YM IDs. "
+                "NOT inside data. Example: track_refs=[179, 181, 183]"
+            )
+        ),
+    ] = None,
     positions: Annotated[
-        Any, Field(description="0-based positions for remove_tracks or reorder")
+        Any,
+        Field(
+            description=(
+                "Top-level param for remove_tracks / reorder — list of 0-based positions. "
+                "NOT inside data. Example: positions=[0, 2]"
+            )
+        ),
     ] = None,
     svc: PlaylistService = Depends(get_playlist_service),  # noqa: B008
     session: AsyncSession = Depends(get_db_session),  # noqa: B008
