@@ -1,8 +1,6 @@
 """Shared Pydantic DTOs used across the services and MCP tools layers.
 
 Single source of truth for framework-agnostic structured output models.
-Services return these types directly; MCP tools expose them via
-``structuredContent`` without additional mapping.
 
 Layer organisation:
 - :mod:`common` — pagination envelope
@@ -10,35 +8,54 @@ Layer organisation:
 - :mod:`playlist` — PlaylistSummary
 - :mod:`set` — SetSummary
 - :mod:`yandex` — YMTrackSummary
+- :mod:`platform_responses` — platform-agnostic tool response DTOs
 
-Domain helpers (``ym_track_summary``, ``is_excluded_title``, ``genre_ok``)
-live in :mod:`app.clients.ym.filters` — they are filtering utilities, not
-schemas, and were moved out of this module to keep concerns separated.
+Domain helpers (``is_excluded_title``, ``genre_ok``)
+live in :mod:`app.core.utils.filters` and :mod:`app.clients.ym.filters`.
 """
 
 from __future__ import annotations
 
 from app.schemas.common import PaginatedResponse
+from app.schemas.platform_responses import (
+    AlbumResult,
+    ArtistTrackItem,
+    ArtistTracksPage,
+    LikesActionResult,
+    PlatformSearchResult,
+    PlatformTrackBatch,
+    PlaylistActionResult,
+)
 from app.schemas.playlist import PlaylistSummary
 from app.schemas.set import SetSummary
 from app.schemas.track import TrackBrief, TrackStandard
 from app.schemas.yandex import YMTrackSummary
-from app.schemas.ym_responses import (
-    YMAlbumResponse,
-    YMArtistTracksPage,
-    YMLikesActionResult,
-    YMPlaylistActionResult,
-    YMSearchResponse,
-    YMTrackBatch,
-)
+
+# Legacy aliases — remove after Phase 3
+YMAlbumResponse = AlbumResult
+YMArtistTrackItem = ArtistTrackItem
+YMArtistTracksPage = ArtistTracksPage
+YMLikesActionResult = LikesActionResult
+YMPlaylistActionResult = PlaylistActionResult
+YMSearchResponse = PlatformSearchResult
+YMTrackBatch = PlatformTrackBatch
 
 __all__ = [
+    "AlbumResult",
+    "ArtistTrackItem",
+    "ArtistTracksPage",
+    "LikesActionResult",
     "PaginatedResponse",
+    "PlatformSearchResult",
+    "PlatformTrackBatch",
+    "PlaylistActionResult",
     "PlaylistSummary",
     "SetSummary",
     "TrackBrief",
     "TrackStandard",
+    # Legacy aliases
     "YMAlbumResponse",
+    "YMArtistTrackItem",
     "YMArtistTracksPage",
     "YMLikesActionResult",
     "YMPlaylistActionResult",
