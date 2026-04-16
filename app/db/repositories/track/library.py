@@ -50,20 +50,34 @@ class LibraryMixin:
         ym_id: str,
         ym_track: Any,
     ) -> YandexMetadata:
-        """Save YM metadata for a track from a YM API response object."""
-        albums = getattr(ym_track, "albums", None) or []
-        album = albums[0] if albums else {}
-        meta = YandexMetadata(
-            track_id=track_id,
-            yandex_track_id=ym_id,
-            album_id=str(album.get("id", "")) if album else None,
-            album_title=album.get("title") if album else None,
-            album_genre=album.get("genre") if album else None,
-            album_year=album.get("year") if album else None,
-            duration_ms=getattr(ym_track, "duration_ms", None),
-            cover_uri=getattr(ym_track, "cover_uri", None),
-            explicit=getattr(ym_track, "explicit", None),
-        )
+        """Save YM metadata from either a ProviderTrack or a YMTrack response object."""
+        if hasattr(ym_track, "album_id"):
+            # ProviderTrack — scalar album fields
+            meta = YandexMetadata(
+                track_id=track_id,
+                yandex_track_id=ym_id,
+                album_id=str(ym_track.album_id) if ym_track.album_id else None,
+                album_title=getattr(ym_track, "album_title", None),
+                album_genre=getattr(ym_track, "album_genre", None),
+                duration_ms=getattr(ym_track, "duration_ms", None),
+                cover_uri=getattr(ym_track, "cover_url", None),
+                explicit=getattr(ym_track, "explicit", None),
+            )
+        else:
+            # YMTrack — dict-style albums list
+            albums = getattr(ym_track, "albums", None) or []
+            album = albums[0] if albums else {}
+            meta = YandexMetadata(
+                track_id=track_id,
+                yandex_track_id=ym_id,
+                album_id=str(album.get("id", "")) if album else None,
+                album_title=album.get("title") if album else None,
+                album_genre=album.get("genre") if album else None,
+                album_year=album.get("year") if album else None,
+                duration_ms=getattr(ym_track, "duration_ms", None),
+                cover_uri=getattr(ym_track, "cover_uri", None),
+                explicit=getattr(ym_track, "explicit", None),
+            )
         self.session.add(meta)
         await self.session.flush()
         return meta

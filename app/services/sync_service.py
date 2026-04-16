@@ -8,12 +8,12 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from app.clients.ym.client import YandexMusicClient
 from app.config import settings
 from app.core.errors import NotFoundError, ValidationError
 from app.db.repositories.playlist import PlaylistRepository
 from app.db.repositories.set import SetRepository
 from app.db.repositories.track import TrackRepository
+from app.providers.protocol import MusicProvider
 
 
 class SyncService:
@@ -24,7 +24,7 @@ class SyncService:
         track_repo: TrackRepository,
         playlist_repo: PlaylistRepository,
         set_repo: SetRepository,
-        ym: YandexMusicClient,
+        ym: MusicProvider,
     ) -> None:
         self._tracks = track_repo
         self._playlists = playlist_repo
@@ -51,7 +51,7 @@ class SyncService:
         ym_kind = self._extract_ym_kind(playlist.platform_ids)
 
         # Fetch YM playlist tracks
-        ym_tracks = await self._ym.get_playlist_tracks(settings.ym_user_id, ym_kind)
+        ym_tracks = await self._ym.get_playlist_tracks(f"{settings.ym_user_id}:{ym_kind}")
         ym_ids = {t.id for t in ym_tracks}
         ym_by_id = {t.id: t for t in ym_tracks}
 
@@ -66,9 +66,7 @@ class SyncService:
             {
                 "ym_id": yid,
                 "title": ym_by_id[yid].title,
-                "artists": ", ".join(
-                    str(a.get("name", "?")) for a in (ym_by_id[yid].artists or [])
-                ),
+                "artists": ", ".join(a.name for a in ym_by_id[yid].artists),
             }
             for yid in list(on_ym_only)[:50]
         ]
@@ -138,8 +136,7 @@ class SyncService:
 
         if mode in ("create", "auto"):
             pl = await self._ym.create_playlist(playlist_name)
-            ym_kind = pl.kind
-            revision = pl.revision or 1
+            ym_kind = int(pl.id.split(":")[-1])
         else:
             raise ValidationError(
                 "mode='update' requires ym_playlist_kind — use ym_playlists(action='get') first"
@@ -148,8 +145,7 @@ class SyncService:
         added = 0
         for batch_start in range(0, len(ym_track_ids), 20):
             batch = ym_track_ids[batch_start : batch_start + 20]
-            result_data = await self._ym.add_tracks_to_playlist(ym_kind, batch, revision)
-            revision = result_data.get("revision", revision + 1)
+            await self._ym.add_tracks_to_playlist(pl.id, batch)
             added += len(batch)
 
         return {
@@ -223,21 +219,13 @@ class SyncService:
         ym_kind: int,
         on_local_only: set[str],
     ) -> int:
-        """Push local tracks to YM playlist.
-
-        Formats track IDs as ``"trackId:albumId"`` — YM API requires
-        albumId, omitting it causes a 400 error.
-        """
-        pl_info = await self._ym.get_playlist(settings.ym_user_id, ym_kind)
-        rev = pl_info.revision or 1
-
-        formatted_ids = await self._ym.resolve_track_ids_with_albums(list(on_local_only))
-
+        """Push local tracks to YM playlist."""
+        playlist_id = f"{settings.ym_user_id}:{ym_kind}"
+        track_ids = list(on_local_only)
         added = 0
-        for batch_start in range(0, len(formatted_ids), 20):
-            batch = formatted_ids[batch_start : batch_start + 20]
-            result_data = await self._ym.add_tracks_to_playlist(ym_kind, batch, rev)
-            rev = result_data.get("revision", rev + 1)
+        for batch_start in range(0, len(track_ids), 20):
+            batch = track_ids[batch_start : batch_start + 20]
+            await self._ym.add_tracks_to_playlist(playlist_id, batch)
             added += len(batch)
         return added
 
@@ -296,13 +284,11 @@ class SyncService:
             batch = ym_ids[start : start + batch_size]
             ym_tracks = await self._ym.get_tracks(batch)
             for yt in ym_tracks:
-                albums = yt.albums or []
-                if albums:
-                    album_id = str(albums[0].get("id", ""))
-                    if album_id:
-                        result[yt.id] = album_id
-                        # Update stored metadata so we don't re-fetch next time
-                        await self._update_ym_album_id(yt.id, album_id)
+                album_id = yt.album_id or ""
+                if album_id:
+                    result[yt.id] = album_id
+                    # Update stored metadata so we don't re-fetch next time
+                    await self._update_ym_album_id(yt.id, album_id)
         return result
 
     async def _update_ym_album_id(self, ym_track_id: str, album_id: str) -> None:

@@ -14,21 +14,20 @@ from __future__ import annotations
 
 from typing import Annotated, Any
 
-from fastmcp.dependencies import CurrentContext, Depends, Progress
+from fastmcp.dependencies import CurrentContext, Depends
 from fastmcp.exceptions import NotFoundError as FastMCPNotFoundError
 from fastmcp.server.context import Context
 from fastmcp.tools import tool
 from pydantic import Field
 
-from app.clients.ym.client import YandexMusicClient
-from app.clients.ym.filters import genre_ok, is_excluded_title, ym_track_summary
+from app.clients.ym.filters import is_excluded_title
 from app.config import settings
 from app.controllers.dependencies import (
     get_analyze_track_workflow,
     get_audio_service,
     get_track_service,
-    get_ym_client,
 )
+from app.controllers.dependencies.external import get_music_provider
 from app.controllers.tools._shared import (
     ANNOTATIONS_READ_ONLY,
     ANNOTATIONS_READ_ONLY_OPEN_WORLD,
@@ -42,6 +41,7 @@ from app.controllers.tools._shared import (
     resolve_track_id,
 )
 from app.core.utils.parsing import ensure_list
+from app.providers.protocol import MusicProvider
 from app.services.audio_service import AudioService
 from app.services.track_service import TrackService
 from app.services.workflows.analyze_track_workflow import AnalyzeTrackWorkflow
@@ -110,11 +110,13 @@ async def analyze_batch(
     ] = 3,
     force: Annotated[bool, Field(description="Re-analyze even if results exist")] = False,
     workflow: AnalyzeTrackWorkflow = Depends(get_analyze_track_workflow),  # noqa: B008
-    progress: Progress = Progress(),  # noqa: B008
     ctx: Context = CurrentContext(),  # noqa: B008
 ) -> dict[str, Any]:
     """Runs analysis across track IDs or a whole playlist in batches with progress reporting. Use when bulk-refreshing many tracks; ``level`` and ``analyzers`` behave like ``analyze_track``."""
-    del ctx
+
+    async def _report(current: int, total: int) -> None:
+        await ctx.report_progress(current, total)
+
     return await workflow.analyze_batch(
         track_ids=ensure_list(track_ids) or None,
         playlist_id=playlist_id,
@@ -122,7 +124,7 @@ async def analyze_batch(
         analyzers=ensure_list(analyzers) or None,
         level=level,
         force=force,
-        progress=progress,
+        on_progress=_report,
     )
 
 
@@ -188,13 +190,14 @@ async def get_similar_tracks(
     exclude_patterns: Annotated[
         list[str] | None, Field(description="Title patterns to exclude")
     ] = None,
-    ym: YandexMusicClient = Depends(get_ym_client),  # noqa: B008
+    provider: MusicProvider = Depends(get_music_provider),  # noqa: B008
 ) -> dict[str, Any]:
     """Fetches Yandex Music similar tracks for a seed and applies duration, genre, and title filters. Use when discovering candidates from an existing YM track."""
-    raw_similar = await ym.get_similar(ym_track_id)
+    raw_similar = await provider.get_similar(ym_track_id)
 
     min_dur = min_duration_ms or settings.discovery_min_duration_ms
     max_dur = max_duration_ms or settings.discovery_max_duration_ms
+    bad_genres = [b.strip().lower() for b in settings.discovery_bad_genres.split(",")]
 
     filtered: list[dict[str, Any]] = []
     for t in raw_similar:
@@ -203,9 +206,24 @@ async def get_similar_tracks(
             continue
         if is_excluded_title(t.title, exclude_patterns):
             continue
-        if not genre_ok(t.albums or [], whitelist=genre_filter, blacklist=genre_blacklist):
+        genre = (t.album_genre or "").lower()
+        if genre_filter and genre not in [g.lower() for g in genre_filter]:
             continue
-        filtered.append(ym_track_summary(t))
+        if genre_blacklist:
+            if genre and genre in [b.lower() for b in genre_blacklist]:
+                continue
+        elif genre and genre in bad_genres:
+            continue
+        filtered.append(
+            {
+                "ym_id": t.id,
+                "title": t.title,
+                "artists": t.artist_names,
+                "duration_ms": t.duration_ms,
+                "album_id": t.album_id or "",
+                "album_genre": t.album_genre or "",
+            }
+        )
         if len(filtered) >= limit:
             break
 

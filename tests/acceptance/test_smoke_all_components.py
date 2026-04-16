@@ -28,6 +28,7 @@ from app.db.models.platform import YandexMetadata
 from app.db.models.playlist import Playlist, PlaylistItem
 from app.db.models.set import DjSet, SetItem, SetVersion
 from app.db.models.track import Track, TrackExternalId
+from app.providers.models import ProviderPlaylist
 from app.providers.registry import ProviderRegistry
 from app.server import mcp
 
@@ -159,6 +160,11 @@ async def smoke(async_engine, patch_audio, patch_tiered):  # type: ignore[no-unt
     )
     ym.get_playlist_tracks = AsyncMock(return_value=[_make_ym_track()])
     ym.add_tracks_to_playlist = AsyncMock(return_value={"revision": 2})
+    ym.create_playlist = AsyncMock(
+        return_value=ProviderPlaylist(
+            id="42069:42", title="Smoke Playlist", provider=Provider.YANDEX_MUSIC
+        )
+    )
     ym.resolve_track_ids_with_albums = AsyncMock(side_effect=lambda ids: ids)
     ym.get_stream_url = AsyncMock(return_value="https://fake.cdn/track.mp3")
     ym.close = AsyncMock()

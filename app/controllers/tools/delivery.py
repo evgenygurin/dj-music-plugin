@@ -56,7 +56,8 @@ async def deliver_set(
     ctx: Context = CurrentContext(),  # noqa: B008
 ) -> dict[str, Any]:
     """Runs the delivery pipeline for a set: transitions, exports, optional file copy, and optional YM sync. Use when shipping a set to decks, files, or streaming."""
-    return await workflow.deliver_set(
+    await ctx.report_progress(0, 1)
+    result = await workflow.deliver_set(
         set_id=set_id,
         version=version,
         output_dir=output_dir,
@@ -66,3 +67,5 @@ async def deliver_set(
         dry_run=dry_run,
         log=ToolContext(ctx),
     )
+    await ctx.report_progress(1, 1)
+    return result

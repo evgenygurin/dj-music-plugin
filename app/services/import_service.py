@@ -14,7 +14,6 @@ logger = logging.getLogger(__name__)
 from pathlib import Path
 from typing import Any
 
-from app.clients.ym.client import YandexMusicClient
 from app.config import settings
 from app.core.errors import ValidationError
 from app.db.models.library import DjLibraryItem
@@ -22,6 +21,7 @@ from app.db.models.track import Track
 from app.db.repositories.ingestion import IngestionRepository
 from app.db.repositories.playlist import PlaylistRepository
 from app.db.repositories.track import TrackRepository
+from app.providers.protocol import MusicProvider
 
 
 def _sanitize_filename(title: str, max_len: int = 80) -> str:
@@ -38,7 +38,7 @@ class ImportService:
     def __init__(
         self,
         track_repo: TrackRepository,
-        ym: YandexMusicClient,
+        ym: MusicProvider,
         metadata_service: Any | None = None,
         ingestion_repo: IngestionRepository | None = None,
     ) -> None:
@@ -173,7 +173,6 @@ class ImportService:
                 file_size = await self._ym.download_track(
                     ym_id,
                     str(dest_path),
-                    prefer_bitrate=prefer_bitrate,
                 )
                 downloaded += 1
                 files.append(
@@ -263,8 +262,7 @@ class ImportService:
             ym_tracks = await self._ym.get_tracks([ym_id])
             if ym_tracks:
                 t = ym_tracks[0]
-                artists = ", ".join(str(a.get("name", "?")) for a in (t.artists or []))
-                return f"{_sanitize_filename(artists)} - {_sanitize_filename(t.title)}.mp3"
+                return f"{_sanitize_filename(t.artist_names)} - {_sanitize_filename(t.title)}.mp3"
         except Exception:
             logger.debug("Failed to resolve filename for ym=%s, using fallback", ym_id)
         return f"ym_{ym_id}.mp3"
@@ -293,9 +291,9 @@ class ImportService:
 
                 local_track = await self._tracks.get_by_id(local_track_id)
                 if local_track and local_track.title.startswith("YM:"):
-                    artists = ", ".join(str(a.get("name", "?")) for a in (ym_track.artists or []))
+                    artists = ym_track.artist_names
                     local_track.title = (
-                        f"{artists} - {ym_track.title}" if artists else ym_track.title
+                        f"{artists} - {ym_track.title}" if artists != "Unknown" else ym_track.title
                     )
                     if ym_track.duration_ms:
                         local_track.duration_ms = ym_track.duration_ms

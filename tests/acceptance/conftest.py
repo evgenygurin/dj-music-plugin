@@ -15,7 +15,9 @@ from sqlalchemy.ext.asyncio import async_sessionmaker
 
 from app.audio.analyzers import AnalyzerRegistry
 from app.clients.ym.models import YMPlaylist, YMTrack
+from app.core.constants import Provider
 from app.core.utils.cache import TransitionCache
+from app.providers.models import ProviderArtist, ProviderTrack
 from app.server import mcp
 
 
@@ -49,13 +51,36 @@ def make_ym_track(
     album_title: str = "Acceptance Album",
     duration_ms: int = 180000,
 ) -> YMTrack:
-    """Create a deterministic YM track fixture."""
+    """Create a deterministic YM track fixture (legacy dict-style)."""
     return YMTrack(
         id=track_id,
         title=title,
         duration_ms=duration_ms,
         artists=[{"name": artist}],
         albums=[{"id": album_id, "title": album_title, "genre": "techno", "year": 2024}],
+    )
+
+
+def make_provider_track(
+    track_id: str,
+    title: str,
+    *,
+    artist: str = "Acceptance Artist",
+    album_id: str = "9001",
+    album_title: str = "Acceptance Album",
+    album_genre: str = "techno",
+    duration_ms: int = 180000,
+) -> ProviderTrack:
+    """Create a deterministic ProviderTrack fixture for MusicProvider mocks."""
+    return ProviderTrack(
+        id=track_id,
+        title=title,
+        duration_ms=duration_ms,
+        artists=[ProviderArtist(id="1", name=artist, provider=Provider.YANDEX_MUSIC)],
+        album_id=album_id,
+        album_title=album_title,
+        album_genre=album_genre,
+        provider=Provider.YANDEX_MUSIC,
     )
 
 

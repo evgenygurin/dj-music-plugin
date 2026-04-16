@@ -1,7 +1,5 @@
 # FastMCP Deep Refactor — Design Spec
 
-> **Status: IMPLEMENTED** — 2026-04-16. All 8 phases complete. Commit: `d87c9c9` on branch `refactor/multi-provider-and-cleanup`.
-
 **Date:** 2026-04-16
 **Scope:** DI cleanup, tool transforms, per-session visibility, middleware upgrade, prompts, resources, elicitation, structured output
 **Approach:** B — Deep Refactor (modernize MCP stack under FastMCP 3+ patterns)
@@ -249,17 +247,3 @@ After each phase: `make check` (lint + typecheck + arch + test).
 
 ### FastMCP version
 Current: `>=3.2.4`. May need bump for per-session visibility, ResponseLimitMiddleware, CachingMiddleware. Verify before phases 3-5.
-
----
-
-## Implementation Notes
-
-- `safe_choice` double-break removed (Phase 1)
-- 65 DI params cleaned across 15 files (Phase 2)
-- `unlock_tools` uses per-session ctx.enable/disable_components (Phase 3)
-- `ToolTransform` dict covers 13 tools; `top_n` and `batch_size` hidden (Phase 4)
-- `ResponseLimitingMiddleware(50_000)` + `ResponseCachingMiddleware` added (Phase 5)
-- Resources return `dict[str, Any]`; 2 new resources added (Phase 6)
-- 7 prompts → `PromptResult`; 2 new prompts added (Phase 7)
-- `ToolContext.confirm/choice`, `SetVersionResult`, `app/schemas/tool_responses.py` (Phase 8)
-- Bug found during live test: `taste_analysis` had `curation` tag (hidden at startup), fixed to `sets+workflow`

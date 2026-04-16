@@ -10,14 +10,14 @@ from fastmcp.exceptions import ToolError
 from fastmcp.tools import tool
 from pydantic import Field
 
-from app.clients.ym.client import YandexMusicClient
-from app.controllers.dependencies import get_ym_client
+from app.controllers.dependencies.external import get_music_provider
 from app.controllers.tools._shared import (
     ANNOTATIONS_READ_ONLY_OPEN_WORLD,
     ICON_YM,
     TOOL_META,
     ToolCategory,
 )
+from app.providers.protocol import MusicProvider
 from app.schemas.ym_responses import YMAlbumResponse
 
 
@@ -33,13 +33,13 @@ async def ym_get_album(
     include_tracks: Annotated[
         bool, Field(description="Include track listing in response")
     ] = False,
-    ym: YandexMusicClient = Depends(get_ym_client),  # noqa: B008
+    provider: MusicProvider = Depends(get_music_provider),  # noqa: B008
 ) -> YMAlbumResponse:
     """Fetch album metadata from Yandex Music, optionally including tracks. Use when resolving an album ID or showing album details from YM."""
     if not album_id or not str(album_id).strip():
         raise ToolError("album_id is required")
 
-    album = await ym.get_album(album_id, with_tracks=include_tracks)
+    album = await provider.get_album(album_id, with_tracks=include_tracks)
 
     if album is None:
         raise FastMCPNotFoundError(f"Album not found: {album_id}")

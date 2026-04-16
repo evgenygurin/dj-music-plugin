@@ -198,8 +198,7 @@ async def score_transitions(
     ctx: Context = CurrentContext(),  # noqa: B008
 ) -> dict[str, Any]:
     """Scores transitions for a set, a single pair, or anchor candidates and persists results. Use when auditing blends, ranking options, or refreshing stored transition scores."""
-    if ctx is not None:
-        await ctx.report_progress(0, 1, "Scoring transitions")
+    await ctx.report_progress(0, 1, "Scoring transitions")
     result = await workflow.score_transitions(
         mode=mode,
         set_id=set_id,
@@ -209,8 +208,7 @@ async def score_transitions(
         top_n=top_n,
         log=ToolContext(ctx),
     )
-    if ctx is not None:
-        await ctx.report_progress(1, 1, "Done")
+    await ctx.report_progress(1, 1, "Done")
     return result
 
 

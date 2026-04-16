@@ -5,10 +5,9 @@ from __future__ import annotations
 from fastmcp.dependencies import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.clients.ym.client import YandexMusicClient
 from app.controllers.dependencies.audio import get_audio_service, get_tiered_pipeline
 from app.controllers.dependencies.db import get_db_session
-from app.controllers.dependencies.external import get_ym_client
+from app.controllers.dependencies.external import get_music_provider
 from app.controllers.dependencies.repos import (
     get_candidate_repo,
     get_embedding_repo,
@@ -31,6 +30,7 @@ from app.db.repositories.set import SetRepository
 from app.db.repositories.track import TrackRepository
 from app.db.repositories.transition import TransitionRepository
 from app.db.repositories.transition_history import TransitionHistoryRepository
+from app.providers.protocol import MusicProvider
 from app.services.audio_service import AudioService
 from app.services.candidate_service import CandidateService
 from app.services.curation.facade import CurationService
@@ -145,14 +145,14 @@ def get_sync_service(
     track_repo: TrackRepository = Depends(get_track_repo),  # noqa: B008
     playlist_repo: PlaylistRepository = Depends(get_playlist_repo),  # noqa: B008
     set_repo: SetRepository = Depends(get_set_repo),  # noqa: B008
-    ym: YandexMusicClient = Depends(get_ym_client),  # noqa: B008
+    ym: MusicProvider = Depends(get_music_provider),  # noqa: B008
 ) -> SyncService:
     return SyncService(track_repo, playlist_repo, set_repo, ym)
 
 
 def get_discovery_service(
     track_repo: TrackRepository = Depends(get_track_repo),  # noqa: B008
-    ym: YandexMusicClient = Depends(get_ym_client),  # noqa: B008
+    ym: MusicProvider = Depends(get_music_provider),  # noqa: B008
 ) -> DiscoveryService:
     return DiscoveryService(track_repo, ym)
 
@@ -167,7 +167,7 @@ def get_metadata_service(
 
 def get_import_service(
     track_repo: TrackRepository = Depends(get_track_repo),  # noqa: B008
-    ym: YandexMusicClient = Depends(get_ym_client),  # noqa: B008
+    ym: MusicProvider = Depends(get_music_provider),  # noqa: B008
     metadata: MetadataService = Depends(get_metadata_service),  # noqa: B008
     ingestion_repo: IngestionRepository = Depends(get_ingestion_repo),  # noqa: B008
 ) -> ImportService:

@@ -387,22 +387,25 @@ async def test_generate_narrative_returns_none_when_sample_raises():
 
 
 @pytest.mark.asyncio
-async def test_score_transitions_ctx_none_does_not_crash():
-    """score_transitions tool must not raise when ctx=None (guard: if ctx is not None)."""
-    from unittest.mock import AsyncMock
+async def test_score_transitions_reports_progress():
+    """score_transitions reports progress via ctx.report_progress (no None guard)."""
+    from unittest.mock import AsyncMock, MagicMock
 
     from app.controllers.tools.sets import score_transitions
 
     mock_workflow = AsyncMock()
     mock_workflow.score_transitions.return_value = {"scored": 1, "transitions": []}
 
-    # Call the tool function directly with ctx=None (no FastMCP DI)
+    ctx = MagicMock()
+    ctx.report_progress = AsyncMock()
+
     result = await score_transitions(
         mode="pair",
         from_track_id=1,
         to_track_id=2,
         workflow=mock_workflow,
-        ctx=None,
+        ctx=ctx,
     )
     assert isinstance(result, dict)
+    assert ctx.report_progress.call_count >= 1
     mock_workflow.score_transitions.assert_awaited_once()

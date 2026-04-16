@@ -45,13 +45,15 @@ async def sync_playlist(
     ctx: Context = CurrentContext(),  # noqa: B008
 ) -> dict[str, Any]:
     """Synchronizes a local playlist with Yandex Music via pull, push, or diff. Use when mirroring curation to or from YM or previewing conflicts before applying changes."""
-    del ctx
-    return await workflow.sync_playlist(
+    await ctx.report_progress(0, 1)
+    result = await workflow.sync_playlist(
         playlist_id=playlist_id,
         direction=direction,
         conflict_strategy=conflict_strategy,
         dry_run=dry_run,
     )
+    await ctx.report_progress(1, 1)
+    return result
 
 
 @tool(
@@ -72,9 +74,11 @@ async def push_set_to_ym(
     ctx: Context = CurrentContext(),  # noqa: B008
 ) -> dict[str, Any]:
     """Publishes a DJ set as a Yandex Music playlist with create, update, or auto behavior. Use when exporting a finished set to your streaming library."""
-    del ctx
-    return await workflow.push_set_to_ym(
+    await ctx.report_progress(0, 1)
+    result = await workflow.push_set_to_ym(
         set_id=set_id,
         ym_playlist_name=ym_playlist_name,
         mode=mode,
     )
+    await ctx.report_progress(1, 1)
+    return result

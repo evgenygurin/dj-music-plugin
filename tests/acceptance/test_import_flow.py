@@ -7,7 +7,7 @@ import pytest
 from app.db.models.playlist import Playlist
 from app.db.repositories.playlist import PlaylistRepository
 from app.db.repositories.track import TrackRepository
-from tests.acceptance.conftest import make_ym_track, parse_tool_result
+from tests.acceptance.conftest import make_provider_track, parse_tool_result
 
 
 @pytest.mark.asyncio
@@ -20,7 +20,7 @@ async def test_import_flow_creates_track_and_persists_metadata(acceptance_harnes
         await session.commit()
 
     acceptance_harness.ym.get_tracks.return_value = [
-        make_ym_track("1001", "Warehouse Signal", artist="Flow Artist")
+        make_provider_track("1001", "Warehouse Signal", artist="Flow Artist")
     ]
 
     result = await acceptance_harness.client.call_tool(
