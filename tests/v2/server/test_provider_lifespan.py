@@ -23,7 +23,7 @@ async def test_provider_lifespan_registers_yandex(monkeypatch: pytest.MonkeyPatc
 
     monkeypatch.setattr("app.v2.server.lifespan.get_settings", lambda: fake_settings)
 
-    async with provider_lifespan() as ctx:
+    async with provider_lifespan(MagicMock()) as ctx:
         registry: ProviderRegistry = ctx["provider_registry"]
         assert "yandex" in registry.names()
         adapter = registry.get("yandex")
@@ -41,7 +41,7 @@ async def test_provider_lifespan_closes_on_exit(monkeypatch: pytest.MonkeyPatch)
 
     monkeypatch.setattr("app.v2.server.lifespan.get_settings", lambda: fake_settings)
 
-    async with provider_lifespan() as ctx:
+    async with provider_lifespan(MagicMock()) as ctx:
         registry: ProviderRegistry = ctx["provider_registry"]
     # After exit, all adapters should be closed
     assert registry.names() == []
