@@ -6,6 +6,15 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.0.1] — 2026-04-18
+
+### Added
+- **Yandex Music:** `set_playlist_description` endpoint in YandexClient + YandexAdapter (`POST /users/{owner}/playlists/{kind}/description`). Exposed via `provider_write(provider="yandex", entity="playlist", operation="set_description", params={playlist_id, description})`.
+- **Developer ergonomics:** PostToolUse hook (`hooks/reload-mcp.sh` + `hooks/hooks.json`) that auto-kills the fastmcp stdio process on plugin edits so Claude Code respawns it with fresh code — no manual `/mcp` reconnect. Slash command `/reload-plugin` for manual cache purge + restart.
+
+### Fixed
+- **MCP entrypoint:** `fastmcp.json` now points at root `server.py` (self-referential `from app.server.X` imports broke when FastMCP loaded `app/server.py` as synthetic module).
+
 ## [1.0.0] — 2026-04-17
 
 **Major release — global refactor to v1 bounded-contexts architecture.**

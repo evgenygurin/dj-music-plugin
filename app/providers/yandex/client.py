@@ -167,6 +167,16 @@ class YandexClient:
             "POST", f"/users/{owner}/playlists/{kind}/name", data={"value": title}
         )
 
+    async def set_playlist_description(
+        self, playlist_id: str, *, description: str
+    ) -> dict[str, Any]:
+        owner, kind = playlist_id.split(":", 1)
+        return await self._request(
+            "POST",
+            f"/users/{owner}/playlists/{kind}/description",
+            data={"value": description},
+        )
+
     # ---------- likes ---------- #
 
     async def get_liked_ids(self) -> list[str]:
