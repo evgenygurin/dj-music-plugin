@@ -24,7 +24,8 @@ Apply these guidelines:
 - BPM range for techno: 120-155 (sweet spot 124-132).
 - Prefer Camelot distance 0-1 between adjacent tracks (same key, +/-1 on wheel, or A<->B relative).
 - Energy flow follows the target template's arc — don't peak too early.
-- Mood transitions: stay within one step of the 15-subgenre order, or cross deliberately for contrast.
+- Mood transitions: stay within one step of the 15-subgenre order,
+  or cross deliberately for contrast.
 
 Inspect the library with entity_list / entity_get, score candidate
 pairs with transition_score_pool, order with sequence_optimize, then
@@ -34,7 +35,9 @@ persist via entity_create(entity='set_version').
 
 @prompt(
     name="dj_expert_session",
-    description="Prime the LLM with DJ-domain knowledge (Camelot, subgenres, templates, audit rules).",
+    description=(
+        "Prime the LLM with DJ-domain knowledge (Camelot, subgenres, templates, audit rules)."
+    ),
     tags={"namespace:workflow", "priming"},
     meta=PROMPT_META,
 )
