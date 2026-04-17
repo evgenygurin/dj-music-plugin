@@ -147,3 +147,40 @@ async def test_templates_full_library_has_unrestricted_moods() -> None:
     payload = json.loads(await reference_templates())
     full = next(t for t in payload["templates"] if t["name"] == "full_library")
     assert all(s["target_mood"] is None for s in full["slots"])
+
+
+# ── Task 17: Audit rules ───────────────────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_audit_rules_shape_and_content() -> None:
+    from app.v2.resources.reference.audit_rules import reference_audit_rules
+
+    payload = json.loads(await reference_audit_rules())
+    assert payload["total"] == 9
+    names = [r["name"] for r in payload["rules"]]
+    expected = {
+        "BpmRangeRule",
+        "LufsRangeRule",
+        "ClippingRiskRule",
+        "UnreliableBpmRule",
+        "UnreliableKeyRule",
+        "VariableTempoRule",
+        "TooHarmonicRule",
+        "ExcessiveDynamicsRule",
+        "NoiseSpectrumRule",
+    }
+    assert set(names) == expected
+
+    bpm_rule = next(r for r in payload["rules"] if r["name"] == "BpmRangeRule")
+    assert bpm_rule["severity"] == "warning"
+    assert bpm_rule["issue"] == "bpm_out_of_range"
+    assert "techno_bpm_min" in bpm_rule["thresholds"]
+    assert "techno_bpm_max" in bpm_rule["thresholds"]
+    assert bpm_rule["thresholds"]["techno_bpm_min"] == 120.0
+    assert bpm_rule["thresholds"]["techno_bpm_max"] == 155.0
+
+    # VariableTempoRule has no thresholds (purely flag-based) and info severity
+    var_rule = next(r for r in payload["rules"] if r["name"] == "VariableTempoRule")
+    assert var_rule["severity"] == "info"
+    assert var_rule["thresholds"] == {}
