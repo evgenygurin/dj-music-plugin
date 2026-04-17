@@ -17,6 +17,7 @@ from dataclasses import dataclass
 from functools import lru_cache
 
 from app.v2.config.audio import AudioSettings
+from app.v2.config.audit import AuditSettings
 from app.v2.config.database import DatabaseSettings
 from app.v2.config.delivery import DeliverySettings
 from app.v2.config.discovery import DiscoverySettings
@@ -27,6 +28,7 @@ from app.v2.config.yandex import YandexSettings
 
 __all__ = [
     "AudioSettings",
+    "AuditSettings",
     "DatabaseSettings",
     "DeliverySettings",
     "DiscoverySettings",
@@ -47,6 +49,7 @@ class Settings:
     database: DatabaseSettings
     yandex: YandexSettings
     audio: AudioSettings
+    audit: AuditSettings
     transition: TransitionSettings
     optimization: OptimizationSettings
     discovery: DiscoverySettings
@@ -57,6 +60,7 @@ class Settings:
         object.__setattr__(self, "database", DatabaseSettings())
         object.__setattr__(self, "yandex", YandexSettings())
         object.__setattr__(self, "audio", AudioSettings())
+        object.__setattr__(self, "audit", AuditSettings())
         object.__setattr__(self, "transition", TransitionSettings())
         object.__setattr__(self, "optimization", OptimizationSettings())
         object.__setattr__(self, "discovery", DiscoverySettings())
