@@ -2,7 +2,7 @@
 
 **Phase**: Workflow
 **Status**: completed
-**MCP Tools**: `sync_playlist`, `push_set_to_platform` (hidden)
+**MCP Tools**: `sync_playlist`, `push_set_to_ym` (hidden)
 **Services**: `SyncService`, `SyncPlaylistWorkflow`
 **Dependencies**: core-02, integration-01
 
@@ -22,7 +22,7 @@
 - [x] AC-SYN-003: Given `direction="diff"`, when syncing, then return additions/deletions without modifying either side
 - [x] AC-SYN-004: Given `dry_run=true` (default), then show changes without applying
 
-#### US-SYN-002: As a DJ, I want to push a completed set to platform as a playlist
+#### US-SYN-002: As a DJ, I want to push a completed set to YM as a playlist
 
 **Acceptance Criteria:**
-- [x] AC-SYN-005: Given a set with platform-linked tracks, when `push_set_to_platform(set_id=6)` is called, then create/update platform playlist with set track order
+- [x] AC-SYN-005: Given a set with YM-linked tracks, when `push_set_to_ym(set_id=6)` is called, then create/update YM playlist with set track order

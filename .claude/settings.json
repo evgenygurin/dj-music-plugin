@@ -3,16 +3,7 @@
     "network": {
       "allowedDomains": [
         "aws-1-eu-central-1.pooler.supabase.com",
-        "bowosphlnghhgaulcyfm.supabase.co",
-        "api.music.yandex.net",
-        "*.yandex.net",
-        "storage.yandexcloud.net",
-        "github.com",
-        "api.github.com",
-        "pypi.org",
-        "files.pythonhosted.org",
-        "dl.fbaipublicfiles.com",
-        "huggingface.co"
+        "bowosphlnghhgaulcyfm.supabase.co"
       ]
     }
   },

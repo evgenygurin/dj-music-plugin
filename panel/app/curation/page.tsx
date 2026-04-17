@@ -19,7 +19,7 @@ export default async function CurationPage() {
       fetchToolSchema('audit_playlist'),
       fetchToolSchema('distribute_to_subgenres'),
       fetchToolSchema('sync_playlist'),
-      fetchToolSchema('push_set_to_platform'),
+      fetchToolSchema('push_set_to_ym'),
       fetchToolSchema('get_library_stats'),
     ])
 
@@ -27,7 +27,7 @@ export default async function CurationPage() {
     <PageShell title="Curation">
       <PageHeader
         title="Curation"
-        description="Classify tracks by subgenre, distribute to playlists, and sync with platform."
+        description="Classify tracks by subgenre, distribute to playlists, and sync with Yandex Music."
       />
 
       <div className="flex flex-col gap-3">
@@ -77,18 +77,18 @@ export default async function CurationPage() {
         <div className="grid gap-4 md:grid-cols-2">
           <ToolActionCard
             title="Sync Playlist"
-            description="Bidirectional sync between local playlist and platform. Push local changes or pull remote updates."
+            description="Bidirectional sync between local playlist and Yandex Music. Push local changes or pull remote updates."
             toolName="sync_playlist"
             schema={syncSchema ?? {}}
             buttonLabel="Sync Playlist"
           />
 
           <ToolActionCard
-            title="Push Set to Platform"
-            description="Push a DJ set as a platform playlist. Creates or updates the playlist with set track order."
-            toolName="push_set_to_platform"
+            title="Push Set to YM"
+            description="Push a DJ set as a Yandex Music playlist. Creates or updates the playlist with set track order."
+            toolName="push_set_to_ym"
             schema={pushSchema ?? {}}
-            buttonLabel="Push to Platform"
+            buttonLabel="Push to YM"
           />
         </div>
       </div>

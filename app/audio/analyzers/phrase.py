@@ -25,19 +25,12 @@ class PhraseAnalyzer(BaseAnalyzer):
     ) -> dict[str, Any]:
         import librosa  # noqa: F401
 
-        prior = prior_results or {}
-        beat_times = prior.get("beat_times", [])
+        beat_times = (prior_results or {}).get("beat_times", [])
         if len(beat_times) < 16:
             return {"phrase_boundaries_ms": [], "dominant_phrase_bars": 16}
 
-        # Use downbeat_times (bar boundaries) from BeatDetector's downbeat
-        # detection, which correctly identifies beat 1 of each bar.
-        # Fallback to every-4th beat only if downbeat_times is not available.
-        downbeat_times = prior.get("downbeat_times")
-        if downbeat_times and len(downbeat_times) >= 4:
-            bar_times = list(downbeat_times)
-        else:
-            bar_times = [beat_times[i] for i in range(0, len(beat_times), 4)]
+        # Group beats into bars (4 beats per bar for 4/4 time)
+        bar_times = [beat_times[i] for i in range(0, len(beat_times), 4)]
         n_bars = len(bar_times)
         if n_bars < 8:
             return {"phrase_boundaries_ms": [], "dominant_phrase_bars": 16}

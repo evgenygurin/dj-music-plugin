@@ -1,16 +1,13 @@
-.PHONY: install test test-fast test-smoke lint typecheck arch check check-full migrate dev clean panel api upgrade
+.PHONY: install test lint typecheck arch check migrate dev clean panel api upgrade
 
 install:
 	uv sync --all-extras
 
 test:
-	uv run pytest -q
+	uv run pytest -v
 
 test-fast:
 	uv run pytest -x -q
-
-test-smoke:
-	uv run pytest -q -n 0 tests/test_server_builder.py
 
 lint:
 	uv run ruff check app/ tests/
@@ -28,8 +25,6 @@ arch:
 
 check: lint typecheck arch test
 
-check-full: lint typecheck arch test
-
 migrate:
 	uv run alembic upgrade head
 
@@ -37,13 +32,13 @@ migrate-new:
 	uv run alembic revision --autogenerate -m "$(msg)"
 
 dev:
-	uv run fastmcp run app/server.py --reload
+	uv run fastmcp run app/server/__init__.py --reload
 
 run:
-	uv run fastmcp run app/server.py
+	uv run fastmcp run app/server/__init__.py
 
 api:
-	uv run --extra http uvicorn app.api.server:api --host 0.0.0.0 --port 8000 --reload
+	uv run --extra http uvicorn app.rest.app:api --host 0.0.0.0 --port 8000 --reload
 
 panel:
 	cd panel && bun dev

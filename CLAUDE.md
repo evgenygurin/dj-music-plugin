@@ -6,9 +6,8 @@
 
 ```bash
 uv sync --all-extras                       # Install all deps
-# Sampling: index https://gofastmcp.com/llms.txt — page https://gofastmcp.com/servers/sampling (client default; optional ``--extra llm`` + ``DJ_ANTHROPIC_API_KEY``)
 make check                                 # lint + typecheck + arch + test
-uv run fastmcp run app/server.py --reload  # MCP dev server
+uv run fastmcp run app/server/app.py --reload  # MCP dev server
 cd panel && bun dev                        # Panel on :3000
 ./start.sh                                 # Both at once
 ```
@@ -18,70 +17,135 @@ cd panel && bun dev                        # Panel on :3000
 MCP-сервер для управления DJ techno библиотекой, построения оптимизированных сетов и интеграции с Яндекс Музыкой. Включает веб-панель для мониторинга и аналитики.
 
 - Спецификация: @REQUIREMENTS.md
+- Архитектурный блюпринт v1: @docs/superpowers/specs/2026-04-17-architecture-blueprint-design.md
 
 ## Документация
 
 При работе с конкретной областью — загрузи соответствующий doc:
 
-- @docs/architecture.md — слои, data flow, middleware pipeline, ключевые решения
+- @docs/architecture.md — bounded-contexts, data flow, ключевые решения v1
 - @docs/domain-glossary.md — DJ терминология (BPM, Camelot, LUFS, subgenres)
-- @docs/tool-catalog.md — каталог MCP tools с visibility tier
-- @docs/audio-pipeline.md — анализаторы, pipeline, mood classifier
+- @docs/tool-catalog.md — 13 generic tool dispatchers + 20 resources + 6 prompts
+- @docs/audio-pipeline.md — анализаторы, tiered pipeline L1-L4, mood classifier
 - @docs/ym-api-guide.md — YM API quirks, rate limiting, diff format
-- @docs/transition-scoring.md — 6-компонентная формула, Camelot wheel
+- @docs/transition-scoring.md — 6-компонентная формула, Camelot wheel, section-aware scoring
 - @docs/panel-guide.md — Panel архитектура, data flow, компоненты
-- @docs/structure.md — полная структура директорий и файлов
+- @docs/vm-deployment.md — continuous import+analyze loop на VM (systemd-run)
+- @docs/reports/tiered-analysis-design-2026-03-27.md — tiered pipeline L1-L4
 
-## Архитектура (кратко)
+## Принципы v1
+
+- **MCP — primary interface.** Tools / resources / prompts декларативны, композиция через LLM (prompts, CodeMode, Tool Search), а не императивный service/workflow слой.
+- **Polymorphism over proliferation.** 6 generic CRUD tools (`entity_list/get/create/update/delete/aggregate`) + 3 provider tools (`provider_read/write/search`) + 2 compute (`transition_score_pool`, `sequence_optimize`) + `playlist_sync` + `unlock_namespace` = **13 tool dispatchers**. Side-effects живут в handlers, привязанных к entity (create track = import, create audio_file = download, create track_features = analyze, create set_version = build+score).
+- **Anchor на DB entities.** Каждый aggregate root → один `models/<entity>.py` + один `repositories/<entity>.py` + одна Pydantic-схема-семейство.
+- **Panel (Next.js)** — monitoring/analytics UI, читает напрямую из Supabase, мутации через MCP (REST-обёртка).
+- **REST API** (`app/rest/app.py`) — тонкая FastAPI-обёртка поверх MCP для Panel.
+- **FastMCP v3.x** — FileSystemProvider auto-discovers tools/resources/prompts, standalone `@tool` / `@resource` / `@prompt` декораторы.
+- **Unit of Work.** Одна `UnitOfWork` на tool call, инжектится через `Depends(get_uow)`. DbSession middleware управляет commit/rollback.
+- **BaseRepository[M].** Generic CRUD + Django-style lookups (`bpm__gte`, `mood__in`). Entity-specific методы в subclass.
+- Python 3.12+, все операции async.
+- Strict typing: mypy strict + pydantic v2.
+- Тесты обязательны для каждого компонента.
+- **Никаких magic numbers** — `app/config/*.py` + `app/shared/constants.py`.
+
+## Архитектура — Bounded Contexts
 
 ```text
-Interface    controllers (MCP tools/prompts/resources) + api (REST routes) + schemas (DTOs)
-Application  services · workflows
-Domain       entities · transition · optimization · templates · audit · export · camelot
-Persistence  db (models · repositories · migrations · seed)
-External     ym (Yandex Music client) · audio (analyzers · pipeline)
-Core         config · constants · errors · utils
+app/
+├── tools/          # @tool — 13 generic dispatchers (entity/provider/compute/sync/admin)
+├── resources/      # @resource — 20 URIs (local://, schema://, session://, reference://)
+├── prompts/        # @prompt — 6 workflow recipes
+├── handlers/       # entity-specific side-effects (track_import, audio_file_download, …)
+├── registry/       # EntityRegistry + ProviderRegistry (polymorphism anchors)
+├── repositories/   # BaseRepository[M] + UnitOfWork aggregator
+├── models/         # SQLAlchemy 2.0 ORM — one file per aggregate root
+├── schemas/        # Pydantic DTOs (one family per entity)
+├── domain/         # Pure compute, no IO
+│   ├── transition/ # 6-component scoring, hard constraints, recipe engine
+│   ├── optimization/ # GA, greedy, fitness, protocol
+│   ├── camelot/    # Camelot wheel math
+│   ├── template/   # Set templates registry
+│   └── audit/      # Techno audit rules
+├── audio/          # Tiered pipeline (analyzers, classification, level_config)
+├── providers/      # External platforms (yandex/ …)
+├── server/         # FastMCP composition: app.py, lifespan.py, middleware/, transforms.py, visibility.py, observability.py
+├── rest/           # FastAPI wrapper: app.py, lifespan.py, routes/
+├── shared/         # errors, constants, filters, ids, pagination, time
+└── config/         # Settings split by concern (audio, yandex, database, mcp, …)
 ```
 
-**Dependency rule (закреплено import-linter):**
-- `controllers → services/workflows → services → repositories → entities/db.models`
-- `services` framework-agnostic (нет fastmcp / app.controllers импортов)
-- `transition` / `optimization` pure (нет DB / HTTP / MCP / SQLAlchemy / httpx)
-- `core/utils` — leaf, не импортирует ни один app слой
+```text
+Panel (Next.js) → REST API (FastAPI) ─┐
+                                       ├──→ FastMCP (tools/resources/prompts)
+Claude Code (stdio / streamable-http) ─┘       ↓ Depends(get_uow)
+                                            UnitOfWork → BaseRepository[M] → models
+                                            → Providers (yandex)
+                                            → Audio pipeline
+                                            → Domain (transition, optimization, …)
+```
+
+**Dependency rule (enforced by import-linter):**
+- `tools → handlers → repositories → models`
+- `tools → domain` (pure compute OK)
+- `domain` imports: only `models` (для типизации) + `shared`
+- `audio` / `providers` — side-effect layers, imported only by handlers
+- `rest` оборачивает MCP через `mcp.call_tool()` — не дублирует бизнес-логику
+- `shared` is leaf — нет обратных импортов
+
+## Tiered Audio Analysis (L1→L4)
+
+| Уровень | Когда | Анализаторы |
+|---------|-------|-------------|
+| L1+L2 (TRIAGE) | classify handler (mood) | loudness, energy, spectral, bpm, key, mfcc |
+| L3 (SCORING) | `transition_score_pool`, `sequence_optimize` | + beat |
+| L4 (TRANSITION) | `entity_create(entity="audio_file", persistent=true)` | + structure, permanent MP3 |
+
+Детали: @docs/reports/tiered-analysis-design-2026-03-27.md
 
 ## Команды
 
 ```bash
-# Backend
-uv run pytest -v                           # Tests
-uv run ruff check && uv run ruff format --check  # Lint
-uv run mypy app/                           # Type-check
-uv run lint-imports                        # Architecture contracts
-uv run alembic upgrade head                # Migrations
-make check                                 # lint + typecheck + arch + test
-
-# Fallback если uv не в PATH:
-.venv/bin/python -m pytest -q
-.venv/bin/python -m mypy app/
-.venv/bin/python -m ruff check app/ tests/
+# Backend (MCP server)
+uv sync                                         # Install deps
+uv run pytest -v                                # Tests
+uv run ruff check && uv run ruff format --check # Lint
+uv run mypy app/                                # Type-check
+uv run lint-imports                             # Architecture contracts
+uv run alembic upgrade head                     # Migrations
+uv run fastmcp run app/server/app.py --reload   # MCP dev server
+make check                                      # lint + typecheck + arch + test
 
 # REST API
-uv run --extra http uvicorn app.api.server:api --host 0.0.0.0 --port 8000 --reload
+uv run --extra http uvicorn app.rest.app:api --host 0.0.0.0 --port 8000 --reload
 
 # Panel
-cd panel && bun install && bun dev         # http://localhost:3000
+cd panel && bun install && bun dev              # http://localhost:3000
+
+# All-in-one
+./start.sh                                      # Backend + Panel dev servers
 ```
 
-## Правила
+## Плагины Claude Code
 
-- **Один файл = одна ответственность.** Не создавать дублирующие файлы
-- **Время:** все datetime-операции через `app/core/utils/time.py` (`utc_now()`, `utc_timestamp_iso()`, `sa_now()`)
-- **Линтер:** ruff + mypy + import-linter. Pyright игнорируй — ложные ошибки на `@tool`
-- **Magic numbers:** запрещены — только `settings.*` и `app/core/constants.py`
-- **Context injection:** `ctx: Context = CurrentContext()  # noqa: B008`. Не использовать `Annotated[Context|None, ...] = None`
-- **DI параметры:** `svc: MyService = Depends(get_my_service)` — без `Annotated[..., Field(...)]` обёртки
-- **Tools:** описания ≤50 слов. Детали → в описания параметров. Технические параметры скрывать через `ArgTransformConfig(hide=True)` в `bootstrap/transforms.py`
-- **Prompts:** возвращают `PromptResult(messages=[...], description="...")`, не `list[Message]`
-- **Resources:** возвращают `dict[str, Any]` (FastMCP сериализует). Исключение: knowledge:// блобы → `str` с `mime_type="application/json"`
-- **Visibility:** per-session через `ctx.enable_components(tags={...})`. Не использовать `ctx.fastmcp.enable()`
-- **Structured output:** ключевые инструменты возвращают Pydantic-модели из `app/schemas/tool_responses.py` — FastMCP авто-генерирует `output_schema`
+| Плагин | Когда использовать |
+|--------|-------------------|
+| **fastmcp-builder** | Перед реализацией tools/resources/prompts |
+| **mcp-server-dev** | При проектировании tool patterns, elicitation, auth |
+| **superpowers** | Brainstorming, planning, TDD, debugging |
+| **feature-dev** | Guided feature development |
+| **python** | pytest fixtures, ruff config, mypy |
+| **fastapi** | Alembic migrations |
+| **tech-lead** | Architecture review, dependency analysis |
+| **context7** | Документация библиотек (FastMCP, SQLAlchemy, librosa) |
+
+## Правила архитектуры
+
+- **Bounded contexts** — защищены `import-linter` (`make arch`). Список слоёв см. выше.
+- **Один файл = одна ответственность.** Никаких дублирующих файлов.
+- **Время:** все datetime-операции через `app/shared/time.py` (`utc_now()`, `utc_timestamp_iso()`, `sa_now()`).
+- **Линтер:** ruff + mypy + import-linter. Pyright игнорируй.
+- **FastMCP 3.x:** перед любой работой с tools/lifespan/visibility — читать `.claude/rules/fastmcp.md` и `https://gofastmcp.com/llms.txt`.
+
+## Версия
+
+**v1.0.0** — full refactor per `docs/superpowers/specs/2026-04-17-architecture-blueprint-design.md`. 13 tool dispatchers (6 entity CRUD + 3 provider + 2 compute + 1 sync + 1 admin) + 20 resources + 6 prompts. FastMCP v3 canonical layout (`tools/`, `resources/`, `prompts/`). Polymorphism через EntityRegistry + ProviderRegistry + handlers. Unit of Work + BaseRepository[M]. Pure domain (transition / optimization / camelot / template / audit). 18 audio analyzers, tiered L1-L4, section-aware scoring. Dead code и dead DB-таблицы удалены (spotify_\*, beatport_metadata, soundcloud_metadata, embeddings, dj_saved_loops, dj_cue_points, labels, track_labels, app_exports и другие).

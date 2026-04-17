@@ -3,8 +3,8 @@
 import { callTool, type ToolCallResult } from '@/lib/mcp-client'
 import { revalidateTag } from 'next/cache'
 
-export async function searchPlatform(query: string, type: string = 'tracks'): Promise<ToolCallResult> {
-  return callTool('search_platform', { query, type, limit: 20 })
+export async function ymSearch(query: string, type: string = 'tracks'): Promise<ToolCallResult> {
+  return callTool('ym_search', { query, type, limit: 20 })
 }
 
 export async function importTracks(

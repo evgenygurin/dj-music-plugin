@@ -1,7 +1,7 @@
 ---
 name: curate-library
 description: "Use when the user asks to classify tracks, audit playlist, get library stats, distribute to subgenres, run mood classification, or review library quality. Covers mood classification, audits, subgenre distribution and stats."
-version: 0.8.2
+version: 0.7.1
 ---
 
 # Curate DJ Library Workflow
@@ -26,9 +26,9 @@ ambient_dub → dub_techno → minimal → detroit → melodic_deep → progress
 - Reports gaps and recommendations
 
 ### Review Set Quality
-- `quick_set_review(set_id=...)` — fast quality overview (transition scores, hard conflicts, energy arc match)
-- `analyze_set_narrative(set_id=...)` — deeper narrative + subgenre variety analysis
-- Use these to identify weakest transitions before recommending fixes
+- `review_set_quality(set_id=...)` — deep quality analysis
+- Transition scores, energy arc compliance, subgenre variety
+- Identifies weakest transitions and suggests fixes
 
 ### Library Statistics
 - `get_library_stats()` — overview of entire library
@@ -61,4 +61,4 @@ Tracks must meet these thresholds to be valid techno:
 - Audit before building sets — ensures enough quality tracks are available
 - Use `filter_tracks(mood="peak_time")` to find tracks by subgenre (combine with `bpm_min/max`, `energy_min/max`)
 - Domain criteria & quality thresholds: see @REQUIREMENTS.md §12 and @docs/audio-pipeline.md
-- Tool reference: @docs/tool-catalog.md (classify_mood, audit_playlist, quick_set_review, analyze_set_narrative, distribute_to_subgenres, get_library_stats)
+- Tool reference: @docs/tool-catalog.md (classify_mood, audit_playlist, review_set_quality, distribute_to_subgenres, get_library_stats)

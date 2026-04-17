@@ -10,14 +10,14 @@ export default async function DiscoverPage() {
     fetchToolSchema('import_tracks'),
     fetchToolSchema('download_tracks'),
     fetchToolSchema('find_similar_tracks'),
-    fetchToolSchema('expand_platform_playlist'),
+    fetchToolSchema('expand_playlist_ym'),
   ])
 
   return (
     <PageShell title="Discover">
       <PageHeader
         title="Discover"
-        description="Search platform catalog, import tracks, find similar artists, and expand playlists."
+        description="Search Yandex Music, import tracks, find similar artists, and expand playlists."
       />
 
       <YmSearch />

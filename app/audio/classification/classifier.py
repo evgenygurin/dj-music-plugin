@@ -11,8 +11,8 @@ from typing import Any
 
 import numpy as np
 
-from app.config import settings
-from app.core.constants import TechnoSubgenre
+from app.config import get_settings
+from app.shared.constants import TechnoSubgenre
 
 from .profiles import ALL_PROFILES, CATCH_ALL_SUBGENRES, SubgenreProfile
 
@@ -51,7 +51,7 @@ class MoodClassifier:
         # Penalize catch-all subgenres
         for subgenre in CATCH_ALL_SUBGENRES:
             if subgenre in scores:
-                scores[subgenre] *= settings.mood_catch_all_penalty
+                scores[subgenre] *= get_settings().audio.mood_catch_all_penalty
 
         # Find winner and compute confidence
         sorted_scores = sorted(scores.items(), key=lambda x: x[1], reverse=True)

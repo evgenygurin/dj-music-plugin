@@ -18,6 +18,7 @@ graph TD
     WORK_AUDIO --> LIFE_CURATION[lifecycle-01 Curation & Classification]
     LIFE_CURATION --> WORK_SET
     WORK_SET --> LIFE_REASON[lifecycle-02 Set Reasoning]
+    CORE_TRK --> ENG_DECK[core-04 Deck & Mixer Engines]
     WORK_DELIV --> ANAL_EXPORT[analytics-01 Export Formats]
     CORE_TRK --> ANAL_STATS[analytics-02 Library Stats]
 ```
@@ -29,6 +30,7 @@ graph TD
 | core-01 | Core | Track Management | completed | [core-01-track-management.md](core-01-track-management.md) |
 | core-02 | Core | Playlist Management | completed | [core-02-playlist-management.md](core-02-playlist-management.md) |
 | core-03 | Core | Search & Filter | completed | [core-03-search-filter.md](core-03-search-filter.md) |
+| core-04 | Core | Deck & Mixer Engines | completed | [core-04-deck-mixer-engines.md](core-04-deck-mixer-engines.md) |
 | workflow-01 | Workflow | Set Building & Optimization | completed | [workflow-01-set-building.md](workflow-01-set-building.md) |
 | workflow-02 | Workflow | Audio Analysis Pipeline | completed | [workflow-02-audio-analysis.md](workflow-02-audio-analysis.md) |
 | workflow-03 | Workflow | Set Delivery & Export | completed | [workflow-03-set-delivery.md](workflow-03-set-delivery.md) |
@@ -54,6 +56,7 @@ graph TD
 | SYN | Sync |
 | YM | Yandex Music |
 | RSN | Set Reasoning |
+| DCK | Deck/Mixer |
 | EXP | Export |
 | LIB | Library Stats |
 | SRC | Search |

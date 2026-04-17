@@ -50,8 +50,7 @@ def spectral_flux_onset_envelope(
     max_value = float(np.max(onset_env))
     if max_value <= 0:
         return np.zeros_like(onset_env)
-    result: np.ndarray = onset_env / max_value
-    return result
+    return onset_env / max_value
 
 
 def onset_autocorrelation(onset_env: np.ndarray) -> np.ndarray:
@@ -163,8 +162,7 @@ def find_beat_times(
                 pruned.append(int(peak))
         peaks = np.asarray(pruned, dtype=np.int64)
 
-    beat_times: np.ndarray = peaks.astype(np.float64) * hop_length / sr
-    return beat_times
+    return peaks.astype(np.float64) * hop_length / sr
 
 
 def sample_interpolated(values: np.ndarray, position: float) -> float:

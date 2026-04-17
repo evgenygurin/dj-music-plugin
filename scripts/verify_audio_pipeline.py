@@ -212,21 +212,6 @@ async def run_verification(track_path: str, use_processes: bool = False) -> bool
     print(f"    pulse_clarity:   {f['pulse_clarity']:.3f}")
     print(f"    hp_ratio:        {f['hp_ratio']:.3f}")
 
-    print("  Beat Grid & Downbeat:")
-    beat_times = f.get("beat_times", [])
-    downbeat_times = f.get("downbeat_times", [])
-    print(f"    beat_times:          {len(beat_times)} beats")
-    print(f"    downbeat_times:      {len(downbeat_times)} downbeats")
-    print(f"    first_downbeat_ms:   {f.get('first_downbeat_ms', 'N/A')}")
-    print(f"    downbeat_confidence: {f.get('downbeat_confidence', 'N/A')}")
-    if beat_times:
-        import numpy as np
-
-        bi = f.get("beats_intervals", [])
-        if bi:
-            detected_bpm = 60.0 / np.mean(bi)
-            print(f"    detected BPM (from grid): {detected_bpm:.1f}")
-
     print("  Loudness:")
     print(f"    integrated_lufs: {f['integrated_lufs']:.2f}")
     print(f"    rms_dbfs:        {f['rms_dbfs']:.2f}")
@@ -313,18 +298,6 @@ async def run_verification(track_path: str, use_processes: bool = False) -> bool
     if not (60 <= f["bpm"] <= 200):
         errors.append(f"BPM {f['bpm']} outside range")
     print(f"  BPM range:      {'OK' if 60 <= f['bpm'] <= 200 else 'FAIL'}")
-
-    bt = f.get("beat_times", [])
-    if bt and len(bt) < 4:
-        errors.append(f"Too few beats: {len(bt)}")
-    print(f"  Beat count:     {'OK' if len(bt) >= 4 else 'WARN'} ({len(bt)})")
-
-    if f.get("downbeat_times") and len(f["downbeat_times"]) < 1:
-        errors.append("No downbeats detected")
-    print(f"  Downbeats:      {'OK' if f.get('downbeat_times') else 'WARN'}")
-
-    db_conf = f.get("downbeat_confidence", 0)
-    print(f"  DB confidence:  {db_conf:.3f} ({'OK' if db_conf > 0.1 else 'LOW'})")
 
     if f["integrated_lufs"] >= 0:
         errors.append(f"LUFS {f['integrated_lufs']} should be negative")

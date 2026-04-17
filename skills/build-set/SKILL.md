@@ -1,7 +1,7 @@
 ---
 name: build-set
 description: "Use when the user asks to build a DJ set, create a set from playlist, optimize track order, rebuild set, reorder tracks, or make a set. Covers playlist audit, GA/greedy optimization, review and iteration."
-version: 0.8.2
+version: 0.7.1
 ---
 
 # Build DJ Set Workflow

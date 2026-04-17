@@ -1,167 +1,152 @@
 # MCP Tool Catalog
 
-Quick reference for all MCP tools (~51 total, visible + hidden).
+Quick reference for v1.0.0 — **13 tool dispatchers + 20 resources + 6 prompts**.
 
-## Core Tools (always visible)
+The 88-tool catalog of v0.8 was collapsed via polymorphism: generic CRUD
+(`entity_*`) dispatches via `EntityRegistry`, generic provider access
+(`provider_*`) via `ProviderRegistry`, side-effects live in handlers.
+Everything else is exposed as **resources** (read-only views) or
+**prompts** (workflow recipes) — resources/prompts can be surfaced as
+tools via `app/server/transforms.py` for tool-only clients.
 
-### CRUD — Tracks (tag: `core`, file: `tracks.py`)
+## Tools (13)
 
-| Tool | Params | RO |
-|------|--------|-----|
-| `list_tracks` | limit, cursor, bpm_min/max? | yes |
-| `get_track` | id?, query? | yes |
-| `manage_tracks` | action(create\|update\|archive\|unarchive), data? | no |
-| `get_track_features` | id?, query?, include_sections? | yes |
+### Entity CRUD (6, namespace `crud:read` / `crud:write` / `crud:destructive`)
 
-### CRUD — Playlists (tag: `core`, file: `playlists.py`)
+| Tool | Params | RO | Hidden |
+|------|--------|----|--------|
+| `entity_list` | entity, filters?, search?, fields?, sort?, limit=50, cursor?, with_total=false | yes | no |
+| `entity_get` | entity, id, fields?, include_relations? | yes | no |
+| `entity_aggregate` | entity, operation(count\|distinct\|histogram\|min_max\|sum\|avg), field?, group_by?, filters? | yes | no |
+| `entity_create` | entity, data | no | no |
+| `entity_update` | entity, id, data | no | `crud:destructive` |
+| `entity_delete` | entity, id | no (destructive) | `crud:destructive` |
 
-| Tool | Params | RO |
-|------|--------|-----|
-| `list_playlists` | source?, limit, cursor | yes |
-| `get_playlist` | id?, query?, include_tracks? | yes |
-| `manage_playlist` | action(create\|update\|delete\|add_tracks\|remove_tracks\|reorder), data?, track_refs?, positions? | no |
+Supported entities (via `EntityRegistry`): track, track_features, audio_file,
+playlist, set, set_version, transition, transition_history, track_affinity,
+track_feedback, scoring_profile, key, provider_metadata.
 
-### CRUD — Sets (tag: `core`, file: `sets.py`)
+Handlers wire side-effects on create/update/delete:
 
-| Tool | Params | RO |
-|------|--------|-----|
-| `list_sets` | template?, limit, cursor | yes |
-| `get_set` | id?, query?, view(summary\|tracks\|transitions\|full) | yes |
-| `manage_set` | action(create\|update\|delete\|add_constraint\|remove_constraint\|add_feedback), data? | no |
+| Entity | create handler | update handler |
+|---|---|---|
+| track | `track_import` (fetch from provider, persist) | — |
+| track_features | `track_features_analyze` (run tiered pipeline) | `track_features_reanalyze` (higher level) |
+| audio_file | `audio_file_download` (fetch MP3 from provider) | — |
+| set_version | `set_version_build` (GA/greedy + persist transitions) | — |
+| transition | `transition_persist` | — |
 
-### Search (tag: `core`, file: `search.py`)
+### Provider access (3, namespace `provider:read` / `provider:write`)
 
-| Tool | Params | RO |
-|------|--------|-----|
-| `search_library` | query, entity(tracks\|artists\|playlists\|sets\|all), limit | yes |
+| Tool | Params | RO | Hidden |
+|------|--------|----|--------|
+| `provider_read` | provider, entity, id?, params? | yes | no |
+| `provider_search` | provider, query, type(tracks\|albums\|artists\|playlists\|all), limit=20 | yes | no |
+| `provider_write` | provider, entity, operation, params | no | `provider:write` |
 
-### Set Building (tag: `sets`, file: `sets.py`)
+`provider_read.entity` values: `track`, `album`, `playlist`, `artist_tracks`,
+`track_similar`, `track_batch`, `likes`, `dislikes`, `playlist_list`.
 
-| Tool | Params | RO | Timeout |
-|------|--------|----|---------|
-| `build_set` | playlist_id, name, template?, target_duration_min?, algorithm(greedy\|ga), dry_run? | no | 120s |
-| `rebuild_set` | set_id, pin_tracks?, exclude_tracks?, algorithm, version_label? | no | 120s |
-| `score_transitions` | mode(set\|pair\|track_candidates), set_id?, from/to_track_id?, track_id? | no | — |
-| `get_set_cheat_sheet` | set_id, version? | yes | — |
-| `get_set_templates` | — | yes | — |
+`provider_write.entity/operation` matrix:
+- `playlist` × `add_tracks | remove_tracks | create | rename | delete`
+- `likes` × `add | remove`
 
-### Set Reasoning (tag: `sets`, file: `reasoning.py`)
-
-| Tool | Params | RO |
-|------|--------|-----|
-| `suggest_next_track` | set_id, after_position, count?, prefer_mood?, energy_direction? | yes |
-| `explain_transition` | from_track_id, to_track_id | yes |
-| `find_replacement` | set_id, position, count? | yes |
-| `compare_set_versions` | set_id, version_a?, version_b? | yes |
-| `quick_set_review` | set_id | yes |
-| `analyze_set_narrative` | set_id | yes |
-
-### Admin (tag: `admin`, file: `admin.py`)
+### Compute (2, namespace `compute`)
 
 | Tool | Params | RO |
 |------|--------|-----|
-| `unlock_tools` | action(unlock\|lock\|status), category? — **per-session** | no |
-| `list_platforms` | — | yes |
+| `transition_score_pool` | track_ids (0..500), intent? | yes |
+| `sequence_optimize` | track_ids (2..500), algorithm(ga\|greedy)=ga, template?, pinned?, excluded? | yes |
 
-## Extended Tools (unlock per category)
+### Sync (1, namespace `sync`)
 
-### Delivery & Export (tag: `delivery`, file: `delivery.py`)
+| Tool | Params | RO | Hidden |
+|------|--------|-----|--------|
+| `playlist_sync` | playlist_id, direction(pull\|push\|diff)=diff, source="yandex", dry_run=false | no | `sync` |
 
-| Tool | Params | Timeout |
-|------|---------|---------|
-| `deliver_set` | set_id, version?, output_dir?, copy_files?, sync_to_ym?, formats?, dry_run? | 300s |
-
-### Discovery & Download (tag: `discovery`; `find_similar_tracks` uses tag `core` — visible on MCP connect)
-
-| Tool | File | Params | RO |
-|------|------|--------|-----|
-| `find_similar_tracks` | discovery.py | track_id, strategy(ym\|llm)?, limit?, min/max_duration_ms?, genre_filter?, genre_blacklist?, exclude_patterns? | yes |
-| `expand_platform_playlist` | discovery.py | playlist_id, target_count?, genre_filter?, genre_blacklist?, exclude_patterns?, min/max_duration_ms?, use_feedback?, dry_run? | no |
-| `filter_by_feedback` | discovery.py | ym_track_ids (returns passed/blocked/boosted) | yes |
-| `import_tracks` | importing.py | track_refs, playlist_id?, auto_analyze? | no |
-| `download_tracks` | importing.py | track_refs, target_dir?, skip_existing?, prefer_bitrate? | no |
-
-### Curation (tag: `curation`, file: `curation.py`)
+### Admin (1, namespace `admin`)
 
 | Tool | Params | RO |
 |------|--------|-----|
-| `classify_mood` | track_ids?\|playlist_id?, reclassify? | no |
-| `audit_playlist` | playlist_id?, playlist_query?, check?, template? | yes |
-| `distribute_to_subgenres` | source_playlist_id?, mode?, sync_to_ym?, dry_run? | no |
-| `get_library_stats` | — | yes |
+| `unlock_namespace` | namespace(crud:destructive\|provider:write\|sync\|all), action(unlock\|lock\|status)=status | no |
 
-### Sync (tag: `sync`, file: `sync.py`)
+## Resources (20)
 
-| Tool | Params | RO |
-|------|--------|-----|
-| `sync_playlist` | playlist_id, direction(pull\|push\|diff)?, conflict_strategy?, dry_run?=true | no |
-| `push_set_to_platform` | set_id, platform_playlist_name?, mode(create\|update\|auto)? | no |
+All read-only, MIME `application/json`, auto-discovered from `app/resources/`.
 
-### Platform API (tag: `platform`, package: `platform/`)
+### Local (per-entity views)
 
-Each platform tool lives in its own submodule under `app/controllers/tools/platform/`:
+| URI | File | Purpose |
+|---|---|---|
+| `local://playlists/{id}{?include_tracks}` | playlist.py | Playlist detail |
+| `local://playlists/{id}/audit` | playlist.py | Techno audit report for a playlist |
+| `local://sets/{id}/{view}` | set.py | view=summary\|tracks\|transitions\|full |
+| `local://sets/{id}/cheatsheet{?version}` | set.py | DJ cheat sheet text |
+| `local://sets/{id}/narrative` | set.py | Narrative analysis (arc, moods) |
+| `local://transition/{from_id}/{to_id}/score` | transition.py | Pairwise transition score |
+| `local://transition/{from_id}/{to_id}/explain` | transition.py | Explain scored components |
+| `local://transition_history/best_pairs{?track_id,limit}` | transition_history.py | Best historical pairs |
+| `local://transition_history/history{?limit,track_id}` | transition_history.py | Transition log |
 
-| Tool | File | Params | RO |
-|------|------|--------|-----|
-| `search_platform` | `platform/search.py` | query, type(tracks\|albums\|artists\|playlists\|all)?, limit? | yes |
-| `get_platform_tracks` | `platform/tracks.py` | track_ids, fields? | yes |
-| `get_platform_artist_tracks` | `platform/tracks.py` | artist_id, offset?, limit?, sort_by(date\|popularity)? | yes |
-| `get_platform_album` | `platform/albums.py` | album_id, include_tracks? | yes |
-| `platform_playlists` | `platform/playlists.py` | action(get\|get_tracks\|list\|create\|rename\|delete\|add_tracks\|remove_tracks), playlist_id?, name?, track_ids?, revision? | varies |
-| `platform_liked_tracks` | `platform/likes.py` | action(get_liked\|add\|remove), track_ids? | varies |
+### Schema (introspection)
 
-`platform_playlists` and `platform_liked_tracks` dispatch via `ActionDispatcher` (Command + Registry) — adding a new action is `@_dispatcher.register("name")` plus a handler, no `if/elif` edits.
+| URI | Purpose |
+|---|---|
+| `schema://entities` | List all entity types + their schemas |
+| `schema://entities/{entity}` | Single entity: filters, fields, presets |
+| `schema://providers` | List providers + capabilities |
+| `schema://providers/{name}` | Single provider: supported entities/operations |
 
-## Hidden Tools (explicit unlock required)
+### Session (per-client state)
 
-### Audio Analysis (tag: `audio`, file: `audio.py`)
+| URI | Purpose |
+|---|---|
+| `session://set-draft` | Current set-in-progress (in-memory) |
+| `session://tool-history` | Last N tool calls in session |
+| `session://energy-trend{?limit}` | Adaptive arc — energy direction suggestion |
 
-| Tool | Params | Timeout |
-|------|---------|---------|
-| `analyze_track` | track_id?, track_query?, analyzers?, force?, level? | 120s |
-| `analyze_batch` | track_ids?\|playlist_id?, analyzers?, level?, force? | 600s |
-| `separate_stems` | track_id?, track_query?, stems? | 300s |
-| `classify_track` | track_id | — |
-| `gate_track` | track_id, criteria? | — |
-| `get_similar_tracks` | ym_track_id, limit?, min/max_duration_ms?, genre_filter?, genre_blacklist?, exclude_patterns? | — |
+### Reference (static knowledge)
 
-### Memory (tag: `memory`, file: `memory.py`)
+| URI | Purpose |
+|---|---|
+| `reference://camelot` | Camelot wheel topology |
+| `reference://subgenres` | 15 techno subgenres + scoring weights |
+| `reference://templates` | 8 set templates (warm_up_30, classic_60, …) |
+| `reference://audit_rules` | Techno audit thresholds |
 
-Hidden by default; unlock via `unlock_tools`. Dispatch tools consolidate prior per-action MCP tools.
+## Prompts (6, namespace `workflow`)
 
-| Tool | Params | RO |
-|------|--------|-----|
-| `track_feedback` | action(like\|ban\|rate\|get\|list_liked\|list_banned), track_id?, rating?, notes?, ... | varies |
-| `transition_history` | action(log\|list\|best_pairs\|react), from_track_id?, to_track_id?, entry_id?, reaction?, ... | varies |
-| `track_affinity` | action(refresh\|get_pair\|recommend), track_id?, track_a_id?, track_b_id?, limit?, ... | varies |
-| `scoring_profile` | action(create\|list\|get_weights), name?, weights?, description?, profile_name?, ... | varies |
-| `session_arc` | action(trend\|suggest\|full_arc), last_n?, limit?, ... | varies |
+| Prompt | Purpose |
+|---|---|
+| `dj_expert_session` | Prime the LLM with domain knowledge (Camelot, subgenres, templates, audit rules) |
+| `build_set_workflow` | End-to-end recipe: playlist → optimize → score → persist |
+| `deliver_set_workflow` | Export a set (+ optional YM sync) with conflict gate |
+| `expand_playlist_workflow` | Provider discovery + import + analyze to grow a playlist |
+| `full_pipeline` | Chain expand → build → deliver |
+| `quick_mix_check` | Single pairwise mix compatibility (a→b) |
 
-## Summary
+## Visibility
 
-| Category | Tag | Visibility |
-|----------|-----|-----------|
-| CRUD (tracks + playlists + sets) | `core` | Always |
-| Search | `core` | Always |
-| Set Building | `sets` | Always |
-| Set Reasoning | `sets` | Always |
-| Admin | `admin` | Always |
-| Delivery & Export | `delivery` | Unlockable |
-| Discovery & Download | `discovery` | Unlockable |
-| Curation | `curation` | Unlockable |
-| Sync | `sync` | Unlockable |
-| Platform API | `platform` | Unlockable |
-| Audio Analysis | `audio` | Unlockable |
-| Memory | `memory` | Unlockable |
-| `transition://{from_id}/{to_id}/score` (resource) | — | Always |
-| `session://tool-history` (resource) | — | Always |
+| Namespace | Tools | Default |
+|---|---|---|
+| `crud:read` | entity_list, entity_get, entity_aggregate | visible |
+| `crud:write` | entity_create | visible |
+| `crud:destructive` | entity_update, entity_delete | **locked** |
+| `provider:read` | provider_read, provider_search | visible |
+| `provider:write` | provider_write | **locked** |
+| `compute` | transition_score_pool, sequence_optimize | visible |
+| `sync` | playlist_sync | **locked** |
+| `admin` | unlock_namespace | visible |
+| `workflow` | all prompts | visible |
 
-> **Note:** All 7 extended/hidden categories start disabled. Use `unlock_tools(action="unlock", category="all")`
-> to enable them — this triggers `notifications/tools/list_changed` so the client re-fetches the tool list.
-> `unlock_tools` is **per-session**: visibility changes affect only the current MCP session, not other clients.
+Unlock hidden namespaces for the current session via
+`unlock_namespace(namespace="provider:write", action="unlock")` or
+`namespace="all"`. FastMCP fires `notifications/tools/list_changed` so the
+client re-fetches the tool list.
 
-## Legend
+## Tool count history
 
-- **RO**: readOnlyHint annotation (yes = no side effects)
-- **?**: optional parameter
-- **\|**: alternative (enum values)
+| Version | Count | Notes |
+|---|---|---|
+| v0.8.0 | 88 | 61 visible + 27 hidden; narrow per-operation tools |
+| v1.0.0 | 13 | Generic dispatchers + polymorphism; resources/prompts carry the rest |

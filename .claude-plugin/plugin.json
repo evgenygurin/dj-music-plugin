@@ -1,7 +1,7 @@
 {
   "name": "dj-music",
-  "version": "0.8.2",
-  "description": "DJ techno music library management — MCP tools for set building, audio analysis, playlist expansion, and Yandex Music integration",
+  "version": "0.7.1",
+  "description": "DJ techno music library management — 50 MCP tools for set building, audio analysis, playlist expansion, and Yandex Music integration",
   "author": {
     "name": "Evgeny Gurin",
     "url": "https://github.com/evgenygurin"
@@ -17,7 +17,10 @@
     },
     "db": {
       "command": "bash",
-      "args": ["${CLAUDE_PLUGIN_ROOT}/scripts/start-supabase-mcp.sh"]
+      "args": [
+        "-c",
+        "cd \"${CLAUDE_PLUGIN_ROOT}\" && set -a && source .env 2>/dev/null && set +a && SUPABASE_ACCESS_TOKEN=\"${DJ_DB_ACCESS_TOKEN:?DJ_DB_ACCESS_TOKEN not set in .env}\" exec npx -y @supabase/mcp-server-supabase@0.7.0 --read-only --project-ref=bowosphlnghhgaulcyfm --features=database,docs,debug"
+      ]
     }
   }
 }

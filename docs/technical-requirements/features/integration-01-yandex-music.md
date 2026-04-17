@@ -2,7 +2,7 @@
 
 **Phase**: Integration
 **Status**: completed
-**MCP Tools**: `search_platform`, `get_platform_tracks`, `get_platform_artist_tracks`, `get_platform_album`, `platform_playlists`, `platform_liked_tracks` (hidden)
+**MCP Tools**: `ym_search`, `ym_get_tracks`, `ym_artist_tracks`, `ym_get_album`, `ym_playlists`, `ym_likes` (hidden)
 **Services**: `YandexMusicClient`
 
 ## BR-YM-001: Yandex Music API Integration
@@ -16,7 +16,7 @@
 #### US-YM-001: As a DJ, I want to search YM for tracks
 
 **Acceptance Criteria:**
-- [x] AC-YM-001: Given a query, when `search_platform(query="Amelie Lens", type="tracks")` is called, then return platform track metadata
+- [x] AC-YM-001: Given a query, when `ym_search(query="Amelie Lens", type="tracks")` is called, then return YM track metadata
 - [x] AC-YM-002: Rate limiting enforced — 1.5s between requests, exponential backoff on 429
 
 #### US-YM-002: As a DJ, I want to manage YM playlists

@@ -25,13 +25,13 @@ export async function distributeToSubgenres(
   return result
 }
 
-export async function pushSetToPlatform(
+export async function pushSetToYm(
   setId: number,
   playlistName?: string
 ): Promise<ToolCallResult> {
-  const result = await callTool('push_set_to_platform', {
+  const result = await callTool('push_set_to_ym', {
     set_id: setId,
-    platform_playlist_name: playlistName,
+    ym_playlist_name: playlistName,
   })
   revalidateTag('sets', 'default')
   return result

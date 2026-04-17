@@ -12,7 +12,7 @@ import numpy as np
 from app.audio.analyzers.base import BaseAnalyzer, register_analyzer
 from app.audio.core.context import AnalysisContext
 from app.audio.core.tonal import compute_pitch_class_chroma
-from app.core.constants import CAMELOT_KEYS
+from app.shared.constants import CAMELOT_KEYS
 
 _ROOT_TO_PITCH_CLASS = {
     "C": 0,

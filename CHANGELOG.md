@@ -6,32 +6,44 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
-## [0.8.2] — 2026-04-17
+## [1.0.0] — 2026-04-17
+
+**Major release — global refactor to v1 bounded-contexts architecture.**
 
 ### Added
-- **`/help` command** — concise overview of skills, commands, agent, MCP tool categories and quick-start examples for plugin discoverability
-- **`/review-set` skill** — dedicated workflow for analyzing set quality, scoring transitions, explaining weak pairs, and proposing replacements without rebuilding (closes a gap that previously lived only in the dj-assistant agent body)
+- **EntityRegistry** — polymorphic CRUD over 13 entity types (tracks, playlists, sets, transitions, ...)
+- **ProviderRegistry** — pluggable music-platform providers (Yandex, stubs for Spotify/Beatport/SoundCloud)
+- **UnitOfWork** — single-session-per-tool transaction boundary
+- **16 middlewares** composed into `build_mcp_server()`: error_handling, sentry_context, otel_tracing, timing, audit_log, retry, response_limit, response_caching, deprecation_warning, cost_tracking, sampling_budget, progress_throttle, tool_timeout, provider_rate_limit, db_session, structured_logging
+- **Domain layer**: pure `app/domain/{transition,optimization,camelot,template,audit}/` — scorer parity at 1e-9 vs legacy
+- **Audio layer**: ported 18 analyzers to `app/audio/` with SharedMemory transport + per-worker AnalysisContext cache
+- **Resources layer**: ~27 URI resources (entity-scoped, session-scoped, schema introspection, 4 static reference blobs)
+- **Prompts layer**: 6 workflow recipes (dj_expert_session, build_set_workflow, deliver_set_workflow, expand_playlist_workflow, full_pipeline, quick_mix_check)
+- **REST API**: thin FastAPI wrapper under `app/rest/` (extra `[http]`)
+- **Observability**: Sentry + OpenTelemetry bootstrap under `[observability]` extra
+- **AuditSettings**: 22 techno-audit thresholds accessible via `settings.audit.*`
+- **Smoke test script**: `scripts/smoke_test_all_tools.py` verifying tool/resource/prompt registration end-to-end through `Client(mcp)`
 
 ### Changed
-- Moved `hooks/pre-push` → `.githooks/pre-push` to separate git hooks from Claude Code hooks (which live in `hooks/hooks.json`); install via `git config core.hooksPath .githooks`
-- Made `bg-campaign-context.txt` SessionStart hook defensive — now requires both `scripts/ym_bfs_expand.py` and the context file to exist; downstream installs without the BG infra no longer get orphan instructions
-- Replaced stale "50 MCP tools" marketing copy across `plugin.json`, `marketplace.json`, `README.md`, `agents/dj-assistant.md`, and `hooks/hooks.json` startup message with accurate "42 visible + 7 hidden categories" phrasing
-- Updated SessionStart context message to reflect the actual skill / command split (skills: build-set, deliver-set, expand-playlist, curate-library, review-set, ym-sync; commands: panel, panel-setup, help)
-
-## [0.8.1] — 2026-04-17
-
-### Fixed
-- **Supabase MCP server in git worktrees** — `db` server now walks up from `${CLAUDE_PLUGIN_ROOT}` to find `.env`, so worktrees inherit `DJ_DB_ACCESS_TOKEN` from the main repo checkout instead of failing to start
-- **`SessionStart` jq hook** — guarded against missing `hooks/bg-campaign-context.txt` (silent fallback instead of crash)
-
-### Changed
-- Extracted `db` MCP server bash command into `scripts/start-supabase-mcp.sh` for portability
-- `marketplace.json` `author` field now includes `url` to match `plugin.json`
+- **88 narrow tools → 13 generic dispatchers**: `entity_create/get/update/delete/list/aggregate`, `provider_search/resolve/download`, `sequence_optimize`, `transition_score_pool`, `playlist_sync`, `unlock_namespace`
+- **Package layout**: flat `app/{tools,resources,prompts,handlers,repositories,registry,providers,domain,audio,schemas,server,rest,shared,config,models,db}/` — no more `app/controllers/`, `app/services/`, `app/entities/`, `app/engines/`
+- **Settings**: split into 8 per-domain Pydantic settings classes (`audio`, `audit`, `database`, `delivery`, `discovery`, `mcp`, `optimization`, `transition`, `yandex`) aggregated via `get_settings()`
+- **FastMCP composition**: explicit `FastMCP(providers=[FileSystemProvider(...)], transforms=[PromptsAsTools, ResourcesAsTools, BM25SearchTransform], lifespan=..., sampling_handler=...)`
+- **Import-linter contracts**: reduced to 5 v1-scoped architectural gates
 
 ### Removed
-- Stale project-level `.mcp.json` — entries were duplicating `plugin.json` `mcpServers` (`dj-music`), pointing to VM-only paths (`ssh-manager` → `/opt/node22`, `/root/.ssh`), or referencing a user-specific local plugin cache (`fastmcp-reference`). Plugin's MCP config now lives solely in `plugin.json` `mcpServers`.
-- Orphaned `.claude/hooks/start-servers.sh` — leftover Claude Code Web (`CLAUDE_CODE_REMOTE=true`) bootstrap script not registered in any hooks config.
-- Dead `@.claude/rules/llm-sampling.md` reference in `agents/dj-assistant.md` — file never existed; replaced with inline guidance.
+- ~53,454 LOC of legacy sources: `app/engines/`, `app/infrastructure/`, `app/ym/`, `app/services/` (39 files), `app/controllers/`, `app/bootstrap/`, `app/api/`, `app/schemas/`, `app/transition/`, `app/optimization/`, `app/camelot/`, `app/templates/`, `app/audit/`, `app/entities/`, `app/audio/`, `app/core/`, `app/db/`, `app/config.py`, `app/server.py`, `app/telemetry.py`, `app/_version.py`
+- 15 dead DB tables (drop migration `p2_drop_dead_tables`)
+
+### Migration notes
+
+- Panel (`panel/`) server actions call consolidated dispatchers — tool names and argument shapes changed; panel requires follow-up patch
+- `scripts/vm_import_and_analyze.py` + `scripts/ym_bfs_expand.py` stubbed — require rewrite against `app.providers.yandex.*` + `app.handlers.*` (post-v1.0.0)
+- Alembic `p2_drop_dead_tables` migration deferred to manual apply against Supabase after release
+
+### Phase tags
+
+Refactor executed in 7 phases, each tagged: `phase-1-foundation` → `phase-2-persistence` → `phase-3-tools` → `phase-6-domain-audio` → `phase-4-resources` → `phase-5-server` → v1.0.0 cutover.
 
 ## [0.8.0] — 2026-04-13
 

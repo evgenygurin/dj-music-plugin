@@ -56,7 +56,7 @@ from app.audio.analyzers.base import AnalyzerRegistry, BaseAnalyzer
 from app.audio.core.context import AnalysisContext
 from app.audio.core.loader import AudioLoader
 from app.audio.core.types import AnalyzerResult, AudioSignal, FrameParams
-from app.config import settings
+from app.config import get_settings
 
 # Stitched-clip strategy parameters. Three windows from across the track
 # at positions corresponding to (i + 0.5) / N for i in 0..N-1, i.e. 1/6,
@@ -445,7 +445,7 @@ class AnalysisPipeline:
         pool = self._get_pool()
         loop = asyncio.get_running_loop()
         params = FrameParams()  # default frame params; matches AnalysisContext default
-        cache_max_size = settings.audio_process_worker_cache_size
+        cache_max_size = get_settings().audio.process_worker_cache_size
 
         # Pre-compute clip variants once per unique clip duration.
         # Stitched-window construction does numpy concat + hann fades

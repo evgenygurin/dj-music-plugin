@@ -46,7 +46,7 @@ logging.getLogger("urllib3").setLevel(logging.WARNING)
 
 ```python
 logging.getLogger("app.audio").setLevel(logging.INFO)
-logging.getLogger("app.services.tiered_pipeline").setLevel(logging.INFO)
+logging.getLogger("app.handlers.tiered_pipeline").setLevel(logging.INFO)
 ```
 
 ## Per-task progress

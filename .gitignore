@@ -18,6 +18,13 @@ build/
 *.swp
 *.swo
 
+# Worktrees
+.worktrees/
+.claude/worktrees/
+
+# Plugin build artifact
+*.plugin
+
 # Testing
 .pytest_cache/
 .mypy_cache/
@@ -32,6 +39,10 @@ htmlcov/
 # Claude Code local
 CLAUDE.local.md
 .claude/settings.local.json
+.claude/scheduled_tasks.lock
+.claude/scheduled_tasks.json
+# DJ Music Plugin per-project settings (template committed as *.example)
+.claude/dj-music.local.md
 
 # Override global .gitignore: track .claude/rules/, settings.json, and .mcp.json
 !.claude/
@@ -42,7 +53,6 @@ CLAUDE.local.md
 
 # Audio cache & generated output
 cache/
-logs/
 generated-sets/
 
 # In-Memoria (codebase intelligence)
@@ -61,8 +71,4 @@ panel/out/
 # OS
 .DS_Store
 Thumbs.db
-.claude/selectel_key
-errors.log
-.claude/selectel_key
-errors.log
-.firecrawl/
+.superpowers/

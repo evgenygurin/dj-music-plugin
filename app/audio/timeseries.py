@@ -22,14 +22,17 @@ from typing import Any
 
 import numpy as np
 
-from app.config import settings
+from app.config import get_settings
 
 
 class TimeseriesStorage:
     """Save and load frame-level feature data as NPZ files on disk."""
 
     def __init__(self, base_dir: str | None = None) -> None:
-        self._base_dir = Path(base_dir) if base_dir else Path(settings.cache_dir) / "timeseries"
+        if base_dir:
+            self._base_dir = Path(base_dir)
+        else:
+            self._base_dir = Path(get_settings().audio.cache_dir) / "timeseries"
 
     def _track_dir(self, track_id: int) -> Path:
         """Get the directory for a track's timeseries data."""

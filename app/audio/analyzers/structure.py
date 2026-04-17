@@ -21,7 +21,7 @@ import numpy as np
 
 from app.audio.analyzers.base import BaseAnalyzer, register_analyzer
 from app.audio.core.context import AnalysisContext
-from app.core.constants import SectionType
+from app.shared.constants import SectionType
 
 # Minimum segment duration in seconds — prevents tiny fragments
 _MIN_SEGMENT_SECONDS: float = 4.0

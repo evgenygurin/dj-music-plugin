@@ -1,7 +1,7 @@
 ---
 name: deliver-set
 description: "Use when the user asks to deliver a set, export a set, finalize a set, do a rekordbox export, sync a set to YM, or generate a cheat sheet. Covers M3U8, Rekordbox XML, JSON guide, cheat sheet export and YM sync."
-version: 0.8.2
+version: 0.7.1
 ---
 
 # Deliver DJ Set Workflow
@@ -24,16 +24,15 @@ Guide the user through exporting a completed DJ set in various formats.
    - Copies numbered MP3 files: `01. Track Title.mp3`, etc.
    - Handles iCloud stubs (skips copy, references original path)
 
-   ### Format Selection
-   - `deliver_set(set_id=..., formats=["m3u8"])` — only M3U8 with DJ tags
-   - `deliver_set(set_id=..., formats=["rekordbox"])` — only Rekordbox-compatible XML
-   - `deliver_set(set_id=..., formats=["json"])` — only structured JSON guide with analytics
-   - `deliver_set(set_id=..., formats=["cheatsheet"])` — only human-readable transition notes
-   - Combine any subset; pass `copy_files=false` to skip MP3 copy
+   ### Individual Export
+   - `export_set(set_id=..., format="m3u8")` — M3U8 with DJ tags
+   - `export_set(set_id=..., format="rekordbox")` — Rekordbox-compatible XML
+   - `export_set(set_id=..., format="json")` — full JSON guide with analytics
+   - `export_set(set_id=..., format="cheatsheet")` — human-readable transition notes
 
 3. **Optional: Sync to Yandex Music**
    - `deliver_set(set_id=..., sync_to_ym=true)` — push as YM playlist
-   - Or standalone: `push_set_to_platform(set_id=..., platform_playlist_name="...", mode="auto")`
+   - Or standalone: `push_set_to_ym(set_id=..., ym_playlist_name="...", mode="auto")`
    - `mode` ∈ `{create, update, auto}` — `auto` updates an existing YM playlist with the same name, otherwise creates a new one
 
 4. **Verify output**
@@ -53,7 +52,7 @@ Guide the user through exporting a completed DJ set in various formats.
 ## Rekordbox Options
 
 ```text
-deliver_set(set_id=..., formats=["rekordbox"], rekordbox_options={
+export_set(set_id=..., format="rekordbox", rekordbox_options={
     "include_cue_points": true,
     "include_saved_loops": true,
     "include_beatgrid": true,

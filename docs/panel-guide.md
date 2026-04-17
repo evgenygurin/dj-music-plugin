@@ -25,7 +25,7 @@ Next.js dashboard for monitoring and analytics of the DJ music library.
 | `/playlists/[id]` | Playlist detail | Playlist tracks with features |
 | `/sets` | Set list | `queries/sets.ts` — with version info |
 | `/sets/[id]` | Set detail | Set tracks, transitions, energy arc |
-| `/discover` | Platform Search | Server action `searchPlatform` → MCP `search_platform` |
+| `/discover` | YM Search | Server action `ymSearch` → MCP `ym_search` |
 
 ## Data Flow
 
@@ -35,7 +35,7 @@ READ path (dashboard, listings):
 
 WRITE path (mutations):
   User action → Server action (actions/*.ts) → lib/mcp-client.ts
-    → HTTP POST /api/tools/{name}/call → app/api/server.py → MCP Server → DB
+    → HTTP POST /api/tools/{name}/call → app/rest/app.py → MCP Server → DB
 ```
 
 ## Server Actions
@@ -43,7 +43,7 @@ WRITE path (mutations):
 | File | Actions | MCP Tools Called |
 |------|---------|-----------------|
 | `analysis-actions.ts` | classifyMood, analyzeTrack | classify_mood, analyze_track |
-| `discovery-actions.ts` | searchPlatform, importTracks | search_platform, import_tracks |
+| `discovery-actions.ts` | ymSearch, importTracks | ym_search, import_tracks |
 | `set-actions.ts` | buildSet, rebuildSet, deliverSet, scoreTransitions | build_set, rebuild_set, deliver_set, score_transitions |
 | `sync-actions.ts` | syncPlaylist | sync_playlist |
 
@@ -95,4 +95,4 @@ bun install
 bun dev                        # http://localhost:3000
 ```
 
-Requires running backend: `uv run uvicorn app.api.server:api --port 8000`
+Requires running backend: `uv run uvicorn app.rest.app:api --port 8000`

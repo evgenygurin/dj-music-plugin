@@ -1,51 +1,44 @@
-"""Pydantic DTOs for transition history."""
+"""TransitionHistory DTOs."""
 
 from __future__ import annotations
 
-from datetime import datetime
+from typing import Literal
 
-from pydantic import BaseModel, ConfigDict
-
-
-class TransitionHistoryCreate(BaseModel):
-    from_track_id: int
-    to_track_id: int
-    overall_score: float | None = None
-    bpm_score: float | None = None
-    harmonic_score: float | None = None
-    energy_score: float | None = None
-    spectral_score: float | None = None
-    groove_score: float | None = None
-    timbral_score: float | None = None
-    style: str | None = None
-    duration_sec: float | None = None
-    tempo_match_ratio: float | None = None
-    user_reaction: str | None = None
-    session_id: str | None = None
+from pydantic import BaseModel, ConfigDict, Field
 
 
-class TransitionHistoryRead(BaseModel):
+class TransitionHistoryView(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: int
     from_track_id: int
     to_track_id: int
-    overall_score: float | None
-    bpm_score: float | None
-    harmonic_score: float | None
-    energy_score: float | None
-    spectral_score: float | None
-    groove_score: float | None
-    timbral_score: float | None
-    style: str | None
-    duration_sec: float | None
-    tempo_match_ratio: float | None
-    user_reaction: str | None
-    session_id: str | None
-    created_at: datetime
+    set_id: int | None = None
+    overall_score: float | None = None
+    style: str | None = None
+    reaction: Literal["positive", "neutral", "negative"] | None = None
+    notes: str | None = None
 
 
-class BestPairRead(BaseModel):
-    track_id: int
-    play_count: int
-    avg_score: float | None
-    last_reaction: str | None
+class TransitionHistoryFilter(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    from_track_id__eq: int | None = None
+    to_track_id__eq: int | None = None
+    reaction__eq: Literal["positive", "neutral", "negative"] | None = None
+    overall_score__gte: float | None = None
+
+
+class TransitionHistoryCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    from_track_id: int
+    to_track_id: int
+    set_id: int | None = None
+    overall_score: float | None = Field(default=None, ge=0.0, le=1.0)
+    style: str | None = None
+    reaction: Literal["positive", "neutral", "negative"] | None = None
+    notes: str | None = None
+
+
+class TransitionHistoryUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    reaction: Literal["positive", "neutral", "negative"] | None = None
+    notes: str | None = None

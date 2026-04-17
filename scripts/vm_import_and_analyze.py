@@ -1,4 +1,16 @@
 #!/usr/bin/env python3
+# PHASE-7 CUTOVER NOTE (2026-04-17):
+# This script targets legacy APIs (`app.ym.*`, `app.services.*`,
+# `app.controllers.*`, etc.) that were deleted in Phase 7 (v0.9/v1.0
+# architecture migration). It must be rewritten against the new v1 surface
+# (`app.providers.yandex.*`, `app.repositories.*`, `app.handlers.*`) before
+# it can run again. Do NOT execute as-is — imports will fail.
+# Tracked as BPM-TODO post-v1.0.0.
+raise NotImplementedError(
+    "scripts/vm_import_and_analyze.py needs a v1.0.0 rewrite against "
+    "app.providers.yandex.* and app.repositories.* — see top-of-file note."
+)
+
 """vm_import_and_analyze.py — continuous importer+analyzer for YM techno library.
 
 Loops over user's YM playlists that look like techno and the Liked tracks,
@@ -412,9 +424,9 @@ async def main() -> None:
     from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
     from app.audio.analyzers.base import AnalyzerRegistry
-    from app.clients.ym.client import YandexMusicClient
-    from app.clients.ym.rate_limiter import RateLimiter
     from app.config import settings
+    from app.ym.client import YandexMusicClient
+    from app.ym.rate_limiter import RateLimiter
 
     log.info("=" * 70)
     log.info("DJ Music Plugin — YM Importer + Analyzer")

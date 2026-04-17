@@ -1,4 +1,4 @@
-"""Audio analysis module — layered architecture.
+"""v2 audio analysis module — layered architecture.
 
 Layers:
     core/       — DSP primitives, types (0 app deps)
@@ -9,10 +9,18 @@ Layers:
 
 from app.audio.analyzers import AnalyzerRegistry, BaseAnalyzer
 from app.audio.classification import MoodClassifier, MoodResult
-from app.audio.core import AnalysisContext, AnalyzerResult, AudioLoader, AudioSignal, FrameParams
+from app.audio.core import (
+    AnalysisContext,
+    AnalyzerResult,
+    AudioLoader,
+    AudioSignal,
+    FrameParams,
+)
+from app.audio.level_config import AnalysisLevel, get_analyzers_for_level
 
 __all__ = [
     "AnalysisContext",
+    "AnalysisLevel",
     "AnalyzerRegistry",
     "AnalyzerResult",
     "AudioLoader",
@@ -21,4 +29,5 @@ __all__ = [
     "FrameParams",
     "MoodClassifier",
     "MoodResult",
+    "get_analyzers_for_level",
 ]
