@@ -1,7 +1,7 @@
 {
   "name": "dj-music",
-  "version": "0.7.1",
-  "description": "DJ techno music library management — 50 MCP tools for set building, audio analysis, playlist expansion, and Yandex Music integration",
+  "version": "1.0.1",
+  "description": "DJ techno music library management — 13 generic MCP dispatchers (entity/provider/compute/sync/admin) + 20 resources + 6 prompts. FastMCP v3 bounded-contexts architecture.",
   "author": {
     "name": "Evgeny Gurin",
     "url": "https://github.com/evgenygurin"
