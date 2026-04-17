@@ -32,27 +32,27 @@ from app.v2.shared.errors import ValidationError
 
 
 def _eq(col: Column[Any], val: Any) -> ColumnElement[bool]:
-    return col == val
+    return col == val  # type: ignore[no-any-return]
 
 
 def _ne(col: Column[Any], val: Any) -> ColumnElement[bool]:
-    return col != val
+    return col != val  # type: ignore[no-any-return]
 
 
 def _lt(col: Column[Any], val: Any) -> ColumnElement[bool]:
-    return col < val
+    return col < val  # type: ignore[no-any-return]
 
 
 def _lte(col: Column[Any], val: Any) -> ColumnElement[bool]:
-    return col <= val
+    return col <= val  # type: ignore[no-any-return]
 
 
 def _gt(col: Column[Any], val: Any) -> ColumnElement[bool]:
-    return col > val
+    return col > val  # type: ignore[no-any-return]
 
 
 def _gte(col: Column[Any], val: Any) -> ColumnElement[bool]:
-    return col >= val
+    return col >= val  # type: ignore[no-any-return]
 
 
 def _in(col: Column[Any], val: Any) -> ColumnElement[bool]:

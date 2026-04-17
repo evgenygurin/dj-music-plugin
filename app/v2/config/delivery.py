@@ -26,5 +26,7 @@ class DeliverySettings(BaseSettings):
         default=0.9,
         ge=0.0,
         le=1.0,
-        description="Skip copying files whose local size is < ratio * metadata size (icloud stub).",
+        description=(
+            "Skip copying files whose local size is < ratio * metadata size (icloud stub)."
+        ),
     )

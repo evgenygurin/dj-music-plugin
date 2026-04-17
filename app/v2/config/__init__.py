@@ -53,7 +53,7 @@ class Settings:
     delivery: DeliverySettings
     mcp: MCPSettings
 
-    def __init__(self) -> None:  # type: ignore[misc]
+    def __init__(self) -> None:
         object.__setattr__(self, "database", DatabaseSettings())
         object.__setattr__(self, "yandex", YandexSettings())
         object.__setattr__(self, "audio", AudioSettings())

@@ -43,13 +43,13 @@ async def test_uow_commits_on_success(
 async def test_uow_rolls_back_on_exception(
     prepared_factory: async_sessionmaker[AsyncSession],
 ) -> None:
-    class _Boom(Exception): ...
+    class _BoomError(Exception): ...
 
-    with pytest.raises(_Boom):
+    with pytest.raises(_BoomError):
         async with prepared_factory() as session:
             async with UnitOfWork(session) as uow:
                 uow.session.add(_Widget(id=2, name="will-rollback"))
-                raise _Boom
+                raise _BoomError
 
     async with prepared_factory() as session:
         assert await session.get(_Widget, 2) is None

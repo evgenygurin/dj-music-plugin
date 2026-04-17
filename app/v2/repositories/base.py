@@ -34,7 +34,7 @@ class BaseRepository(Generic[M]):
     # ── single-row ────────────────────────────────────
 
     async def get(self, id: int) -> M | None:
-        return await self.session.get(self.model, id)
+        return await self.session.get(self.model, id)  # type: ignore[arg-type]
 
     async def exists(self, id: int) -> bool:
         return (await self.get(id)) is not None

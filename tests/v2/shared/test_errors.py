@@ -1,6 +1,5 @@
 """Error hierarchy tests."""
 
-
 from app.v2.shared.errors import (
     ConflictError,
     DJMusicError,
