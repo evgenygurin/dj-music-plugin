@@ -7,7 +7,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "echo '{\"hookSpecificOutput\":{\"hookEventName\":\"SessionStart\",\"additionalContext\":\"DJ Music Plugin active (50 MCP tools). Commands: /build-set, /deliver-set, /expand-playlist, /curate-library, /ym-sync, /panel. Use unlock_tools to access hidden tool categories (audio, atomic).\"}}'",
+            "command": "echo '{\"hookSpecificOutput\":{\"hookEventName\":\"SessionStart\",\"additionalContext\":\"DJ Music Plugin active (42 visible MCP tools + hidden categories: delivery/discovery/curation/sync/platform/audio/memory). Skills: /build-set, /deliver-set, /expand-playlist, /curate-library, /review-set, /ym-sync. Commands: /panel, /panel-setup, /help. Use unlock_tools to expose hidden categories.\"}}'",
             "statusMessage": "Loading DJ Music context..."
           }
         ]
@@ -28,7 +28,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "[ -f \"${CLAUDE_PLUGIN_ROOT}/hooks/bg-campaign-context.txt\" ] && jq -Rs '{hookSpecificOutput:{hookEventName:\"SessionStart\",additionalContext:.}}' \"${CLAUDE_PLUGIN_ROOT}/hooks/bg-campaign-context.txt\" || true",
+            "command": "[ -f \"${CLAUDE_PLUGIN_ROOT}/scripts/ym_bfs_expand.py\" ] && [ -f \"${CLAUDE_PLUGIN_ROOT}/hooks/bg-campaign-context.txt\" ] && jq -Rs '{hookSpecificOutput:{hookEventName:\"SessionStart\",additionalContext:.}}' \"${CLAUDE_PLUGIN_ROOT}/hooks/bg-campaign-context.txt\" || true",
             "statusMessage": "Loading BG campaign context..."
           }
         ]

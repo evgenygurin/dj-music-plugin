@@ -4,7 +4,7 @@ MCP-сервер для управления личной DJ techno библио
 
 ## Возможности
 
-- **50 MCP tools** в 12 категориях (46 visible + 4 hidden atomic)
+- **MCP tools в 12 категориях** — 42 visible по умолчанию, остальные unlock'аются через `unlock_tools` (delivery / discovery / curation / sync / platform / audio / memory)
 - **Audio analysis pipeline** — 18 анализаторов в layered architecture с двухфазным параллельным выполнением через `asyncio.to_thread`
 - **DJ set generation** — генетический алгоритм + greedy builder с transition scoring
 - **Transition scoring** — 6-компонентная оценка с persist в DB (BPM, гармония, энергия, спектр, грув, тембр) и context-aware весами
