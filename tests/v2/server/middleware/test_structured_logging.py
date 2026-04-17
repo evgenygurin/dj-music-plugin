@@ -36,7 +36,9 @@ async def test_logs_enter_and_exit(caplog) -> None:
 async def test_logs_error(caplog) -> None:
     mw = StructuredLoggingMiddleware()
     call_next = AsyncMock(side_effect=RuntimeError("boom"))
-    with caplog.at_level(logging.INFO, logger="app.v2.server.middleware.structured_logging"):
-        with pytest.raises(RuntimeError):
-            await mw.on_call_tool(_ctx("x"), call_next)
+    with (
+        caplog.at_level(logging.INFO, logger="app.v2.server.middleware.structured_logging"),
+        pytest.raises(RuntimeError),
+    ):
+        await mw.on_call_tool(_ctx("x"), call_next)
     assert any("call_tool.error" in r.message for r in caplog.records)

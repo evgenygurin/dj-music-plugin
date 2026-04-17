@@ -16,7 +16,7 @@ from fastmcp.server.middleware import Middleware, MiddlewareContext
 from app.v2.config import get_settings
 
 
-class SamplingBudgetExceeded(Exception):
+class SamplingBudgetExceeded(Exception):  # noqa: N818 — plan-defined name
     """Raised when a session has used up its sampling budget."""
 
 
