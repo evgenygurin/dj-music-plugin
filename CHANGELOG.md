@@ -18,6 +18,8 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ### Removed
 - Stale project-level `.mcp.json` — entries were duplicating `plugin.json` `mcpServers` (`dj-music`), pointing to VM-only paths (`ssh-manager` → `/opt/node22`, `/root/.ssh`), or referencing a user-specific local plugin cache (`fastmcp-reference`). Plugin's MCP config now lives solely in `plugin.json` `mcpServers`.
+- Orphaned `.claude/hooks/start-servers.sh` — leftover Claude Code Web (`CLAUDE_CODE_REMOTE=true`) bootstrap script not registered in any hooks config.
+- Dead `@.claude/rules/llm-sampling.md` reference in `agents/dj-assistant.md` — file never existed; replaced with inline guidance.
 
 ## [0.8.0] — 2026-04-13
 

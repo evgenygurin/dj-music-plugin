@@ -127,7 +127,7 @@ BPM 120-155, LUFS -20..-4, HP ratio ≤8, centroid 300-10000 Hz, kick_prominence
 
 ### Expand playlist новыми треками
 1. `audit_playlist` — текущее состояние
-2. `find_similar_tracks(track_id, strategy="llm", search_queries=[...])` — ты сам LLM, формируй queries (см. `@.claude/rules/llm-sampling.md`)
+2. `find_similar_tracks(track_id, strategy="llm", search_queries=[...])` — ты сам LLM, формируй queries из mood/энергии источника
 3. `import_tracks(track_refs=[...])` → `download_tracks` → auto L1+L2 via `classify_mood`
 4. Повторный `audit_playlist` для сравнения
 
