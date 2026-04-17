@@ -109,3 +109,41 @@ async def test_subgenres_feature_shape() -> None:
     for feat in ambient["features"]:
         assert set(feat.keys()) == {"name", "weight", "ideal", "tolerance"}
         assert feat["weight"] > 0
+
+
+# ── Task 16: Set templates ─────────────────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_templates_shape_and_content() -> None:
+    from app.v2.resources.reference.templates import reference_templates
+
+    payload = json.loads(await reference_templates())
+    assert payload["total"] == 8
+    names = {t["name"] for t in payload["templates"]}
+    assert names == {
+        "warm_up_30",
+        "classic_60",
+        "peak_hour_60",
+        "roller_90",
+        "progressive_120",
+        "wave_120",
+        "closing_60",
+        "full_library",
+    }
+    for tpl in payload["templates"]:
+        assert isinstance(tpl["description"], str) and tpl["description"]
+        assert len(tpl["slots"]) > 0
+        for slot in tpl["slots"]:
+            assert 0.0 <= slot["position"] <= 1.0
+            assert slot["bpm_min"] <= slot["bpm_max"]
+            assert 0.0 <= slot["flexibility"] <= 1.0
+
+
+@pytest.mark.asyncio
+async def test_templates_full_library_has_unrestricted_moods() -> None:
+    from app.v2.resources.reference.templates import reference_templates
+
+    payload = json.loads(await reference_templates())
+    full = next(t for t in payload["templates"] if t["name"] == "full_library")
+    assert all(s["target_mood"] is None for s in full["slots"])
