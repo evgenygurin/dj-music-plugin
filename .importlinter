@@ -207,3 +207,45 @@ forbidden_modules =
     app.v2.repositories
     app.v2.models
     app.v2.db
+
+# ──────────────────────────────────────────────────────────────────────
+# Phase 6: v2 domain + audio contracts
+# ──────────────────────────────────────────────────────────────────────
+
+# app.v2.domain must be pure — no DB, transport, providers, tools, HTTP.
+# Allowed deps: app.v2.config, app.v2.shared, numpy, stdlib.
+[importlinter:contract:v2-domain-pure]
+name = app.v2.domain must be pure (no DB, transport, providers, tools)
+type = forbidden
+source_modules =
+    app.v2.domain
+forbidden_modules =
+    app.v2.db
+    app.v2.repositories
+    app.v2.providers
+    app.v2.handlers
+    app.v2.tools
+    app.v2.server
+    fastmcp
+    httpx
+    sqlalchemy
+
+# app.v2.audio sits below domain.transition in band ordering. May use
+# domain.transition.features (TrackFeatures dataclass) but must not
+# reach up into the scorer, DB, transport, providers, or tools.
+[importlinter:contract:v2-audio-internal]
+name = app.v2.audio must not import DB, transport, providers, tools, or scorer
+type = forbidden
+source_modules =
+    app.v2.audio
+forbidden_modules =
+    app.v2.db
+    app.v2.repositories
+    app.v2.providers
+    app.v2.handlers
+    app.v2.tools
+    app.v2.server
+    app.v2.domain.transition.scorer
+    fastmcp
+    httpx
+    sqlalchemy
