@@ -51,3 +51,61 @@ async def test_camelot_adjacent_is_distance_one() -> None:
     # 8A -> 8B (relative mode), 7A, 9A are distance 1
     dist_to_8b = next(e for e in k_8a["compat_edges"] if e["target_notation"] == "8B")
     assert dist_to_8b["distance"] == 1
+
+
+# ── Task 15: Subgenre profiles ─────────────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_subgenres_shape_and_content() -> None:
+    from app.v2.resources.reference.subgenres import reference_subgenres
+
+    payload = json.loads(await reference_subgenres())
+    assert payload["total"] == 15
+    assert len(payload["profiles"]) == 15
+
+    names = [p["subgenre"] for p in payload["profiles"]]
+    # Low-to-high energy ordering
+    assert names[0] == "ambient_dub"
+    assert names[-1] == "hard_techno"
+
+    # All 15 required subgenres present
+    expected = {
+        "ambient_dub",
+        "dub_techno",
+        "minimal",
+        "detroit",
+        "melodic_deep",
+        "progressive",
+        "hypnotic",
+        "driving",
+        "tribal",
+        "breakbeat",
+        "peak_time",
+        "acid",
+        "raw",
+        "industrial",
+        "hard_techno",
+    }
+    assert set(names) == expected
+
+    # Catch-all penalty flag matches catch_all list
+    catch_all = set(payload["catch_all"])
+    assert catch_all == {"driving", "hypnotic"}
+    for p in payload["profiles"]:
+        expected_flag = p["subgenre"] in catch_all
+        assert p["is_catch_all"] == expected_flag
+        if expected_flag:
+            assert p["catch_all_penalty"] > 0
+
+
+@pytest.mark.asyncio
+async def test_subgenres_feature_shape() -> None:
+    from app.v2.resources.reference.subgenres import reference_subgenres
+
+    payload = json.loads(await reference_subgenres())
+    ambient = next(p for p in payload["profiles"] if p["subgenre"] == "ambient_dub")
+    assert len(ambient["features"]) > 0
+    for feat in ambient["features"]:
+        assert set(feat.keys()) == {"name", "weight", "ideal", "tolerance"}
+        assert feat["weight"] > 0
