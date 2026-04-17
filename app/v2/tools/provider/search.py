@@ -29,7 +29,7 @@ async def provider_search(
     ] = "tracks",
     limit: Annotated[int, Field(ge=1, le=100)] = 20,
     registry: ProviderRegistry = Depends(get_provider_registry),
-    ctx: Context = CurrentContext(),  # noqa: B008
+    ctx: Context = CurrentContext(),
 ) -> ProviderSearchResult:
     adapter = registry.get(provider)
     raw = await adapter.search(query, type=type, limit=limit)

@@ -30,7 +30,7 @@ async def transition_score_pool(
     intent: Annotated[str | None, Field(description="Optional transition intent override")] = None,
     uow: UnitOfWork = Depends(get_uow),
     scorer=Depends(get_transition_scorer),
-    ctx: Context = CurrentContext(),  # noqa: B008
+    ctx: Context = CurrentContext(),
 ) -> ScorePoolResult:
     if not track_ids:
         return ScorePoolResult(track_ids=[], pairs=[], hard_rejects=0)

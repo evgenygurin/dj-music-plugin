@@ -44,9 +44,9 @@ async def playlist_sync(
         str, Field(description="Provider name (matches platform_ids key)")
     ] = "yandex",
     dry_run: Annotated[bool, Field(description="Preview without applying")] = False,
-    uow: UnitOfWork = Depends(get_uow),  # noqa: B008
-    registry: ProviderRegistry = Depends(get_provider_registry),  # noqa: B008
-    ctx: Context = CurrentContext(),  # noqa: B008
+    uow: UnitOfWork = Depends(get_uow),
+    registry: ProviderRegistry = Depends(get_provider_registry),
+    ctx: Context = CurrentContext(),
 ) -> PlaylistSyncResult:
     pl = await uow.playlists.get(playlist_id)
     if pl is None:

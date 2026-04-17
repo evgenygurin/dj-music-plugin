@@ -58,7 +58,7 @@ async def entity_list(
     cursor: str | None = None,
     with_total: bool = False,
     uow: UnitOfWork = Depends(get_uow),
-    ctx: Context = CurrentContext(),  # noqa: B008
+    ctx: Context = CurrentContext(),
 ) -> EntityListResult:
     config = EntityRegistry.get(entity)
     if "list" not in config.allowed_ops:

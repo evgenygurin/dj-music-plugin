@@ -49,7 +49,7 @@ async def entity_get(
         list[str] | None, Field(description="Relations to eager-load")
     ] = None,
     uow: UnitOfWork = Depends(get_uow),
-    ctx: Context = CurrentContext(),  # noqa: B008
+    ctx: Context = CurrentContext(),
 ) -> EntityGetResult:
     config = EntityRegistry.get(entity)
     if "get" not in config.allowed_ops:

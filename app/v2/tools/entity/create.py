@@ -48,7 +48,7 @@ async def entity_create(
     ],
     uow: UnitOfWork = Depends(get_uow),
     registry: ProviderRegistry = Depends(get_provider_registry),
-    ctx: Context = CurrentContext(),  # noqa: B008
+    ctx: Context = CurrentContext(),
 ) -> EntityCreateResult:
     config = EntityRegistry.get(entity)
     if "create" not in config.allowed_ops:

@@ -45,7 +45,7 @@ async def entity_delete(
     id: Annotated[int, Field(ge=1, description="Entity primary key")],
     uow: UnitOfWork = Depends(get_uow),
     registry: ProviderRegistry = Depends(get_provider_registry),
-    ctx: Context = CurrentContext(),  # noqa: B008
+    ctx: Context = CurrentContext(),
 ) -> EntityDeleteResult:
     config = EntityRegistry.get(entity)
     if "delete" not in config.allowed_ops:

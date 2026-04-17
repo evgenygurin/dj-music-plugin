@@ -31,7 +31,7 @@ async def provider_read(
         dict[str, Any] | None, Field(description="Extra params (offset, limit, etc.)")
     ] = None,
     registry: ProviderRegistry = Depends(get_provider_registry),
-    ctx: Context = CurrentContext(),  # noqa: B008
+    ctx: Context = CurrentContext(),
 ) -> ProviderReadResult:
     adapter = registry.get(provider)
     data = await adapter.read(entity, id=id, params=params or {})

@@ -49,7 +49,7 @@ async def entity_update(
     data: Annotated[dict[str, Any], Field(description="Partial update payload")],
     uow: UnitOfWork = Depends(get_uow),
     registry: ProviderRegistry = Depends(get_provider_registry),
-    ctx: Context = CurrentContext(),  # noqa: B008
+    ctx: Context = CurrentContext(),
 ) -> EntityUpdateResult:
     config = EntityRegistry.get(entity)
     if "update" not in config.allowed_ops:

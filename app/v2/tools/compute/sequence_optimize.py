@@ -38,7 +38,7 @@ async def sequence_optimize(
     uow: UnitOfWork = Depends(get_uow),
     scorer=Depends(get_transition_scorer),
     optimizer_builder=Depends(get_optimizer),
-    ctx: Context = CurrentContext(),  # noqa: B008
+    ctx: Context = CurrentContext(),
 ) -> SequenceOptimizeResult:
     features = await uow.track_features.get_scoring_features_batch(track_ids)
     features_list = [features.get(tid) for tid in track_ids]

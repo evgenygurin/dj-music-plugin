@@ -90,7 +90,7 @@ def test_register_duplicate_raises() -> None:
 
 def test_config_is_frozen() -> None:
     cfg = _make_config()
-    with pytest.raises(Exception):  # noqa: B017 — FrozenInstanceError subclass
+    with pytest.raises(Exception):
         cfg.name = "other"  # type: ignore[misc]
 
 

@@ -49,7 +49,7 @@ async def unlock_namespace(
     action: Annotated[
         Literal["unlock", "lock", "status"], Field(description="What to do")
     ] = "status",
-    ctx: Context = CurrentContext(),  # noqa: B008
+    ctx: Context = CurrentContext(),
 ) -> UnlockNamespaceResult:
     if namespace not in NAMESPACES:
         raise ValueError(f"unknown namespace: {namespace}")

@@ -49,7 +49,7 @@ async def entity_aggregate(
     group_by: Annotated[str | None, Field(description="Group column")] = None,
     filters: Annotated[dict[str, Any] | None, Field(description="Django-style filters")] = None,
     uow: UnitOfWork = Depends(get_uow),
-    ctx: Context = CurrentContext(),  # noqa: B008
+    ctx: Context = CurrentContext(),
 ) -> AggregateResult:
     config = EntityRegistry.get(entity)
     if "aggregate" not in config.allowed_ops:

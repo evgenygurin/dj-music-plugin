@@ -53,7 +53,9 @@ ignore = [
 "app/services/**" = ["E501"]  # long f-strings in error messages
 "app/controllers/tools/**" = ["E501"]  # tool descriptions and f-strings
 "app/api/**" = ["E501", "RUF001", "RUF002", "B008"]  # Swagger examples + multilingual docs + FastAPI Query/Body defaults
-"tests/**" = ["E501", "RUF012"]  # test assertions can be long, mock classes OK
+"app/v2/tools/**" = ["B008"]  # FastMCP DI: Depends() in arg defaults is correct
+"app/v2/handlers/**" = ["B008", "E501"]  # FastMCP handler conventions
+"tests/**" = ["E501", "RUF012", "B017"]  # tests can use blind pytest.raises
 
 [tool.ruff.lint.isort]
 known-first-party = ["app"]

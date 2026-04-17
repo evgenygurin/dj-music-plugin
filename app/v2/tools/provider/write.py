@@ -31,7 +31,7 @@ async def provider_write(
         dict[str, Any], Field(description="Operation payload (shape depends on op)")
     ],
     registry: ProviderRegistry = Depends(get_provider_registry),
-    ctx: Context = CurrentContext(),  # noqa: B008
+    ctx: Context = CurrentContext(),
 ) -> ProviderWriteResult:
     adapter = registry.get(provider)
     data = await adapter.write(entity, operation=operation, params=params)
