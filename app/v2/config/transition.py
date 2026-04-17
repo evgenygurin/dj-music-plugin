@@ -32,3 +32,13 @@ class TransitionSettings(BaseSettings):
 
     scoring_bpm_confidence_floor: float = Field(default=0.3, ge=0.0, le=1.0)
     variable_tempo_penalty: float = Field(default=0.05, ge=0.0, le=0.5)
+
+    # Mirror of legacy scoring_* fields (app/config.py) — consumed by
+    # app/v2/domain/transition/components/{bpm,energy}.py. Defaults match
+    # legacy 1:1 to preserve numeric parity.
+    scoring_variable_tempo_penalty: float = Field(default=0.15, ge=0.0, le=1.0)
+    scoring_lra_diff_penalty_threshold: float = Field(default=8.0, ge=0.0, le=30.0)
+    scoring_lra_diff_penalty: float = Field(default=0.10, ge=0.0, le=1.0)
+    scoring_crest_diff_penalty_threshold: float = Field(default=10.0, ge=0.0, le=50.0)
+    scoring_crest_diff_penalty: float = Field(default=0.10, ge=0.0, le=1.0)
+    scoring_energy_slope_bonus: float = Field(default=0.05, ge=0.0, le=1.0)
