@@ -249,3 +249,30 @@ forbidden_modules =
     fastmcp
     httpx
     sqlalchemy
+
+# ── Contract: Resources must not import tools or providers directly ─
+[importlinter:contract:v2-resources-no-tools]
+name = v2 resources must not import tools, handlers, or provider adapters
+type = forbidden
+source_modules =
+    app.v2.resources
+forbidden_modules =
+    app.v2.tools
+    app.v2.handlers
+    app.v2.providers
+
+# ── Contract: Prompts pure (text builders only) ─────────────────────
+[importlinter:contract:v2-prompts-pure]
+name = v2 prompts must be pure text builders (no repos, tools, providers, DB)
+type = forbidden
+source_modules =
+    app.v2.prompts
+forbidden_modules =
+    app.v2.repositories
+    app.v2.tools
+    app.v2.handlers
+    app.v2.providers
+    app.v2.db
+    app.v2.domain
+    sqlalchemy
+    httpx
