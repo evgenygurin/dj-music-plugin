@@ -25,3 +25,11 @@ class AudioSettings(BaseSettings):
     clip_duration_s: float = Field(default=60.0, ge=10.0, le=300.0)
     clip_window_count: int = Field(default=3, ge=1, le=10)
     clip_window_fade_ms: float = Field(default=20.0, ge=0.0, le=200.0)
+
+    # Cache directory root — used by timeseries storage (legacy default preserved).
+    cache_dir: str = Field(default="cache/")
+
+    # Mood classifier catch-all subgenre penalty (legacy default preserved).
+    # Applied to driving + hypnotic to prevent them from dominating the
+    # distribution (they accept a broad feature range).
+    mood_catch_all_penalty: float = Field(default=0.85, ge=0.0, le=1.0)
