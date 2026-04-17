@@ -1,8 +1,6 @@
-"""v2 ORM models. One aggregate root per module.
-
-Import side-effect: all model classes are registered on ``Base.metadata``.
-"""
+"""v2 ORM models."""
 
 from app.v2.models.base import Base, TimestampMixin
+from app.v2.models.key import Key, KeyEdge
 
-__all__ = ["Base", "TimestampMixin"]
+__all__ = ["Base", "Key", "KeyEdge", "TimestampMixin"]
