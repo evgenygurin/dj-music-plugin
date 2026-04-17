@@ -84,6 +84,10 @@ class YandexAdapter:
                 return await self._client.rename_playlist(
                     params["playlist_id"], title=params["title"]
                 )
+            case "set_description":
+                return await self._client.set_playlist_description(
+                    params["playlist_id"], description=params["description"]
+                )
             case "delete":
                 return await self._client.delete_playlist(params["playlist_id"])
             case "add_tracks":
