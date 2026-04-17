@@ -110,4 +110,5 @@ dev = [
     "mypy>=1.13",
     "alembic>=1.14",
     "import-linter>=2.11",
+    "respx>=0.23.1",
 ]
