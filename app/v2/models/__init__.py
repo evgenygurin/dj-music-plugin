@@ -22,6 +22,8 @@ from app.v2.models.track_features import (
     TrackAudioFeaturesComputed,
     TrackSection,
 )
+from app.v2.models.transition import Transition
+from app.v2.models.transition_history import TransitionHistory
 
 __all__ = [
     "Artist",
@@ -49,5 +51,7 @@ __all__ = [
     "TrackGenre",
     "TrackRelease",
     "TrackSection",
+    "Transition",
+    "TransitionHistory",
     "YandexMetadata",
 ]
