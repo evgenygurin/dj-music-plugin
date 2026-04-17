@@ -16,6 +16,9 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 - Extracted `db` MCP server bash command into `scripts/start-supabase-mcp.sh` for portability
 - `marketplace.json` `author` field now includes `url` to match `plugin.json`
 
+### Removed
+- Stale project-level `.mcp.json` — entries were duplicating `plugin.json` `mcpServers` (`dj-music`), pointing to VM-only paths (`ssh-manager` → `/opt/node22`, `/root/.ssh`), or referencing a user-specific local plugin cache (`fastmcp-reference`). Plugin's MCP config now lives solely in `plugin.json` `mcpServers`.
+
 ## [0.8.0] — 2026-04-13
 
 ### Added
