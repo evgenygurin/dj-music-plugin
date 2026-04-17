@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from app.core.constants import TechnoSubgenre
+from app.shared.constants import TechnoSubgenre
 
 
 @dataclass(frozen=True, slots=True)

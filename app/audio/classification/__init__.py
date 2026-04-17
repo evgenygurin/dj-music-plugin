@@ -1,4 +1,4 @@
-"""Mood classification — Layer 2b."""
+"""Mood classification — Layer 2b (v2 port)."""
 
 from app.audio.classification.classifier import MoodClassifier, MoodResult
 from app.audio.classification.profiles import ALL_PROFILES, SubgenreProfile

@@ -1,16 +1,31 @@
 ---
-description: MCP resource implementation patterns
-globs: app/controllers/resources/**/*.py
+description: MCP resource implementation patterns (v1 layout)
+globs: app/resources/**/*.py
 ---
 
 # MCP Resources
 
-- Use standalone `@resource` decorator from `fastmcp` (auto-discovered)
-- Return JSON strings via `json.dumps()` or `ResourceResult` for multi-content
-- Tags required: `tags={"core"}` or `tags={"admin"}`
-- Static resources: fixed URI (e.g., `status://library`)
-- Template resources: parametric URI (e.g., `track://{track_id}/features`)
-- Query parameter resources: `{?param}` syntax (e.g., `catalog://stats{?mood,bpm_min}`)
-- Reference resources: static domain data (Camelot wheel, templates, subgenres)
-- All resources are read-only: `annotations={"readOnlyHint": True}`
-- Use `Depends()` for DB access, same as tools
+- All `@resource` decorators live in `app/resources/` (auto-discovered).
+- Use standalone `@resource` decorator from `fastmcp`.
+- All resources are read-only (`mime_type="application/json"` for JSON).
+- URI schemes:
+  - `local://` — DB-backed entity views
+    (e.g. `local://playlists/{id}`, `local://sets/{id}/{view}`,
+    `local://transition/{from}/{to}/score`).
+  - `schema://` — introspection
+    (`schema://entities`, `schema://entities/{entity}`,
+    `schema://providers/{name}`).
+  - `session://` — per-client state
+    (`session://set-draft`, `session://tool-history`,
+    `session://energy-trend`).
+  - `reference://` — static domain knowledge
+    (`reference://camelot`, `reference://subgenres`,
+    `reference://templates`, `reference://audit_rules`).
+- Template resources: `{id}` for path params, `{?param}` for query params.
+- Return JSON string via `json.dumps()` or a typed Pydantic model.
+- Use `Depends(get_uow)` for DB access (same as tools).
+- Tags default to `{"namespace:resource"}`.
+
+Exposing resources as tools for tool-only clients is handled by
+transforms in `app/server/transforms.py` — do not hand-roll wrapper
+tools.

@@ -3,249 +3,24 @@ root_packages =
     app
 include_external_packages = True
 
-# ── Contract 1: services must be framework-agnostic ─────────────────
-# Services orchestrate domain logic and must not depend on transport (mcp)
-# or HTTP frameworks (fastmcp). Reactivated for Phase 7 enforcement.
-[importlinter:contract:services-no-mcp]
-name = Services must be framework-agnostic (no fastmcp / app.controllers imports)
-type = forbidden
-source_modules =
-    app.services
-forbidden_modules =
-    fastmcp
-    app.controllers
+# v2 contracts (legacy contracts removed — legacy packages deleted in Phase 7).
 
-# ── Contract 2: domain layer (transition scoring) is pure ──────────
-# Pure mathematical scoring must not touch persistence or framework.
-# This already holds — locks the invariant.
-[importlinter:contract:transition-pure]
-name = Transition scoring must be pure (no DB, no MCP, no HTTP)
-type = forbidden
-source_modules =
-    app.transition
-forbidden_modules =
-    app.db.repositories
-    app.db.models
-    app.repositories
-    app.models
-    app.controllers
-    app.services
-    app.ym
-    fastmcp
-    sqlalchemy
-    httpx
-
-# ── Contract 3: domain.optimization is pure ─────────────────────────
-[importlinter:contract:optimization-pure]
-name = Optimization (GA, greedy, fitness) must be pure
-type = forbidden
-source_modules =
-    app.optimization
-forbidden_modules =
-    app.db.repositories
-    app.db.models
-    app.repositories
-    app.models
-    app.controllers
-    app.services
-    app.ym
-    fastmcp
-    sqlalchemy
-    httpx
-
-# ── Contract 4: utils leaf ──────────────────────────────────────────
-[importlinter:contract:utils-leaf]
-name = Utils must not depend on app domain code
-type = forbidden
-source_modules =
-    app.core.utils
-forbidden_modules =
-    app.models
-    app.repositories
-    app.services
-    app.controllers
-    app.audio
-    app.ym
-    app.transition
-    app.optimization
-    app.templates
-    app.audit
-    app.export
-
-# ── Contract 5: API stays above persistence ────────────────────────
-[importlinter:contract:api-no-db]
-name = API layer must not depend on DB models or repositories
-type = forbidden
-source_modules =
-    app.api
-forbidden_modules =
-    app.db.models
-    app.db.repositories
-ignore_imports =
-    app.api.server -> app.server
-
-# ── Contract 6: Engines stay below transport ───────────────────────
-[importlinter:contract:engines-no-transport]
-name = Engines must not depend on API or controllers
-type = forbidden
-source_modules =
-    app.engines
-forbidden_modules =
-    app.api
-    app.controllers
-
-# ──────────────────────────────────────────────────────────────────────
-# Phase 1: v2 structural contracts
-# ──────────────────────────────────────────────────────────────────────
-
-# app.v2.shared must be leaf — no imports from other app.v2 subpackages.
-[importlinter:contract:v2-shared-leaf]
-name = app.v2.shared must not import from other v2 subpackages
-type = forbidden
-source_modules =
-    app.v2.shared
-forbidden_modules =
-    app.v2.config
-    app.v2.registry
-    app.v2.repositories
-    fastmcp
-    httpx
-
-# app.v2.config must not depend on domain code.
-[importlinter:contract:v2-config-indep]
-name = app.v2.config must only depend on pydantic-settings + stdlib
-type = forbidden
-source_modules =
-    app.v2.config
-forbidden_modules =
-    app.v2.registry
-    app.v2.repositories
-    fastmcp
-    sqlalchemy
-    httpx
-
-# app.v2.registry must not depend on repositories (registry is configuration, not behavior).
-[importlinter:contract:v2-registry-indep]
-name = app.v2.registry must not depend on repositories
-type = forbidden
-source_modules =
-    app.v2.registry
-forbidden_modules =
-    app.v2.repositories
-    fastmcp
-allow_indirect_imports = True
-
-# app.v2.repositories must not import FastMCP / HTTP / tools.
-[importlinter:contract:v2-repos-no-transport]
-name = app.v2.repositories must not import FastMCP or HTTP
-type = forbidden
-source_modules =
-    app.v2.repositories
-forbidden_modules =
-    fastmcp
-    httpx
-
-# Old app must not import v2 (one-way gate during transition).
-[importlinter:contract:v2-backflow-gate]
-name = app (legacy) must not import from app.v2
-type = forbidden
-source_modules =
-    app.api
-    app.audio
-    app.audit
-    app.bootstrap
-    app.camelot
-    app.controllers
-    app.core
-    app.db
-    app.engines
-    app.entities
-    app.export
-    app.infrastructure
-    app.optimization
-    app.schemas
-    app.services
-    app.templates
-    app.transition
-    app.ym
-forbidden_modules =
-    app.v2
-
-# ──────────────────────────────────────────────────────────────────────
-# Phase 3: v2 tools + handlers + providers contracts
-# ──────────────────────────────────────────────────────────────────────
-
-[importlinter:contract:v2-handlers-no-transport]
-name = app.v2.handlers must not import v2 tools/resources/rest
-type = forbidden
-source_modules =
-    app.v2.handlers
-forbidden_modules =
-    app.v2.tools
-    app.v2.resources
-    app.v2.rest
-# Handlers legitimately use fastmcp.Context for progress/elicit — permitted.
-
-[importlinter:contract:v2-tools-no-models]
-name = app.v2.tools must not import app.v2.models directly
-type = forbidden
-source_modules =
-    app.v2.tools
-forbidden_modules =
-    app.v2.models
-    app.v2.db
-allow_indirect_imports = True
-
-[importlinter:contract:v2-providers-isolated]
-name = app.v2.providers must not import tools, handlers, repositories, models
-type = forbidden
-source_modules =
-    app.v2.providers
-forbidden_modules =
-    app.v2.tools
-    app.v2.handlers
-    app.v2.repositories
-    app.v2.models
-    app.v2.db
-
-# ──────────────────────────────────────────────────────────────────────
-# Phase 6: v2 domain + audio contracts
-# ──────────────────────────────────────────────────────────────────────
-
-# app.v2.domain must be pure — no DB, transport, providers, tools, HTTP.
-# Allowed deps: app.v2.config, app.v2.shared, numpy, stdlib.
-[importlinter:contract:v2-domain-pure]
-name = app.v2.domain must be pure (no DB, transport, providers, tools)
-type = forbidden
-source_modules =
-    app.v2.domain
-forbidden_modules =
-    app.v2.db
-    app.v2.repositories
-    app.v2.providers
-    app.v2.handlers
-    app.v2.tools
-    app.v2.server
-    fastmcp
-    httpx
-    sqlalchemy
-
-# app.v2.audio sits below domain.transition in band ordering. May use
+# app.audio sits below domain.transition in band ordering. May use
 # domain.transition.features (TrackFeatures dataclass) but must not
 # reach up into the scorer, DB, transport, providers, or tools.
 [importlinter:contract:v2-audio-internal]
-name = app.v2.audio must not import DB, transport, providers, tools, or scorer
+name = app.audio must not import DB, transport, providers, tools, or scorer
 type = forbidden
 source_modules =
-    app.v2.audio
+    app.audio
 forbidden_modules =
-    app.v2.db
-    app.v2.repositories
-    app.v2.providers
-    app.v2.handlers
-    app.v2.tools
-    app.v2.server
-    app.v2.domain.transition.scorer
+    app.db
+    app.repositories
+    app.providers
+    app.handlers
+    app.tools
+    app.server
+    app.domain.transition.scorer
     fastmcp
     httpx
     sqlalchemy
@@ -255,54 +30,54 @@ forbidden_modules =
 name = v2 resources must not import tools, handlers, or provider adapters
 type = forbidden
 source_modules =
-    app.v2.resources
+    app.resources
 forbidden_modules =
-    app.v2.tools
-    app.v2.handlers
-    app.v2.providers
+    app.tools
+    app.handlers
+    app.providers
 
 # ── Contract: Prompts pure (text builders only) ─────────────────────
 [importlinter:contract:v2-prompts-pure]
 name = v2 prompts must be pure text builders (no repos, tools, providers, DB)
 type = forbidden
 source_modules =
-    app.v2.prompts
+    app.prompts
 forbidden_modules =
-    app.v2.repositories
-    app.v2.tools
-    app.v2.handlers
-    app.v2.providers
-    app.v2.db
-    app.v2.domain
+    app.repositories
+    app.tools
+    app.handlers
+    app.providers
+    app.db
+    app.domain
     sqlalchemy
     httpx
 
 # ── Contract: v2 server composition must not pull domain internals ──
 [importlinter:contract:v2-server-no-domain]
-name = app.v2.server may not import app.v2.domain internals
+name = app.server may not import app.domain internals
 type = forbidden
 source_modules =
-    app.v2.server
+    app.server
 forbidden_modules =
-    app.v2.domain
+    app.domain
 
 # ── Contract: v2 REST wrapper must be a thin proxy ──────────────────
-# Only DIRECT imports are forbidden — transitive imports via app.v2.server
+# Only DIRECT imports are forbidden — transitive imports via app.server
 # are allowed (the server is the REST wrapper's sole composition handle).
 [importlinter:contract:v2-rest-no-business]
-name = app.v2.rest may only directly import app.v2.server and app.v2.shared
+name = app.rest may only directly import app.server and app.shared
 type = forbidden
 source_modules =
-    app.v2.rest
+    app.rest
 forbidden_modules =
-    app.v2.domain
-    app.v2.handlers
-    app.v2.tools
-    app.v2.resources
-    app.v2.prompts
-    app.v2.repositories
-    app.v2.models
-    app.v2.db
-    app.v2.providers
-    app.v2.audio
+    app.domain
+    app.handlers
+    app.tools
+    app.resources
+    app.prompts
+    app.repositories
+    app.models
+    app.db
+    app.providers
+    app.audio
 allow_indirect_imports = True

@@ -1,3 +1,14 @@
+# PHASE-7 CUTOVER NOTE (2026-04-17):
+# This script targets legacy APIs (`app.ym.*`, `app.services.*`, etc.) that
+# were deleted in Phase 7 (v0.9/v1.0 architecture migration). It must be
+# rewritten against the new v1 surface (`app.providers.yandex.*`,
+# `app.repositories.*`) before it can run again. Tracked as BPM-TODO
+# post-v1.0.0.
+raise NotImplementedError(
+    "scripts/ym_bfs_expand.py needs a v1.0.0 rewrite against "
+    "app.providers.yandex.* and app.repositories.* — see top-of-file note."
+)
+
 """BFS-expand a YM source playlist via /similar recommendations.
 
 Starts from every track in a source playlist, fetches `ym.get_similar(track)`

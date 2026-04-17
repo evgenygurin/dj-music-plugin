@@ -32,13 +32,13 @@ migrate-new:
 	uv run alembic revision --autogenerate -m "$(msg)"
 
 dev:
-	uv run fastmcp run app/server.py --reload
+	uv run fastmcp run app/server/__init__.py --reload
 
 run:
-	uv run fastmcp run app/server.py
+	uv run fastmcp run app/server/__init__.py
 
 api:
-	uv run --extra http uvicorn app.api.server:api --host 0.0.0.0 --port 8000 --reload
+	uv run --extra http uvicorn app.rest.app:api --host 0.0.0.0 --port 8000 --reload
 
 panel:
 	cd panel && bun dev

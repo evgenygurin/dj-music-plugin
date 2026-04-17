@@ -1,4 +1,10 @@
-"""Temp download utility — download YM track to temp file with auto-cleanup."""
+"""Temp download utility — download YM track to temp file with auto-cleanup.
+
+v2 port: the YM client dependency is injected at runtime and typed as
+``Any`` to keep ``app.audio`` free of legacy imports (no v2 YM
+client exists yet; a full port will retype this once ``app.ym``
+lands).
+"""
 
 from __future__ import annotations
 
@@ -6,15 +12,12 @@ import tempfile
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from app.ym.client import YandexMusicClient
+from typing import Any
 
 
 @asynccontextmanager
 async def temp_download_track(
-    client: YandexMusicClient,
+    client: Any,
     ym_track_id: str,
     prefer_bitrate: int = 320,
 ) -> AsyncIterator[Path]:

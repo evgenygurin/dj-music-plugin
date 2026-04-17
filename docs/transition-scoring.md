@@ -8,7 +8,7 @@
 ## Module Layout
 
 ```text
-app/transition/
+app/domain/transition/
 ├── __init__.py            (public re-exports)
 ├── math_helpers.py        (bpm_distance, cosine_similarity, correlation)
 ├── weights.py             (ALL magic numbers + StyleRules dataclass +
@@ -36,7 +36,7 @@ score = w_bpm * S_bpm + w_harmonic * S_harmonic + w_energy * S_energy
       + w_spectral * S_spectral + w_groove * S_groove + w_timbral * S_timbral
 ```
 
-Default weights (single source of truth: `app/core/constants.py:DEFAULT_TRANSITION_WEIGHTS`, re-exported as `app/transition/weights.py:DEFAULT_WEIGHTS`):
+Default weights (single source of truth: `app/shared/constants.py:DEFAULT_TRANSITION_WEIGHTS`, re-exported as `app/domain/transition/weights.py:DEFAULT_WEIGHTS`):
 
 | Component | Weight | Was | Purpose |
 |-----------|--------|-----|---------|
@@ -51,7 +51,7 @@ Total = 1.00. Rebalance rationale: Kim et al. ISMIR 2020 found MFCC similarity t
 
 ## Hard Constraints
 
-If ANY violated → `TransitionScore(hard_reject=True, overall=0.0, reject_reason=...)`. The gate is `app/transition/hard_constraints.py:check_hard_constraints` (standalone function).
+If ANY violated → `TransitionScore(hard_reject=True, overall=0.0, reject_reason=...)`. The gate is `app/domain/transition/hard_constraints.py:check_hard_constraints` (standalone function).
 
 | Constraint | Threshold | Config |
 |-----------|-----------|--------|
@@ -149,13 +149,13 @@ Four sub-signals from `TIMBRAL_SUB_WEIGHTS`, each normalised to [0, 1] over a do
 1. **Floors `S_harmonic` at `DRUM_ONLY_HARMONIC_FLOOR = 0.85`** (key compatibility loses perceptual relevance on drum-only material — Pioneer DJ blog, Vande Veire & De Bie JASMP 2018).
 2. **Swaps to `DRUM_ONLY_WEIGHT_OVERRIDE`**: bpm 0.22, harmonic 0.05, energy 0.18, spectral 0.20, groove 0.20, timbral 0.15 (Σ=1.00). Harmonic collapsed, groove boosted.
 
-`SectionContext` is built by `app/services/mix_point_service.py:build_section_context` from `track_sections` rows + already-detected mix-out / mix-in points. The detection helpers (`detect_mix_out_point`, `detect_mix_in_point`) quantise to the nearest downbeat following Zehren et al. (CMJ 2022) — >95% of EDM cue points fall on 16-bar phrase boundaries.
+`SectionContext` is built by `app/handlers/mix_point.py:build_section_context` from `track_sections` rows + already-detected mix-out / mix-in points. The detection helpers (`detect_mix_out_point`, `detect_mix_in_point`) quantise to the nearest downbeat following Zehren et al. (CMJ 2022) — >95% of EDM cue points fall on 16-bar phrase boundaries.
 
 When `section_context=None` (the default), behaviour is **identical** to pre-redesign — backward compatible.
 
 ## Context-Aware Intent (`infer_intent` v2)
 
-`app/core/transition_intent.py:infer_intent(set_position, energy_delta_lufs, template=None)`:
+`app/domain/transition/intent.py:infer_intent(set_position, energy_delta_lufs, template=None)`:
 
 Phase boundaries are now per-template (`_TEMPLATE_PHASE_TABLE`):
 
@@ -177,13 +177,13 @@ When `template=None`, the historical 0.20 / 0.85 cutoffs are used — backward c
 
 Transition math is only useful if it is wired into set runtime paths. Current runtime flow:
 
-1. `app/services/set/builder.py` now resolves `template_name` into a real template definition and passes both:
+1. `app/handlers/set_version_build.py` now resolves `template_name` into a real template definition and passes both:
    - `template=<SetTemplateDefinition>` and
    - `moods=<track_id -> mood>`
    into GA/greedy optimizers.
-2. `app/optimization/fitness.py:transition_quality` now calls
+2. `app/domain/optimization/fitness.py:transition_quality` now calls
    `infer_intent(..., template=<SetTemplate|None>)`, so transition intent follows the selected set template phase table.
-3. `app/services/set/scoring.py:score_set_transitions` now resolves optional `SectionContext` per pair:
+3. `app/handlers/transition_persist.py:score_set_transitions` now resolves optional `SectionContext` per pair:
    - first from explicit set item section ids (`out_section_id` / `in_section_id`),
    - fallback via `mix_in_point_ms` / `mix_out_point_ms` + `track_sections` through `build_section_context`,
    - fallback to no-context scoring when neither path has enough data.
@@ -220,7 +220,7 @@ Compatible transitions (distance ≤ 1):
 
 ## Style Recommendation
 
-`app/transition/style.py:recommend_style(score, *, rules=DEFAULT_STYLE_RULES)`. Pure function on a `TransitionScore` (works on synthetic scores reconstructed from persisted DB rows — used by `app/services/set/scoring.py`).
+`app/domain/transition/style.py:recommend_style(score, *, rules=DEFAULT_STYLE_RULES)`. Pure function on a `TransitionScore` (works on synthetic scores reconstructed from persisted DB rows — used by `app/handlers/transition_persist.py`).
 
 Decision tree (default `StyleRules` thresholds in parentheses):
 
@@ -237,14 +237,14 @@ Decision tree (default `StyleRules` thresholds in parentheses):
 `StyleRules` is a frozen dataclass — pass a custom instance to override per-template:
 
 ```python
-from app.transition.weights import StyleRules
+from app.domain.transition.weights import StyleRules
 strict = StyleRules(spectral_collision_cutoff=0.55, harmonic_drift_cutoff=0.65)
 recommend_style(score, rules=strict)
 ```
 
 ## Transition Recipe Engine (v0.7.0)
 
-`app/transition/recipe_engine.py:TransitionRecipeEngine.generate()` extends style recommendation with **12 djay Pro AI transition types** and step-by-step stem/EQ/effect instructions.
+`app/domain/transition/recipe_engine.py:TransitionRecipeEngine.generate()` extends style recommendation with **12 djay Pro AI transition types** and step-by-step stem/EQ/effect instructions.
 
 See `docs/superpowers/specs/2026-04-10-transition-recipe-engine-design.md` for the full spec.
 
@@ -252,7 +252,7 @@ See `docs/superpowers/specs/2026-04-10-transition-recipe-engine-design.md` for t
 
 Decision tree uses scores + features + subgenre pair classification (ambient, hard, acid, melodic, hypnotic, mixed) + section context. Each recipe includes bar-by-bar steps, EQ plan, djay FX mapping, and rescue move.
 
-`recommend_recipe(score, features_a, features_b)` — public API in `app/transition/style.py`, falls back to `recommend_style()` when features unavailable.
+`recommend_recipe(score, features_a, features_b)` — public API in `app/domain/transition/style.py`, falls back to `recommend_style()` when features unavailable.
 
 ## Feature Loading
 
@@ -267,7 +267,7 @@ features_map = await feat_repo.get_scoring_features_batch(track_ids)
 feat = features_map.get(tid, TrackFeatures())
 ```
 
-Both methods live in `app/db/repositories/feature.py`.
+Both methods live in `app/repositories/track_features.py`.
 
 ## Transition Cache
 

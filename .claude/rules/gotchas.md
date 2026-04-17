@@ -18,11 +18,11 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from app.services.track import TrackService
+    from app.handlers.track import TrackService
 
 class TrackRepo:
     def method(self) -> None:
-        from app.services.track import TrackService  # lazy
+        from app.handlers.track import TrackService  # lazy
         ...
 ```
 

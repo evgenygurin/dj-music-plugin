@@ -26,7 +26,7 @@ globs: panel/**/*
 ## Data Flow
 
 - **Reads**: Page server components → `lib/queries/*.ts` → Supabase PostgreSQL (direct)
-- **Writes/Mutations**: Server actions → `lib/mcp-client.ts` → REST API (app/api/server.py) → MCP Server → DB
+- **Writes/Mutations**: Server actions → `lib/mcp-client.ts` → REST API (app/rest/app.py) → MCP Server → DB
 
 ## Env Vars
 
