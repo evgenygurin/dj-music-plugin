@@ -165,3 +165,13 @@ def parse_filter(
             )
         clauses.append(LOOKUP_OPERATORS[op](column, value))
     return clauses
+
+
+def parse_django_filters(
+    model: type[Any],
+    where: Mapping[str, Any],
+    *,
+    allowed_fields: Collection[str] | None = None,
+) -> list[ColumnElement[bool]]:
+    """Alias of :func:`parse_filter` — name used by entity_* tools (Phase 3)."""
+    return parse_filter(model, where, allowed_fields=allowed_fields)

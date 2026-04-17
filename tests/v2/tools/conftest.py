@@ -66,9 +66,11 @@ async def mcp_server(
 ) -> AsyncIterator[FastMCP]:
     """FastMCP server with v2 tools registered + mocked DI."""
     from app.v2.registry.defaults import register_default_entities
+    from app.v2.registry.entity import EntityRegistry
     from app.v2.server import di
 
-    # Register entities (safe to call in tests — idempotent at EntityRegistry level).
+    # Clear + register entities (idempotent per test).
+    EntityRegistry.clear()
     register_default_entities()
 
     # Monkey-patch DI resolvers so tests don't need a real DB.
