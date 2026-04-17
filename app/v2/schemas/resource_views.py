@@ -190,3 +190,75 @@ class SchemaProviderView(_Base):
     name: str
     entities_supported: list[str]
     operations: dict[str, bool]
+
+
+# ── Reference blobs ─────────────────────────────────────────────
+
+
+class CamelotKeyView(_Base):
+    code: int
+    notation: str
+    name: str
+    position: int  # 1-12 wheel position
+    mode: str  # "A" (minor) or "B" (major)
+    compat_edges: list[dict[str, Any]]  # [{target_code, target_notation, distance}]
+
+
+class CamelotWheelView(_Base):
+    total: int
+    wheel_size: int
+    keys: list[CamelotKeyView]
+
+
+class SubgenreFeatureView(_Base):
+    name: str
+    weight: float
+    ideal: float
+    tolerance: float
+
+
+class SubgenreProfileView(_Base):
+    subgenre: str
+    catch_all_penalty: float
+    is_catch_all: bool
+    features: list[SubgenreFeatureView]
+
+
+class SubgenresView(_Base):
+    total: int
+    catch_all: list[str]
+    profiles: list[SubgenreProfileView]
+
+
+class TemplateSlotView(_Base):
+    position: float
+    target_mood: str | None
+    energy_lufs: float
+    bpm_min: float
+    bpm_max: float
+    duration_ms: int
+    flexibility: float
+
+
+class TemplateView(_Base):
+    name: str
+    duration_min: int
+    description: str
+    slots: list[TemplateSlotView]
+
+
+class TemplatesView(_Base):
+    total: int
+    templates: list[TemplateView]
+
+
+class AuditRuleView(_Base):
+    name: str
+    severity: str
+    issue: str
+    thresholds: dict[str, float | int | str]
+
+
+class AuditRulesView(_Base):
+    total: int
+    rules: list[AuditRuleView]
