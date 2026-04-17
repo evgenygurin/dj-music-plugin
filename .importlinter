@@ -276,3 +276,33 @@ forbidden_modules =
     app.v2.domain
     sqlalchemy
     httpx
+
+# ── Contract: v2 server composition must not pull domain internals ──
+[importlinter:contract:v2-server-no-domain]
+name = app.v2.server may not import app.v2.domain internals
+type = forbidden
+source_modules =
+    app.v2.server
+forbidden_modules =
+    app.v2.domain
+
+# ── Contract: v2 REST wrapper must be a thin proxy ──────────────────
+# Only DIRECT imports are forbidden — transitive imports via app.v2.server
+# are allowed (the server is the REST wrapper's sole composition handle).
+[importlinter:contract:v2-rest-no-business]
+name = app.v2.rest may only directly import app.v2.server and app.v2.shared
+type = forbidden
+source_modules =
+    app.v2.rest
+forbidden_modules =
+    app.v2.domain
+    app.v2.handlers
+    app.v2.tools
+    app.v2.resources
+    app.v2.prompts
+    app.v2.repositories
+    app.v2.models
+    app.v2.db
+    app.v2.providers
+    app.v2.audio
+allow_indirect_imports = True
