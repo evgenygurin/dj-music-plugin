@@ -1,22 +1,59 @@
 ---
-description: Repository layer patterns
-globs: app/db/repositories/**/*.py
+description: Repository layer patterns (v1 layout)
+globs: app/repositories/**/*.py
 ---
 
 # Repositories
 
-- Extend `BaseRepository` from `app/db/repositories/base.py`
+- Extend `BaseRepository[M]` from `app/repositories/base.py` (generic
+  over the SQLAlchemy model type).
 - Receive `AsyncSession` via `__init__(self, session: AsyncSession)`
-- **Never commit** — only `session.flush()`. Commit happens in DI wrapper `get_db_session()`
-- Use `session.execute(select(...))` for queries, not `session.query()`
-- Cursor-based pagination via `_paginate()` from base class
-- Return model instances, not dicts
-- Methods are async: `async def get_by_id(self, id: int) -> Track | None`
-- Use `selectinload()` for eager loading relationships when needed
-- Filter methods accept Optional params: `bpm_min: float | None = None`
+  — or rely on `UnitOfWork` to inject it.
+- **Never commit** — only `session.flush()` if needed. Commit happens
+  in `UnitOfWork.__aexit__` via the DI wrapper `get_uow()`.
+- Use `session.execute(select(...))` (SQLAlchemy 2.0), not legacy
+  `session.query()`.
+- Generic CRUD (`list`, `get`, `create`, `update`, `delete`) lives
+  in the base. Override only when an entity needs specialized joins
+  or query shapes.
+- **Django-style filter DSL.** `BaseRepository.list(filters={...})`
+  accepts lookups like `bpm__gte`, `mood__in`, `title__icontains`,
+  `key_code__isnull`. Parser lives in `app/shared/filters.py`.
+- **Pagination.** Cursor-based via `BaseRepository._paginate()`. The
+  encoded cursor is opaque to callers.
+- **Relations.** Use `selectinload()` when the caller passes
+  `include_relations=[...]` — never eager-load by default.
+- Return model instances, not dicts. Pydantic mapping happens in the
+  tool/handler layer.
+- Entity-specific repositories (e.g. `TrackFeaturesRepository`) live
+  in `app/repositories/<entity>.py` and add entity-specific batch
+  helpers (`get_scoring_features_batch`, …).
+
+## UnitOfWork
+
+`app/repositories/unit_of_work.py` aggregates all repositories under
+one session:
+
+```python
+async with get_uow() as uow:
+    track = await uow.track.get(track_id)
+    feats = await uow.track_features.get_scoring_features_batch(ids)
+    uow.track_feedback.create(...)
+    # commit/rollback is handled by __aexit__
+```
+
+All tools receive `uow` via `Depends(get_uow)`. Handlers receive
+`uow` as an argument — never create their own session.
 
 ## Gotchas
 
-- `AsyncSession.delete()` IS async in SQLAlchemy 2.0 — `await` is correct
-- `TrackRepository.filter_tracks_advanced` `sort_by` поддерживает direction-суффикс: `bpm`/`bpm_desc`/`bpm_asc`, `id_desc`, `energy_desc`, `title_asc`. Без суффикса — ascending. Cursor pagination корректно работает только при сортировке по `id` (TODO в коде).
-- `filter_tracks_advanced` делает **INNER JOIN** на `track_audio_features_computed` если `has_features` ∈ {None, True} → треки без features НЕ возвращаются. В тестах сначала seed `TrackAudioFeaturesComputed(track_id=..., bpm=..., analysis_level=3)` для каждого трека, иначе результат пуст.
+- `AsyncSession.delete()` IS async in SQLAlchemy 2.0 — `await` is
+  correct.
+- Filter DSL: `has_features=True` becomes an INNER JOIN on
+  `track_audio_features_computed`; `has_features=False` becomes a
+  NOT-EXISTS subquery. Default (`None`) does nothing. Seed
+  `TrackAudioFeaturesComputed` for every `Track` in repository tests
+  or the INNER JOIN filters everything out.
+- Sort suffix: `bpm__desc`, `bpm__asc`, etc. Cursor pagination works
+  correctly only when the sort key is unique (prefer `id` as final
+  tiebreaker).

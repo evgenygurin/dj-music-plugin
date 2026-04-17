@@ -1,46 +1,79 @@
 ---
-description: MCP tool implementation patterns (FastMCP v3)
-globs: app/controllers/tools/**/*.py
+description: MCP tool implementation patterns (FastMCP v3) — v1 layout
+globs: app/tools/**/*.py
 ---
 
-# MCP Tools
+# MCP Tools (v1)
 
-- Use standalone `@tool` decorator from `fastmcp` (FileSystemProvider auto-discovers, scans subpackages recursively)
-- **Tag and annotation constants**: import from `app.controllers.tools._shared` — never hardcode literals
-  - `tags={ToolCategory.CORE.value}` (StrEnum, no magic strings)
-  - `annotations=ANNOTATIONS_READ_ONLY` / `ANNOTATIONS_WRITE` / `ANNOTATIONS_WRITE_IDEMPOTENT` / `ANNOTATIONS_WRITE_DESTRUCTIVE` / `ANNOTATIONS_WRITE_OPEN_WORLD` / `ANNOTATIONS_WRITE_DESTRUCTIVE_OPEN` / `ANNOTATIONS_READ_ONLY_OPEN_WORLD`
-  - `idempotentHint=True` — classify_mood, analyze_track, score_transitions (safe to retry)
-  - `destructiveHint=True` — ban_track, distribute_to_subgenres(clean)
-  - `openWorldHint=True` — import_tracks, download_tracks, ym_*, sync_playlist
-  - `timeout=ToolTimeout.MEDIUM | HEAVY | BATCH`
-- **Title**: `title="Human Readable Name"` — REQUIRED on every tool (Claude Code displays it in UI)
-- **Icons**: `icons=ICON_TRACKS` / `ICON_SETS` / `ICON_YM` / etc — 16 SVG icon sets in `_shared.taxonomy`
-- **Meta**: `meta=TOOL_META` on every tool — `{"version": "0.7.0", "author": "dj-music-plugin"}`
-- **No BM25SearchTransform** — removed because it proxied all calls through `run_tool`. Use native `mcp.disable(tags=...)` visibility (see `bootstrap/visibility.py`)
-- **Entity resolution**: use `resolve_track_id` / `resolve_entity` / `ensure_reference` from `_shared` — never re-implement `id|query` validation
-- **Context logging**: wrap `ctx` in `ToolContext(ctx)` and call `await log.info(...)`, `log.progress(...)`, `log.elicit(...)` — never write `if ctx: await ctx.info(...)` guards
-- **Action-dispatched tools** (`ym_playlists`, `ym_likes`, `manage_*`): use `ActionDispatcher[ResultT]` from `_shared.dispatch` — `@_dispatcher.register("name")` instead of `if/elif` chains. Duplicate registration raises at import time.
-- Tool descriptions ≤50 words — details go in parameter descriptions
-- Use `Depends()` for DI — hidden from tool schema automatically
-- Return Pydantic models for `structuredContent` (not dicts) where the service supports it
-- Use `view: Literal["summary", "full"]` pattern for progressive disclosure
-- Never import repositories directly — use services via `Depends`
-- Never call `session.commit()` — DI handles transaction lifecycle
-- **No lazy imports inside function bodies** — hoist to module top. Lazy import = code smell.
-- YM tools live in `app/controllers/tools/yandex/` (one file per entity), not in a flat `ym.py`
+v1 has **13 generic tool dispatchers** — no narrow per-operation tools.
+Add capability by extending `EntityRegistry`, `ProviderRegistry`, or a
+handler — not by writing a new `@tool`.
+
+## Canonical structure
+
+- All `@tool` decorators live under `app/tools/` (subdirs organizational).
+- Use the standalone `@tool` decorator from `fastmcp` — FileSystemProvider
+  auto-discovers recursively.
+- One tool per file. File name matches tool name.
+- Tool signature pattern:
+
+```python
+from typing import Annotated, Any
+from fastmcp import tool, Context, CurrentContext, Depends
+from pydantic import Field
+
+from app.server.di import get_uow
+from app.repositories.unit_of_work import UnitOfWork
+
+@tool(
+    name="entity_list",
+    tags={"namespace:crud:read", "read"},
+    annotations={"readOnlyHint": True, "idempotentHint": True},
+    description="Short (<50 words) — details in param Fields.",
+)
+async def entity_list(
+    entity: Annotated[EntityName, Field(description="Entity type name")],
+    filters: Annotated[dict[str, Any] | None, Field(...)] = None,
+    uow: UnitOfWork = Depends(get_uow),
+    ctx: Context = CurrentContext(),
+) -> EntityListResult:
+    ...
+```
+
+## Rules
+
+- **Return typed Pydantic models** (see `app/schemas/tool_responses.py`).
+- **Never commit** — UoW commits via DI wrapper. Inside the tool call
+  `uow.flush()` if you need generated IDs before returning.
+- **Dispatch via registries.** `entity_*` look up `EntityRegistry`;
+  `provider_*` look up `ProviderRegistry`. Side-effects on
+  create/update/delete go into **handlers** (`app/handlers/`), keyed
+  in the entity registry.
+- **Tags = namespaces.** `namespace:crud:read`,
+  `namespace:crud:write`, `namespace:crud:destructive`,
+  `namespace:provider:read`, `namespace:provider:write`,
+  `namespace:compute`, `namespace:sync`, `namespace:admin`,
+  `namespace:workflow` (for prompts).
+- **Annotations** (`readOnlyHint`, `destructiveHint`, `idempotentHint`,
+  `openWorldHint`) set on every tool.
+- **Descriptions ≤ 50 words**; put detail in parameter
+  `Field(description=...)`.
+- **No lazy imports** inside function bodies.
+- **No `if/elif` chains on action params** — use registry dispatch.
+- **Hidden namespaces.** `crud:destructive`, `provider:write`, `sync`
+  start locked. `unlock_namespace(namespace="...", action="unlock")`
+  fires `notifications/tools/list_changed`.
 
 ## Gotchas
 
-- `Depends()`: use `param=Depends(factory)`, NOT `Annotated[Type, Depends(factory)]` — FastMCP doesn't resolve Annotated
-- `list_page_size` in config must be >= tool count (100) — Claude Code doesn't follow nextCursor
-- Hidden tools: all 7 extended/hidden categories (delivery, discovery, curation, sync, ym, audio, atomic) are disabled at startup. `unlock_tools(action="unlock", category="...")` calls `ctx.fastmcp.enable(tags=...)` which triggers `notifications/tools/list_changed` — the client re-fetches the tool list automatically
-- `download_tracks` refs: accepts YM track IDs (`"135055088"`) or local IDs (auto-resolves via `resolve_local_ids_to_ym`). Numbers < 100000 = local, >= 100000 = YM
-- `download_tracks` automatically creates `DjLibraryItem` via `_link_file_to_track()` — no manual linking needed
-- `score_delivery_transitions` returns `tuple[int, int]` (scored, conflicts), NOT dict
-- `build_set` without features: fallback to `playlist_order` (not greedy/ga) — correct behavior
-- `get_set` tracks view: includes `artist_names` via batch query (`get_by_ids` batch, not N+1)
-- `TransitionIntent`: context-aware enum (maintain/ramp_up/cool_down/contrast) affects GA optimizer weights by track position
-- `score_timbral`: 6th component of TransitionScorer, total weights = 1.0 (bpm 0.20 + harmonic 0.12 + energy 0.18 + spectral 0.20 + groove 0.15 + timbral 0.15). Source of truth: `app/core/constants.py:DEFAULT_TRANSITION_WEIGHTS`
-- `import_tracks`: возвращает `id_mapping: dict[str, int]` (ym_id → local_id) для **всех** refs, включая skipped. `playlist_id` реально добавляет треки в плейлист (idempotent — пропускает уже существующие). `auto_analyze=True` запускает `TieredPipeline.ensure_level(...L3)` на impoted+existing IDs.
-- `ym_playlists action=get_tracks`: `limit` (default 100, max 500) + `offset` обязательны для больших плейлистов. Ответ содержит `total`, `count`, `offset`, `limit`, `has_more`. Без них на плейлисте 1377 треков ответ ≈106k символов и переполняет MCP клиент.
-- `get_track` / `TrackService.search` распознают `ym:12345` / `YM:12345` префикс и резолвят через `track_external_ids` (`yandex_music`). Plain text query — fallback по title/artist. Implementation в `app/services/track_service.py:_extract_ym_id`.
+- `Depends()`: use `param=Depends(factory)`, NOT `Annotated[Type,
+  Depends(factory)]` — FastMCP doesn't resolve Annotated-Depends.
+- `list_page_size` in config must be ≥ total tool count.
+- `entity_create(entity="track", ...)` dispatches to `track_import`
+  handler that fetches from provider. Plain ORM insert happens only
+  for entities without a registered create handler.
+- `entity_update(entity="track_features", ...)` dispatches to
+  `track_features_reanalyze` — re-runs the tiered pipeline at a
+  higher level.
+- `sequence_optimize` calls `transition_score_pool` internally when
+  features aren't cached — don't require the caller to score first.

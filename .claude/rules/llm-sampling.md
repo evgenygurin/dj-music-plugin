@@ -1,6 +1,6 @@
 ---
 description: LLM sampling modes for AI-assisted tools
-globs: app/controllers/tools/discovery.py
+globs: app/tools/discovery.py
 ---
 
 # LLM Sampling
