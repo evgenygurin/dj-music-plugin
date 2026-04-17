@@ -16,6 +16,12 @@ from app.v2.models.track import (
     TrackGenre,
     TrackRelease,
 )
+from app.v2.models.track_features import (
+    FeatureExtractionRun,
+    TimeseriesReference,
+    TrackAudioFeaturesComputed,
+    TrackSection,
+)
 
 __all__ = [
     "Artist",
@@ -27,17 +33,21 @@ __all__ = [
     "DjSet",
     "DjSetItem",
     "DjSetVersion",
+    "FeatureExtractionRun",
     "Genre",
     "Key",
     "KeyEdge",
     "Provider",
     "RawProviderResponse",
     "Release",
+    "TimeseriesReference",
     "TimestampMixin",
     "Track",
     "TrackArtist",
+    "TrackAudioFeaturesComputed",
     "TrackExternalId",
     "TrackGenre",
     "TrackRelease",
+    "TrackSection",
     "YandexMetadata",
 ]
