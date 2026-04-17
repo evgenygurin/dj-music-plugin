@@ -51,3 +51,15 @@ def get_transition_scorer() -> Any:
 def get_optimizer() -> Any:
     """Placeholder for Phase 5 — optimizer builder."""
     raise RuntimeError("get_optimizer is a Phase 5 stub — tests must monkey-patch.")
+
+
+def get_session_store() -> Any:
+    """Placeholder for Phase 5 — session store.
+
+    Phase 4 adds the in-memory implementation in
+    ``app.v2.server.session_store``. Phase 5 wires a real singleton via
+    lifespan state; tests inject a store directly.
+    """
+    raise RuntimeError(
+        "get_session_store is a Phase 5 stub — tests must monkey-patch this symbol."
+    )
