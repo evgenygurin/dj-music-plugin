@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import pytest
+
 PHASE1_MANAGER_NAMES: frozenset[str] = frozenset(
     {
         "tracks_list",
