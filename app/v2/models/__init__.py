@@ -4,6 +4,7 @@ from app.v2.models.base import Base, TimestampMixin
 from app.v2.models.key import Key, KeyEdge
 from app.v2.models.playlist import DjPlaylist, DjPlaylistItem
 from app.v2.models.provider_metadata import Provider, RawProviderResponse, YandexMetadata
+from app.v2.models.set import DjSet, DjSetItem, DjSetVersion
 from app.v2.models.track import (
     Artist,
     Genre,
@@ -20,6 +21,9 @@ __all__ = [
     "Base",
     "DjPlaylist",
     "DjPlaylistItem",
+    "DjSet",
+    "DjSetItem",
+    "DjSetVersion",
     "Genre",
     "Key",
     "KeyEdge",
