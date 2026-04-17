@@ -133,6 +133,7 @@ source_modules =
 forbidden_modules =
     app.v2.repositories
     fastmcp
+allow_indirect_imports = True
 
 # app.v2.repositories must not import FastMCP / HTTP / tools.
 [importlinter:contract:v2-repos-no-transport]
@@ -169,3 +170,40 @@ source_modules =
     app.ym
 forbidden_modules =
     app.v2
+
+# ──────────────────────────────────────────────────────────────────────
+# Phase 3: v2 tools + handlers + providers contracts
+# ──────────────────────────────────────────────────────────────────────
+
+[importlinter:contract:v2-handlers-no-transport]
+name = app.v2.handlers must not import v2 tools/resources/rest
+type = forbidden
+source_modules =
+    app.v2.handlers
+forbidden_modules =
+    app.v2.tools
+    app.v2.resources
+    app.v2.rest
+# Handlers legitimately use fastmcp.Context for progress/elicit — permitted.
+
+[importlinter:contract:v2-tools-no-models]
+name = app.v2.tools must not import app.v2.models directly
+type = forbidden
+source_modules =
+    app.v2.tools
+forbidden_modules =
+    app.v2.models
+    app.v2.db
+allow_indirect_imports = True
+
+[importlinter:contract:v2-providers-isolated]
+name = app.v2.providers must not import tools, handlers, repositories, models
+type = forbidden
+source_modules =
+    app.v2.providers
+forbidden_modules =
+    app.v2.tools
+    app.v2.handlers
+    app.v2.repositories
+    app.v2.models
+    app.v2.db
