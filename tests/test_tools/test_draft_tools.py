@@ -511,3 +511,29 @@ async def test_score_transitions_reports_progress():
     assert isinstance(result, dict)
     assert ctx.report_progress.call_count >= 1
     mock_workflow.score_transitions.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_score_transitions_count_alias_overrides_top_n():
+    """count alias should override top_n when forwarding to workflow."""
+    from unittest.mock import AsyncMock, MagicMock
+
+    from app.controllers.tools.sets import score_transitions
+
+    mock_workflow = AsyncMock()
+    mock_workflow.score_transitions.return_value = {"mode": "track_candidates", "candidates": []}
+
+    ctx = MagicMock()
+    ctx.report_progress = AsyncMock()
+
+    await score_transitions(
+        mode="track_candidates",
+        track_id=42,
+        top_n=10,
+        count=3,
+        workflow=mock_workflow,
+        ctx=ctx,
+    )
+
+    kwargs = mock_workflow.score_transitions.await_args.kwargs
+    assert kwargs["top_n"] == 3

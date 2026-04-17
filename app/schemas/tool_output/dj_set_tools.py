@@ -103,6 +103,30 @@ class TransitionSearchStats(BaseModel):
     )
 
 
+class TransitionQualityGuardrail(BaseModel):
+    """Feasibility guardrail for target transition quality in current filtered slice."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    target_quality: float | None = Field(
+        default=None,
+        description="Requested target quality from caller (0-1), if provided",
+    )
+    max_overall_quality: float | None = Field(
+        default=None,
+        description="Maximum overall_quality observed in current filtered slice",
+    )
+    meets_target: bool | None = Field(
+        default=None,
+        description="Whether max_overall_quality >= target_quality (null when no target)",
+    )
+    non_reject_rows_at_or_above_target: int | None = Field(
+        default=None,
+        description="Count of non-hard-reject rows with overall_quality >= target_quality",
+    )
+    message: str = Field(description="Human-readable guidance for next action")
+
+
 class SearchTransitionsResult(BaseModel):
     """Structured MCP output for ``search_transitions`` (pagination, filters, projection)."""
 
@@ -138,6 +162,10 @@ class SearchTransitionsResult(BaseModel):
         default=None,
         description="Allowed filter operator names (only if include_field_catalog is true)",
     )
+    quality_guardrail: TransitionQualityGuardrail | None = Field(
+        default=None,
+        description="Target-quality feasibility summary for the current filtered slice",
+    )
 
 
 class GetSetCheatSheetResult(BaseModel):
@@ -169,4 +197,5 @@ GetSetTemplatesResult.model_rebuild()
 GetSetCheatSheetResult.model_rebuild()
 TransitionSearchSortToken.model_rebuild()
 TransitionSearchStats.model_rebuild()
+TransitionQualityGuardrail.model_rebuild()
 SearchTransitionsResult.model_rebuild()

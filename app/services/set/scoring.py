@@ -50,6 +50,7 @@ _INCLUDE_MACRO_ALL_FEATURE = "all_feature_fields"
 _INCLUDE_MACRO_TRANSITION = "transition_fields"
 _INCLUDE_MACRO_TRACK = "track_fields"
 _INCLUDE_MACRO_FEATURE = "feature_fields"
+_MAX_SUBSET_TRACKS = 300
 
 
 class SetScoringService:
@@ -565,6 +566,82 @@ class SetScoringService:
             "transitions": transitions_data,
         }
 
+    async def score_subset_transitions(
+        self,
+        track_ids: list[int],
+        *,
+        top_n: int = 10,
+    ) -> dict[str, Any]:
+        """Score all directed pairs within an explicit subset of tracks.
+
+        Use this to avoid all-library all-vs-all scoring: prefilter tracks first,
+        then evaluate only the remaining candidate pool.
+        """
+        if top_n < 1:
+            raise ValidationError("top_n must be >= 1")
+
+        unique_ids: list[int] = []
+        seen: set[int] = set()
+        for tid in track_ids:
+            if tid in seen:
+                continue
+            seen.add(tid)
+            unique_ids.append(tid)
+
+        if len(unique_ids) < 2:
+            raise ValidationError("subset mode requires at least 2 unique track_ids")
+        if len(unique_ids) > _MAX_SUBSET_TRACKS:
+            raise ValidationError(
+                f"subset mode supports up to {_MAX_SUBSET_TRACKS} unique track_ids"
+            )
+
+        pair_keys = [
+            (from_id, to_id)
+            for from_id in unique_ids
+            for to_id in unique_ids
+            if from_id != to_id
+        ]
+        features_cache = await self._features.get_scoring_features_batch(unique_ids)
+        existing_cache = await self._transitions.get_scores_batch(pair_keys)
+
+        transitions_data: list[dict[str, Any]] = []
+        for from_id, to_id in pair_keys:
+            score_data = await self.score_pair(
+                from_id,
+                to_id,
+                features_cache=features_cache,
+                existing_cache=existing_cache,
+            )
+            transitions_data.append(score_data)
+
+        scored = [t for t in transitions_data if t.get("overall_quality") is not None]
+        hard_conflicts = [t for t in scored if t.get("hard_reject") is True]
+        soft_scored = [t for t in scored if not t.get("hard_reject")]
+        avg_score: float | None = None
+        if soft_scored:
+            avg_score = sum(float(t["overall_quality"]) for t in soft_scored) / len(soft_scored)
+
+        ranked = sorted(
+            scored,
+            key=lambda row: float(row.get("overall_quality") or 0.0),
+            reverse=True,
+        )
+        top_transitions = ranked[:top_n]
+
+        return {
+            "mode": "subset",
+            "input_track_count": len(track_ids),
+            "track_count": len(unique_ids),
+            "track_ids": unique_ids,
+            "total_pairs": len(pair_keys),
+            "scored_pairs": len(scored),
+            "hard_conflicts": len(hard_conflicts),
+            "avg_score": avg_score,
+            "top_n": top_n,
+            "top_transitions": top_transitions,
+            "transitions": transitions_data,
+        }
+
     async def search_transitions(
         self,
         *,
@@ -578,6 +655,7 @@ class SetScoringService:
         exclude_fields: list[str] | None = None,
         include_stats: bool = True,
         include_field_catalog: bool = False,
+        target_quality: float | None = None,
     ) -> dict[str, Any]:
         """Search scored transition pairs with flexible filtering/sorting/projection.
 
@@ -588,6 +666,7 @@ class SetScoringService:
         - field projection via ``include_fields`` / ``exclude_fields`` (default rows: ``id`` only)
         - aggregate stats for the filtered set
         - optional heavy field-name catalog (``include_field_catalog``) for MCP payload control
+        - optional target feasibility guardrail via ``target_quality`` (0..1)
         """
         if limit < 1:
             raise ValidationError("limit must be >= 1")
@@ -710,6 +789,7 @@ class SetScoringService:
         ]
 
         stats: dict[str, Any] | None = None
+        quality_guardrail: dict[str, Any] | None = None
         if include_stats:
             stats_subq = _base_select(
                 Transition.hard_reject.label("hard_reject"),
@@ -779,6 +859,50 @@ class SetScoringService:
                 ],
             }
 
+            max_overall_raw = stats_row["overall_max"]
+            max_overall = self._to_jsonable(max_overall_raw)
+            if target_quality is None:
+                quality_guardrail = {
+                    "target_quality": None,
+                    "max_overall_quality": max_overall,
+                    "meets_target": None,
+                    "non_reject_rows_at_or_above_target": None,
+                    "message": (
+                        "Pass target_quality to get explicit feasibility for your desired threshold."
+                    ),
+                }
+            else:
+                meets_target = (
+                    bool(max_overall_raw is not None and float(max_overall_raw) >= target_quality)
+                    if max_overall_raw is not None
+                    else False
+                )
+                count_at_target_stmt = select(func.count()).select_from(stats_subq).where(
+                    stats_subq.c.hard_reject.is_(False),
+                    stats_subq.c.overall_quality.is_not(None),
+                    stats_subq.c.overall_quality >= target_quality,
+                )
+                rows_at_target = int(
+                    (await self._transitions.session.execute(count_at_target_stmt)).scalar_one() or 0
+                )
+                if meets_target:
+                    message = (
+                        "Target quality is feasible in the current filtered slice. "
+                        "Use these rows to build your path/set."
+                    )
+                else:
+                    message = (
+                        "Target quality exceeds current transition ceiling. "
+                        "Lower target, widen filters, or refresh transition scoring."
+                    )
+                quality_guardrail = {
+                    "target_quality": target_quality,
+                    "max_overall_quality": max_overall,
+                    "meets_target": meets_target,
+                    "non_reject_rows_at_or_above_target": rows_at_target,
+                    "message": message,
+                }
+
         next_offset = offset + len(rows)
         fields_payload: dict[str, Any] = {
             "selected": selected_fields,
@@ -808,6 +932,7 @@ class SetScoringService:
             "filters_applied": normalized_filters,
             "fields": fields_payload,
             "stats": stats,
+            "quality_guardrail": quality_guardrail,
         }
         if include_field_catalog:
             out["filter_operators"] = sorted(_TRANSITION_FILTER_OPERATORS)

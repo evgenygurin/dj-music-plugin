@@ -6,6 +6,7 @@ from fastmcp.prompts import PromptResult, prompt
 from pydantic import Field
 
 from app.controllers.prompts.workflow_shared import (
+    TRANSITION_SCORING_AND_SEARCH_GUIDE,
     WORKFLOW_PROMPT_VERSION,
     make_prompt_result,
     message_assistant,
@@ -78,7 +79,10 @@ Follow these steps:
    - Shows transition types, scores, BPM/key changes, flagged problems{sync_note}
 
 The set is ready for import into your DJ software (Traktor, Rekordbox, djay).
-Report the output directory path and any warnings."""
+Report the output directory path and any warnings.
+
+"""
+                + TRANSITION_SCORING_AND_SEARCH_GUIDE
             ),
             message_assistant(
                 f'Delivering "{set_name}". '

@@ -17,6 +17,7 @@ import pytest
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.errors import ValidationError
 from app.db.models.audio import TrackAudioFeaturesComputed
 from app.db.models.playlist import Playlist, PlaylistItem
 from app.db.models.set import DjSet, SetItem, SetVersion
@@ -170,3 +171,35 @@ async def test_score_set_transitions_single_track_set(db: AsyncSession) -> None:
     result = await svc.score_set_transitions(set_id)
     assert result["total_transitions"] == 0
     assert result["transitions"] == []
+
+
+@pytest.mark.asyncio
+async def test_score_subset_transitions_scores_directed_pairs(db: AsyncSession) -> None:
+    """subset mode should score and persist all directed pairs within provided track_ids."""
+    set_id = await _seed_set_with_tracks(db, track_count=3)
+    svc = _make_scoring_service(db)
+    set_repo = SetRepository(db)
+    latest = await set_repo.get_latest_version(set_id)
+    assert latest is not None
+    items = await set_repo.get_version_items(latest.id)
+    track_ids = [item.track_id for item in items]
+
+    result = await svc.score_subset_transitions(track_ids, top_n=3)
+
+    assert result["mode"] == "subset"
+    assert result["track_count"] == 3
+    assert result["total_pairs"] == 6  # directed: N*(N-1)
+    assert result["scored_pairs"] == 6
+    assert len(result["top_transitions"]) == 3
+
+    rows = (await db.execute(select(Transition))).scalars().all()
+    assert len(rows) == 6
+
+
+@pytest.mark.asyncio
+async def test_score_subset_transitions_rejects_too_large_subset(db: AsyncSession) -> None:
+    """subset mode must guard against oversized track pools."""
+    svc = _make_scoring_service(db)
+    too_many = list(range(1, 302))
+    with pytest.raises(ValidationError):
+        await svc.score_subset_transitions(too_many)

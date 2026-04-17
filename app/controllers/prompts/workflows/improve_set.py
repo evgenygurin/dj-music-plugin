@@ -6,6 +6,7 @@ from fastmcp.prompts import PromptResult, prompt
 from pydantic import Field
 
 from app.controllers.prompts.workflow_shared import (
+    TRANSITION_SCORING_AND_SEARCH_GUIDE,
     WORKFLOW_PROMPT_VERSION,
     make_prompt_result,
     message_assistant,
@@ -43,6 +44,9 @@ Follow these steps:
    - Hard conflicts (score = 0.0) — BPM >10, Camelot >=5, or energy >6 LUFS
    - Weak transitions (score < 0.5)
    - Problem areas (sudden energy jumps, key clashes, BPM mismatches)
+   - Optional deep slice: `search_transitions` with filters (e.g. ``hard_reject``,
+     ``overall_quality``, ``from_track_id`` / ``to_track_id``) and ``include_fields`` for
+     the columns you need — see guide below.
 
 2. **Explain Problems**: For each weak transition:
    - `explain_transition(from_track_id=<a>, to_track_id=<b>)`
@@ -53,10 +57,10 @@ Follow these steps:
    - This scores candidates against BOTH neighbors
    - Review top 3-5 suggestions with their combined scores
 
-4. **Rebuild**: `rebuild_set(set_id=<id>, pin=[<good_ids>], exclude=[<bad_ids>],
-   algorithm="ga", version_label="improved")` with:
-   - pin: tracks with high-scoring transitions (keep them)
-   - exclude: problematic tracks (remove them)
+4. **Rebuild** (declarative — do **not** call ``rebuild_set`` / ``build_set``): after swaps,
+   use ``update_set_draft(track_ids=[...])`` → ``preview_draft`` / ``preview_set_arc`` →
+   ``commit_set_version(...)`` (or ``manage_set`` edits where applicable). Pin good tracks and
+   drop bad ones by editing the ordered ``track_ids`` list, then commit a new version.
 
 5. **Compare**: `compare_set_versions(set_id=<id>)` to verify improvement:
    - Check if overall score increased
@@ -65,7 +69,10 @@ Follow these steps:
 
 6. **Iterate**: If problems remain, repeat steps 2-5 focusing on remaining weak spots
 
-Report score improvements and specific transition fixes after each rebuild."""
+Report score improvements and specific transition fixes after each rebuild.
+
+"""
+                + TRANSITION_SCORING_AND_SEARCH_GUIDE
             ),
             message_assistant(
                 f'Improving "{set_name}". Step 1: `quick_set_review(set_id=<id>)`...',

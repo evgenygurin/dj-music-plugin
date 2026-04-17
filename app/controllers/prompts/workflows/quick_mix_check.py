@@ -6,6 +6,7 @@ from fastmcp.prompts import PromptResult, prompt
 from pydantic import Field
 
 from app.controllers.prompts.workflow_shared import (
+    TRANSITION_SCORING_AND_SEARCH_GUIDE,
     WORKFLOW_PROMPT_VERSION,
     make_prompt_result,
     message_assistant,
@@ -34,8 +35,14 @@ def quick_mix_check(
                 f'   - `get_track(query="{track_b}")`\n'
                 f"2. Check transition score:\n"
                 f"   - `explain_transition(from_track_id=<a_id>, to_track_id=<b_id>)`\n"
+                f'   - Optional: `score_transitions(mode="pair", from_track_id=<a_id>, '
+                f"to_track_id=<b_id>)` to persist; then `search_transitions` with "
+                f"`filters` on those ids if you need the stored row fields.\n"
+                f"   - For threshold checks, call `search_transitions(..., target_quality=<x>)` "
+                f"and read `quality_guardrail`.\n"
                 f"3. Summarize: BPM delta, Camelot key compatibility, energy match, "
-                f"and a clear recommendation (mix / avoid / conditional)."
+                f"and a clear recommendation (mix / avoid / conditional).\n\n"
+                + TRANSITION_SCORING_AND_SEARCH_GUIDE
             ),
             message_assistant(
                 f"Mix check: resolving `{track_a}` and `{track_b}`, then `explain_transition`."

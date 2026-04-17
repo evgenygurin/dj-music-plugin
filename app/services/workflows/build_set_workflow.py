@@ -198,10 +198,11 @@ class BuildSetWorkflow:
         from_track_id: int | None = None,
         to_track_id: int | None = None,
         track_id: int | None = None,
+        track_ids: list[int] | None = None,
         top_n: int = 10,
         log: Any = None,
     ) -> dict[str, Any]:
-        """Score transitions for a pair, set, or candidate list."""
+        """Score transitions for a pair, set, candidate list, or explicit subset."""
         if mode == "pair" and from_track_id and to_track_id:
             await self._ensure_scoring_level([from_track_id, to_track_id], log)
             return await self._set_service.score_pair(from_track_id, to_track_id)
@@ -209,6 +210,10 @@ class BuildSetWorkflow:
         if mode == "track_candidates" and track_id:
             await self._ensure_scoring_level([track_id], log)
             return await self._set_service.get_transition_candidates(track_id, top_n=top_n)
+
+        if mode == "subset" and track_ids:
+            await self._ensure_scoring_level(track_ids, log)
+            return await self._set_service.score_subset_transitions(track_ids, top_n=top_n)
 
         if mode == "set" and set_id:
             version = await self._set_service.get_latest_version(set_id)

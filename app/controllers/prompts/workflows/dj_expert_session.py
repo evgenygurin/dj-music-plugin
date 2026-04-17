@@ -6,6 +6,8 @@ from fastmcp.prompts import PromptResult, prompt
 from pydantic import Field
 
 from app.controllers.prompts.workflow_shared import (
+    DRAFT_STATELESS_GUIDE,
+    TRANSITION_SCORING_AND_SEARCH_GUIDE,
     WORKFLOW_PROMPT_VERSION,
     make_prompt_result,
     message_assistant,
@@ -67,12 +69,16 @@ Complete the following setup steps before responding to the user:
 - Speak like a DJ, not a database interface
 - Set building workflow — you own the track selection and ordering:
   1. `get_candidate_pool` — explore library by mood/subgenre/energy
-  2. `update_set_draft(track_ids=[...])` — save your working order to session state
-  3. `preview_draft(narrative=False)` — fast arc check; repeat steps 2-3 to refine
-  4. `preview_draft(narrative=True)` — full narrative critique before final commit
-  5. `commit_draft()` — user confirms via elicitation, then version is saved
+  2. `score_transitions(mode="subset", track_ids=[...], top_n=50)` — optional precompute in filtered pool
+  3. `search_transitions(limit=500, include_fields="from_track_id,to_track_id,overall_quality,hard_reject", target_quality=<goal>)`
+     - treat this as feasibility gate before long iteration
+  4. `update_set_draft(track_ids=[...])` — save your working order to session state
+  5. `preview_draft(narrative=False)` — fast arc check; repeat steps 4-5 to refine
+  6. `preview_draft(narrative=True)` — full narrative critique before final commit
+  7. `commit_draft()` — user confirms via elicitation, then version is saved
 - Use `clear_draft()` to start over at any point
 - Read `session://set-draft` to inspect the current draft without calling a tool
+- In stateless clients, pass `track_ids=[...]` explicitly to `preview_draft` / `commit_draft`
 - Never delegate ordering to an optimizer — curate the arc yourself
 
 **Step 5 — Know your full capability surface:**
@@ -91,7 +97,15 @@ understand their preferences:
 
 *Library health check* — `get_library_stats()` + `audit_playlist()` without being asked
 *Transition explanations* — `explain_transition()` in plain language, no jargon
-*Discovery from taste* — use liked subgenre/BPM patterns to seed `find_similar_tracks`{goal_line}
+*Discovery from taste* — use liked subgenre/BPM patterns to seed `find_similar_tracks`
+
+*Persisted transition table* — when the user asks about stored blend scores or wants SQL-like
+slices over pairs, use ``score_transitions`` / ``search_transitions`` (and resources
+``transition://…/score``) per the reference block below.
+
+{TRANSITION_SCORING_AND_SEARCH_GUIDE}
+{DRAFT_STATELESS_GUIDE}
+{goal_line}
 
 After completing setup, greet the user as a DJ assistant ready to work."""
 

@@ -6,6 +6,7 @@ from fastmcp.prompts import PromptResult, prompt
 from pydantic import Field
 
 from app.controllers.prompts.workflow_shared import (
+    TRANSITION_SCORING_AND_SEARCH_GUIDE,
     WORKFLOW_PROMPT_VERSION,
     make_prompt_result,
     message_assistant,
@@ -92,7 +93,12 @@ Follow these steps:
    - Note any subgenres still under-represented
 
 Report progress, counts, and any issues after each major step.
-This is a long-running pipeline (1-3 hours for 1000+ tracks)."""
+This is a long-running pipeline (1-3 hours for 1000+ tracks).
+
+Optional (after you build or edit DJ sets): use persisted transition tools — reference:
+"""
+                + "\n"
+                + TRANSITION_SCORING_AND_SEARCH_GUIDE
             ),
             message_assistant(
                 f'Executing full expansion pipeline for "{source_playlist}". '

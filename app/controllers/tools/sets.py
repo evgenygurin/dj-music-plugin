@@ -189,7 +189,7 @@ async def commit_set_version(
 @map_domain_errors
 async def score_transitions(
     mode: Annotated[
-        Literal["set", "pair", "track_candidates"],
+        Literal["set", "pair", "track_candidates", "subset"],
         Field(description="Scoring mode"),
     ] = "set",
     set_id: Annotated[int | None, Field(description="Set ID when mode is set")] = None,
@@ -200,9 +200,23 @@ async def score_transitions(
     track_id: Annotated[
         int | None, Field(description="Anchor track ID (track_candidates mode)")
     ] = None,
+    track_ids: Annotated[
+        list[int] | None,
+        Field(
+            description=(
+                "Explicit track ID subset (subset mode). "
+                "All directed pairs inside this subset are scored."
+            )
+        ),
+    ] = None,
     top_n: Annotated[
-        int, Field(description="Max ranked transitions or candidates to persist")
+        int,
+        Field(description="Max ranked entries returned for subset/track_candidates", ge=1),
     ] = 10,
+    count: Annotated[
+        int | None,
+        Field(description="Alias for top_n (subset/track_candidates)", ge=1),
+    ] = None,
     include_transitions: Annotated[
         bool,
         Field(description="Include full transition list in set mode (can be large)"),
@@ -220,20 +234,22 @@ async def score_transitions(
     workflow: BuildSetWorkflow = Depends(get_build_set_workflow),  # noqa: B008
     ctx: Context = CurrentContext(),  # noqa: B008
 ) -> dict[str, Any]:
-    """Scores transitions for a set, a single pair, or anchor candidates and persists results. Use when auditing blends, ranking options, or refreshing stored transition scores."""
+    """Scores transitions for a set, a single pair, anchor candidates, or explicit subset and persists results. Use when auditing blends, ranking options, or refreshing stored transition scores."""
     await ctx.report_progress(0, 1, "Scoring transitions")
+    effective_top_n = count if count is not None else top_n
     result = await workflow.score_transitions(
         mode=mode,
         set_id=set_id,
         from_track_id=from_track_id,
         to_track_id=to_track_id,
         track_id=track_id,
-        top_n=top_n,
+        track_ids=track_ids,
+        top_n=effective_top_n,
         log=ToolContext(ctx),
     )
     # Keep set-mode responses bounded so structured content is not dropped by FastMCP
     # response size limits on large sets.
-    if mode == "set":
+    if mode in {"set", "subset"}:
         transitions = result.get("transitions")
         if isinstance(transitions, list):
             total = len(transitions)
@@ -326,11 +342,23 @@ async def search_transitions(
             )
         ),
     ] = False,
+    target_quality: Annotated[
+        float | None,
+        Field(
+            description=(
+                "Optional target overall quality (0-1). "
+                "When provided, response includes feasibility guardrail metadata."
+            ),
+            ge=0.0,
+            le=1.0,
+        ),
+    ] = None,
     svc: SetService = Depends(get_set_service),  # noqa: B008
 ) -> SearchTransitionsResult:
     """Search scored transition pairs with pagination, filters, sorting, projection, and stats.
 
     Default rows are ``id`` only; pass ``include_fields`` (or macro ``all``) for wide columns.
+    Optional ``target_quality`` adds ``quality_guardrail`` to expose feasibility for a threshold.
     """
     filters_dict = ensure_dict(filters)
     if filters is not None and filters_dict is None:
@@ -350,6 +378,7 @@ async def search_transitions(
         exclude_fields=exclude_list,
         include_stats=include_stats,
         include_field_catalog=include_field_catalog,
+        target_quality=target_quality,
     )
     return SearchTransitionsResult.model_validate(raw)
 

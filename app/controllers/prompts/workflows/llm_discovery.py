@@ -6,6 +6,7 @@ from fastmcp.prompts import PromptResult, prompt
 from pydantic import Field
 
 from app.controllers.prompts.workflow_shared import (
+    TRANSITION_SCORING_AND_SEARCH_GUIDE,
     WORKFLOW_PROMPT_VERSION,
     make_prompt_result,
     message_assistant,
@@ -90,7 +91,12 @@ Follow these steps:
 5. **Import**: `import_tracks(track_refs=[<ym_ids>], playlist_id=<id>)` to add the
    best matches to the library.
 
-This is the recommended workflow for Claude Code MAX subscribers (no API key needed)."""
+This is the recommended workflow for Claude Code MAX subscribers (no API key needed).
+
+After imports, if you score DJ pairs or sets, use persisted transitions — reference:
+"""
+                + "\n"
+                + TRANSITION_SCORING_AND_SEARCH_GUIDE
             ),
             message_assistant(
                 f'Finding tracks similar to "{track_name}" via client-driven discovery. '

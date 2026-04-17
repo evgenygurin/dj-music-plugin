@@ -169,6 +169,29 @@ async def test_score_transitions_for_set_ensures_latest_version_tracks() -> None
 
 
 @pytest.mark.asyncio
+async def test_score_transitions_for_subset_ensures_subset_tracks() -> None:
+    set_service = AsyncMock()
+    set_service.score_subset_transitions.return_value = {"mode": "subset", "scored_pairs": 6}
+    tiered_pipeline = AsyncMock()
+    tiered_pipeline.ensure_level.return_value = {"analyzed": 0, "failed": 0, "skipped": 4}
+    playlist_repo = AsyncMock()
+    workflow = BuildSetWorkflow(set_service, tiered_pipeline, playlist_repo)
+    log = _make_log()
+
+    result = await workflow.score_transitions(
+        mode="subset",
+        track_ids=[11, 22, 33, 44],
+        top_n=25,
+        log=log,
+    )
+
+    assert result == {"mode": "subset", "scored_pairs": 6}
+    tiered_pipeline.ensure_level.assert_awaited_once_with([11, 22, 33, 44], AnalysisLevel.SCORING)
+    set_service.score_subset_transitions.assert_awaited_once_with([11, 22, 33, 44], top_n=25)
+    log.info.assert_not_awaited()
+
+
+@pytest.mark.asyncio
 async def test_deliver_set_dry_run_passes_version_label_to_delivery_service() -> None:
     delivery_service = AsyncMock()
     delivery_service.load_set_for_delivery.return_value = {

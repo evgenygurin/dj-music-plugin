@@ -223,6 +223,14 @@ class SetService:
     async def score_set_transitions(self, set_id: int) -> dict[str, Any]:
         return await self._scoring.score_set_transitions(set_id)
 
+    async def score_subset_transitions(
+        self,
+        track_ids: list[int],
+        *,
+        top_n: int = 10,
+    ) -> dict[str, Any]:
+        return await self._scoring.score_subset_transitions(track_ids, top_n=top_n)
+
     async def search_transitions(
         self,
         *,
@@ -236,6 +244,7 @@ class SetService:
         exclude_fields: list[str] | None = None,
         include_stats: bool = True,
         include_field_catalog: bool = False,
+        target_quality: float | None = None,
     ) -> dict[str, Any]:
         return await self._scoring.search_transitions(
             limit=limit,
@@ -248,6 +257,7 @@ class SetService:
             exclude_fields=exclude_fields,
             include_stats=include_stats,
             include_field_catalog=include_field_catalog,
+            target_quality=target_quality,
         )
 
     # ── Cheat sheet — delegated to _cheatsheet ────────

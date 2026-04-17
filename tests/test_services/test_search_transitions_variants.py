@@ -127,8 +127,29 @@ async def test_default_projection_and_stats_toggle(db: AsyncSession) -> None:
     assert r2["stats"] is not None
     assert r2["stats"]["total_rows"] == 3
     assert "component_averages" in r2["stats"]
+    assert r2["quality_guardrail"] is not None
+    assert r2["quality_guardrail"]["target_quality"] is None
+    assert "max_overall_quality" in r2["quality_guardrail"]
     SearchTransitionsResult.model_validate(r)
     SearchTransitionsResult.model_validate(r2)
+
+
+@pytest.mark.asyncio
+async def test_quality_guardrail_with_target_quality(db: AsyncSession) -> None:
+    await _seed_three_transitions(db)
+    svc = _svc(db)
+
+    high = await svc.search_transitions(limit=10, include_stats=True, target_quality=0.95)
+    assert high["quality_guardrail"] is not None
+    assert high["quality_guardrail"]["target_quality"] == 0.95
+    assert high["quality_guardrail"]["meets_target"] is False
+    assert high["quality_guardrail"]["non_reject_rows_at_or_above_target"] == 0
+
+    mid = await svc.search_transitions(limit=10, include_stats=True, target_quality=0.5)
+    assert mid["quality_guardrail"] is not None
+    assert mid["quality_guardrail"]["target_quality"] == 0.5
+    assert mid["quality_guardrail"]["meets_target"] is True
+    assert mid["quality_guardrail"]["non_reject_rows_at_or_above_target"] == 2
 
 
 @pytest.mark.asyncio

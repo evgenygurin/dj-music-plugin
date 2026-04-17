@@ -6,6 +6,7 @@ from fastmcp.prompts import PromptResult, prompt
 from pydantic import Field
 
 from app.controllers.prompts.workflow_shared import (
+    TRANSITION_SCORING_AND_SEARCH_GUIDE,
     WORKFLOW_PROMPT_VERSION,
     make_prompt_result,
     message_assistant,
@@ -48,7 +49,9 @@ def taste_analysis(
                 f"   - TL;DR (3 sentences)\n"
                 f"   - Per-dimension comparison tables\n"
                 f"   - Actionable set-building insights\n"
-                f"   - Discovery recommendations based on patterns"
+                f"   - Discovery recommendations based on patterns\n\n"
+                f"Optional: query or refresh stored blend stats for liked pairs — reference:\n"
+                + TRANSITION_SCORING_AND_SEARCH_GUIDE
             ),
             message_assistant(
                 f"Taste analysis: pulling up to {limit} tracks from likes + feedback, "
