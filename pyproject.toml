@@ -55,6 +55,7 @@ ignore = [
 "app/api/**" = ["E501", "RUF001", "RUF002", "B008"]  # Swagger examples + multilingual docs + FastAPI Query/Body defaults
 "app/v2/tools/**" = ["B008"]  # FastMCP DI: Depends() in arg defaults is correct
 "app/v2/handlers/**" = ["B008", "E501"]  # FastMCP handler conventions
+"app/v2/resources/**" = ["B008"]  # FastMCP DI: Depends() in arg defaults is correct
 "tests/**" = ["E501", "RUF012", "B017"]  # tests can use blind pytest.raises
 
 [tool.ruff.lint.isort]
