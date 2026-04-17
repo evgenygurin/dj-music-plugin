@@ -5,6 +5,7 @@ from app.v2.models.base import Base, TimestampMixin
 from app.v2.models.key import Key, KeyEdge
 from app.v2.models.playlist import DjPlaylist, DjPlaylistItem
 from app.v2.models.provider_metadata import Provider, RawProviderResponse, YandexMetadata
+from app.v2.models.scoring_profile import ScoringProfile
 from app.v2.models.set import DjSet, DjSetItem, DjSetVersion
 from app.v2.models.track import (
     Artist,
@@ -44,6 +45,7 @@ __all__ = [
     "Provider",
     "RawProviderResponse",
     "Release",
+    "ScoringProfile",
     "TimeseriesReference",
     "TimestampMixin",
     "Track",
