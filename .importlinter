@@ -93,3 +93,79 @@ source_modules =
 forbidden_modules =
     app.api
     app.controllers
+
+# ──────────────────────────────────────────────────────────────────────
+# Phase 1: v2 structural contracts
+# ──────────────────────────────────────────────────────────────────────
+
+# app.v2.shared must be leaf — no imports from other app.v2 subpackages.
+[importlinter:contract:v2-shared-leaf]
+name = app.v2.shared must not import from other v2 subpackages
+type = forbidden
+source_modules =
+    app.v2.shared
+forbidden_modules =
+    app.v2.config
+    app.v2.registry
+    app.v2.repositories
+    fastmcp
+    httpx
+
+# app.v2.config must not depend on domain code.
+[importlinter:contract:v2-config-indep]
+name = app.v2.config must only depend on pydantic-settings + stdlib
+type = forbidden
+source_modules =
+    app.v2.config
+forbidden_modules =
+    app.v2.registry
+    app.v2.repositories
+    fastmcp
+    sqlalchemy
+    httpx
+
+# app.v2.registry must not depend on repositories (registry is configuration, not behavior).
+[importlinter:contract:v2-registry-indep]
+name = app.v2.registry must not depend on repositories
+type = forbidden
+source_modules =
+    app.v2.registry
+forbidden_modules =
+    app.v2.repositories
+    fastmcp
+
+# app.v2.repositories must not import FastMCP / HTTP / tools.
+[importlinter:contract:v2-repos-no-transport]
+name = app.v2.repositories must not import FastMCP or HTTP
+type = forbidden
+source_modules =
+    app.v2.repositories
+forbidden_modules =
+    fastmcp
+    httpx
+
+# Old app must not import v2 (one-way gate during transition).
+[importlinter:contract:v2-backflow-gate]
+name = app (legacy) must not import from app.v2
+type = forbidden
+source_modules =
+    app.api
+    app.audio
+    app.audit
+    app.bootstrap
+    app.camelot
+    app.controllers
+    app.core
+    app.db
+    app.engines
+    app.entities
+    app.export
+    app.infrastructure
+    app.optimization
+    app.schemas
+    app.services
+    app.templates
+    app.transition
+    app.ym
+forbidden_modules =
+    app.v2
