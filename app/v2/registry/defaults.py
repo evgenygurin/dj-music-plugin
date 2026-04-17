@@ -8,6 +8,12 @@ Handlers default to ``None``; Phase 3 assigns custom handlers for
 
 from __future__ import annotations
 
+from app.v2.handlers.audio_file_download import audio_file_download_handler
+from app.v2.handlers.set_version_build import set_version_build_handler
+from app.v2.handlers.track_features_analyze import track_features_analyze_handler
+from app.v2.handlers.track_features_reanalyze import track_features_reanalyze_handler
+from app.v2.handlers.track_import import track_import_handler
+from app.v2.handlers.transition_persist import transition_persist_handler
 from app.v2.models.audio_file import DjLibraryItem
 from app.v2.models.playlist import DjPlaylist
 from app.v2.models.scoring_profile import ScoringProfile
@@ -105,6 +111,7 @@ def register_default_entities() -> None:
             sortable_fields=("id", "title", "duration_ms"),
             relations={"artists": "artists", "features": "track_audio_features_computed"},
             tags=frozenset({"namespace:library"}),
+            create_handler=track_import_handler,
         )
     )
 
@@ -183,6 +190,7 @@ def register_default_entities() -> None:
             sortable_fields=("id", "quality_score"),
             relations={"items": "dj_set_items"},
             tags=frozenset({"namespace:sets"}),
+            create_handler=set_version_build_handler,
         )
     )
 
@@ -207,6 +215,7 @@ def register_default_entities() -> None:
             sortable_fields=("id", "file_size"),
             relations={"beatgrids": "dj_beatgrids"},
             tags=frozenset({"namespace:library"}),
+            create_handler=audio_file_download_handler,
         )
     )
 
@@ -245,6 +254,8 @@ def register_default_entities() -> None:
             sortable_fields=("track_id", "bpm"),
             relations={},
             tags=frozenset({"namespace:analysis"}),
+            create_handler=track_features_analyze_handler,
+            update_handler=track_features_reanalyze_handler,
         )
     )
 
@@ -279,6 +290,7 @@ def register_default_entities() -> None:
             sortable_fields=("id", "overall_score"),
             relations={},
             tags=frozenset({"namespace:transitions"}),
+            create_handler=transition_persist_handler,
         )
     )
 

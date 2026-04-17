@@ -1,4 +1,4 @@
-"""Registering default entities populates the registry with 11 configs."""
+"""register_default_entities wires 11 entities + custom handlers (Phase 3)."""
 
 from __future__ import annotations
 
@@ -9,13 +9,15 @@ from app.v2.registry.entity import EntityRegistry
 
 
 @pytest.fixture(autouse=True)
-def _clean_registry() -> None:
+def _reset_registry() -> None:
+    EntityRegistry.clear()
+    yield
     EntityRegistry.clear()
 
 
-def test_register_all() -> None:
+def test_registers_all_11_entities() -> None:
     register_default_entities()
-    names = EntityRegistry.names()
+    names = set(EntityRegistry.names())
     expected = {
         "track",
         "playlist",
@@ -29,7 +31,7 @@ def test_register_all() -> None:
         "track_affinity",
         "scoring_profile",
     }
-    assert set(names) == expected
+    assert names == expected
 
 
 def test_track_config_shape() -> None:
@@ -40,7 +42,58 @@ def test_track_config_shape() -> None:
     assert "list" in cfg.allowed_ops
     assert "id" in cfg.field_presets
     assert cfg.default_preset == "id"
-    assert cfg.create_handler is None
+
+
+def test_track_has_import_handler() -> None:
+    register_default_entities()
+    cfg = EntityRegistry.get("track")
+    assert cfg.create_handler is not None
+    assert cfg.create_handler.__name__ == "track_import_handler"
+
+
+def test_audio_file_has_download_handler() -> None:
+    register_default_entities()
+    cfg = EntityRegistry.get("audio_file")
+    assert cfg.create_handler is not None
+    assert cfg.create_handler.__name__ == "audio_file_download_handler"
+
+
+def test_track_features_has_analyze_and_reanalyze_handlers() -> None:
+    register_default_entities()
+    cfg = EntityRegistry.get("track_features")
+    assert cfg.create_handler is not None
+    assert cfg.create_handler.__name__ == "track_features_analyze_handler"
+    assert cfg.update_handler is not None
+    assert cfg.update_handler.__name__ == "track_features_reanalyze_handler"
+
+
+def test_transition_has_persist_handler() -> None:
+    register_default_entities()
+    cfg = EntityRegistry.get("transition")
+    assert cfg.create_handler is not None
+    assert cfg.create_handler.__name__ == "transition_persist_handler"
+
+
+def test_set_version_has_build_handler() -> None:
+    register_default_entities()
+    cfg = EntityRegistry.get("set_version")
+    assert cfg.create_handler is not None
+    assert cfg.create_handler.__name__ == "set_version_build_handler"
+
+
+def test_plain_entities_have_no_custom_handler() -> None:
+    register_default_entities()
+    for name in (
+        "playlist",
+        "set",
+        "transition_history",
+        "track_feedback",
+        "track_affinity",
+        "scoring_profile",
+    ):
+        cfg = EntityRegistry.get(name)
+        assert cfg.create_handler is None, f"{name} should have no create handler"
+        assert cfg.update_handler is None
 
 
 def test_idempotent_register_raises_on_duplicate() -> None:
