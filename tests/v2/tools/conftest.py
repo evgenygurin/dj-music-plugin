@@ -1,4 +1,10 @@
-"""Shared fixtures for v2 tool integration tests."""
+"""Shared fixtures for v2 tool integration tests.
+
+Uses ``build_mcp_app_for_tests`` from ``app.v2.server.app`` so the full
+FileSystemProvider tool discovery pipeline runs, but skips middleware,
+visibility and lifespan — tests inject a mock UoW + ProviderRegistry by
+monkey-patching the ``app.v2.server.di`` resolvers.
+"""
 
 from __future__ import annotations
 
@@ -6,18 +12,15 @@ from collections.abc import AsyncIterator
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+import pytest_asyncio
 from fastmcp import FastMCP
 from fastmcp.client import Client
 from fastmcp.client.transports import FastMCPTransport
-
-# Import tool modules so their @tool decorators register.
-# Phase 3 registers tools manually — FileSystemProvider wiring is Phase 5.
 
 
 @pytest.fixture
 def mock_uow() -> MagicMock:
     uow = MagicMock()
-    # CRUD ops
     for attr in (
         "tracks",
         "playlists",
@@ -48,74 +51,61 @@ def mock_uow() -> MagicMock:
 
 @pytest.fixture
 def mock_provider_registry() -> MagicMock:
-    r = MagicMock()
-    provider = AsyncMock()
+    r = MagicMock(spec=["get", "default", "names"])
+    provider = MagicMock()
     provider.name = "yandex"
-    provider.read.return_value = {"id": "1", "title": "Track"}
-    provider.write.return_value = {"revision": 8}
-    provider.search.return_value = {"tracks": {"results": [{"id": "1", "title": "X"}], "total": 1}}
-    r.get.return_value = provider
-    r.default.return_value = provider
-    r.names.return_value = ["yandex"]
+    provider.read = AsyncMock(return_value={"id": "1", "title": "Track"})
+    provider.write = AsyncMock(return_value={"revision": 8})
+    provider.search = AsyncMock(
+        return_value={"tracks": {"results": [{"id": "1", "title": "X"}], "total": 1}}
+    )
+    r.get = MagicMock(return_value=provider)
+    r.default = MagicMock(return_value=provider)
+    r.names = MagicMock(return_value=["yandex"])
     return r
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def mcp_server(
-    mock_uow: MagicMock, mock_provider_registry: MagicMock
+    mock_uow: MagicMock,
+    mock_provider_registry: MagicMock,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> AsyncIterator[FastMCP]:
-    """FastMCP server with v2 tools registered + mocked DI."""
+    """FastMCP server via build_mcp_app_for_tests + mocked DI resolvers."""
     from app.v2.registry.defaults import register_default_entities
     from app.v2.registry.entity import EntityRegistry
     from app.v2.server import di
+    from app.v2.server.app import build_mcp_app_for_tests
 
-    # Clear + register entities (idempotent per test).
     EntityRegistry.clear()
     register_default_entities()
 
-    # Monkey-patch DI resolvers so tests don't need a real DB.
-    di.get_uow = lambda: mock_uow  # type: ignore[attr-defined]
-    di.get_provider_registry = lambda: mock_provider_registry  # type: ignore[attr-defined]
+    # Tools bind Depends(get_uow) / Depends(get_provider_registry) at import
+    # time — monkey-patching the module attribute doesn't affect those bound
+    # references. Patch the low-level resolver instead.
+    _slots = {
+        "uow": mock_uow,
+        "provider_registry": mock_provider_registry,
+    }
 
-    mcp = FastMCP(name="dj-music-v2-test")
+    def _fake_read_slot(ctx, key, what):  # type: ignore[no-untyped-def]
+        if key in _slots:
+            return _slots[key]
+        raise RuntimeError(f"{what} not initialized (test)")
 
-    # Register every v2 tool on this server.
-    from app.v2.tools.admin import unlock_namespace as _un
-    from app.v2.tools.compute import score_pool as _sp
-    from app.v2.tools.compute import sequence_optimize as _so
-    from app.v2.tools.entity import (
-        aggregate as _agg,
-    )
-    from app.v2.tools.entity import (
-        create as _cr,
-    )
-    from app.v2.tools.entity import (
-        delete as _de,
-    )
-    from app.v2.tools.entity import (
-        get as _ge,
-    )
-    from app.v2.tools.entity import (
-        list as _li,
-    )
-    from app.v2.tools.entity import (
-        update as _up,
-    )
-    from app.v2.tools.provider import read as _pr
-    from app.v2.tools.provider import search as _ps
-    from app.v2.tools.provider import write as _pw
-    from app.v2.tools.sync import playlist_sync as _py
+    monkeypatch.setattr(di, "_read_slot", _fake_read_slot)
 
-    for mod in (_li, _ge, _cr, _up, _de, _agg, _pr, _pw, _ps, _sp, _so, _py, _un):
-        for name in dir(mod):
-            obj = getattr(mod, name)
-            if callable(obj) and getattr(obj, "__is_tool__", False):
-                mcp.add_tool(obj)  # type: ignore[attr-defined]
-
+    mcp = await build_mcp_app_for_tests(
+        with_middleware=False,
+        with_transforms=False,
+        with_visibility=False,
+        with_lifespan=False,
+        with_sampling=False,
+    )
     yield mcp
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def mcp_client(mcp_server: FastMCP) -> AsyncIterator[Client]:
     async with Client(transport=FastMCPTransport(mcp_server)) as c:
         yield c
