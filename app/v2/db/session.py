@@ -24,15 +24,12 @@ def get_engine() -> AsyncEngine:
     global _engine
     if _engine is None:
         s = get_settings().database
-        _engine = create_async_engine(
-            s.database_url,
-            echo=s.db_echo,
-            pool_pre_ping=s.db_pool_pre_ping,
-            pool_size=s.db_pool_size if "postgresql" in s.database_url else 5,
-            connect_args={"statement_cache_size": s.db_statement_cache_size}
-            if "postgresql" in s.database_url
-            else {},
-        )
+        kwargs: dict[str, object] = {"echo": s.db_echo}
+        if "postgresql" in s.database_url:
+            kwargs["pool_pre_ping"] = s.db_pool_pre_ping
+            kwargs["pool_size"] = s.db_pool_size
+            kwargs["connect_args"] = {"statement_cache_size": s.db_statement_cache_size}
+        _engine = create_async_engine(s.database_url, **kwargs)
     return _engine
 
 
