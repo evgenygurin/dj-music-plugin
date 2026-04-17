@@ -367,6 +367,207 @@ when a slot is missing so wiring bugs surface early."
 
 ---
 
+## Task 2a: `app/v2/server/prefetch.py` — speculative-prefetch helper
+
+**Files:**
+- Create: `app/v2/server/prefetch.py`
+- Test: `tests/v2/server/test_prefetch.py`
+
+Closes review gap G1 (blueprint §14.3 maps legacy `app/services/prefetch_service.py` → `app/v2/server/prefetch.py`). The `suggest_next_track` resource (Phase 4) triggers speculative L3 analysis + transition scoring on top candidates, so the next user query is fast.
+
+- [ ] **Step 1: Write failing tests**
+
+```python
+# tests/v2/server/test_prefetch.py
+"""SpeculativePrefetch — warms transition scoring + L3 analysis for top candidates."""
+
+from __future__ import annotations
+
+from unittest.mock import AsyncMock, MagicMock
+
+import pytest
+
+from app.v2.config import get_settings, reset_settings_cache
+from app.v2.server.prefetch import SpeculativePrefetch
+
+@pytest.fixture(autouse=True)
+def _isolate_settings() -> None:
+    reset_settings_cache()
+
+@pytest.mark.asyncio
+async def test_prefetch_respects_top_n_cap() -> None:
+    uow = MagicMock()
+    uow.track_features.get_analysis_level = AsyncMock(return_value=3)
+    uow.tracks.get_provider_id = AsyncMock(return_value="yandex-id")
+    scorer = AsyncMock()
+
+    pre = SpeculativePrefetch(uow=uow, scorer=scorer, settings=get_settings().discovery)
+    await pre.warm(from_track_id=1, candidate_ids=[2, 3, 4, 5, 6, 7, 8, 9, 10, 11])
+
+    # Default prefetch_top_n = 3 — scorer called at most 3 times.
+    assert scorer.call_count <= 3
+
+@pytest.mark.asyncio
+async def test_prefetch_skips_when_top_n_is_zero() -> None:
+    uow = MagicMock()
+    scorer = AsyncMock()
+
+    settings = get_settings().discovery.model_copy(update={"prefetch_top_n": 0})
+    pre = SpeculativePrefetch(uow=uow, scorer=scorer, settings=settings)
+    await pre.warm(from_track_id=1, candidate_ids=[2, 3, 4])
+
+    scorer.assert_not_called()
+
+@pytest.mark.asyncio
+async def test_prefetch_triggers_l3_when_below_threshold() -> None:
+    uow = MagicMock()
+    analyze_handler = AsyncMock()
+    # Candidate 2 has level 2 → needs L3 upgrade. Candidate 3 already L3 → skip.
+    uow.track_features.get_analysis_level = AsyncMock(side_effect=[2, 3])
+
+    pre = SpeculativePrefetch(
+        uow=uow,
+        scorer=AsyncMock(),
+        settings=get_settings().discovery,
+        analyze_handler=analyze_handler,
+    )
+    await pre.warm(from_track_id=1, candidate_ids=[2, 3])
+
+    analyze_handler.assert_awaited_once()
+    args, kwargs = analyze_handler.await_args
+    # Handler receives list of track IDs needing L3.
+    assert kwargs.get("track_ids") == [2] or (args and args[0] == [2])
+
+@pytest.mark.asyncio
+async def test_prefetch_errors_are_swallowed_not_propagated() -> None:
+    uow = MagicMock()
+    uow.track_features.get_analysis_level = AsyncMock(side_effect=RuntimeError("boom"))
+
+    pre = SpeculativePrefetch(uow=uow, scorer=AsyncMock(), settings=get_settings().discovery)
+
+    # Must NOT raise — prefetch is best-effort background work.
+    await pre.warm(from_track_id=1, candidate_ids=[2, 3])
+```
+
+- [ ] **Step 2: Run — expected FAIL**
+
+```bash
+uv run pytest tests/v2/server/test_prefetch.py -v
+```
+
+Expected: `ModuleNotFoundError`.
+
+- [ ] **Step 3: Write `app/v2/server/prefetch.py`**
+
+```python
+"""Speculative prefetch helper.
+
+Used by ``suggest_next_track`` (Phase 4 resource) to warm the top-N
+candidates in the background: run L3 analysis if missing, then
+pre-compute and cache the transition score. The next
+``suggest_next_track`` call against the same track is served from cache.
+
+Best-effort only — every error is swallowed. Never blocks the caller.
+"""
+
+from __future__ import annotations
+
+import logging
+from collections.abc import Awaitable, Callable
+from dataclasses import dataclass
+from typing import Any
+
+from app.v2.config.discovery import DiscoverySettings
+
+log = logging.getLogger(__name__)
+
+# Signatures of handler-ish callables we accept. Typed loosely because the
+# handler's real signature lives in Phase 3 and we don't import from it.
+AnalyzeHandler = Callable[..., Awaitable[Any]]
+Scorer = Callable[..., Awaitable[Any]]
+
+@dataclass(slots=True)
+class SpeculativePrefetch:
+    """Pre-warm top-N candidate scores + analysis levels for one track."""
+
+    uow: Any
+    scorer: Scorer
+    settings: DiscoverySettings
+    analyze_handler: AnalyzeHandler | None = None
+
+    async def warm(self, *, from_track_id: int, candidate_ids: list[int]) -> None:
+        """Spend at most ``settings.prefetch_top_n`` scoring calls + at most
+        ``settings.prefetch_max_l3`` analysis upgrades warming the top candidates.
+        """
+        top_n = max(0, self.settings.prefetch_top_n)
+        if top_n == 0 or not candidate_ids:
+            return
+
+        targets = candidate_ids[:top_n]
+        try:
+            await self._ensure_level(targets)
+            for to_track_id in targets:
+                try:
+                    await self.scorer(from_track_id, to_track_id)
+                except Exception as exc:  # noqa: BLE001
+                    log.debug(
+                        "prefetch score failed",
+                        extra={"from": from_track_id, "to": to_track_id, "err": str(exc)},
+                    )
+        except Exception as exc:  # noqa: BLE001
+            # Best-effort: never propagate.
+            log.debug("prefetch aborted", extra={"err": str(exc)})
+
+    async def _ensure_level(self, track_ids: list[int]) -> None:
+        """Trigger analyze_handler for tracks below L3, bounded by prefetch_max_l3."""
+        if self.analyze_handler is None:
+            return
+
+        budget = max(0, self.settings.prefetch_max_l3)
+        if budget == 0:
+            return
+
+        needs_upgrade: list[int] = []
+        for tid in track_ids:
+            try:
+                level = await self.uow.track_features.get_analysis_level(tid)
+            except Exception:  # noqa: BLE001
+                continue
+            if level < 3:
+                needs_upgrade.append(tid)
+            if len(needs_upgrade) >= budget:
+                break
+
+        if not needs_upgrade:
+            return
+
+        try:
+            await self.analyze_handler(track_ids=needs_upgrade, level=3)
+        except Exception as exc:  # noqa: BLE001
+            log.debug("prefetch analyze failed", extra={"err": str(exc), "ids": needs_upgrade})
+```
+
+- [ ] **Step 4: Run — expected PASS**
+
+```bash
+uv run pytest tests/v2/server/test_prefetch.py -v
+```
+
+Expected: 4 passed.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add app/v2/server/prefetch.py tests/v2/server/test_prefetch.py
+git commit -m "feat(v2): add SpeculativePrefetch helper
+
+Ports legacy app/services/prefetch_service.py → app/v2/server/prefetch.py
+per blueprint §14.3. Used by suggest_next_track resource (Phase 4).
+Best-effort — every error swallowed, never blocks caller."
+```
+
+---
+
 ## Task 3: `app/v2/server/lifespan.py` — composed lifespan
 
 **Files:**
@@ -1278,13 +1479,11 @@ from fastmcp.server.middleware import MiddlewareContext
 
 from app.v2.server.middleware.retry import RetryMiddleware, TransientError
 
-
 def _ctx() -> MiddlewareContext:
     mc = MiddlewareContext.__new__(MiddlewareContext)
     mc.message = MagicMock()
     mc.message.name = "entity_list"
     return mc
-
 
 @pytest.mark.asyncio
 async def test_success_first_try_no_retry() -> None:
@@ -1292,7 +1491,6 @@ async def test_success_first_try_no_retry() -> None:
     call_next = AsyncMock(return_value="ok")
     assert await mw.on_call_tool(_ctx(), call_next) == "ok"
     assert call_next.await_count == 1
-
 
 @pytest.mark.asyncio
 async def test_retries_transient_error() -> None:
@@ -1303,7 +1501,6 @@ async def test_retries_transient_error() -> None:
     assert await mw.on_call_tool(_ctx(), call_next) == "ok"
     assert call_next.await_count == 3
 
-
 @pytest.mark.asyncio
 async def test_gives_up_after_max() -> None:
     mw = RetryMiddleware(max_retries=2, base_delay=0)
@@ -1311,7 +1508,6 @@ async def test_gives_up_after_max() -> None:
     with pytest.raises(TransientError):
         await mw.on_call_tool(_ctx(), call_next)
     assert call_next.await_count == 3  # initial + 2 retries
-
 
 @pytest.mark.asyncio
 async def test_does_not_retry_non_transient() -> None:
@@ -1343,10 +1539,8 @@ from fastmcp.server.middleware import Middleware, MiddlewareContext
 
 log = logging.getLogger(__name__)
 
-
 class TransientError(Exception):
     """Marker for errors safe to retry."""
-
 
 class RetryMiddleware(Middleware):
     def __init__(
@@ -1415,13 +1609,11 @@ from fastmcp.server.middleware import MiddlewareContext
 
 from app.v2.server.middleware.response_limit import ResponseLimitingMiddleware
 
-
 def _ctx() -> MiddlewareContext:
     mc = MiddlewareContext.__new__(MiddlewareContext)
     mc.message = MagicMock()
     mc.message.name = "entity_list"
     return mc
-
 
 @pytest.mark.asyncio
 async def test_passes_small_response_untouched() -> None:
@@ -1429,7 +1621,6 @@ async def test_passes_small_response_untouched() -> None:
     payload = {"items": [1, 2, 3]}
     call_next = AsyncMock(return_value=payload)
     assert await mw.on_call_tool(_ctx(), call_next) is payload
-
 
 @pytest.mark.asyncio
 async def test_truncates_oversized_dict() -> None:
@@ -1439,7 +1630,6 @@ async def test_truncates_oversized_dict() -> None:
     result = await mw.on_call_tool(_ctx(), call_next)
     assert result.get("truncated") is True
     assert "limit_bytes" in result
-
 
 @pytest.mark.asyncio
 async def test_truncates_oversized_string() -> None:
@@ -1473,7 +1663,6 @@ from fastmcp.server.middleware import Middleware, MiddlewareContext
 from app.v2.config import get_settings
 
 log = logging.getLogger(__name__)
-
 
 class ResponseLimitingMiddleware(Middleware):
     def __init__(self, *, max_bytes: int | None = None) -> None:
@@ -1547,7 +1736,6 @@ from fastmcp.server.middleware import MiddlewareContext
 
 from app.v2.server.middleware.response_caching import ResponseCachingMiddleware
 
-
 def _ctx(name: str, readonly: bool, args: dict) -> MiddlewareContext:
     mc = MiddlewareContext.__new__(MiddlewareContext)
     msg = MagicMock()
@@ -1562,7 +1750,6 @@ def _ctx(name: str, readonly: bool, args: dict) -> MiddlewareContext:
     mc.fastmcp_context = fctx
     return mc
 
-
 @pytest.mark.asyncio
 async def test_caches_readonly_tool_result() -> None:
     mw = ResponseCachingMiddleware(ttl_seconds=60)
@@ -1574,7 +1761,6 @@ async def test_caches_readonly_tool_result() -> None:
     # second call served from cache
     assert call_next.await_count == 1
 
-
 @pytest.mark.asyncio
 async def test_does_not_cache_mutations() -> None:
     mw = ResponseCachingMiddleware(ttl_seconds=60)
@@ -1584,7 +1770,6 @@ async def test_does_not_cache_mutations() -> None:
     await mw.on_call_tool(ctx, call_next)
     assert call_next.await_count == 2
 
-
 @pytest.mark.asyncio
 async def test_different_args_different_cache_entries() -> None:
     mw = ResponseCachingMiddleware(ttl_seconds=60)
@@ -1593,7 +1778,6 @@ async def test_different_args_different_cache_entries() -> None:
     ctx2 = _ctx("entity_list", True, {"q": "b"})
     assert (await mw.on_call_tool(ctx1, call_next)) == {"a": 1}
     assert (await mw.on_call_tool(ctx2, call_next)) == {"b": 2}
-
 
 @pytest.mark.asyncio
 async def test_ttl_expiry() -> None:
@@ -1634,14 +1818,12 @@ from app.v2.config import get_settings
 
 log = logging.getLogger(__name__)
 
-
 def _key_for(name: str, args: Any) -> str:
     try:
         payload = json.dumps(args, sort_keys=True, default=str)
     except TypeError:
         payload = repr(args)
     return f"{name}|{payload}"
-
 
 class ResponseCachingMiddleware(Middleware):
     def __init__(
@@ -1737,7 +1919,6 @@ from app.v2.server.middleware.deprecation_warning import (
     DeprecationWarningMiddleware,
 )
 
-
 def _ctx(tool_name: str, version: str | None) -> MiddlewareContext:
     mc = MiddlewareContext.__new__(MiddlewareContext)
     msg = MagicMock()
@@ -1750,7 +1931,6 @@ def _ctx(tool_name: str, version: str | None) -> MiddlewareContext:
     mc.fastmcp_context = fctx
     return mc
 
-
 @pytest.mark.asyncio
 async def test_warns_on_version_1_0() -> None:
     warnings: list[str] = []
@@ -1760,7 +1940,6 @@ async def test_warns_on_version_1_0() -> None:
     assert warnings
     assert "old_tool" in warnings[0]
 
-
 @pytest.mark.asyncio
 async def test_no_warning_on_current_version() -> None:
     warnings: list[str] = []
@@ -1768,7 +1947,6 @@ async def test_no_warning_on_current_version() -> None:
     call_next = AsyncMock(return_value="ok")
     await mw.on_call_tool(_ctx("new_tool", "2.0"), call_next)
     assert warnings == []
-
 
 @pytest.mark.asyncio
 async def test_no_warning_when_unversioned() -> None:
@@ -1802,10 +1980,8 @@ log = logging.getLogger(__name__)
 
 DEPRECATED_VERSIONS = frozenset({"1.0"})
 
-
 def _default_emit(message: str) -> None:
     log.warning("deprecation: %s", message, extra={"mcp_extra": {"deprecated": True}})
-
 
 class DeprecationWarningMiddleware(Middleware):
     def __init__(self, *, emit: Callable[[str], None] = _default_emit) -> None:
@@ -1862,7 +2038,6 @@ from fastmcp.server.middleware import MiddlewareContext
 
 from app.v2.server.middleware.cost_tracking import CostTrackingMiddleware
 
-
 def _ctx(name: str) -> MiddlewareContext:
     mc = MiddlewareContext.__new__(MiddlewareContext)
     mc.message = MagicMock()
@@ -1870,7 +2045,6 @@ def _ctx(name: str) -> MiddlewareContext:
     mc.fastmcp_context = MagicMock()
     mc.fastmcp_context.state = {}
     return mc
-
 
 @pytest.mark.asyncio
 async def test_records_provider_call_count() -> None:
@@ -1888,7 +2062,6 @@ async def test_records_provider_call_count() -> None:
     assert emitted[0]["provider_calls"] == 3
     assert emitted[0]["tool"] == "provider_read"
 
-
 @pytest.mark.asyncio
 async def test_records_llm_tokens() -> None:
     emitted: list[dict] = []
@@ -1902,7 +2075,6 @@ async def test_records_llm_tokens() -> None:
 
     await mw.on_call_tool(ctx, call_next)
     assert emitted[0]["llm_tokens"] == 1500
-
 
 @pytest.mark.asyncio
 async def test_records_zero_when_nothing_happened() -> None:
@@ -1937,10 +2109,8 @@ from fastmcp.server.middleware import Middleware, MiddlewareContext
 
 log = logging.getLogger(__name__)
 
-
 def _default_sink(event: dict) -> None:
     log.info("mcp_cost", extra={"mcp_extra": event})
-
 
 class CostTrackingMiddleware(Middleware):
     def __init__(self, *, sink: Callable[[dict], None] = _default_sink) -> None:
@@ -2005,7 +2175,6 @@ from app.v2.server.middleware.sampling_budget import (
     SamplingBudgetMiddleware,
 )
 
-
 def _ctx(session_id: str = "s1") -> MiddlewareContext:
     mc = MiddlewareContext.__new__(MiddlewareContext)
     mc.message = MagicMock()
@@ -2015,7 +2184,6 @@ def _ctx(session_id: str = "s1") -> MiddlewareContext:
     fctx.state = {}
     mc.fastmcp_context = fctx
     return mc
-
 
 @pytest.mark.asyncio
 async def test_allows_until_budget() -> None:
@@ -2032,7 +2200,6 @@ async def test_allows_until_budget() -> None:
     await mw.on_call_tool(ctx, bump_twice)
     # next tool call must still be allowed (=2 is the cap, not exceeded)
 
-
 @pytest.mark.asyncio
 async def test_raises_over_budget() -> None:
     mw = SamplingBudgetMiddleware(max_samples_per_session=1)
@@ -2045,7 +2212,6 @@ async def test_raises_over_budget() -> None:
 
     with pytest.raises(SamplingBudgetExceeded):
         await mw.on_call_tool(ctx, bump_over)
-
 
 @pytest.mark.asyncio
 async def test_budget_is_per_session() -> None:
@@ -2080,10 +2246,8 @@ from fastmcp.server.middleware import Middleware, MiddlewareContext
 
 from app.v2.config import get_settings
 
-
 class SamplingBudgetExceeded(Exception):
     """Raised when a session has used up its sampling budget."""
-
 
 class SamplingBudgetMiddleware(Middleware):
     def __init__(self, *, max_samples_per_session: int | None = None) -> None:
@@ -2149,7 +2313,6 @@ from fastmcp.server.middleware import MiddlewareContext
 
 from app.v2.server.middleware.progress_throttle import ProgressThrottleMiddleware
 
-
 def _make_ctx_with_report():
     calls: list[tuple[float, int]] = []
 
@@ -2163,7 +2326,6 @@ def _make_ctx_with_report():
     mc.message = MagicMock()
     mc.message.name = "t"
     return mc, calls, fctx
-
 
 @pytest.mark.asyncio
 async def test_throttles_rapid_progress_to_ratelimit() -> None:
@@ -2179,7 +2341,6 @@ async def test_throttles_rapid_progress_to_ratelimit() -> None:
     await mw.on_call_tool(ctx, spam)
     assert 1 <= len(calls) <= 3
 
-
 @pytest.mark.asyncio
 async def test_allows_spaced_progress() -> None:
     mw = ProgressThrottleMiddleware(max_per_second=10)
@@ -2193,7 +2354,6 @@ async def test_allows_spaced_progress() -> None:
 
     await mw.on_call_tool(ctx, slow)
     assert len(calls) == 3
-
 
 @pytest.mark.asyncio
 async def test_restores_original_on_exit() -> None:
@@ -2224,7 +2384,6 @@ import time
 from typing import Any, Awaitable, Callable
 
 from fastmcp.server.middleware import Middleware, MiddlewareContext
-
 
 class ProgressThrottleMiddleware(Middleware):
     def __init__(self, *, max_per_second: int = 1) -> None:
@@ -2298,7 +2457,6 @@ from fastmcp.server.middleware import MiddlewareContext
 
 from app.v2.server.middleware.tool_timeout import ToolCallTimeoutMiddleware
 
-
 def _ctx(name: str, timeout: float | None) -> MiddlewareContext:
     mc = MiddlewareContext.__new__(MiddlewareContext)
     mc.message = MagicMock()
@@ -2310,13 +2468,11 @@ def _ctx(name: str, timeout: float | None) -> MiddlewareContext:
     mc.fastmcp_context = fctx
     return mc
 
-
 @pytest.mark.asyncio
 async def test_completes_within_timeout() -> None:
     mw = ToolCallTimeoutMiddleware(default_timeout=1.0)
     call_next = AsyncMock(return_value="ok")
     assert await mw.on_call_tool(_ctx("t", 1.0), call_next) == "ok"
-
 
 @pytest.mark.asyncio
 async def test_raises_on_overrun() -> None:
@@ -2328,7 +2484,6 @@ async def test_raises_on_overrun() -> None:
 
     with pytest.raises(ToolError, match="timed out"):
         await mw.on_call_tool(_ctx("slow", 0.01), slow)
-
 
 @pytest.mark.asyncio
 async def test_respects_per_tool_meta_over_default() -> None:
@@ -2362,7 +2517,6 @@ from fastmcp.exceptions import ToolError
 from fastmcp.server.middleware import Middleware, MiddlewareContext
 
 from app.v2.config import get_settings
-
 
 class ToolCallTimeoutMiddleware(Middleware):
     def __init__(self, *, default_timeout: float | None = None) -> None:
@@ -2430,14 +2584,12 @@ from app.v2.server.middleware.provider_rate_limit import (
     ProviderRateLimitMiddleware,
 )
 
-
 def _ctx(name: str) -> MiddlewareContext:
     mc = MiddlewareContext.__new__(MiddlewareContext)
     mc.message = MagicMock()
     mc.message.name = name
     mc.fastmcp_context = MagicMock()
     return mc
-
 
 @pytest.mark.asyncio
 async def test_spaces_consecutive_provider_calls() -> None:
@@ -2449,7 +2601,6 @@ async def test_spaces_consecutive_provider_calls() -> None:
     await mw.on_call_tool(_ctx("provider_read"), call_next)
     await mw.on_call_tool(_ctx("provider_read"), call_next)
     assert time.monotonic() - t0 >= 0.05
-
 
 @pytest.mark.asyncio
 async def test_does_not_throttle_local_tools() -> None:
@@ -2484,7 +2635,6 @@ from typing import Any, Awaitable, Callable
 from fastmcp.server.middleware import Middleware, MiddlewareContext
 
 from app.v2.config import get_settings
-
 
 class ProviderRateLimitMiddleware(Middleware):
     def __init__(
@@ -2552,7 +2702,6 @@ from fastmcp.server.middleware import MiddlewareContext
 from app.v2.repositories.unit_of_work import UnitOfWork
 from app.v2.server.middleware.db_session import DbSessionMiddleware
 
-
 class _FakeSession:
     def __init__(self) -> None:
         self.committed = False
@@ -2568,10 +2717,8 @@ class _FakeSession:
     async def close(self) -> None:
         self.closed = True
 
-
 def _fake_session_factory() -> _FakeSession:
     return _FakeSession()
-
 
 def _ctx_with_factory(factory):
     fctx = MagicMock()
@@ -2582,7 +2729,6 @@ def _ctx_with_factory(factory):
     mc.message = MagicMock()
     mc.message.name = "entity_list"
     return mc, fctx
-
 
 @pytest.mark.asyncio
 async def test_sets_uow_on_state_and_commits_on_success() -> None:
@@ -2601,7 +2747,6 @@ async def test_sets_uow_on_state_and_commits_on_success() -> None:
     assert session.committed and not session.rolled_back
     assert session.closed
 
-
 @pytest.mark.asyncio
 async def test_rolls_back_on_error() -> None:
     session = _FakeSession()
@@ -2613,7 +2758,6 @@ async def test_rolls_back_on_error() -> None:
         await mw.on_call_tool(ctx, handler)
     assert session.rolled_back and not session.committed
     assert session.closed
-
 
 @pytest.mark.asyncio
 async def test_skips_when_no_factory_available() -> None:
@@ -2653,7 +2797,6 @@ from fastmcp.server.middleware import Middleware, MiddlewareContext
 from app.v2.repositories.unit_of_work import UnitOfWork
 
 log = logging.getLogger(__name__)
-
 
 class DbSessionMiddleware(Middleware):
     async def on_call_tool(
@@ -2726,7 +2869,6 @@ from app.v2.server.middleware.structured_logging import (
     StructuredLoggingMiddleware,
 )
 
-
 def _ctx(name: str = "entity_list") -> MiddlewareContext:
     mc = MiddlewareContext.__new__(MiddlewareContext)
     mc.message = MagicMock()
@@ -2738,7 +2880,6 @@ def _ctx(name: str = "entity_list") -> MiddlewareContext:
     mc.fastmcp_context = fctx
     return mc
 
-
 @pytest.mark.asyncio
 async def test_logs_enter_and_exit(caplog) -> None:
     mw = StructuredLoggingMiddleware()
@@ -2748,7 +2889,6 @@ async def test_logs_enter_and_exit(caplog) -> None:
     messages = [r.message for r in caplog.records]
     assert any("call_tool.enter" in m for m in messages)
     assert any("call_tool.exit" in m for m in messages)
-
 
 @pytest.mark.asyncio
 async def test_logs_error(caplog) -> None:
@@ -2779,7 +2919,6 @@ from typing import Any, Awaitable, Callable
 from fastmcp.server.middleware import Middleware, MiddlewareContext
 
 log = logging.getLogger(__name__)
-
 
 class StructuredLoggingMiddleware(Middleware):
     async def on_call_tool(
@@ -2846,7 +2985,6 @@ from app.v2.server.transforms import (
     register_post_constructor_transforms,
 )
 
-
 def test_always_visible_list_matches_blueprint() -> None:
     assert ALWAYS_VISIBLE_TOOLS == (
         "entity_list",
@@ -2860,20 +2998,17 @@ def test_always_visible_list_matches_blueprint() -> None:
         "unlock_namespace",
     )
 
-
 def test_pre_constructor_transforms_include_bm25() -> None:
     transforms = build_pre_constructor_transforms()
     # Find the BM25SearchTransform
     names = [type(t).__name__ for t in transforms]
     assert "BM25SearchTransform" in names
 
-
 def test_pre_constructor_transforms_max_results_configured() -> None:
     transforms = build_pre_constructor_transforms()
     bm25 = next(t for t in transforms if type(t).__name__ == "BM25SearchTransform")
     assert bm25.max_results == 8
     assert set(bm25.always_visible) == set(ALWAYS_VISIBLE_TOOLS)
-
 
 def test_register_post_constructor_transforms_invokes_prompts_and_resources() -> None:
     mcp = MagicMock()
@@ -2885,7 +3020,6 @@ def test_register_post_constructor_transforms_invokes_prompts_and_resources() ->
     PAT.assert_called_once_with(mcp)
     RAT.assert_called_once_with(mcp)
 
-
 def test_code_mode_disabled_by_default(monkeypatch) -> None:
     monkeypatch.delenv("DJ_MCP_CODE_MODE", raising=False)
     mcp = MagicMock()
@@ -2896,7 +3030,6 @@ def test_code_mode_disabled_by_default(monkeypatch) -> None:
     ):
         register_post_constructor_transforms(mcp)
     CM.assert_not_called()
-
 
 def test_code_mode_enabled_by_flag(monkeypatch) -> None:
     monkeypatch.setenv("DJ_MCP_CODE_MODE", "1")
@@ -2941,7 +3074,6 @@ from fastmcp.transforms.prompts_as_tools import PromptsAsTools
 from fastmcp.transforms.resources_as_tools import ResourcesAsTools
 from fastmcp.transforms.tool_search import BM25SearchTransform
 
-
 # Always-visible tools — everything else is BM25-ranked per client query.
 # Ordering: 6 entity + 2 provider + 2 compute + 1 admin = 11.
 # Blueprint §15.6 allowlists 9 here; the two synthetic BM25 tools (``search``
@@ -2958,7 +3090,6 @@ ALWAYS_VISIBLE_TOOLS: tuple[str, ...] = (
     "unlock_namespace",
 )
 
-
 def build_pre_constructor_transforms() -> list:
     """Transforms that need to be handed to the FastMCP constructor."""
     return [
@@ -2967,7 +3098,6 @@ def build_pre_constructor_transforms() -> list:
             max_results=8,
         ),
     ]
-
 
 def register_post_constructor_transforms(mcp: FastMCP) -> None:
     """Register transforms that need the fully-constructed mcp instance."""
@@ -3013,7 +3143,6 @@ from app.v2.server.visibility import (
     unlock_namespace,
 )
 
-
 def test_disabled_namespace_tags_matches_blueprint() -> None:
     assert DISABLED_NAMESPACE_TAGS == frozenset({
         "namespace:crud:destructive",
@@ -3021,13 +3150,11 @@ def test_disabled_namespace_tags_matches_blueprint() -> None:
         "namespace:sync",
     })
 
-
 def test_apply_visibility_calls_disable_for_each_tag() -> None:
     mcp = MagicMock()
     apply_visibility_policy(mcp)
     # mcp.disable is called once with tags=DISABLED_NAMESPACE_TAGS
     mcp.disable.assert_called_once_with(tags=DISABLED_NAMESPACE_TAGS)
-
 
 @pytest.mark.asyncio
 async def test_unlock_namespace_calls_enable_components() -> None:
@@ -3038,7 +3165,6 @@ async def test_unlock_namespace_calls_enable_components() -> None:
     assert res["status"] == "unlocked"
     assert res["namespace"] == "sync"
 
-
 @pytest.mark.asyncio
 async def test_unlock_namespace_lock() -> None:
     ctx = MagicMock()
@@ -3047,7 +3173,6 @@ async def test_unlock_namespace_lock() -> None:
     ctx.disable_components.assert_called_once_with(tags={"namespace:sync"})
     assert res["status"] == "locked"
 
-
 @pytest.mark.asyncio
 async def test_unlock_namespace_reset() -> None:
     ctx = MagicMock()
@@ -3055,7 +3180,6 @@ async def test_unlock_namespace_reset() -> None:
     res = await unlock_namespace(action="reset", namespace=None, ctx=ctx)
     ctx.reset_visibility.assert_called_once()
     assert res["status"] == "reset"
-
 
 @pytest.mark.asyncio
 async def test_unlock_namespace_rejects_unknown_namespace() -> None:
@@ -3089,7 +3213,6 @@ from fastmcp import FastMCP
 from fastmcp.server.context import Context
 from fastmcp.dependencies import CurrentContext
 
-
 DISABLED_NAMESPACE_TAGS: frozenset[str] = frozenset(
     {
         "namespace:crud:destructive",
@@ -3106,7 +3229,6 @@ KNOWN_NAMESPACES: frozenset[str] = frozenset(
     }
 )
 
-
 def apply_visibility_policy(mcp: FastMCP) -> None:
     """Disable every namespace tag listed in ``DISABLED_NAMESPACE_TAGS`` globally.
 
@@ -3115,7 +3237,6 @@ def apply_visibility_policy(mcp: FastMCP) -> None:
     them during registration.
     """
     mcp.disable(tags=DISABLED_NAMESPACE_TAGS)
-
 
 async def unlock_namespace(
     action: Literal["unlock", "lock", "status", "reset"],
@@ -3169,7 +3290,6 @@ from fastmcp.dependencies import CurrentContext
 
 from app.v2.server.visibility import unlock_namespace as _unlock_impl
 
-
 @tool(
     name="unlock_namespace",
     description="Enable/disable namespace tag (crud:destructive, provider:write, sync) for the current session.",
@@ -3216,18 +3336,15 @@ import pytest
 
 from app.v2.server.sampling import build_sampling_handler
 
-
 def test_returns_none_when_api_key_missing(monkeypatch) -> None:
     monkeypatch.delenv("DJ_ANTHROPIC_API_KEY", raising=False)
     assert build_sampling_handler() is None
-
 
 def test_returns_callable_when_api_key_set(monkeypatch) -> None:
     monkeypatch.setenv("DJ_ANTHROPIC_API_KEY", "sk-test")
     handler = build_sampling_handler()
     assert handler is not None
     assert callable(handler)
-
 
 @pytest.mark.asyncio
 async def test_handler_delegates_to_anthropic(monkeypatch) -> None:
@@ -3277,11 +3394,9 @@ try:  # pragma: no cover - optional extra
 except ImportError:  # pragma: no cover
     AsyncAnthropic = None  # type: ignore[assignment]
 
-
 log = logging.getLogger(__name__)
 
 _DEFAULT_MODEL = "claude-3-5-sonnet-20241022"
-
 
 def build_sampling_handler():
     """Return an async sampling handler or None (disabled)."""
@@ -3359,13 +3474,11 @@ import pytest
 
 from app.v2.server.observability import bootstrap_observability
 
-
 def test_bootstrap_noop_when_nothing_configured(monkeypatch) -> None:
     monkeypatch.delenv("DJ_SENTRY_DSN", raising=False)
     monkeypatch.delenv("DJ_OTEL_EXPORTER_OTLP_ENDPOINT", raising=False)
     # Must not raise even when SDKs not installed / not configured
     bootstrap_observability()
-
 
 def test_bootstrap_initializes_sentry_when_configured(monkeypatch) -> None:
     monkeypatch.setenv("DJ_SENTRY_DSN", "https://x@example.com/1")
@@ -3375,13 +3488,11 @@ def test_bootstrap_initializes_sentry_when_configured(monkeypatch) -> None:
         kwargs = sdk.init.call_args.kwargs
         assert kwargs["dsn"] == "https://x@example.com/1"
 
-
 def test_bootstrap_initializes_otel_when_configured(monkeypatch) -> None:
     monkeypatch.setenv("DJ_OTEL_EXPORTER_OTLP_ENDPOINT", "http://collector:4318")
     with patch("app.v2.server.observability._init_otel") as init_otel:
         bootstrap_observability()
         init_otel.assert_called_once_with("http://collector:4318")
-
 
 def test_bootstrap_idempotent(monkeypatch) -> None:
     monkeypatch.setenv("DJ_SENTRY_DSN", "https://x@example.com/1")
@@ -3419,7 +3530,6 @@ log = logging.getLogger(__name__)
 _bootstrap_lock = Lock()
 _bootstrapped = False
 
-
 def _init_otel(endpoint: str) -> None:  # pragma: no cover - optional
     try:
         from opentelemetry import trace
@@ -3436,7 +3546,6 @@ def _init_otel(endpoint: str) -> None:  # pragma: no cover - optional
         BatchSpanProcessor(OTLPSpanExporter(endpoint=endpoint))
     )
     trace.set_tracer_provider(provider)
-
 
 def bootstrap_observability() -> None:
     """Initialize Sentry and OTEL once per process."""
@@ -3522,7 +3631,6 @@ from app.v2.server.middleware.structured_logging import (
 from app.v2.server.middleware.timing import DetailedTimingMiddleware
 from app.v2.server.middleware.tool_timeout import ToolCallTimeoutMiddleware
 
-
 # ORDER MATTERS — matches blueprint §11 exactly. First added wraps all.
 ALL_MIDDLEWARE: tuple[type, ...] = (
     ErrorHandlingMiddleware,           # 1
@@ -3543,7 +3651,6 @@ ALL_MIDDLEWARE: tuple[type, ...] = (
     StructuredLoggingMiddleware,       # 16  innermost
 )
 
-
 __all__ = ["ALL_MIDDLEWARE"]
 ```
 
@@ -3558,11 +3665,9 @@ from fastmcp import FastMCP
 
 from app.v2.server.app import build_mcp_server
 
-
 def test_build_returns_fastmcp_instance() -> None:
     mcp = build_mcp_server()
     assert isinstance(mcp, FastMCP)
-
 
 def test_build_registers_all_16_middleware(monkeypatch) -> None:
     # Middleware are added in order; mcp should expose them.
@@ -3589,7 +3694,6 @@ def test_build_registers_all_16_middleware(monkeypatch) -> None:
     ]
     assert added[: len(expected)] == expected
 
-
 def test_build_applies_visibility_policy() -> None:
     mcp = build_mcp_server()
     # Three namespace tags disabled at startup
@@ -3605,10 +3709,8 @@ def test_build_applies_visibility_policy() -> None:
 
 from app.v2.server.middleware import ALL_MIDDLEWARE
 
-
 def test_order_is_exactly_sixteen() -> None:
     assert len(ALL_MIDDLEWARE) == 16
-
 
 def test_order_matches_spec() -> None:
     expected = [
@@ -3645,7 +3747,7 @@ def test_order_matches_spec() -> None:
 2. register_post_constructor_transforms(mcp)   # PromptsAsTools, ResourcesAsTools
 3. register_middleware(mcp)                    # 16 middleware in §11 order
 4. apply_visibility_policy(mcp)                # last — after transforms
-```
+```python
 
 Order is load-bearing. Violating it hides bugs (transforms on wrong tool set,
 visibility ignoring middleware, etc.).
@@ -3671,17 +3773,14 @@ from app.v2.server.visibility import apply_visibility_policy
 
 log = logging.getLogger(__name__)
 
-
 def _v2_root() -> Path:
     # app/v2/server/app.py → app/v2
     return Path(__file__).resolve().parent.parent
-
 
 def register_middleware(mcp: FastMCP) -> None:
     """Register all 16 middleware in blueprint §11 order."""
     for cls in ALL_MIDDLEWARE:
         mcp.add_middleware(cls())
-
 
 def build_mcp_server() -> FastMCP:
     """Construct and wire up the full v2 MCP server."""
@@ -3748,7 +3847,6 @@ from unittest.mock import MagicMock
 import pytest
 import pytest_asyncio
 
-
 @pytest.fixture(autouse=True)
 def _reset_observability():
     """Ensure ``bootstrap_observability()`` can run fresh each test."""
@@ -3756,7 +3854,6 @@ def _reset_observability():
     obs._bootstrapped = False
     yield
     obs._bootstrapped = False
-
 
 @pytest.fixture
 def middleware_context_factory():
@@ -3797,7 +3894,6 @@ def middleware_context_factory():
         return mc
 
     return _factory
-
 
 @pytest_asyncio.fixture
 async def mcp_client():
@@ -3849,7 +3945,6 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
-
 @dataclass
 class ApiRuntimeState:
     mcp_ready: bool = False
@@ -3869,23 +3964,19 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
-
 class HealthResponse(BaseModel):
     status: str
     mcp_ready: bool
     tool_count: int
     degraded_reason: str | None = None
 
-
 class ToolSummary(BaseModel):
     name: str
     description: str | None = None
     tags: list[str] = Field(default_factory=list)
 
-
 class ToolCallRequest(BaseModel):
     arguments: dict[str, Any] = Field(default_factory=dict)
-
 
 class ToolCallResponse(BaseModel):
     result: Any
@@ -3909,7 +4000,6 @@ from fastapi import FastAPI
 from app.v2.rest.state import ApiRuntimeState
 
 log = logging.getLogger(__name__)
-
 
 @asynccontextmanager
 async def rest_lifespan(app: FastAPI) -> AsyncIterator[None]:
@@ -3945,7 +4035,6 @@ from app.v2.rest.state import ApiRuntimeState
 
 router = APIRouter(prefix="/api", tags=["health"])
 
-
 @router.get("/health", response_model=HealthResponse)
 async def health(request: Request) -> HealthResponse:
     runtime: ApiRuntimeState = request.app.state.runtime
@@ -3974,7 +4063,6 @@ from app.v2.rest.schemas import ToolSummary
 
 router = APIRouter(prefix="/api/tools", tags=["discovery"])
 
-
 @router.get("", response_model=list[ToolSummary])
 async def list_tools(request: Request, tag: str | None = None) -> list[ToolSummary]:
     runtime = request.app.state.runtime
@@ -3994,7 +4082,6 @@ async def list_tools(request: Request, tag: str | None = None) -> list[ToolSumma
             )
         )
     return out
-
 
 @router.get("/{name}", response_model=ToolSummary)
 async def get_tool(name: str, request: Request) -> ToolSummary:
@@ -4025,7 +4112,6 @@ from app.v2.rest.schemas import ToolCallRequest, ToolCallResponse
 
 router = APIRouter(prefix="/api/tools", tags=["execution"])
 
-
 @router.post("/{name}/call", response_model=ToolCallResponse)
 async def call_tool(
     name: str, payload: ToolCallRequest, request: Request
@@ -4038,7 +4124,6 @@ async def call_tool(
     except Exception as exc:
         return ToolCallResponse(result=None, is_error=True, error=str(exc))
     return ToolCallResponse(result=_as_jsonable(result))
-
 
 def _as_jsonable(result: object) -> object:
     # FastMCP v3 ToolResult has .data or .structured_content / .content
@@ -4066,7 +4151,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.v2.rest.lifespan import rest_lifespan
 from app.v2.rest.routes import discovery, execution, health
 
-
 def build_rest_app() -> FastAPI:
     app = FastAPI(
         title="DJ Music Plugin v2 — REST",
@@ -4087,7 +4171,6 @@ def build_rest_app() -> FastAPI:
     app.include_router(execution.router)
     return app
 
-
 api = build_rest_app()
 ```
 
@@ -4106,7 +4189,6 @@ from fastapi.testclient import TestClient
 from app.v2.rest.app import build_rest_app
 from app.v2.rest.state import ApiRuntimeState
 
-
 @pytest.fixture
 def mock_mcp():
     mcp = MagicMock()
@@ -4122,7 +4204,6 @@ def mock_mcp():
     call_result.content = []
     mcp.call_tool = AsyncMock(return_value=call_result)
     return mcp
-
 
 @pytest.fixture
 def rest_client(mock_mcp):
@@ -4160,12 +4241,10 @@ def test_list_tools(rest_client) -> None:
         {"name": "entity_list", "description": "list", "tags": ["core"]}
     ]
 
-
 def test_list_tools_filter_by_tag(rest_client) -> None:
     r = rest_client.get("/api/tools?tag=no-such")
     assert r.status_code == 200
     assert r.json() == []
-
 
 def test_get_tool(rest_client) -> None:
     response = rest_client.get("/api/tools/entity_list")
@@ -4185,7 +4264,6 @@ def test_call_tool_returns_structured_content(rest_client) -> None:
     body = response.json()
     assert body["is_error"] is False
     assert body["result"] == {"items": [1, 2]}
-
 
 def test_call_tool_error_path(rest_client, mock_mcp) -> None:
     from unittest.mock import AsyncMock
@@ -4243,7 +4321,6 @@ from app.v2.server.app import build_mcp_server
 
 mcp = build_mcp_server()
 
-
 if __name__ == "__main__":  # pragma: no cover
     # Support ``python -m app.v2.server``
     mcp.run()
@@ -4287,7 +4364,6 @@ from fastmcp.client import Client
 
 from app.v2.server.app import build_mcp_server
 
-
 @pytest.mark.asyncio
 async def test_list_tools_after_build() -> None:
     mcp = build_mcp_server()
@@ -4309,7 +4385,6 @@ async def test_list_tools_after_build() -> None:
                     f"{hidden} should be disabled globally by visibility policy"
                 )
 
-
 @pytest.mark.asyncio
 async def test_unlock_namespace_reveals_sync_tools() -> None:
     mcp = build_mcp_server()
@@ -4318,7 +4393,6 @@ async def test_unlock_namespace_reveals_sync_tools() -> None:
         tools = await client.list_tools()
         names = {t.name for t in tools}
         assert "playlist_sync" in names
-
 
 @pytest.mark.asyncio
 async def test_tool_call_flows_through_all_middleware(caplog) -> None:

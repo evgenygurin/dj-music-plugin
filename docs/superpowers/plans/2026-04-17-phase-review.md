@@ -10,6 +10,8 @@
 
 **APPROVED TO PROCEED** with 5 minor findings (3 recommended fixes, 2 informational). No blocking issues. Plans are internally consistent, cover every blueprint deliverable, and respect every FastMCP v3 breaking change.
 
+**Update 2026-04-17 12:45 GMT+3:** All 3 recommended fixes applied in follow-up commit. Status now: **APPROVED, all gaps closed.** See "Action Items Status" section below.
+
 ---
 
 ## Dimension 1 — Spec Coverage
@@ -240,3 +242,15 @@ Apply fixes 1-2 when starting each phase (open respective plan, append task). Ap
 ## Go/No-Go
 
 **Recommendation: GO.** Start Phase 1 execution. Patches for G1-G3 can be applied as the corresponding phases approach (Phase 1-4 are unaffected). Fix G3 now while it's fresh.
+
+---
+
+## Action Items Status (updated 2026-04-17 12:45 GMT+3)
+
+| # | Gap | Fix location | Status |
+|---|---|---|---|
+| G1 | `prefetch_service` not ported | Phase 5 plan — new `Task 2a` between Task 2 (di.py) and Task 3 (lifespan.py). Creates `app/v2/server/prefetch.py` (~110 LOC) + 4 pytest cases. | ✅ applied |
+| G2 | `vm-deployment.md` missing from P7 docs rewrite | Phase 7 plan — Task 8 extended: added `docs/vm-deployment.md` to Files block; new Step 6 covering scripts' new tool-name payloads (`entity_create(entity="track_features")`, `provider_search`, etc.); commit message updated to reflect vm scope. `panel-guide.md` was already in Task 8 Step 5 — review report had a false negative. Numbers corrected: 13 dead → 15 dead, 44→31 → 46→31. | ✅ applied |
+| G3 | Alembic `migrations/` lost during P7 swap | Phase 7 plan — Task 15 split: new Step 3a preserves `app/db/migrations/` via `git mv app/db/migrations/ app/v2/db/migrations/` with its own commit, Step 3b then deletes the rest of `app/db/`; Step 5 description corrected to reflect the relocated path. | ✅ applied |
+
+**Result:** all 3 recommended fixes are now in the plans. No further review gates — Phase 1 execution can start immediately.

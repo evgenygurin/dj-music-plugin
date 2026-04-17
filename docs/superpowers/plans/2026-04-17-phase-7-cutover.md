@@ -877,6 +877,7 @@ taxonomy. Adds legacy-name migration table for external consumers."
 - Modify: `docs/transition-scoring.md` (path touches only)
 - Modify: `docs/audio-pipeline.md` (path touches only)
 - Modify: `docs/panel-guide.md` (update MCP endpoint names)
+- Modify: `docs/vm-deployment.md` (update script references + tool names)
 - Rename: `docs/ym-api-guide.md` → `docs/provider-yandex-guide.md`
 
 **Rollback:** `git checkout HEAD -- docs/`.
@@ -901,7 +902,7 @@ Delete these entries:
 - `labels`, `track_labels`
 - `app_exports`
 
-Update Section 4 "Approximate Volumes" table count from 44 → 31.
+Update Section 4 "Approximate Volumes" table count from 46 → 31 (drops 15 dead tables per blueprint §13.2).
 
 - [ ] **Step 3: Path-touch smaller docs**
 
@@ -958,15 +959,38 @@ Replace each hit with `provider-yandex-guide.md`.
 
 The panel stays on Supabase direct reads + REST API for mutations. Only change the `Server Actions` table: update MCP tool names per the migration table in `docs/tool-catalog.md`:
 
-- `classify_mood` → `compute_classify`
-- `analyze_track` → `compute_analyze`
+- `classify_mood` → `entity_update(entity="track_features", data={level: 3})` (classification triggered by handler)
+- `analyze_track` → `entity_create(entity="track_features")` (handler runs pipeline)
 - `searchPlatform` action calls `provider_search`
-- `importTracks` → `entity_create(entity="track")`
-- `buildSet` → `entity_create(entity="set_version")`
-- `deliverSet` → `entity_create(entity="delivery")`
-- `syncPlaylist` unchanged
+- `importTracks` → `entity_create(entity="track", data={source, provider_ids})`
+- `buildSet` → `entity_create(entity="set_version", data={set_id, track_order})`
+- `deliverSet` → separate `deliver_set` tool becomes `entity_create(entity="set_version")` + file export handler side-effect
+- `syncPlaylist` → `playlist_sync` (unchanged name)
 
-- [ ] **Step 6: Verify no lingering references to v2**
+- [ ] **Step 6: Update `docs/vm-deployment.md`**
+
+The VM continues running BFS + L5 loops with new tool names. Make these edits:
+
+a. `scripts/vm_import_and_analyze.py` now drives analysis via:
+```text
+entity_create(entity="track_features", data={track_ids: [...], level: 5})
+```
+Update the CLI invocation table + example output block to reflect the new payload shape.
+
+b. `scripts/ym_bfs_expand.py` now uses:
+```text
+provider_search(provider="yandex_music", query=..., type="tracks")
+provider_read(provider="yandex_music", entity="track", params={similar_to: ...})
+entity_create(entity="track", data={source: "yandex_music", provider_ids: [...]})
+```
+
+c. Update the *systemd-run pattern* section: the service binary path changes from `/opt/dj-music/.venv/bin/python -u /opt/dj-music/scripts/vm_import_and_analyze.py` to the same thing — no change, but note the underlying Python now imports `app.handlers.track_features_analyze` (new path).
+
+d. Remove any references to `app.services.*` in the troubleshooting section; replace with `app.handlers.*` and `app.server.middleware.*`.
+
+e. Verify no `app.ym.client` / `app.ym.rate_limiter` references remain; replace with `app.providers.yandex.client` / `app.providers.yandex.rate_limiter`.
+
+- [ ] **Step 7: Verify no lingering references to v2**
 
 ```bash
 grep -rln "app/v2" docs/ CLAUDE.md
@@ -974,15 +998,17 @@ grep -rln "app/v2" docs/ CLAUDE.md
 
 Expected: empty output.
 
-- [ ] **Step 7: Commit**
+- [ ] **Step 8: Commit**
 
 ```bash
 git add docs/ CLAUDE.md
-git commit -m "docs: update structure/glossary/scoring/audio/panel for v1.0.0
+git commit -m "docs: update structure/glossary/scoring/audio/panel/vm for v1.0.0
 
-Directory tree rewritten, DB schema dropped 13 dead tables (44→31),
+Directory tree rewritten, DB schema dropped 15 dead tables (46→31),
 paths updated from app/core, app/services, app/controllers, app/bootstrap
 to app/shared, app/handlers, app/tools+resources+prompts, app/server.
+panel-guide: MCP endpoint names refreshed for polymorphic CRUD.
+vm-deployment: script tool-name updates + systemd path confirmations.
 Renamed ym-api-guide.md → provider-yandex-guide.md."
 ```
 
@@ -1455,7 +1481,35 @@ echo "scan done"
 
 Expected: `scan done` with no `LEAK:` lines.
 
-- [ ] **Step 3: Delete legacy domain + infra dirs**
+- [ ] **Step 3a: PRESERVE `app/db/migrations/` — move into v2 tree before deletion**
+
+```bash
+# Critical: migrations live at app/db/migrations/ in legacy tree but
+# app/v2/db/ only has session.py + seed.py per Phase 2 Task 20. We must
+# relocate migrations/ BEFORE deleting the rest of app/db/, otherwise
+# Alembic loses its version history and post-cutover `alembic upgrade
+# head` breaks because script_location in alembic.ini points at
+# app/db/migrations/ — a path that becomes valid again only AFTER
+# Task 16's app/v2/ → app/ swap if migrations live under app/v2/db/.
+
+git mv app/db/migrations/ app/v2/db/migrations/
+git commit -m "refactor(db): move alembic migrations to v2 tree before legacy delete
+
+Preserves migration version history across the cutover. alembic.ini
+continues pointing at 'app/db/migrations/' which becomes valid again
+after Task 16's app/v2/ → app/ swap."
+```
+
+Verify `app/db/` now contains only items Step 3b will delete (no `migrations/`):
+
+```bash
+ls app/db/
+```
+
+Expected output must NOT contain `migrations`. Typical remainder:
+`__init__.py  models/  repositories/  seed.py  session.py`.
+
+- [ ] **Step 3b: Delete legacy domain + infra dirs (migrations preserved)**
 
 ```bash
 git rm -r app/transition app/optimization app/camelot app/templates \
@@ -1485,7 +1539,7 @@ done
 make check
 ```
 
-Expected: green. `app/` now effectively contains only `app/v2/`, `app/__init__.py`, and the migration-untouched `app/db/migrations/` (moved under `app/v2/db/migrations/` in Phase 2).
+Expected: green. `app/` now effectively contains only `app/v2/` (with `app/v2/db/migrations/` relocated in Step 3a) and `app/__init__.py`. Alembic still finds migrations via the original `app/db/migrations/` path — they'll be there again after Task 16's swap moves `app/v2/db/migrations/` back to `app/db/migrations/`.
 
 If `make check` fails: this is the most dangerous point. Before rollback, inspect:
 
