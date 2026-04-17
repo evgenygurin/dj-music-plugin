@@ -5,22 +5,22 @@ include_external_packages = True
 
 # v2 contracts (legacy contracts removed — legacy packages deleted in Phase 7).
 
-# app.v2.audio sits below domain.transition in band ordering. May use
+# app.audio sits below domain.transition in band ordering. May use
 # domain.transition.features (TrackFeatures dataclass) but must not
 # reach up into the scorer, DB, transport, providers, or tools.
 [importlinter:contract:v2-audio-internal]
-name = app.v2.audio must not import DB, transport, providers, tools, or scorer
+name = app.audio must not import DB, transport, providers, tools, or scorer
 type = forbidden
 source_modules =
-    app.v2.audio
+    app.audio
 forbidden_modules =
-    app.v2.db
-    app.v2.repositories
-    app.v2.providers
-    app.v2.handlers
-    app.v2.tools
-    app.v2.server
-    app.v2.domain.transition.scorer
+    app.db
+    app.repositories
+    app.providers
+    app.handlers
+    app.tools
+    app.server
+    app.domain.transition.scorer
     fastmcp
     httpx
     sqlalchemy
@@ -30,54 +30,54 @@ forbidden_modules =
 name = v2 resources must not import tools, handlers, or provider adapters
 type = forbidden
 source_modules =
-    app.v2.resources
+    app.resources
 forbidden_modules =
-    app.v2.tools
-    app.v2.handlers
-    app.v2.providers
+    app.tools
+    app.handlers
+    app.providers
 
 # ── Contract: Prompts pure (text builders only) ─────────────────────
 [importlinter:contract:v2-prompts-pure]
 name = v2 prompts must be pure text builders (no repos, tools, providers, DB)
 type = forbidden
 source_modules =
-    app.v2.prompts
+    app.prompts
 forbidden_modules =
-    app.v2.repositories
-    app.v2.tools
-    app.v2.handlers
-    app.v2.providers
-    app.v2.db
-    app.v2.domain
+    app.repositories
+    app.tools
+    app.handlers
+    app.providers
+    app.db
+    app.domain
     sqlalchemy
     httpx
 
 # ── Contract: v2 server composition must not pull domain internals ──
 [importlinter:contract:v2-server-no-domain]
-name = app.v2.server may not import app.v2.domain internals
+name = app.server may not import app.domain internals
 type = forbidden
 source_modules =
-    app.v2.server
+    app.server
 forbidden_modules =
-    app.v2.domain
+    app.domain
 
 # ── Contract: v2 REST wrapper must be a thin proxy ──────────────────
-# Only DIRECT imports are forbidden — transitive imports via app.v2.server
+# Only DIRECT imports are forbidden — transitive imports via app.server
 # are allowed (the server is the REST wrapper's sole composition handle).
 [importlinter:contract:v2-rest-no-business]
-name = app.v2.rest may only directly import app.v2.server and app.v2.shared
+name = app.rest may only directly import app.server and app.shared
 type = forbidden
 source_modules =
-    app.v2.rest
+    app.rest
 forbidden_modules =
-    app.v2.domain
-    app.v2.handlers
-    app.v2.tools
-    app.v2.resources
-    app.v2.prompts
-    app.v2.repositories
-    app.v2.models
-    app.v2.db
-    app.v2.providers
-    app.v2.audio
+    app.domain
+    app.handlers
+    app.tools
+    app.resources
+    app.prompts
+    app.repositories
+    app.models
+    app.db
+    app.providers
+    app.audio
 allow_indirect_imports = True
