@@ -41,3 +41,13 @@ def get_analyzer_registry() -> Any:
 def get_audio_pipeline() -> Any:
     """Placeholder for Phase 5 — audio pipeline."""
     raise RuntimeError("get_audio_pipeline is a Phase 5 stub — tests must monkey-patch.")
+
+
+def get_transition_scorer() -> Any:
+    """Placeholder for Phase 5 — transition scorer."""
+    raise RuntimeError("get_transition_scorer is a Phase 5 stub — tests must monkey-patch.")
+
+
+def get_optimizer() -> Any:
+    """Placeholder for Phase 5 — optimizer builder."""
+    raise RuntimeError("get_optimizer is a Phase 5 stub — tests must monkey-patch.")
