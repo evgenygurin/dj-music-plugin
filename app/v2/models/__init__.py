@@ -16,12 +16,14 @@ from app.v2.models.track import (
     TrackGenre,
     TrackRelease,
 )
+from app.v2.models.track_affinity import TrackAffinity
 from app.v2.models.track_features import (
     FeatureExtractionRun,
     TimeseriesReference,
     TrackAudioFeaturesComputed,
     TrackSection,
 )
+from app.v2.models.track_feedback import TrackFeedback
 from app.v2.models.transition import Transition
 from app.v2.models.transition_history import TransitionHistory
 
@@ -45,9 +47,11 @@ __all__ = [
     "TimeseriesReference",
     "TimestampMixin",
     "Track",
+    "TrackAffinity",
     "TrackArtist",
     "TrackAudioFeaturesComputed",
     "TrackExternalId",
+    "TrackFeedback",
     "TrackGenre",
     "TrackRelease",
     "TrackSection",
