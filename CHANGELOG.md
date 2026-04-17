@@ -6,6 +6,45 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.0.0] — 2026-04-17
+
+**Major release — global refactor to v1 bounded-contexts architecture.**
+
+### Added
+- **EntityRegistry** — polymorphic CRUD over 13 entity types (tracks, playlists, sets, transitions, ...)
+- **ProviderRegistry** — pluggable music-platform providers (Yandex, stubs for Spotify/Beatport/SoundCloud)
+- **UnitOfWork** — single-session-per-tool transaction boundary
+- **16 middlewares** composed into `build_mcp_server()`: error_handling, sentry_context, otel_tracing, timing, audit_log, retry, response_limit, response_caching, deprecation_warning, cost_tracking, sampling_budget, progress_throttle, tool_timeout, provider_rate_limit, db_session, structured_logging
+- **Domain layer**: pure `app/domain/{transition,optimization,camelot,template,audit}/` — scorer parity at 1e-9 vs legacy
+- **Audio layer**: ported 18 analyzers to `app/audio/` with SharedMemory transport + per-worker AnalysisContext cache
+- **Resources layer**: ~27 URI resources (entity-scoped, session-scoped, schema introspection, 4 static reference blobs)
+- **Prompts layer**: 6 workflow recipes (dj_expert_session, build_set_workflow, deliver_set_workflow, expand_playlist_workflow, full_pipeline, quick_mix_check)
+- **REST API**: thin FastAPI wrapper under `app/rest/` (extra `[http]`)
+- **Observability**: Sentry + OpenTelemetry bootstrap under `[observability]` extra
+- **AuditSettings**: 22 techno-audit thresholds accessible via `settings.audit.*`
+- **Smoke test script**: `scripts/smoke_test_all_tools.py` verifying tool/resource/prompt registration end-to-end through `Client(mcp)`
+
+### Changed
+- **88 narrow tools → 13 generic dispatchers**: `entity_create/get/update/delete/list/aggregate`, `provider_search/resolve/download`, `sequence_optimize`, `transition_score_pool`, `playlist_sync`, `unlock_namespace`
+- **Package layout**: flat `app/{tools,resources,prompts,handlers,repositories,registry,providers,domain,audio,schemas,server,rest,shared,config,models,db}/` — no more `app/controllers/`, `app/services/`, `app/entities/`, `app/engines/`
+- **Settings**: split into 8 per-domain Pydantic settings classes (`audio`, `audit`, `database`, `delivery`, `discovery`, `mcp`, `optimization`, `transition`, `yandex`) aggregated via `get_settings()`
+- **FastMCP composition**: explicit `FastMCP(providers=[FileSystemProvider(...)], transforms=[PromptsAsTools, ResourcesAsTools, BM25SearchTransform], lifespan=..., sampling_handler=...)`
+- **Import-linter contracts**: reduced to 5 v1-scoped architectural gates
+
+### Removed
+- ~53,454 LOC of legacy sources: `app/engines/`, `app/infrastructure/`, `app/ym/`, `app/services/` (39 files), `app/controllers/`, `app/bootstrap/`, `app/api/`, `app/schemas/`, `app/transition/`, `app/optimization/`, `app/camelot/`, `app/templates/`, `app/audit/`, `app/entities/`, `app/audio/`, `app/core/`, `app/db/`, `app/config.py`, `app/server.py`, `app/telemetry.py`, `app/_version.py`
+- 15 dead DB tables (drop migration `p2_drop_dead_tables`)
+
+### Migration notes
+
+- Panel (`panel/`) server actions call consolidated dispatchers — tool names and argument shapes changed; panel requires follow-up patch
+- `scripts/vm_import_and_analyze.py` + `scripts/ym_bfs_expand.py` stubbed — require rewrite against `app.providers.yandex.*` + `app.handlers.*` (post-v1.0.0)
+- Alembic `p2_drop_dead_tables` migration deferred to manual apply against Supabase after release
+
+### Phase tags
+
+Refactor executed in 7 phases, each tagged: `phase-1-foundation` → `phase-2-persistence` → `phase-3-tools` → `phase-6-domain-audio` → `phase-4-resources` → `phase-5-server` → v1.0.0 cutover.
+
 ## [0.8.0] — 2026-04-13
 
 ### Added
