@@ -6,6 +6,16 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.8.1] — 2026-04-17
+
+### Fixed
+- **Supabase MCP server in git worktrees** — `db` server now walks up from `${CLAUDE_PLUGIN_ROOT}` to find `.env`, so worktrees inherit `DJ_DB_ACCESS_TOKEN` from the main repo checkout instead of failing to start
+- **`SessionStart` jq hook** — guarded against missing `hooks/bg-campaign-context.txt` (silent fallback instead of crash)
+
+### Changed
+- Extracted `db` MCP server bash command into `scripts/start-supabase-mcp.sh` for portability
+- `marketplace.json` `author` field now includes `url` to match `plugin.json`
+
 ## [0.8.0] — 2026-04-13
 
 ### Added

@@ -1,7 +1,7 @@
 ---
 name: deliver-set
 description: "Use when the user asks to deliver a set, export a set, finalize a set, do a rekordbox export, sync a set to YM, or generate a cheat sheet. Covers M3U8, Rekordbox XML, JSON guide, cheat sheet export and YM sync."
-version: 0.7.1
+version: 0.8.1
 ---
 
 # Deliver DJ Set Workflow
