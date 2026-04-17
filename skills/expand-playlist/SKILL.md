@@ -1,7 +1,7 @@
 ---
 name: expand-playlist
 description: "Use when the user asks to expand a playlist, find similar tracks, add more tracks, discover new tracks, import from Yandex Music, or fill gaps in a playlist. Covers discovery, feedback gating, import, download and analysis."
-version: 0.7.1
+version: 0.8.2
 ---
 
 # Expand Playlist Workflow
@@ -25,7 +25,7 @@ Note: use `playlist_id` (opaque remote playlist ID). Run with `dry_run=true` fir
 
 2. **Find similar tracks** (per seed)
    - `find_similar_tracks(track_id=..., strategy="ym", limit=20, genre_filter=["techno"], genre_blacklist=["pop"], exclude_patterns=["remix", "edit"])`
-   - `strategy`: `"ym"` (default, free) or `"llm"` (needs LLM sampling — see @.claude/rules/llm-sampling.md)
+   - `strategy`: `"ym"` (default, free) or `"llm"` (you generate `search_queries` from seed track's mood/energy/subgenre — requires `DJ_ANTHROPIC_API_KEY` for server-side fallback or a sampling-capable client)
    - Filters: `genre_filter`, `genre_blacklist`, `exclude_patterns`, `min_duration_ms`, `max_duration_ms`
 
 3. **Filter by feedback** (drop disliked, mark liked)

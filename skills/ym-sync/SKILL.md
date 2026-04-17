@@ -1,7 +1,7 @@
 ---
 name: ym-sync
 description: "Use when the user asks to sync a playlist, push or pull from Yandex Music, search platform catalog, manage platform playlists, or manage liked tracks. Covers bidirectional sync, playlist management, search and likes."
-version: 0.7.1
+version: 0.8.2
 ---
 
 # Yandex Music Sync Workflow

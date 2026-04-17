@@ -6,6 +6,33 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.8.2] — 2026-04-17
+
+### Added
+- **`/help` command** — concise overview of skills, commands, agent, MCP tool categories and quick-start examples for plugin discoverability
+- **`/review-set` skill** — dedicated workflow for analyzing set quality, scoring transitions, explaining weak pairs, and proposing replacements without rebuilding (closes a gap that previously lived only in the dj-assistant agent body)
+
+### Changed
+- Moved `hooks/pre-push` → `.githooks/pre-push` to separate git hooks from Claude Code hooks (which live in `hooks/hooks.json`); install via `git config core.hooksPath .githooks`
+- Made `bg-campaign-context.txt` SessionStart hook defensive — now requires both `scripts/ym_bfs_expand.py` and the context file to exist; downstream installs without the BG infra no longer get orphan instructions
+- Replaced stale "50 MCP tools" marketing copy across `plugin.json`, `marketplace.json`, `README.md`, `agents/dj-assistant.md`, and `hooks/hooks.json` startup message with accurate "42 visible + 7 hidden categories" phrasing
+- Updated SessionStart context message to reflect the actual skill / command split (skills: build-set, deliver-set, expand-playlist, curate-library, review-set, ym-sync; commands: panel, panel-setup, help)
+
+## [0.8.1] — 2026-04-17
+
+### Fixed
+- **Supabase MCP server in git worktrees** — `db` server now walks up from `${CLAUDE_PLUGIN_ROOT}` to find `.env`, so worktrees inherit `DJ_DB_ACCESS_TOKEN` from the main repo checkout instead of failing to start
+- **`SessionStart` jq hook** — guarded against missing `hooks/bg-campaign-context.txt` (silent fallback instead of crash)
+
+### Changed
+- Extracted `db` MCP server bash command into `scripts/start-supabase-mcp.sh` for portability
+- `marketplace.json` `author` field now includes `url` to match `plugin.json`
+
+### Removed
+- Stale project-level `.mcp.json` — entries were duplicating `plugin.json` `mcpServers` (`dj-music`), pointing to VM-only paths (`ssh-manager` → `/opt/node22`, `/root/.ssh`), or referencing a user-specific local plugin cache (`fastmcp-reference`). Plugin's MCP config now lives solely in `plugin.json` `mcpServers`.
+- Orphaned `.claude/hooks/start-servers.sh` — leftover Claude Code Web (`CLAUDE_CODE_REMOTE=true`) bootstrap script not registered in any hooks config.
+- Dead `@.claude/rules/llm-sampling.md` reference in `agents/dj-assistant.md` — file never existed; replaced with inline guidance.
+
 ## [0.8.0] — 2026-04-13
 
 ### Added

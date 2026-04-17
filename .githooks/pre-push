@@ -1,6 +1,7 @@
 #!/bin/sh
 # Prevent direct pushes to main. All changes must go through PR from dev.
-# Install: ln -sf ../../hooks/pre-push .git/hooks/pre-push
+# Install one-time:  git config core.hooksPath .githooks
+# (Or symlink: ln -sf ../../.githooks/pre-push .git/hooks/pre-push)
 
 remote="$1"
 
