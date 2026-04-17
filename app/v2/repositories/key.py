@@ -12,7 +12,9 @@ class KeyRepository(BaseRepository[Key]):
     model = Key
 
     async def get_by_camelot(self, camelot: str) -> Key | None:
-        return await self.session.scalar(select(Key).where(Key.camelot == camelot).limit(1))
+        return await self.session.scalar(  # type: ignore[no-any-return]
+            select(Key).where(Key.camelot == camelot).limit(1)
+        )
 
 
 class KeyEdgeRepository(BaseRepository[KeyEdge]):

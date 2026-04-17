@@ -21,4 +21,4 @@ class TransitionRepository(BaseRepository[Transition]):
             .order_by(Transition.id.desc())
             .limit(1)
         )
-        return await self.session.scalar(stmt)
+        return await self.session.scalar(stmt)  # type: ignore[no-any-return]

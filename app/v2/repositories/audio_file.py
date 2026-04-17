@@ -13,7 +13,7 @@ class AudioFileRepository(BaseRepository[DjLibraryItem]):
 
     async def get_for_track(self, track_id: int) -> DjLibraryItem | None:
         stmt = select(DjLibraryItem).where(DjLibraryItem.track_id == track_id).limit(1)
-        return await self.session.scalar(stmt)
+        return await self.session.scalar(stmt)  # type: ignore[no-any-return]
 
     async def register_beatgrid(
         self,

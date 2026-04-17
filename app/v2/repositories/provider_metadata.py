@@ -16,7 +16,9 @@ class ProviderMetadataRepository(BaseRepository[Provider]):
     model = Provider
 
     async def get_by_code(self, code: str) -> Provider | None:
-        return await self.session.scalar(select(Provider).where(Provider.code == code).limit(1))
+        return await self.session.scalar(  # type: ignore[no-any-return]
+            select(Provider).where(Provider.code == code).limit(1)
+        )
 
 
 class YandexMetadataRepository(BaseRepository[YandexMetadata]):

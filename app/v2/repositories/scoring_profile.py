@@ -13,4 +13,4 @@ class ScoringProfileRepository(BaseRepository[ScoringProfile]):
 
     async def get_by_name(self, name: str) -> ScoringProfile | None:
         stmt = select(ScoringProfile).where(ScoringProfile.name == name).limit(1)
-        return await self.session.scalar(stmt)
+        return await self.session.scalar(stmt)  # type: ignore[no-any-return]

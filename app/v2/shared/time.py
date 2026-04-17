@@ -7,6 +7,7 @@ Use these instead of direct datetime calls.
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from typing import Any
 
 from sqlalchemy import func
 
@@ -21,7 +22,7 @@ def utc_timestamp_iso() -> str:
     return utc_now().isoformat()
 
 
-def sa_now():  # type: ignore[no-untyped-def]
+def sa_now() -> Any:
     """SQLAlchemy NOW() expression for column defaults.
 
     Use as ``mapped_column(default=sa_now(), server_default=sa_now())`` —

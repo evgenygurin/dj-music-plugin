@@ -44,4 +44,4 @@ class PlaylistRepository(BaseRepository[DjPlaylist]):
         )
         result = await self.session.execute(stmt)
         await self.session.flush()
-        return result.rowcount or 0
+        return result.rowcount or 0  # type: ignore[attr-defined]

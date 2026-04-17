@@ -22,7 +22,7 @@ class SetRepository(BaseRepository[DjSet]):
             .order_by(DjSetVersion.id.desc())
             .limit(1)
         )
-        return await self.session.scalar(stmt)
+        return await self.session.scalar(stmt)  # type: ignore[no-any-return]
 
 
 class SetVersionRepository(BaseRepository[DjSetVersion]):

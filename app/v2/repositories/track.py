@@ -18,7 +18,7 @@ class TrackRepository(BaseRepository[Track]):
             TrackExternalId.track_id == track_id,
             TrackExternalId.provider_code == provider_code,
         )
-        return await self.session.scalar(stmt)
+        return await self.session.scalar(stmt)  # type: ignore[no-any-return]
 
     async def batch_get_by_provider_ids(
         self, provider_code: str, external_ids: list[str]

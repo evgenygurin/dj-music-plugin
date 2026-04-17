@@ -16,7 +16,7 @@ class TrackAffinityRepository(BaseRepository[TrackAffinity]):
             TrackAffinity.track_a_id == track_a_id,
             TrackAffinity.track_b_id == track_b_id,
         )
-        return await self.session.scalar(stmt)
+        return await self.session.scalar(stmt)  # type: ignore[no-any-return]
 
     async def recommend(self, track_id: int, limit: int = 10) -> list[TrackAffinity]:
         stmt = (

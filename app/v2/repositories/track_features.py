@@ -32,7 +32,7 @@ class TrackFeaturesRepository(BaseRepository[TrackAudioFeaturesComputed]):
             .values(mood=mood, mood_confidence=confidence)
         )
         result = await self.session.execute(stmt)
-        if result.rowcount == 0:
+        if result.rowcount == 0:  # type: ignore[attr-defined]
             raise NotFoundError("track_features", track_id)
         await self.session.flush()
 
