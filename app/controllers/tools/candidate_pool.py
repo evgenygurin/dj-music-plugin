@@ -4,9 +4,7 @@ Tools:
 - get_candidate_pool — explore the library before committing to build_set
 """
 
-from __future__ import annotations
-
-from typing import Annotated, Any, Literal
+from typing import Annotated, Literal
 
 from fastmcp.dependencies import Depends
 from fastmcp.tools import tool
@@ -23,6 +21,7 @@ from app.controllers.tools._shared import (
 )
 from app.db.models.audio import TrackAudioFeaturesComputed
 from app.db.models.track import Track
+from app.schemas.tool_output import CandidatePoolTrackRow, GetCandidatePoolResult
 
 _ENERGY_LEVEL_LUFS: dict[str, tuple[float | None, float | None]] = {
     "low": (None, -13.0),
@@ -65,7 +64,7 @@ async def get_candidate_pool(
     ] = None,
     limit: Annotated[int, Field(description="Max tracks to return", ge=1, le=200)] = 50,
     session: AsyncSession = Depends(get_db_session),  # noqa: B008
-) -> dict[str, Any]:
+) -> GetCandidatePoolResult:
     """Explore library tracks matching criteria without creating a set.
 
     Use this before build_set to: verify enough tracks exist for a subgenre,
@@ -108,22 +107,22 @@ async def get_candidate_pool(
     rows = (await session.execute(stmt)).all()
 
     tracks = [
-        {
-            "id": track.id,
-            "title": track.title,
-            "bpm": features.bpm,
-            "mood": features.mood,
-            "energy_lufs": features.integrated_lufs,
-            "key_code": features.key_code,
-        }
+        CandidatePoolTrackRow(
+            id=track.id,
+            title=track.title,
+            bpm=features.bpm,
+            mood=features.mood,
+            energy_lufs=features.integrated_lufs,
+            key_code=features.key_code,
+        )
         for track, features in rows
     ]
 
-    return {
-        "tracks": tracks,
-        "total": total,
-        "returned": len(tracks),
-        "filters_applied": {
+    return GetCandidatePoolResult(
+        tracks=tracks,
+        total=int(total),
+        returned=len(tracks),
+        filters_applied={
             "description": description,
             "subgenres": subgenres,
             "bpm_min": bpm_min,
@@ -132,4 +131,4 @@ async def get_candidate_pool(
             "lufs_min": effective_lufs_min,
             "lufs_max": effective_lufs_max,
         },
-    }
+    )

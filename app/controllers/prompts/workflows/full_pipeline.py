@@ -1,11 +1,17 @@
 """Workflow prompt — split from monolithic workflows.py (Phase 10)."""
 
-from __future__ import annotations
-
 from typing import Annotated
 
-from fastmcp.prompts import Message, PromptResult, prompt
+from fastmcp.prompts import PromptResult, prompt
 from pydantic import Field
+
+from app.controllers.prompts.workflow_shared import (
+    TRANSITION_SCORING_AND_SEARCH_GUIDE,
+    WORKFLOW_PROMPT_VERSION,
+    make_prompt_result,
+    message_assistant,
+    message_user,
+)
 
 
 @prompt(
@@ -13,7 +19,7 @@ from pydantic import Field
     title="Full Expansion Pipeline",
     description="Full pipeline: audit, discover, import, analyze, classify, distribute",
     tags={"curation", "workflow"},
-    meta={"version": "1.1", "steps": 9},
+    meta={"version": WORKFLOW_PROMPT_VERSION, "steps": 9},
 )
 def full_expansion_pipeline(
     source_playlist: Annotated[
@@ -31,9 +37,9 @@ def full_expansion_pipeline(
         source_playlist: Source playlist name (e.g., "TECHNO FOR DJ SETS")
         target_per_subgenre: Target tracks per subgenre playlist
     """
-    return PromptResult(
-        messages=[
-            Message(
+    return make_prompt_result(
+        [
+            message_user(
                 f"""Execute the complete pipeline to expand "{source_playlist}" and
 distribute tracks across all 15 techno subgenre playlists with ~{target_per_subgenre}
 tracks each.
@@ -87,13 +93,17 @@ Follow these steps:
    - Note any subgenres still under-represented
 
 Report progress, counts, and any issues after each major step.
-This is a long-running pipeline (1-3 hours for 1000+ tracks)."""
+This is a long-running pipeline (1-3 hours for 1000+ tracks).
+
+Optional (after you build or edit DJ sets): use persisted transition tools — reference:
+"""
+                + "\n"
+                + TRANSITION_SCORING_AND_SEARCH_GUIDE
             ),
-            Message(
+            message_assistant(
                 f'Executing full expansion pipeline for "{source_playlist}". '
                 f"Target: {target_per_subgenre} tracks per subgenre (15 subgenres). "
                 f'Step 1: `audit_playlist(playlist_query="{source_playlist}")`...',
-                role="assistant",
             ),
         ],
         description=(

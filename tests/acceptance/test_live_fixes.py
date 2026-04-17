@@ -20,7 +20,6 @@ from fastmcp import Client
 from fastmcp.server.lifespan import lifespan
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
-from app.audio.analyzers import AnalyzerRegistry
 from app.clients.ym.models import YMPlaylist, YMTrack
 from app.core.utils.cache import TransitionCache
 from app.db.models.audio import TrackAudioFeaturesComputed
@@ -141,13 +140,12 @@ def _search_tracks(r: Any) -> list[dict]:
 
 
 @pytest.fixture
-async def fx(async_engine, patch_audio, patch_tiered):  # type: ignore[no-untyped-def]
+async def fx(async_engine, patch_audio, patch_tiered, analyzer_registry):  # type: ignore[no-untyped-def]
     """Minimal smoke harness seeded with tracks whose names test tokenized search."""
     factory = async_sessionmaker(async_engine, expire_on_commit=False)
     original_lifespan = mcp._lifespan
 
-    registry = AnalyzerRegistry()
-    registry.discover()
+    registry = analyzer_registry
     cache = TransitionCache(max_size=100, ttl=60)
 
     ym = AsyncMock()

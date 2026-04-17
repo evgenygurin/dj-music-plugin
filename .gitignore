@@ -42,6 +42,7 @@ CLAUDE.local.md
 
 # Audio cache & generated output
 cache/
+logs/
 generated-sets/
 
 # In-Memoria (codebase intelligence)

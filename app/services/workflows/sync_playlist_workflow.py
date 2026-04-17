@@ -28,15 +28,15 @@ class SyncPlaylistWorkflow:
             dry_run=dry_run,
         )
 
-    async def push_set_to_ym(
+    async def push_set_to_platform(
         self,
         *,
         set_id: int,
-        ym_playlist_name: str | None = None,
+        platform_playlist_name: str | None = None,
         mode: str = "auto",
     ) -> dict[str, Any]:
-        return await self._sync_service.push_set_to_ym(
+        return await self._sync_service.push_set_to_platform(
             set_id=set_id,
-            ym_playlist_name=ym_playlist_name,
+            platform_playlist_name=platform_playlist_name,
             mode=mode,
         )

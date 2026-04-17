@@ -2,6 +2,8 @@
 
 Default: core, sets, admin always visible.
 Extended categories (delivery, discovery, curation, sync, ym) start disabled.
+Note: ``find_similar_tracks`` is tagged ``core`` (see ``discovery.py``) so MCP clients
+that snapshot ``tools/list`` on first connect still expose it without ``unlock_tools``.
 Hidden categories (audio, memory) start disabled.
 
 All disabled categories are unlockable at runtime via

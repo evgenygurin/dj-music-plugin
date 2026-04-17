@@ -48,7 +48,7 @@ async def test_import_flow_creates_track_and_persists_metadata(acceptance_harnes
         assert ext is not None
         assert ext.external_id == "1001"
 
-        ym_meta = await track_repo.get_ym_metadata(track_id)
+        ym_meta = await track_repo.get_platform_metadata(track_id)
         assert ym_meta is not None
         assert ym_meta.album_title == "Acceptance Album"
 

@@ -104,22 +104,23 @@ def build_pre_constructor_transforms(_logger: logging.Logger | None = None) -> l
                         "Provide track references (YM URLs, IDs, or search queries)."
                     ),
                 ),
-                "expand_playlist_ym": ToolTransformConfig(
+                "expand_platform_playlist": ToolTransformConfig(
                     description=(
-                        "Find similar tracks on Yandex Music and add them to a playlist. "
+                        "Find similar tracks on the active music platform and add them "
+                        "to a playlist. "
                         "Uses track radio and similarity algorithms to discover new music."
                     ),
                 ),
-                "ym_playlists": ToolTransformConfig(
+                "platform_playlists": ToolTransformConfig(
                     description=(
-                        "Manage Yandex Music playlists. "
+                        "Manage playlists on the active music platform. "
                         "action: get, get_tracks, list, create, rename, "
                         "delete, add_tracks, remove_tracks."
                     ),
                 ),
-                "ym_likes": ToolTransformConfig(
+                "platform_liked_tracks": ToolTransformConfig(
                     description=(
-                        "Manage liked tracks on Yandex Music. "
+                        "Manage liked tracks on the active music platform. "
                         "action: get_liked (list all), add (like tracks), remove (unlike tracks)."
                     ),
                 ),

@@ -17,7 +17,6 @@ from app.controllers.dependencies.external import (
     get_music_provider,
     get_provider_registry,
     get_transition_cache,
-    get_ym_client,
 )
 from app.controllers.dependencies.repos import (
     get_audio_repo,
@@ -98,5 +97,4 @@ __all__ = [
     "get_transition_history_service",
     "get_transition_repo",
     "get_uow",
-    "get_ym_client",
 ]

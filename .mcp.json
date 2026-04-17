@@ -9,10 +9,26 @@
     },
     "ssh-manager": {
       "command": "node",
-      "args": ["/opt/node22/lib/node_modules/mcp-ssh-manager/src/index.js"],
+      "args": [
+        "/opt/node22/lib/node_modules/mcp-ssh-manager/src/index.js"
+      ],
       "env": {
         "SSH_CONFIG_PATH": "/root/.ssh/ssh-config.toml"
       }
+    },
+    "fastmcp-reference": {
+      "type": "stdio",
+      "command": "uv",
+      "args": [
+        "run",
+        "-q",
+        "--with",
+        "fastmcp>=3.0",
+        "fastmcp",
+        "run",
+        "/Users/laptop/.claude/plugins/cache/jamie-bitflight-skills/fastmcp-creator/4.2.9/server/server.py:mcp"
+      ],
+      "env": {}
     }
   }
 }

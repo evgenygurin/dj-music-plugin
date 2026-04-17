@@ -35,6 +35,10 @@ async def test_prompt_references_all_knowledge_resources():
     ]
     for res in required_resources:
         assert res in user_content, f"Prompt missing resource reference: {res}"
+    assert "search_transitions" in user_content
+    assert "score_transitions" in user_content
+    assert "all_track_fields" in user_content
+    assert "transitions_next_offset" in user_content
 
 
 @pytest.mark.asyncio

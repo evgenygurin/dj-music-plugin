@@ -13,7 +13,7 @@ from typing import Any
 
 from fastmcp.server.middleware import Middleware, MiddlewareContext
 
-from app.core.utils.time import utc_timestamp_iso
+from app.core.logging_config import mcp_extra
 
 logger = logging.getLogger(__name__)
 
@@ -63,21 +63,32 @@ class ToolCallTimeoutMiddleware(Middleware):
 
 
 class YMRateLimitMiddleware(Middleware):
-    """Rate limiting for Yandex Music API tool calls.
+    """Rate limiting for platform API tool calls.
 
-    Enforces minimum delay between consecutive YM tool calls
-    to respect YM API rate limits (default 1.5s).
+    Enforces minimum delay between consecutive platform tool calls
+    to respect provider API rate limits (default 1.5s).
     """
 
     def __init__(self, delay_seconds: float = 1.5) -> None:
         super().__init__()
         self.delay_seconds = delay_seconds
         self.last_call_time: float | None = None
-        self._ym_tool_prefix = "ym_"
+        self._rate_limited_tools: frozenset[str] = frozenset(
+            {
+                "search_platform",
+                "get_platform_tracks",
+                "get_platform_artist_tracks",
+                "get_platform_album",
+                "platform_playlists",
+                "platform_liked_tracks",
+                "expand_platform_playlist",
+                "push_set_to_platform",
+            }
+        )
         self._lock = asyncio.Lock()
 
     def _is_ym_tool(self, tool_name: str) -> bool:
-        return tool_name.startswith(self._ym_tool_prefix)
+        return tool_name in self._rate_limited_tools or tool_name.startswith("ym_")
 
     async def on_call_tool(self, context: MiddlewareContext, call_next: Any) -> Any:
         tool_name = context.message.name
@@ -91,7 +102,9 @@ class YMRateLimitMiddleware(Middleware):
                 elapsed = now - self.last_call_time
                 if elapsed < self.delay_seconds:
                     sleep_time = self.delay_seconds - elapsed
-                    logger.debug("YM rate limit: sleeping %.2fs before %s", sleep_time, tool_name)
+                    logger.debug(
+                        "Platform rate limit: sleeping %.2fs before %s", sleep_time, tool_name
+                    )
                     await asyncio.sleep(sleep_time)
 
             result = await call_next(context)
@@ -99,10 +112,11 @@ class YMRateLimitMiddleware(Middleware):
             return result
 
 
-class StructuredLoggingMiddleware(Middleware):
-    """JSON-formatted logging for all MCP messages.
+class DjMcpRpcLoggingMiddleware(Middleware):
+    """JSON-oriented MCP traffic logging (not FastMCP ``StructuredLoggingMiddleware``).
 
-    Logs: timestamp, method, source, type, duration_ms, error, payload (optional).
+    Uses ``mcp_extra`` and :class:`~app.core.logging_config.JsonLogFormatter` for structured
+    fields. Logs method, source, type, duration, optional payloads/errors.
     """
 
     def __init__(
@@ -126,7 +140,7 @@ class StructuredLoggingMiddleware(Middleware):
         start_time = time.monotonic()
 
         log_data: dict[str, Any] = {
-            "timestamp": utc_timestamp_iso(),
+            "kind": "message",
             "method": context.method,
             "source": context.source,
             "type": context.type,
@@ -140,12 +154,12 @@ class StructuredLoggingMiddleware(Middleware):
             log_data["duration_ms"] = round((time.monotonic() - start_time) * 1000, 2)
             if self.include_payloads and result is not None:
                 log_data["response"] = self._truncate(result)
-            self._logger.info(json.dumps(log_data))
+            self._logger.info("mcp.message", extra=mcp_extra(log_data))
             return result
         except Exception as e:
             log_data["duration_ms"] = round((time.monotonic() - start_time) * 1000, 2)
             log_data["error"] = {"type": type(e).__name__, "message": str(e)}
-            self._logger.error(json.dumps(log_data))
+            self._logger.error("mcp.message.error", extra=mcp_extra(log_data))
             raise
 
 
@@ -162,11 +176,17 @@ class DetailedTimingMiddleware(Middleware):
         try:
             result = await call_next(context)
             ms = round((time.monotonic() - start_time) * 1000, 2)
-            self._logger.info("Tool timing: %s completed in %.2fms", tool_name, ms)
+            self._logger.info(
+                "mcp.timing.tool",
+                extra=mcp_extra({"kind": "timing_tool", "name": tool_name, "duration_ms": ms}),
+            )
             return result
         except Exception:
             ms = round((time.monotonic() - start_time) * 1000, 2)
-            self._logger.warning("Tool timing: %s failed after %.2fms", tool_name, ms)
+            self._logger.warning(
+                "mcp.timing.tool.error",
+                extra=mcp_extra({"kind": "timing_tool", "name": tool_name, "duration_ms": ms}),
+            )
             raise
 
     async def on_read_resource(self, context: MiddlewareContext, call_next: Any) -> Any:
@@ -175,11 +195,17 @@ class DetailedTimingMiddleware(Middleware):
         try:
             result = await call_next(context)
             ms = round((time.monotonic() - start_time) * 1000, 2)
-            self._logger.info("Resource timing: %s read in %.2fms", uri, ms)
+            self._logger.info(
+                "mcp.timing.resource",
+                extra=mcp_extra({"kind": "timing_resource", "uri": str(uri), "duration_ms": ms}),
+            )
             return result
         except Exception:
             ms = round((time.monotonic() - start_time) * 1000, 2)
-            self._logger.warning("Resource timing: %s failed after %.2fms", uri, ms)
+            self._logger.warning(
+                "mcp.timing.resource.error",
+                extra=mcp_extra({"kind": "timing_resource", "uri": str(uri), "duration_ms": ms}),
+            )
             raise
 
     async def on_get_prompt(self, context: MiddlewareContext, call_next: Any) -> Any:
@@ -188,11 +214,21 @@ class DetailedTimingMiddleware(Middleware):
         try:
             result = await call_next(context)
             ms = round((time.monotonic() - start_time) * 1000, 2)
-            self._logger.info("Prompt timing: %s retrieved in %.2fms", prompt_name, ms)
+            self._logger.info(
+                "mcp.timing.prompt",
+                extra=mcp_extra(
+                    {"kind": "timing_prompt", "name": prompt_name, "duration_ms": ms},
+                ),
+            )
             return result
         except Exception:
             ms = round((time.monotonic() - start_time) * 1000, 2)
-            self._logger.warning("Prompt timing: %s failed after %.2fms", prompt_name, ms)
+            self._logger.warning(
+                "mcp.timing.prompt.error",
+                extra=mcp_extra(
+                    {"kind": "timing_prompt", "name": prompt_name, "duration_ms": ms},
+                ),
+            )
             raise
 
     async def on_request(self, context: MiddlewareContext, call_next: Any) -> Any:
@@ -200,9 +236,19 @@ class DetailedTimingMiddleware(Middleware):
         try:
             result = await call_next(context)
             ms = round((time.monotonic() - start_time) * 1000, 2)
-            self._logger.debug("Request timing: %s completed in %.2fms", context.method, ms)
+            self._logger.info(
+                "mcp.timing.request",
+                extra=mcp_extra(
+                    {"kind": "timing_request", "method": context.method, "duration_ms": ms},
+                ),
+            )
             return result
         except Exception:
             ms = round((time.monotonic() - start_time) * 1000, 2)
-            self._logger.debug("Request timing: %s failed after %.2fms", context.method, ms)
+            self._logger.info(
+                "mcp.timing.request.error",
+                extra=mcp_extra(
+                    {"kind": "timing_request", "method": context.method, "duration_ms": ms},
+                ),
+            )
             raise

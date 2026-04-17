@@ -100,21 +100,21 @@ External:
 
 ```text
 DereferenceRefsMiddleware       # FastMCP built-in
-ToolCallTimeoutMiddleware       # per-tool timeouts (120–600s for heavy ops)
-StructuredLoggingMiddleware     # JSON logs with tool/resource context
-DetailedTimingMiddleware        # per-tool timing breakdown
+ErrorHandlingMiddleware         # structured error wrapping + Sentry
+RetryMiddleware                 # up to 2 retries on transient errors
 ResponseLimitingMiddleware      # truncate oversized responses (50 KB)
 ResponseCachingMiddleware       # cache list_tools/list_prompts/list_resources
 YMRateLimitMiddleware           # Yandex Music API rate limiting
-ErrorHandlingMiddleware         # structured error wrapping + Sentry
-RetryMiddleware                 # up to 2 retries on transient errors
+ToolCallTimeoutMiddleware       # per-tool timeouts (heavy ops)
+DetailedTimingMiddleware        # per-tool timing breakdown
+DjMcpRpcLoggingMiddleware       # JSON-ish logs via mcp_extra (innermost)
 ```
 
 ## Data Flow: Tool Call Lifecycle
 
 ```text
 1. Client sends tool call → FastMCP
-2. Middleware pipeline: log → timing → response_limit → caching → rate_limit → retry → error masking
+2. Middleware pipeline: error/retry → response_limit → caching → rate_limit → timeout → timing → request log
 3. FastMCP resolves tool via FileSystemProvider
 4. DI chain activates:
    controllers/dependencies/db.py

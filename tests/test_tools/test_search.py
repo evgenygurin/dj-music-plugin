@@ -208,3 +208,15 @@ async def test_list_platforms_empty(client: Client):
     data = _parse_result(result)
 
     assert all(p["linked_tracks"] == 0 for p in data)
+
+
+async def test_find_similar_tracks_visible_without_unlock_tools(client: Client):
+    """find_similar_tracks is tagged core so MCP tools/list includes it on connect.
+
+    Discovery-only tools stay hidden until unlock_tools; clients that snapshot the
+    initial list (e.g. Cursor) must still see find_similar_tracks.
+    """
+    tools = await client.list_tools()
+    names = {t.name for t in tools}
+    assert "find_similar_tracks" in names
+    assert "filter_by_feedback" not in names

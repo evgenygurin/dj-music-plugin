@@ -86,7 +86,7 @@ async def test_db_lifespan_via_tool() -> None:
     """DB lifespan provides engine and session_factory to tools."""
     mcp = FastMCP("test", lifespan=_db_lifespan)
 
-    @mcp.tool()
+    @mcp.tool
     def check_db(ctx=Depends(get_context)):  # type: ignore[no-untyped-def]  # noqa: B008
         assert "db_engine" in ctx.lifespan_context
         assert "db_session_factory" in ctx.lifespan_context
@@ -102,7 +102,7 @@ async def test_ym_lifespan_via_tool() -> None:
     """YM lifespan provides client instance to tools."""
     mcp = FastMCP("test", lifespan=_ym_lifespan)
 
-    @mcp.tool()
+    @mcp.tool
     def check_ym(ctx=Depends(get_context)):  # type: ignore[no-untyped-def]  # noqa: B008
         client = ctx.lifespan_context["ym_client"]
         assert isinstance(client, YandexMusicClient)
@@ -118,7 +118,7 @@ async def test_analyzer_lifespan_discovers_analyzers() -> None:
     """Analyzer lifespan discovers and registers built-in analyzers."""
     mcp = FastMCP("test", lifespan=_analyzer_lifespan)
 
-    @mcp.tool()
+    @mcp.tool
     def check_analyzers(ctx=Depends(get_context)):  # type: ignore[no-untyped-def]  # noqa: B008
         registry = ctx.lifespan_context["analyzer_registry"]
         assert isinstance(registry, AnalyzerRegistry)
@@ -138,7 +138,7 @@ async def test_cache_lifespan_creates_cache() -> None:
     """Cache lifespan creates TransitionCache with basic operations."""
     mcp = FastMCP("test", lifespan=_cache_lifespan)
 
-    @mcp.tool()
+    @mcp.tool
     def check_cache(ctx=Depends(get_context)):  # type: ignore[no-untyped-def]  # noqa: B008
         cache = ctx.lifespan_context["transition_cache"]
         assert isinstance(cache, TransitionCache)
@@ -193,7 +193,7 @@ async def test_composed_lifespans_enter_in_order_exit_in_reverse() -> None:
 
     mcp = FastMCP("test", lifespan=first | second | third)
 
-    @mcp.tool()
+    @mcp.tool
     def check_all(ctx=Depends(get_context)):  # type: ignore[no-untyped-def]  # noqa: B008
         assert "first" in ctx.lifespan_context
         assert "second" in ctx.lifespan_context
@@ -221,7 +221,7 @@ async def test_all_four_lifespans_compose_correctly() -> None:
     combined = _db_lifespan | _ym_lifespan | _analyzer_lifespan | _cache_lifespan
     mcp = FastMCP("test", lifespan=combined)
 
-    @mcp.tool()
+    @mcp.tool
     def check_all(ctx=Depends(get_context)):  # type: ignore[no-untyped-def]  # noqa: B008
         expected_keys = {
             "db_engine",

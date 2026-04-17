@@ -1,11 +1,17 @@
 """Taste profile analysis prompt."""
 
-from __future__ import annotations
-
 from typing import Annotated
 
-from fastmcp.prompts import Message, PromptResult, prompt
+from fastmcp.prompts import PromptResult, prompt
 from pydantic import Field
+
+from app.controllers.prompts.workflow_shared import (
+    TRANSITION_SCORING_AND_SEARCH_GUIDE,
+    WORKFLOW_PROMPT_VERSION,
+    make_prompt_result,
+    message_assistant,
+    message_user,
+)
 
 
 @prompt(
@@ -17,17 +23,17 @@ from pydantic import Field
         "energy patterns, and actionable insights for set building."
     ),
     tags={"sets", "workflow"},
-    meta={"version": "1.0"},
+    meta={"version": WORKFLOW_PROMPT_VERSION, "steps": 5},
 )
 def taste_analysis(
     limit: Annotated[int, Field(description="Max tracks to analyze")] = 500,
 ) -> PromptResult:
     """Analyze user's taste profile from liked and disliked tracks."""
-    return PromptResult(
-        messages=[
-            Message(
+    return make_prompt_result(
+        [
+            message_user(
                 f"Analyze the user's music taste profile (up to {limit} tracks):\n\n"
-                f"1. **Collect liked tracks**: `ym_likes(action='get_liked')` — "
+                f"1. **Collect liked tracks**: `platform_liked_tracks(action='get_liked')` — "
                 f"paginate until truncated=False\n"
                 f"2. **Identify dislikes**: `filter_by_feedback(ym_track_ids=<local_ids>)` "
                 f"to get banned/boosted tracks\n"
@@ -43,7 +49,13 @@ def taste_analysis(
                 f"   - TL;DR (3 sentences)\n"
                 f"   - Per-dimension comparison tables\n"
                 f"   - Actionable set-building insights\n"
-                f"   - Discovery recommendations based on patterns"
+                f"   - Discovery recommendations based on patterns\n\n"
+                f"Optional: query or refresh stored blend stats for liked pairs — reference:\n"
+                + TRANSITION_SCORING_AND_SEARCH_GUIDE
+            ),
+            message_assistant(
+                f"Taste analysis: pulling up to {limit} tracks from likes + feedback, "
+                "then building the report."
             ),
         ],
         description=f"Taste profile analysis (up to {limit} tracks)",

@@ -34,6 +34,9 @@ otel = [
     "opentelemetry-exporter-otlp",
 ]
 sentry = ["sentry-sdk>=2.0"]
+# Matches ``fastmcp[anthropic]`` (see https://gofastmcp.com/servers/sampling).
+# Install: ``uv sync --extra llm`` when using ``DJ_ANTHROPIC_API_KEY`` for server-side fallback.
+llm = ["anthropic>=0.48.0"]
 
 [tool.ruff]
 line-length = 99
@@ -53,6 +56,7 @@ ignore = [
 "app/services/**" = ["E501"]  # long f-strings in error messages
 "app/controllers/tools/**" = ["E501"]  # tool descriptions and f-strings
 "app/api/**" = ["E501", "RUF001", "RUF002", "B008"]  # Swagger examples + multilingual docs + FastAPI Query/Body defaults
+"app/controllers/resources/knowledge_audio_features_guide.py" = ["E501", "RUF001", "RUF002"]  # RU field guide JSON
 "tests/**" = ["E501", "RUF012"]  # test assertions can be long, mock classes OK
 
 [tool.ruff.lint.isort]
@@ -75,9 +79,10 @@ ignore_missing_imports = true
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
-# Run tests in parallel across CPU cores by default. Override with `-n 0` for
-# serial execution (e.g. when debugging with pdb or inspecting per-test output).
-addopts = "-n auto --dist loadfile"
+# Run tests in parallel across CPU cores by default. ``loadgroup`` keeps
+# tests marked with a shared xdist group on one worker (we use this for
+# audio tests to reduce numba/librosa contention and flakiness).
+addopts = "-n auto --dist loadgroup"
 filterwarnings = [
     "ignore::DeprecationWarning:sqlalchemy.*",
     # librosa is chatty when synthetic test signals are shorter than its

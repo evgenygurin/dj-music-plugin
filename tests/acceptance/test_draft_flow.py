@@ -11,7 +11,6 @@ from fastmcp.client.elicitation import ElicitResult
 from fastmcp.server.lifespan import lifespan
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
-from app.audio.analyzers import AnalyzerRegistry
 from app.core.constants import Provider
 from app.core.utils.cache import TransitionCache
 from app.db.models.audio import TrackAudioFeaturesComputed
@@ -28,9 +27,8 @@ def _read_draft_resource(result) -> dict:  # type: ignore[no-untyped-def]
     return json.loads(text) if isinstance(text, str) else {}
 
 
-def _build_lifespan(async_engine, factory):  # type: ignore[no-untyped-def]
-    registry = AnalyzerRegistry()
-    registry.discover()
+def _build_lifespan(async_engine, factory, analyzer_registry):  # type: ignore[no-untyped-def]
+    registry = analyzer_registry
     cache = TransitionCache(max_size=100, ttl=60)
     ym_mock = AsyncMock()
     ym_mock.__aenter__.return_value = ym_mock
@@ -58,6 +56,7 @@ def _build_lifespan(async_engine, factory):  # type: ignore[no-untyped-def]
 async def test_full_draft_flow_creates_ordered_version(
     async_engine,
     patch_tiered_noop,
+    analyzer_registry,
 ) -> None:
     """update_set_draft → preview_draft → update_set_draft → commit_draft (accept)."""
     factory = async_sessionmaker(async_engine, expire_on_commit=False)
@@ -87,7 +86,7 @@ async def test_full_draft_flow_creates_ordered_version(
         return ElicitResult(action="accept", content=None)
 
     original_lifespan = mcp._lifespan
-    mcp._lifespan = _build_lifespan(async_engine, factory)
+    mcp._lifespan = _build_lifespan(async_engine, factory, analyzer_registry)
     mcp._lifespan_result = None
     mcp._lifespan_result_set = False
 
@@ -143,12 +142,12 @@ async def test_full_draft_flow_creates_ordered_version(
 
 
 @pytest.mark.asyncio
-async def test_session_state_isolation(async_engine, patch_tiered_noop) -> None:
+async def test_session_state_isolation(async_engine, patch_tiered_noop, analyzer_registry) -> None:
     """Session A's draft must NOT be visible in Session B (opened after A closes)."""
     factory = async_sessionmaker(async_engine, expire_on_commit=False)
 
     original_lifespan = mcp._lifespan
-    mcp._lifespan = _build_lifespan(async_engine, factory)
+    mcp._lifespan = _build_lifespan(async_engine, factory, analyzer_registry)
     mcp._lifespan_result = None
     mcp._lifespan_result_set = False
     try:
@@ -176,7 +175,9 @@ async def test_session_state_isolation(async_engine, patch_tiered_noop) -> None:
 
 
 @pytest.mark.asyncio
-async def test_preview_draft_100_tracks_performance(async_engine, patch_tiered_noop) -> None:
+async def test_preview_draft_100_tracks_performance(
+    async_engine, patch_tiered_noop, analyzer_registry
+) -> None:
     """preview_draft with 100 tracks must complete without error."""
     factory = async_sessionmaker(async_engine, expire_on_commit=False)
 
@@ -202,7 +203,7 @@ async def test_preview_draft_100_tracks_performance(async_engine, patch_tiered_n
         await session.commit()
 
     original_lifespan = mcp._lifespan
-    mcp._lifespan = _build_lifespan(async_engine, factory)
+    mcp._lifespan = _build_lifespan(async_engine, factory, analyzer_registry)
     mcp._lifespan_result = None
     mcp._lifespan_result_set = False
     try:

@@ -45,6 +45,7 @@ class ToolCategory(StrEnum):
     DISCOVERY = "discovery"
     CURATION = "curation"
     SYNC = "sync"
+    PLATFORM = "platform"
     YM = "ym"
     AUDIO = "audio"
     MEMORY = "memory"
@@ -123,6 +124,8 @@ TOOL_META: Final[dict[str, Any]] = {
 RESOURCE_META: Final[dict[str, Any]] = {
     "version": _v,
 }
+
+RESOURCE_VERSION: Final[str] = _v
 
 
 # ── Icons (data-URI SVG, no external hosting needed) ─────────────

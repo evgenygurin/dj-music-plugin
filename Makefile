@@ -1,13 +1,16 @@
-.PHONY: install test lint typecheck arch check migrate dev clean panel api upgrade
+.PHONY: install test test-fast test-smoke lint typecheck arch check check-full migrate dev clean panel api upgrade
 
 install:
 	uv sync --all-extras
 
 test:
-	uv run pytest -v
+	uv run pytest -q
 
 test-fast:
 	uv run pytest -x -q
+
+test-smoke:
+	uv run pytest -q -n 0 tests/test_server_builder.py
 
 lint:
 	uv run ruff check app/ tests/
@@ -24,6 +27,8 @@ arch:
 	uv run lint-imports
 
 check: lint typecheck arch test
+
+check-full: lint typecheck arch test
 
 migrate:
 	uv run alembic upgrade head

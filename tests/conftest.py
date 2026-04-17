@@ -3,6 +3,9 @@
 All fixtures use async SQLAlchemy with in-memory SQLite.
 """
 
+import contextlib
+import os
+
 import pytest
 from sqlalchemy import event
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
@@ -37,6 +40,34 @@ from app.db.models.transition import Transition, TransitionCandidate  # noqa: F4
 from app.db.models.transition_history import TransitionHistory  # noqa: F401
 
 
+def pytest_xdist_auto_num_workers(config):  # type: ignore[no-untyped-def]
+    """Cap xdist auto workers to avoid CPU over-subscription in audio-heavy tests.
+
+    `-n auto` can pick too many workers for this suite because many tests execute
+    NumPy/librosa workloads internally. Fewer workers reduce context switching and
+    consistently improve wall-clock time.
+    """
+    configured = config.getoption("numprocesses")
+    if configured != "auto":
+        return None
+    return min(4, max(1, os.cpu_count() or 1))
+
+
+def pytest_collection_modifyitems(config, items):  # type: ignore[no-untyped-def]
+    """Group audio tests on one worker to avoid numba/librosa cold-start races.
+
+    When many workers import/compile librosa+numba in parallel on a cold cache,
+    workers can crash and xdist spends significant time restarting nodes.
+    `loadgroup` + a shared group keeps these tests on one worker while the rest
+    of the suite still runs in parallel.
+    """
+    if config.getoption("dist") != "loadgroup":
+        return
+    for item in items:
+        if item.nodeid.startswith("tests/test_audio/"):
+            item.add_marker(pytest.mark.xdist_group(name="audio"))
+
+
 def _set_sqlite_pragma(dbapi_conn, _connection_record):
     """Enable FK enforcement for SQLite connections."""
     cursor = dbapi_conn.cursor()
@@ -44,12 +75,12 @@ def _set_sqlite_pragma(dbapi_conn, _connection_record):
     cursor.close()
 
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 async def async_engine():
-    """In-memory async SQLite engine with all tables created.
+    """Session-wide in-memory async SQLite engine.
 
-    Uses StaticPool to keep the single in-memory connection alive
-    across multiple sessions within one test.
+    Creates schema once per xdist worker, then test-level cleanup fixture
+    resets table contents between tests.
     """
     engine = create_async_engine(
         "sqlite+aiosqlite:///:memory:",
@@ -61,6 +92,36 @@ async def async_engine():
         await conn.run_sync(Base.metadata.create_all)
     yield engine
     await engine.dispose()
+
+
+@pytest.fixture(autouse=True)
+async def _reset_database(async_engine, request):  # type: ignore[no-untyped-def]
+    """Clear DB rows only for tests that actually use DB-bound fixtures.
+
+    This keeps isolation for DB tests while avoiding expensive table cleanup
+    work for pure unit tests that never touch SQLAlchemy.
+    """
+    db_fixtures = {"db", "seeded_db", "client", "acceptance_harness", "async_engine"}
+    if db_fixtures.isdisjoint(set(request.fixturenames)):
+        yield
+        return
+
+    async with async_engine.begin() as conn:
+        for table in reversed(Base.metadata.sorted_tables):
+            await conn.execute(table.delete())
+        with contextlib.suppress(Exception):
+            await conn.exec_driver_sql("DELETE FROM sqlite_sequence")
+    yield
+
+
+@pytest.fixture(scope="session")
+def analyzer_registry():  # type: ignore[no-untyped-def]
+    """Discovered analyzer registry reused across tests."""
+    from app.audio.analyzers import AnalyzerRegistry
+
+    registry = AnalyzerRegistry()
+    registry.discover()
+    return registry
 
 
 @pytest.fixture
@@ -120,7 +181,7 @@ def _parse_tool_result(result):  # type: ignore[no-untyped-def]
 
 
 @pytest.fixture
-async def client(async_engine):  # type: ignore[no-untyped-def]
+async def client(async_engine, analyzer_registry):  # type: ignore[no-untyped-def]
     """FastMCP test client with in-memory DB session factory."""
     from fastmcp import Client
     from sqlalchemy.ext.asyncio import async_sessionmaker
@@ -132,12 +193,10 @@ async def client(async_engine):  # type: ignore[no-untyped-def]
 
     from unittest.mock import AsyncMock
 
-    from app.audio.analyzers import AnalyzerRegistry
     from app.core.utils.cache import TransitionCache
 
     # Provide all lifespan context keys that tools may need
-    registry = AnalyzerRegistry()
-    registry.discover()
+    registry = analyzer_registry
     cache = TransitionCache(max_size=100, ttl=60)
 
     # Mock YM client

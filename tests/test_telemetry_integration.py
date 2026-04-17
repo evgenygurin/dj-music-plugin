@@ -76,5 +76,5 @@ class TestServerConfiguration:
             content = f.read()
 
         assert "DetailedTimingMiddleware" in content
-        assert "StructuredLoggingMiddleware" in content
+        assert "DjMcpRpcLoggingMiddleware" in content
         assert "add_middleware" in content

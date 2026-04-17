@@ -9,6 +9,9 @@ from app.controllers.prompts.workflows import (
     expand_playlist_workflow,
     full_expansion_pipeline,
     improve_set_workflow,
+    llm_discovery_workflow,
+    quick_mix_check,
+    taste_analysis,
 )
 
 
@@ -73,6 +76,12 @@ class TestBuildSetWorkflow:
         assert "Review" in user_message
         assert "Deliver" in user_message or "deliver_set_workflow" in user_message
 
+    def test_appends_transition_tools_guide(self):
+        result = build_set_workflow("Test")
+        user_message = result.messages[0].content.text
+        assert "search_transitions" in user_message
+        assert "score_transitions" in user_message
+
     def test_assistant_acknowledgment(self):
         """Assistant message should acknowledge the task."""
         result = build_set_workflow("Test Playlist")
@@ -121,6 +130,14 @@ class TestExpandPlaylistWorkflow:
         assert "Analyze" in user_message or "Analysis" in user_message
         assert "Classify" in user_message or "classify" in user_message
 
+    def test_appends_transition_tools_guide(self) -> None:
+        result = expand_playlist_workflow("Test")
+        user_message = result.messages[0].content.text
+        assert "search_transitions" in user_message
+        assert "score_transitions" in user_message
+        assert "all_track_fields" in user_message
+        assert "include_field_catalog" in user_message
+
 
 class TestImproveSetWorkflow:
     """Test improve_set_workflow prompt."""
@@ -153,6 +170,12 @@ class TestImproveSetWorkflow:
         result = improve_set_workflow("Test")
         user_message = result.messages[0].content.text
         assert "transition" in user_message.lower()
+
+    def test_mentions_search_and_score_transitions_tools(self):
+        result = improve_set_workflow("Test")
+        user_message = result.messages[0].content.text
+        assert "search_transitions" in user_message
+        assert "score_transitions" in user_message
 
 
 class TestDeliverSetWorkflow:
@@ -204,6 +227,12 @@ class TestDeliverSetWorkflow:
         user_message = result.messages[0].content.text
         assert "m3u8" in user_message.lower() or "M3U8" in user_message
         assert "json" in user_message.lower() or "JSON" in user_message
+
+    def test_mentions_search_transitions_reference(self):
+        result = deliver_set_workflow("Test")
+        user_message = result.messages[0].content.text
+        assert "search_transitions" in user_message
+        assert "include_field_catalog" in user_message
 
 
 class TestFullExpansionPipeline:
@@ -265,6 +294,45 @@ class TestFullExpansionPipeline:
         assistant_message = result.messages[1].content.text
         assert "time" in assistant_message.lower() or "pipeline" in assistant_message.lower()
 
+    def test_appends_transition_tools_guide(self) -> None:
+        result = full_expansion_pipeline("Source")
+        user_message = result.messages[0].content.text
+        assert "search_transitions" in user_message
+        assert "score_transitions" in user_message
+        assert "track_candidates" in user_message
+        assert "transitions_next_offset" in user_message
+
+
+class TestLlmDiscoveryWorkflow:
+    """LLM discovery prompt includes persisted-transition reference."""
+
+    def test_appends_transition_tools_guide(self) -> None:
+        result = llm_discovery_workflow("Artist - Title")
+        text = result.messages[0].content.text
+        assert "search_transitions" in text
+        assert "score_transitions" in text
+        assert "exclude_fields" in text
+
+
+class TestTasteAnalysisPrompt:
+    """Taste analysis prompt includes persisted-transition reference."""
+
+    def test_appends_transition_tools_guide(self) -> None:
+        result = taste_analysis()
+        text = result.messages[0].content.text
+        assert "search_transitions" in text
+        assert "include_stats" in text
+
+
+class TestQuickMixCheckPrompt:
+    """Quick mix check includes full transition guide."""
+
+    def test_appends_transition_tools_guide(self) -> None:
+        result = quick_mix_check("Track A", "Track B")
+        text = result.messages[0].content.text
+        assert "explain_transition" in text
+        assert "all_feature_fields" in text
+
 
 class TestMessageStructure:
     """Test common Message structure patterns."""
@@ -277,6 +345,9 @@ class TestMessageStructure:
             (improve_set_workflow, ("Test",)),
             (deliver_set_workflow, ("Test",)),
             (full_expansion_pipeline, ("Test",)),
+            (llm_discovery_workflow, ("Artist - Title",)),
+            (quick_mix_check, ("A", "B")),
+            (taste_analysis, ()),
         ],
     )
     def test_all_prompts_return_two_messages(self, prompt_func, args):
@@ -293,6 +364,9 @@ class TestMessageStructure:
             (improve_set_workflow, ("Test",)),
             (deliver_set_workflow, ("Test",)),
             (full_expansion_pipeline, ("Test",)),
+            (llm_discovery_workflow, ("Artist - Title",)),
+            (quick_mix_check, ("A", "B")),
+            (taste_analysis, ()),
         ],
     )
     def test_all_prompts_have_user_then_assistant(self, prompt_func, args):
@@ -309,6 +383,9 @@ class TestMessageStructure:
             (improve_set_workflow, ("Test",)),
             (deliver_set_workflow, ("Test",)),
             (full_expansion_pipeline, ("Test",)),
+            (llm_discovery_workflow, ("Artist - Title",)),
+            (quick_mix_check, ("A", "B")),
+            (taste_analysis, ()),
         ],
     )
     def test_all_prompts_have_non_empty_content(self, prompt_func, args):

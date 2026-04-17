@@ -2,11 +2,18 @@
 
 from __future__ import annotations
 
+from datetime import date, datetime
+from decimal import Decimal
 from typing import Any
+
+from sqlalchemy import String, case, func, select
+from sqlalchemy.orm import aliased
 
 from app.camelot.wheel import camelot_distance, key_code_to_camelot
 from app.core.constants import SectionType
-from app.core.errors import NotFoundError
+from app.core.errors import NotFoundError, ValidationError
+from app.db.models.audio import TrackAudioFeaturesComputed
+from app.db.models.track import Track
 from app.db.models.transition import Transition
 from app.db.repositories.feature import FeatureRepository
 from app.db.repositories.set import SetRepository
@@ -32,6 +39,19 @@ def _safe_parse_recommendation(raw: str | None) -> TransitionRecommendation | No
 from app.transition.math_helpers import bpm_distance
 from app.transition.scorer import TransitionScorer
 
+_TRANSITION_FILTER_OPERATORS: frozenset[str] = frozenset(
+    {"eq", "ne", "gt", "gte", "lt", "lte", "in", "not_in", "contains", "is_null"}
+)
+
+_INCLUDE_MACRO_ALL = "all"
+_INCLUDE_MACRO_ALL_TRANSITION = "all_transition_fields"
+_INCLUDE_MACRO_ALL_TRACK = "all_track_fields"
+_INCLUDE_MACRO_ALL_FEATURE = "all_feature_fields"
+_INCLUDE_MACRO_TRANSITION = "transition_fields"
+_INCLUDE_MACRO_TRACK = "track_fields"
+_INCLUDE_MACRO_FEATURE = "feature_fields"
+_MAX_SUBSET_TRACKS = 300
+
 
 class SetScoringService:
     """Score transitions for track pairs and full DJ sets."""
@@ -45,6 +65,143 @@ class SetScoringService:
         self._sets = set_repo
         self._features = feature_repo
         self._transitions = transition_repo
+
+    @staticmethod
+    def _to_jsonable(value: Any) -> Any:
+        if isinstance(value, Decimal):
+            return float(value)
+        if isinstance(value, datetime | date):
+            return value.isoformat()
+        return value
+
+    @staticmethod
+    def _normalize_field_list(raw: list[str] | None) -> list[str] | None:
+        if raw is None:
+            return None
+        out: list[str] = []
+        seen: set[str] = set()
+        for item in raw:
+            name = str(item).strip()
+            if not name or name in seen:
+                continue
+            seen.add(name)
+            out.append(name)
+        return out
+
+    @staticmethod
+    def _expand_field_macros(
+        requested_fields: list[str] | None,
+        macro_map: dict[str, list[str]],
+    ) -> list[str] | None:
+        """Expand include/exclude macro tokens into concrete field names."""
+        if requested_fields is None:
+            return None
+
+        out: list[str] = []
+        seen: set[str] = set()
+        for token in requested_fields:
+            names = macro_map.get(token)
+            if names is None:
+                names = [token]
+            for name in names:
+                if name in seen:
+                    continue
+                seen.add(name)
+                out.append(name)
+        return out
+
+    @staticmethod
+    def _parse_sort_spec(sort_by: str, fallback_order: str) -> list[tuple[str, str]]:
+        tokens = [chunk.strip() for chunk in sort_by.split(",") if chunk.strip()]
+        if not tokens:
+            raise ValidationError("sort_by cannot be empty")
+
+        fallback = fallback_order.lower()
+        if fallback not in {"asc", "desc"}:
+            raise ValidationError("sort_order must be 'asc' or 'desc'")
+
+        out: list[tuple[str, str]] = []
+        seen: set[str] = set()
+        for token in tokens:
+            direction = fallback
+            field = token
+            if token.startswith("-"):
+                direction = "desc"
+                field = token[1:].strip()
+            elif token.startswith("+"):
+                direction = "asc"
+                field = token[1:].strip()
+
+            if not field:
+                raise ValidationError(f"Invalid sort token: {token!r}")
+            if field in seen:
+                continue
+            seen.add(field)
+            out.append((field, direction))
+        return out
+
+    @staticmethod
+    def _build_filter_clauses(
+        filters: dict[str, Any],
+        field_map: dict[str, Any],
+    ) -> list[Any]:
+        clauses: list[Any] = []
+
+        for field_name, raw_filter in filters.items():
+            column = field_map.get(field_name)
+            if column is None:
+                raise ValidationError(f"Unknown filter field: {field_name}")
+
+            if isinstance(raw_filter, dict):
+                if not raw_filter:
+                    continue
+                for op, value in raw_filter.items():
+                    op_norm = str(op).strip().lower()
+                    if op_norm not in _TRANSITION_FILTER_OPERATORS:
+                        raise ValidationError(
+                            f"Unknown operator {op!r} for field {field_name}. "
+                            f"Allowed: {sorted(_TRANSITION_FILTER_OPERATORS)}"
+                        )
+                    if op_norm == "eq":
+                        clauses.append(column == value)
+                    elif op_norm == "ne":
+                        clauses.append(column != value)
+                    elif op_norm == "gt":
+                        clauses.append(column > value)
+                    elif op_norm == "gte":
+                        clauses.append(column >= value)
+                    elif op_norm == "lt":
+                        clauses.append(column < value)
+                    elif op_norm == "lte":
+                        clauses.append(column <= value)
+                    elif op_norm == "in":
+                        if not isinstance(value, list | tuple | set):
+                            raise ValidationError(f"{field_name}.in must be list/tuple/set")
+                        seq = list(value)
+                        if not seq:
+                            raise ValidationError(f"{field_name}.in cannot be empty")
+                        clauses.append(column.in_(seq))
+                    elif op_norm == "not_in":
+                        if not isinstance(value, list | tuple | set):
+                            raise ValidationError(f"{field_name}.not_in must be list/tuple/set")
+                        seq = list(value)
+                        if not seq:
+                            raise ValidationError(f"{field_name}.not_in cannot be empty")
+                        clauses.append(~column.in_(seq))
+                    elif op_norm == "contains":
+                        if value is None:
+                            raise ValidationError(
+                                f"{field_name}.contains requires a non-null value"
+                            )
+                        clauses.append(func.cast(column, String).ilike(f"%{value}%"))
+                    elif op_norm == "is_null":
+                        if not isinstance(value, bool):
+                            raise ValidationError(f"{field_name}.is_null must be boolean")
+                        clauses.append(column.is_(None) if value else column.is_not(None))
+            else:
+                clauses.append(column == raw_filter)
+
+        return clauses
 
     @staticmethod
     def _coerce_section(section_id: int | None) -> SectionType | None:
@@ -155,17 +312,15 @@ class SetScoringService:
 
         All 6 components are surfaced, plus ``hard_reject`` /
         ``reject_reason`` so cache hits and fresh scores are
-        indistinguishable to callers.
+        indistinguishable to callers. Neural Mix FX is a single ``fx_type``
+        string (not duplicated under legacy aliases).
         """
 
         def _round(v: float | None) -> float | None:
             return round(v, 4) if v is not None else None
 
-        recommended_style: str | None = None
-        recommended_bars: float | int | None = None
-        transition_type: str | None = None
+        fx_type: str | None = None
         transition_bars: int | None = None
-        djay_transition: str | None = None
         recipe_confidence: float | None = None
         if overall is not None:
             synthetic = TransitionScore(
@@ -181,17 +336,11 @@ class SetScoringService:
             )
             from app.entities.audio.features import TrackFeatures as _TrackFeatures
 
-            _rec = TransitionRecommender().recommend(synthetic, _TrackFeatures(), _TrackFeatures())
-            recommended_style = _rec.fx_type.value
-            recommended_bars = None
-
+            empty = _TrackFeatures()
             persisted = _safe_parse_recommendation(persisted_recipe_json)
-            rec = persisted or TransitionRecommender().recommend(
-                synthetic, _TrackFeatures(), _TrackFeatures()
-            )
-            transition_type = rec.fx_type.value
+            rec = persisted or TransitionRecommender().recommend(synthetic, empty, empty)
+            fx_type = rec.fx_type.value
             transition_bars = None
-            djay_transition = rec.fx_type.value
             recipe_confidence = rec.confidence
 
         return {
@@ -207,11 +356,8 @@ class SetScoringService:
             "hard_reject": bool(hard_reject) if hard_reject is not None else False,
             "reject_reason": reject_reason,
             "cached": cached,
-            "recommended_style": recommended_style,
-            "recommended_bars": recommended_bars,
-            "transition_type": transition_type if overall is not None else None,
+            "fx_type": fx_type,
             "transition_bars": transition_bars if overall is not None else None,
-            "djay_transition": djay_transition if overall is not None else None,
             "recipe_confidence": recipe_confidence if overall is not None else None,
         }
 
@@ -419,6 +565,378 @@ class SetScoringService:
             "avg_score": avg_score,
             "transitions": transitions_data,
         }
+
+    async def score_subset_transitions(
+        self,
+        track_ids: list[int],
+        *,
+        top_n: int = 10,
+    ) -> dict[str, Any]:
+        """Score all directed pairs within an explicit subset of tracks.
+
+        Use this to avoid all-library all-vs-all scoring: prefilter tracks first,
+        then evaluate only the remaining candidate pool.
+        """
+        if top_n < 1:
+            raise ValidationError("top_n must be >= 1")
+
+        unique_ids: list[int] = []
+        seen: set[int] = set()
+        for tid in track_ids:
+            if tid in seen:
+                continue
+            seen.add(tid)
+            unique_ids.append(tid)
+
+        if len(unique_ids) < 2:
+            raise ValidationError("subset mode requires at least 2 unique track_ids")
+        if len(unique_ids) > _MAX_SUBSET_TRACKS:
+            raise ValidationError(
+                f"subset mode supports up to {_MAX_SUBSET_TRACKS} unique track_ids"
+            )
+
+        pair_keys = [
+            (from_id, to_id)
+            for from_id in unique_ids
+            for to_id in unique_ids
+            if from_id != to_id
+        ]
+        features_cache = await self._features.get_scoring_features_batch(unique_ids)
+        existing_cache = await self._transitions.get_scores_batch(pair_keys)
+
+        transitions_data: list[dict[str, Any]] = []
+        for from_id, to_id in pair_keys:
+            score_data = await self.score_pair(
+                from_id,
+                to_id,
+                features_cache=features_cache,
+                existing_cache=existing_cache,
+            )
+            transitions_data.append(score_data)
+
+        scored = [t for t in transitions_data if t.get("overall_quality") is not None]
+        hard_conflicts = [t for t in scored if t.get("hard_reject") is True]
+        soft_scored = [t for t in scored if not t.get("hard_reject")]
+        avg_score: float | None = None
+        if soft_scored:
+            avg_score = sum(float(t["overall_quality"]) for t in soft_scored) / len(soft_scored)
+
+        ranked = sorted(
+            scored,
+            key=lambda row: float(row.get("overall_quality") or 0.0),
+            reverse=True,
+        )
+        top_transitions = ranked[:top_n]
+
+        return {
+            "mode": "subset",
+            "input_track_count": len(track_ids),
+            "track_count": len(unique_ids),
+            "track_ids": unique_ids,
+            "total_pairs": len(pair_keys),
+            "scored_pairs": len(scored),
+            "hard_conflicts": len(hard_conflicts),
+            "avg_score": avg_score,
+            "top_n": top_n,
+            "top_transitions": top_transitions,
+            "transitions": transitions_data,
+        }
+
+    async def search_transitions(
+        self,
+        *,
+        limit: int = 50,
+        offset: int = 0,
+        sort_by: str = "-overall_quality",
+        sort_order: str = "desc",
+        sort_direction: str | None = None,
+        filters: dict[str, Any] | None = None,
+        include_fields: list[str] | None = None,
+        exclude_fields: list[str] | None = None,
+        include_stats: bool = True,
+        include_field_catalog: bool = False,
+        target_quality: float | None = None,
+    ) -> dict[str, Any]:
+        """Search scored transition pairs with flexible filtering/sorting/projection.
+
+        Supports:
+        - pagination via ``limit``/``offset``
+        - multi-sort via comma-separated ``sort_by`` (``-field`` => desc; use ``+field`` for asc)
+        - per-field operators via ``filters`` dict
+        - field projection via ``include_fields`` / ``exclude_fields`` (default rows: ``id`` only)
+        - aggregate stats for the filtered set
+        - optional heavy field-name catalog (``include_field_catalog``) for MCP payload control
+        - optional target feasibility guardrail via ``target_quality`` (0..1)
+        """
+        if limit < 1:
+            raise ValidationError("limit must be >= 1")
+        if offset < 0:
+            raise ValidationError("offset must be >= 0")
+
+        normalized_filters = filters or {}
+        if not isinstance(normalized_filters, dict):
+            raise ValidationError("filters must be an object/dict")
+
+        from_track = aliased(Track, name="from_track")
+        to_track = aliased(Track, name="to_track")
+        from_features = aliased(TrackAudioFeaturesComputed, name="from_features")
+        to_features = aliased(TrackAudioFeaturesComputed, name="to_features")
+
+        transition_fields = [col.name for col in Transition.__table__.columns]
+        track_fields: list[str] = []
+        feature_fields: list[str] = []
+
+        field_map: dict[str, Any] = {
+            col.name: getattr(Transition, col.name) for col in Transition.__table__.columns
+        }
+
+        for col in Track.__table__.columns:
+            from_col = getattr(from_track, col.name)
+            to_col = getattr(to_track, col.name)
+            from_field = f"from_track_{col.name}"
+            to_field = f"to_track_{col.name}"
+            field_map[from_field] = from_col
+            field_map[to_field] = to_col
+            track_fields.extend([from_field, to_field])
+            if col.name in {"title", "sort_title", "duration_ms", "status"}:
+                field_map[f"from_{col.name}"] = from_col
+                field_map[f"to_{col.name}"] = to_col
+
+        for col in TrackAudioFeaturesComputed.__table__.columns:
+            if col.name == "track_id":
+                # Preserve transition.from_track_id/to_track_id names and expose
+                # feature FK columns explicitly to still cover "all feature fields".
+                from_field = "from_feature_track_id"
+                to_field = "to_feature_track_id"
+            else:
+                from_field = f"from_{col.name}"
+                to_field = f"to_{col.name}"
+            field_map[from_field] = getattr(from_features, col.name)
+            field_map[to_field] = getattr(to_features, col.name)
+            feature_fields.extend([from_field, to_field])
+
+        available_fields = sorted(field_map.keys())
+        macro_map = {
+            _INCLUDE_MACRO_ALL: available_fields,
+            _INCLUDE_MACRO_ALL_TRANSITION: transition_fields,
+            _INCLUDE_MACRO_TRANSITION: transition_fields,
+            _INCLUDE_MACRO_ALL_TRACK: sorted(track_fields),
+            _INCLUDE_MACRO_TRACK: sorted(track_fields),
+            _INCLUDE_MACRO_ALL_FEATURE: sorted(feature_fields),
+            _INCLUDE_MACRO_FEATURE: sorted(feature_fields),
+        }
+
+        include = self._normalize_field_list(include_fields)
+        exclude = self._normalize_field_list(exclude_fields) or []
+        include = self._expand_field_macros(include, macro_map)
+        exclude = self._expand_field_macros(exclude, macro_map) or []
+
+        # Default = minimal projection (id only) to keep MCP payloads small; expand via macros / list.
+        selected_fields = ["id"] if include is None else include
+
+        unknown_include = [name for name in selected_fields if name not in field_map]
+        if unknown_include:
+            raise ValidationError(f"Unknown include_fields: {unknown_include}")
+
+        unknown_exclude = [name for name in exclude if name not in field_map]
+        if unknown_exclude:
+            raise ValidationError(f"Unknown exclude_fields: {unknown_exclude}")
+
+        exclude_set = set(exclude)
+        selected_fields = [name for name in selected_fields if name not in exclude_set]
+        if not selected_fields:
+            raise ValidationError("No output fields left after include/exclude filtering")
+
+        effective_sort_direction = (sort_direction or sort_order).lower()
+        sort_spec = self._parse_sort_spec(sort_by, effective_sort_direction)
+        for field_name, _direction in sort_spec:
+            if field_name not in field_map:
+                raise ValidationError(f"Unknown sort field: {field_name}")
+        if not any(field_name == "id" for field_name, _direction in sort_spec):
+            sort_spec.append(("id", effective_sort_direction))
+
+        where_clauses = self._build_filter_clauses(normalized_filters, field_map)
+
+        def _base_select(*cols: Any) -> Any:
+            stmt = (
+                select(*cols)
+                .select_from(Transition)
+                .join(from_track, Transition.from_track_id == from_track.id)
+                .join(to_track, Transition.to_track_id == to_track.id)
+                .outerjoin(from_features, from_features.track_id == Transition.from_track_id)
+                .outerjoin(to_features, to_features.track_id == Transition.to_track_id)
+            )
+            if where_clauses:
+                stmt = stmt.where(*where_clauses)
+            return stmt
+
+        count_stmt = select(func.count()).select_from(_base_select(Transition.id).subquery())
+        total = int((await self._transitions.session.execute(count_stmt)).scalar_one() or 0)
+
+        select_cols = [field_map[name].label(name) for name in selected_fields]
+        rows_stmt = _base_select(*select_cols)
+        for field_name, direction in sort_spec:
+            sort_col = field_map[field_name]
+            if direction == "desc":
+                rows_stmt = rows_stmt.order_by(sort_col.desc().nullslast())
+            else:
+                rows_stmt = rows_stmt.order_by(sort_col.asc().nullslast())
+        rows_stmt = rows_stmt.offset(offset).limit(limit)
+
+        raw_rows = (await self._transitions.session.execute(rows_stmt)).mappings().all()
+        rows = [
+            {key: self._to_jsonable(value) for key, value in dict(row).items()} for row in raw_rows
+        ]
+
+        stats: dict[str, Any] | None = None
+        quality_guardrail: dict[str, Any] | None = None
+        if include_stats:
+            stats_subq = _base_select(
+                Transition.hard_reject.label("hard_reject"),
+                Transition.overall_quality.label("overall_quality"),
+                Transition.bpm_score.label("bpm_score"),
+                Transition.harmonic_score.label("harmonic_score"),
+                Transition.energy_score.label("energy_score"),
+                Transition.spectral_score.label("spectral_score"),
+                Transition.groove_score.label("groove_score"),
+                Transition.timbral_score.label("timbral_score"),
+                Transition.fx_type.label("fx_type"),
+            ).subquery("transition_stats")
+
+            stats_stmt = select(
+                func.count().label("total_rows"),
+                func.sum(case((stats_subq.c.hard_reject.is_(True), 1), else_=0)).label(
+                    "hard_reject_count"
+                ),
+                func.avg(stats_subq.c.overall_quality).label("overall_avg"),
+                func.min(stats_subq.c.overall_quality).label("overall_min"),
+                func.max(stats_subq.c.overall_quality).label("overall_max"),
+                func.avg(stats_subq.c.bpm_score).label("bpm_avg"),
+                func.avg(stats_subq.c.harmonic_score).label("harmonic_avg"),
+                func.avg(stats_subq.c.energy_score).label("energy_avg"),
+                func.avg(stats_subq.c.spectral_score).label("spectral_avg"),
+                func.avg(stats_subq.c.groove_score).label("groove_avg"),
+                func.avg(stats_subq.c.timbral_score).label("timbral_avg"),
+            )
+            stats_row = (await self._transitions.session.execute(stats_stmt)).mappings().one()
+
+            hard_reject_count = int(stats_row["hard_reject_count"] or 0)
+            total_rows = int(stats_row["total_rows"] or 0)
+
+            fx_stmt = (
+                select(
+                    stats_subq.c.fx_type.label("fx_type"),
+                    func.count().label("count"),
+                )
+                .where(stats_subq.c.fx_type.is_not(None))
+                .group_by(stats_subq.c.fx_type)
+                .order_by(func.count().desc(), stats_subq.c.fx_type.asc())
+                .limit(10)
+            )
+            fx_rows = (await self._transitions.session.execute(fx_stmt)).mappings().all()
+
+            stats = {
+                "total_rows": total_rows,
+                "hard_reject_count": hard_reject_count,
+                "hard_reject_ratio": round(hard_reject_count / total_rows, 4)
+                if total_rows
+                else None,
+                "overall_quality": {
+                    "avg": self._to_jsonable(stats_row["overall_avg"]),
+                    "min": self._to_jsonable(stats_row["overall_min"]),
+                    "max": self._to_jsonable(stats_row["overall_max"]),
+                },
+                "component_averages": {
+                    "bpm": self._to_jsonable(stats_row["bpm_avg"]),
+                    "harmonic": self._to_jsonable(stats_row["harmonic_avg"]),
+                    "energy": self._to_jsonable(stats_row["energy_avg"]),
+                    "spectral": self._to_jsonable(stats_row["spectral_avg"]),
+                    "groove": self._to_jsonable(stats_row["groove_avg"]),
+                    "timbral": self._to_jsonable(stats_row["timbral_avg"]),
+                },
+                "fx_type_top": [
+                    {"fx_type": row["fx_type"], "count": int(row["count"])} for row in fx_rows
+                ],
+            }
+
+            max_overall_raw = stats_row["overall_max"]
+            max_overall = self._to_jsonable(max_overall_raw)
+            if target_quality is None:
+                quality_guardrail = {
+                    "target_quality": None,
+                    "max_overall_quality": max_overall,
+                    "meets_target": None,
+                    "non_reject_rows_at_or_above_target": None,
+                    "message": (
+                        "Pass target_quality to get explicit feasibility for your desired threshold."
+                    ),
+                }
+            else:
+                meets_target = (
+                    bool(max_overall_raw is not None and float(max_overall_raw) >= target_quality)
+                    if max_overall_raw is not None
+                    else False
+                )
+                count_at_target_stmt = select(func.count()).select_from(stats_subq).where(
+                    stats_subq.c.hard_reject.is_(False),
+                    stats_subq.c.overall_quality.is_not(None),
+                    stats_subq.c.overall_quality >= target_quality,
+                )
+                rows_at_target = int(
+                    (await self._transitions.session.execute(count_at_target_stmt)).scalar_one() or 0
+                )
+                if meets_target:
+                    message = (
+                        "Target quality is feasible in the current filtered slice. "
+                        "Use these rows to build your path/set."
+                    )
+                else:
+                    message = (
+                        "Target quality exceeds current transition ceiling. "
+                        "Lower target, widen filters, or refresh transition scoring."
+                    )
+                quality_guardrail = {
+                    "target_quality": target_quality,
+                    "max_overall_quality": max_overall,
+                    "meets_target": meets_target,
+                    "non_reject_rows_at_or_above_target": rows_at_target,
+                    "message": message,
+                }
+
+        next_offset = offset + len(rows)
+        fields_payload: dict[str, Any] = {
+            "selected": selected_fields,
+            "excluded": exclude,
+        }
+        if include_field_catalog:
+            fields_payload["available"] = available_fields
+            fields_payload["groups"] = {
+                "transition_fields": transition_fields,
+                "track_fields": sorted(track_fields),
+                "feature_fields": sorted(feature_fields),
+            }
+            fields_payload["include_macros"] = sorted(macro_map.keys())
+
+        out: dict[str, Any] = {
+            "rows": rows,
+            "offset": offset,
+            "limit": limit,
+            "returned": len(rows),
+            "total": total,
+            "next_offset": next_offset if next_offset < total else None,
+            "truncated": next_offset < total,
+            "sort": [
+                {"field": field_name, "direction": direction}
+                for field_name, direction in sort_spec
+            ],
+            "filters_applied": normalized_filters,
+            "fields": fields_payload,
+            "stats": stats,
+            "quality_guardrail": quality_guardrail,
+        }
+        if include_field_catalog:
+            out["filter_operators"] = sorted(_TRANSITION_FILTER_OPERATORS)
+        return out
 
     async def get_transition_candidates(self, track_id: int, top_n: int = 10) -> dict[str, Any]:
         """Get best transition candidates for a track across the analyzed library.

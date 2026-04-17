@@ -21,8 +21,8 @@ class MetadataRepository:
     def __init__(self, session: AsyncSession) -> None:
         self.session = session
 
-    async def get_ym_metadata(self, track_id: int) -> YandexMetadata | None:
-        """Get YandexMetadata row for a track."""
+    async def get_platform_metadata(self, track_id: int) -> YandexMetadata | None:
+        """Get platform metadata row for a track."""
         stmt = select(YandexMetadata).where(YandexMetadata.track_id == track_id)
         result = await self.session.execute(stmt)
         return result.scalar_one_or_none()

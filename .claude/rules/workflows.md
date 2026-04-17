@@ -22,4 +22,4 @@ globs: app/services/workflows/**/*.py
 | `AnalyzeTrackWorkflow` | `analyze_track`, `analyze_batch` | TieredPipeline → AudioService → feature persistence |
 | `BuildSetWorkflow` | `build_set`, `rebuild_set` | Pre-analysis (L3) → GA/greedy optimization → scoring |
 | `DeliverSetWorkflow` | `deliver_set`, `export_set` | L4 ensure → scoring → conflict gate → export writers → file copy |
-| `SyncPlaylistWorkflow` | `sync_playlist`, `push_set_to_ym` | Reconciliation → diff → apply changes → re-fetch |
+| `SyncPlaylistWorkflow` | `sync_playlist`, `push_set_to_platform` | Reconciliation → diff → apply changes → re-fetch |

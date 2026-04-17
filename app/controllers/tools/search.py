@@ -3,9 +3,7 @@
 Thin wrapper calling :class:`SearchService` via ``Depends()``.
 """
 
-from __future__ import annotations
-
-from typing import Annotated, Any, Literal
+from typing import Annotated, Literal
 
 from fastmcp.dependencies import CurrentContext, Depends
 from fastmcp.exceptions import ToolError
@@ -21,6 +19,7 @@ from app.controllers.tools._shared import (
     ToolCategory,
     map_domain_errors,
 )
+from app.schemas.tool_output import SearchLibraryResult
 from app.services.search_service import SearchService
 
 SearchEntity = Literal["all", "tracks", "artists", "playlists", "sets"]
@@ -36,12 +35,21 @@ SearchEntity = Literal["all", "tracks", "artists", "playlists", "sets"]
 @map_domain_errors
 async def search_library(
     query: Annotated[str, Field(description="Search text")],
-    entity: Annotated[SearchEntity, Field(description="Entity type to search")] = "all",
+    entity: Annotated[
+        SearchEntity,
+        Field(
+            description=(
+                "Which catalog slice to search: all | tracks | artists | playlists | sets. "
+                "Use plural **tracks**, not `track`."
+            ),
+        ),
+    ] = "all",
     limit: Annotated[int, Field(description="Max results", ge=1, le=50)] = 10,
     svc: SearchService = Depends(get_search_service),  # noqa: B008
     ctx: Context = CurrentContext(),  # noqa: B008
-) -> dict[str, Any]:
+) -> SearchLibraryResult:
     """Runs a text search across tracks, artists, playlists, and sets. Use when you know a fragment of a title or name but not the exact ID."""
     if not query or not query.strip():
         raise ToolError("Query must not be empty")
-    return await svc.search(query=query, entity=entity, limit=limit)
+    raw = await svc.search(query=query, entity=entity, limit=limit)
+    return SearchLibraryResult.model_validate(raw)

@@ -54,7 +54,7 @@ TOOL_CALLS: dict[str, dict[str, Any]] = {
     # ── Discovery ──
     "find_similar_tracks": {"track_id": 999999},
     "filter_by_feedback": {"ym_track_ids": ["12345"]},
-    "expand_playlist_ym": {"ym_playlist_kind": 999999, "dry_run": True},
+    "expand_platform_playlist": {"playlist_id": "999999", "dry_run": True},
     # ── Import/Download ──
     "import_tracks": {"track_refs": ["ym:99999999"]},
     "download_tracks": {"track_refs": ["99999999"]},
@@ -66,14 +66,14 @@ TOOL_CALLS: dict[str, dict[str, Any]] = {
     "get_library_stats": {},
     # ── Sync ──
     "sync_playlist": {"playlist_id": 999999, "direction": "diff", "dry_run": True},
-    "push_set_to_ym": {"set_id": 999999},
-    # ── YM API ──
-    "ym_search": {"query": "test", "limit": 2},
-    "ym_get_tracks": {"track_ids": ["99999999"]},
-    "ym_artist_tracks": {"artist_id": "999999"},
-    "ym_get_album": {"album_id": "999999"},
-    "ym_playlists": {"action": "list"},
-    "ym_likes": {"action": "get_liked"},
+    "push_set_to_platform": {"set_id": 999999},
+    # ── Platform API ──
+    "search_platform": {"query": "test", "limit": 2},
+    "get_platform_tracks": {"track_ids": ["99999999"]},
+    "get_platform_artist_tracks": {"artist_id": "999999"},
+    "get_platform_album": {"album_id": "999999"},
+    "platform_playlists": {"action": "list"},
+    "platform_liked_tracks": {"action": "get_liked"},
     # ── Audio ──
     "analyze_track": {"track_id": 999999},
     "analyze_batch": {"track_ids": [999999]},

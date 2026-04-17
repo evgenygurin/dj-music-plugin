@@ -13,7 +13,6 @@ from fastmcp import Client
 from fastmcp.server.lifespan import lifespan
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
-from app.audio.analyzers import AnalyzerRegistry
 from app.clients.ym.models import YMPlaylist, YMTrack
 from app.core.constants import Provider
 from app.core.utils.cache import TransitionCache
@@ -144,13 +143,12 @@ def patch_tiered_noop(monkeypatch: pytest.MonkeyPatch):
 
 
 @pytest.fixture
-async def acceptance_harness(async_engine) -> AcceptanceHarness:  # type: ignore[no-untyped-def]
+async def acceptance_harness(async_engine, analyzer_registry) -> AcceptanceHarness:  # type: ignore[no-untyped-def]
     """FastMCP client harness with an in-memory DB and configurable YM mock."""
     factory = async_sessionmaker(async_engine, expire_on_commit=False)
     original_lifespan = mcp._lifespan
 
-    registry = AnalyzerRegistry()
-    registry.discover()
+    registry = analyzer_registry
     cache = TransitionCache(max_size=100, ttl=60)
 
     ym_mock = AsyncMock()
@@ -187,7 +185,7 @@ async def acceptance_harness(async_engine) -> AcceptanceHarness:  # type: ignore
 
     provider_registry = ProviderRegistry()
     # ym_mock acts as both raw client and provider for tests
-    ym_mock.provider = "yandex_music"
+    ym_mock.provider = Provider.YANDEX_MUSIC
     ym_mock.get_stream_url = AsyncMock(return_value="https://fake.cdn/track.mp3")
     provider_registry._providers = {"yandex_music": ym_mock}  # type: ignore[dict-item]
     provider_registry._default = "yandex_music"  # type: ignore[assignment]

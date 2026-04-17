@@ -1,4 +1,4 @@
-"""Tests for SyncService._push_to_ym via MusicProvider interface."""
+"""Tests for SyncService._push_to_platform via MusicProvider interface."""
 
 from __future__ import annotations
 
@@ -7,8 +7,7 @@ from unittest.mock import AsyncMock
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.config import settings
-from app.db.models.playlist import Playlist
+from app.core.constants import Provider
 from app.db.repositories.playlist import PlaylistRepository
 from app.db.repositories.set import SetRepository
 from app.db.repositories.track import TrackRepository
@@ -20,13 +19,14 @@ def _make_sync_service(db: AsyncSession, provider_mock: AsyncMock) -> SyncServic
         track_repo=TrackRepository(db),
         playlist_repo=PlaylistRepository(db),
         set_repo=SetRepository(db),
-        ym=provider_mock,
+        provider=provider_mock,
     )
 
 
 def _make_provider_mock() -> AsyncMock:
     """Create a mock MusicProvider with default returns."""
     provider = AsyncMock()
+    provider.provider = Provider.YANDEX_MUSIC
     provider.get_playlist = AsyncMock(return_value=None)
     provider.get_playlist_tracks = AsyncMock(return_value=[])
     provider.add_tracks_to_playlist = AsyncMock(return_value=None)
@@ -34,40 +34,43 @@ def _make_provider_mock() -> AsyncMock:
     return provider
 
 
-# ── _push_to_ym delegates to MusicProvider ──────────────
+# ── _push_to_platform delegates to MusicProvider ──────────────
 
 
 @pytest.mark.asyncio
-async def test_push_to_ym_calls_provider_with_playlist_id(db: AsyncSession) -> None:
-    """_push_to_ym calls add_tracks_to_playlist with owner_id:kind playlist ID."""
+async def test_push_to_platform_calls_provider_with_playlist_id(db: AsyncSession) -> None:
+    """_push_to_platform calls add_tracks_to_playlist with the given platform_playlist_id."""
     provider_mock = _make_provider_mock()
     svc = _make_sync_service(db, provider_mock)
 
-    pl = Playlist(name="Test PL", platform_ids='{"yandex_music": "42"}')
-    db.add(pl)
-    await db.flush()
-
     on_local_only = {"111", "222"}
-    added = await svc._push_to_ym(ym_kind=42, on_local_only=on_local_only)
+    platform_playlist_id = "12345678:42"
+    added = await svc._push_to_platform(
+        platform_playlist_id=platform_playlist_id,
+        on_local_only=on_local_only,
+    )
 
     assert added == 2
 
     add_call = provider_mock.add_tracks_to_playlist.call_args
-    playlist_id = add_call[0][0]  # first positional arg = playlist_id
-    batch = add_call[0][1]  # second positional arg = track IDs
+    called_playlist_id = add_call[0][0]
+    batch = add_call[0][1]
 
-    assert playlist_id == f"{settings.ym_user_id}:42"
+    assert called_playlist_id == platform_playlist_id
     assert set(batch) == {"111", "222"}
 
 
 @pytest.mark.asyncio
-async def test_push_to_ym_handles_missing_album_id(db: AsyncSession) -> None:
-    """_push_to_ym passes bare IDs to provider when album info is unavailable."""
+async def test_push_to_platform_single_track(db: AsyncSession) -> None:
+    """_push_to_platform delegates a single-track batch to the provider."""
     provider_mock = _make_provider_mock()
     svc = _make_sync_service(db, provider_mock)
 
     on_local_only = {"333"}
-    added = await svc._push_to_ym(ym_kind=42, on_local_only=on_local_only)
+    added = await svc._push_to_platform(
+        platform_playlist_id="12345678:42",
+        on_local_only=on_local_only,
+    )
 
     assert added == 1
 

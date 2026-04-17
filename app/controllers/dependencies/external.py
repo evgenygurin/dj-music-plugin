@@ -6,7 +6,6 @@ from importlib import import_module
 from typing import Any
 
 from app.audio.analyzers import AnalyzerRegistry
-from app.clients.ym.client import YandexMusicClient
 from app.core.utils.cache import TransitionCache
 from app.providers.protocol import MusicProvider
 from app.providers.registry import ProviderRegistry
@@ -27,13 +26,6 @@ def get_provider_registry() -> ProviderRegistry:
 def get_music_provider() -> MusicProvider:
     """Get the default music provider (convenience shortcut)."""
     return get_provider_registry().default
-
-
-def get_ym_client() -> YandexMusicClient:
-    """Get raw YM client from lifespan context (legacy, prefer get_music_provider)."""
-    ctx = _get_context()
-    client: YandexMusicClient = ctx.lifespan_context["ym_client"]
-    return client
 
 
 def get_analyzer_registry() -> AnalyzerRegistry:

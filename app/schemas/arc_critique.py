@@ -6,10 +6,11 @@ from pydantic import BaseModel, Field
 
 
 class ArcCritique(BaseModel):
-    """Structured narrative critique of a DJ set arc, generated via ctx.sample().
+    """Structured narrative critique of a DJ set arc, generated via MCP ``ctx.sample``.
 
-    Used as ``result_type`` in ``ctx.sample()`` — FastMCP handles JSON
-    validation and auto-retry if the LLM returns an invalid response.
+    Pass as ``result_type`` to structured sampling helpers
+    (see ``llm_sampling.sample_structured``).
+    FastMCP handles JSON validation and auto-retry if the LLM returns an invalid response.
     """
 
     crowd_journey: str = Field(

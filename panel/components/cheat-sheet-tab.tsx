@@ -14,6 +14,10 @@ function extractCheatSheetText(
   structured: Record<string, unknown> | null,
   content: Array<{ type: string; text?: string }>
 ): string {
+  const fromLines = structured?.cheat_sheet_lines
+  if (Array.isArray(fromLines) && fromLines.length > 0 && fromLines.every((l) => typeof l === 'string')) {
+    return fromLines.join('\n')
+  }
   if (structured && typeof structured.cheat_sheet === 'string') {
     return structured.cheat_sheet
   }

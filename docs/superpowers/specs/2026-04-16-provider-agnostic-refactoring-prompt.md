@@ -272,6 +272,84 @@ Per-platform таблицы **НЕ объединять** — у каждой п
 - Правила: `@CLAUDE.md`, `@REQUIREMENTS.md`
 - Архитектура: `@docs/architecture.md`, `@docs/tool-catalog.md`, `@docs/structure.md`
 
+## Git-workflow рефакторинга
+
+### Ветка и стратегия
+
+Рефакторинг ведётся в ветке `refactor/provider-agnostic-naming`, отведённой от `main` после PR #99.
+
+**Один коммит = одна логическая единица работы** (файл, группа связанных файлов, один тест-фикс). НЕ копить изменения — коммитить часто, с осмысленными сообщениями.
+
+### Формат коммитов
+
+```bash
+<type>(<scope>): <what changed>
+
+<why, if not obvious>
+```
+
+Типы: `refactor`, `fix`, `test`, `docs`, `chore`.
+Scope: `schemas`, `services`, `tools`, `tests`, `panel`, `config`.
+
+Примеры:
+- `refactor(schemas): rename YM* response classes to platform-agnostic names`
+- `refactor(services): rename self._ym → self._provider in sync/discovery/import`
+- `fix(tools): move is_excluded_title to core/utils/filters`
+- `test(tools): update test_ym_tools to use provider_mock`
+- `docs(structure): update docs/structure.md after directory rename`
+
+### Порядок работы по фазам
+
+```text
+Фаза N:
+  1. Внести изменения
+  2. make check (должен быть зелёным)
+  3. git add -A && git commit
+  4. Повторить для каждой логической единицы внутри фазы
+
+После завершения фазы:
+  5. git push -u origin refactor/provider-agnostic-naming
+  6. Проверить, что push прошёл
+  7. Перейти к следующей фазе
+```
+
+### Правила ветвления
+
+- **НЕ создавать sub-branch на каждую фазу** — всё в одной ветке `refactor/provider-agnostic-naming`
+- **НЕ мержить в main между фазами** — один PR в конце всех 4 фаз
+- **Пушить после каждой фазы** — backup и возможность review
+- При конфликтах с main: `git fetch origin && git rebase origin/main` (rebase, не merge)
+
+### Финализация
+
+После завершения всех 4 фаз:
+
+```bash
+make check                    # финальная проверка
+git push origin refactor/provider-agnostic-naming
+gh pr create --title "refactor: provider-agnostic naming and structure" --body "..."
+```
+
+PR должен содержать:
+- Summary с перечислением изменений по фазам
+- Grep-результаты из выходных критериев каждой фазы
+- `make check` статус
+
+После ревью — squash merge в main, удалить ветку.
+
+### Откат
+
+Если фаза сломала что-то фундаментально и `make check` не проходит после разумных усилий:
+
+```bash
+git log --oneline -20          # найти последний зелёный коммит
+git reset --hard <commit>      # откатиться
+```
+
+Не бояться откатывать — коммиты частые, потеря минимальна.
+
+---
+
 ## Результат (после всех 4 фаз)
 
 1. Ни один файл вне `app/clients/ym/` не содержит `ym_` или `yandex` (кроме enum `Provider.YANDEX_MUSIC` и Python-класса `YandexMetadata`)

@@ -7,6 +7,7 @@ from each submodule, so registration does not depend on these imports.
 
 from app.controllers.prompts.workflows.build_set import build_set_workflow
 from app.controllers.prompts.workflows.deliver_set import deliver_set_workflow
+from app.controllers.prompts.workflows.dj_expert_session import dj_expert_session
 from app.controllers.prompts.workflows.expand_playlist import expand_playlist_workflow
 from app.controllers.prompts.workflows.full_pipeline import full_expansion_pipeline
 from app.controllers.prompts.workflows.improve_set import improve_set_workflow
@@ -17,6 +18,7 @@ from app.controllers.prompts.workflows.taste_analysis import taste_analysis
 __all__ = [
     "build_set_workflow",
     "deliver_set_workflow",
+    "dj_expert_session",
     "expand_playlist_workflow",
     "full_expansion_pipeline",
     "improve_set_workflow",

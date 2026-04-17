@@ -145,16 +145,16 @@ def get_sync_service(
     track_repo: TrackRepository = Depends(get_track_repo),  # noqa: B008
     playlist_repo: PlaylistRepository = Depends(get_playlist_repo),  # noqa: B008
     set_repo: SetRepository = Depends(get_set_repo),  # noqa: B008
-    ym: MusicProvider = Depends(get_music_provider),  # noqa: B008
+    provider: MusicProvider = Depends(get_music_provider),  # noqa: B008
 ) -> SyncService:
-    return SyncService(track_repo, playlist_repo, set_repo, ym)
+    return SyncService(track_repo, playlist_repo, set_repo, provider)
 
 
 def get_discovery_service(
     track_repo: TrackRepository = Depends(get_track_repo),  # noqa: B008
-    ym: MusicProvider = Depends(get_music_provider),  # noqa: B008
+    provider: MusicProvider = Depends(get_music_provider),  # noqa: B008
 ) -> DiscoveryService:
-    return DiscoveryService(track_repo, ym)
+    return DiscoveryService(track_repo, provider)
 
 
 def get_metadata_service(
@@ -167,11 +167,11 @@ def get_metadata_service(
 
 def get_import_service(
     track_repo: TrackRepository = Depends(get_track_repo),  # noqa: B008
-    ym: MusicProvider = Depends(get_music_provider),  # noqa: B008
+    provider: MusicProvider = Depends(get_music_provider),  # noqa: B008
     metadata: MetadataService = Depends(get_metadata_service),  # noqa: B008
     ingestion_repo: IngestionRepository = Depends(get_ingestion_repo),  # noqa: B008
 ) -> ImportService:
-    return ImportService(track_repo, ym, metadata, ingestion_repo)
+    return ImportService(track_repo, provider, metadata, ingestion_repo)
 
 
 def get_candidate_service(

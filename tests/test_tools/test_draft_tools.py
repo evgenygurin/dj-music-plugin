@@ -70,6 +70,17 @@ async def test_update_set_draft_same_ids_no_duplicates(client: Client):
     assert draft["track_ids"] == [5, 6, 7]
 
 
+@pytest.mark.asyncio
+async def test_update_set_draft_accepts_set_name_alias(client: Client):
+    """`set_name` alias should work for backward-compatible clients."""
+    result = await client.call_tool(
+        "update_set_draft",
+        {"track_ids": [11, 12], "set_name": "Alias Name"},
+    )
+    data = _parse(result)
+    assert data["name"] == "Alias Name"
+
+
 # ── clear_draft ──────────────────────────────────────
 
 
@@ -238,6 +249,41 @@ async def test_preview_draft_nonexistent_track_ids(client: Client):
     assert data["track_count"] == 2
 
 
+@pytest.mark.asyncio
+async def test_preview_draft_accepts_stateless_track_ids(client: Client, async_engine):
+    """preview_draft(track_ids=...) works without session draft state."""
+    from sqlalchemy.ext.asyncio import async_sessionmaker
+
+    from app.db.models.audio import TrackAudioFeaturesComputed
+    from app.db.models.track import Track
+
+    factory = async_sessionmaker(async_engine, expire_on_commit=False)
+    track_ids: list[int] = []
+    async with factory() as session:
+        for i in range(2):
+            t = Track(title=f"Stateless Preview {i}", status=0, duration_ms=180000)
+            session.add(t)
+            await session.flush()
+            track_ids.append(t.id)
+            session.add(
+                TrackAudioFeaturesComputed(
+                    track_id=t.id,
+                    bpm=129.0 + i,
+                    key_code=6 + i,
+                    integrated_lufs=-10.5,
+                    energy_mean=0.62,
+                    spectral_centroid_hz=2300.0,
+                    onset_rate=3.9,
+                    kick_prominence=0.58,
+                )
+            )
+        await session.commit()
+
+    data = _parse(await client.call_tool("preview_draft", {"track_ids": track_ids}))
+    assert data["track_count"] == 2
+    assert "score" in data
+
+
 # ── commit_draft ─────────────────────────────────────
 
 
@@ -280,6 +326,33 @@ async def test_commit_draft_without_elicitation_handler_saves(client: Client, as
         repo = SetRepository(session)
         version = await repo.get_latest_version(result["set_id"])
     assert version is not None
+
+
+@pytest.mark.asyncio
+async def test_commit_draft_allows_set_name_override(client: Client, async_engine):
+    """commit_draft(set_name=...) should override stored draft name for saved set."""
+    from sqlalchemy import select
+    from sqlalchemy.ext.asyncio import async_sessionmaker
+
+    from app.db.models.set import DjSet
+    from app.db.models.track import Track
+
+    factory = async_sessionmaker(async_engine, expire_on_commit=False)
+    async with factory() as session:
+        t = Track(title="Override Track", status=0, duration_ms=180000)
+        session.add(t)
+        await session.commit()
+        track_id = t.id
+
+    await client.call_tool("update_set_draft", {"track_ids": [track_id], "name": "Old Name"})
+    result = _parse(await client.call_tool("commit_draft", {"set_name": "New Name"}))
+    assert result["set_id"] > 0
+
+    async with factory() as session:
+        saved_set = (
+            await session.execute(select(DjSet).where(DjSet.id == result["set_id"]))
+        ).scalar_one()
+    assert saved_set.name == "New Name"
 
 
 @pytest.mark.asyncio
@@ -350,12 +423,39 @@ async def test_commit_draft_db_error_propagates(client: Client, async_engine, mo
         await client.call_tool("commit_draft", {})
 
 
-# ── _generate_narrative — ctx.sample() fallback ──────
+@pytest.mark.asyncio
+async def test_commit_draft_accepts_stateless_track_ids(client: Client, async_engine):
+    """commit_draft(track_ids=...) saves set without pre-existing session draft."""
+    from sqlalchemy.ext.asyncio import async_sessionmaker
+
+    from app.db.models.track import Track
+
+    factory = async_sessionmaker(async_engine, expire_on_commit=False)
+    track_ids: list[int] = []
+    async with factory() as session:
+        for i in range(2):
+            t = Track(title=f"Stateless Commit {i}", status=0, duration_ms=180000)
+            session.add(t)
+            await session.flush()
+            track_ids.append(t.id)
+        await session.commit()
+
+    result = _parse(
+        await client.call_tool(
+            "commit_draft",
+            {"track_ids": track_ids, "set_name": "Stateless Commit"},
+        )
+    )
+    assert result["set_id"] > 0
+    assert result["track_count"] == 2
+
+
+# ── _generate_narrative — sample_structured / ctx.sample fallback ─
 
 
 @pytest.mark.asyncio
-async def test_generate_narrative_returns_none_when_sample_raises():
-    """_generate_narrative must return None (not crash) when ctx.sample() raises."""
+async def test_generate_narrative_metrics_fallback_when_sample_raises():
+    """When sampling raises, return metrics-only ArcCritique (no API key required)."""
     from unittest.mock import AsyncMock, MagicMock
 
     from app.controllers.tools.draft import _generate_narrative
@@ -379,7 +479,9 @@ async def test_generate_narrative_returns_none_when_sample_raises():
     )
 
     output = await _generate_narrative(ctx, result, [1, 2])
-    assert output is None
+    assert output is not None
+    assert "[Metrics-only]" in output["crowd_journey"]
+    assert output["recommendation"] == "Decent arc."
     ctx.warning.assert_called_once()
 
 
@@ -409,3 +511,29 @@ async def test_score_transitions_reports_progress():
     assert isinstance(result, dict)
     assert ctx.report_progress.call_count >= 1
     mock_workflow.score_transitions.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_score_transitions_count_alias_overrides_top_n():
+    """count alias should override top_n when forwarding to workflow."""
+    from unittest.mock import AsyncMock, MagicMock
+
+    from app.controllers.tools.sets import score_transitions
+
+    mock_workflow = AsyncMock()
+    mock_workflow.score_transitions.return_value = {"mode": "track_candidates", "candidates": []}
+
+    ctx = MagicMock()
+    ctx.report_progress = AsyncMock()
+
+    await score_transitions(
+        mode="track_candidates",
+        track_id=42,
+        top_n=10,
+        count=3,
+        workflow=mock_workflow,
+        ctx=ctx,
+    )
+
+    kwargs = mock_workflow.score_transitions.await_args.kwargs
+    assert kwargs["top_n"] == 3

@@ -1,11 +1,17 @@
 """Workflow prompt — split from monolithic workflows.py (Phase 10)."""
 
-from __future__ import annotations
-
 from typing import Annotated
 
-from fastmcp.prompts import Message, PromptResult, prompt
+from fastmcp.prompts import PromptResult, prompt
 from pydantic import Field
+
+from app.controllers.prompts.workflow_shared import (
+    TRANSITION_SCORING_AND_SEARCH_GUIDE,
+    WORKFLOW_PROMPT_VERSION,
+    make_prompt_result,
+    message_assistant,
+    message_user,
+)
 
 
 @prompt(
@@ -13,7 +19,11 @@ from pydantic import Field
     title="LLM-Assisted Discovery",
     description="Client-driven discovery: Claude generates search queries, no API key needed",
     tags={"discovery", "workflow"},
-    meta={"version": "1.0", "steps": 5, "requires_api_key": False},
+    meta={
+        "version": WORKFLOW_PROMPT_VERSION,
+        "steps": 5,
+        "requires_api_key": False,
+    },
 )
 def llm_discovery_workflow(
     track_name: Annotated[
@@ -43,9 +53,9 @@ def llm_discovery_workflow(
             "to get BPM, Camelot key, energy, mood"
         )
 
-    return PromptResult(
-        messages=[
-            Message(
+    return make_prompt_result(
+        [
+            message_user(
                 f"""Find {limit} tracks similar to "{track_name}" using client-driven discovery.
 
 This workflow does NOT require an API key — you generate the search queries yourself.
@@ -81,13 +91,17 @@ Follow these steps:
 5. **Import**: `import_tracks(track_refs=[<ym_ids>], playlist_id=<id>)` to add the
    best matches to the library.
 
-This is the recommended workflow for Claude Code MAX subscribers (no API key needed)."""
+This is the recommended workflow for Claude Code MAX subscribers (no API key needed).
+
+After imports, if you score DJ pairs or sets, use persisted transitions — reference:
+"""
+                + "\n"
+                + TRANSITION_SCORING_AND_SEARCH_GUIDE
             ),
-            Message(
+            message_assistant(
                 f'Finding tracks similar to "{track_name}" via client-driven discovery. '
                 f"Step 1: analyzing track characteristics"
                 f"{f' — `get_track(id={track_id})`' if track_id else ''}...",
-                role="assistant",
             ),
         ],
         description=f"LLM-assisted discovery from '{track_name}'",

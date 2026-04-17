@@ -6,18 +6,18 @@ Resources:
 
 from __future__ import annotations
 
-from typing import Any
-
 from fastmcp.dependencies import Depends
-from fastmcp.resources import resource
+from fastmcp.resources import ResourceResult, resource
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.controllers.dependencies import get_db_session
+from app.controllers.resources._shared import json_resource
 from app.controllers.tools._shared.taxonomy import (
     ANNOTATIONS_READ_ONLY,
     ICON_RESOURCE,
     RESOURCE_META,
+    RESOURCE_VERSION,
 )
 from app.db.models.audio import TrackAudioFeaturesComputed
 from app.db.models.playlist import Playlist, PlaylistItem
@@ -38,10 +38,11 @@ from app.db.models.track import Track
     annotations=ANNOTATIONS_READ_ONLY,
     icons=ICON_RESOURCE,
     meta=RESOURCE_META,
+    version=RESOURCE_VERSION,
 )
 async def library_snapshot(
     session: AsyncSession = Depends(get_db_session),  # noqa: B008
-) -> dict[str, Any]:
+) -> ResourceResult:
     """Get library snapshot for AI session initialization."""
     total_result = await session.execute(select(func.count(Track.id)))
     total_tracks = total_result.scalar() or 0
@@ -92,4 +93,4 @@ async def library_snapshot(
         "playlists": playlists,
         "last_analyzed": last_analyzed,
     }
-    return data
+    return json_resource(data)

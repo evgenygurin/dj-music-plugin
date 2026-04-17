@@ -1,6 +1,6 @@
 """Action dispatcher for ``action``-parameterised MCP tools.
 
-Tools like ``ym_playlists``, ``ym_likes`` and ``manage_*`` accept an
+Tools like ``platform_playlists``, ``platform_liked_tracks`` and ``manage_*`` accept an
 ``action`` string (``"create"``, ``"delete"``, ``"add_tracks"`` ...) and
 switch behaviour based on it. The legacy implementation used long
 ``if/elif`` chains that violated the Open-Closed Principle — every new

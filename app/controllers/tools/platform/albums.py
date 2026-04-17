@@ -1,4 +1,4 @@
-"""Yandex Music album tools."""
+"""Platform album tools."""
 
 from __future__ import annotations
 
@@ -18,24 +18,24 @@ from app.controllers.tools._shared import (
     ToolCategory,
 )
 from app.providers.protocol import MusicProvider
-from app.schemas.ym_responses import YMAlbumResponse
+from app.schemas.platform_responses import AlbumResult
 
 
 @tool(
-    title="YM Get Album",
-    tags={ToolCategory.YM.value},
+    title="Platform Get Album",
+    tags={ToolCategory.PLATFORM.value},
     annotations=ANNOTATIONS_READ_ONLY_OPEN_WORLD,
     icons=ICON_YM,
     meta=TOOL_META,
 )
-async def ym_get_album(
-    album_id: Annotated[str, Field(description="YM album ID (string)")],
+async def get_platform_album(
+    album_id: Annotated[str, Field(description="Platform album ID (string)")],
     include_tracks: Annotated[
         bool, Field(description="Include track listing in response")
     ] = False,
     provider: MusicProvider = Depends(get_music_provider),  # noqa: B008
-) -> YMAlbumResponse:
-    """Fetch album metadata from Yandex Music, optionally including tracks. Use when resolving an album ID or showing album details from YM."""
+) -> AlbumResult:
+    """Fetch album metadata from platform, optionally including tracks."""
     if not album_id or not str(album_id).strip():
         raise ToolError("album_id is required")
 
@@ -47,4 +47,4 @@ async def ym_get_album(
     if not album.title and not album.artists and not album.tracks:
         raise FastMCPNotFoundError(f"Album not found: {album_id}")
 
-    return YMAlbumResponse(album_id=album_id, album=album.model_dump())
+    return AlbumResult(album_id=album_id, album=album.model_dump())

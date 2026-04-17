@@ -19,7 +19,6 @@ from fastmcp import Client
 from fastmcp.server.lifespan import lifespan
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
-from app.audio.analyzers import AnalyzerRegistry
 from app.clients.ym.models import YMPlaylist, YMTrack
 from app.core.constants import Provider
 from app.core.utils.cache import TransitionCache
@@ -136,17 +135,17 @@ def patch_tiered(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 @pytest.fixture
-async def smoke(async_engine, patch_audio, patch_tiered):  # type: ignore[no-untyped-def]
+async def smoke(async_engine, patch_audio, patch_tiered, analyzer_registry):  # type: ignore[no-untyped-def]
     """Full smoke harness: MCP client + in-memory DB with seed data."""
     factory = async_sessionmaker(async_engine, expire_on_commit=False)
     original_lifespan = mcp._lifespan
 
-    registry = AnalyzerRegistry()
-    registry.discover()
+    registry = analyzer_registry
     cache = TransitionCache(max_size=100, ttl=60)
 
     # ── YM mock ──────────────────────────────────────────────────────
     ym = AsyncMock()
+    ym.provider = Provider.YANDEX_MUSIC
     ym.__aenter__.return_value = ym
     ym.__aexit__.return_value = None
     ym.search = AsyncMock(
@@ -231,7 +230,7 @@ async def smoke(async_engine, patch_audio, patch_tiered):  # type: ignore[no-unt
             ]
         )
 
-        # YM metadata for tracks (needed for push_set_to_ym)
+        # YM metadata for tracks (needed for push_set_to_platform)
         session.add(YandexMetadata(track_id=t1.id, yandex_track_id="100", album_id="9"))
         session.add(YandexMetadata(track_id=t2.id, yandex_track_id="101", album_id="9"))
         # TrackExternalId links used by sync_service._collect_ym_track_ids
@@ -435,15 +434,61 @@ async def test_sets_score_transitions(smoke: dict) -> None:
 
 
 @pytest.mark.asyncio
+async def test_sets_search_transitions(smoke: dict) -> None:
+    # Ensure at least one scored row exists, then search with filters/projection/sort.
+    await _tool(
+        smoke["client"],
+        "score_transitions",
+        {"mode": "pair", "from_track_id": smoke["track_id"], "to_track_id": smoke["track_id2"]},
+    )
+    r = await _tool(
+        smoke["client"],
+        "search_transitions",
+        {
+            "limit": 10,
+            "offset": 0,
+            "sort_by": "-overall_quality",
+            "filters": {"hard_reject": False},
+            "include_fields": ["from_track_id", "to_track_id", "overall_quality", "hard_reject"],
+            "include_stats": True,
+        },
+    )
+    assert "rows" in r
+    assert "fields" in r
+    assert "stats" in r
+    assert set(r["fields"]) == {"selected", "excluded"}
+    assert r.get("filter_operators") is None
+
+
+@pytest.mark.asyncio
+async def test_sets_search_transitions_default_projection_id_only(smoke: dict) -> None:
+    """Omit include_fields → each row must expose only ``id`` (slim MCP default)."""
+    await _tool(
+        smoke["client"],
+        "score_transitions",
+        {"mode": "pair", "from_track_id": smoke["track_id"], "to_track_id": smoke["track_id2"]},
+    )
+    r = await _tool(
+        smoke["client"],
+        "search_transitions",
+        {"limit": 5, "offset": 0, "include_stats": False},
+    )
+    assert r.get("rows"), "expected at least one transition row"
+    for row in r["rows"]:
+        assert set(row.keys()) == {"id"}, row
+    assert r.get("stats") is None
+    assert set(r["fields"]) == {"selected", "excluded"}
+
+
+@pytest.mark.asyncio
 async def test_sets_get_set_cheat_sheet(smoke: dict) -> None:
     r = await smoke["client"].call_tool("get_set_cheat_sheet", {"set_id": smoke["set_id"]})
-    # Returns a string
-    content = getattr(r, "content", r)
-    if isinstance(content, list) and content:
-        text = getattr(content[0], "text", str(content[0]))
-    else:
-        text = str(r)
-    assert isinstance(text, str)
+    data = _parse(r)
+    assert isinstance(data, dict)
+    assert "cheat_sheet" in data and isinstance(data["cheat_sheet"], str)
+    assert "cheat_sheet_lines" in data and isinstance(data["cheat_sheet_lines"], list)
+    assert data["cheat_sheet"] == "\n".join(data["cheat_sheet_lines"])
+    assert data.get("set_id") == smoke["set_id"]
 
 
 # ── search.py ────────────────────────────────────────────────────────
@@ -688,11 +733,11 @@ async def test_discovery_filter_by_feedback(smoke: dict) -> None:
 
 
 @pytest.mark.asyncio
-async def test_discovery_expand_playlist_ym(smoke: dict) -> None:
+async def test_discovery_expand_platform_playlist(smoke: dict) -> None:
     r = await _tool(
         smoke["client"],
-        "expand_playlist_ym",
-        {"ym_playlist_kind": 42, "target_count": 5},
+        "expand_platform_playlist",
+        {"playlist_id": "42", "target_count": 5},
     )
     assert isinstance(r, dict)
 
@@ -736,10 +781,10 @@ async def test_sync_playlist_diff(smoke: dict) -> None:
 
 
 @pytest.mark.asyncio
-async def test_sync_push_set_to_ym(smoke: dict) -> None:
+async def test_sync_push_set_to_platform(smoke: dict) -> None:
     r = await _tool(
         smoke["client"],
-        "push_set_to_ym",
+        "push_set_to_platform",
         {"set_id": smoke["set_id"]},
     )
     assert isinstance(r, dict)
@@ -776,14 +821,38 @@ async def test_resource_track_features(smoke: dict) -> None:
 
 
 @pytest.mark.asyncio
+async def test_resource_track_identity(smoke: dict) -> None:
+    result = await smoke["client"].read_resource(f"track://{smoke['track_id']}/identity")
+    assert _text(result) is not None
+
+
+@pytest.mark.asyncio
+async def test_resource_track_sections(smoke: dict) -> None:
+    result = await smoke["client"].read_resource(f"track://{smoke['track_id']}/sections")
+    assert _text(result) is not None
+
+
+@pytest.mark.asyncio
 async def test_resource_set_summary(smoke: dict) -> None:
     result = await smoke["client"].read_resource(f"set://{smoke['set_id']}/summary")
     assert _text(result) is not None
 
 
 @pytest.mark.asyncio
+async def test_resource_set_diagnostics(smoke: dict) -> None:
+    result = await smoke["client"].read_resource(f"set://{smoke['set_id']}/diagnostics")
+    assert _text(result) is not None
+
+
+@pytest.mark.asyncio
 async def test_resource_playlist_status(smoke: dict) -> None:
     result = await smoke["client"].read_resource(f"playlist://{smoke['playlist_id']}/status")
+    assert _text(result) is not None
+
+
+@pytest.mark.asyncio
+async def test_resource_playlist_profile(smoke: dict) -> None:
+    result = await smoke["client"].read_resource(f"playlist://{smoke['playlist_id']}/profile")
     assert _text(result) is not None
 
 
@@ -818,6 +887,12 @@ async def test_resource_knowledge_dancefloor_psychology(smoke: dict) -> None:
 
 
 @pytest.mark.asyncio
+async def test_resource_knowledge_audio_features_field_guide(smoke: dict) -> None:
+    result = await smoke["client"].read_resource("knowledge://audio-features-field-guide")
+    assert _text(result) is not None
+
+
+@pytest.mark.asyncio
 async def test_resource_reference_templates(smoke: dict) -> None:
     result = await smoke["client"].read_resource("reference://templates")
     assert _text(result) is not None
@@ -836,8 +911,20 @@ async def test_resource_reference_camelot(smoke: dict) -> None:
 
 
 @pytest.mark.asyncio
+async def test_resource_reference_key_graph(smoke: dict) -> None:
+    result = await smoke["client"].read_resource("reference://key-graph")
+    assert _text(result) is not None
+
+
+@pytest.mark.asyncio
 async def test_resource_library_snapshot(smoke: dict) -> None:
     result = await smoke["client"].read_resource("library://snapshot")
+    assert _text(result) is not None
+
+
+@pytest.mark.asyncio
+async def test_resource_library_prep_state(smoke: dict) -> None:
+    result = await smoke["client"].read_resource("library://prep-state")
     assert _text(result) is not None
 
 
@@ -850,6 +937,38 @@ async def test_resource_status_library(smoke: dict) -> None:
 @pytest.mark.asyncio
 async def test_resource_status_platforms(smoke: dict) -> None:
     result = await smoke["client"].read_resource("status://platforms")
+    assert _text(result) is not None
+
+
+@pytest.mark.asyncio
+async def test_resource_status_analysis_quality(smoke: dict) -> None:
+    result = await smoke["client"].read_resource("status://analysis-quality")
+    assert _text(result) is not None
+
+
+@pytest.mark.asyncio
+async def test_resource_status_set_integrity(smoke: dict) -> None:
+    result = await smoke["client"].read_resource("status://set-integrity")
+    assert _text(result) is not None
+
+
+@pytest.mark.asyncio
+async def test_resource_status_provider_coverage(smoke: dict) -> None:
+    result = await smoke["client"].read_resource("status://provider-coverage")
+    assert _text(result) is not None
+
+
+@pytest.mark.asyncio
+async def test_resource_transition_recipe(smoke: dict) -> None:
+    result = await smoke["client"].read_resource(
+        f"transition://{smoke['track_id']}/{smoke['track_id2']}/recipe"
+    )
+    assert _text(result) is not None
+
+
+@pytest.mark.asyncio
+async def test_resource_exports_recent(smoke: dict) -> None:
+    result = await smoke["client"].read_resource("exports://recent")
     assert _text(result) is not None
 
 
@@ -919,6 +1038,16 @@ async def test_prompt_improve_set_workflow(smoke: dict) -> None:
 async def test_prompt_dj_expert_session(smoke: dict) -> None:
     msgs = await _prompt(smoke["client"], "dj_expert_session", {"goal": "dark hypnotic"})
     assert msgs
+    user_text = ""
+    for m in msgs:
+        role = getattr(m, "role", None)
+        if role == "user":
+            content = getattr(m, "content", "")
+            user_text = getattr(content, "text", content) if content is not None else ""
+            if isinstance(user_text, str):
+                break
+    assert "track://{track_id}/features" in user_text
+    assert "built-in function id" not in user_text
 
 
 @pytest.mark.asyncio

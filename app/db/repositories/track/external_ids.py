@@ -1,4 +1,4 @@
-"""External ID mixin: platform ID lookups and YM ID resolution."""
+"""External ID mixin: platform ID lookups and local ID resolution."""
 
 from __future__ import annotations
 
@@ -59,34 +59,21 @@ class ExternalIdMixin:
         await self.session.flush()
         return ext
 
-    async def resolve_local_ids_to_ym(
+    async def resolve_local_ids_to_platform(
         self,
         local_ids: list[int],
+        platform: str = "yandex_music",
     ) -> dict[int, str]:
-        """Resolve local track IDs to YM external IDs.
+        """Resolve local track IDs to external platform IDs.
 
-        Returns mapping of local_track_id -> ym_track_id string.
+        Returns mapping of local_track_id -> external_id string.
         """
         if not local_ids:
             return {}
 
         stmt = select(TrackExternalId.track_id, TrackExternalId.external_id).where(
             TrackExternalId.track_id.in_(local_ids),
-            TrackExternalId.platform == "yandex_music",
+            TrackExternalId.platform == platform,
         )
         result = await self.session.execute(stmt)
         return {row.track_id: row.external_id for row in result.all()}
-
-    async def update_ym_album_id(self, ym_track_id: str, album_id: str) -> None:
-        """Update album_id in YandexMetadata for a given YM track ID."""
-        from sqlalchemy import update as sa_update
-
-        from app.db.models.platform import YandexMetadata
-
-        stmt = (
-            sa_update(YandexMetadata)
-            .where(YandexMetadata.yandex_track_id == ym_track_id)
-            .values(album_id=album_id)
-        )
-        await self.session.execute(stmt)
-        await self.session.flush()

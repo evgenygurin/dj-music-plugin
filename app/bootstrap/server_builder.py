@@ -1,4 +1,8 @@
-"""FastMCP server composition root."""
+"""FastMCP server composition root.
+
+Sampling: https://gofastmcp.com/servers/sampling — client LLM by default;
+``sampling_handler`` + ``sampling_handler_behavior=\"fallback\"`` for provider fallback.
+"""
 
 from __future__ import annotations
 
@@ -18,14 +22,16 @@ from app.bootstrap.transforms import (
 )
 from app.bootstrap.visibility import apply_visibility_policy
 from app.config import settings
+from app.core.logging_config import configure_logging
 
 logger = logging.getLogger(__name__)
 
 
 def build_mcp_server() -> FastMCP:
     """Build the production FastMCP server instance."""
+    configure_logging()
     observability = setup_observability(logger)
-    sampling_handler, sampling_handler_behavior = build_sampling_handler(logger)
+    sampling_handler = build_sampling_handler(logger)
 
     mcp_dir = Path(__file__).resolve().parents[1] / "controllers"
     server_transforms = build_pre_constructor_transforms(logger)
@@ -50,7 +56,7 @@ def build_mcp_server() -> FastMCP:
         on_duplicate="warn",
         mask_error_details=not settings.debug,
         sampling_handler=sampling_handler,
-        sampling_handler_behavior=sampling_handler_behavior,
+        sampling_handler_behavior="fallback",
     )
 
     register_post_constructor_transforms(mcp, logger)
