@@ -170,7 +170,7 @@ provider_read(provider="yandex", entity="playlist",
 2. Добавь async метод в `YandexMusicClient`, следуй pattern: `await self._request(...)` + `_parse_*`.
 3. Добавь Pydantic модель в `app/schemas/provider.py` (или отдельно) если нужна.
 4. Прокинь через `YandexAdapter.read()` / `.write()` / `.search()` в `app/providers/yandex/adapter.py` — dispatcher уже получит новый entity/operation.
-5. Тесты — в `tests/providers/test_yandex_client.py` / `test_adapter.py` с моковым httpx.
+5. Тесты — в `tests/providers/yandex/test_client.py` / `tests/providers/yandex/test_adapter.py` с моковым httpx.
 
 ## Workflow: триаж 429
 

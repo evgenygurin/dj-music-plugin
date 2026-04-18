@@ -20,9 +20,11 @@ Next.js dashboard для инспекции треков, плейлистов, 
 ```bash
 cd panel
 bun install
-cp ../.claude/dj-music.local.md ../.claude/dj-music.local.md.example 2>/dev/null || true
-# Заполнить panel/.env.local через /panel-setup slash-command,
-# либо скопировать NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY и MCP_HTTP_URL вручную.
+# Seed ../.claude/dj-music.local.md from the tracked template if it's not yet present.
+# The .local.md file is gitignored; never overwrite it unconditionally.
+[ -f ../.claude/dj-music.local.md ] || cp ../.claude/dj-music.local.md.example ../.claude/dj-music.local.md
+# Fill panel/.env.local via the /panel-setup slash-command, or copy
+# NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY and MCP_HTTP_URL by hand.
 bun dev                            # http://localhost:3000
 ```
 
