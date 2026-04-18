@@ -44,7 +44,7 @@ class DbSessionMiddleware(Middleware):
 
         session = factory()
         uow = UnitOfWork(session)
-        fctx.state["uow"] = uow
+        await fctx.set_state("uow", uow, serializable=False)
         try:
             result = await call_next(context)
         except BaseException:
@@ -54,5 +54,5 @@ class DbSessionMiddleware(Middleware):
             await session.commit()
             return result
         finally:
-            fctx.state.pop("uow", None)
+            await fctx.delete_state("uow")
             await session.close()

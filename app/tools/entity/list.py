@@ -64,25 +64,28 @@ async def entity_list(
     if "list" not in config.allowed_ops:
         raise ValueError(f"list not allowed on entity {entity!r}")
 
-    where = parse_django_filters(
-        filters or {},
-        allowed=config.filterable_fields,
-        searchable=config.searchable_fields,
-        search=search,
+    where = dict(filters or {})
+    if search and config.searchable_fields:
+        # Simple search: icontains over the first searchable field.
+        where[f"{config.searchable_fields[0]}__icontains"] = search
+    # Validate fields against whitelist via parse_django_filters.
+    parse_django_filters(
+        config.model,
+        where,
+        allowed_fields=set(config.filterable_fields) | set(config.searchable_fields),
     )
-    sort_spec = list(sort) if sort else []
-    for s in sort_spec:
+    sort_spec: list[str] = []
+    for s in list(sort or []):
         base = s.removesuffix("__desc").removesuffix("__asc")
         if base not in config.sortable_fields:
             raise ValueError(f"cannot sort {entity} by {base!r}")
-
-    preset = fields if isinstance(fields, str) else None
-    if preset is not None:
-        if preset not in config.field_presets:
-            raise ValueError(f"unknown preset {preset!r} for {entity}")
-        load_only = config.field_presets[preset]
-    else:
-        load_only = fields if isinstance(fields, list) else None
+        # Normalize __desc/__asc to BaseRepository.filter's _desc/_asc.
+        if s.endswith("__desc"):
+            sort_spec.append(f"{base}_desc")
+        elif s.endswith("__asc"):
+            sort_spec.append(f"{base}_asc")
+        else:
+            sort_spec.append(s)
 
     repo = getattr(uow, config.repo_attr)
     page = await repo.filter(
@@ -90,7 +93,7 @@ async def entity_list(
         order=sort_spec,
         limit=limit,
         cursor=cursor,
-        load_only=load_only if load_only != "*" else None,
+        with_total=with_total,
     )
 
     items = [config.view_schema.model_validate(row).model_dump() for row in page.items]

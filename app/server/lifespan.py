@@ -22,9 +22,13 @@ from app.audio.analyzers import AnalyzerRegistry
 from app.audio.pipeline import AnalysisPipeline
 from app.config import get_settings
 from app.db.session import get_engine, get_session_factory
+from app.domain.optimization import GeneticAlgorithm, GreedyChainBuilder
+from app.domain.transition.scorer import TransitionScorer
 from app.providers.yandex.adapter import YandexAdapter
 from app.providers.yandex.client import YandexClient
 from app.providers.yandex.rate_limiter import TokenBucketRateLimiter
+from app.registry.defaults import register_default_entities
+from app.registry.entity import EntityRegistry
 from app.registry.provider import ProviderRegistry
 from app.server.session_store import InMemorySessionStore
 
@@ -70,6 +74,9 @@ class TransitionCache:
 @lifespan
 async def db_lifespan(app: Any) -> AsyncIterator[dict[str, Any]]:
     """Open the SQLAlchemy async engine + session factory."""
+    # Register entity schemas once per process (idempotent).
+    if not EntityRegistry.names():
+        register_default_entities()
     engine = build_engine()
     factory = build_session_factory(engine)
     try:
@@ -134,6 +141,19 @@ async def session_store_lifespan(app: Any) -> AsyncIterator[dict[str, Any]]:
         pass
 
 
+@lifespan
+async def scoring_lifespan(app: Any) -> AsyncIterator[dict[str, Any]]:
+    """Expose TransitionScorer + optimizer factory to compute tools."""
+    scorer = TransitionScorer()
+
+    def optimizer_builder(*, algorithm: str, scorer: TransitionScorer) -> Any:
+        if algorithm == "greedy":
+            return GreedyChainBuilder(scorer=scorer)
+        return GeneticAlgorithm(scorer=scorer)
+
+    yield {"transition_scorer": scorer, "optimizer": optimizer_builder}
+
+
 def build_server_lifespan() -> Any:
     """Compose all lifespans in the canonical order.
 
@@ -141,5 +161,10 @@ def build_server_lifespan() -> Any:
     then audio, providers, db.
     """
     return (
-        db_lifespan | provider_lifespan | audio_lifespan | cache_lifespan | session_store_lifespan
+        db_lifespan
+        | provider_lifespan
+        | audio_lifespan
+        | cache_lifespan
+        | session_store_lifespan
+        | scoring_lifespan
     )

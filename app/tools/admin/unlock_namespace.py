@@ -71,4 +71,7 @@ async def unlock_namespace(
     except Exception:
         pass
 
-    return UnlockNamespaceResult(namespace=namespace, status=action, enabled_tools=enabled_tools)
+    status_map = {"unlock": "unlocked", "lock": "locked", "status": "status"}
+    return UnlockNamespaceResult(
+        namespace=namespace, status=status_map[action], enabled_tools=enabled_tools
+    )

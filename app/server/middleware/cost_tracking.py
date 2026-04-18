@@ -31,12 +31,11 @@ class CostTrackingMiddleware(Middleware):
         fctx = getattr(context, "fastmcp_context", None)
         if fctx is None:
             return await call_next(context)
-        state = fctx.state
-        state["cost"] = {"provider_calls": 0, "llm_tokens": 0}
+        await fctx.set_state("cost", {"provider_calls": 0, "llm_tokens": 0})
         try:
             return await call_next(context)
         finally:
-            totals = state.get("cost", {"provider_calls": 0, "llm_tokens": 0})
+            totals = await fctx.get_state("cost") or {"provider_calls": 0, "llm_tokens": 0}
             self._sink(
                 {
                     "tool": getattr(context.message, "name", "<unknown>"),

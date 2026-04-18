@@ -146,6 +146,34 @@ cd panel && bun install && bun dev              # http://localhost:3000
 - **Линтер:** ruff + mypy + import-linter. Pyright игнорируй.
 - **FastMCP 3.x:** перед любой работой с tools/lifespan/visibility — читать `.claude/rules/tools.md`, `.claude/rules/resources.md` и `https://gofastmcp.com/llms.txt`.
 
+## ⚠️ Plugin cache ≠ working dir (частый косяк)
+
+Claude Code загружает плагин в `~/.claude/plugins/cache/dj-music-plugin/dj-music/<ver>/` — это **отдельная копия** кода и `.env`. По дефолту MCP сервер стартует оттуда (`${CLAUDE_PLUGIN_ROOT}`), **не** из working dir `/Users/laptop/dev/dj-music-plugin/`.
+
+**Симптомы, когда забыли про это:**
+- Правки в `app/` ничего не меняют после auto-reload — плагин крутит старый код из cache.
+- Сервер падает `sqlite3.OperationalError: no such table: dj_*` — в cache нет `.env` → pydantic-settings берёт default SQLite вместо Supabase.
+- MCP возвращает generic "internal error" на всё — в cache старый `di.py` с sync state API.
+
+**Dev override через env var (официальный механизм):**
+
+`plugin.json` собран так, что обе `mcpServers` команды стартуют из `${DJ_PLUGIN_DEV_PATH:-${CLAUDE_PLUGIN_ROOT}}`. Выстави переменную перед запуском Claude Code — и MCP сервер + Supabase клиент поднимутся из working dir:
+
+```bash
+export DJ_PLUGIN_DEV_PATH=/Users/laptop/dev/dj-music-plugin
+# затем запусти Claude Code из этого окружения
+```
+
+Или один раз в `~/.claude/settings.json` (персистентно для всех сессий):
+
+```json
+{ "env": { "DJ_PLUGIN_DEV_PATH": "/Users/laptop/dev/dj-music-plugin" } }
+```
+
+Без этой переменной плагин работает как у обычного пользователя — из cache.
+
+**Правило:** никогда не копируй файлы в cache руками и не симлинкай dir целиком — разваливается через пару правок или при version bump. Используй только `DJ_PLUGIN_DEV_PATH`.
+
 ## Версия
 
 **v1.0.1** — патч поверх v1.0.0 рефактора по `docs/superpowers/specs/2026-04-17-architecture-blueprint-design.md`. Добавлены `provider_write(... operation="set_description")` и hook авто-рестарта MCP на правки плагина. Entrypoint — корневой `server.py` (не `app/server/app.py`).
