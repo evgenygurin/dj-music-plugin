@@ -1,7 +1,7 @@
 # Project Structure & Database Schema
 
-> Структура директорий, файлов и таблиц БД проекта DJ Music Plugin (v1.0.0).
-> Обновлено: 2026-04-17 (Phase 7 refactor).
+> Структура директорий, файлов и таблиц БД проекта DJ Music Plugin (v1.0.1).
+> Обновлено: 2026-04-18.
 
 ## 1. Directory Tree
 
@@ -32,7 +32,7 @@ dj-music-plugin/
 ├── docs/                           # Архитектурная документация
 │   ├── architecture.md             # Bounded contexts, data flow
 │   ├── domain-glossary.md
-│   ├── tool-catalog.md             # 13 tools + 20 resources + 6 prompts
+│   ├── tool-catalog.md             # 13 tools + 27 resources + 6 prompts
 │   ├── audio-pipeline.md
 │   ├── ym-api-guide.md
 │   ├── transition-scoring.md
@@ -52,7 +52,7 @@ dj-music-plugin/
 │   │   ├── sync/                   # playlist_sync
 │   │   └── admin/                  # unlock_namespace
 │   │
-│   ├── resources/                  # @resource — 20 URIs
+│   ├── resources/                  # @resource — 27 URIs (16 local://, 4 schema://, 3 session://, 4 reference://)
 │   │   ├── track.py, playlist.py, set.py, transition.py,
 │   │   │  transition_history.py, session.py, schema.py
 │   │   └── reference/              # camelot, subgenres, templates, audit_rules
@@ -159,14 +159,19 @@ dj-music-plugin/
 └── hooks/                          # git pre-push
 ```
 
-## 2. DB Schema — ~31 tables
+## 2. DB Schema — 47 live tables (30 live + 17 drop-pending)
 
-Dead tables удалены в Phase 4: spotify_\* (×5), beatport_metadata,
-soundcloud_metadata, embeddings, transition_candidates, dj_saved_loops,
-dj_cue_points, dj_beatgrid_change_points, dj_set_constraints,
-dj_set_feedback, labels, track_labels, app_exports. Подробный список
-актуальных таблиц — в `app/models/` (one file per aggregate root) и
-Alembic history (`uv run alembic history`).
+Blueprint §13.2 пометил 17 legacy-таблиц на удаление, но миграция
+`p2_drop_dead_tables` пока **не применена** к Supabase — пустые схемы
+существуют (`app_exports` с 2 устаревшими rows, остальные 0). v1-код
+их не трогает.
+
+Drop-pending: spotify_\* (×5), beatport_metadata, soundcloud_metadata,
+embeddings, transition_candidates, dj_saved_loops, dj_cue_points,
+dj_beatgrid_change_points, dj_set_constraints, dj_set_feedback,
+labels, track_labels, app_exports.
+
+Подробный список актуальных таблиц — в `app/models/` (one file per aggregate root) и Alembic history (`uv run alembic history`). Data volumes — см. `REQUIREMENTS.md §10.3`.
 
 Core aggregate roots:
 - `tracks`, `track_audio_features_computed`, `track_sections`,

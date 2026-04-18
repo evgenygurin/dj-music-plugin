@@ -4,14 +4,16 @@ MCP-сервер для управления личной DJ techno библио
 
 ## Возможности
 
-- **50 MCP tools** в 12 категориях (46 visible + 4 hidden atomic)
-- **Audio analysis pipeline** — 18 анализаторов в layered architecture с двухфазным параллельным выполнением через `asyncio.to_thread`
-- **DJ set generation** — генетический алгоритм + greedy builder с transition scoring
-- **Transition scoring** — 6-компонентная оценка с persist в DB (BPM, гармония, энергия, спектр, грув, тембр) и context-aware весами
-- **Yandex Music интеграция** — поиск, импорт, скачивание MP3, синхронизация, расширение плейлистов
-- **Экспорт** — M3U8, Rekordbox XML, JSON guide, cheat sheet + копирование файлов
-- **Background tasks** — длинные операции через FastMCP Docket (expand, analyze, deliver)
-- **Mood classification** — 15 techno subgenres с injectable Strategy profiles, Gaussian scoring
+- **13 MCP tool dispatchers** (v1 polymorphism): `entity_{list,get,create,update,delete,aggregate}` × 11 registered entities, `provider_{read,write,search}` × Yandex, `transition_score_pool`, `sequence_optimize`, `playlist_sync`, `unlock_namespace`
+- **27 MCP resources** — per-entity views, session state, schema introspection, static reference blobs
+- **6 workflow prompts** — `dj_expert_session`, `build_set_workflow`, `deliver_set_workflow`, `expand_playlist_workflow`, `full_pipeline`, `quick_mix_check`
+- **Audio analysis pipeline** — 18 анализаторов (L1→L4 tiered), SharedMemory transport + per-worker AnalysisContext cache
+- **DJ set generation** — генетический алгоритм + greedy builder с transition scoring и section-aware весами
+- **Transition scoring** — 6-компонентная оценка (BPM, гармония, энергия, спектр, грув, тембр) + hard constraints + recipe engine (12 mix-типов) + intent/style/template awareness
+- **Yandex Music интеграция** — `provider_search` / `provider_read` / `provider_write` (playlist add/remove/create/rename/delete/set_description, likes add/remove)
+- **Экспорт** — M3U8, Rekordbox XML, JSON guide, cheat sheet (через `local://sets/{id}/cheatsheet` + `deliver_set_workflow` prompt)
+- **Mood classification** — 15 techno subgenres, запускается внутри `track_features_analyze` handler
+- **REST API** (`app/rest/`) — thin FastAPI wrapper поверх MCP для Panel
 
 ## Быстрый старт
 
@@ -27,7 +29,7 @@ cp .env.example .env
 # Заполни DJ_YM_TOKEN и DJ_YM_USER_ID в .env
 
 # Запуск
-uv run fastmcp run app/server.py
+uv run fastmcp run server.py
 ```
 
 ### Установка как Claude Code плагин
@@ -61,7 +63,7 @@ claude plugin marketplace add https://github.com/evgenygurin/dj-music-plugin.git
 
 | Сервер | Назначение |
 |--------|------------|
-| `mcp` | 50 DJ tools — построение сетов, аудиоанализ, YM, экспорт (FastMCP) |
+| `mcp` | 13 DJ tool dispatchers + 27 resources + 6 prompts — построение сетов, аудиоанализ, YM, экспорт (FastMCP v3) |
 | `db` | Read-only инспекция БД: схема, SQL, миграции, логи |
 
 Сервер `db` принудительно изолирован (security hardening по [официальным рекомендациям Supabase MCP](https://github.com/supabase-community/supabase-mcp#security-risks)):
@@ -82,7 +84,7 @@ DJ_DB_ACCESS_TOKEN="..."   # personal access token
 
 Сервер `db` использует `bash`-wrapper для авто-загрузки `.env` (Claude Code не делает этого нативно). На **Windows без WSL/Git-Bash не запустится** — альтернатива: экспортировать `DJ_DB_ACCESS_TOKEN` в shell вручную и заменить wrapper на нативный `env`-блок в `plugin.json`.
 
-Сервер `mcp` использует нативный `command`/`cwd` — pydantic-settings (`app/config.py`) читает `.env` сам, кроссплатформенно.
+Сервер `mcp` использует нативный `command`/`cwd` — pydantic-settings (`app/config/`) читает `.env` сам, кроссплатформенно.
 
 ## Разработка
 
@@ -99,101 +101,102 @@ uv run python scripts/verify_audio_pipeline.py [path/to/track.mp3]
 
 ## Архитектура
 
-FastMCP v3.1 + FileSystemProvider (standalone `@tool`, auto-discovery):
+FastMCP v3 + FileSystemProvider (standalone `@tool` / `@resource` / `@prompt`, auto-discovery):
 
 ```text
-Band 0  Core         config · constants · errors · utils · middleware
-Band 1  Controllers  MCP tools/prompts/resources + REST routes + schemas
-Band 2A Services     request-scoped use cases (UoW, workflows, services)
-Band 2B Engines      long-lived runtime singletons (DeckEngine, MixerEngine)
-Band 3  Pure logic   entities · transition · optimization · templates · camelot · audit
-Band 4  Persistence  mappers ⇆ repositories ⇆ ORM models ⇆ Alembic
-Band 5  Infra        YM client · audio analyzers · sounddevice · storage
+tools/       # 13 @tool dispatchers (entity/provider/compute/sync/admin)
+resources/   # 27 @resource URIs
+prompts/     # 6 @prompt workflow recipes
+handlers/    # 6 entity-scoped side-effect handlers
+registry/    # EntityRegistry + ProviderRegistry + defaults
+repositories/# BaseRepository[M] + UnitOfWork aggregator
+models/      # SQLAlchemy 2.0 — 12 aggregate roots
+schemas/     # Pydantic DTOs per entity
+domain/      # Pure compute: transition / optimization / camelot / template / audit
+audio/       # 18 analyzers + tiered pipeline + 15-subgenre classifier
+providers/   # External platforms (yandex/ …)
+server/      # FastMCP composition: app.py, lifespan, 16 middleware, transforms, visibility
+rest/        # Thin FastAPI wrapper over MCP (for Panel)
+shared/      # errors, constants, filters, ids, pagination, time (leaf)
+config/      # 9 per-domain Settings modules
+db/          # session, seed, Alembic migrations
 ```
 
-**Ключевые модули:**
-- `app/bootstrap/` — MCP server assembly (server_builder, lifespans, middleware, transforms, visibility)
-- `app/api/` — FastAPI REST wrapper (routes/, services/, state, lifespan, schemas)
-- `app/controllers/dependencies/` — DI factories split by concern (db, repos, services, audio, external, uow)
-- `app/services/workflows/` — orchestration (import, analyze, build_set, deliver, sync)
-- `app/controllers/tools/` — thin MCP wrappers with Depends() DI
-- `app/audio/` — layered audio analysis (see below)
-- `app/ym/` — async Yandex Music client (httpx, rate limiting)
+**Ключевые решения:**
+- **MCP — primary interface.** Композиция — через prompts / CodeMode / Tool Search, а не императивный service-слой.
+- **Polymorphism over proliferation.** 13 tool dispatchers вместо 88 (v0.8).
+- **Anchor на DB entities.** Один aggregate root = один model + один repo + семья Pydantic schemas.
+- **Unit of Work.** Одна `UnitOfWork` на tool call, commit/rollback через `DbSessionMiddleware`.
+- **Pure domain.** `app/domain/` не знает о DB / HTTP / FastMCP (enforced by import-linter).
+- **Panel direct reads** из Supabase; мутации — через MCP (REST-обёртка).
 
 ### Audio module (`app/audio/`)
 
-Layered architecture with GoF patterns:
+Layered tiered pipeline L1→L4 (see [docs/audio-pipeline.md](docs/audio-pipeline.md)):
 
 ```text
-core/             ← L1: DSP primitives (0 app deps)
+core/             ← DSP primitives (0 app deps)
   types.py           FrameParams, AudioSignal, AnalyzerResult
   framing.py         frame energies, energy slope
   spectral.py        STFT, band energies, centroid, rolloff
   loader.py          AudioLoader (soundfile → librosa → wave)
   context.py         AnalysisContext (eager STFT, thread-safe)
 
-analyzers/        ← L2: feature extractors (18 total)
-  base.py            BaseAnalyzer (Template Method), @register_analyzer, Registry
-  beat, bpm, energy, key, loudness, mfcc, spectral, structure  (8 core)
-  danceability, tempogram, dissonance, dynamic_complexity,     (6 P1, optional essentia/librosa)
-  tonnetz, beats_loudness
-  spectral_complexity, pitch_salience, bpm_histogram, phrase   (4 P2, optional essentia/librosa)
+analyzers/        ← 18 feature extractors
+  base.py            BaseAnalyzer (Template Method), @register_analyzer
+  beat, bpm, energy, key, loudness, mfcc, spectral, structure,
+  beats_loudness, bpm_histogram, danceability, dissonance,
+  dynamic_complexity, phrase, pitch_salience, spectral_complexity,
+  tempogram, tonnetz
 
-classification/   ← L2b: mood/subgenre
-  profiles.py        15 SubgenreProfile frozen dataclasses
+classification/   ← 15 techno subgenres (rule-based)
+  profiles.py        SubgenreProfile dataclasses
   classifier.py      MoodClassifier (Strategy pattern)
 
-pipeline.py       ← L3: orchestrator (asyncio.to_thread parallelism)
+pipeline.py, level_config.py, temp_download.py, timeseries.py
 ```
 
-- **Template Method**: `BaseAnalyzer.run()` handles guard + error wrapping; subclass implements `_extract(ctx)`
-- **Two-phase pipeline**: independent analyzers run in parallel (Phase 1), dependent analyzers receive merged results (Phase 2)
-- **Registry**: `@register_analyzer` + `pkgutil.iter_modules()` auto-discovery — new analyzer = one file
-- **Strategy**: `MoodClassifier` accepts injectable `SubgenreProfile` sequence
-- **Eager context**: STFT/magnitude/freqs computed once, shared read-only — thread-safe by design
+- **Two-phase pipeline**: independent analyzers run in parallel, dependent analyzers receive merged results
+- **Tiered L1→L4**: L1+L2 triage (6 analyzers) → L3 scoring (+beat) → L4 transition (+structure + permanent MP3)
+- **Registry auto-discovery**: `@register_analyzer` + `pkgutil.iter_modules()`
+- **Eager context**: STFT/magnitude/freqs computed once, shared read-only — thread-safe
+- **SharedMemory transport** + per-worker `AnalysisContext` LRU — эффективный ProcessPool path
 
-**Middleware:** structured logging, timing, YM rate limiting, retry, error masking.
+**Server middleware (16 слоёв):** error handling, Sentry, OTEL, timing, audit log, retry, response limit/caching, deprecation, cost tracking, sampling budget, progress throttle, tool timeout, provider rate limit, DB session, structured logging.
 
-Подробности: [Design Specification](docs/superpowers/specs/2026-03-24-dj-music-plugin-design.md)
+Архитектурный блюпринт v1: [docs/superpowers/specs/2026-04-17-architecture-blueprint-design.md](docs/superpowers/specs/2026-04-17-architecture-blueprint-design.md)
 
 ## Конфигурация
 
 Все настройки через переменные окружения с префиксом `DJ_`. См. [.env.example](.env.example).
 
-### LLM-assisted discovery (два режима)
+### LLM-assisted discovery
 
-**Claude Code MAX (подписка, без API key):**
-Claude Code сам генерирует search queries и передаёт в `find_similar_tracks`:
+Используй prompt `expand_playlist_workflow` — он оркестрирует `provider_search` / `provider_read(entity="track_similar")` → `entity_create(entity="track")` → `entity_create(entity="track_features")`.
 
-```python
-# Claude Code генерирует queries на основе характеристик трека
-find_similar_tracks(track_id=42, strategy="llm",
-    search_queries=["Amelie Lens acid techno", "FJAAK industrial"])
-```
+Для headless-сценариев опционально включи server-side sampling:
 
-Или используй prompt `llm_discovery_workflow` для пошагового воркфлоу.
-
-**Server-side sampling (автоматика через API key):**
 ```bash
 # В .env
 DJ_ANTHROPIC_API_KEY=sk-ant-...
 ```
-`ctx.sample()` генерирует queries автоматически. Для headless-сценариев.
+
+`ctx.sample()` fallback подтягивает Anthropic API (см. `app/server/sampling.py`).
 
 ## E2E Pipeline
 
-Полный цикл обработки трека:
+Полный цикл обработки трека (v1 dispatchers + handlers):
 
 ```text
-import_tracks → download_tracks → analyze_track    → classify_mood → build_set
-     ↓              ↓                  ↓                   ↓              ↓
-  Track +       MP3 файл +      AudioLoader            15 subgenres   DJ set с
-  YM metadata   DjLibraryItem    → AnalysisContext      + confidence   transition
-                                 → 18 analyzers ∥                      scoring
-                                 → 60 features
+entity_create("track",...)  → entity_create("audio_file",...)  → entity_create("track_features",...)  → entity_create("set_version",...)
+      │                              │                                 │                                        │
+ track_import                 audio_file_download             track_features_analyze                 set_version_build
+      │                              │                                 │                                        │
+  Track row                   DjLibraryItem +                 18 analyzers → ~60 features           GA / greedy + mix points
+  (+ YM metadata)             MP3 on disk                     + mood classification                 + transition_persist
 ```
 
-`download_tracks` автоматически создаёт `DjLibraryItem` записи — `analyze_track` сразу находит файлы.
+Дополнительно: `transition_score_pool` → `sequence_optimize` → `entity_create("set_version")` — trust-chain для сета из существующего пула.
 
 ## Требования
 

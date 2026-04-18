@@ -25,7 +25,7 @@ Next.js dashboard for monitoring and analytics of the DJ music library.
 | `/playlists/[id]` | Playlist detail | Playlist tracks with features |
 | `/sets` | Set list | `queries/sets.ts` — with version info |
 | `/sets/[id]` | Set detail | Set tracks, transitions, energy arc |
-| `/discover` | YM Search | Server action `ymSearch` → MCP `ym_search` |
+| `/discover` | YM Search | Server action `ymSearch` → MCP `provider_search(provider="yandex", type="tracks")` |
 
 ## Data Flow
 
@@ -42,10 +42,12 @@ WRITE path (mutations):
 
 | File | Actions | MCP Tools Called |
 |------|---------|-----------------|
-| `analysis-actions.ts` | classifyMood, analyzeTrack | classify_mood, analyze_track |
-| `discovery-actions.ts` | ymSearch, importTracks | ym_search, import_tracks |
-| `set-actions.ts` | buildSet, rebuildSet, deliverSet, scoreTransitions | build_set, rebuild_set, deliver_set, score_transitions |
-| `sync-actions.ts` | syncPlaylist | sync_playlist |
+| `analysis-actions.ts` | classifyMood, analyzeTrack | `entity_create(entity="track_features", level=2)` (mood side-effect), `entity_update(entity="track_features")` for reanalyze |
+| `discovery-actions.ts` | ymSearch, importTracks | `provider_search(provider="yandex", ...)`, `entity_create(entity="track")` |
+| `set-actions.ts` | buildSet, rebuildSet, deliverSet, scoreTransitions | `entity_create(entity="set_version", ...)`, `transition_score_pool`, `deliver_set_workflow` prompt |
+| `sync-actions.ts` | syncPlaylist | `playlist_sync(direction=pull\|push\|diff, source="yandex")` — requires `unlock_namespace(namespace="sync")` |
+
+> **Дрифт:** часть actions ещё держит легаси tool-имена (`build_set`, `analyze_track`, `ym_search`). Panel refactor на v1 dispatcher surface отложен (Blueprint D2). Маппинг старых → новых имён — в `.claude/agents/panel-doctor.md`.
 
 All actions use `mcpCall(toolName, args)` from `lib/mcp-client.ts` which POSTs to `MCP_HTTP_URL`.
 

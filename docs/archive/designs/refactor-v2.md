@@ -1,5 +1,18 @@
 # Refactor v2 — DJ Music Plugin Architecture Rewrite
 
+> **HISTORICAL — SUPERSEDED BY v1.0.0 BLUEPRINT (2026-04-17).** This document captures the interim "v2 rewrite" experiment from 2026-04-09 that targeted a 5-band layered architecture. It never shipped as a release and was replaced wholesale by the bounded-contexts v1 refactor in
+> `docs/superpowers/specs/2026-04-17-architecture-blueprint-design.md`
+> (executed across phase plans 1-7 on the same date). References to
+> `app/bootstrap/`, `app/controllers/`, `app/services/`, `app/engines/`,
+> `app/entities/`, `app/ym/`, `app/api/`, `app/core/`, `app/transition/`,
+> `app/optimization/`, `app/camelot/`, `app/templates/`, `app/audit/`,
+> 5-band terminology, `BaseMapper`/`BaseCRUD` kernel, `DeckEngine` /
+> `MixerEngine` are **not** part of the live v1 codebase.
+>
+> Kept for historical traceability of how we got here. Do not cite this
+> document for current architecture — use `docs/architecture.md` and the
+> blueprint above instead.
+>
 > Branch: `worktree-refactor+v2`
 > Started: 2026-04-09
 > Goal: 5-band layered architecture (Core + Transport + Application + Domain + Persistence + Infrastructure) with strict dependency rule, generic polymorphic kernel, and FastMCP 3.x canonical patterns.

@@ -9,7 +9,8 @@
                            │ stdio / streamable-http
 ┌──────────────────────────▼──────────────────────────────────┐
 │                   FastMCP v3.x Server                        │
-│  (app/server/app.py — composition root)                      │
+│  (root server.py — entrypoint;                              │
+│   app/server/app.py — build_mcp_server composition)          │
 │                                                              │
 │  ┌─────────────┐ ┌────────────┐ ┌─────────────────────────┐ │
 │  │ Middleware  │ │ Transforms │ │ Visibility (Namespaces) │ │
@@ -22,7 +23,7 @@
 │  ┌──────▼──────────────────────────────────────────────────┐│
 │  │           FileSystemProvider (auto-discover)             ││
 │  │  ┌──────────┐  ┌────────────┐  ┌──────────────────────┐ ││
-│  │  │ 13 Tools │  │20 Resources│  │ 6 Workflow Prompts   │ ││
+│  │  │ 13 Tools │  │27 Resources│  │ 6 Workflow Prompts   │ ││
 │  │  └────┬─────┘  └──────┬─────┘  └──────────────────────┘ ││
 │  └───────┼───────────────┼─────────────────────────────────┘│
 └──────────┼───────────────┼──────────────────────────────────┘
@@ -59,7 +60,8 @@
     │    SQLAlchemy 2.0 Async       │
     │  Supabase PostgreSQL          │
     │  SQLite (tests, in-mem)       │
-    │  ~31 tables, Alembic          │
+    │  47 tables (17 drop-pending), │
+    │  Alembic                      │
     └──────────────────────────────┘
 
 Parallel layers (called from handlers, never from tools directly):
@@ -85,7 +87,7 @@ Parallel layers (called from handlers, never from tools directly):
 | Context | Path | Responsibility |
 |---|---|---|
 | **Tools** | `app/tools/` | 13 `@tool` dispatchers — no business logic, only dispatch |
-| **Resources** | `app/resources/` | 20 `@resource` URIs — read-only views |
+| **Resources** | `app/resources/` | 27 `@resource` URIs — read-only views (16 local://, 4 schema://, 3 session://, 4 reference://) |
 | **Prompts** | `app/prompts/` | 6 workflow recipes (LLM-visible) |
 | **Handlers** | `app/handlers/` | Entity-specific side-effect logic (registered in EntityRegistry) |
 | **Registry** | `app/registry/` | `EntityRegistry` (entity→repo+handler) + `ProviderRegistry` (name→client) |

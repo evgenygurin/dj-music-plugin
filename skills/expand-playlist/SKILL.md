@@ -1,67 +1,68 @@
 ---
 name: expand-playlist
 description: "Use when the user asks to expand a playlist, find similar tracks, add more tracks, discover new tracks, import from Yandex Music, or fill gaps in a playlist. Covers discovery, feedback gating, import, download and analysis."
-version: 0.7.1
+version: 1.0.1
 ---
 
 # Expand Playlist Workflow
 
-Guide the user through discovering and importing new tracks to fill playlist gaps.
+Guide the user through discovering and importing new tracks via the v1 polymorphic dispatchers. See @docs/tool-catalog.md (13 dispatchers + 27 resources + 6 prompts).
 
 ## Quick Path (one-call)
 
-Use `expand_playlist_ym` for automated expansion against a YM playlist:
+Use the `expand_playlist_workflow` prompt — it chains audit → discover → feedback gate → import → download → analyze → classify:
 ```text
-expand_playlist_ym(ym_playlist_kind=1234, target_count=100, genre_filter=["techno"], dry_run=true)
+expand_playlist_workflow(source_playlist_id=<id>, target_count=100, genre_filter=["techno"], dry_run=true)
 ```
 
-Note: the param is `ym_playlist_kind` (numeric YM playlist `kind`), NOT a local `playlist_id`. Run with `dry_run=true` first to preview, then re-run without it.
+Run once with `dry_run=true` to preview, then again without it.
 
 ## Granular Path (step-by-step)
 
 1. **Audit current playlist**
-   - `audit_playlist(playlist_id=...)` — full quality check
-   - Report: track count, BPM distribution, key coverage, subgenre balance
+   - Read `local://playlists/{id}/audit` — full quality check, gap report, BPM/key/subgenre coverage
 
-2. **Find similar tracks** (per seed)
-   - `find_similar_tracks(track_id=..., strategy="ym", limit=20, genre_filter=["techno"], genre_blacklist=["pop"], exclude_patterns=["remix", "edit"])`
-   - `strategy`: `"ym"` (default, free) or `"llm"` (needs LLM sampling — see @.claude/rules/llm-sampling.md)
-   - Filters: `genre_filter`, `genre_blacklist`, `exclude_patterns`, `min_duration_ms`, `max_duration_ms`
+2. **Find similar tracks (YM recommendations)** per seed:
+   - `provider_read(provider="yandex", entity="track_similar", id=<ym_track_id>, params={"limit": 20})`
+   - For free-text search: `provider_search(provider="yandex", query="Amelie Lens acid techno", type="tracks", limit=20)`
+   - LLM-driven discovery lives in the `expand_playlist_workflow` prompt (it asks Claude for search queries, then feeds them to `provider_search`) — see @.claude/rules/llm-sampling.md
 
-3. **Filter by feedback** (drop disliked, mark liked)
-   - `filter_by_feedback(ym_track_ids=["12345", "67890"])`
-   - Returns three buckets: `passed` (unknown), `blocked` (disliked), `boosted` (liked) — Claude decides what to import
+3. **Filter candidates by feedback** (dedupe / drop disliked / boost liked)
+   - Known tracks already in DB: `entity_list(entity="track", filters={"external_id__in": [...]}, fields="summary")` — anything returned is already imported
+   - Feedback history: `entity_list(entity="track_feedback", filters={"ym_track_id__in": [...]}, fields="full")`
+   - Let Claude decide which to import, which to skip.
 
 4. **Review candidates**
-   - Present found tracks with BPM, key, energy info
-   - For manual lookups: `ym_search(query="...", type="track")`
+   - Present found tracks with BPM / key / energy if available
+   - For extra detail: `provider_read(provider="yandex", entity="track", id=<ym_id>)`
 
 5. **Import selected tracks**
-   - `import_tracks(track_refs=[...], playlist_id=..., auto_analyze=true)`
-   - Creates local track records, links YM metadata, optionally queues analysis
+   - `entity_create(entity="track", data={"ym_ids": ["12345", "67890"], "playlist_id": <pid>})`
+     (handler `track_import` fetches metadata from YM, creates `Track` + `YandexMetadata` + `RawProviderResponse`, links to playlist)
 
 6. **Download MP3s** (needed for DJ software / L4 delivery)
-   - `download_tracks(track_refs=[...], skip_existing=true)`
-   - Writes to `DJ_YM_LIBRARY_PATH`; auto-links files to tracks via `DjLibraryItem`
-   - Accepts YM IDs (>=100000) or local IDs (<100000) — auto-resolved
+   - `entity_create(entity="audio_file", data={"track_ids": [...], "persistent": true})`
+     (handler `audio_file_download` — writes to `DJ_YM_LIBRARY_PATH`, links `DjLibraryItem`, idempotent)
 
-7. **Analyze new tracks** (if `auto_analyze=false`)
-   - `unlock_tools(action="unlock", category="audio")`
-   - `analyze_batch(playlist_id=..., analyzers=["bpm", "key", "loudness", "energy", "spectral"])`
+7. **Analyze new tracks** (L1+L2 — mood classification lands in features)
+   - `entity_create(entity="track_features", data={"track_ids": [...], "level": 2})`
+   - For full scoring-ready L3: `level=3`; for L4 structure: `level=4`.
+   - Re-analyze at a higher level: `entity_update(entity="track_features", id=<fid>, data={"level": 3})`
 
 8. **Re-audit**
-   - `audit_playlist(playlist_id=...)` — compare before/after coverage
+   - Read `local://playlists/{id}/audit` again — compare coverage before / after
 
 ## Full Expansion Pipeline
 
-For end-to-end expansion, use the workflow prompt (audit → discover → import → download → analyze → classify → distribute):
+End-to-end chain via prompt (audit → discover → import → download → analyze → classify → distribute):
 ```text
-full_expansion_pipeline source_playlist="TECHNO FOR DJ SETS" target_per_subgenre=40
+full_pipeline(source_playlist_id=<id>, target_per_subgenre=40)
 ```
 
 ## Tips
 
-- `strategy="ym"` is the fast/free path; `"llm"` requires `DJ_ANTHROPIC_API_KEY` or a sampling-capable client
-- `filter_tracks(exclude_set_id=N)` finds tracks not yet in a given set — useful for picking imports
+- `provider_search` and `provider_read` are in the `provider:read` namespace — visible by default; no unlock needed
+- `entity_create(entity="track", ...)` covers import; `entity_create(entity="audio_file", ...)` covers download; `entity_create(entity="track_features", ...)` covers analysis — three separate side-effect handlers, not one monolith
 - Always download before `deliver_set` — iCloud stubs (<90% size) cannot be copied
-- Tool reference: @docs/tool-catalog.md (find_similar_tracks, filter_by_feedback, expand_playlist_ym, import_tracks, download_tracks)
+- For scoring-heavy expansion (pick top-N by candidate compatibility), use `transition_score_pool(track_ids=[...])`
+- Tool reference: @docs/tool-catalog.md; @.claude/rules/llm-sampling.md for client-driven discovery
