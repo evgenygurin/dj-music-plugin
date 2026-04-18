@@ -44,7 +44,7 @@ main session (user) ← финальный summary
 | **Tiered L1→L5 coverage** | Import → genre gate → L5 analyze в continuous mode | `scripts/vm_import_and_analyze.py` |
 | **Fresh playlist onboarding** | Expand + continuous analyze в параллель | оба выше |
 | **Backfill L5 existing tracks** | `--force` pass по уже импортированным | `vm_import_and_analyze.py --force` |
-| **Subgenre distribution** | Classify moods → distribute к 15 subgenre плейлистам | MCP `distribute_to_subgenres` |
+| **Subgenre distribution** | Classify moods (через `entity_create(entity="track_features")`) → distribute к 15 subgenre плейлистам через `entity_list` + `entity_update` + `playlist_sync` | MCP v1 dispatchers |
 | **VM continuous loop** | `dj-loop` systemd unit на VM | `docs/vm-deployment.md` |
 
 ### Принятие решений
@@ -62,7 +62,7 @@ main session (user) ← финальный summary
 | Операция | Скорость | Bottleneck |
 |---|---|---|
 | BFS /similar calls | ~200-350 tr/min | YM rate limit 1.5с + similar API latency |
-| Import YM metadata | ~30-50 tr/min | `ym.get_tracks` rate limit |
+| Import YM metadata | ~30-50 tr/min | `provider_read(entity="track_batch")` rate limit |
 | L5 analyze (8 workers) | ~10-15 tr/min | librosa/essentia CPU |
 | L5 analyze (12 workers, VM) | ~20-30 tr/min | CPU + Supabase write |
 | Download MP3 (temp) | ~40 tr/min | YM download rate |

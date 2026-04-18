@@ -29,7 +29,18 @@ globs: app/models/**/*.py
 
 - Energy band column names: `energy_sub`, `energy_lowmid`,
   `energy_highmid` (not `energy_band_*`, not `energy_low_mid`).
-- Drop legacy: spotify_\*, beatport_metadata, soundcloud_metadata,
-  embeddings, dj_saved_loops, dj_cue_points, labels, track_labels,
-  app_exports, dj_set_constraints, dj_set_feedback are all removed
-  in v1 — do not reintroduce.
+- Drop-pending tables (blueprint §13.2): spotify_\*, beatport_metadata,
+  soundcloud_metadata, embeddings, transition_candidates,
+  dj_saved_loops, dj_cue_points, dj_beatgrid_change_points,
+  dj_set_constraints, dj_set_feedback, labels, track_labels,
+  app_exports — **Alembic migration `p2_drop_dead_tables` not yet
+  applied to Supabase**, but v1 code has no ORM models for them. Do
+  not reintroduce.
+- Every new aggregate root must be registered in
+  `app/registry/defaults.py:register_default_entities()` or it stays
+  invisible to `entity_*` tools.
+- Current live aggregate roots (12 models + 11 registered entities —
+  `key` is read-only reference, exposed via `reference://camelot`):
+  `track`, `track_features`, `audio_file`, `playlist`, `set`,
+  `set_version`, `transition`, `transition_history`, `track_feedback`,
+  `track_affinity`, `scoring_profile`, `key`, `provider_metadata`.

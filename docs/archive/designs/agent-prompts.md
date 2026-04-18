@@ -1,6 +1,22 @@
 # Промпты для фоновых агентов — доработка компонентов dj-music-plugin
 
-Каждый промпт самодостаточный, не требует контекста родительского чата. Запускать через `Agent` tool с `subagent_type: general-purpose` (или указанным) и `run_in_background: true`. Все агенты должны открывать PR в ветку `dev`, не пушить в `main`.
+> **HISTORICAL — pre-v1.0.0 snapshot (early April 2026).** Файл содержит батч
+> промптов, составленных до v1 рефактора: ссылки на `app/controllers/tools/`,
+> `app/services/`, `app/api/server.py`, «50 MCP tools», layered 5-band
+> architecture — всё это не соответствует текущему коду (v1.0.1 — 13
+> dispatchers + 27 resources + 6 prompts поверх flat `app/{tools,resources,
+> prompts,handlers,registry,repositories,models,schemas,domain,audio,
+> providers,server,rest,shared,config,db}/`). Живые пути и названия tools
+> смотри в `docs/architecture.md`, `docs/tool-catalog.md`,
+> `.claude/agents/panel-doctor.md` (секция «v1 tool names»).
+>
+> Оставлено как архив паттернов для batch-прогонов subagent'ов — сами
+> инструкции можно переиспользовать, но подставить актуальные пути.
+>
+> Каждый промпт самодостаточный, не требует контекста родительского чата.
+> Запускать через `Agent` tool с `subagent_type: general-purpose` (или
+> указанным) и `run_in_background: true`. Все агенты должны открывать PR
+> в ветку `dev`, не пушить в `main`.
 
 ---
 

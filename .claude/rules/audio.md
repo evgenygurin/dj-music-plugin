@@ -17,9 +17,9 @@ globs: app/audio/**/*.py
 
 ## Gotchas
 
-- `classify_mood` and `distribute_to_subgenres` persist `mood` and `mood_confidence` to `track_audio_features_computed`
+- Mood classification fires inside the `track_features_analyze` handler — `mood` + `mood_confidence` land directly in `track_audio_features_computed`. No separate `classify_mood` tool exists in v1; invoke mood classification via `entity_create(entity="track_features", data={track_ids, level=2})`.
 - Pipeline features → DB: always use `TrackAudioFeaturesComputed.filter_features(result.features)` — pipeline may return keys without columns
-- Tiered auto-trigger: `classify_mood`/`build_set`/`deliver_set` auto-analyze tracks — no need to call `analyze_track` manually
+- Tiered auto-trigger: `transition_score_pool`, `sequence_optimize`, `deliver_set_workflow` prompt, and `entity_create(entity="set_version")` auto-upgrade missing features to the needed tier. No manual pre-analysis call required.
 - P1 analyzers: essentia DFA danceability is unbounded (not 0-1), dissonance 0-1, dynamic_complexity 0-~10
 - P2 analyzers: SpectralComplexityAnalyzer, PitchSalienceAnalyzer depend on essentia; BpmHistogramAnalyzer depends on `beat` (depends_on); PhraseAnalyzer depends on `beat` + `bpm`
 - `depends_on`: `ClassVar[frozenset[str]]` — Phase 2 pipeline passes `prior_results` to dependent analyzers

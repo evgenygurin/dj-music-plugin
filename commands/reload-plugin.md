@@ -26,10 +26,11 @@ for root in "${ROOTS[@]}"; do
 done
 
 # Kill fastmcp stdio-процесс(ы) плагина — Claude Code respawn'ит.
-pkill -f "cache/dj-music-plugin/.*/app/server\\.py" 2>/dev/null || true
+# Entry point v1 — root server.py (не app/server.py; последний теперь package).
+pkill -f "cache/dj-music-plugin/.*/server\\.py" 2>/dev/null || true
 pkill -f "dev/dj-music-plugin/.*/(server\\.py|fastmcp\\.json)" 2>/dev/null || true
 
-echo "✓ Plugin caches purged. Call any mcp__plugin_dj-music_* tool to respawn."
+echo "✓ Plugin caches purged. Call any mcp__plugin_dj-music_mcp__* tool to respawn."
 ```
 
-После команды сразу вызови `mcp__plugin_dj-music_dj-music__unlock_tools` (action=status) — это поднимет свежий процесс и подтвердит работоспособность. Не жди подтверждения пользователя.
+После команды сразу вызови `mcp__plugin_dj-music_mcp__unlock_namespace` (action=status, namespace=all) — это поднимет свежий процесс и подтвердит работоспособность. Не жди подтверждения пользователя.

@@ -1,60 +1,42 @@
 # Audio DB Schema — Core Tables Overview
 
 > Короткий обзор "что у нас есть по аудио" в БД, без расширенных P1/P2 фич.
-> Для полной справки по features см. `app/db/models/audio.py` и
-> `docs/domain-glossary.md`.
+> Для полной справки по features см. `app/models/track_features.py` и
+> `docs/domain-glossary.md`. Для полных row counts — `REQUIREMENTS.md §10.3`.
 
-## Наглядно — покрытие данными
+## Покрытие данными (2026-04-18, post-BFS expansion)
 
 | Таблица | Строк | Покрытие / комментарий |
 |---|---:|---|
-| `tracks` | **3,502** | базовый каталог треков |
-| `track_audio_features_computed` | **3,383** | **96.6%** треков проанализированы |
-| `track_sections` | **239,887** | ~70 секций на проанализированный трек — структура треков (intro / drop / breakdown / outro ...) есть везде |
-| `dj_library_items` | **1** ⚠️ | физических файлов почти нет — 1 из 3502 |
-| `dj_beatgrids` | **0** ⚠️⚠️ | **beatgrid analyzer не прогонялся** |
-| `dj_beatgrid_change_points` | **0** | — (variable tempo) |
-| `dj_cue_points` | **0** ⚠️ | cue-point detector не прогонялся |
-| `dj_saved_loops` | **0** | — |
+| `tracks` | **23,929** | базовый каталог треков (BFS пополняет к 20000 из YM playlist 1355) |
+| `track_audio_features_computed` | **23,768** | **≈99%** треков проанализированы |
+| `track_sections` | **1,680,465** | ~70 секций на трек — structure analyzer прогоняется по умолчанию |
+| `dj_library_items` | **97** ⚠️ | физических MP3 на диске мало — скачиваются только под `deliver_set_workflow` (L4) |
+| `dj_beatgrids` | **31** | beatgrid analyzer запускается редко |
+| `dj_cue_points` | **0** | drop-pending таблица (blueprint §13.2) |
+| `dj_saved_loops` | **0** | drop-pending |
 | `keys` | 24 | static reference (Camelot wheel) |
 
 ### Что это значит для транзиций
 
-**Работает хорошо:**
+**Работает:**
 
-- BPM, key, energy, LUFS, kick_prominence, hp_ratio — **96.6%** треков (из `track_audio_features_computed`)
-- Intro/outro detection и section boundaries — **есть везде** (`track_sections` огромная)
+- BPM, key, energy, LUFS, kick_prominence, hp_ratio — **99%** треков (`track_audio_features_computed`)
+- Intro/outro detection и section boundaries — везде (`track_sections` огромная)
 - Camelot harmonic compatibility — есть (`key_code` + static `keys` lookup)
-- LUFS normalization, adaptive swap depth, kick-click kill, dry/wet LR4 — всё работает на этих данных
+- LUFS normalization, adaptive swap depth, kick-click kill, dry/wet LR4 — работает на этих данных
 
-**Не работает или degraded:**
+**Degraded:**
 
-- **Downbeat alignment** (`firstDownbeatSec` всегда == 0) — `dj_beatgrids` пуст, так что панель всегда использует fallback `0` и snapshot'ит к нулю. Для 4/4 техно с intro на `t=0` это работает, но для треков с вступительной тишиной или сдвинутым downbeat'ом фаза будет слегка off.
-- **Cue-aware mix points** — `dj_cue_points` пуст, так что mix-in / mix-out points считаются **только** из section boundaries, не из manually-set hot-cue'ов.
-- **Multi-file tracks** — `dj_library_items` почти пустой, link через beatgrid path не работает.
+- **Downbeat alignment** (`firstDownbeatSec`) — `dj_beatgrids` покрывает ~0.1% треков, mix-point detector использует fallback `0`. Для 4/4 техно с intro на `t=0` это OK, но при нестандартном downbeat фаза слегка off.
+- **Cue-aware mix points** — `dj_cue_points` пустой (drop-pending). Mix-in/out берутся только из section boundaries, не из manually-set hot-cue'ов.
+- **Multi-file tracks** — `dj_library_items` 97/23929 (файлы качаются под set delivery, не всплошную).
 
-### BPM distribution (живые данные)
+### BPM distribution — см. panel dashboard (`/`)
 
-```text
- 70-79:   2
- 80-89:  758    ← доля half-time треков (или detector ловит /2)
- 90-99:  24
-100-109: 10
-110-119: 13
-120-129: 2083  ← ядро коллекции: standard techno tempo
-130-139: 401
-140-149: 50
-150-159: 15
-160-169: 6
-170-179: 10
-180-189: 8
-190-199: 2
-210-219: 1
-```
-
-2083 из 3502 треков (60%) лежат в 120-129 BPM — классическое темпо для
-peak-time / driving techno. 758 треков в 80-89 BPM, скорее всего это
-half-time detection artifacts (detector слышит 2 удара там где нужно 4).
+Актуальное распределение — в `panel/` дашборде (BpmDistribution chart,
+`lib/queries/dashboard.ts → getBpmHistogram()`). Снапшот на 2026-04-18:
+ядро коллекции — 120-129 BPM (classic peak-time / driving techno).
 
 ---
 

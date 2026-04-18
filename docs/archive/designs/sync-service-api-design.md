@@ -1,5 +1,17 @@
 # Sync Service API Design
 
+> **HISTORICAL — SUPERSEDED BY v1.0.0.** Этот дизайн-документ описывает
+> класс-ориентированный `PlaylistSyncService` с `app/core/errors.py`,
+> `app/core/progress.py`, `app/controllers/adapters.py` — **ни один из
+> этих путей не существует в v1.** В v1 sync реализован как единый tool
+> dispatcher `playlist_sync(playlist_id, direction=pull|push|diff,
+> source="yandex", dry_run)` (см. `app/tools/sync/playlist_sync.py`).
+> Ошибки переехали в `app/shared/errors.py` (`NotFoundError`,
+> `ValidationError`, `ConflictError`). Прогресс отчитывается через
+> `ctx.report_progress(...)` прямо из handler'а.
+>
+> Оставлено как архив proto-design. Не цитировать для текущей разработки.
+>
 > Дизайн интерфейсов для `PlaylistSyncService` и `SetPushService`.
 > Только контракты -- без реализации.
 

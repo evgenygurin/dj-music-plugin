@@ -5,9 +5,9 @@
 
 ## 1. System Purpose
 
-A server for managing a personal DJ techno music library, building optimized DJ sets, and integrating with the Yandex Music streaming platform. The server exposes all functionality exclusively through the Model Context Protocol (MCP), enabling AI assistants (Claude, etc.) to operate the system via tool calls.
+A server for managing a personal DJ techno music library, building optimized DJ sets, and integrating with the Yandex Music streaming platform. The server exposes functionality primarily through the Model Context Protocol (MCP), enabling AI assistants (Claude, etc.) to operate the system via tool calls.
 
-There is no REST API, no CLI, no web UI. MCP is the sole interface.
+A thin FastAPI wrapper (`app/rest/`) proxies MCP tools over HTTP for the Next.js monitoring panel (`panel/`). It contains no business logic — only transport. There is no CLI.
 
 ---
 
@@ -403,7 +403,11 @@ Structured JSON with set metadata, per-track details, per-transition recommendat
 
 ### 10.2 Schema
 
-44 tables total. See domain model (section 2) for complete entity definitions.
+**47 tables currently live** in Supabase. Of those, 17 are "drop-pending" (legacy schema, 0 rows — `app_exports` retains 2 stale rows from v0). The `p2_drop_dead_tables` Alembic migration, scheduled per blueprint §13.2, has not been applied to production yet.
+
+See domain model (section 2) for complete entity definitions of the **30 live entity tables**.
+
+**Drop-pending (blueprint §13.2):** `spotify_metadata`, `spotify_album_metadata`, `spotify_artist_metadata`, `spotify_playlist_metadata`, `spotify_audio_features`, `beatport_metadata`, `soundcloud_metadata`, `embeddings`, `transition_candidates`, `dj_saved_loops`, `dj_cue_points`, `dj_beatgrid_change_points`, `dj_set_constraints`, `dj_set_feedback`, `labels`, `track_labels`, `app_exports`.
 
 Key constraints:
 - All BPM values: 20-300
@@ -415,23 +419,41 @@ Key constraints:
 - Cue kinds: 0-7
 - Hotcue indices: 0-15
 
-### 10.3 Data Volumes (reference)
+### 10.3 Data Volumes (live Supabase snapshot, 2026-04-18)
 
-| Table | Approximate rows |
-|-------|-----------------|
-| tracks | ~3,000 |
-| track_audio_features_computed | ~2,800 |
-| track_sections | ~108,000 |
-| dj_library_items | ~2,750 |
-| dj_playlist_items | ~3,900 |
-| dj_playlists | ~25 |
-| dj_sets | ~43 |
-| dj_set_versions | ~55 |
-| dj_set_items | ~2,200 |
-| yandex_metadata | ~2,600 |
-| feature_extraction_runs | ~2,900 |
-| keys | 24 (static) |
+| Table | Rows |
+|-------|-----:|
+| track_sections | 1,680,465 |
+| feature_extraction_runs | 24,688 |
+| timeseries_references | 24,470 |
+| tracks | 23,929 |
+| yandex_metadata | 23,926 |
+| raw_provider_responses | 23,926 |
+| track_external_ids | 23,926 |
+| track_audio_features_computed | 23,768 |
+| dj_playlist_items | 22,808 |
+| dj_set_items | 2,665 |
+| track_artists | 798 |
+| track_releases | 607 |
+| track_genres | 607 |
+| transitions | 601 |
+| releases | 591 |
+| key_edges | 576 |
+| artists | 565 |
+| dj_library_items | 97 |
+| dj_set_versions | 54 |
+| dj_sets | 37 |
+| dj_beatgrids | 31 |
+| dj_playlists | 17 |
+| genres | 6 |
 | providers | 4 (static) |
+| transition_history | 3 |
+| track_feedback | 3 |
+| track_affinity | 1 |
+| scoring_profiles | 0 |
+| keys | 24 (static) |
+
+Volumes reflect post-BFS-expansion state (background campaign filling YM playlist "Techno 2 Mega Boost" toward 20,000 tracks). Audio-feature coverage ≈99% of tracks.
 
 ---
 

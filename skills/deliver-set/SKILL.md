@@ -1,44 +1,49 @@
 ---
 name: deliver-set
 description: "Use when the user asks to deliver a set, export a set, finalize a set, do a rekordbox export, sync a set to YM, or generate a cheat sheet. Covers M3U8, Rekordbox XML, JSON guide, cheat sheet export and YM sync."
-version: 0.7.1
+version: 1.0.1
 ---
 
 # Deliver DJ Set Workflow
 
-Guide the user through exporting a completed DJ set in various formats.
+Guide the user through exporting a completed DJ set via the v1 polymorphic dispatchers. See @docs/tool-catalog.md (13 dispatchers + 27 resources + 6 prompts).
 
 ## Steps
 
 1. **Review set quality first**
-   - `quick_set_review(set_id=...)` — check for hard conflicts
-   - If hard conflicts (score=0.0 transitions) exist, warn user
-   - Suggest fixing before delivery, or proceed with acknowledgment
+   - Read `local://sets/{id}/review` — hard conflicts (score=0.0) surface here
+   - If conflicts exist, warn the user and suggest fixing (see skill `build-set` — replacement / new version) before delivery
 
-2. **Choose delivery method**
+2. **Ensure audio files on disk (L4)**
+   - Deliver needs local MP3 files. Download and level-up to L4:
+     `entity_create(entity="audio_file", data={"track_ids": [...], "persistent": true})`
+     (handler `audio_file_download` fetches MP3 from provider + registers `DjLibraryItem` + bumps features to L4 / structure)
+   - Downloads are idempotent; existing files are skipped.
 
-   ### Full Delivery Pipeline
-   - `deliver_set(set_id=..., formats=["m3u8", "json", "cheatsheet"])`
-   - Valid formats: `m3u8`, `rekordbox`, `json`, `cheatsheet` (alias `cheat_sheet`). Default if omitted: `["m3u8", "cheat_sheet"]`.
-   - Creates output directory: `generated-sets/{set_name}/`
-   - Copies numbered MP3 files: `01. Track Title.mp3`, etc.
-   - Handles iCloud stubs (skips copy, references original path)
+3. **Use the `deliver_set_workflow` prompt**
+   - This is the canonical recipe. It chains scoring → conflict gate (elicitation) → file write → optional YM sync:
+     `deliver_set_workflow(set_id=<id>, formats=["m3u8","json","cheatsheet"], sync_to_ym=false)`
+   - Prompts live in `app/prompts/`; list via `list_prompts` MCP method.
 
-   ### Individual Export
-   - `export_set(set_id=..., format="m3u8")` — M3U8 with DJ tags
-   - `export_set(set_id=..., format="rekordbox")` — Rekordbox-compatible XML
-   - `export_set(set_id=..., format="json")` — full JSON guide with analytics
-   - `export_set(set_id=..., format="cheatsheet")` — human-readable transition notes
+4. **Inspect output resources**
+   - Cheat sheet: `local://sets/{id}/cheatsheet?version=<v>`
+   - Narrative: `local://sets/{id}/narrative`
+   - Full view: `local://sets/{id}/full`
+   - Files land in `generated-sets/{sanitized_set_name}/` — numbered MP3 copies + format artifacts.
 
-3. **Optional: Sync to Yandex Music**
-   - `deliver_set(set_id=..., sync_to_ym=true)` — push as YM playlist
-   - Or standalone: `push_set_to_ym(set_id=..., ym_playlist_name="...", mode="auto")`
-   - `mode` ∈ `{create, update, auto}` — `auto` updates an existing YM playlist with the same name, otherwise creates a new one
+5. **Optional: Sync to Yandex Music**
+   - Namespace `sync` is locked by default. Unlock once per session:
+     `unlock_namespace(namespace="sync", action="unlock")`
+   - Push the set's linked playlist: `playlist_sync(playlist_id=<set.linked_playlist_id>, direction="push", source="yandex", dry_run=false)`
+   - To create a fresh YM playlist first:
+     `provider_write(provider="yandex", entity="playlist", operation="create", params={"name": "..."})`
+     then add tracks: `provider_write(provider="yandex", entity="playlist", operation="add_tracks", params={"kind": <kind>, "track_ids": [...], "revision": <rev>})`
+     (`provider:write` also needs unlock)
 
-4. **Verify output**
-   - Check generated files in `generated-sets/` directory
-   - Verify M3U8 plays correctly in DJ software
-   - For Rekordbox: import XML via Rekordbox preferences
+6. **Verify output**
+   - Inspect `generated-sets/` directory
+   - Play M3U8 in the target DJ software
+   - For Rekordbox: import the XML via Rekordbox preferences
 
 ## Export Formats
 
@@ -46,25 +51,16 @@ Guide the user through exporting a completed DJ set in various formats.
 |--------|---------|----------|
 | **M3U8** | Standard + `#EXTDJ-*` tags (BPM, key, energy, cues, transitions) | DJ software, media players |
 | **Rekordbox XML** | Full Rekordbox-compatible XML with cues, loops, beatgrid | Rekordbox DJ import |
-| **JSON Guide** | Structured JSON with per-track/transition details + analytics | Programmatic access, custom tools |
+| **JSON Guide** | Per-track / per-transition details + analytics | Programmatic access, tooling |
 | **Cheat Sheet** | Human-readable text: BPM, key, transition type, score, warnings | Print for live DJ performance |
 
-## Rekordbox Options
-
-```text
-export_set(set_id=..., format="rekordbox", rekordbox_options={
-    "include_cue_points": true,
-    "include_saved_loops": true,
-    "include_beatgrid": true,
-    "include_sections": false
-})
-```
+Valid values passed to the workflow prompt: `m3u8`, `rekordbox`, `json`, `cheatsheet`. Default if omitted: `["m3u8", "cheatsheet"]`.
 
 ## Tips
 
-- Use `dry_run=true` first to preview what would be generated (no files written, no YM mutation)
-- `deliver_set` auto-triggers L4 analysis (structure + permanent MP3 download) for set tracks — see @docs/reports/tiered-analysis-design-2026-03-27.md
-- iCloud stubs (downloaded < 90% of expected size) are skipped during MP3 copy but referenced in M3U
-- On hard conflicts (score=0.0) `deliver_set` elicits a confirmation — answer "continue" or "abort"
-- Tool timeout: `deliver_set` is HEAVY (300s). Tool reference: @docs/tool-catalog.md
+- `dry_run=true` on `playlist_sync` previews YM mutations without applying — use before push
+- Delivery auto-triggers L4 (structure + permanent MP3) via the `audio_file_download` handler — no need for a separate analyze call
+- iCloud stubs (file < 90% of expected size) are skipped during copy but still referenced in the M3U
+- Hard conflicts trigger an elicitation inside `deliver_set_workflow` — answer `continue` or `abort`
+- Tool reference: @docs/tool-catalog.md; @docs/reports/tiered-analysis-design-2026-03-27.md (tiered analysis)
 - After delivery, the set is ready for import into Traktor, Rekordbox, or djay

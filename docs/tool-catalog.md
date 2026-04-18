@@ -1,6 +1,6 @@
 # MCP Tool Catalog
 
-Quick reference for v1.0.0 — **13 tool dispatchers + 20 resources + 6 prompts**.
+Quick reference for v1.0.1 — **13 tool dispatchers + 27 resources + 6 prompts + 6 handlers**.
 
 The 88-tool catalog of v0.8 was collapsed via polymorphism: generic CRUD
 (`entity_*`) dispatches via `EntityRegistry`, generic provider access
@@ -70,25 +70,32 @@ Handlers wire side-effects on create/update/delete:
 |------|--------|-----|
 | `unlock_namespace` | namespace(crud:destructive\|provider:write\|sync\|all), action(unlock\|lock\|status)=status | no |
 
-## Resources (20)
+## Resources (27)
 
 All read-only, MIME `application/json`, auto-discovered from `app/resources/`.
 
-### Local (per-entity views)
+### Local — entity views (16)
 
 | URI | File | Purpose |
 |---|---|---|
+| `local://tracks/{id}` | track.py | Single track view |
+| `local://tracks/{id}/features` | track.py | Audio features for a track |
+| `local://tracks/{id}/audit` | track.py | Techno audit for a track |
+| `local://tracks/{id}/suggest_next{?limit,energy_direction}` | track.py | Candidate next tracks from adaptive arc |
+| `local://tracks/{id}/suggest_replacement/{set_id}/{position}` | track.py | Replacement candidates for a slot |
 | `local://playlists/{id}{?include_tracks}` | playlist.py | Playlist detail |
 | `local://playlists/{id}/audit` | playlist.py | Techno audit report for a playlist |
 | `local://sets/{id}/{view}` | set.py | view=summary\|tracks\|transitions\|full |
 | `local://sets/{id}/cheatsheet{?version}` | set.py | DJ cheat sheet text |
 | `local://sets/{id}/narrative` | set.py | Narrative analysis (arc, moods) |
+| `local://sets/{id}/review` | set.py | Set quality review |
+| `local://sets/{id}/versions/compare/{a}/{b}` | set.py | Diff two set versions |
 | `local://transition/{from_id}/{to_id}/score` | transition.py | Pairwise transition score |
 | `local://transition/{from_id}/{to_id}/explain` | transition.py | Explain scored components |
 | `local://transition_history/best_pairs{?track_id,limit}` | transition_history.py | Best historical pairs |
 | `local://transition_history/history{?limit,track_id}` | transition_history.py | Transition log |
 
-### Schema (introspection)
+### Schema — introspection (4)
 
 | URI | Purpose |
 |---|---|
@@ -97,7 +104,7 @@ All read-only, MIME `application/json`, auto-discovered from `app/resources/`.
 | `schema://providers` | List providers + capabilities |
 | `schema://providers/{name}` | Single provider: supported entities/operations |
 
-### Session (per-client state)
+### Session — per-client state (3)
 
 | URI | Purpose |
 |---|---|
@@ -105,7 +112,7 @@ All read-only, MIME `application/json`, auto-discovered from `app/resources/`.
 | `session://tool-history` | Last N tool calls in session |
 | `session://energy-trend{?limit}` | Adaptive arc — energy direction suggestion |
 
-### Reference (static knowledge)
+### Reference — static knowledge (4)
 
 | URI | Purpose |
 |---|---|
@@ -146,7 +153,8 @@ client re-fetches the tool list.
 
 ## Tool count history
 
-| Version | Count | Notes |
-|---|---|---|
-| v0.8.0 | 88 | 61 visible + 27 hidden; narrow per-operation tools |
-| v1.0.0 | 13 | Generic dispatchers + polymorphism; resources/prompts carry the rest |
+| Version | Tools | Resources | Notes |
+|---|---|---|---|
+| v0.8.0 | 88 | ~9 | 61 visible + 27 hidden; narrow per-operation tools |
+| v1.0.0 | 13 | 27 | Generic dispatchers + polymorphism; resources/prompts carry the rest |
+| v1.0.1 | 13 | 27 | +`provider_write(... set_description)` operation; auto-reload hook; entrypoint pinned to root `server.py` |

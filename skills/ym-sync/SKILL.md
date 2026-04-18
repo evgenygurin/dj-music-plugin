@@ -1,80 +1,86 @@
 ---
 name: ym-sync
 description: "Use when the user asks to sync a playlist, push or pull from Yandex Music, search YM, manage YM playlists, or manage YM likes. Covers bidirectional sync, playlist management, search and likes."
-version: 0.7.1
+version: 1.0.1
 ---
 
 # Yandex Music Sync Workflow
 
-Guide the user through syncing local playlists with Yandex Music.
+Guide the user through syncing local playlists with Yandex Music via the v1 polymorphic dispatchers. See @docs/tool-catalog.md (13 dispatchers + 27 resources).
 
-## Unlock YM Tools First
+## Unlock Namespaces First
 
-YM tools are in the extended category. Unlock if needed:
+Read ops are visible by default. Mutating ops live in locked namespaces — unlock per session:
+
 ```text
-unlock_tools(action="unlock", category="ym")
+unlock_namespace(namespace="provider:write", action="unlock")   # provider_write
+unlock_namespace(namespace="sync",          action="unlock")   # playlist_sync
+unlock_namespace(namespace="all",           action="unlock")   # both + crud:destructive
 ```
+
+`unlock_namespace` fires `notifications/tools/list_changed` — the client will re-fetch the tool list.
 
 ## Sync Actions
 
 ### Search YM
-- `ym_search(query="...", type="tracks")` — search tracks (note: plural form, see @.claude/rules/ym.md)
-- `ym_search(query="...", type="all")` — search everything
-- Types: `tracks`, `albums`, `artists`, `playlists`, `all`
+- `provider_search(provider="yandex", query="...", type="tracks", limit=20)` — search tracks (plural `tracks`, см. @.claude/rules/ym.md)
+- `type` values: `tracks`, `albums`, `artists`, `playlists`, `all`
 
-### Get Track Info
-- `ym_get_tracks(track_ids=["12345", "67890"])` — batch fetch
-- `ym_get_album(album_id=..., include_tracks=true)` — album with tracks
-- `ym_artist_tracks(artist_id=..., page=0)` — paginated artist tracks
+### Read YM Data (`provider_read`)
+- Single track: `provider_read(provider="yandex", entity="track", id=<ym_track_id>)`
+- Batch tracks: `provider_read(provider="yandex", entity="track_batch", params={"ids": ["t1","t2"]})`
+- Album: `provider_read(provider="yandex", entity="album", id=<album_id>, params={"include_tracks": true})`
+- Artist tracks (paginated): `provider_read(provider="yandex", entity="artist_tracks", id=<artist_id>, params={"page": 0})`
+- Similar tracks: `provider_read(provider="yandex", entity="track_similar", id=<ym_track_id>, params={"limit": 20})`
+- Playlist: `provider_read(provider="yandex", entity="playlist", id="<owner>:<kind>")` (or pass `params={"kind": 1234}`)
+- User playlists: `provider_read(provider="yandex", entity="playlist_list")`
+- Liked / disliked: `provider_read(provider="yandex", entity="likes")` / `entity="dislikes"`
 
-### Playlist Management
+### Mutate YM (`provider_write` — namespace `provider:write`, locked)
 
-`ym_playlists` is action-dispatched. Identify a playlist by `kind` (numeric YM playlist kind), not by a generic `playlist_id`. Mutating actions need a fresh `revision`.
+Identify a playlist by `kind` (numeric). Mutating actions need a fresh `revision` — re-fetch via `provider_read` after each edit.
 
-- `ym_playlists(action="list")` — list user's YM playlists
-- `ym_playlists(action="get", kind=1234)` — get playlist metadata
-- `ym_playlists(action="get_tracks", kind=1234)` — get playlist tracks (id/title/artists)
-- `ym_playlists(action="create", name="My Set")` — create new playlist
-- `ym_playlists(action="rename", kind=1234, name="New name")`
-- `ym_playlists(action="delete", kind=1234)`
-- `ym_playlists(action="add_tracks", kind=1234, track_ids=["t1", "t2"], revision=N)` — bare track IDs; album resolution happens server-side
-- `ym_playlists(action="remove_tracks", kind=1234, track_ids=["t1"])` — removes by track_id (not by position)
+- Create: `provider_write(provider="yandex", entity="playlist", operation="create", params={"name": "My Set"})`
+- Rename: `provider_write(provider="yandex", entity="playlist", operation="rename", params={"kind": 1234, "name": "New"})`
+- Delete: `provider_write(provider="yandex", entity="playlist", operation="delete", params={"kind": 1234})`
+- Add tracks (bare track IDs, album resolution happens server-side):
+  `provider_write(provider="yandex", entity="playlist", operation="add_tracks", params={"kind": 1234, "track_ids": ["t1","t2"], "revision": <rev>})`
+- Remove tracks (by track_id, not position):
+  `provider_write(provider="yandex", entity="playlist", operation="remove_tracks", params={"kind": 1234, "track_ids": ["t1"], "revision": <rev>})`
+- Set description: `provider_write(provider="yandex", entity="playlist", operation="set_description", params={"kind": 1234, "description": "..."})`
+- Likes: `provider_write(provider="yandex", entity="likes", operation="add"|"remove", params={"track_ids": [...]})`
 
-### Likes
-- `ym_likes(action="get_liked")` — get liked track IDs
-- `ym_likes(action="add", track_ids=[...])` — like tracks
-- `ym_likes(action="remove", track_ids=[...])` — unlike
+### Bidirectional Sync (`playlist_sync` — namespace `sync`, locked)
 
-### Bidirectional Sync
-- `sync_playlist(playlist_id=..., direction="pull")` — pull YM → local (default)
-- `sync_playlist(playlist_id=..., direction="push")` — push local → YM
-- `conflict_strategy="source_wins"` (default) — source of truth wins silently
-- `dry_run=true` (default) — preview changes; pass `false` to apply
+- Diff preview: `playlist_sync(playlist_id=<local_id>, direction="diff", source="yandex", dry_run=true)`
+- Pull (YM → local): `playlist_sync(playlist_id=<local_id>, direction="pull", source="yandex")`
+- Push (local → YM): `playlist_sync(playlist_id=<local_id>, direction="push", source="yandex")`
+- `dry_run=true` (default) — preview; pass `false` to apply
 
-### Push DJ Set to YM
-- `push_set_to_ym(set_id=..., ym_playlist_name="My DJ Set", mode="auto")`
-- `mode` ∈ `{create, update, auto}` — `auto` updates an existing YM playlist with the same name, otherwise creates one
+### Push a DJ Set to YM
+
+No dedicated tool — compose from primitives:
+1. Create target YM playlist: `provider_write(... operation="create" ...)`
+2. Link set → playlist: `entity_update(entity="set", id=<set_id>, data={"linked_ym_playlist_id": "<owner>:<kind>"})`
+3. Sync tracks: `playlist_sync(playlist_id=<local_id_of_set_playlist>, direction="push", dry_run=false)`
+
+Or use the `deliver_set_workflow` prompt with `sync_to_ym=true`.
 
 ## Source of Truth
 
-Each playlist has a `source_of_truth`:
-- `"local"` — local DB is authoritative, push changes to YM
-- `"yandex"` — YM is authoritative, pull changes to local
-
-Sync direction follows source of truth by default.
+Each `playlist` has a `source_of_truth` field — `"local"` or `"yandex"`. Sync direction follows source of truth by default; override explicitly via `direction`.
 
 ## YM API Quirks
 
-See @docs/ym-api-guide.md for full details. Highlights:
-
+See @docs/ym-api-guide.md. Highlights:
 - **Rate limiting**: 1.5s between calls + exponential backoff on 429
-- **Playlist edits use diff format**: handled inside the client
-- **`revision` is required** for `add_tracks` — fetch it via `ym_playlists(action="get", kind=...)` first
-- **Broken endpoints**: artist brief-info (403 Antirobot), lyrics (400 HMAC) — skipped
+- **Playlist edits use diff format** — handled inside the YandexAdapter
+- **`revision` is required** for `add_tracks` / `remove_tracks` — fetch via `provider_read` after each mutation
+- **Broken endpoints**: artist brief-info (403 Antirobot), lyrics (400 HMAC) — skipped gracefully
 
 ## Tips
 
-- Always `sync_playlist` before building sets from YM-sourced playlists
-- Use `dry_run=true` first to see what would change
-- Batch operations (get_tracks, get_albums) are more efficient than one-by-one
-- Track IDs are strings in YM (not integers)
+- Always `playlist_sync(direction="pull")` before building sets from YM-sourced playlists
+- `dry_run=true` on sync previews the diff without mutating
+- Batch reads (`track_batch`, `playlist_list`) are cheaper than loop-calling per-ID
+- YM track IDs are strings, not integers
