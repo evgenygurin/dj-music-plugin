@@ -56,17 +56,7 @@ async def entity_get(
         raise ValueError(f"get not allowed on entity {entity!r}")
 
     repo = getattr(uow, config.repo_attr)
-
-    load_only: list[str] | None = None
-    if isinstance(fields, str):
-        if fields not in config.field_presets:
-            raise ValueError(f"unknown preset {fields!r}")
-        preset = config.field_presets[fields]
-        load_only = list(preset) if preset != "*" else None
-    elif isinstance(fields, list):
-        load_only = fields
-
-    row = await repo.get(id, load_only=load_only)
+    row = await repo.get(id)
     if row is None:
         raise NotFoundError(entity, id)
 

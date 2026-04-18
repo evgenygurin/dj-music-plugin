@@ -44,5 +44,5 @@ class SamplingBudgetMiddleware(Middleware):
         call_next: Callable[[MiddlewareContext], Awaitable[Any]],
     ) -> Any:
         if context.fastmcp_context is not None:
-            context.fastmcp_context.state["sampling_budget"] = self
+            await context.fastmcp_context.set_state("sampling_budget", self, serializable=False)
         return await call_next(context)

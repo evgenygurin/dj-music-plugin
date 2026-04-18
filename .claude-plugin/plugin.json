@@ -14,14 +14,14 @@
       "command": "bash",
       "args": [
         "-c",
-        "cd \"${CLAUDE_PLUGIN_ROOT}\" && exec uv run fastmcp run fastmcp.json --no-banner"
+        "cd \"${DJ_PLUGIN_DEV_PATH:-${CLAUDE_PLUGIN_ROOT}}\" && exec uv run fastmcp run fastmcp.json --no-banner"
       ]
     },
     "db": {
       "command": "bash",
       "args": [
         "-c",
-        "cd \"${CLAUDE_PLUGIN_ROOT}\" && set -a && source .env 2>/dev/null && set +a && SUPABASE_ACCESS_TOKEN=\"${DJ_DB_ACCESS_TOKEN:?DJ_DB_ACCESS_TOKEN not set in .env}\" exec npx -y @supabase/mcp-server-supabase@0.7.0 --read-only --project-ref=bowosphlnghhgaulcyfm --features=database,docs,debug"
+        "cd \"${DJ_PLUGIN_DEV_PATH:-${CLAUDE_PLUGIN_ROOT}}\" && set -a && source .env 2>/dev/null && set +a && SUPABASE_ACCESS_TOKEN=\"${DJ_DB_ACCESS_TOKEN:?DJ_DB_ACCESS_TOKEN not set in .env}\" exec npx -y @supabase/mcp-server-supabase@0.7.0 --read-only --project-ref=bowosphlnghhgaulcyfm --features=database,docs,debug"
       ]
     }
   }

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from sqlalchemy import select, update
 
+from app.domain.transition.features import TrackFeatures
 from app.models.track_features import TrackAudioFeaturesComputed
 from app.repositories.base import BaseRepository
 from app.shared.errors import NotFoundError
@@ -12,17 +13,15 @@ from app.shared.errors import NotFoundError
 class TrackFeaturesRepository(BaseRepository[TrackAudioFeaturesComputed]):
     model = TrackAudioFeaturesComputed
 
-    async def get_scoring_features_batch(
-        self, track_ids: list[int]
-    ) -> dict[int, TrackAudioFeaturesComputed]:
-        """One SQL for N tracks; missing rows are silently omitted."""
+    async def get_scoring_features_batch(self, track_ids: list[int]) -> dict[int, TrackFeatures]:
+        """Batch load scoring features as TrackFeatures dataclasses (JSON vectors parsed)."""
         if not track_ids:
             return {}
         stmt = select(TrackAudioFeaturesComputed).where(
             TrackAudioFeaturesComputed.track_id.in_(track_ids)
         )
         rows = (await self.session.execute(stmt)).scalars().all()
-        return {r.track_id: r for r in rows}
+        return {r.track_id: TrackFeatures.from_db(r) for r in rows}
 
     async def set_mood(self, track_id: int, *, mood: str, confidence: float) -> None:
         """Update mood + confidence on an existing features row."""

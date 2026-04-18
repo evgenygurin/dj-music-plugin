@@ -32,23 +32,31 @@ def _active_context() -> Any:
     return get_context()
 
 
-def _read_slot(ctx: Any, key: str, what: str) -> Any:
-    """Read ``ctx.fastmcp_context.state[key]`` or raise a descriptive error.
+import inspect
 
-    Accepts either a fastmcp Context-like object (with ``.fastmcp_context.state``)
-    or a test-shaped ``SimpleNamespace(fastmcp_context=SimpleNamespace(state=...))``.
-    If ``ctx`` is None, fall back to the runtime-active context.
+
+async def _read_slot(ctx: Any, key: str, what: str) -> Any:
+    """Read ``ctx.fastmcp_context`` state slot or raise a descriptive error.
+
+    FastMCP 3.x exposes state via async ``get_state(key)``. Legacy/test
+    contexts may expose a plain dict ``.state``. Both are supported.
     """
     if ctx is None:
         ctx = _active_context()
 
     fastmcp_ctx = getattr(ctx, "fastmcp_context", ctx)
-    state = getattr(fastmcp_ctx, "state", None)
-    if state is None:
-        raise RuntimeError(
-            f"{what} not initialized — check lifespan composition or DbSessionMiddleware"
-        )
-    value = state.get(key) if hasattr(state, "get") else None
+    value: Any = None
+    getter = getattr(fastmcp_ctx, "get_state", None)
+    if callable(getter):
+        try:
+            result = getter(key)
+            value = await result if inspect.isawaitable(result) else result
+        except Exception:
+            value = None
+    if value is None:
+        state = getattr(fastmcp_ctx, "state", None)
+        if state is not None and hasattr(state, "get"):
+            value = state.get(key)
     if value is None:
         raise RuntimeError(
             f"{what} not initialized — check lifespan composition or DbSessionMiddleware"
@@ -56,36 +64,53 @@ def _read_slot(ctx: Any, key: str, what: str) -> Any:
     return value
 
 
-def get_uow(ctx: Any = None) -> UnitOfWork:
+async def get_uow(ctx: Any = None) -> UnitOfWork:
     """Return the per-tool-call UnitOfWork set by DbSessionMiddleware."""
-    return _read_slot(ctx, "uow", "UnitOfWork")
+    return await _read_slot(ctx, "uow", "UnitOfWork")
 
 
-def get_provider_registry(ctx: Any = None) -> ProviderRegistry:
+async def get_provider_registry(ctx: Any = None) -> ProviderRegistry:
     """Return the ProviderRegistry populated by provider_lifespan."""
-    return _read_slot(ctx, "provider_registry", "ProviderRegistry")
+    return _read_lifespan(ctx, "provider_registry", "ProviderRegistry")
 
 
-def get_analyzer_registry(ctx: Any = None) -> Any:
+async def get_analyzer_registry(ctx: Any = None) -> Any:
     """Return the AnalyzerRegistry populated by audio_lifespan."""
-    return _read_slot(ctx, "analyzer_registry", "AnalyzerRegistry")
+    return await _read_slot(ctx, "analyzer_registry", "AnalyzerRegistry")
 
 
-def get_audio_pipeline(ctx: Any = None) -> Any:
+async def get_audio_pipeline(ctx: Any = None) -> Any:
     """Return the AnalysisPipeline populated by audio_lifespan."""
-    return _read_slot(ctx, "audio_pipeline", "AnalysisPipeline")
+    return await _read_slot(ctx, "audio_pipeline", "AnalysisPipeline")
 
 
-def get_session_store(ctx: Any = None) -> Any:
+async def get_session_store(ctx: Any = None) -> Any:
     """Return the SessionStore populated by session_store_lifespan."""
-    return _read_slot(ctx, "session_store", "SessionStore")
+    return await _read_slot(ctx, "session_store", "SessionStore")
 
 
-def get_transition_scorer(ctx: Any = None) -> Any:
-    """Return the TransitionScorer populated by the scoring lifespan / middleware."""
-    return _read_slot(ctx, "transition_scorer", "TransitionScorer")
+def _read_lifespan(ctx: Any, key: str, what: str) -> Any:
+    """Read lifespan-yielded state (request_context.lifespan_context[key])."""
+    if ctx is None:
+        ctx = _active_context()
+    fctx = getattr(ctx, "fastmcp_context", ctx)
+    rc = getattr(fctx, "request_context", None)
+    lc = getattr(rc, "lifespan_context", None) if rc is not None else None
+    value = lc.get(key) if isinstance(lc, dict) else None
+    if value is None:
+        raise RuntimeError(f"{what} not initialized — check scoring_lifespan composition")
+    return value
 
 
-def get_optimizer(ctx: Any = None) -> Any:
-    """Return the optimizer factory populated by lifespan state."""
-    return _read_slot(ctx, "optimizer", "Optimizer")
+async def get_transition_scorer(ctx: Any = None) -> Any:
+    """Return the TransitionScorer populated by scoring_lifespan."""
+    return _read_lifespan(ctx, "transition_scorer", "TransitionScorer")
+
+
+async def get_optimizer(ctx: Any = None) -> Any:
+    """Return the optimizer factory populated by scoring_lifespan."""
+    return _read_lifespan(ctx, "optimizer", "Optimizer")
+
+
+async def get_provider_registry_from_lifespan(ctx: Any = None) -> Any:
+    return _read_lifespan(ctx, "provider_registry", "ProviderRegistry")
