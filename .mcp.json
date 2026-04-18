@@ -1,0 +1,23 @@
+{
+  "mcpServers": {
+    "mcp": {
+      "command": "uv",
+      "args": [
+        "run",
+        "--project",
+        "${CLAUDE_PLUGIN_ROOT}",
+        "fastmcp",
+        "run",
+        "${CLAUDE_PLUGIN_ROOT}/server.py",
+        "--no-banner"
+      ]
+    },
+    "db": {
+      "command": "bash",
+      "args": [
+        "-c",
+        "cd '${CLAUDE_PLUGIN_ROOT}' && set -a && source .env 2>/dev/null && set +a && SUPABASE_ACCESS_TOKEN=\"${DJ_DB_ACCESS_TOKEN:?DJ_DB_ACCESS_TOKEN not set in .env}\" exec npx -y @supabase/mcp-server-supabase@0.7.0 --read-only --project-ref=bowosphlnghhgaulcyfm --features=database,docs,debug"
+      ]
+    }
+  }
+}
