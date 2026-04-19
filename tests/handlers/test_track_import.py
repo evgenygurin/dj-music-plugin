@@ -40,9 +40,9 @@ def uow() -> MagicMock:
     u.tracks.batch_get_by_provider_ids = AsyncMock(return_value={})
     u.tracks.create = AsyncMock(return_value=MagicMock(id=1, title="Techno Track"))
     u.tracks.get = AsyncMock(return_value=MagicMock(id=1, title="Techno Track"))
-    u.provider_metadata = MagicMock()
-    u.provider_metadata.upsert_yandex = AsyncMock()
-    u.provider_metadata.upsert_external_id = AsyncMock()
+    u.tracks.ensure_external_id = AsyncMock()
+    u.yandex_metadata = MagicMock()
+    u.yandex_metadata.upsert = AsyncMock()
     u.playlists = MagicMock()
     u.playlists.add_track = AsyncMock()
     return u
@@ -68,7 +68,8 @@ async def test_import_single_track_from_yandex(
     assert result["imported"][0]["external_id"] == "12345"
     provider.read.assert_awaited()
     uow.tracks.create.assert_awaited_once()
-    uow.provider_metadata.upsert_yandex.assert_awaited_once()
+    uow.yandex_metadata.upsert.assert_awaited_once()
+    uow.tracks.ensure_external_id.assert_awaited_once()
 
 
 @pytest.mark.asyncio

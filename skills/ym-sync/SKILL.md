@@ -61,8 +61,8 @@ Identify a playlist by `kind` (numeric). Mutating actions need a fresh `revision
 
 No dedicated tool — compose from primitives:
 1. Create target YM playlist: `provider_write(... operation="create" ...)`
-2. Link set → playlist: `entity_update(entity="set", id=<set_id>, data={"linked_ym_playlist_id": "<owner>:<kind>"})`
-3. Sync tracks: `playlist_sync(playlist_id=<local_id_of_set_playlist>, direction="push", dry_run=false)`
+2. Record the YM `owner:kind` pair on the local playlist (`dj_playlists.platform_ids`) — this is the link the sync tool reads.
+3. Sync tracks: `playlist_sync(playlist_id=<local_playlist_id>, direction="push", dry_run=false)`
 
 Or use the `deliver_set_workflow` prompt with `sync_to_ym=true`.
 

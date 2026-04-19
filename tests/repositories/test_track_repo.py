@@ -29,7 +29,7 @@ async def test_inherited_crud(repo: TrackRepository) -> None:
 @pytest.mark.asyncio
 async def test_get_provider_id(repo: TrackRepository, session: AsyncSession) -> None:
     t = await repo.create(title="x")
-    session.add(TrackExternalId(track_id=t.id, provider_code="yandex_music", external_id="12345"))
+    session.add(TrackExternalId(track_id=t.id, platform="yandex_music", external_id="12345"))
     await session.flush()
     pid = await repo.get_provider_id(t.id, "yandex_music")
     assert pid == "12345"
@@ -47,8 +47,8 @@ async def test_batch_get_by_provider_ids(repo: TrackRepository, session: AsyncSe
     t2 = await repo.create(title="b")
     session.add_all(
         [
-            TrackExternalId(track_id=t1.id, provider_code="yandex_music", external_id="A1"),
-            TrackExternalId(track_id=t2.id, provider_code="yandex_music", external_id="B2"),
+            TrackExternalId(track_id=t1.id, platform="yandex_music", external_id="A1"),
+            TrackExternalId(track_id=t2.id, platform="yandex_music", external_id="B2"),
         ]
     )
     await session.flush()

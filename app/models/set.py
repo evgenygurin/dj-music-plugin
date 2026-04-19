@@ -36,7 +36,6 @@ class DjSet(Base, TimestampMixin):
     source_playlist_id: Mapped[int | None] = mapped_column(
         ForeignKey("dj_playlists.id", ondelete="SET NULL"), nullable=True, index=True
     )
-    linked_ym_playlist_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
 
     versions: Mapped[list[DjSetVersion]] = relationship(
         back_populates="dj_set", cascade="all, delete-orphan"
