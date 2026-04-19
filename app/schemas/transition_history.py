@@ -12,33 +12,50 @@ class TransitionHistoryView(BaseModel):
     id: int
     from_track_id: int
     to_track_id: int
-    set_id: int | None = None
     overall_score: float | None = None
+    bpm_score: float | None = None
+    harmonic_score: float | None = None
+    energy_score: float | None = None
+    spectral_score: float | None = None
+    groove_score: float | None = None
+    timbral_score: float | None = None
     style: str | None = None
-    reaction: Literal["positive", "neutral", "negative"] | None = None
-    notes: str | None = None
+    duration_sec: float | None = None
+    tempo_match_ratio: float | None = None
+    user_reaction: Literal["positive", "neutral", "negative"] | None = None
+    session_id: str | None = None
 
 
 class TransitionHistoryFilter(BaseModel):
     model_config = ConfigDict(extra="forbid")
     from_track_id__eq: int | None = None
     to_track_id__eq: int | None = None
-    reaction__eq: Literal["positive", "neutral", "negative"] | None = None
+    user_reaction__eq: Literal["positive", "neutral", "negative"] | None = None
     overall_score__gte: float | None = None
+    session_id__eq: str | None = None
 
 
 class TransitionHistoryCreate(BaseModel):
     model_config = ConfigDict(extra="forbid")
     from_track_id: int
     to_track_id: int
-    set_id: int | None = None
     overall_score: float | None = Field(default=None, ge=0.0, le=1.0)
+    bpm_score: float | None = None
+    harmonic_score: float | None = None
+    energy_score: float | None = None
+    spectral_score: float | None = None
+    groove_score: float | None = None
+    timbral_score: float | None = None
     style: str | None = None
-    reaction: Literal["positive", "neutral", "negative"] | None = None
-    notes: str | None = None
+    duration_sec: float | None = None
+    tempo_match_ratio: float | None = None
+    user_reaction: Literal["positive", "neutral", "negative"] | None = None
+    session_id: str | None = None
 
 
 class TransitionHistoryUpdate(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    reaction: Literal["positive", "neutral", "negative"] | None = None
-    notes: str | None = None
+    user_reaction: Literal["positive", "neutral", "negative"] | None = None
+    style: str | None = None
+    duration_sec: float | None = None
+    tempo_match_ratio: float | None = None

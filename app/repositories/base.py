@@ -219,4 +219,10 @@ class BaseRepository(Generic[M]):
         stmt = select(value_expr).select_from(self.model)
         for clause in parse_filter(self.model, where or {}):
             stmt = stmt.where(clause)
-        return (await self.session.execute(stmt)).scalar_one()
+        raw = (await self.session.execute(stmt)).scalar_one()
+        # ``sum`` / ``avg`` over zero rows (or all-NULL) returns None from
+        # Postgres. AggregateResult.value is non-nullable, so coalesce to 0
+        # for numeric ops and keep ``count`` at its real value.
+        if raw is None and op in {"sum", "avg"}:
+            return 0
+        return raw
