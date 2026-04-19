@@ -31,14 +31,14 @@ class SetVersionRepository(BaseRepository[DjSetVersion]):
     async def get_items(self, version_id: int) -> list[DjSetItem]:
         stmt = (
             select(DjSetItem)
-            .where(DjSetItem.set_version_id == version_id)
+            .where(DjSetItem.version_id == version_id)
             .order_by(DjSetItem.sort_index)
         )
         return list((await self.session.execute(stmt)).scalars())
 
     async def create_items(self, version_id: int, track_order: list[int]) -> int:
         items = [
-            DjSetItem(set_version_id=version_id, track_id=tid, sort_index=i)
+            DjSetItem(version_id=version_id, track_id=tid, sort_index=i)
             for i, tid in enumerate(track_order)
         ]
         self.session.add_all(items)

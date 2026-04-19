@@ -181,11 +181,11 @@ def register_default_entities() -> None:
             allowed_ops=frozenset({"list", "get", "create", "delete", "aggregate"}),
             field_presets={
                 "id": ["id"],
-                "summary": ["id", "set_id", "version_label", "quality_score"],
+                "summary": ["id", "set_id", "label", "quality_score"],
                 "full": "*",
             },
             default_preset="id",
-            searchable_fields=("version_label",),
+            searchable_fields=("label",),
             filterable_fields={"set_id": ("eq", "in")},
             sortable_fields=("id", "quality_score"),
             relations={"items": "dj_set_items"},

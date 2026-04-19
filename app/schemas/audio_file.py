@@ -11,7 +11,7 @@ class AudioFileView(BaseModel):
     track_id: int
     file_path: str
     file_size: int
-    bitrate_kbps: int | None = None
+    bitrate: int | None = None
     sample_rate: int | None = None
     channels: int | None = None
 

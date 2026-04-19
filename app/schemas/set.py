@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Literal
+from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -37,7 +37,6 @@ class SetCreate(BaseModel):
     target_bpm_max: int | None = Field(default=None, ge=60, le=250)
     template_name: str | None = None
     source_playlist_id: int | None = None
-    algorithm: Literal["greedy", "ga"] | None = None
 
 
 class SetUpdate(BaseModel):
@@ -52,7 +51,7 @@ class SetVersionView(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: int
     set_id: int
-    version_label: str
+    label: str
     quality_score: float | None = None
     generator_run_meta: dict[str, Any] | None = None
 
@@ -60,7 +59,7 @@ class SetVersionView(BaseModel):
 class SetVersionCreate(BaseModel):
     model_config = ConfigDict(extra="forbid")
     set_id: int
-    version_label: str
+    label: str
     track_order: list[int]
     quality_score: float | None = Field(default=None, ge=0.0, le=1.0)
     generator_run_meta: dict[str, Any] | None = None
