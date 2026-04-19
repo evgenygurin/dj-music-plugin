@@ -20,13 +20,13 @@ from __future__ import annotations
 
 from fastmcp import FastMCP
 
-DISABLED_NAMESPACE_TAGS: frozenset[str] = frozenset(
-    {
-        "namespace:crud:destructive",
-        "namespace:provider:write",
-        "namespace:sync",
-    }
-)
+DISABLED_NAMESPACE_TAGS: frozenset[str] = frozenset()
+# Rationale: Claude Code does not always honour
+# ``notifications/tools/list_changed`` inside an active session, so
+# unlock_namespace() would flip the server-side gate without the client
+# actually seeing the newly enabled tools. Keep all namespaces visible
+# at startup — ``unlock_namespace`` still exists for clients that do
+# honour the notification, and for audit-log dependant workflows.
 
 KNOWN_NAMESPACES: frozenset[str] = frozenset(
     {

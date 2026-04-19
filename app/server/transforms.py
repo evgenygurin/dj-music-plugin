@@ -33,16 +33,23 @@ except ImportError:  # pragma: no cover
 
 
 # Always-visible tools — everything else is BM25-ranked per client query.
+# Destructive / provider:write / sync tools are included here now that the
+# global visibility gate is off (see app/server/visibility.py rationale).
 ALWAYS_VISIBLE_TOOLS: tuple[str, ...] = (
     "entity_list",
     "entity_get",
     "entity_create",
+    "entity_update",
+    "entity_delete",
     "entity_aggregate",
     "provider_read",
     "provider_search",
+    "provider_write",
     "transition_score_pool",
     "sequence_optimize",
+    "playlist_sync",
     "unlock_namespace",
+    "tool_invoke",
 )
 
 

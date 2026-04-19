@@ -28,15 +28,16 @@ async def test_list_tools_after_build() -> None:
 
 
 @pytest.mark.asyncio
-async def test_namespace_policy_hides_tools() -> None:
-    """Visibility policy should disable entity_delete / provider_write /
-    playlist_sync globally at startup."""
+async def test_namespace_policy_exposes_all_tools() -> None:
+    """All dispatcher-level tools are visible on startup — Claude Code and
+    other clients that do not honour ``list_changed`` mid-session could
+    never reach previously-hidden tools otherwise."""
     mcp = build_mcp_server()
     async with Client(mcp) as client:
         tools = await client.list_tools()
         names = {t.name for t in tools}
-    for hidden in ("entity_delete", "provider_write", "playlist_sync"):
-        assert hidden not in names, f"{hidden} should be disabled by visibility policy"
+    for required in ("entity_delete", "provider_write", "playlist_sync"):
+        assert required in names, f"{required} should be visible by default"
 
 
 @pytest.mark.asyncio
