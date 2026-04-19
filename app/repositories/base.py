@@ -145,3 +145,71 @@ class BaseRepository(Generic[M]):
             total = await self.count(where=where)
 
         return Page(items=items, next_cursor=next_cursor, total=total)  # type: ignore[arg-type]
+
+    # ── aggregate ─────────────────────────────────────
+
+    async def aggregate(
+        self,
+        *,
+        operation: str,
+        field: str | None = None,
+        group_by: str | None = None,
+        where: dict[str, Any] | None = None,
+    ) -> Any:
+        """Run a single-pass aggregate (count/sum/avg/min_max/distinct/histogram).
+
+        Returns a scalar for ungrouped count/sum/avg, a mapping for
+        ``min_max``, a list for ``distinct``/``histogram``, or — when
+        ``group_by`` is set — a list of ``{group, value}`` dicts.
+        """
+        op = operation
+        field_col = getattr(self.model, field, None) if field else None
+        if op in {"sum", "avg", "min_max", "histogram"} and field_col is None:
+            raise ValidationError(f"operation {op!r} requires a valid field")
+
+        group_col = getattr(self.model, group_by, None) if group_by else None
+        if group_by and group_col is None:
+            raise ValidationError(f"unknown group_by field {group_by!r}")
+
+        match op:
+            case "count":
+                value_expr = func.count()
+            case "sum":
+                value_expr = func.sum(field_col)
+            case "avg":
+                value_expr = func.avg(field_col)
+            case "min_max":
+                stmt = select(func.min(field_col), func.max(field_col)).select_from(self.model)
+                for clause in parse_filter(self.model, where or {}):
+                    stmt = stmt.where(clause)
+                row = (await self.session.execute(stmt)).one()
+                return {"min": row[0], "max": row[1]}
+            case "distinct":
+                if field_col is None:
+                    raise ValidationError("operation 'distinct' requires field")
+                stmt = select(field_col).select_from(self.model).distinct()
+                for clause in parse_filter(self.model, where or {}):
+                    stmt = stmt.where(clause)
+                return list((await self.session.execute(stmt)).scalars().all())
+            case "histogram":
+                # {value: count} for discrete fields — caller buckets numeric ones.
+                stmt = select(field_col, func.count()).select_from(self.model).group_by(field_col)
+                for clause in parse_filter(self.model, where or {}):
+                    stmt = stmt.where(clause)
+                rows = (await self.session.execute(stmt)).all()
+                return [{"bucket": r[0], "count": int(r[1])} for r in rows]
+            case _:
+                raise ValidationError(f"unsupported aggregate operation: {op!r}")
+
+        # count / sum / avg flow
+        if group_col is not None:
+            stmt = select(group_col, value_expr).select_from(self.model).group_by(group_col)
+            for clause in parse_filter(self.model, where or {}):
+                stmt = stmt.where(clause)
+            rows = (await self.session.execute(stmt)).all()
+            return [{"group": r[0], "value": r[1]} for r in rows]
+
+        stmt = select(value_expr).select_from(self.model)
+        for clause in parse_filter(self.model, where or {}):
+            stmt = stmt.where(clause)
+        return (await self.session.execute(stmt)).scalar_one()

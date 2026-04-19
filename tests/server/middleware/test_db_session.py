@@ -27,8 +27,18 @@ class _FakeSession:
 
 
 def _ctx_with_factory(factory):
+    state: dict = {}
+
+    async def _set_state(key: str, value, *, serializable: bool = True) -> None:
+        state[key] = value
+
+    async def _delete_state(key: str) -> None:
+        state.pop(key, None)
+
     fctx = MagicMock()
-    fctx.state = {}
+    fctx.state = state
+    fctx.set_state = _set_state
+    fctx.delete_state = _delete_state
     fctx.request_context = SimpleNamespace(lifespan_context={"db_session_factory": factory})
     msg = MagicMock()
     msg.name = "entity_list"

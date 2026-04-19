@@ -94,7 +94,7 @@ def register_default_entities() -> None:
             filter_schema=TrackFilter,
             create_schema=TrackCreate,
             update_schema=TrackUpdate,
-            allowed_ops=frozenset({"list", "get", "create", "update", "delete"}),
+            allowed_ops=frozenset({"list", "get", "create", "update", "delete", "aggregate"}),
             field_presets={
                 "id": ["id"],
                 "ref": ["id", "title"],
@@ -124,7 +124,7 @@ def register_default_entities() -> None:
             filter_schema=PlaylistFilter,
             create_schema=PlaylistCreate,
             update_schema=PlaylistUpdate,
-            allowed_ops=frozenset({"list", "get", "create", "update", "delete"}),
+            allowed_ops=frozenset({"list", "get", "create", "update", "delete", "aggregate"}),
             field_presets={
                 "id": ["id"],
                 "ref": ["id", "name"],
@@ -149,7 +149,7 @@ def register_default_entities() -> None:
             filter_schema=SetFilter,
             create_schema=SetCreate,
             update_schema=SetUpdate,
-            allowed_ops=frozenset({"list", "get", "create", "update", "delete"}),
+            allowed_ops=frozenset({"list", "get", "create", "update", "delete", "aggregate"}),
             field_presets={
                 "id": ["id"],
                 "ref": ["id", "name"],
@@ -178,7 +178,7 @@ def register_default_entities() -> None:
             filter_schema=SetFilter,
             create_schema=SetVersionCreate,
             update_schema=SetUpdate,
-            allowed_ops=frozenset({"list", "get", "create", "delete"}),
+            allowed_ops=frozenset({"list", "get", "create", "delete", "aggregate"}),
             field_presets={
                 "id": ["id"],
                 "summary": ["id", "set_id", "version_label", "quality_score"],
@@ -203,7 +203,7 @@ def register_default_entities() -> None:
             filter_schema=AudioFileFilter,
             create_schema=AudioFileCreate,
             update_schema=AudioFileUpdate,
-            allowed_ops=frozenset({"list", "get", "create", "update", "delete"}),
+            allowed_ops=frozenset({"list", "get", "create", "update", "delete", "aggregate"}),
             field_presets={
                 "id": ["id"],
                 "summary": ["id", "track_id", "file_path", "file_size"],
@@ -228,7 +228,7 @@ def register_default_entities() -> None:
             filter_schema=TrackFeaturesFilter,
             create_schema=TrackFeaturesCreate,
             update_schema=TrackFeaturesUpdate,
-            allowed_ops=frozenset({"list", "get", "create", "update"}),
+            allowed_ops=frozenset({"list", "get", "create", "update", "aggregate"}),
             field_presets={
                 "id": ["track_id"],
                 "scoring": [
@@ -268,15 +268,15 @@ def register_default_entities() -> None:
             filter_schema=TransitionFilter,
             create_schema=TransitionCreate,
             update_schema=TransitionUpdate,
-            allowed_ops=frozenset({"list", "get", "create", "update", "delete"}),
+            allowed_ops=frozenset({"list", "get", "create", "update", "delete", "aggregate"}),
             field_presets={
                 "id": ["id"],
                 "summary": [
                     "id",
                     "from_track_id",
                     "to_track_id",
-                    "overall_score",
-                    "style",
+                    "overall_quality",
+                    "fx_type",
                 ],
                 "full": "*",
             },
@@ -285,9 +285,9 @@ def register_default_entities() -> None:
             filterable_fields={
                 "from_track_id": ("eq", "in"),
                 "to_track_id": ("eq", "in"),
-                "overall_score": ("gte", "lte"),
+                "overall_quality": ("gte", "lte"),
             },
-            sortable_fields=("id", "overall_score"),
+            sortable_fields=("id", "overall_quality"),
             relations={},
             tags=frozenset({"namespace:transitions"}),
             create_handler=transition_persist_handler,
@@ -303,7 +303,7 @@ def register_default_entities() -> None:
             filter_schema=TransitionHistoryFilter,
             create_schema=TransitionHistoryCreate,
             update_schema=TransitionHistoryUpdate,
-            allowed_ops=frozenset({"list", "get", "create", "update", "delete"}),
+            allowed_ops=frozenset({"list", "get", "create", "update", "delete", "aggregate"}),
             field_presets={
                 "id": ["id"],
                 "summary": [
@@ -311,7 +311,7 @@ def register_default_entities() -> None:
                     "from_track_id",
                     "to_track_id",
                     "overall_score",
-                    "reaction",
+                    "user_reaction",
                 ],
                 "full": "*",
             },
@@ -320,7 +320,7 @@ def register_default_entities() -> None:
             filterable_fields={
                 "from_track_id": ("eq", "in"),
                 "to_track_id": ("eq", "in"),
-                "reaction": ("eq",),
+                "user_reaction": ("eq",),
             },
             sortable_fields=("id", "overall_score"),
             relations={},
@@ -337,7 +337,7 @@ def register_default_entities() -> None:
             filter_schema=TrackFeedbackFilter,
             create_schema=TrackFeedbackCreate,
             update_schema=TrackFeedbackUpdate,
-            allowed_ops=frozenset({"list", "get", "create", "update", "delete"}),
+            allowed_ops=frozenset({"list", "get", "create", "update", "delete", "aggregate"}),
             field_presets={
                 "id": ["id"],
                 "summary": ["id", "track_id", "kind", "rating"],
@@ -361,7 +361,7 @@ def register_default_entities() -> None:
             filter_schema=TrackAffinityFilter,
             create_schema=TrackAffinityCreate,
             update_schema=TrackAffinityUpdate,
-            allowed_ops=frozenset({"list", "get", "create", "update"}),
+            allowed_ops=frozenset({"list", "get", "create", "update", "aggregate"}),
             field_presets={
                 "id": ["id"],
                 "summary": [
@@ -395,7 +395,7 @@ def register_default_entities() -> None:
             filter_schema=ScoringProfileFilter,
             create_schema=ScoringProfileCreate,
             update_schema=ScoringProfileUpdate,
-            allowed_ops=frozenset({"list", "get", "create", "update", "delete"}),
+            allowed_ops=frozenset({"list", "get", "create", "update", "delete", "aggregate"}),
             field_presets={
                 "id": ["id"],
                 "summary": ["id", "name"],

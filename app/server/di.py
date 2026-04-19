@@ -76,17 +76,17 @@ async def get_provider_registry(ctx: Any = None) -> ProviderRegistry:
 
 async def get_analyzer_registry(ctx: Any = None) -> Any:
     """Return the AnalyzerRegistry populated by audio_lifespan."""
-    return await _read_slot(ctx, "analyzer_registry", "AnalyzerRegistry")
+    return _read_lifespan(ctx, "analyzer_registry", "AnalyzerRegistry")
 
 
 async def get_audio_pipeline(ctx: Any = None) -> Any:
     """Return the AnalysisPipeline populated by audio_lifespan."""
-    return await _read_slot(ctx, "audio_pipeline", "AnalysisPipeline")
+    return _read_lifespan(ctx, "audio_pipeline", "AnalysisPipeline")
 
 
 async def get_session_store(ctx: Any = None) -> Any:
     """Return the SessionStore populated by session_store_lifespan."""
-    return await _read_slot(ctx, "session_store", "SessionStore")
+    return _read_lifespan(ctx, "session_store", "SessionStore")
 
 
 def _read_lifespan(ctx: Any, key: str, what: str) -> Any:

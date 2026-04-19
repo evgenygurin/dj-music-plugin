@@ -55,15 +55,14 @@ async def entity_aggregate(
     if "aggregate" not in config.allowed_ops:
         raise ValueError(f"aggregate not allowed on {entity!r}")
 
-    where = parse_django_filters(
-        filters or {},
-        allowed=config.filterable_fields,
-        searchable=config.searchable_fields,
-        search=None,
-    )
+    allowed = set(config.filterable_fields) | set(config.searchable_fields)
+    # Validate filter shape early (raises ValidationError on unknown field/op).
+    parse_django_filters(config.model, filters or {}, allowed_fields=allowed)
 
     repo = getattr(uow, config.repo_attr)
-    value = await repo.aggregate(operation=operation, field=field, group_by=group_by, where=where)
+    value = await repo.aggregate(
+        operation=operation, field=field, group_by=group_by, where=filters or {}
+    )
     return AggregateResult(
         entity=entity,
         operation=operation,

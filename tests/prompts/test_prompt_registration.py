@@ -67,7 +67,7 @@ def test_all_prompts_return_prompt_result() -> None:
         deliver_set_workflow(set_id=1),
         expand_playlist_workflow(playlist_id=1),
         full_pipeline(playlist_id=1),
-        quick_mix_check(track_a_id=1, track_b_id=2),
+        quick_mix_check(from_track_id=1, to_track_id=2),
     ]
     for r in results:
         assert isinstance(r, PromptResult)
