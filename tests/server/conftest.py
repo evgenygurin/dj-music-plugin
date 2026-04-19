@@ -4,10 +4,32 @@ from __future__ import annotations
 
 from collections.abc import AsyncIterator
 from types import SimpleNamespace
+from typing import Any
 from unittest.mock import MagicMock
 
 import pytest
 import pytest_asyncio
+
+
+def make_di_ctx(
+    *,
+    state: dict[str, Any] | None = None,
+    lifespan: dict[str, Any] | None = None,
+) -> SimpleNamespace:
+    """Context mock for ``app.server.di`` accessors.
+
+    ``get_uow`` reads ``fastmcp_context.state`` (through ``_read_slot``);
+    the five lifespan-yielded accessors (``get_provider_registry``,
+    ``get_analyzer_registry``, ``get_audio_pipeline``,
+    ``get_session_store``, ``get_transition_scorer``, ``get_optimizer``)
+    read ``fastmcp_context.request_context.lifespan_context`` (through
+    ``_read_lifespan``). Callers populate whichever slot the accessor
+    under test consults.
+    """
+    fctx = SimpleNamespace(state=dict(state or {}))
+    if lifespan is not None:
+        fctx.request_context = SimpleNamespace(lifespan_context=dict(lifespan))
+    return SimpleNamespace(fastmcp_context=fctx)
 
 
 @pytest.fixture(autouse=True)

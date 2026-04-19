@@ -88,12 +88,23 @@ async def mcp_server(
         "provider_registry": mock_provider_registry,
     }
 
-    def _fake_read_slot(ctx, key, what):  # type: ignore[no-untyped-def]
+    def _lookup(key: str, what: str):  # type: ignore[no-untyped-def]
         if key in _slots:
             return _slots[key]
         raise RuntimeError(f"{what} not initialized (test)")
 
+    # `_read_slot` is async (reads via `await fctx.get_state(...)`);
+    # `_read_lifespan` is sync (reads from `request_context.lifespan_context`).
+    # Preserving the signatures matters — a mismatch surfaces as
+    # `object MagicMock can't be used in 'await' expression`.
+    async def _fake_read_slot(ctx, key, what):  # type: ignore[no-untyped-def]
+        return _lookup(key, what)
+
+    def _fake_read_lifespan(ctx, key, what):  # type: ignore[no-untyped-def]
+        return _lookup(key, what)
+
     monkeypatch.setattr(di, "_read_slot", _fake_read_slot)
+    monkeypatch.setattr(di, "_read_lifespan", _fake_read_lifespan)
 
     mcp = await build_mcp_app_for_tests(
         with_middleware=False,
