@@ -48,7 +48,7 @@ def _row_to_entry(row: Any) -> dict[str, Any]:
         "from_track_id": getattr(row, "from_track_id", None),
         "to_track_id": getattr(row, "to_track_id", None),
         "at": at.isoformat() if at is not None and hasattr(at, "isoformat") else at,
-        "reaction": getattr(row, "reaction", None),
+        "user_reaction": getattr(row, "user_reaction", None),
         "overall_score": getattr(row, "overall_score", None),
         "style": getattr(row, "style", None),
     }

@@ -10,8 +10,15 @@ class TransitionView(BaseModel):
     id: int
     from_track_id: int
     to_track_id: int
-    overall_score: float | None = None
-    style: str | None = None
+    overall_quality: float | None = None
+    bpm_score: float | None = None
+    harmonic_score: float | None = None
+    energy_score: float | None = None
+    spectral_score: float | None = None
+    groove_score: float | None = None
+    timbral_score: float | None = None
+    hard_reject: bool | None = None
+    fx_type: str | None = None
 
 
 class TransitionFilter(BaseModel):
@@ -20,7 +27,7 @@ class TransitionFilter(BaseModel):
     to_track_id__eq: int | None = None
     from_track_id__in: list[int] | None = None
     to_track_id__in: list[int] | None = None
-    overall_score__gte: float | None = None
+    overall_quality__gte: float | None = None
 
 
 class TransitionCreate(BaseModel):

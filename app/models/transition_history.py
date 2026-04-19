@@ -16,7 +16,7 @@ class TransitionHistory(Base, TimestampMixin):
             name="ck_history_score_range",
         ),
         CheckConstraint(
-            "reaction IS NULL OR reaction IN ('positive', 'neutral', 'negative')",
+            "user_reaction IS NULL OR user_reaction IN ('positive', 'neutral', 'negative')",
             name="ck_history_reaction_enum",
         ),
     )
@@ -28,10 +28,15 @@ class TransitionHistory(Base, TimestampMixin):
     to_track_id: Mapped[int] = mapped_column(
         ForeignKey("tracks.id", ondelete="CASCADE"), index=True
     )
-    set_id: Mapped[int | None] = mapped_column(
-        ForeignKey("dj_sets.id", ondelete="SET NULL"), nullable=True
-    )
     overall_score: Mapped[float | None] = mapped_column(nullable=True, index=True)
+    bpm_score: Mapped[float | None] = mapped_column(nullable=True)
+    harmonic_score: Mapped[float | None] = mapped_column(nullable=True)
+    energy_score: Mapped[float | None] = mapped_column(nullable=True)
+    spectral_score: Mapped[float | None] = mapped_column(nullable=True)
+    groove_score: Mapped[float | None] = mapped_column(nullable=True)
+    timbral_score: Mapped[float | None] = mapped_column(nullable=True)
     style: Mapped[str | None] = mapped_column(String(50), nullable=True)
-    reaction: Mapped[str | None] = mapped_column(String(20), nullable=True)
-    notes: Mapped[str | None] = mapped_column(String(1000), nullable=True)
+    duration_sec: Mapped[float | None] = mapped_column(nullable=True)
+    tempo_match_ratio: Mapped[float | None] = mapped_column(nullable=True)
+    user_reaction: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    session_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
