@@ -67,7 +67,10 @@ async def audio_file_download_handler(
 
         title = _safe(track.title or f"track_{tid}")
         prefix = f"{i + 1:02d}. " if number_files else ""
-        dest = target_dir / f"{prefix}{title}.mp3"
+        # Include ``ext_id`` in the filename so two tracks with identical
+        # titles — or a re-run where numbering restarts — cannot overwrite
+        # each other's files while older DB rows still point at the path.
+        dest = target_dir / f"{prefix}{title} [{ext_id}].mp3"
 
         try:
             path = await provider.download_audio(ext_id, dest=dest)

@@ -41,7 +41,15 @@ class TransitionCreate(BaseModel):
 
 
 class TransitionUpdate(BaseModel):
-    """Overwrite style on an existing row (no rescoring)."""
+    """Overwrite recipe / flags on an existing row (no rescoring).
+
+    Rescoring happens through ``entity_create(entity="transition")`` (a
+    fresh ``transition_persist`` handler run); update is for human-edited
+    recipe overrides and feedback fields only.
+    """
 
     model_config = ConfigDict(extra="forbid")
-    style: str | None = Field(default=None, min_length=1, max_length=50)
+    fx_type: str | None = Field(default=None, min_length=1, max_length=50)
+    transition_bars: int | None = Field(default=None, ge=0, le=256)
+    transition_recipe_json: str | None = None
+    reject_reason: str | None = Field(default=None, max_length=255)

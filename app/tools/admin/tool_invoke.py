@@ -40,6 +40,11 @@ async def tool_invoke(
     ] = None,
     ctx: Context = CurrentContext(),
 ) -> dict[str, Any]:
+    # Block self-dispatch: recursive tool_invoke → tool_invoke would spin
+    # until stack exhaustion / tool timeout, a trivial DoS for one worker.
+    if name == "tool_invoke":
+        raise ValueError("tool_invoke cannot dispatch to itself")
+
     server = getattr(ctx, "fastmcp", None) or ctx.fastmcp_context.fastmcp
     tool_obj = await server.get_tool(name)
     if tool_obj is None:
