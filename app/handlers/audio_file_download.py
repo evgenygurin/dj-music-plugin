@@ -1,13 +1,15 @@
 """Handler for entity_create(entity="audio_file", data={track_ids, source, ...}).
 
-For each track_id: resolve provider external_id → call provider.download_audio →
-insert DjLibraryItem + empty DjBeatgrid. Skips tracks with an existing library
-item when ``skip_existing=True`` (default).
+For each track_id: resolve provider external_id → call provider.download_audio
+with a target path inside ``target_dir`` (filename: ``NN. Title.mp3`` if
+``prefix_index`` supplied, else ``<ext_id>.mp3``). Inserts a DjLibraryItem.
+Skips tracks with an existing library item when ``skip_existing=True``.
 """
 
 from __future__ import annotations
 
 import hashlib
+import re
 from pathlib import Path
 from typing import Any
 
@@ -15,6 +17,13 @@ from fastmcp.server.context import Context
 
 from app.registry.provider import ProviderRegistry
 from app.repositories.unit_of_work import UnitOfWork
+
+_SAFE_NAME_RE = re.compile(r'[\\/:*?"<>|\x00-\x1f]+')
+
+
+def _safe(name: str, max_len: int = 120) -> str:
+    cleaned = _SAFE_NAME_RE.sub("_", name).strip()
+    return re.sub(r"\s+", " ", cleaned)[:max_len] or "track"
 
 
 async def audio_file_download_handler(
@@ -25,9 +34,11 @@ async def audio_file_download_handler(
 ) -> dict[str, Any]:
     track_ids: list[int] = [int(x) for x in data["track_ids"]]
     source: str = data.get("source", "yandex")
-    Path(data.get("target_dir") or "/tmp/dj_audio")
+    target_dir = Path(data.get("target_dir") or "/tmp/dj_audio").expanduser()
     skip_existing: bool = bool(data.get("skip_existing", True))
+    number_files: bool = bool(data.get("number_files", True))
 
+    target_dir.mkdir(parents=True, exist_ok=True)
     provider = registry.get(source)
 
     downloaded: list[dict[str, Any]] = []
@@ -42,20 +53,24 @@ async def audio_file_download_handler(
             await ctx.report_progress(progress=i + 1, total=total)
             continue
 
-        existing = await uow.audio_files.get_by_track_id(tid)
+        existing = await uow.audio_files.get_for_track(tid)
         if existing is not None and skip_existing:
             skipped.append({"track_id": tid, "library_item_id": existing.id})
             await ctx.report_progress(progress=i + 1, total=total)
             continue
 
-        ext_id = await uow.provider_metadata.get_external_id(tid, platform=source)
+        ext_id = await uow.tracks.get_provider_id(tid, platform=source)
         if ext_id is None:
             errors.append({"track_id": tid, "error": f"no {source} external_id"})
             await ctx.report_progress(progress=i + 1, total=total)
             continue
 
+        title = _safe(track.title or f"track_{tid}")
+        prefix = f"{i + 1:02d}. " if number_files else ""
+        dest = target_dir / f"{prefix}{title}.mp3"
+
         try:
-            path = await provider.download_audio(ext_id)
+            path = await provider.download_audio(ext_id, dest=dest)
         except Exception as exc:
             errors.append({"track_id": tid, "error": str(exc)})
             await ctx.report_progress(progress=i + 1, total=total)

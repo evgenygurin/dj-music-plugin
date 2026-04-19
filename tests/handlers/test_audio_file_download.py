@@ -24,10 +24,9 @@ def uow() -> MagicMock:
     u = MagicMock()
     u.tracks = MagicMock()
     u.tracks.get = AsyncMock()
-    u.provider_metadata = MagicMock()
-    u.provider_metadata.get_external_id = AsyncMock(return_value="12345")
+    u.tracks.get_provider_id = AsyncMock(return_value="12345")
     u.audio_files = MagicMock()
-    u.audio_files.get_by_track_id = AsyncMock(return_value=None)
+    u.audio_files.get_for_track = AsyncMock(return_value=None)
     u.audio_files.create = AsyncMock(return_value=MagicMock(id=100))
     return u
 
@@ -61,7 +60,7 @@ async def test_skips_existing_library_item(
     ctx: MagicMock, uow: MagicMock, registry: MagicMock, tmp_path: Path
 ) -> None:
     uow.tracks.get.return_value = MagicMock(id=1, title="X")
-    uow.audio_files.get_by_track_id.return_value = MagicMock(id=99)
+    uow.audio_files.get_for_track.return_value = MagicMock(id=99)
     data = {"track_ids": [1], "source": "yandex", "skip_existing": True}
     result = await audio_file_download_handler(ctx, uow, data, registry)
 

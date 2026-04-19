@@ -98,7 +98,14 @@ class BaseRepository(Generic[M]):
             stmt = stmt.where(clause)
 
         # Keyset pagination: the outermost sort col is used for cursor.
-        order_clauses = list(order or ["id"])
+        # Default to the first primary-key column — not "id" — so entities
+        # whose PK is e.g. ``track_id`` (TrackAudioFeaturesComputed) paginate
+        # without the caller having to specify ``sort``.
+        if order:
+            order_clauses = list(order)
+        else:
+            pk_cols = [c.name for c in self.model.__table__.primary_key.columns]
+            order_clauses = [pk_cols[0]] if pk_cols else ["id"]
         # If cursor present, apply keyset predicate on the first sort field.
         if cursor is not None:
             cursor_id = decode_cursor(cursor)

@@ -131,9 +131,9 @@ class YandexAdapter:
 
     # ---------- download ---------- #
 
-    async def download_audio(self, track_id: str) -> Path:
-        dest = self._download_dir / f"{track_id}.mp3"
-        return await self._client.download_track(track_id, dest)
+    async def download_audio(self, track_id: str, dest: Path | None = None) -> Path:
+        target = dest if dest is not None else self._download_dir / f"{track_id}.mp3"
+        return await self._client.download_track(track_id, target)
 
     async def close(self) -> None:
         await self._client.close()
