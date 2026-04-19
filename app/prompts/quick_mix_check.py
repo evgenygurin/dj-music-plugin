@@ -39,8 +39,8 @@ Return: {{"from": {a}, "to": {b}, "overall": ..., "hard_reject": ...,
     tags={"namespace:workflow", "reasoning"},
     meta=PROMPT_META,
 )
-def quick_mix_check(track_a_id: int, track_b_id: int) -> PromptResult:
+def quick_mix_check(from_track_id: int, to_track_id: int) -> PromptResult:
     return PromptResult(
-        messages=[Message(_body(track_a_id, track_b_id))],
-        description=f"Quick mix check: {track_a_id} -> {track_b_id}.",
+        messages=[Message(_body(from_track_id, to_track_id))],
+        description=f"Quick mix check: {from_track_id} -> {to_track_id}.",
     )

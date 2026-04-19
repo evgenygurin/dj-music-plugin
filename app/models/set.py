@@ -36,7 +36,6 @@ class DjSet(Base, TimestampMixin):
     source_playlist_id: Mapped[int | None] = mapped_column(
         ForeignKey("dj_playlists.id", ondelete="SET NULL"), nullable=True, index=True
     )
-    linked_ym_playlist_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
 
     versions: Mapped[list[DjSetVersion]] = relationship(
         back_populates="dj_set", cascade="all, delete-orphan"
@@ -54,7 +53,7 @@ class DjSetVersion(Base, TimestampMixin):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     set_id: Mapped[int] = mapped_column(ForeignKey("dj_sets.id", ondelete="CASCADE"), index=True)
-    version_label: Mapped[str] = mapped_column(String(100))
+    label: Mapped[str] = mapped_column(String(100))
     generator_run_meta: Mapped[str | None] = mapped_column(Text, nullable=True)
     quality_score: Mapped[float | None] = mapped_column(nullable=True)
 
@@ -68,7 +67,7 @@ class DjSetItem(Base):
     __tablename__ = "dj_set_items"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    set_version_id: Mapped[int] = mapped_column(
+    version_id: Mapped[int] = mapped_column(
         ForeignKey("dj_set_versions.id", ondelete="CASCADE"), index=True
     )
     track_id: Mapped[int] = mapped_column(ForeignKey("tracks.id", ondelete="CASCADE"), index=True)

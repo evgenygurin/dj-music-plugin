@@ -57,17 +57,19 @@ async def track_import_handler(
             duration_ms=meta.get("durationMs"),
             sort_title=(meta.get("title") or "").lower(),
         )
-        await uow.provider_metadata.upsert_yandex(
+        album = (meta.get("albums") or [{}])[0]
+        await uow.yandex_metadata.upsert(
             track_id=track_row.id,
             yandex_track_id=ext_id,
-            album_id=(meta.get("albums") or [{}])[0].get("id"),
-            album_title=(meta.get("albums") or [{}])[0].get("title"),
-            album_genre=(meta.get("albums") or [{}])[0].get("genre"),
+            album_id=str(album["id"]) if album.get("id") is not None else None,
+            album_title=album.get("title"),
+            album_genre=album.get("genre"),
+            album_year=album.get("year"),
             duration_ms=meta.get("durationMs"),
             cover_uri=meta.get("coverUri"),
             explicit=bool(meta.get("explicit", False)),
         )
-        await uow.provider_metadata.upsert_external_id(
+        await uow.tracks.ensure_external_id(
             track_id=track_row.id, platform=source, external_id=ext_id
         )
 

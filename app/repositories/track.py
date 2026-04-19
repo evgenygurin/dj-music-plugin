@@ -12,16 +12,16 @@ from app.repositories.base import BaseRepository
 class TrackRepository(BaseRepository[Track]):
     model = Track
 
-    async def get_provider_id(self, track_id: int, provider_code: str) -> str | None:
-        """Return ``external_id`` for ``track_id`` on ``provider_code`` or None."""
+    async def get_provider_id(self, track_id: int, platform: str) -> str | None:
+        """Return ``external_id`` for ``track_id`` on ``platform`` or None."""
         stmt = select(TrackExternalId.external_id).where(
             TrackExternalId.track_id == track_id,
-            TrackExternalId.provider_code == provider_code,
+            TrackExternalId.platform == platform,
         )
         return await self.session.scalar(stmt)  # type: ignore[no-any-return]
 
     async def batch_get_by_provider_ids(
-        self, provider_code: str, external_ids: list[str]
+        self, platform: str, external_ids: list[str]
     ) -> dict[str, Track]:
         """Resolve many ``external_id`` values → Track instances in one query."""
         if not external_ids:
@@ -30,7 +30,7 @@ class TrackRepository(BaseRepository[Track]):
             select(TrackExternalId.external_id, Track)
             .join(Track, Track.id == TrackExternalId.track_id)
             .where(
-                TrackExternalId.provider_code == provider_code,
+                TrackExternalId.platform == platform,
                 TrackExternalId.external_id.in_(external_ids),
             )
         )
@@ -54,13 +54,13 @@ class TrackRepository(BaseRepository[Track]):
         return list((await self.session.execute(stmt)).scalars())
 
     async def ensure_external_id(
-        self, track_id: int, provider_code: str, external_id: str
+        self, track_id: int, platform: str, external_id: str
     ) -> TrackExternalId:
-        """Upsert one (track_id, provider_code, external_id) mapping."""
+        """Upsert one (track_id, platform, external_id) mapping."""
         existing = await self.session.scalar(
             select(TrackExternalId).where(
                 TrackExternalId.track_id == track_id,
-                TrackExternalId.provider_code == provider_code,
+                TrackExternalId.platform == platform,
             )
         )
         if existing is not None:
@@ -68,9 +68,7 @@ class TrackRepository(BaseRepository[Track]):
                 existing.external_id = external_id
                 await self.session.flush()
             return existing
-        row = TrackExternalId(
-            track_id=track_id, provider_code=provider_code, external_id=external_id
-        )
+        row = TrackExternalId(track_id=track_id, platform=platform, external_id=external_id)
         self.session.add(row)
         await self.session.flush()
         return row

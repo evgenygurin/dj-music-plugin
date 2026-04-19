@@ -9,6 +9,8 @@ from fastmcp.server.middleware import MiddlewareContext
 from app.repositories.unit_of_work import UnitOfWork
 from app.server.middleware.db_session import DbSessionMiddleware
 
+from .conftest import make_async_ctx
+
 
 class _FakeSession:
     def __init__(self) -> None:
@@ -27,13 +29,11 @@ class _FakeSession:
 
 
 def _ctx_with_factory(factory):
-    fctx = MagicMock()
-    fctx.state = {}
-    fctx.request_context = SimpleNamespace(lifespan_context={"db_session_factory": factory})
-    msg = MagicMock()
-    msg.name = "entity_list"
-    mc = MiddlewareContext(message=msg, fastmcp_context=fctx)
-    return mc, fctx
+    mc = make_async_ctx(tool_name="entity_list")
+    mc.fastmcp_context.request_context = SimpleNamespace(
+        lifespan_context={"db_session_factory": factory}
+    )
+    return mc, mc.fastmcp_context
 
 
 @pytest.mark.asyncio

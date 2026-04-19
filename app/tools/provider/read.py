@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Any
+from typing import Annotated
 
 from fastmcp.dependencies import CurrentContext, Depends
 from fastmcp.server.context import Context
@@ -12,6 +12,7 @@ from pydantic import Field
 from app.registry.provider import ProviderRegistry
 from app.schemas.provider_dto import ProviderReadResult
 from app.server.di import get_provider_registry
+from app.shared.types import JsonDictOrNone
 
 
 @tool(
@@ -28,7 +29,7 @@ async def provider_read(
     entity: Annotated[str, Field(description="Provider entity type")],
     id: Annotated[str | None, Field(description="Entity ID (optional for list ops)")] = None,
     params: Annotated[
-        dict[str, Any] | None, Field(description="Extra params (offset, limit, etc.)")
+        JsonDictOrNone, Field(description="Extra params (offset, limit, etc.)")
     ] = None,
     registry: ProviderRegistry = Depends(get_provider_registry),
     ctx: Context = CurrentContext(),

@@ -49,7 +49,7 @@ async def test_set_version_roundtrip(setup: None, session: AsyncSession) -> None
     set_repo = SetRepository(session)
     sv_repo = SetVersionRepository(session)
     s = await set_repo.create(name="set")
-    v = await sv_repo.create(set_id=s.id, version_label="v1", quality_score=0.7)
+    v = await sv_repo.create(set_id=s.id, label="v1", quality_score=0.7)
     n = await sv_repo.create_items(v.id, [t1.id, t2.id])
     assert n == 2
     items = await sv_repo.get_items(v.id)
@@ -73,10 +73,10 @@ async def test_transition_pair(setup: None, session: AsyncSession) -> None:
     session.add_all([t1, t2])
     await session.flush()
     repo = TransitionRepository(session)
-    await repo.create(from_track_id=t1.id, to_track_id=t2.id, overall_score=0.8)
+    await repo.create(from_track_id=t1.id, to_track_id=t2.id, overall_quality=0.8)
     tr = await repo.get_pair(t1.id, t2.id)
     assert tr is not None
-    assert tr.overall_score == 0.8
+    assert tr.overall_quality == 0.8
 
 
 @pytest.mark.asyncio

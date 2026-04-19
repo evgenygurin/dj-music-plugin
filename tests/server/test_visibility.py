@@ -11,14 +11,11 @@ from app.server.visibility import (
 )
 
 
-def test_disabled_namespace_tags_matches_blueprint() -> None:
-    assert frozenset(
-        {
-            "namespace:crud:destructive",
-            "namespace:provider:write",
-            "namespace:sync",
-        }
-    ) == DISABLED_NAMESPACE_TAGS
+def test_disabled_namespace_tags_are_empty_by_default() -> None:
+    # All namespaces are visible out of the box: Claude Code does not
+    # always honour ``notifications/tools/list_changed`` mid-session,
+    # so unlocking at runtime would not reveal previously-hidden tools.
+    assert frozenset() == DISABLED_NAMESPACE_TAGS
 
 
 def test_known_namespaces_matches_blueprint() -> None:
@@ -29,7 +26,8 @@ def test_apply_visibility_calls_disable_with_all_tags() -> None:
     mcp = MagicMock()
     apply_visibility_policy(mcp)
     mcp.disable.assert_called_once()
-    # The positional/keyword args must carry exactly the three namespace tags.
+    # The positional/keyword args must carry exactly the disabled tag set
+    # (empty by default — see ``test_disabled_namespace_tags_are_empty_by_default``).
     call = mcp.disable.call_args
     passed_tags = call.kwargs.get("tags")
     assert passed_tags is not None

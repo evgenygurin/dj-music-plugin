@@ -12,16 +12,25 @@ from app.server.transforms import (
 
 
 def test_always_visible_list_matches_blueprint() -> None:
+    # All dispatcher-level tools stay visible; BM25 still ranks the
+    # synthetic-only / namespaced ones for large catalogs. Destructive/
+    # write/sync tools are included because the global visibility gate
+    # is off (see app/server/visibility.py).
     assert ALWAYS_VISIBLE_TOOLS == (
         "entity_list",
         "entity_get",
         "entity_create",
+        "entity_update",
+        "entity_delete",
         "entity_aggregate",
         "provider_read",
         "provider_search",
+        "provider_write",
         "transition_score_pool",
         "sequence_optimize",
+        "playlist_sync",
         "unlock_namespace",
+        "tool_invoke",
     )
 
 

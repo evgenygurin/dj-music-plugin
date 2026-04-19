@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Any, Literal
+from typing import Annotated, Literal
 
 from fastmcp.dependencies import CurrentContext, Depends
 from fastmcp.server.context import Context
@@ -14,6 +14,7 @@ from app.registry.provider import ProviderRegistry
 from app.repositories.unit_of_work import UnitOfWork
 from app.schemas.tool_responses import EntityCreateResult
 from app.server.di import get_provider_registry, get_uow
+from app.shared.types import JsonDict
 
 EntityName = Literal[
     "track",
@@ -43,7 +44,7 @@ EntityName = Literal[
 async def entity_create(
     entity: Annotated[EntityName, Field(description="Entity type")],
     data: Annotated[
-        dict[str, Any],
+        JsonDict,
         Field(description="Payload — shape depends on entity (see schema://entities/{entity})"),
     ],
     uow: UnitOfWork = Depends(get_uow),

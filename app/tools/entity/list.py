@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Any, Literal
+from typing import Annotated, Literal
 
 from fastmcp.dependencies import CurrentContext, Depends
 from fastmcp.server.context import Context
@@ -14,6 +14,7 @@ from app.repositories.unit_of_work import UnitOfWork
 from app.schemas.tool_responses import EntityListResult
 from app.server.di import get_uow
 from app.shared.filters import parse_django_filters
+from app.shared.types import JsonDictOrNone
 
 EntityName = Literal[
     "track",
@@ -43,7 +44,7 @@ EntityName = Literal[
 async def entity_list(
     entity: Annotated[EntityName, Field(description="Entity type name")],
     filters: Annotated[
-        dict[str, Any] | None,
+        JsonDictOrNone,
         Field(description='Django-style: {"bpm__gte": 120, "mood__in": ["peak_time"]}'),
     ] = None,
     search: Annotated[

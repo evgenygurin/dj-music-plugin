@@ -62,5 +62,5 @@ async def sequence_optimize(
         track_order=list(result.track_order),
         quality_score=float(result.quality_score),
         algorithm=algorithm,
-        generations=getattr(result, "generations", 0),
+        generations=result.generations or 0,
     )

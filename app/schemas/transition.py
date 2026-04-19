@@ -10,8 +10,15 @@ class TransitionView(BaseModel):
     id: int
     from_track_id: int
     to_track_id: int
-    overall_score: float | None = None
-    style: str | None = None
+    overall_quality: float | None = None
+    bpm_score: float | None = None
+    harmonic_score: float | None = None
+    energy_score: float | None = None
+    spectral_score: float | None = None
+    groove_score: float | None = None
+    timbral_score: float | None = None
+    hard_reject: bool | None = None
+    fx_type: str | None = None
 
 
 class TransitionFilter(BaseModel):
@@ -20,7 +27,7 @@ class TransitionFilter(BaseModel):
     to_track_id__eq: int | None = None
     from_track_id__in: list[int] | None = None
     to_track_id__in: list[int] | None = None
-    overall_score__gte: float | None = None
+    overall_quality__gte: float | None = None
 
 
 class TransitionCreate(BaseModel):
@@ -34,7 +41,15 @@ class TransitionCreate(BaseModel):
 
 
 class TransitionUpdate(BaseModel):
-    """Overwrite style on an existing row (no rescoring)."""
+    """Overwrite recipe / flags on an existing row (no rescoring).
+
+    Rescoring happens through ``entity_create(entity="transition")`` (a
+    fresh ``transition_persist`` handler run); update is for human-edited
+    recipe overrides and feedback fields only.
+    """
 
     model_config = ConfigDict(extra="forbid")
-    style: str | None = Field(default=None, min_length=1, max_length=50)
+    fx_type: str | None = Field(default=None, min_length=1, max_length=50)
+    transition_bars: int | None = Field(default=None, ge=0, le=256)
+    transition_recipe_json: str | None = None
+    reject_reason: str | None = Field(default=None, max_length=255)

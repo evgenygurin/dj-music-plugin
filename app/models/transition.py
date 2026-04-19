@@ -12,10 +12,6 @@ class Transition(Base, TimestampMixin):
     __tablename__ = "transitions"
     __table_args__ = (
         CheckConstraint(
-            "overall_score IS NULL OR overall_score BETWEEN 0 AND 1",
-            name="ck_transition_score_range",
-        ),
-        CheckConstraint(
             "overall_quality IS NULL OR overall_quality BETWEEN 0 AND 1",
             name="ck_transition_quality_range",
         ),
@@ -36,13 +32,17 @@ class Transition(Base, TimestampMixin):
     )
     overlap_ms: Mapped[int | None] = mapped_column(nullable=True)
 
-    bpm_distance: Mapped[float | None] = mapped_column(nullable=True)
-    energy_step: Mapped[float | None] = mapped_column(nullable=True)
-    centroid_gap_hz: Mapped[float | None] = mapped_column(nullable=True)
-    low_conflict: Mapped[float | None] = mapped_column(nullable=True)
-    overlap_score: Mapped[float | None] = mapped_column(nullable=True)
-    groove_similarity: Mapped[float | None] = mapped_column(nullable=True)
+    bpm_score: Mapped[float | None] = mapped_column(nullable=True)
+    energy_score: Mapped[float | None] = mapped_column(nullable=True)
+    harmonic_score: Mapped[float | None] = mapped_column(nullable=True)
+    spectral_score: Mapped[float | None] = mapped_column(nullable=True)
+    groove_score: Mapped[float | None] = mapped_column(nullable=True)
+    timbral_score: Mapped[float | None] = mapped_column(nullable=True)
     key_distance_weighted: Mapped[float | None] = mapped_column(nullable=True)
-    overall_quality: Mapped[float | None] = mapped_column(nullable=True)
-    overall_score: Mapped[float | None] = mapped_column(nullable=True, index=True)
-    style: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    low_conflict_score: Mapped[float | None] = mapped_column(nullable=True)
+    overall_quality: Mapped[float | None] = mapped_column(nullable=True, index=True)
+    hard_reject: Mapped[bool | None] = mapped_column(nullable=True)
+    reject_reason: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    transition_bars: Mapped[int | None] = mapped_column(nullable=True)
+    fx_type: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    transition_recipe_json: Mapped[str | None] = mapped_column(nullable=True)

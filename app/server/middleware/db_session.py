@@ -24,7 +24,7 @@ log = logging.getLogger(__name__)
 
 
 class DbSessionMiddleware(Middleware):
-    async def on_call_tool(
+    async def _wrap(
         self,
         context: MiddlewareContext,
         call_next: Callable[[MiddlewareContext], Awaitable[Any]],
@@ -39,7 +39,7 @@ class DbSessionMiddleware(Middleware):
             lc = getattr(rc, "lifespan_context", None) or {}
             factory = lc.get("db_session_factory") if isinstance(lc, dict) else None
         if factory is None:
-            log.debug("no db_session_factory — tool runs without UoW")
+            log.debug("no db_session_factory — request runs without UoW")
             return await call_next(context)
 
         session = factory()
@@ -56,3 +56,17 @@ class DbSessionMiddleware(Middleware):
         finally:
             await fctx.delete_state("uow")
             await session.close()
+
+    async def on_call_tool(
+        self,
+        context: MiddlewareContext,
+        call_next: Callable[[MiddlewareContext], Awaitable[Any]],
+    ) -> Any:
+        return await self._wrap(context, call_next)
+
+    async def on_read_resource(
+        self,
+        context: MiddlewareContext,
+        call_next: Callable[[MiddlewareContext], Awaitable[Any]],
+    ) -> Any:
+        return await self._wrap(context, call_next)

@@ -64,7 +64,7 @@ async def test_track_external_id_provider(engine: AsyncEngine, session: AsyncSes
     t = Track(title="Song")
     session.add(t)
     await session.flush()
-    session.add(TrackExternalId(track_id=t.id, provider_code="yandex_music", external_id="98765"))
+    session.add(TrackExternalId(track_id=t.id, platform="yandex_music", external_id="98765"))
     await session.commit()
     rows = (
         (await session.execute(select(TrackExternalId).where(TrackExternalId.track_id == t.id)))

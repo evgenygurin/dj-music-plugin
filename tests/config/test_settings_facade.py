@@ -21,7 +21,16 @@ def test_facade_is_cached() -> None:
     assert get_settings() is get_settings()
 
 
-def test_settings_construction_without_env() -> None:
+def test_settings_construction_without_env(monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
+    # The repo ``.env`` sets DJ_DATABASE_URL to Supabase; scrub all DJ_*
+    # vars and move the working dir so no ``.env`` is on the resolution
+    # path — Settings() then falls back to the pure code defaults.
+    import os
+
+    for k in list(os.environ):
+        if k.startswith("DJ_"):
+            monkeypatch.delenv(k, raising=False)
+    monkeypatch.chdir(tmp_path)
     s = Settings()
     assert s.database.database_url.startswith("sqlite")
     assert s.transition.weight_bpm == 0.20

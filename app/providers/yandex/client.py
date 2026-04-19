@@ -7,7 +7,7 @@ defined by YM API); YandexAdapter maps them to v2 schemas.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
+from typing import Any, ClassVar
 
 import httpx
 
@@ -76,9 +76,33 @@ class YandexClient:
 
     # ---------- search ---------- #
 
-    async def search(self, *, query: str, type: str = "tracks", limit: int = 20) -> dict[str, Any]:
+    _SEARCH_TYPE_ALIASES: ClassVar[dict[str, str]] = {
+        "tracks": "track",
+        "albums": "album",
+        "artists": "artist",
+        "playlists": "playlist",
+    }
+
+    async def search(
+        self,
+        *,
+        query: str,
+        type: str = "track",
+        limit: int = 20,
+        page: int = 0,
+    ) -> dict[str, Any]:
+        # YM expects singular entity names and a mandatory `page` parameter;
+        # accept the plural aliases used by the MCP tool surface for convenience.
+        ym_type = self._SEARCH_TYPE_ALIASES.get(type, type)
         return await self._request(
-            "GET", "/search", params={"text": query, "type": type, "page-size": limit}
+            "GET",
+            "/search",
+            params={
+                "text": query,
+                "type": ym_type,
+                "page": page,
+                "page-size": limit,
+            },
         )
 
     # ---------- tracks ---------- #
@@ -98,20 +122,49 @@ class YandexClient:
         return res if isinstance(res, list) else []
 
     async def download_track(self, track_id: str, dest: Path) -> Path:
-        """Two-step: resolve download URL, then stream to disk."""
+        """Resolve signed MP3 URL via XML manifest + MD5, then stream to disk.
+
+        YM's download pipeline has three hops: `/tracks/{id}/download-info`
+        lists codec/bitrate variants; each variant's `downloadInfoUrl` returns
+        an XML manifest with `host`, `path`, `s` (salt), `ts`; the playable
+        MP3 lives at `https://{host}/get-mp3/{md5(SALT+path[1:]+s)}/{ts}{path}`.
+        """
         info = await self.get_download_info(track_id)
         if not info:
             raise APIError(f"no download options for track {track_id}")
         best = max(info, key=lambda x: x.get("bitrateInKbps", 0))
-        direct_url = best["downloadInfoUrl"]
+        manifest_url = best["downloadInfoUrl"]
+
+        manifest = await self._http.get(manifest_url)
+        if manifest.status_code >= 400:
+            raise APIError(f"download manifest failed: {manifest.status_code}")
+        signed_url = self._build_signed_mp3_url(manifest.text)
+
         dest.parent.mkdir(parents=True, exist_ok=True)
-        async with self._http.stream("GET", direct_url) as resp:
+        async with self._http.stream("GET", signed_url) as resp:
             if resp.status_code >= 400:
                 raise APIError(f"download failed: {resp.status_code}")
             with dest.open("wb") as f:
                 async for chunk in resp.aiter_bytes():
                     f.write(chunk)
         return dest
+
+    _DOWNLOAD_SALT: ClassVar[str] = "XGRlBW9FXlekgbPrRHuSiA"
+
+    @classmethod
+    def _build_signed_mp3_url(cls, manifest_xml: str) -> str:
+        import hashlib
+        import xml.etree.ElementTree as ET
+
+        root = ET.fromstring(manifest_xml)
+        host = root.findtext("host")
+        path = root.findtext("path")
+        s = root.findtext("s")
+        ts = root.findtext("ts")
+        if not (host and path and s is not None and ts):
+            raise APIError(f"bad download manifest: {manifest_xml[:200]}")
+        sign = hashlib.md5((cls._DOWNLOAD_SALT + path[1:] + s).encode()).hexdigest()
+        return f"https://{host}/get-mp3/{sign}/{ts}{path}"
 
     # ---------- albums + artists ---------- #
 

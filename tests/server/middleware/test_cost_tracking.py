@@ -1,19 +1,17 @@
 from __future__ import annotations
 
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock
 
 import pytest
 from fastmcp.server.middleware import MiddlewareContext
 
 from app.server.middleware.cost_tracking import CostTrackingMiddleware
 
+from .conftest import make_async_ctx
+
 
 def _ctx(name: str) -> MiddlewareContext:
-    msg = MagicMock()
-    msg.name = name
-    fctx = MagicMock()
-    fctx.state = {}
-    return MiddlewareContext(message=msg, fastmcp_context=fctx)
+    return make_async_ctx(tool_name=name)
 
 
 @pytest.mark.asyncio

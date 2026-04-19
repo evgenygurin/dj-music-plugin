@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock
 
 import pytest
 from fastmcp.server.middleware import MiddlewareContext
@@ -10,14 +10,13 @@ from app.server.middleware.sampling_budget import (
     SamplingBudgetMiddleware,
 )
 
+from .conftest import make_async_ctx
+
 
 def _ctx(session_id: str = "s1") -> MiddlewareContext:
-    msg = MagicMock()
-    msg.name = "x"
-    fctx = MagicMock()
-    fctx.session_id = session_id
-    fctx.state = {}
-    return MiddlewareContext(message=msg, fastmcp_context=fctx)
+    mc = make_async_ctx(tool_name="x")
+    mc.fastmcp_context.session_id = session_id
+    return mc
 
 
 @pytest.mark.asyncio

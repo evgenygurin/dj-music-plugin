@@ -1,7 +1,9 @@
 """Guard against oversized tool responses.
 
-Large payloads poison LLM context. We truncate dict/list responses to a
-summary marker and strings to a prefix with a truncation suffix.
+Large payloads poison LLM context. Oversized results are reported as a
+``ToolError`` so the MCP envelope stays well-typed — returning a bare
+``dict`` here broke the FastMCP response adapter (``'dict' object has no
+attribute 'to_mcp_result'``).
 """
 
 from __future__ import annotations
@@ -11,6 +13,7 @@ import logging
 from collections.abc import Awaitable, Callable
 from typing import Any
 
+from fastmcp.exceptions import ToolError
 from fastmcp.server.middleware import Middleware, MiddlewareContext
 
 log = logging.getLogger(__name__)
@@ -43,16 +46,14 @@ class ResponseLimitingMiddleware(Middleware):
             return result
         tool = getattr(context.message, "name", "<unknown>")
         log.warning(
-            "response truncated tool=%s bytes=%d limit=%d",
+            "response oversized tool=%s bytes=%d limit=%d",
             tool,
             size,
             self.max_bytes,
         )
         if isinstance(result, str):
             return result[: self.max_bytes] + "\n…(truncated)"
-        return {
-            "truncated": True,
-            "limit_bytes": self.max_bytes,
-            "original_bytes": size,
-            "note": f"response from {tool} exceeded limit",
-        }
+        raise ToolError(
+            f"{tool} response exceeded response_max_bytes "
+            f"({size} > {self.max_bytes}); narrow filters or paginate",
+        )

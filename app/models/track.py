@@ -113,13 +113,13 @@ class TrackRelease(Base):
 class TrackExternalId(Base, TimestampMixin):
     __tablename__ = "track_external_ids"
     __table_args__ = (
-        UniqueConstraint("provider_code", "external_id", name="uq_provider_external_id"),
-        UniqueConstraint("track_id", "provider_code", name="uq_track_provider"),
+        UniqueConstraint("platform", "external_id", name="uq_provider_external_id"),
+        UniqueConstraint("track_id", "platform", name="uq_track_provider"),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
     track_id: Mapped[int] = mapped_column(ForeignKey("tracks.id", ondelete="CASCADE"), index=True)
-    provider_code: Mapped[str] = mapped_column(String(50), index=True)
+    platform: Mapped[str] = mapped_column(String(50), index=True)
     external_id: Mapped[str] = mapped_column(String(200), index=True)
 
     track: Mapped[Track] = relationship(back_populates="external_ids")

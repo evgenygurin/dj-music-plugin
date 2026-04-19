@@ -22,7 +22,7 @@ async def test_create_library_item(engine: AsyncEngine, session: AsyncSession) -
         file_path="/vault/track.mp3",
         file_size=4_000_000,
         mime_type="audio/mpeg",
-        bitrate_kbps=320,
+        bitrate=320,
         sample_rate=44100,
         channels=2,
     )

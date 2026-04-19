@@ -18,7 +18,7 @@ class TransitionHistoryRepository(BaseRepository[TransitionHistory]):
         return list((await self.session.execute(stmt)).scalars())
 
     async def reaction_counts(self) -> dict[str, int]:
-        stmt = select(TransitionHistory.reaction, func.count()).group_by(
-            TransitionHistory.reaction
+        stmt = select(TransitionHistory.user_reaction, func.count()).group_by(
+            TransitionHistory.user_reaction
         )
         return {r or "none": n for r, n in (await self.session.execute(stmt)).all()}
