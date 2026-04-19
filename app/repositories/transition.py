@@ -22,3 +22,6 @@ class TransitionRepository(BaseRepository[Transition]):
             .limit(1)
         )
         return await self.session.scalar(stmt)  # type: ignore[no-any-return]
+
+    # Alias used by set-review / transitions resources.
+    get_by_pair = get_pair

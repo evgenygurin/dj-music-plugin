@@ -15,7 +15,13 @@ from app.repositories.unit_of_work import UnitOfWork
 
 
 class AnalysisPipeline(Protocol):
-    async def analyze_to_level(self, *, track_id: int, audio_path: str, level: int) -> Any: ...
+    """Structural type for ``app.audio.pipeline.AnalysisPipeline``.
+
+    The real class exposes ``analyze(file_path: str, ...)`` returning a
+    ``PipelineResult`` with ``.features`` (dict) and ``.errors`` (list).
+    """
+
+    async def analyze(self, file_path: str) -> Any: ...
 
 
 async def track_features_analyze_handler(
@@ -55,24 +61,26 @@ async def track_features_analyze_handler(
             continue
 
         try:
-            result = await pipeline.analyze_to_level(
-                track_id=tid, audio_path=lib.file_path, level=level
-            )
+            result = await pipeline.analyze(lib.file_path)
         except Exception as exc:
             errors.append({"track_id": tid, "error": str(exc)})
             await ctx.report_progress(progress=i + 1, total=total)
             continue
 
+        # The repository's upsert strips columns unknown to the ORM, so
+        # anything extra in ``result.features`` is silently dropped — safe
+        # to splat the whole feature dict here. ``analysis_level`` records
+        # the caller-requested tier (L1..L5); the pipeline itself is
+        # level-agnostic and runs whatever analyzers are enabled.
         await uow.track_features.upsert(
             track_id=tid,
-            pipeline_run_id=result.pipeline_run_id,
-            analysis_level=result.analysis_level,
+            analysis_level=level,
             **result.features,
         )
         analyzed.append(
             {
                 "track_id": tid,
-                "level": result.analysis_level,
+                "level": level,
                 "feature_count": len(result.features),
                 "errors": len(getattr(result, "errors", []) or []),
             }

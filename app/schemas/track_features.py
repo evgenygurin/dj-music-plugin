@@ -22,11 +22,16 @@ class TrackFeaturesView(BaseModel):
 
 class TrackFeaturesFilter(BaseModel):
     model_config = ConfigDict(extra="forbid")
+    track_id__eq: int | None = None
     track_id__in: list[int] | None = None
+    analysis_level__eq: int | None = None
     analysis_level__gte: int | None = None
     analysis_level__lt: int | None = None
+    bpm__eq: float | None = None
     bpm__gte: float | None = None
     bpm__lte: float | None = None
+    bpm__range: list[float] | None = None
+    mood__eq: str | None = None
     mood__in: list[str] | None = None
 
 

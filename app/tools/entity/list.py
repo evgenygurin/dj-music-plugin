@@ -8,13 +8,15 @@ from fastmcp.dependencies import CurrentContext, Depends
 from fastmcp.server.context import Context
 from fastmcp.tools import tool
 from pydantic import Field
+from pydantic import ValidationError as PydanticValidationError
 
 from app.registry.entity import EntityRegistry
 from app.repositories.unit_of_work import UnitOfWork
 from app.schemas.tool_responses import EntityListResult
 from app.server.di import get_uow
-from app.shared.filters import parse_django_filters
-from app.shared.types import JsonDictOrNone
+from app.shared.errors import ValidationError
+from app.shared.filters import normalize_bare_fields
+from app.shared.types import JsonDictOrNone, JsonStrListOrNone
 
 EntityName = Literal[
     "track",
@@ -54,7 +56,7 @@ async def entity_list(
         list[str] | str | None,
         Field(description='Field list or preset name: "id" | "ref" | "summary" | "full"'),
     ] = None,
-    sort: Annotated[list[str] | None, Field(description="e.g. ['bpm__desc', 'id']")] = None,
+    sort: Annotated[JsonStrListOrNone, Field(description="e.g. ['bpm__desc', 'id']")] = None,
     limit: Annotated[int, Field(ge=1, le=500)] = 50,
     cursor: str | None = None,
     with_total: bool = False,
@@ -69,12 +71,26 @@ async def entity_list(
     if search and config.searchable_fields:
         # Simple search: icontains over the first searchable field.
         where[f"{config.searchable_fields[0]}__icontains"] = search
-    # Validate fields against whitelist via parse_django_filters.
-    parse_django_filters(
-        config.model,
-        where,
-        allowed_fields=set(config.filterable_fields) | set(config.searchable_fields),
-    )
+
+    # Preserve bare-field equality shorthand (``{"id": 1}`` → ``{"id__eq": 1}``)
+    # so Pydantic filter-schema validation matches what parse_filter used to
+    # accept via split_lookup. Without this step callers using the old
+    # shorthand get a hard ValidationError.
+    where = normalize_bare_fields(where)
+
+    # Validate filter shape against the entity's Pydantic Filter schema —
+    # this is the single source of truth surfaced via schema://entities/{entity}.
+    # Extra keys fail ``extra="forbid"``; unknown operators fail at type coercion.
+    # The raw ``where`` dict continues to the repository, which maps keys onto
+    # SQLAlchemy columns via ``parse_django_filters``.
+    try:
+        config.filter_schema.model_validate(where)
+    except PydanticValidationError as exc:
+        raise ValidationError(
+            f"invalid filter for entity {entity!r}: {exc.errors(include_url=False)[:3]}",
+            details={"entity": entity, "filter": where},
+        ) from exc
+
     sort_spec: list[str] = []
     for s in list(sort or []):
         base = s.removesuffix("__desc").removesuffix("__asc")

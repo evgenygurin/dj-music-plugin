@@ -22,7 +22,12 @@ async def track_features_reanalyze_handler(
     data: dict[str, Any],
     pipeline: AnalysisPipeline,
 ) -> dict[str, Any]:
-    track_id: int = int(data["track_id"])
+    # entity_update wraps the primary key under "id"; the primary key of
+    # TrackAudioFeaturesComputed is track_id, so either form is accepted.
+    raw = data.get("track_id") if data.get("track_id") is not None else data.get("id")
+    if raw is None:
+        raise ValueError("track_features_reanalyze requires track_id or id in data")
+    track_id: int = int(raw)
     level: int = int(data.get("level", 3))
 
     track = await uow.tracks.get(track_id)
@@ -33,20 +38,16 @@ async def track_features_reanalyze_handler(
     if lib is None:
         raise NotFoundError("audio_file", track_id)
 
-    result = await pipeline.analyze_to_level(
-        track_id=track_id, audio_path=lib.file_path, level=level
-    )
+    result = await pipeline.analyze(lib.file_path)
     await uow.track_features.upsert(
         track_id=track_id,
-        pipeline_run_id=result.pipeline_run_id,
-        analysis_level=result.analysis_level,
+        analysis_level=level,
         **result.features,
     )
     await ctx.info(f"reanalyzed track {track_id} at L{level}")
 
     return {
         "track_id": track_id,
-        "level": result.analysis_level,
-        "pipeline_run_id": result.pipeline_run_id,
+        "level": level,
         "feature_count": len(result.features),
     }

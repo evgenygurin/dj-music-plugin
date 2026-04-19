@@ -48,6 +48,7 @@ from app.schemas.set import (
     SetFilter,
     SetUpdate,
     SetVersionCreate,
+    SetVersionFilter,
     SetVersionView,
     SetView,
 )
@@ -175,7 +176,7 @@ def register_default_entities() -> None:
             model=DjSetVersion,
             repo_attr="set_versions",
             view_schema=SetVersionView,
-            filter_schema=SetFilter,
+            filter_schema=SetVersionFilter,
             create_schema=SetVersionCreate,
             update_schema=SetUpdate,
             allowed_ops=frozenset({"list", "get", "create", "delete", "aggregate"}),

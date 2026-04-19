@@ -34,8 +34,7 @@ def uow() -> MagicMock:
 @pytest.fixture
 def pipeline() -> AsyncMock:
     p = AsyncMock()
-    p.analyze_to_level.return_value = MagicMock(
-        features={"bpm": 128.0}, pipeline_run_id=2, analysis_level=4, sections=[], errors=[]
+    p.analyze.return_value = MagicMock(
     )
     return p
 
@@ -48,7 +47,7 @@ async def test_reanalyze_single_track(ctx: MagicMock, uow: MagicMock, pipeline: 
 
     assert result["track_id"] == 1
     assert result["level"] == 4
-    pipeline.analyze_to_level.assert_awaited_once()
+    pipeline.analyze.assert_awaited_once()
 
 
 @pytest.mark.asyncio
@@ -67,4 +66,4 @@ async def test_always_runs_even_when_current_gte_target(
     uow.track_features.get_by_track_id.return_value = MagicMock(analysis_level=4)
     data = {"track_id": 1, "level": 3}
     await track_features_reanalyze_handler(ctx, uow, data, pipeline)
-    pipeline.analyze_to_level.assert_awaited_once()
+    pipeline.analyze.assert_awaited_once()

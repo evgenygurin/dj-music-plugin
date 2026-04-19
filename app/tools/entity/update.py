@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal
 
 from fastmcp.dependencies import CurrentContext, Depends
 from fastmcp.server.context import Context
@@ -13,8 +13,14 @@ from app.registry.entity import EntityRegistry
 from app.registry.provider import ProviderRegistry
 from app.repositories.unit_of_work import UnitOfWork
 from app.schemas.tool_responses import EntityUpdateResult
-from app.server.di import get_provider_registry, get_uow
+from app.server.di import (
+    get_audio_pipeline,
+    get_provider_registry,
+    get_transition_scorer,
+    get_uow,
+)
 from app.shared.types import JsonDict
+from app.tools.entity._dispatch import call_handler
 
 EntityName = Literal[
     "track",
@@ -50,6 +56,8 @@ async def entity_update(
     data: Annotated[JsonDict, Field(description="Partial update payload")],
     uow: UnitOfWork = Depends(get_uow),
     registry: ProviderRegistry = Depends(get_provider_registry),
+    pipeline: Any = Depends(get_audio_pipeline),
+    scorer: Any = Depends(get_transition_scorer),
     ctx: Context = CurrentContext(),
 ) -> EntityUpdateResult:
     config = EntityRegistry.get(entity)
@@ -58,7 +66,19 @@ async def entity_update(
 
     if config.update_handler is not None:
         merged = {**data, "id": id}
-        result = await config.update_handler(ctx, uow, merged, registry)  # type: ignore[misc]
+        # Handler receives the service matching its 4th parameter name
+        # (registry / pipeline / scorer). Without this the reanalyze handler
+        # used to get a ProviderRegistry instead of the AnalysisPipeline and
+        # crash on ``pipeline.analyze_to_level(...)``.
+        result = await call_handler(
+            config.update_handler,
+            ctx=ctx,
+            uow=uow,
+            data=merged,
+            registry=registry,
+            pipeline=pipeline,
+            scorer=scorer,
+        )
         return EntityUpdateResult(entity=entity, id=id, data=result)
 
     validated = config.update_schema.model_validate(data)

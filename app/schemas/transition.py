@@ -28,6 +28,7 @@ class TransitionFilter(BaseModel):
     from_track_id__in: list[int] | None = None
     to_track_id__in: list[int] | None = None
     overall_quality__gte: float | None = None
+    overall_quality__lte: float | None = None
 
 
 class TransitionCreate(BaseModel):
