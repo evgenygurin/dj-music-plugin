@@ -3,6 +3,7 @@ from __future__ import annotations
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+from fastmcp.exceptions import ToolError
 from fastmcp.server.middleware import MiddlewareContext
 
 from app.server.middleware.response_limit import ResponseLimitingMiddleware
@@ -23,13 +24,14 @@ async def test_passes_small_response_untouched() -> None:
 
 
 @pytest.mark.asyncio
-async def test_truncates_oversized_dict() -> None:
+async def test_oversized_dict_raises_tool_error() -> None:
+    # Returning a bare dict here broke the FastMCP response adapter with
+    # "'dict' object has no attribute 'to_mcp_result'" — we now raise.
     mw = ResponseLimitingMiddleware(max_bytes=200)
     payload = {"items": ["x" * 50 for _ in range(100)]}
     call_next = AsyncMock(return_value=payload)
-    result = await mw.on_call_tool(_ctx(), call_next)
-    assert result.get("truncated") is True
-    assert "limit_bytes" in result
+    with pytest.raises(ToolError, match="response_max_bytes"):
+        await mw.on_call_tool(_ctx(), call_next)
 
 
 @pytest.mark.asyncio
