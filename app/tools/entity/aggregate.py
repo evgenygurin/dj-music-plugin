@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Any, Literal
+from typing import Annotated, Literal
 
 from fastmcp.dependencies import CurrentContext, Depends
 from fastmcp.server.context import Context
@@ -14,6 +14,7 @@ from app.repositories.unit_of_work import UnitOfWork
 from app.schemas.tool_responses import AggregateResult
 from app.server.di import get_uow
 from app.shared.filters import parse_django_filters
+from app.shared.types import JsonDictOrNone
 
 EntityName = Literal[
     "track",
@@ -47,7 +48,7 @@ async def entity_aggregate(
         str | None, Field(description="Required for sum/avg/min_max/histogram")
     ] = None,
     group_by: Annotated[str | None, Field(description="Group column")] = None,
-    filters: Annotated[dict[str, Any] | None, Field(description="Django-style filters")] = None,
+    filters: Annotated[JsonDictOrNone, Field(description="Django-style filters")] = None,
     uow: UnitOfWork = Depends(get_uow),
     ctx: Context = CurrentContext(),
 ) -> AggregateResult:
