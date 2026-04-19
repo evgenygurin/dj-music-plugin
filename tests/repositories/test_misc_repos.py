@@ -73,10 +73,10 @@ async def test_transition_pair(setup: None, session: AsyncSession) -> None:
     session.add_all([t1, t2])
     await session.flush()
     repo = TransitionRepository(session)
-    await repo.create(from_track_id=t1.id, to_track_id=t2.id, overall_score=0.8)
+    await repo.create(from_track_id=t1.id, to_track_id=t2.id, overall_quality=0.8)
     tr = await repo.get_pair(t1.id, t2.id)
     assert tr is not None
-    assert tr.overall_score == 0.8
+    assert tr.overall_quality == 0.8
 
 
 @pytest.mark.asyncio
