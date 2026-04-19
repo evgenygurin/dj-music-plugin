@@ -74,6 +74,19 @@ class YandexAdapter:
             return await self._write_likes(operation, params)
         raise ValueError(f"unknown write entity: {entity}")
 
+    async def _resolve_revision(self, playlist_id: Any, params: dict[str, Any]) -> int:
+        """Return params["revision"] when present, else fetch it from YM.
+
+        YM's change-relative endpoint requires the current revision for
+        optimistic concurrency. Callers often don't carry it; auto-fetching
+        hides that quirk at the adapter boundary.
+        """
+        raw = params.get("revision")
+        if raw is not None:
+            return int(raw)
+        current = await self._client.get_playlist(playlist_id)
+        return int(current.get("revision", 1))
+
     async def _write_playlist(self, operation: str, params: dict[str, Any]) -> dict[str, Any]:
         match operation:
             case "create":
@@ -91,7 +104,9 @@ class YandexAdapter:
             case "delete":
                 return await self._client.delete_playlist(params["playlist_id"])
             case "add_tracks":
-                track_ids = list(params["track_ids"])
+                pid = params["playlist_id"]
+                revision = await self._resolve_revision(pid, params)
+                track_ids = [str(t) for t in params["track_ids"]]
                 diff = [
                     {
                         "op": "insert",
@@ -99,10 +114,10 @@ class YandexAdapter:
                         "tracks": [{"id": tid} for tid in track_ids],
                     }
                 ]
-                return await self._client.modify_playlist(
-                    params["playlist_id"], diff=diff, revision=int(params["revision"])
-                )
+                return await self._client.modify_playlist(pid, diff=diff, revision=revision)
             case "remove_tracks":
+                pid = params["playlist_id"]
+                revision = await self._resolve_revision(pid, params)
                 diff = [
                     {
                         "op": "delete",
@@ -110,9 +125,7 @@ class YandexAdapter:
                         "to": int(params["to"]),
                     }
                 ]
-                return await self._client.modify_playlist(
-                    params["playlist_id"], diff=diff, revision=int(params["revision"])
-                )
+                return await self._client.modify_playlist(pid, diff=diff, revision=revision)
             case _:
                 raise ValueError(f"unknown playlist operation: {operation}")
 

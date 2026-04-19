@@ -19,7 +19,12 @@ class TrackView(BaseModel):
 
 
 class TrackFilter(BaseModel):
-    """Django-lookup filter schema. Every field is optional."""
+    """Django-lookup filter schema for the ``track`` entity.
+
+    Only columns present on the ``tracks`` table are listed. Audio-feature
+    filters (BPM, key, LUFS, mood) live on the ``track_features`` entity —
+    use ``entity_list(entity="track_features", ...)`` to filter by those.
+    """
 
     model_config = ConfigDict(extra="forbid")
 
@@ -28,23 +33,8 @@ class TrackFilter(BaseModel):
     title__icontains: str | None = None
     status__eq: int | None = None
     status__in: list[int] | None = None
-
-    bpm__gte: float | None = None
-    bpm__lte: float | None = None
-    bpm__lt: float | None = None
-    bpm__gt: float | None = None
-    bpm__range: list[float] | None = None
-
-    key_code__eq: int | None = None
-    key_code__in: list[int] | None = None
-
-    integrated_lufs__gte: float | None = None
-    integrated_lufs__lte: float | None = None
-
-    mood__eq: str | None = None
-    mood__in: list[str] | None = None
-
-    has_features__eq: bool | None = None
+    duration_ms__gte: int | None = None
+    duration_ms__lte: int | None = None
 
 
 class TrackCreate(BaseModel):

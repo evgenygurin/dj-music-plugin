@@ -44,3 +44,21 @@ class SetVersionRepository(BaseRepository[DjSetVersion]):
         self.session.add_all(items)
         await self.session.flush()
         return len(items)
+
+    async def get_latest(self, set_id: int) -> DjSetVersion | None:
+        """Return the newest version for a set — MAX(id) wins."""
+        stmt = (
+            select(DjSetVersion)
+            .where(DjSetVersion.set_id == set_id)
+            .order_by(DjSetVersion.id.desc())
+            .limit(1)
+        )
+        return await self.session.scalar(stmt)  # type: ignore[no-any-return]
+
+    async def count_for_set(self, set_id: int) -> int:
+        """Return the number of versions for a set."""
+        stmt = select(func.count()).select_from(DjSetVersion).where(DjSetVersion.set_id == set_id)
+        return int(await self.session.scalar(stmt) or 0)
+
+    # Alias matching the older name used by some resources.
+    latest_version = get_latest

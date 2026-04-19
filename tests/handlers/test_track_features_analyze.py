@@ -34,9 +34,8 @@ def uow() -> MagicMock:
 @pytest.fixture
 def pipeline() -> AsyncMock:
     p = AsyncMock()
-    p.analyze_to_level.return_value = MagicMock(
+    p.analyze.return_value = MagicMock(
         features={"bpm": 128.0, "key_code": 5, "integrated_lufs": -9.0},
-        pipeline_run_id=1,
         analysis_level=3,
         sections=[],
         errors=[],
@@ -52,7 +51,7 @@ async def test_analyzes_unseen_track(ctx: MagicMock, uow: MagicMock, pipeline: A
 
     assert len(result["analyzed"]) == 1
     assert result["analyzed"][0]["level"] == 3
-    pipeline.analyze_to_level.assert_awaited_once()
+    pipeline.analyze.assert_awaited_once()
 
 
 @pytest.mark.asyncio
@@ -66,7 +65,7 @@ async def test_skips_tracks_already_at_level(
 
     assert result["analyzed"] == []
     assert len(result["skipped"]) == 1
-    pipeline.analyze_to_level.assert_not_awaited()
+    pipeline.analyze.assert_not_awaited()
 
 
 @pytest.mark.asyncio
@@ -79,7 +78,7 @@ async def test_force_reanalyzes_even_if_higher_level(
     result = await track_features_analyze_handler(ctx, uow, data, pipeline)
 
     assert len(result["analyzed"]) == 1
-    pipeline.analyze_to_level.assert_awaited_once()
+    pipeline.analyze.assert_awaited_once()
 
 
 @pytest.mark.asyncio

@@ -12,6 +12,7 @@ from pydantic import Field
 from app.repositories.unit_of_work import UnitOfWork
 from app.schemas.tool_responses import SequenceOptimizeResult
 from app.server.di import get_optimizer, get_transition_scorer, get_uow
+from app.shared.types import JsonIntList, JsonIntListOrNone
 
 
 @tool(
@@ -25,7 +26,7 @@ from app.server.di import get_optimizer, get_transition_scorer, get_uow
 )
 async def sequence_optimize(
     track_ids: Annotated[
-        list[int], Field(min_length=2, max_length=500, description="Pool of track IDs")
+        JsonIntList, Field(min_length=2, max_length=500, description="Pool of track IDs")
     ],
     algorithm: Annotated[
         Literal["ga", "greedy"], Field(description="Optimization algorithm")
@@ -33,8 +34,8 @@ async def sequence_optimize(
     template: Annotated[
         str | None, Field(description="Set template name (for template-aware fitness)")
     ] = None,
-    pinned: Annotated[list[int] | None, Field(description="Must-include track IDs")] = None,
-    excluded: Annotated[list[int] | None, Field(description="Banned track IDs")] = None,
+    pinned: Annotated[JsonIntListOrNone, Field(description="Must-include track IDs")] = None,
+    excluded: Annotated[JsonIntListOrNone, Field(description="Banned track IDs")] = None,
     uow: UnitOfWork = Depends(get_uow),
     scorer=Depends(get_transition_scorer),
     optimizer_builder=Depends(get_optimizer),

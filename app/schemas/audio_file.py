@@ -18,6 +18,7 @@ class AudioFileView(BaseModel):
 
 class AudioFileFilter(BaseModel):
     model_config = ConfigDict(extra="forbid")
+    id__eq: int | None = None
     id__in: list[int] | None = None
     track_id__eq: int | None = None
     track_id__in: list[int] | None = None

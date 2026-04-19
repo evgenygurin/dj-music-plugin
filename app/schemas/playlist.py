@@ -16,7 +16,9 @@ class PlaylistView(BaseModel):
 
 class PlaylistFilter(BaseModel):
     model_config = ConfigDict(extra="forbid")
+    id__eq: int | None = None
     id__in: list[int] | None = None
+    name__eq: str | None = None
     name__icontains: str | None = None
     source_of_truth__eq: str | None = None
     parent_id__eq: int | None = None

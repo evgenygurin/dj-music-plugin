@@ -86,6 +86,11 @@ async def mcp_server(
     _slots = {
         "uow": mock_uow,
         "provider_registry": mock_provider_registry,
+        # entity_create / entity_update resolve these via Depends() for the
+        # handler dispatch path; tests that exercise the default (no-handler)
+        # CRUD branch never touch them, but FastMCP still eagerly resolves.
+        "audio_pipeline": MagicMock(),
+        "transition_scorer": MagicMock(),
     }
 
     def _lookup(key: str, what: str):  # type: ignore[no-untyped-def]

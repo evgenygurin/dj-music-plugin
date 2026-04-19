@@ -29,7 +29,9 @@ class TransitionHistoryView(BaseModel):
 class TransitionHistoryFilter(BaseModel):
     model_config = ConfigDict(extra="forbid")
     from_track_id__eq: int | None = None
+    from_track_id__in: list[int] | None = None
     to_track_id__eq: int | None = None
+    to_track_id__in: list[int] | None = None
     user_reaction__eq: Literal["positive", "neutral", "negative"] | None = None
     overall_score__gte: float | None = None
     session_id__eq: str | None = None

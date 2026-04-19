@@ -175,3 +175,31 @@ def parse_django_filters(
 ) -> list[ColumnElement[bool]]:
     """Alias of :func:`parse_filter` — name used by entity_* tools (Phase 3)."""
     return parse_filter(model, where, allowed_fields=allowed_fields)
+
+
+def normalize_bare_fields(where: Mapping[str, Any]) -> dict[str, Any]:
+    """Map bare field names to implicit ``__eq`` lookups.
+
+    Django-style shorthand ``{"id": 1}`` becomes ``{"id__eq": 1}`` so it
+    passes Pydantic filter-schema validation (which declares explicit
+    ``__eq``/``__in``/... suffixes). Keys already carrying any valid
+    ``__<op>`` suffix are passed through untouched. Preserves the
+    shorthand that ``parse_filter`` already accepted via
+    :func:`split_lookup` — prevents a regression for clients that were
+    relying on bare equality before entity_list/aggregate switched to
+    Pydantic-schema validation.
+    """
+    out: dict[str, Any] = {}
+    for key, value in where.items():
+        if "__" not in key:
+            out[f"{key}__eq"] = value
+            continue
+        # Preserve bare fields whose name happens to contain "__" but whose
+        # suffix isn't a real operator (rare, but possible for obscure
+        # column names). split_lookup treats those as bare already.
+        _, op = split_lookup(key)
+        if op == "eq" and not key.endswith("__eq"):
+            out[f"{key}__eq"] = value
+        else:
+            out[key] = value
+    return out

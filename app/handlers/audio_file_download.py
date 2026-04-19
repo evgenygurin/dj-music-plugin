@@ -59,7 +59,21 @@ async def audio_file_download_handler(
             await ctx.report_progress(progress=i + 1, total=total)
             continue
 
-        ext_id = await uow.tracks.get_provider_id(tid, platform=source)
+        # External IDs are written under two platform labels historically —
+        # the adapter name ("yandex") and the colloquial "yandex_music".
+        # Probe both so old rows stay discoverable without a data migration.
+        platform_aliases = [source]
+        if source == "yandex":
+            platform_aliases.append("yandex_music")
+        elif source == "yandex_music":
+            platform_aliases.append("yandex")
+
+        ext_id: str | None = None
+        for platform in platform_aliases:
+            ext_id = await uow.tracks.get_provider_id(tid, platform=platform)
+            if ext_id is not None:
+                break
+
         if ext_id is None:
             errors.append({"track_id": tid, "error": f"no {source} external_id"})
             await ctx.report_progress(progress=i + 1, total=total)

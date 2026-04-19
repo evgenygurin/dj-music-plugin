@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from sqlalchemy import select, update
 
 from app.domain.transition.features import TrackFeatures
@@ -12,6 +14,32 @@ from app.shared.errors import NotFoundError
 
 class TrackFeaturesRepository(BaseRepository[TrackAudioFeaturesComputed]):
     model = TrackAudioFeaturesComputed
+
+    async def get_by_track_id(self, track_id: int) -> TrackAudioFeaturesComputed | None:
+        """Return the features row for ``track_id`` (primary key), or None."""
+        stmt = select(TrackAudioFeaturesComputed).where(
+            TrackAudioFeaturesComputed.track_id == track_id
+        )
+        return await self.session.scalar(stmt)  # type: ignore[no-any-return]
+
+    async def upsert(self, *, track_id: int, **values: Any) -> TrackAudioFeaturesComputed:
+        """INSERT or UPDATE the features row for ``track_id``.
+
+        Used by the analyze handler after pipeline completion. Only whitelists
+        columns that exist on the model to tolerate pipeline extras.
+        """
+        allowed = {c.key for c in TrackAudioFeaturesComputed.__table__.columns}
+        clean = {k: v for k, v in values.items() if k in allowed and k != "track_id"}
+        existing = await self.get_by_track_id(track_id)
+        if existing is not None:
+            for key, val in clean.items():
+                setattr(existing, key, val)
+            await self.session.flush()
+            return existing
+        row = TrackAudioFeaturesComputed(track_id=track_id, **clean)
+        self.session.add(row)
+        await self.session.flush()
+        return row
 
     async def get_scoring_features_batch(self, track_ids: list[int]) -> dict[int, TrackFeatures]:
         """Batch load scoring features as TrackFeatures dataclasses (JSON vectors parsed)."""

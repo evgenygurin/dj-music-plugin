@@ -183,8 +183,21 @@ class YandexClient:
 
     # ---------- playlists ---------- #
 
-    async def get_playlist(self, playlist_id: str) -> dict[str, Any]:
-        owner, kind = playlist_id.split(":", 1)
+    def _split_playlist_id(self, playlist_id: str | int) -> tuple[str, str]:
+        """Accept "owner:kind", plain kind, or int kind; fall back to self._user_id.
+
+        YM identifies a playlist by (owner_uid, kind). Historically our callers
+        pass the composite "owner:kind"; newer callers may pass the bare kind
+        after create_playlist returns it. Both shapes must work.
+        """
+        raw = str(playlist_id)
+        if ":" in raw:
+            owner, kind = raw.split(":", 1)
+            return owner, kind
+        return str(self._user_id), raw
+
+    async def get_playlist(self, playlist_id: str | int) -> dict[str, Any]:
+        owner, kind = self._split_playlist_id(playlist_id)
         return await self._request("GET", f"/users/{owner}/playlists/{kind}")
 
     async def list_playlists(self) -> list[dict[str, Any]]:
@@ -199,9 +212,9 @@ class YandexClient:
         )
 
     async def modify_playlist(
-        self, playlist_id: str, *, diff: list[dict[str, Any]], revision: int
+        self, playlist_id: str | int, *, diff: list[dict[str, Any]], revision: int
     ) -> dict[str, Any]:
-        owner, kind = playlist_id.split(":", 1)
+        owner, kind = self._split_playlist_id(playlist_id)
         import json as _json
 
         return await self._request(
@@ -210,20 +223,20 @@ class YandexClient:
             data={"diff": _json.dumps(diff), "revision": revision},
         )
 
-    async def delete_playlist(self, playlist_id: str) -> dict[str, Any]:
-        owner, kind = playlist_id.split(":", 1)
+    async def delete_playlist(self, playlist_id: str | int) -> dict[str, Any]:
+        owner, kind = self._split_playlist_id(playlist_id)
         return await self._request("POST", f"/users/{owner}/playlists/{kind}/delete")
 
-    async def rename_playlist(self, playlist_id: str, *, title: str) -> dict[str, Any]:
-        owner, kind = playlist_id.split(":", 1)
+    async def rename_playlist(self, playlist_id: str | int, *, title: str) -> dict[str, Any]:
+        owner, kind = self._split_playlist_id(playlist_id)
         return await self._request(
             "POST", f"/users/{owner}/playlists/{kind}/name", data={"value": title}
         )
 
     async def set_playlist_description(
-        self, playlist_id: str, *, description: str
+        self, playlist_id: str | int, *, description: str
     ) -> dict[str, Any]:
-        owner, kind = playlist_id.split(":", 1)
+        owner, kind = self._split_playlist_id(playlist_id)
         return await self._request(
             "POST",
             f"/users/{owner}/playlists/{kind}/description",
