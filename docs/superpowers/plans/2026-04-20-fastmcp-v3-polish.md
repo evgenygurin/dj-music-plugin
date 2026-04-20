@@ -4,7 +4,7 @@
 
 **Spec:** `docs/superpowers/specs/2026-04-20-fastmcp-v3-polish-design.md` (commit `548b572`)
 
-**Goal:** Deduplicate 6 custom middleware against FastMCP v3 built-ins, migrate per-tool timeout from middleware to native `@tool(timeout=N)`, extend `fastmcp.json` with environment+env interpolation, fix CORS for browser MCP clients. Ship as `v1.0.3` patch across 3 sequential PRs.
+**Goal:** Deduplicate 6 custom middleware against FastMCP v3 built-ins, migrate per-tool timeout from middleware to native `@tool(timeout=N)` across 20 tools (14 dispatch + 6 UI from PR #113), extend `fastmcp.json` with environment+env interpolation, fix CORS for browser MCP clients. Ship as `v1.0.4` patch across 3 sequential PRs directly against `main`.
 
 **Architecture:** No surface-level MCP changes (13 tool dispatchers + 27 resources + 6 prompts unchanged). Internal refactor only: swap our middleware implementations for canonical FastMCP built-ins, move `TransientError` from middleware package to `app/shared/errors.py`, add `timeout=` parameter to all 14 `@tool` decorators, extend existing `fastmcp.json` with `environment` and `deployment.env` sections (interpolation from shell env).
 
@@ -36,7 +36,7 @@
 ### Modified in PR1
 
 - `app/shared/errors.py` — add `TransientError`
-- `app/server/middleware/retry.py` — reduced to backward-compat shim re-exporting `TransientError` (kept for `v1.0.3`, removed in `v1.0.4`)
+- `app/server/middleware/retry.py` — reduced to backward-compat shim re-exporting `TransientError` (kept for `v1.0.4`, removed in `v1.0.5`)
 - `app/server/middleware/__init__.py` — full rewrite: imports of 5 built-ins + `build_middleware_list(settings)` function + `_READ_ONLY_TOOLS`
 - `app/server/app.py` — `register_middleware(mcp)` calls `build_middleware_list(get_settings())`
 - `tests/server/test_ordering.py` — count `16 → 15` + renamed classes in expected list
@@ -63,8 +63,8 @@
 
 ### Modified in final release task
 
-- `pyproject.toml` — version bump `1.0.2 → 1.0.3`
-- `CHANGELOG.md` — add `[1.0.3]` section
+- `pyproject.toml` — version bump `1.0.3 → 1.0.4`
+- `CHANGELOG.md` — add `[1.0.4]` section
 
 ---
 
@@ -141,23 +141,41 @@ This task has no git commit — it's pre-work recon. Record findings in the PR1 
 
 **Files:** (none modified)
 
-- [ ] **Step 1: Fetch latest dev**
+- [ ] **Step 1: Fetch latest main**
 
 Run:
 ```bash
-git fetch origin dev
+git fetch origin main
 ```
 
 - [ ] **Step 2: Create branch**
 
 Run:
 ```bash
-git checkout -b refactor/middleware-dedupe origin/dev
+git checkout -b refactor/middleware-dedupe origin/main
 ```
 
 Expected: `Switched to a new branch 'refactor/middleware-dedupe'`
 
-- [ ] **Step 3: Verify working tree is clean**
+- [ ] **Step 3: Cherry-pick spec + plan amendments onto PR1 branch**
+
+Spec (commit `46ee404` in the amendment-applied order, or use `git log claude/gracious-pascal-b5ec8d --oneline -5` to locate the current hashes) and plan commits must land in the first PR merge so they are available in `main` for later PR reviewers.
+
+Run:
+```bash
+# Locate spec + plan commits from the worktree feature branch
+SPEC=$(git rev-list --all --grep="docs: add FastMCP v3 polish design spec" -n 1)
+PLAN=$(git rev-list --all --grep="docs: add FastMCP v3 polish implementation plan" -n 1)
+AMEND=$(git rev-list --all --grep="docs: amend spec/plan" -n 1 2>/dev/null || true)
+
+# Cherry-pick in the correct order (spec first, then plan, then amend if it exists)
+git cherry-pick $SPEC $PLAN
+if [ -n "$AMEND" ]; then git cherry-pick $AMEND; fi
+```
+
+Expected: two or three new commits on top of `origin/main`, tree clean.
+
+- [ ] **Step 4: Verify working tree is clean**
 
 Run:
 ```bash
@@ -283,13 +301,13 @@ Replace the full file contents with:
 """Back-compat shim — scheduled for removal in v1.0.4.
 
 Historically this file defined ``RetryMiddleware`` and ``TransientError``.
-As of v1.0.3:
+As of v1.0.4:
 
 - ``RetryMiddleware`` is imported from ``fastmcp.server.middleware.error_handling``.
 - ``TransientError`` lives in ``app.shared.errors``.
 
 This shim re-exports ``TransientError`` to keep third-party imports working
-for one release cycle. Delete this file in v1.0.4.
+for one release cycle. Delete this file in v1.0.5.
 """
 
 from __future__ import annotations
@@ -591,7 +609,7 @@ Unknown exceptions are wrapped with a generic message in production
 
 Distinct from ``fastmcp.server.middleware.error_handling.ErrorHandlingMiddleware``
 (which focuses on exception logging and tracebacks — not domain mapping).
-Rename from ``ErrorHandlingMiddleware`` landed in v1.0.3 to avoid the
+Rename from ``ErrorHandlingMiddleware`` landed in v1.0.4 to avoid the
 name collision with the built-in.
 """
 ```
@@ -778,6 +796,13 @@ _READ_ONLY_TOOLS: tuple[str, ...] = (
     "provider_read",
     "provider_search",
     "transition_score_pool",
+    # UI tools from PR #113 — all readOnlyHint=True, render Prefab dashboards.
+    "ui_library_audit",
+    "ui_library_dashboard",
+    "ui_camelot_wheel",
+    "ui_score_pool_matrix",
+    "ui_set_view",
+    "ui_transition_score",
 )
 
 def build_middleware_list(settings: "Settings") -> list["Middleware"]:
@@ -1204,7 +1229,7 @@ Spec: `docs/superpowers/specs/2026-04-20-fastmcp-v3-polish-design.md`.
 
 Run:
 ```bash
-gh pr create --base dev --title "refactor: dedupe middleware against FastMCP v3 built-ins" --body-file /tmp/dj-pr-body.md
+gh pr create --base main --title "refactor: dedupe middleware against FastMCP v3 built-ins" --body-file /tmp/dj-pr-body.md
 rm /tmp/dj-pr-body.md
 ```
 
@@ -1220,7 +1245,7 @@ PAUSE HERE. Wait for maintainer review and merge of PR1 before starting PR2. Any
 
 ## PR2: `refactor/tool-timeout-migration`
 
-### Task 17: Create PR2 branch from updated dev
+### Task 17: Create PR2 branch from updated main
 
 **Files:** (none modified)
 
@@ -1232,12 +1257,12 @@ gh pr view refactor/middleware-dedupe --json state --jq .state
 ```
 Expected: `"MERGED"`. If `"OPEN"`, wait.
 
-- [ ] **Step 2: Sync dev and branch**
+- [ ] **Step 2: Sync main and branch**
 
 Run:
 ```bash
-git fetch origin dev
-git checkout -b refactor/tool-timeout-migration origin/dev
+git fetch origin main
+git checkout -b refactor/tool-timeout-migration origin/main
 ```
 
 ### Task 18: Delete `tool_timeout.py` middleware + test
@@ -1338,11 +1363,11 @@ Run:
 git commit -F /tmp/dj-commit-msg.txt && rm /tmp/dj-commit-msg.txt
 ```
 
-### Task 20: Add `timeout=N` to all 14 `@tool` decorators
+### Task 20: Add `timeout=N` to all 20 `@tool` decorators
 
-**Files:** Modify 14 files per §4.2 of the spec.
+**Files:** Modify 20 files per §4.2 of the spec (14 dispatch tools + 6 UI tools from PR #113).
 
-**Per-tool timeout table (restated from spec):**
+**Per-tool timeout table (restated from spec §4.2):**
 
 | File | Tool name | `timeout=` |
 |---|---|---|
@@ -1353,6 +1378,11 @@ git commit -F /tmp/dj-commit-msg.txt && rm /tmp/dj-commit-msg.txt
 | `app/tools/provider/search.py` | `provider_search` | `30.0` |
 | `app/tools/admin/unlock_namespace.py` | `unlock_namespace` | `30.0` |
 | `app/tools/admin/tool_invoke.py` | `tool_invoke` | `30.0` |
+| `app/tools/ui/library_audit.py` | `ui_library_audit` | `30.0` |
+| `app/tools/ui/library_dashboard.py` | `ui_library_dashboard` | `30.0` |
+| `app/tools/ui/camelot_wheel.py` | `ui_camelot_wheel` | `30.0` |
+| `app/tools/ui/set_view.py` | `ui_set_view` | `30.0` |
+| `app/tools/ui/transition_score.py` | `ui_transition_score` | `30.0` |
 | `app/tools/entity/create.py` | `entity_create` | `120.0` |
 | `app/tools/entity/update.py` | `entity_update` | `120.0` |
 | `app/tools/entity/delete.py` | `entity_delete` | `120.0` |
@@ -1360,8 +1390,9 @@ git commit -F /tmp/dj-commit-msg.txt && rm /tmp/dj-commit-msg.txt
 | `app/tools/sync/playlist_sync.py` | `playlist_sync` | `180.0` |
 | `app/tools/compute/score_pool.py` | `transition_score_pool` | `300.0` |
 | `app/tools/compute/sequence_optimize.py` | `sequence_optimize` | `300.0` |
+| `app/tools/ui/score_pool_matrix.py` | `ui_score_pool_matrix` | `300.0` |
 
-- [ ] **Step 1: Edit the 7 fast-read tools (timeout=30.0)**
+- [ ] **Step 1: Edit the 12 fast-read tools (timeout=30.0)**
 
 For each of these files, locate the `@tool(...)` call and add `timeout=30.0` immediately after `description=...,` closing. Example for `app/tools/entity/list.py`:
 
@@ -1402,6 +1433,11 @@ Apply to:
 - `app/tools/provider/search.py`
 - `app/tools/admin/unlock_namespace.py`
 - `app/tools/admin/tool_invoke.py`
+- `app/tools/ui/library_audit.py`
+- `app/tools/ui/library_dashboard.py`
+- `app/tools/ui/camelot_wheel.py`
+- `app/tools/ui/set_view.py`
+- `app/tools/ui/transition_score.py`
 
 - [ ] **Step 2: Edit the 4 write tools (timeout=120.0)**
 
@@ -1415,18 +1451,19 @@ Same pattern, value `120.0`:
 
 - `app/tools/sync/playlist_sync.py` → `timeout=180.0`
 
-- [ ] **Step 4: Edit the 2 compute tools (timeout=300.0)**
+- [ ] **Step 4: Edit the 3 compute tools (timeout=300.0)**
 
 - `app/tools/compute/score_pool.py` → `timeout=300.0`
 - `app/tools/compute/sequence_optimize.py` → `timeout=300.0`
+- `app/tools/ui/score_pool_matrix.py` → `timeout=300.0`
 
-- [ ] **Step 5: Verify all 14 files have a `timeout=` kwarg**
+- [ ] **Step 5: Verify all 20 files have a `timeout=` kwarg**
 
 Run:
 ```bash
 rg "timeout=" app/tools/ 2>&1
 ```
-Expected: 14 lines, one per tool file.
+Expected: 20 lines, one per tool file. (Exclude any `_fallback.py` helper — it has no `@tool`.)
 
 - [ ] **Step 6: Run tool metadata tests**
 
@@ -1581,7 +1618,7 @@ Write `/tmp/dj-commit-msg.txt`:
 test(ordering): assert len=14 post-PR2
 
 ToolCallTimeoutMiddleware removed in favour of @tool(timeout=N). Final
-middleware count for v1.0.3 is 14.
+middleware count for v1.0.4 is 14.
 
 Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
 ```
@@ -1637,11 +1674,11 @@ Migrate per-tool timeouts from custom middleware to native `@tool(timeout=N)` pa
 ## Changes
 
 - **Deleted** `app/server/middleware/tool_timeout.py` and its test. Middleware count 15 → 14.
-- **Added** `timeout=N` to all 14 `@tool(...)` decorators per spec §4.2:
-  - Fast reads (30s): `entity_list`, `entity_get`, `entity_aggregate`, `provider_read`, `provider_search`, `unlock_namespace`, `tool_invoke`.
+- **Added** `timeout=N` to all 20 `@tool(...)` decorators per spec §4.2 (14 dispatch + 6 UI from PR #113):
+  - Fast reads (30s): `entity_list`, `entity_get`, `entity_aggregate`, `provider_read`, `provider_search`, `unlock_namespace`, `tool_invoke`, `ui_library_audit`, `ui_library_dashboard`, `ui_camelot_wheel`, `ui_set_view`, `ui_transition_score`.
   - Writes (120s): `entity_create`, `entity_update`, `entity_delete`, `provider_write`.
   - Sync (180s): `playlist_sync`.
-  - Compute (300s): `transition_score_pool`, `sequence_optimize`.
+  - Compute (300s): `transition_score_pool`, `sequence_optimize`, `ui_score_pool_matrix`.
 - **Removed** `MCPSettings.default_tool_timeout_s` (only read by the deleted middleware).
 
 ## Behavioural note
@@ -1661,7 +1698,7 @@ Spec: `docs/superpowers/specs/2026-04-20-fastmcp-v3-polish-design.md` §4.2.
 
 Run:
 ```bash
-gh pr create --base dev --title "refactor: migrate tool timeouts to @tool(timeout=N)" --body-file /tmp/dj-pr-body.md
+gh pr create --base main --title "refactor: migrate tool timeouts to @tool(timeout=N)" --body-file /tmp/dj-pr-body.md
 rm /tmp/dj-pr-body.md
 ```
 
@@ -1673,7 +1710,7 @@ PAUSE HERE until PR2 is merged.
 
 ## PR3: `feat/fastmcp-json-and-cors`
 
-### Task 24: Create PR3 branch from updated dev
+### Task 24: Create PR3 branch from updated main
 
 **Files:** (none modified)
 
@@ -1689,8 +1726,8 @@ Expected: `"MERGED"`.
 
 Run:
 ```bash
-git fetch origin dev
-git checkout -b feat/fastmcp-json-and-cors origin/dev
+git fetch origin main
+git checkout -b feat/fastmcp-json-and-cors origin/main
 ```
 
 ### Task 25: Extend `fastmcp.json` with `environment` and `deployment.env`
@@ -2012,7 +2049,7 @@ Spec: `docs/superpowers/specs/2026-04-20-fastmcp-v3-polish-design.md` §4.3–§
 
 Run:
 ```bash
-gh pr create --base dev --title "feat: extend fastmcp.json + fix CORS for browser MCP clients" --body-file /tmp/dj-pr-body.md
+gh pr create --base main --title "feat: extend fastmcp.json + fix CORS for browser MCP clients" --body-file /tmp/dj-pr-body.md
 rm /tmp/dj-pr-body.md
 ```
 
@@ -2022,39 +2059,41 @@ PAUSE HERE until PR3 is merged.
 
 ---
 
-## Release Task: `v1.0.3` tag + changelog
+## Release Task: `v1.0.4` tag + changelog
 
-### Task 30: Bump version + changelog + release PR dev → main
+### Task 30: Bump version + changelog + tag on main
 
 **Files:**
 - Modify: `pyproject.toml`
 - Modify: `CHANGELOG.md`
-- Create (optional): `docs/release-notes/v1.0.3.md`
+- Create (optional): `docs/release-notes/v1.0.4.md`
 
-- [ ] **Step 1: Sync dev locally**
+No `dev → main` release PR is needed — this repo merges PRs directly to `main`. Task 30 runs on a short-lived release branch off `main`, merged into `main`, then tagged.
+
+- [ ] **Step 1: Sync main locally**
 
 Run:
 ```bash
-git checkout dev
-git pull origin dev
+git checkout main
+git pull origin main
 ```
 
 - [ ] **Step 2: Create release branch**
 
 Run:
 ```bash
-git checkout -b release/v1.0.3
+git checkout -b release/v1.0.4
 ```
 
 - [ ] **Step 3: Bump version in `pyproject.toml`**
 
 Using Edit tool, change:
 ```toml
-version = "1.0.2"
+version = "1.0.3"
 ```
 to:
 ```toml
-version = "1.0.3"
+version = "1.0.4"
 ```
 
 - [ ] **Step 4: Update CHANGELOG.md**
@@ -2062,13 +2101,13 @@ version = "1.0.3"
 Prepend to the top of `CHANGELOG.md` (under any existing `## [Unreleased]` block or right below the main heading):
 
 ```markdown
-## [1.0.3] — 2026-04-20
+## [1.0.4] — 2026-04-20
 
 ### Changed
 - Replaced 5 custom middleware with canonical FastMCP v3 built-ins: `DetailedTimingMiddleware`, `RetryMiddleware`, `ResponseLimitingMiddleware`, `ResponseCachingMiddleware`, `StructuredLoggingMiddleware`. Behaviour equivalent, covered by FastMCP core tests.
 - Renamed `ErrorHandlingMiddleware` → `DomainErrorMiddleware` to avoid name collision with FastMCP's built-in `ErrorHandlingMiddleware`. File renamed from `app/server/middleware/error_handling.py` to `app/server/middleware/domain_error.py`.
-- Moved `TransientError` from `app/server/middleware/retry.py` to `app/shared/errors.py`. Legacy import path kept as a re-export shim until v1.0.4.
-- Per-tool timeouts now via native `@tool(timeout=N)` parameter instead of `ToolCallTimeoutMiddleware` reading `tool.meta["timeout_s"]`. Values per category (30s reads, 120s writes, 180s sync, 300s compute).
+- Moved `TransientError` from `app/server/middleware/retry.py` to `app/shared/errors.py`. Legacy import path kept as a re-export shim until v1.0.5.
+- Per-tool timeouts now via native `@tool(timeout=N)` parameter on 20 `@tool` decorators (14 dispatch + 6 UI from PR #113), replacing `ToolCallTimeoutMiddleware` reading `tool.meta["timeout_s"]`. Values per category (30s reads/UI, 120s writes, 180s sync, 300s compute/UI-compute).
 
 ### Added
 - `fastmcp.json` `environment` section (uv / python ≥ 3.12 / project root) for declarative env management.
@@ -2082,7 +2121,7 @@ Prepend to the top of `CHANGELOG.md` (under any existing `## [Unreleased]` block
 
 ### Breaking (internal to codebase only — MCP surface unchanged)
 - Import: `from app.server.middleware.error_handling import ErrorHandlingMiddleware` → `from app.server.middleware.domain_error import DomainErrorMiddleware`.
-- Import: `from app.server.middleware.retry import TransientError` → `from app.shared.errors import TransientError` (legacy path works until v1.0.4).
+- Import: `from app.server.middleware.retry import TransientError` → `from app.shared.errors import TransientError` (legacy path works until v1.0.5).
 - Timeout error messages: `ToolError("tool 'X' timed out after Ns")` → native MCP error code `-32000` `"Tool 'X' exceeded timeout of Ns"`. No MCP client parses the text — structurally equivalent.
 ```
 
@@ -2095,11 +2134,11 @@ git add pyproject.toml CHANGELOG.md
 
 Write `/tmp/dj-commit-msg.txt`:
 ```bash
-release: v1.0.3
+release: v1.0.4
 
-FastMCP v3 polish — middleware dedupe, @tool(timeout=N) migration,
-fastmcp.json environment + env interpolation, CORS for browser MCP
-clients.
+FastMCP v3 polish — middleware dedupe, @tool(timeout=N) migration
+across 20 tools (14 dispatch + 6 UI from PR #113), fastmcp.json
+environment + env interpolation, CORS for browser MCP clients.
 
 Spec: docs/superpowers/specs/2026-04-20-fastmcp-v3-polish-design.md
 Plan: docs/superpowers/plans/2026-04-20-fastmcp-v3-polish.md
@@ -2116,23 +2155,23 @@ git commit -F /tmp/dj-commit-msg.txt && rm /tmp/dj-commit-msg.txt
 
 Run:
 ```bash
-git push -u origin release/v1.0.3
+git push -u origin release/v1.0.4
 ```
 
 Write `/tmp/dj-pr-body.md`:
 ```markdown
 ## Summary
 
-Release `v1.0.3` — FastMCP v3 canonical polish. Consolidates PR1/PR2/PR3 merged into dev.
+Release `v1.0.4` — FastMCP v3 canonical polish. Version bump + CHANGELOG only; code changes already landed via PR1/PR2/PR3.
 
 ## Changelog
 
-See `CHANGELOG.md` → `[1.0.3]` section.
+See `CHANGELOG.md` → `[1.0.4]` section.
 
 ## Test plan
 
-- [ ] `make check` green on dev
-- [ ] `v1.0.3` tag created post-merge
+- [ ] `make check` green on main
+- [ ] `v1.0.4` tag created post-merge
 - [ ] GitHub release published
 
 🤖 Generated with [Claude Code](https://claude.com/claude-code)
@@ -2140,7 +2179,7 @@ See `CHANGELOG.md` → `[1.0.3]` section.
 
 Run:
 ```bash
-gh pr create --base main --title "Release: v1.0.3" --body-file /tmp/dj-pr-body.md
+gh pr create --base main --title "Release: v1.0.4" --body-file /tmp/dj-pr-body.md
 rm /tmp/dj-pr-body.md
 ```
 
@@ -2151,25 +2190,18 @@ Once the release PR is squash-merged to main:
 ```bash
 git checkout main
 git pull origin main
-git tag -a v1.0.3 -m "v1.0.3 — FastMCP v3 polish"
-git push origin v1.0.3
+git tag -a v1.0.4 -m "v1.0.4 — FastMCP v3 polish"
+git push origin v1.0.4
 ```
 
 Then:
 ```bash
-gh release create v1.0.3 \
-  --title "v1.0.3 — FastMCP v3 polish" \
+gh release create v1.0.4 \
+  --title "v1.0.4 — FastMCP v3 polish" \
   --notes "See CHANGELOG.md for details. Spec: docs/superpowers/specs/2026-04-20-fastmcp-v3-polish-design.md"
 ```
 
-- [ ] **Step 8: Merge main back into dev**
-
-```bash
-git checkout dev
-git pull origin dev
-git merge main --ff-only
-git push origin dev
-```
+(Repo has no long-lived `dev` branch — nothing to merge back.)
 
 ---
 

@@ -6,7 +6,7 @@ surface. Deduplicates custom middleware against built-ins, migrates per-tool
 timeout from middleware to the native `@tool(timeout=N)` decorator parameter,
 extends the existing `fastmcp.json`, fixes CORS headers for browser MCP clients.
 **Status:** Design — awaiting implementation.
-**Target release:** `v1.0.3` (patch, no MCP surface changes).
+**Target release:** `v1.0.4` (patch, no MCP surface changes). *(Originally planned as `v1.0.3` but PR #113 landed that version first with FastMCP Prefab UI tools.)*
 **Successor spec:** `fastmcp-tasks-migration` (adds `@tool(task=True)` + Docket +
 Redis + REST `/mcp` mount — out of scope here).
 
@@ -77,8 +77,7 @@ deliverable: **~600 LOC removed, ~200 added, ~2 days calendar, ~6-8 hours work**
 
 ## 3. Release Positioning
 
-- **Version:** `v1.0.3`. Pure patch — MCP-facing surface (13 tools + 27
-  resources + 6 prompts, their names, schemas, annotations) is unchanged.
+- **Version:** `v1.0.4`. Pure patch — MCP-facing surface (19 tools — 13 dispatchers + 6 UI tools from PR #113 — plus 27 resources + 6 prompts) is unchanged.
 - **Breaking changes (internal to codebase only):**
   - Import path: `from app.server.middleware.error_handling import
     ErrorHandlingMiddleware` → `from app.server.middleware.domain_error import
@@ -92,7 +91,8 @@ deliverable: **~600 LOC removed, ~200 added, ~2 days calendar, ~6-8 hours work**
   error code `-32000` with text `"Tool '<name>' exceeded timeout of <N>s"`
   rather than `ToolError("tool '<name>' timed out after <N>s")`. No MCP client
   parses this text; structurally both are `CallToolResult(isError=True)`.
-- **Changelog entry:**
+- **Branching model note:** Repo has no long-lived `dev` branch (per actual history: PRs #109–#113 all merged into `main`). All three PRs in this plan target `main` directly; no `dev` intermediate merge required.
+- **Changelog entry (for `[1.0.4]`):**
   - `Changed:` replaced 5 custom middleware with canonical FastMCP v3 built-ins;
     renamed `ErrorHandlingMiddleware` → `DomainErrorMiddleware`; moved
     per-tool timeout from custom middleware to native `@tool(timeout=N)`.
@@ -147,6 +147,13 @@ _READ_ONLY_TOOLS: tuple[str, ...] = (
     "provider_read",
     "provider_search",
     "transition_score_pool",
+    # UI tools from PR #113 — all readOnlyHint=True, render Prefab dashboards
+    "ui_library_audit",
+    "ui_library_dashboard",
+    "ui_camelot_wheel",
+    "ui_score_pool_matrix",
+    "ui_set_view",
+    "ui_transition_score",
 )
 
 def build_middleware_list(settings: Settings) -> list:
@@ -253,7 +260,7 @@ fallback.
 itself wraps the handler via `asyncio.wait_for` and raises MCP error `-32000`
 on expiry. No middleware needed.
 
-**Per-tool timeout values (new):**
+**Per-tool timeout values (new) — 20 tools after PR #113:**
 
 | Tool | Category | `timeout=` |
 |---|---|---|
@@ -264,12 +271,18 @@ on expiry. No middleware needed.
 | `provider_search` | fast read | `30.0` |
 | `unlock_namespace` | admin, instant | `30.0` |
 | `tool_invoke` | admin proxy | `30.0` |
+| `ui_library_audit` | UI read (DB aggregates + Prefab render) | `30.0` |
+| `ui_library_dashboard` | UI read (histograms + pie chart) | `30.0` |
+| `ui_camelot_wheel` | UI read (radial chart) | `30.0` |
+| `ui_set_view` | UI read (set + transitions render) | `30.0` |
+| `ui_transition_score` | UI read (6-component breakdown) | `30.0` |
 | `entity_create` | write, may trigger handler (import/download/analyze) | `120.0` |
 | `entity_update` | write, may trigger reanalyze | `120.0` |
 | `entity_delete` | write | `120.0` |
 | `provider_write` | YM mutation (add/remove tracks, create playlist) | `120.0` |
 | `transition_score_pool` | compute, N×N pairwise scoring on full pool | `300.0` |
 | `sequence_optimize` | compute, GA over pool | `300.0` |
+| `ui_score_pool_matrix` | compute (N×N heatmap; same bound as `transition_score_pool`) | `300.0` |
 | `playlist_sync` | paginated YM pull/push | `180.0` |
 
 Pattern per file:
@@ -286,7 +299,7 @@ async def entity_list(...) -> EntityListResult:
     ...
 ```
 
-**Files changed:** 14 tool files in `app/tools/**/*.py`.
+**Files changed:** 20 tool files in `app/tools/**/*.py` (14 dispatch tools + 6 UI tools from PR #113).
 
 **Files deleted:** `app/server/middleware/tool_timeout.py`.
 
@@ -381,6 +394,7 @@ middleware still interact well with the built-ins.
 | PR1 | `uv run python -c "from app.server.app import build_mcp_server; mcp = build_mcp_server(); print(len(mcp._middleware))"` | `10` (was `16`). |
 | PR1 | `opentelemetry-instrument uv run fastmcp run fastmcp.json` + exercise one tool + check traces | Native spans `tools/call entity_list` present with `gen_ai.tool.name` attribute. No parallel `mcp.tool.entity_list` spans. |
 | PR2 | `rg "timeout_s\|default_tool_timeout\|ToolCallTimeoutMiddleware" app/ tests/` | Only `app/providers/yandex/client.py:timeout_s` remains. |
+| PR1 | `uv run python -c "from app.server.app import build_mcp_server; mcp = build_mcp_server(); print(len(mcp._middleware))"` | `15` (was `16`). Then `14` after PR2. |
 | PR2 | `uv run fastmcp inspect fastmcp.json --format fastmcp \| jq '.tools[] \| {name, timeout: .meta.fastmcp.timeout}'` | Each tool reports expected timeout from §4.2 table. |
 | PR3 | `uv run fastmcp run fastmcp.json --no-banner` then connect Claude Code | Server starts, 13 tools + 27 resources + 6 prompts discoverable. |
 | PR3 | `curl -i -X OPTIONS http://localhost:8000/api/tools/entity_list/call -H "Origin: http://localhost:3000" -H "Access-Control-Request-Method: POST" -H "Access-Control-Request-Headers: mcp-session-id"` | `Access-Control-Allow-Headers: mcp-protocol-version, mcp-session-id, Authorization, Content-Type` + `Access-Control-Expose-Headers: mcp-session-id`. |
@@ -410,12 +424,11 @@ Each removal PR must check that the test file actually exists before deleting
 
 | PR | Branch | Base | Summary | Approx diff |
 |---|---|---|---|---|
-| PR1 | `refactor/middleware-dedupe` | `dev` | Remove 6 middleware, rename 1, update `ALL_MIDDLEWARE`, move `TransientError` | −600 / +150 |
-| PR2 | `refactor/tool-timeout-migration` | `dev` (after PR1 merge) | Remove `ToolCallTimeoutMiddleware`, add `timeout=N` on 14 decorators, drop `default_tool_timeout_s` config field | −80 / +40 |
-| PR3 | `feat/fastmcp-json-and-cors` | `dev` (after PR2 merge) | Extend `fastmcp.json`, tighten CORS | −5 / +20 |
+| PR1 | `refactor/middleware-dedupe` | `main` | Remove 6 middleware, rename 1, update `ALL_MIDDLEWARE`, move `TransientError` | −600 / +160 |
+| PR2 | `refactor/tool-timeout-migration` | `main` (after PR1 merge) | Remove `ToolCallTimeoutMiddleware`, add `timeout=N` on 20 decorators, drop `default_tool_timeout_s` config field | −80 / +55 |
+| PR3 | `feat/fastmcp-json-and-cors` | `main` (after PR2 merge) | Extend `fastmcp.json`, tighten CORS | −5 / +20 |
 
-**Merge strategy:** squash merge into `dev`. After all three land, one release
-PR `dev` → `main` with tag `v1.0.3` and CHANGELOG entry from §3.
+**Merge strategy:** squash merge directly into `main` (repo has no long-lived `dev` branch; PRs #109–#113 all followed this pattern). After all three land, bump version `1.0.3 → 1.0.4`, push `v1.0.4` tag with CHANGELOG entry from §3.
 
 **Checkpoints:** after each PR merge, pause for maintainer review of the merged
 diff before starting the next branch. If review surfaces issues, fix in the
@@ -451,7 +464,7 @@ same branch — do not cascade into the next PR.
 **PR2 (refactor/tool-timeout-migration):**
 - Delete: `app/server/middleware/tool_timeout.py`.
 - Modify: `app/server/middleware/__init__.py` (remove from `ALL_MIDDLEWARE`).
-- Modify: 14 files in `app/tools/**/*.py` (add `timeout=N`).
+- Modify: 20 files in `app/tools/**/*.py` (add `timeout=N`; 14 dispatch + 6 UI tools from PR #113).
 - Modify: `app/config/mcp.py` (drop `default_tool_timeout_s`).
 - Test cleanup: delete `test_tool_timeout.py` if present.
 
