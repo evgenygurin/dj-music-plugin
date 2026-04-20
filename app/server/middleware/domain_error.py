@@ -1,7 +1,17 @@
-"""Outermost middleware: map domain errors to MCP ToolError.
+"""Outermost middleware: map domain exceptions to MCP ``ToolError``.
+
+Translates ``NotFoundError``, ``ValidationError``, ``ConflictError``,
+``NotAllowedError``, and generic ``DJMusicError`` raised by repositories,
+handlers, and domain logic into ``ToolError`` envelopes with stable
+human-readable messages.
 
 Unknown exceptions are wrapped with a generic message in production
 (``mask_details=True``) or surfaced verbatim in dev.
+
+Distinct from ``fastmcp.server.middleware.error_handling.ErrorHandlingMiddleware``
+(which focuses on exception logging and tracebacks — not domain mapping).
+Renamed from ``ErrorHandlingMiddleware`` in v1.0.4 to avoid the name
+collision with the built-in.
 """
 
 from __future__ import annotations
@@ -24,7 +34,7 @@ from app.shared.errors import (
 log = logging.getLogger(__name__)
 
 
-class ErrorHandlingMiddleware(Middleware):
+class DomainErrorMiddleware(Middleware):
     """Translate exceptions to ``ToolError`` with stable messages."""
 
     def __init__(self, *, mask_details: bool | None = None) -> None:
