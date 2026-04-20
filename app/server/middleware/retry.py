@@ -1,7 +1,16 @@
-"""Retry transient errors with exponential backoff.
+"""Partial back-compat shim — RetryMiddleware class retained until Task 12.
 
-TransientError is a marker — raise it from providers / DB layer when a
-call is safe to retry. Non-transient exceptions propagate immediately.
+Historically this file owned both ``RetryMiddleware`` and ``TransientError``.
+As of v1.0.4 (Task 3):
+
+- ``TransientError`` is re-exported from ``app.shared.errors`` (canonical).
+- ``RetryMiddleware`` remains here until Task 12 rewires
+  ``app/server/middleware/__init__.py`` to import the built-in
+  ``fastmcp.server.middleware.error_handling.RetryMiddleware``.
+
+Task 12 then deletes both this module and
+``tests/server/middleware/test_retry.py``. Do not remove the
+``RetryMiddleware`` class earlier — ``ALL_MIDDLEWARE`` still imports it.
 """
 
 from __future__ import annotations
@@ -13,11 +22,9 @@ from typing import Any
 
 from fastmcp.server.middleware import Middleware, MiddlewareContext
 
+from app.shared.errors import TransientError
+
 log = logging.getLogger(__name__)
-
-
-class TransientError(Exception):
-    """Marker for errors safe to retry."""
 
 
 class RetryMiddleware(Middleware):
@@ -54,3 +61,6 @@ class RetryMiddleware(Middleware):
                 if delay > 0:
                     await asyncio.sleep(delay)
                 attempt += 1
+
+
+__all__ = ["RetryMiddleware", "TransientError"]
