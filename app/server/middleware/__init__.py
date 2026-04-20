@@ -1,4 +1,4 @@
-"""Middleware pipeline — 15 classes after PR1 (14 after PR2 drops ToolCallTimeout).
+"""Middleware pipeline — 14 classes after PR2.
 
 Order is outermost→innermost; the first added wraps all others at call time.
 Do not reorder without updating blueprint §11 and ``tests/server/test_ordering.py``.
@@ -13,9 +13,9 @@ covers their behaviour.
 maps domain exceptions to ``ToolError`` and is distinct from FastMCP's built-in
 ``ErrorHandlingMiddleware`` (which focuses on exception logging/tracebacks).
 
-``OTELTracingMiddleware`` was removed: FastMCP v3 ships native OTEL instrumentation
-with MCP semantic conventions. ``ToolCallTimeoutMiddleware`` will be removed in
-PR2 and per-tool timeouts set via ``@tool(timeout=N)``.
+``OTELTracingMiddleware`` was removed in PR1: FastMCP v3 ships native OTEL
+instrumentation with MCP semantic conventions. ``ToolCallTimeoutMiddleware``
+was removed in PR2 — per-tool timeouts now live on each ``@tool(timeout=N)``.
 """
 
 from __future__ import annotations
@@ -45,7 +45,6 @@ from app.server.middleware.progress_throttle import ProgressThrottleMiddleware
 from app.server.middleware.provider_rate_limit import ProviderRateLimitMiddleware
 from app.server.middleware.sampling_budget import SamplingBudgetMiddleware
 from app.server.middleware.sentry_context import SentryContextMiddleware
-from app.server.middleware.tool_timeout import ToolCallTimeoutMiddleware
 from app.shared.errors import TransientError
 
 if TYPE_CHECKING:
@@ -79,7 +78,7 @@ _READ_ONLY_TOOLS: tuple[str, ...] = (
 
 
 def build_middleware_list(settings: Settings) -> list[Middleware]:
-    """Construct the 15-middleware pipeline in canonical order (outer→inner)."""
+    """Construct the 14-middleware pipeline in canonical order (outer→inner)."""
     return [
         # 1 outermost — domain-error → ToolError translation
         DomainErrorMiddleware(mask_details=not settings.mcp.debug),
@@ -127,13 +126,12 @@ def build_middleware_list(settings: Settings) -> list[Middleware]:
         SamplingBudgetMiddleware(),
         # 11 — throttle progress events to 1/sec
         ProgressThrottleMiddleware(),
-        # 12 — per-tool timeout (removed in PR2 — @tool(timeout=N))
-        ToolCallTimeoutMiddleware(),
-        # 13 — Yandex Music rate limit
+        # (ToolCallTimeoutMiddleware removed in PR2 — @tool(timeout=N) is native)
+        # 12 — Yandex Music rate limit
         ProviderRateLimitMiddleware(),
-        # 14 — open UoW, commit/rollback
+        # 13 — open UoW, commit/rollback
         DbSessionMiddleware(),
-        # 15 innermost — structured log at tool boundary (built-in)
+        # 14 innermost — structured log at tool boundary (built-in)
         StructuredLoggingMiddleware(include_payloads=False),
     ]
 
@@ -153,7 +151,6 @@ ALL_MIDDLEWARE: tuple[type, ...] = (
     CostTrackingMiddleware,
     SamplingBudgetMiddleware,
     ProgressThrottleMiddleware,
-    ToolCallTimeoutMiddleware,
     ProviderRateLimitMiddleware,
     DbSessionMiddleware,
     StructuredLoggingMiddleware,
