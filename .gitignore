@@ -55,6 +55,11 @@ CLAUDE.local.md
 cache/
 generated-sets/
 
+# Prefab preview HTML bundles (~6.5 MB each) — regenerate via
+# `prefab export` from scripts/prefab_previews/. Screenshots under
+# artifacts/screenshots/ are tracked.
+artifacts/previews/
+
 # In-Memoria (codebase intelligence)
 in-memoria.db
 in-memoria-vectors.db
