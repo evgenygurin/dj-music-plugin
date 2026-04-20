@@ -13,8 +13,11 @@ import pytest
 from app.domain.transition.weights import (
     BPM_GAUSS_SIGMA,
     BPM_STABILITY_FLOOR,
+    CAMELOT_BASE_SCORES,
     DEFAULT_STYLE_RULES,
     DEFAULT_WEIGHTS,
+    ENERGY_PREFERRED_RISE_LUFS,
+    ENERGY_SIGMOID_DIVISOR,
     GROOVE_SUB_WEIGHTS,
     SPECTRAL_SUB_WEIGHTS,
     TIMBRAL_SUB_WEIGHTS,
@@ -50,11 +53,51 @@ class TestSubWeights:
 
 
 class TestNumericInvariants:
-    def test_bpm_sigma_positive(self) -> None:
-        assert BPM_GAUSS_SIGMA > 0
+    # Per-band calibration + double/half-time + stability branches are
+    # exercised against the real score_bpm in
+    # tests/domain/transition/components/test_bpm.py.
+
+    def test_bpm_sigma_matches_hard_reject_boundary(self) -> None:
+        """Soft score at the hard-reject BPM boundary must be ≥ 0.5.
+
+        Guards against drift between `BPM_GAUSS_SIGMA` and the canonical
+        hard-reject threshold — e.g. if someone tightens the hard reject
+        to ΔBPM=8 without shrinking sigma, the soft curve at the new
+        boundary silently becomes very lenient (~0.73).
+        """
+        from app.config import get_settings
+
+        boundary_bpm = get_settings().transition.hard_reject_bpm_diff
+        boundary_score = math.exp(-(boundary_bpm**2) / (2 * BPM_GAUSS_SIGMA**2))
+        assert boundary_score >= 0.5, (
+            f"score at hard-reject boundary (ΔBPM={boundary_bpm}) "
+            f"is {boundary_score:.3f} < 0.5 — sigma/threshold drift"
+        )
 
     def test_stability_floor_in_range(self) -> None:
         assert 0.0 <= BPM_STABILITY_FLOOR <= 1.0
+
+    def test_camelot_scores_monotone_decreasing(self) -> None:
+        """Greater Camelot distance must score no better than smaller."""
+        distances = sorted(CAMELOT_BASE_SCORES.keys())
+        values = [CAMELOT_BASE_SCORES[d] for d in distances]
+        assert values == sorted(values, reverse=True), (
+            f"non-monotone: {dict(zip(distances, values, strict=True))}"
+        )
+
+    def test_camelot_distance_0_is_perfect(self) -> None:
+        assert CAMELOT_BASE_SCORES[0] == 1.0
+
+    def test_camelot_distance_2_relaxed_per_ismir_2017(self) -> None:
+        """ISMIR 2017 (Bittner et al.) treats distance ≤ 2 as a valid
+        candidate — floor must be ≥ 0.8 (previous 0.6 was stricter)."""
+        assert CAMELOT_BASE_SCORES[2] >= 0.8
+
+    def test_energy_gauss_params_in_sane_range(self) -> None:
+        assert ENERGY_SIGMOID_DIVISOR > 0
+        # Preferred rise must stay under the 2 LUFS perceptual threshold
+        # or the Gauss peak lands somewhere listeners notice as "jump".
+        assert 0.0 <= ENERGY_PREFERRED_RISE_LUFS < 2.0
 
 
 class TestStyleRules:

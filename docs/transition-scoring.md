@@ -73,14 +73,25 @@ S_bpm *= confidence_factor                  # below scoring_bpm_confidence_floor
 S_bpm -= scoring_variable_tempo_penalty     # if either side variable
 ```
 
-`BPM_GAUSS_SIGMA = 3.0` (~2.5% on 124 BPM). All thresholds in `weights.py` and `settings`.
+`BPM_GAUSS_SIGMA = 10.0` (2026-04-20 calibration). Values:
+
+| Δ BPM | S_bpm (pre stability/confidence) | Real-world meaning |
+|---|---|---|
+| 0 | 1.00 | Identical tempo |
+| 2 | 0.98 | 32-bar blend safe |
+| 3 | 0.96 | Sync-safe |
+| 5 | 0.88 | Pioneer DJ default pitch-adjust |
+| 8 | 0.73 | Forced but mixable |
+| 10 | 0.61 | Hard-reject boundary (`settings.transition_hard_reject_bpm_diff`) |
+
+Prior σ=3.0 produced 0.25 for Δ=5 BPM, punishing the normal sync workflow. All thresholds in `weights.py` and `settings`.
 
 ### S_harmonic — Key Compatibility
 
 Camelot wheel distance lookup, weighted by HNR / chroma quality, blended with Tonnetz cosine similarity. Section-aware floor when both mix windows are drum-only.
 
 ```text
-base = CAMELOT_BASE_SCORES[dist]            # {0:1.0, 1:0.9, 2:0.6, 3:0.3, 4:0.1}
+base = CAMELOT_BASE_SCORES[dist]            # {0:1.0, 1:0.95, 2:0.85, 3:0.6, 4:0.3}
 if both atonal:                             base = max(ATONAL_RELAX_FLOOR, base)
 hnr_factor = normalize(avg_hnr, -30..0 → 0.5..1.0)
 score = base * hnr_factor
@@ -93,15 +104,30 @@ if section_context.is_drum_only_pair:       score = max(score, DRUM_ONLY_HARMONI
 
 ### S_energy — Energy Flow
 
-Sigmoid on the LUFS delta, with optional penalties for inconsistent loudness range or crest factor and a small bonus for matching energy slope direction.
+Gauss around a preferred +0.5 LUFS rise (professional mastering practice: incoming track ~0.5 LUFS hotter than outgoing), with optional penalties for inconsistent loudness range or crest factor and a small bonus for matching energy slope direction.
 
 ```text
 delta = lufs_b - lufs_a
-S_energy = sigmoid(delta, divisor=ENERGY_SIGMOID_DIVISOR)  # 3.0
+S_energy = exp(-(delta - ENERGY_PREFERRED_RISE_LUFS)² / (2 * ENERGY_SIGMOID_DIVISOR²))
+         # ENERGY_PREFERRED_RISE_LUFS = 0.5, σ = 3.0
 S_energy -= LRA_DIFF_PENALTY     # if |lra_a - lra_b| > threshold
 S_energy -= CREST_DIFF_PENALTY   # if |crest_a - crest_b| > threshold
 S_energy += ENERGY_SLOPE_BONUS   # if both slopes share sign
 ```
+
+Values:
+
+| Δ LUFS | S_energy (pre-penalty) | Meaning |
+|---|---|---|
+| +0.5 | 1.00 | Peak (preferred slight rise) |
+| 0.0 | 0.99 | Identical loudness (essentially perfect) |
+| +2.0 | 0.88 | 2 LUFS JND, noticeable rise |
+| -2.0 | 0.71 | 2 LUFS drop, acceptable |
+| +4.0 | 0.51 | Obvious rise |
+| -4.0 | 0.33 | Obvious drop (asymmetric — drops cost more) |
+| ±6.0 | hard reject |
+
+Prior sigmoid centred at Δ=0 returned 0.5 for identical loudness — a bug that punished stable-energy peak-time sets (2026-04-20 fix).
 
 ### S_spectral — Spectral / Timbral Similarity
 
