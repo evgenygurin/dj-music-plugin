@@ -1069,10 +1069,11 @@ Run:
 git commit -F /tmp/dj-commit-msg.txt && rm /tmp/dj-commit-msg.txt
 ```
 
-### Task 14: Update `tests/server/test_ordering.py` to assert count=15 + new class names
+### Task 14: Update `tests/server/test_ordering.py` and `tests/server/test_build.py` to assert count=15 + new class names
 
 **Files:**
 - Modify: `tests/server/test_ordering.py`
+- Modify: `tests/server/test_build.py` (mirror: 16→15 in test name, replace `ErrorHandlingMiddleware` with `DomainErrorMiddleware`, remove `OTELTracingMiddleware` from the expected list; update the `"ErrorHandlingMiddleware" not in names` assertion to `"DomainErrorMiddleware" in names`)
 
 - [ ] **Step 1: Read current test**
 
