@@ -1,19 +1,20 @@
-"""Middleware order matches blueprint §11 EXACTLY. Do not reorder."""
+"""Middleware order matches blueprint §11. Do not reorder without updating spec."""
 
 from __future__ import annotations
 
 from app.server.middleware import ALL_MIDDLEWARE
 
 
-def test_order_is_exactly_sixteen() -> None:
-    assert len(ALL_MIDDLEWARE) == 16
+def test_order_length_is_fifteen_after_pr1() -> None:
+    """PR1 dropped OTELTracingMiddleware. PR2 will drop ToolCallTimeoutMiddleware."""
+    assert len(ALL_MIDDLEWARE) == 15
 
 
 def test_order_matches_spec() -> None:
     expected = [
-        "ErrorHandlingMiddleware",
+        "DomainErrorMiddleware",
         "SentryContextMiddleware",
-        "OTELTracingMiddleware",
+        # OTELTracingMiddleware removed in PR1 — FastMCP v3 native OTEL tracing.
         "DetailedTimingMiddleware",
         "AuditLogMiddleware",
         "RetryMiddleware",
@@ -23,7 +24,7 @@ def test_order_matches_spec() -> None:
         "CostTrackingMiddleware",
         "SamplingBudgetMiddleware",
         "ProgressThrottleMiddleware",
-        "ToolCallTimeoutMiddleware",
+        "ToolCallTimeoutMiddleware",  # drops in PR2
         "ProviderRateLimitMiddleware",
         "DbSessionMiddleware",
         "StructuredLoggingMiddleware",
