@@ -12,19 +12,6 @@ from typing import Annotated, Any
 from fastmcp.dependencies import CurrentContext, Depends
 from fastmcp.server.context import Context
 from fastmcp.tools import tool
-from prefab_ui.components import (
-    Badge,
-    Card,
-    CardContent,
-    CardHeader,
-    CardTitle,
-    Column,
-    Heading,
-    Metric,
-    Muted,
-    Row,
-)
-from prefab_ui.components.charts import RadarChart
 from pydantic import Field
 
 from app.domain.transition.intent import TransitionIntent
@@ -36,6 +23,19 @@ from app.tools.ui._fallback import (
     TransitionScoreFallback,
     fallback_or,
     supports_ui,
+)
+from app.tools.ui._prefab import (
+    Badge,
+    Card,
+    CardContent,
+    CardHeader,
+    CardTitle,
+    Column,
+    Heading,
+    Metric,
+    Muted,
+    RadarChart,
+    Row,
 )
 
 _COMPONENTS = ("bpm", "harmonic", "energy", "spectral", "groove", "timbral")

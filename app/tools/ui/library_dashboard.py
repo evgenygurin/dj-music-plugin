@@ -16,18 +16,6 @@ from typing import Any
 from fastmcp.dependencies import CurrentContext, Depends
 from fastmcp.server.context import Context
 from fastmcp.tools import tool
-from prefab_ui.components import (
-    Card,
-    CardContent,
-    CardHeader,
-    CardTitle,
-    Column,
-    Heading,
-    Metric,
-    Muted,
-    Row,
-)
-from prefab_ui.components.charts import BarChart, ChartSeries, PieChart
 
 from app.domain.camelot.wheel import key_code_to_camelot
 from app.models.track_features import TrackAudioFeaturesComputed
@@ -35,6 +23,20 @@ from app.repositories.unit_of_work import UnitOfWork
 from app.server.di import get_uow
 from app.shared.ui_colors import CAMELOT_WHEEL_COLORS, SUBGENRE_COLORS
 from app.tools.ui._fallback import DashboardFallback, fallback_or, supports_ui
+from app.tools.ui._prefab import (
+    BarChart,
+    Card,
+    CardContent,
+    CardHeader,
+    CardTitle,
+    ChartSeries,
+    Column,
+    Heading,
+    Metric,
+    Muted,
+    PieChart,
+    Row,
+)
 
 _BPM_BUCKETS: list[tuple[str, float, float]] = [
     ("<110", 0.0, 110.0),

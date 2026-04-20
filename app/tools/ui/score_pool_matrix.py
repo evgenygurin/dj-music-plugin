@@ -12,7 +12,18 @@ from typing import Annotated, Any
 from fastmcp.dependencies import CurrentContext, Depends
 from fastmcp.server.context import Context
 from fastmcp.tools import tool
-from prefab_ui.components import (
+from pydantic import Field
+
+from app.repositories.unit_of_work import UnitOfWork
+from app.server.di import get_transition_scorer, get_uow
+from app.shared.ui_colors import FAIL_COLOR, PASS_COLOR, WARN_COLOR
+from app.tools.ui._fallback import (
+    ScorePoolCell,
+    ScorePoolMatrixFallback,
+    fallback_or,
+    supports_ui,
+)
+from app.tools.ui._prefab import (
     Card,
     CardContent,
     CardHeader,
@@ -24,17 +35,6 @@ from prefab_ui.components import (
     Metric,
     Muted,
     Row,
-)
-from pydantic import Field
-
-from app.repositories.unit_of_work import UnitOfWork
-from app.server.di import get_transition_scorer, get_uow
-from app.shared.ui_colors import FAIL_COLOR, PASS_COLOR, WARN_COLOR
-from app.tools.ui._fallback import (
-    ScorePoolCell,
-    ScorePoolMatrixFallback,
-    fallback_or,
-    supports_ui,
 )
 
 
