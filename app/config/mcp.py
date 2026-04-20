@@ -19,8 +19,11 @@ class MCPSettings(BaseSettings):
     debug: bool = Field(default=False, description="Surface raw exception details to clients.")
     pagination_size: int = Field(default=100, ge=10, le=1000)
     response_cache_ttl_s: int = Field(default=60, ge=0, le=3600)
-    # Aliases aligned with Phase 5 plan naming (float TTL + LRU cap).
-    response_cache_ttl: float = Field(default=60.0, ge=0.0, le=3600.0)
+    # FastMCP's built-in ``ResponseCachingMiddleware`` expects integer TTL
+    # seconds (``CallToolSettings.ttl: int``). Keeping this field an int avoids
+    # silent truncation from float values like 0.5 → 0 (which would disable
+    # caching). Sub-second TTL is not a real use case for our tool-call cache.
+    response_cache_ttl: int = Field(default=60, ge=0, le=3600)
     response_cache_max: int = Field(default=1024, ge=1, le=100_000)
     response_size_limit_bytes: int = Field(default=400_000, ge=1000)
     response_max_bytes: int = Field(default=400_000, ge=1000)

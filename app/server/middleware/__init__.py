@@ -34,6 +34,7 @@ from fastmcp.server.middleware.error_handling import RetryMiddleware
 from fastmcp.server.middleware.logging import StructuredLoggingMiddleware
 from fastmcp.server.middleware.response_limiting import ResponseLimitingMiddleware
 from fastmcp.server.middleware.timing import DetailedTimingMiddleware
+from key_value.aio.stores.memory import MemoryStore
 
 from app.server.middleware.audit_log import AuditLogMiddleware
 from app.server.middleware.cost_tracking import CostTrackingMiddleware
@@ -90,10 +91,17 @@ def build_middleware_list(settings: Settings) -> list[Middleware]:
         RetryMiddleware(max_retries=2, retry_exceptions=(TransientError,)),
         # 6 — cap response size (built-in)
         ResponseLimitingMiddleware(max_size=settings.mcp.response_max_bytes),
-        # 7 — cache read-only tool calls (built-in, explicit opt-in per tool)
+        # 7 — cache read-only tool calls (built-in, explicit opt-in per tool).
+        # Bounded in-memory storage preserves the ``response_cache_max``
+        # entry-count guardrail our custom middleware used to provide; without
+        # it, high-cardinality tool args can grow the cache unboundedly. For
+        # distributed deployments, swap ``cache_storage`` for Redis/FileTree.
         ResponseCachingMiddleware(
+            cache_storage=MemoryStore(
+                max_entries_per_collection=settings.mcp.response_cache_max,
+            ),
             call_tool_settings=CallToolSettings(
-                ttl=int(settings.mcp.response_cache_ttl),
+                ttl=settings.mcp.response_cache_ttl,
                 included_tools=list(_READ_ONLY_TOOLS),
             ),
             list_tools_settings=ListToolsSettings(enabled=False),
