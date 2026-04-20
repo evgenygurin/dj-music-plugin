@@ -13,13 +13,12 @@ def test_build_returns_fastmcp_instance() -> None:
     assert isinstance(mcp, FastMCP)
 
 
-def test_build_registers_all_16_middleware() -> None:
+def test_build_registers_all_15_middleware() -> None:
     mcp = build_mcp_server()
     added = [type(m).__name__ for m in mcp.middleware]
     expected = [
-        "ErrorHandlingMiddleware",
+        "DomainErrorMiddleware",
         "SentryContextMiddleware",
-        "OTELTracingMiddleware",
         "DetailedTimingMiddleware",
         "AuditLogMiddleware",
         "RetryMiddleware",
@@ -35,7 +34,7 @@ def test_build_registers_all_16_middleware() -> None:
         "StructuredLoggingMiddleware",
     ]
     # FastMCP may auto-prepend built-in middleware (DereferenceRefs etc.).
-    # We assert our 16 appear as a contiguous suffix/subsequence in order.
+    # We assert our 15 appear as a contiguous suffix/subsequence in order.
     names = [n for n in added if n in expected]
     assert names == expected
 
@@ -81,4 +80,4 @@ async def test_build_for_tests_lists_prompts() -> None:
 async def test_build_for_tests_disables_middleware_on_request() -> None:
     mcp = await build_mcp_app_for_tests(with_middleware=False)
     names = [type(m).__name__ for m in mcp.middleware]
-    assert "ErrorHandlingMiddleware" not in names
+    assert "DomainErrorMiddleware" not in names

@@ -791,24 +791,27 @@ class UnitOfWork:
 
 Order is outermost → innermost (first added wraps all).
 
+Pipeline is **15 middleware** post-PR1 (14 after PR2 drops `ToolCallTimeoutMiddleware` in favour of `@tool(timeout=N)`).
+
 | # | Middleware | Concern | New/Existing |
 |---|---|---|---|
-| 1 | `ErrorHandlingMiddleware` | Catch, map to MCP errors | existing |
+| 1 | `DomainErrorMiddleware` | Catch, map domain exceptions to `ToolError` | existing (renamed from `ErrorHandlingMiddleware` to avoid collision with FastMCP's built-in) |
 | 2 | `SentryContextMiddleware` | Tag breadcrumbs with tool/session | **new** |
-| 3 | `OTELTracingMiddleware` | Span per tool call | **new** |
-| 4 | `DetailedTimingMiddleware` | Timing histogram | existing |
-| 5 | `AuditLogMiddleware` | Log mutations (name + args hash + result) | **new** |
-| 6 | `RetryMiddleware` | Transient errors, exponential backoff | existing |
-| 7 | `ResponseLimitingMiddleware` | Guard against gigantic responses | existing |
-| 8 | `ResponseCachingMiddleware` | Cache read-only tool results | existing (enable) |
-| 9 | `DeprecationWarningMiddleware` | Warn on `version="1.0"` tool calls | **new** |
-| 10 | `CostTrackingMiddleware` | Count provider calls + LLM tokens | **new** |
-| 11 | `SamplingBudgetMiddleware` | Cap `ctx.sample()` per session | **new** |
-| 12 | `ProgressThrottleMiddleware` | Throttle progress events to 1/sec | **new** |
-| 13 | `ToolCallTimeoutMiddleware` | Per-tool timeout | existing |
-| 14 | `ProviderRateLimitMiddleware` | YM API rate limit (generalized from YMRateLimit) | existing |
-| 15 | `DbSessionMiddleware` | Open UoW, commit/rollback | **new** (replaces DI get_db_session) |
-| 16 | `StructuredLoggingMiddleware` | Innermost detailed log | existing |
+| 3 | `DetailedTimingMiddleware` | Timing histogram | existing |
+| 4 | `AuditLogMiddleware` | Log mutations (name + args hash + result) | **new** |
+| 5 | `RetryMiddleware` | Transient errors, exponential backoff | existing |
+| 6 | `ResponseLimitingMiddleware` | Guard against gigantic responses | existing |
+| 7 | `ResponseCachingMiddleware` | Cache read-only tool results | existing (enable) |
+| 8 | `DeprecationWarningMiddleware` | Warn on `version="1.0"` tool calls | **new** |
+| 9 | `CostTrackingMiddleware` | Count provider calls + LLM tokens | **new** |
+| 10 | `SamplingBudgetMiddleware` | Cap `ctx.sample()` per session | **new** |
+| 11 | `ProgressThrottleMiddleware` | Throttle progress events to 1/sec | **new** |
+| 12 | `ToolCallTimeoutMiddleware` | Per-tool timeout (drops in PR2 — `@tool(timeout=N)`) | existing |
+| 13 | `ProviderRateLimitMiddleware` | YM API rate limit (generalized from YMRateLimit) | existing |
+| 14 | `DbSessionMiddleware` | Open UoW, commit/rollback | **new** (replaces DI get_db_session) |
+| 15 | `StructuredLoggingMiddleware` | Innermost detailed log | existing |
+
+`OTELTracingMiddleware` was removed in PR1: FastMCP v3 ships native OpenTelemetry instrumentation with MCP semantic conventions (`tools/call {name}`, `gen_ai.tool.name`), covering the same spans our custom middleware produced.
 
 ### 11.1 Deferred (YAGNI for v1)
 
@@ -1101,7 +1104,7 @@ Seven implementation phases, each with its own spec + plan + PR merged into `dev
 - **Goal:** v2 server fully composable and runnable.
 - **Deliverables:**
   - `app/v2/server/app.py` — `build_mcp_server()` with full pipeline.
-  - All 16 middleware in `app/v2/server/middleware/`.
+  - All 15 middleware in `app/v2/server/middleware/` (post-PR1 count; 16 at original Phase 5 landing).
   - `app/v2/server/transforms.py` — `BM25SearchTransform` + `PromptsAsTools` + `ResourcesAsTools` (+ optional `CodeMode`).
   - `app/v2/server/visibility.py` — namespace activation + global disable defaults.
   - `app/v2/server/sampling.py`, `observability.py`.

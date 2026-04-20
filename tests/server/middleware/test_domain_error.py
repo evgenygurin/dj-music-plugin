@@ -6,7 +6,7 @@ import pytest
 from fastmcp.exceptions import ToolError
 from fastmcp.server.middleware import MiddlewareContext
 
-from app.server.middleware.error_handling import ErrorHandlingMiddleware
+from app.server.middleware.domain_error import DomainErrorMiddleware
 from app.shared.errors import (
     ConflictError,
     NotAllowedError,
@@ -21,7 +21,7 @@ def _ctx() -> MiddlewareContext:
 
 @pytest.mark.asyncio
 async def test_passes_through_success() -> None:
-    mw = ErrorHandlingMiddleware(mask_details=True)
+    mw = DomainErrorMiddleware(mask_details=True)
     call_next = AsyncMock(return_value="ok")
     assert await mw.on_call_tool(_ctx(), call_next) == "ok"
 
@@ -37,7 +37,7 @@ async def test_passes_through_success() -> None:
 )
 @pytest.mark.asyncio
 async def test_maps_domain_errors_to_tool_error(exc_cls: type, message_substring: str) -> None:
-    mw = ErrorHandlingMiddleware(mask_details=True)
+    mw = DomainErrorMiddleware(mask_details=True)
     if exc_cls is NotFoundError:
         exc = exc_cls("track", 42)
     elif exc_cls is ValidationError:
@@ -54,7 +54,7 @@ async def test_maps_domain_errors_to_tool_error(exc_cls: type, message_substring
 
 @pytest.mark.asyncio
 async def test_wraps_unknown_exception_masked() -> None:
-    mw = ErrorHandlingMiddleware(mask_details=True)
+    mw = DomainErrorMiddleware(mask_details=True)
     call_next = AsyncMock(side_effect=RuntimeError("boom"))
     with pytest.raises(ToolError) as info:
         await mw.on_call_tool(_ctx(), call_next)
@@ -63,7 +63,7 @@ async def test_wraps_unknown_exception_masked() -> None:
 
 @pytest.mark.asyncio
 async def test_surfaces_unknown_when_unmasked() -> None:
-    mw = ErrorHandlingMiddleware(mask_details=False)
+    mw = DomainErrorMiddleware(mask_details=False)
     call_next = AsyncMock(side_effect=RuntimeError("boom"))
     with pytest.raises(ToolError) as info:
         await mw.on_call_tool(_ctx(), call_next)
@@ -72,7 +72,7 @@ async def test_surfaces_unknown_when_unmasked() -> None:
 
 @pytest.mark.asyncio
 async def test_tool_error_passthrough() -> None:
-    mw = ErrorHandlingMiddleware(mask_details=True)
+    mw = DomainErrorMiddleware(mask_details=True)
     original = ToolError("already a tool error")
     call_next = AsyncMock(side_effect=original)
     with pytest.raises(ToolError) as info:

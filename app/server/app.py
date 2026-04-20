@@ -7,7 +7,7 @@ Order (load-bearing):
    lifespan=build_server_lifespan(), sampling_handler=build_sampling_handler())``.
 3. ``register_post_constructor_transforms(mcp)`` — PromptsAsTools,
    ResourcesAsTools, optional CodeMode.
-4. ``register_middleware(mcp)`` — 16 middleware in blueprint §11 order.
+4. ``register_middleware(mcp)`` — 15 middleware (14 after PR2) in blueprint §11 order.
 5. ``apply_visibility_policy(mcp)`` — disable 3 namespace tags at startup.
 
 Violating the order hides bugs (transforms see wrong tool set, visibility
@@ -36,8 +36,9 @@ from typing import Any
 from fastmcp import FastMCP
 from fastmcp.server.providers.filesystem import FileSystemProvider
 
+from app.config import get_settings
 from app.server.lifespan import build_server_lifespan
-from app.server.middleware import ALL_MIDDLEWARE
+from app.server.middleware import build_middleware_list
 from app.server.observability import bootstrap_observability
 from app.server.sampling import build_sampling_handler
 from app.server.transforms import (
@@ -55,9 +56,9 @@ def _v2_root() -> Path:
 
 
 def register_middleware(mcp: FastMCP) -> None:
-    """Register all 16 middleware in blueprint §11 order."""
-    for cls in ALL_MIDDLEWARE:
-        mcp.add_middleware(cls())
+    """Register all 15 middleware in blueprint §11 order (14 after PR2)."""
+    for mw in build_middleware_list(get_settings()):
+        mcp.add_middleware(mw)
 
 
 def build_mcp_server() -> FastMCP:

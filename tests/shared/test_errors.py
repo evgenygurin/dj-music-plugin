@@ -43,3 +43,18 @@ def test_not_allowed_error_holds_context() -> None:
     assert err.operation == "delete"
     assert "track" in str(err)
     assert "delete" in str(err)
+
+
+def test_transient_error_is_exception_subclass() -> None:
+    """TransientError must be raisable as a Python exception."""
+    import pytest
+
+    from app.shared.errors import TransientError
+
+    with pytest.raises(TransientError, match="network hiccup"):
+        raise TransientError("network hiccup")
+
+
+def test_transient_error_importable_from_shared() -> None:
+    """Canonical import path is app.shared.errors."""
+    from app.shared.errors import TransientError  # noqa: F401
