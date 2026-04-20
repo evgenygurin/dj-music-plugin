@@ -14,8 +14,6 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
-from app.tools.ui._prefab import HAS_PREFAB
-
 # Canonical MCP Apps extension ID (SEP-1865). Re-exported from FastMCP so
 # a future rename in upstream stays in one place.
 try:
@@ -25,16 +23,12 @@ except ImportError:  # pragma: no cover — fastmcp[apps] extra missing
 
 
 def supports_ui(ctx: Any) -> bool:
-    """Return True when the MCP client supports the Prefab UI extension
-    AND the server has ``prefab_ui`` available.
+    """Return True when the MCP client supports the Prefab UI extension.
 
-    Falls back to ``False`` when either the context does not expose
-    extension negotiation (older FastMCP, test stubs, CLI probes) or the
-    ``fastmcp[apps]`` extra is not installed — the caller then returns a
-    Pydantic fallback payload instead of a UI component tree.
+    Falls back to ``False`` when the context does not expose extension
+    negotiation (older FastMCP, test stubs, CLI probes) — the caller then
+    returns a Pydantic fallback payload instead of a UI component tree.
     """
-    if not HAS_PREFAB:
-        return False
     check = getattr(ctx, "client_supports_extension", None)
     if callable(check):
         try:

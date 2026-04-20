@@ -27,20 +27,27 @@ from app.tools.ui._fallback import (
     fallback_or,
     supports_ui,
 )
-from app.tools.ui._prefab import (
-    Card,
-    CardContent,
-    CardHeader,
-    CardTitle,
-    Column,
-    DataTable,
-    DataTableColumn,
-    Heading,
-    Metric,
-    Muted,
-    PieChart,
-    Row,
-)
+
+try:
+    from prefab_ui.components import (
+        Card,
+        CardContent,
+        CardHeader,
+        CardTitle,
+        Column,
+        DataTable,
+        DataTableColumn,
+        Heading,
+        Metric,
+        Muted,
+        Row,
+    )
+    from prefab_ui.components.charts import PieChart
+except ImportError as _exc:  # pragma: no cover — fastmcp[apps] extra missing
+    raise ImportError(
+        "ui_library_audit requires prefab-ui. Install with: uv sync --all-extras "
+        "(or `pip install 'fastmcp[apps]'`)."
+    ) from _exc
 
 
 async def _gather(uow: UnitOfWork, playlist_id: int | None) -> dict[str, Any]:
