@@ -13,20 +13,6 @@ from typing import Annotated, Any
 from fastmcp.dependencies import CurrentContext, Depends
 from fastmcp.server.context import Context
 from fastmcp.tools import tool
-from prefab_ui.components import (
-    Badge,
-    Card,
-    CardContent,
-    CardHeader,
-    CardTitle,
-    Column,
-    DataTable,
-    DataTableColumn,
-    Heading,
-    Muted,
-    Row,
-)
-from prefab_ui.components.charts import ChartSeries, LineChart
 from pydantic import Field
 
 from app.domain.camelot.wheel import key_code_to_camelot
@@ -41,6 +27,21 @@ from app.tools.ui._fallback import (
     TransitionEdge,
     fallback_or,
     supports_ui,
+)
+from app.tools.ui._prefab import (
+    Badge,
+    Card,
+    CardContent,
+    CardHeader,
+    CardTitle,
+    ChartSeries,
+    Column,
+    DataTable,
+    DataTableColumn,
+    Heading,
+    LineChart,
+    Muted,
+    Row,
 )
 
 

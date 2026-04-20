@@ -14,20 +14,6 @@ from typing import Annotated, Any
 from fastmcp.dependencies import CurrentContext, Depends
 from fastmcp.server.context import Context
 from fastmcp.tools import tool
-from prefab_ui.components import (
-    Card,
-    CardContent,
-    CardHeader,
-    CardTitle,
-    Column,
-    DataTable,
-    DataTableColumn,
-    Heading,
-    Metric,
-    Muted,
-    Row,
-)
-from prefab_ui.components.charts import PieChart
 from pydantic import Field
 
 from app.domain.audit.rules import DEFAULT_AUDIT_RULES, run_audit_rules
@@ -40,6 +26,20 @@ from app.tools.ui._fallback import (
     LibraryAuditFallback,
     fallback_or,
     supports_ui,
+)
+from app.tools.ui._prefab import (
+    Card,
+    CardContent,
+    CardHeader,
+    CardTitle,
+    Column,
+    DataTable,
+    DataTableColumn,
+    Heading,
+    Metric,
+    Muted,
+    PieChart,
+    Row,
 )
 
 
