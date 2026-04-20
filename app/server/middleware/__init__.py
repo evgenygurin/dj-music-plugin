@@ -93,7 +93,7 @@ def build_middleware_list(settings: Settings) -> list[Middleware]:
         # 7 — cache read-only tool calls (built-in, explicit opt-in per tool)
         ResponseCachingMiddleware(
             call_tool_settings=CallToolSettings(
-                ttl=settings.mcp.response_cache_ttl,
+                ttl=int(settings.mcp.response_cache_ttl),
                 included_tools=list(_READ_ONLY_TOOLS),
             ),
             list_tools_settings=ListToolsSettings(enabled=False),

@@ -57,4 +57,4 @@ def test_transient_error_is_exception_subclass() -> None:
 
 def test_transient_error_importable_from_shared() -> None:
     """Canonical import path is app.shared.errors."""
-    from app.shared.errors import TransientError as _TE  # noqa: F401
+    from app.shared.errors import TransientError  # noqa: F401
