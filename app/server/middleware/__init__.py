@@ -87,8 +87,15 @@ def build_middleware_list(settings: Settings) -> list[Middleware]:
         DetailedTimingMiddleware(),
         # 4 — audit-log of mutations
         AuditLogMiddleware(),
-        # 5 — retry transient errors (built-in)
-        RetryMiddleware(max_retries=2, retry_exceptions=(TransientError,)),
+        # 5 — retry transient errors (built-in). Preserve the 0.5s base delay
+        # our removed ``app/server/middleware/retry.py`` used. FastMCP's default
+        # ``base_delay=1.0`` would double the wait at every retry step and push
+        # timeout-sensitive tool calls over their deadline.
+        RetryMiddleware(
+            max_retries=settings.mcp.retry_max_attempts,
+            base_delay=settings.mcp.retry_base_delay_s,
+            retry_exceptions=(TransientError,),
+        ),
         # 6 — cap response size (built-in)
         ResponseLimitingMiddleware(max_size=settings.mcp.response_max_bytes),
         # 7 — cache read-only tool calls (built-in, explicit opt-in per tool).
