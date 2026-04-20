@@ -58,12 +58,3 @@ def test_transient_error_is_exception_subclass() -> None:
 def test_transient_error_importable_from_shared() -> None:
     """Canonical import path is app.shared.errors."""
     from app.shared.errors import TransientError as _TE  # noqa: F401
-
-
-def test_transient_error_legacy_import_still_works() -> None:
-    """Back-compat shim at app.server.middleware.retry must keep re-exporting
-    the same TransientError as app.shared.errors. Shim deletable in v1.0.5."""
-    from app.server.middleware.retry import TransientError as LegacyTE
-    from app.shared.errors import TransientError as CanonicalTE
-
-    assert LegacyTE is CanonicalTE  # identity: the SAME class, not a fork
