@@ -21,7 +21,7 @@ globs: app/audio/**/*.py
 - Pipeline features → DB: always use `TrackAudioFeaturesComputed.filter_features(result.features)` — pipeline may return keys without columns
 - Tiered auto-trigger: `transition_score_pool`, `sequence_optimize`, `deliver_set_workflow` prompt, and `entity_create(entity="set_version")` auto-upgrade missing features to the needed tier. No manual pre-analysis call required.
 - P1 analyzers: essentia DFA danceability is unbounded (not 0-1), dissonance 0-1, dynamic_complexity 0-~10
-- P2 analyzers: SpectralComplexityAnalyzer, PitchSalienceAnalyzer depend on essentia; BpmHistogramAnalyzer depends on `beat` (depends_on); PhraseAnalyzer depends on `beat` + `bpm`
+- P2 analyzers: SpectralComplexityAnalyzer, PitchSalienceAnalyzer depend on essentia; BpmHistogramAnalyzer depends on `beat` (depends_on); PhraseAnalyzer depends on `beat`
 - `depends_on`: `ClassVar[frozenset[str]]` — Phase 2 pipeline passes `prior_results` to dependent analyzers
 - `_ANALYZER_REGISTRY`: global dict, `importlib` doesn't re-register decorator on re-import — in tests delete only `_test_*` keys, never `clear()`
 - Per-analyzer clip duration: heavy librosa analyzers (beat, bpm, key, spectral, mfcc, tonnetz, tempogram, pitch_salience) declare `clip_duration_s: ClassVar[float | None] = 60.0`. Pipeline builds a stitched-multi-window 60s `AnalysisContext` for them and a full-track context for analyzers with `clip_duration_s = None` (loudness, structure, energy). One STFT per unique clip duration, shared across bucket members
@@ -55,6 +55,6 @@ librosa.feature.mfcc(y=y, sr=sr, n_mfcc=13)
 librosa.feature.spectral_centroid(y=y, sr=sr)
 ```
 
-Реализован в `scripts/vm_import_and_analyze.py` (функция `main`, до запуска `AnalysisPipeline`). Тест-сервер MCP (`fastmcp dev`) обычно не нуждается — анализирует треки последовательно. Long-running batch jobs — обязательно.
+Должно быть реализовано в любом long-running batch скрипте (например `scripts/vm_analyze.py`) до запуска `AnalysisPipeline`. Тест-сервер MCP (`fastmcp dev`) обычно не нуждается — анализирует треки последовательно. Long-running batch jobs — обязательно.
 
 `AnalysisPipeline._warmup_librosa()` делает только pre-import submodules (избегает scipy/PytestTester race на lazy loader), но **не** прогревает JIT. Это два разных warmup'а — нужны оба.

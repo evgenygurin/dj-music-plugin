@@ -8,7 +8,6 @@
 ```text
 dj-music-plugin/
 ├── CLAUDE.md                       # Главные инструкции для Claude
-├── REQUIREMENTS.md                 # Спецификация требований
 ├── README.md
 ├── CHANGELOG.md
 ├── Makefile                        # make check / lint / test
@@ -32,7 +31,7 @@ dj-music-plugin/
 ├── docs/                           # Архитектурная документация
 │   ├── architecture.md             # Bounded contexts, data flow
 │   ├── domain-glossary.md
-│   ├── tool-catalog.md             # 13 tools + 27 resources + 6 prompts
+│   ├── tool-catalog.md             # 20 tools + 27 resources + 6 prompts
 │   ├── audio-pipeline.md
 │   ├── ym-api-guide.md
 │   ├── transition-scoring.md
@@ -45,12 +44,13 @@ dj-music-plugin/
 ├── app/                            # Backend (Python, FastMCP v3)
 │   ├── __init__.py
 │   │
-│   ├── tools/                      # @tool — 13 generic dispatchers
+│   ├── tools/                      # @tool — 20 dispatchers
 │   │   ├── entity/                 # list, get, aggregate, create, update, delete
 │   │   ├── provider/               # read, write, search
 │   │   ├── compute/                # score_pool, sequence_optimize
 │   │   ├── sync/                   # playlist_sync
-│   │   └── admin/                  # unlock_namespace
+│   │   ├── admin/                  # unlock_namespace, tool_invoke
+│   │   └── ui/                     # 6 Prefab Apps (ui_set_view, ui_transition_score, ...)
 │   │
 │   ├── resources/                  # @resource — 27 URIs (16 local://, 4 schema://, 3 session://, 4 reference://)
 │   │   ├── track.py, playlist.py, set.py, transition.py,
@@ -154,7 +154,7 @@ dj-music-plugin/
 │       └── seed.py                 # 24 keys + providers
 │
 ├── tests/                          # pytest + in-memory SQLite
-├── scripts/                        # Dev / ops scripts (vm_import_and_analyze, …)
+├── scripts/                        # Dev / ops scripts (vm_analyze, deploy_to_vm, …)
 ├── panel/                          # Next.js dashboard (Bun, shadcn, Supabase)
 └── hooks/                          # git pre-push
 ```
@@ -171,7 +171,7 @@ embeddings, transition_candidates, dj_saved_loops, dj_cue_points,
 dj_beatgrid_change_points, dj_set_constraints, dj_set_feedback,
 labels, track_labels, app_exports.
 
-Подробный список актуальных таблиц — в `app/models/` (one file per aggregate root) и Alembic history (`uv run alembic history`). Data volumes — см. `REQUIREMENTS.md §10.3`.
+Подробный список актуальных таблиц — в `app/models/` (one file per aggregate root) и Alembic history (`uv run alembic history`). Текущие row counts — `mcp__plugin_dj-music_db__list_tables` или `entity_aggregate(entity="...", operation="count")`.
 
 Core aggregate roots:
 - `tracks`, `track_audio_features_computed`, `track_sections`,

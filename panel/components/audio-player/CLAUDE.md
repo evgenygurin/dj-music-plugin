@@ -1,42 +1,21 @@
 # Audio Player Context
 
-Single-file Web Audio engine (`audio-player-context.tsx`, ~2000 LOC). Handles dual-deck crossfade, LUFS normalization, bass-kick kill, and 6-style transition dispatch.
-
-## v0.7.0 Additions
-
-- **Smart Next**: `pickAutoNext` uses BPM ±3 + Camelot ≤2 + mood scoring (not sequential)
-- **Auto-DJ preload**: picks next track 30s before crossfade trigger, starts loading on inactive deck
-- **DJ queue expansion**: on Play, background-loads 500 BPM-compatible tracks from Supabase
-- **Echo-out LPF**: 3.5kHz lowpass in feedback loop (darkens repeats like analog dub delay)
-- **CUT click fix**: 5ms micro-ramp on incoming gain instead of instant jump
-- **Effective BPM ratio**: uses `activeMeta.bpm * playbackRate` to prevent compound drift
-- **Transition logging**: `console.info('[TRANSITION]', ...)` with full details after each crossfade
-- **Beatgrid alignment**: `firstDownbeatSec` from DB (23,755 tracks migrated) for phase-accurate kicks
+Single-file Web Audio engine (`audio-player-context.tsx`, ~2000 LOC). Dual-deck crossfade, LUFS normalization, bass-kick kill, 6-style transition dispatch.
 
 ## Deck signal chain
 
-`source → preGain → (dryGain ‖ hp1 → hp2 → wetGain) → sum → mid → high → gain → masterLimiter → destination`
+```text
+source → preGain → (dryGain ‖ hp1 → hp2 → wetGain) → sum → mid → high → gain → masterLimiter → destination
+```
 
 - `preGain` — LUFS-normalization offset (attenuate-only, set at fade start)
 - `dryGain` / `wetGain` — bass-kick kill crossfader (LR4 HP @ 150 Hz default)
 - `gain` — per-deck equal-power fade envelope
 - `masterLimiter` — shared `DynamicsCompressorNode`, last safety before `ctx.destination`
 
-## `RuntimeStyle` is duplicated in 3 places
+## Style → backend mapping
 
-Extending the transition-style set requires editing ALL three or TypeScript happily passes:
-
-1. `AudioPlayerApi.lastResolvedStyle` (interface field, ~line 166)
-2. `useState<...>` for `lastResolvedStyle` (~line 261)
-3. `type RuntimeStyle = ...` inside `startCrossfade` (~line 866)
-
-## Per-style cleanup pattern
-
-Styles that build transient Web Audio nodes (e.g. ECHO_OUT's DelayNode / feedback graph) or mutate deck state (e.g. FILTER_SWEEP's HP cutoff automation) **must** push a disposer into `extraCleanup: Array<() => void>` declared near the gain-envelope dispatch. The fade finaliser `setTimeout` drains it before freeing the deck.
-
-## Style → backend recommendation mapping
-
-Dispatcher in `startCrossfade` maps the 6 backend styles to 6 runtime styles 1:1:
+6 backend styles → 4 runtime dispatchers (`startCrossfade`):
 
 - `cut` → `cut`
 - `bass_swap_short` / `bass_swap_long` → `swap`
@@ -45,31 +24,12 @@ Dispatcher in `startCrossfade` maps the 6 backend styles to 6 runtime styles 1:1
 - `long_blend` → `harmonic`
 - fallback → `fade`
 
-Manual override chip group (MediumPlayerBar) only exposes `cut`/`swap`/`harmonic`/`fade` — `echo_out` and `filter_sweep` arrive ONLY from the backend scorer. `manualStyleRef.current` wins over the scorer at dispatch time (read from ref, not state, because `startCrossfade` runs inside a `.then()`).
+Manual chip group (MediumPlayerBar) exposes only `cut`/`swap`/`harmonic`/`fade` — `echo_out` и `filter_sweep` приходят только от backend scorer. `manualStyleRef.current` побеждает scorer (читается из ref, не state, т.к. dispatch внутри `.then()`).
 
-## ECHO_OUT bypasses the master limiter
+## Gotchas
 
-Its feedback loop routes `echoDelay → echoWet → ctx.destination` directly (not through the shared `masterLimiter`). Safety depends on `feedback ≤ 0.55` and `wetCeiling ≤ 0.7 * vol`. Do not raise these without adding a dedicated limiter on the wet branch.
-
-## Fast Refresh
-
-This module exports components AND hooks — mixing type exports in would trigger full-reload. Types live in sibling `audio-player-types.ts` — import `PlayerTrackMeta` / `ManualTransitionStyle` from there, never re-export them through this file.
-
-## `manualStyle` persistence
-
-Persisted to `localStorage['dj.player.manualStyle']`. Initialised to `'auto'` on mount (SSR-safe), hydrated in a mount effect with `isValidManualStyle` type-guard. `setManualStyle` writes through. Both sides wrapped in try/catch for private-mode / quota errors. Both `manualStyle` and `setManualStyle` must stay in the `useMemo` deps of the `api` object.
-
-<claude-mem-context>
-# Recent Activity
-
-### Apr 10, 2026
-
-| ID | Time | T | Title | Read |
-|----|------|---|-------|------|
-| #2334 | 11:35 PM | ✅ | Snap-Load Playback Rate Adjusted to Master BPM | ~323 |
-| #2333 | 11:33 PM | ✅ | Tempo Matching Refactored to Use Master BPM Instead of Track-to-Track | ~385 |
-| #2332 | 11:31 PM | 🟣 | Master BPM Auto-Initialization on First Track Load | ~321 |
-| #2330 | 11:29 PM | 🟣 | Master BPM State Added to Audio Player Context | ~346 |
-| #2329 | 11:28 PM | 🔵 | Crossfade Duration Controlled by Bar Count Parameter | ~193 |
-| #2325 | 11:26 PM | 🔵 | Audio Player Context Manages Playback Rate Tempo Matching During Transitions | ~297 |
-</claude-mem-context>
+- **`RuntimeStyle` дублируется в 3 местах.** Расширяя список стилей, правь все три или TypeScript молча пропустит: (1) `AudioPlayerApi.lastResolvedStyle` ~line 166, (2) `useState<...>` ~line 261, (3) `type RuntimeStyle = ...` внутри `startCrossfade` ~line 866.
+- **Per-style cleanup pattern.** Стили, создающие транзиентные Web Audio nodes (ECHO_OUT's DelayNode + feedback graph) или мутирующие deck state (FILTER_SWEEP's HP cutoff automation), **должны** пушить disposer в `extraCleanup: Array<() => void>` (declared near gain-envelope dispatch). Fade finaliser `setTimeout` дренирует его перед освобождением deck'а.
+- **ECHO_OUT bypasses master limiter.** Feedback loop идёт `echoDelay → echoWet → ctx.destination` напрямую, не через `masterLimiter`. Safety держится на `feedback ≤ 0.55` и `wetCeiling ≤ 0.7 * vol`. Не поднимай без выделенного limiter на wet branch.
+- **Fast Refresh.** Модуль экспортирует components AND hooks — добавлять type exports сюда нельзя (триггерит full reload). Типы живут в `audio-player-types.ts`; `PlayerTrackMeta` / `ManualTransitionStyle` импортируй оттуда, не реэкспортируй через этот файл.
+- **`manualStyle` persistence.** `localStorage['dj.player.manualStyle']`, initial `'auto'` (SSR-safe), hydration в mount effect с `isValidManualStyle` type-guard. Обе стороны в try/catch (private-mode / quota). `manualStyle` и `setManualStyle` обязаны быть в `useMemo` deps объекта `api`.

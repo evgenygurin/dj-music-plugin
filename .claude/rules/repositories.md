@@ -36,11 +36,17 @@ one session:
 
 ```python
 async with get_uow() as uow:
-    track = await uow.track.get(track_id)
+    track = await uow.tracks.get(track_id)
     feats = await uow.track_features.get_scoring_features_batch(ids)
     uow.track_feedback.create(...)
     # commit/rollback is handled by __aexit__
 ```
+
+UoW property names are **plural** (mirrors the DB table names):
+`tracks`, `playlists`, `sets`, `set_versions`, `audio_files`,
+`track_features`, `transitions`, `transition_history`, `track_feedback`,
+`track_affinity`, `scoring_profiles`, `provider_metadata`,
+`yandex_metadata`, `raw_provider_responses`, `keys`, `key_edges`.
 
 All tools receive `uow` via `Depends(get_uow)`. Handlers receive
 `uow` as an argument — never create their own session.

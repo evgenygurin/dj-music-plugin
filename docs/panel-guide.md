@@ -25,7 +25,14 @@ Next.js dashboard for monitoring and analytics of the DJ music library.
 | `/playlists/[id]` | Playlist detail | Playlist tracks with features |
 | `/sets` | Set list | `queries/sets.ts` — with version info |
 | `/sets/[id]` | Set detail | Set tracks, transitions, energy arc |
-| `/discover` | YM Search | Server action `ymSearch` → MCP `provider_search(provider="yandex", type="tracks")` |
+| `/discover` | YM Search | `discovery-actions.ts` (legacy `ym_search`) |
+| `/curation` | Curation workflows | playlist audit / classify / distribute |
+| `/delivery` | Set delivery | `set-actions.ts` |
+| `/audio` | Audio / analysis UI | `analysis-actions.ts` |
+| `/admin` | Admin / system | — |
+| `/dj` | DJ live workspace | — |
+| `/player` | Player | — |
+| `/tools`, `/tools/[name]` | Tool catalog / ad-hoc tool call | `tool-actions.ts` |
 
 ## Data Flow
 
@@ -38,18 +45,38 @@ WRITE path (mutations):
     → HTTP POST /api/tools/{name}/call → app/rest/app.py → MCP Server → DB
 ```
 
-## Server Actions
+## Server Actions (current code, April 2026)
 
-| File | Actions | MCP Tools Called |
-|------|---------|-----------------|
-| `analysis-actions.ts` | classifyMood, analyzeTrack | `entity_create(entity="track_features", level=2)` (mood side-effect), `entity_update(entity="track_features")` for reanalyze |
-| `discovery-actions.ts` | ymSearch, importTracks | `provider_search(provider="yandex", ...)`, `entity_create(entity="track")` |
-| `set-actions.ts` | buildSet, rebuildSet, deliverSet, scoreTransitions | `entity_create(entity="set_version", ...)`, `transition_score_pool`, `deliver_set_workflow` prompt |
-| `sync-actions.ts` | syncPlaylist | `playlist_sync(direction=pull\|push\|diff, source="yandex")` — requires `unlock_namespace(namespace="sync")` |
+Panel has 17 action files under `panel/actions/`, all calling
+`callTool(name, args)` from `lib/mcp-client.ts`. As of April 2026 the
+actions still use **legacy pre-v1 tool names** — they have not been
+migrated onto the 13 v1 dispatchers. Panel refactor is intentionally
+out of scope per Blueprint D2.
 
-> **Дрифт:** часть actions ещё держит легаси tool-имена (`build_set`, `analyze_track`, `ym_search`). Panel refactor на v1 dispatcher surface отложен (Blueprint D2). Маппинг старых → новых имён — в `.claude/agents/panel-doctor.md`.
+| File | Tool calls (as in code) |
+|------|------------------------|
+| `analysis-actions.ts` | `classify_mood`, `analyze_track` |
+| `default-first-picker-actions.ts` | (Supabase queries) |
+| `discovery-actions.ts` | `ym_search`, `import_tracks` |
+| `feedback-actions.ts` | (calls via `tool-actions`) |
+| `library-actions.ts` | `audit_playlist`, `sync_playlist` |
+| `mix-meta-actions.ts` | — |
+| `mixer-actions.ts` | `set_eq`, `kill_eq`, `reset_eq`, `set_filter`, `mixer_state`, `mixer_crossfader` |
+| `playlist-actions.ts` | (Supabase queries) |
+| `set-actions.ts` | `build_set`, `rebuild_set`, `deliver_set`, `score_transitions`, `get_set_cheat_sheet`, `export_set` |
+| `set-picker-actions.ts` | `score_transitions` |
+| `set-templates-actions.ts` | `get_set_templates` |
+| `sync-actions.ts` | `sync_playlist`, `distribute_to_subgenres`, `push_set_to_ym` |
+| `tool-actions.ts` | arbitrary `callTool(name, args)` pass-through |
+| `track-actions.ts` | `analyze_track`, `classify_mood`, `manage_tracks` |
+| `track-feedback-actions.ts` | `like_track`, `ban_track`, `rate_track` |
+| `transition-actions.ts` | `score_transitions` |
+| `transition-log-actions.ts` | `log_transition`, `update_reaction` |
 
-All actions use `mcpCall(toolName, args)` from `lib/mcp-client.ts` which POSTs to `MCP_HTTP_URL`.
+These tool names are NOT in the v1 MCP surface. When the REST wrapper
+relays a call for one of them to a v1 server, it will 404 / raise
+unless a shim is in place. Mapping old → new tool names lives in
+`.claude/agents/panel-doctor.md` (follow-up task).
 
 ## Components
 
@@ -97,4 +124,10 @@ bun install
 bun dev                        # http://localhost:3000
 ```
 
-Requires running backend: `uv run uvicorn app.rest.app:api --port 8000`
+Requires running backend: `uv run --extra http uvicorn app.rest.app:api --port 8000`
+
+`MCP_HTTP_URL` may point at `http://localhost:8000` or
+`http://localhost:8000/mcp`; `lib/mcp-client.ts` strips a trailing
+`/mcp` so the panel always hits the FastAPI REST root (the native
+`/mcp` StreamableHTTP mount is not implemented yet — see
+`.claude/rules/rest-api.md`).

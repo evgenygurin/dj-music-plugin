@@ -2,7 +2,7 @@
 
 > Короткий обзор "что у нас есть по аудио" в БД, без расширенных P1/P2 фич.
 > Для полной справки по features см. `app/models/track_features.py` и
-> `docs/domain-glossary.md`. Для полных row counts — `REQUIREMENTS.md §10.3`.
+> `docs/domain-glossary.md`. Live row counts — `entity_aggregate(entity="...", operation="count")` или `mcp__plugin_dj-music_db__list_tables`.
 
 ## Покрытие данными (2026-04-18, post-BFS expansion)
 

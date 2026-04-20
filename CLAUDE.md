@@ -2,187 +2,105 @@
 
 // Всегда думай по-русски и отвечай по-русски, если только явно не просят другое.
 
+MCP-сервер для управления DJ techno библиотекой, построения оптимизированных сетов и интеграции с Яндекс Музыкой. Включает Next.js панель для мониторинга.
+
+**Текущая версия:** v1.0.4 (детальная история — [CHANGELOG.md](CHANGELOG.md)).
+
 ## Quick Start
 
 ```bash
-uv sync --all-extras                       # Install all deps
+export DJ_PLUGIN_DEV_PATH=/Users/laptop/dev/dj-music-plugin  # ← см. "Plugin cache" ниже
+uv sync --all-extras                       # install deps (audio, stems, http, apps)
 make check                                 # lint + typecheck + arch + test
-uv run fastmcp run server.py --reload      # MCP dev server (root entrypoint)
-cd panel && bun dev                        # Panel on :3000
-./start.sh                                 # Both at once
+uv run fastmcp run server.py --reload      # MCP dev server
+uv run --extra http uvicorn app.rest.app:api --port 8000 --reload   # REST (для Panel)
+cd panel && bun dev                        # Panel → http://localhost:3000
+./start.sh                                 # backend + panel одной командой
 ```
-
-## Цель проекта
-
-MCP-сервер для управления DJ techno библиотекой, построения оптимизированных сетов и интеграции с Яндекс Музыкой. Включает веб-панель для мониторинга и аналитики.
-
-- Спецификация: @REQUIREMENTS.md
-- Архитектурный блюпринт v1: @docs/superpowers/specs/2026-04-17-architecture-blueprint-design.md
 
 ## Документация
 
-При работе с конкретной областью — загрузи соответствующий doc:
+Загружай соответствующий doc при работе с областью:
 
-- @docs/architecture.md — bounded-contexts, data flow, ключевые решения v1
+- @docs/architecture.md — bounded-contexts, data flow, dependency rules
+- @docs/tool-catalog.md — 20 dispatchers + 27 resources + 6 prompts
 - @docs/domain-glossary.md — DJ терминология (BPM, Camelot, LUFS, subgenres)
-- @docs/tool-catalog.md — 13 generic tool dispatchers + 27 resources + 6 prompts
-- @docs/audio-pipeline.md — анализаторы, tiered pipeline L1-L4, mood classifier
+- @docs/audio-pipeline.md — 18 анализаторов, tiered L1–L4, mood classifier
+- @docs/audio-schema.md — `track_audio_features_computed` (47 features)
+- @docs/transition-scoring.md — 6-компонентная формула, section-aware, recipe engine
 - @docs/ym-api-guide.md — YM API quirks, rate limiting, diff format
-- @docs/transition-scoring.md — 6-компонентная формула, Camelot wheel, section-aware scoring
 - @docs/panel-guide.md — Panel архитектура, data flow, компоненты
-- @docs/vm-deployment.md — continuous import+analyze loop на VM (systemd-run)
-- @docs/dev-mode.md — plugin hot-reload: DJ_PLUGIN_DEV_PATH + PostToolUse + FileChanged + /reload-plugins
-- @docs/reports/tiered-analysis-design-2026-03-27.md — tiered pipeline L1-L4
+- @docs/dev-mode.md — hot-reload: DJ_PLUGIN_DEV_PATH + hooks + /reload-plugins
+- @docs/vm-deployment.md — batch анализ (`deploy_to_vm.sh` + `vm_analyze.py`)
+- @docs/plugin-settings.md — per-project config (`.claude/dj-music.local.md`)
+- @docs/structure.md — файловая карта репозитория
 
 ## Принципы v1
 
-- **MCP — primary interface.** Tools / resources / prompts декларативны, композиция через LLM (prompts, CodeMode, Tool Search), а не императивный service/workflow слой.
-- **Polymorphism over proliferation.** 6 generic CRUD tools (`entity_list/get/create/update/delete/aggregate`) + 3 provider tools (`provider_read/write/search`) + 2 compute (`transition_score_pool`, `sequence_optimize`) + `playlist_sync` + `unlock_namespace` = **13 tool dispatchers**. Side-effects живут в handlers, привязанных к entity (create track = import, create audio_file = download, create track_features = analyze, create set_version = build+score).
-- **Anchor на DB entities.** Каждый aggregate root → один `models/<entity>.py` + один `repositories/<entity>.py` + одна Pydantic-схема-семейство.
-- **Panel (Next.js)** — monitoring/analytics UI, читает напрямую из Supabase, мутации через MCP (REST-обёртка).
-- **REST API** (`app/rest/app.py`) — тонкая FastAPI-обёртка поверх MCP для Panel.
-- **FastMCP v3.x** — FileSystemProvider auto-discovers tools/resources/prompts, standalone `@tool` / `@resource` / `@prompt` декораторы.
-- **Unit of Work.** Одна `UnitOfWork` на tool call, инжектится через `Depends(get_uow)`. DbSession middleware управляет commit/rollback.
-- **BaseRepository[M].** Generic CRUD + Django-style lookups (`bpm__gte`, `mood__in`). Entity-specific методы в subclass.
-- Python 3.12+, все операции async.
-- Strict typing: mypy strict + pydantic v2.
-- Тесты обязательны для каждого компонента.
+- **MCP — primary interface.** Tools / resources / prompts декларативны. Композиция через LLM (prompts, Tool Search), а не императивный service слой.
+- **Polymorphism over proliferation.** 20 dispatchers = 6 entity CRUD + 3 provider + 2 compute + `playlist_sync` + 2 admin (`unlock_namespace`, `tool_invoke`) + 6 UI (Prefab Apps). Side-effects живут в **handlers**, привязанных к entity.
+- **Anchor на DB entities.** Aggregate root → `models/<entity>.py` + `repositories/<entity>.py` + Pydantic family.
+- **Unit of Work + BaseRepository[M].** Один UoW на tool call (`Depends(get_uow)`), Django-style lookups (`bpm__gte`, `mood__in`). DbSession middleware управляет commit/rollback.
+- **Panel (Next.js)** читает напрямую из Supabase, мутации через **REST API** (`app/rest/`) — тонкая FastAPI-обёртка поверх MCP, без дублирования бизнес-логики.
+- **FastMCP v3.x** с FileSystemProvider auto-discovery. Никакой ручной регистрации.
 - **Никаких magic numbers** — `app/config/*.py` + `app/shared/constants.py`.
+- **Время** — всегда через `app/shared/time.py` (`utc_now()`, `sa_now()`).
+- Python 3.12+, async everywhere, mypy strict, pydantic v2.
 
-## Архитектура — Bounded Contexts
+## Архитектура
 
 ```text
 app/
-├── tools/          # @tool — 13 generic dispatchers (entity/provider/compute/sync/admin)
-├── resources/      # @resource — 27 URIs (16 local://, 4 schema://, 3 session://, 4 reference://)
-├── prompts/        # @prompt — 6 workflow recipes
-├── handlers/       # 6 entity-specific side-effects (track_import, track_features_analyze, track_features_reanalyze, audio_file_download, set_version_build, transition_persist)
-├── registry/       # EntityRegistry + ProviderRegistry (polymorphism anchors)
-├── repositories/   # BaseRepository[M] + UnitOfWork aggregator
-├── models/         # SQLAlchemy 2.0 ORM — one file per aggregate root
-├── schemas/        # Pydantic DTOs (one family per entity)
-├── domain/         # Pure compute, no IO
-│   ├── transition/ # 6-component scoring, hard constraints, recipe engine
-│   ├── optimization/ # GA, greedy, fitness, protocol
-│   ├── camelot/    # Camelot wheel math
-│   ├── template/   # Set templates registry
-│   └── audit/      # Techno audit rules
+├── tools/          # 20 @tool — entity/provider/compute/sync/admin/ui
+├── resources/      # 27 @resource — local://, schema://, session://, reference://
+├── prompts/        # 6 workflow recipes
+├── handlers/       # 6 side-effect handlers (track_import, audio_file_download, ...)
+├── registry/       # EntityRegistry (11 entities) + ProviderRegistry
+├── repositories/   # BaseRepository[M] + UnitOfWork
+├── models/         # SQLAlchemy 2.0 — one file per aggregate root
+├── schemas/        # Pydantic DTOs (View/Filter/Create/Update per entity)
+├── domain/         # Pure compute: transition/ optimization/ camelot/ template/ audit/
 ├── audio/          # Tiered pipeline (analyzers, classification, level_config)
-├── providers/      # External platforms (yandex/ …)
-├── server/         # FastMCP composition: app.py, lifespan.py, middleware/, transforms.py, visibility.py, observability.py
-├── rest/           # FastAPI wrapper: app.py, lifespan.py, routes/
-├── shared/         # errors, constants, filters, ids, pagination, time
-└── config/         # Settings split by concern (audio, yandex, database, mcp, …)
+├── providers/      # yandex/ (adapter, client, rate_limiter)
+├── server/         # FastMCP composition: app, lifespan, middleware/, transforms, visibility
+├── rest/           # FastAPI proxy для Panel
+├── shared/         # errors, constants, filters, ids, pagination, time (leaf)
+└── config/         # 9 settings файлов split по доменам
 ```
 
-```text
-Panel (Next.js) → REST API (FastAPI) ─┐
-                                       ├──→ FastMCP (tools/resources/prompts)
-Claude Code (stdio / streamable-http) ─┘       ↓ Depends(get_uow)
-                                            UnitOfWork → BaseRepository[M] → models
-                                            → Providers (yandex)
-                                            → Audio pipeline
-                                            → Domain (transition, optimization, …)
-```
+**Dependency rule** (enforced by `import-linter` / `make arch`):
 
-**Dependency rule (enforced by import-linter):**
 - `tools → handlers → repositories → models`
 - `tools → domain` (pure compute OK)
-- `domain` imports: only `models` (для типизации) + `shared`
-- `audio` / `providers` — side-effect layers, imported only by handlers
-- `rest` оборачивает MCP через `mcp.call_tool()` — не дублирует бизнес-логику
-- `shared` is leaf — нет обратных импортов
+- `domain` imports: только `models` + `shared`
+- `audio` / `providers` — side-effect layers, импортируются только handlers
+- `rest` оборачивает MCP через `mcp.call_tool()` — не дублирует логику
+- `shared` — leaf, нет обратных импортов
 
-## Tiered Audio Analysis (L1→L4)
+Детали + диаграмма потока: @docs/architecture.md.
 
-| Уровень | Когда | Анализаторы |
-|---------|-------|-------------|
-| L1+L2 (TRIAGE) | classify handler (mood) | loudness, energy, spectral, bpm, key, mfcc |
-| L3 (SCORING) | `transition_score_pool`, `sequence_optimize` | + beat |
-| L4 (TRANSITION) | `entity_create(entity="audio_file", persistent=true)` | + structure, permanent MP3 |
+## ⚠️ Plugin cache ≠ working dir
 
-Детали: @docs/reports/tiered-analysis-design-2026-03-27.md
-
-## Команды
-
-```bash
-# Backend (MCP server)
-uv sync                                         # Install deps
-uv run pytest -v                                # Tests
-uv run ruff check && uv run ruff format --check # Lint
-uv run mypy app/                                # Type-check
-uv run lint-imports                             # Architecture contracts
-uv run alembic upgrade head                     # Migrations
-uv run fastmcp run server.py --reload           # MCP dev server (root entrypoint)
-make check                                      # lint + typecheck + arch + test
-
-# REST API
-uv run --extra http uvicorn app.rest.app:api --host 0.0.0.0 --port 8000 --reload
-
-# Panel
-cd panel && bun install && bun dev              # http://localhost:3000
-
-# All-in-one
-./start.sh                                      # Backend + Panel dev servers
-```
-
-## Плагины Claude Code
-
-| Плагин | Когда использовать |
-|--------|-------------------|
-| **fastmcp-builder** | Перед реализацией tools/resources/prompts |
-| **mcp-server-dev** | При проектировании tool patterns, elicitation, auth |
-| **superpowers** | Brainstorming, planning, TDD, debugging |
-| **feature-dev** | Guided feature development |
-| **python** | pytest fixtures, ruff config, mypy |
-| **fastapi** | Alembic migrations |
-| **tech-lead** | Architecture review, dependency analysis |
-| **context7** | Документация библиотек (FastMCP, SQLAlchemy, librosa) |
-
-## Правила архитектуры
-
-- **Bounded contexts** — защищены `import-linter` (`make arch`). Список слоёв см. выше.
-- **Один файл = одна ответственность.** Никаких дублирующих файлов.
-- **Время:** все datetime-операции через `app/shared/time.py` (`utc_now()`, `utc_timestamp_iso()`, `sa_now()`).
-- **Линтер:** ruff + mypy + import-linter. Pyright игнорируй.
-- **FastMCP 3.x:** перед любой работой с tools/lifespan/visibility — читать `.claude/rules/tools.md`, `.claude/rules/resources.md` и `https://gofastmcp.com/llms.txt`.
-
-## ⚠️ Plugin cache ≠ working dir (частый косяк)
-
-Claude Code загружает плагин в `~/.claude/plugins/cache/dj-music-plugin/dj-music/<ver>/` — это **отдельная копия** кода и `.env`. По дефолту MCP сервер стартует оттуда (`${CLAUDE_PLUGIN_ROOT}`), **не** из working dir `/Users/laptop/dev/dj-music-plugin/`.
-
-**Симптомы, когда забыли про это:**
-- Правки в `app/` ничего не меняют после auto-reload — плагин крутит старый код из cache.
-- Сервер падает `sqlite3.OperationalError: no such table: dj_*` — в cache нет `.env` → pydantic-settings берёт default SQLite вместо Supabase.
-- MCP возвращает generic "internal error" на всё — в cache старый `di.py` с sync state API.
-
-**Dev override через env var (официальный механизм):**
-
-`plugin.json` собран так, что обе `mcpServers` команды стартуют из `${DJ_PLUGIN_DEV_PATH:-${CLAUDE_PLUGIN_ROOT}}`. Выстави переменную перед запуском Claude Code — и MCP сервер + Supabase клиент поднимутся из working dir:
-
-```bash
-export DJ_PLUGIN_DEV_PATH=/Users/laptop/dev/dj-music-plugin
-# затем запусти Claude Code из этого окружения
-```
-
-Или один раз в `~/.claude/settings.json` (персистентно для всех сессий):
+Claude Code грузит плагин в `~/.claude/plugins/cache/dj-music-plugin/` — **отдельная копия** кода и `.env`. Правки в working dir видны только если выставлена `DJ_PLUGIN_DEV_PATH`:
 
 ```json
+// ~/.claude/settings.json — один раз на машину
 { "env": { "DJ_PLUGIN_DEV_PATH": "/Users/laptop/dev/dj-music-plugin" } }
 ```
 
-Без этой переменной плагин работает как у обычного пользователя — из cache.
+Симптомы когда забыли: правки в `app/` не применяются; `no such table: dj_*` (cache без `.env` → default SQLite вместо Supabase). **Никогда** не копируй/симлинкай файлы в cache руками.
 
-**Правило:** никогда не копируй файлы в cache руками и не симлинкай dir целиком — разваливается через пару правок или при version bump. Используй только `DJ_PLUGIN_DEV_PATH`.
+Dev-режим целиком (4 слоя hot-reload + `/reload-plugins`) — @docs/dev-mode.md.
 
-## Версия
+## FastMCP v3 правила
 
-**v1.0.3** — интегрирован **FastMCP Prefab Apps** (extra `apps` в `fastmcp[tasks,apps]>=3.2.4,<4`). Добавлены 6 UI-tools под `app/tools/ui/` — `ui_set_view`, `ui_transition_score`, `ui_library_audit`, `ui_score_pool_matrix`, `ui_library_dashboard`, `ui_camelot_wheel`. Каждый помечен `meta={"ui": True}` (standalone-эквивалент `@mcp.tool(app=True)`) и возвращает `prefab_ui.components.Column` в Prefab-aware клиентах (Claude Desktop), JSON-fallback (через `ctx.client_supports_extension("io.modelcontextprotocol/ui")`) — в остальных. Расшаренная палитра `app/shared/ui_colors.py` зеркалит `panel/lib/constants.ts` для визуального паритета с Panel. Новый namespace `namespace:ui:read` добавлен в `KNOWN_NAMESPACES` (всегда видим, read-only). Остальные 13 dispatchers + 27 resources + 6 prompts не затронуты — интеграция чисто аддитивная.
+Перед любой работой с tools / resources / prompts / lifespan / visibility:
+- @.claude/rules/tools.md — `@tool` шаблон, namespaces, annotations
+- @.claude/rules/resources.md — URI schemes, return types
+- FastMCP docs: <https://gofastmcp.com/llms.txt>
 
-**v1.0.2** — bump `fastmcp[tasks]` pin `>=3.1.0` → `>=3.2.4,<4`. Забирает fakeredis-regression fix (v3.2.3) и background-tasks auth-scoping + security hardening (v3.2.4). Deprecations из v3.2.0 (`PromptToolMiddleware`, `ResourceToolMiddleware`) нас не касаются — используем `PromptsAsTools` / `ResourcesAsTools`.
+## DB состояние (drift)
 
-**v1.0.1** — патч поверх v1.0.0 рефактора по `docs/superpowers/specs/2026-04-17-architecture-blueprint-design.md`. Добавлены `provider_write(... operation="set_description")` и hook авто-рестарта MCP на правки плагина. Entrypoint — корневой `server.py` (не `app/server/app.py`).
+Alembic-миграция `p2_drop_dead_tables` **не применена** к Supabase. 17 dead-таблиц (`spotify_*`, `beatport_metadata`, `soundcloud_metadata`, `embeddings`, `transition_candidates`, `dj_saved_loops`, `dj_cue_points`, `dj_beatgrid_change_points`, `dj_set_constraints`, `dj_set_feedback`, `labels`, `track_labels`, `app_exports`) живут в схеме с 0 rows. Всего **47 live tables**, после drop будет 31.
 
-**v1 surface:** 13 tool dispatchers (6 entity CRUD + 3 provider + 2 compute + 1 sync + 1 admin) + **6 UI-tools** (Prefab Apps, `app/tools/ui/`) + **27 resources** (16 `local://`, 4 `schema://`, 3 `session://`, 4 `reference://`) + 6 prompts + 6 handlers. FastMCP v3 canonical layout (`tools/`, `resources/`, `prompts/`). Polymorphism через EntityRegistry (11 registered entities) + ProviderRegistry + handlers. Unit of Work + BaseRepository[M]. Pure domain (transition / optimization / camelot / template / audit). 18 audio analyzers, tiered L1-L4, section-aware scoring. 16 middleware.
-
-**DB drift:** v1 удалил legacy Python-код (`app/engines/`, `app/ym/`, `app/services/`, `app/controllers/`, `app/bootstrap/` и пр.), но Alembic-миграция `p2_drop_dead_tables` **не применена** к Supabase — 17 dead-таблиц (spotify_\*, beatport_metadata, soundcloud_metadata, embeddings, transition_candidates, dj_saved_loops/cue_points/beatgrid_change_points, dj_set_constraints/feedback, labels, track_labels, app_exports) пока живут в схеме с 0 rows (`app_exports` с 2 устаревшими). Всего 47 live tables.
+Panel actions в `panel/actions/*.ts` до сих пор вызывают legacy tool names (`build_set`, `analyze_track`, `ym_search`) — Blueprint D2 deferred, миграция на v1 dispatcher surface не выполнена. См. @docs/panel-guide.md.

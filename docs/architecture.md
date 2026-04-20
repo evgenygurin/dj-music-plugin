@@ -23,7 +23,7 @@
 │  ┌──────▼──────────────────────────────────────────────────┐│
 │  │           FileSystemProvider (auto-discover)             ││
 │  │  ┌──────────┐  ┌────────────┐  ┌──────────────────────┐ ││
-│  │  │ 13 Tools │  │27 Resources│  │ 6 Workflow Prompts   │ ││
+│  │  │ 20 Tools │  │27 Resources│  │ 6 Workflow Prompts   │ ││
 │  │  └────┬─────┘  └──────┬─────┘  └──────────────────────┘ ││
 │  └───────┼───────────────┼─────────────────────────────────┘│
 └──────────┼───────────────┼──────────────────────────────────┘
@@ -86,7 +86,7 @@ Parallel layers (called from handlers, never from tools directly):
 
 | Context | Path | Responsibility |
 |---|---|---|
-| **Tools** | `app/tools/` | 13 `@tool` dispatchers — no business logic, only dispatch |
+| **Tools** | `app/tools/` | 14 `@tool` dispatchers (6 entity + 3 provider + 2 compute + 1 sync + `unlock_namespace` + `tool_invoke`) — no business logic, only dispatch |
 | **UI Tools** | `app/tools/ui/` | 6 Prefab Apps renderers (`meta={"ui": True}`) — return `prefab_ui.components.Column` trees; JSON fallback via `ctx.client_supports_extension("io.modelcontextprotocol/ui")` |
 | **Resources** | `app/resources/` | 27 `@resource` URIs — read-only views (16 local://, 4 schema://, 3 session://, 4 reference://) |
 | **Prompts** | `app/prompts/` | 6 workflow recipes (LLM-visible) |
@@ -206,7 +206,7 @@ ProviderRegistry
 | Decision | Rationale |
 |----------|-----------|
 | FastMCP v3 canonical layout (`tools/`, `resources/`, `prompts/`) | Matches upstream; FileSystemProvider auto-discovery; zero registration boilerplate |
-| 13 generic tool dispatchers | 88-tool catalog collapsed via polymorphism (EntityRegistry, ProviderRegistry, handlers) |
+| 20 tool dispatchers (14 core + 6 UI) | 88-tool catalog collapsed via polymorphism (EntityRegistry, ProviderRegistry, handlers) |
 | Handlers over services | Side-effects live at the tool layer, colocated with the entity they mutate |
 | BaseRepository[M] + Django lookups | Generic CRUD + filter DSL (`bpm__gte`, `mood__in`) without bespoke methods per entity |
 | Unit of Work | Explicit transaction boundary; middleware commits/rollbacks; repos only flush |
