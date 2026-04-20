@@ -8,6 +8,10 @@ human-readable messages.
 Unknown exceptions are wrapped with a generic message in production
 (``mask_details=True``) or surfaced verbatim in dev.
 
+``McpError`` (FastMCP native signal type, e.g. from ``@tool(timeout=N)``
+which raises code ``-32000``) is re-raised unchanged so clients keep
+the protocol-level error code and timeout-specific handling.
+
 Distinct from ``fastmcp.server.middleware.error_handling.ErrorHandlingMiddleware``
 (which focuses on exception logging and tracebacks — not domain mapping).
 Renamed from ``ErrorHandlingMiddleware`` in v1.0.4 to avoid the name
@@ -22,6 +26,7 @@ from typing import Any
 
 from fastmcp.exceptions import ToolError
 from fastmcp.server.middleware import Middleware, MiddlewareContext
+from mcp.shared.exceptions import McpError
 
 from app.shared.errors import (
     ConflictError,
@@ -62,6 +67,12 @@ class DomainErrorMiddleware(Middleware):
         except DJMusicError as exc:
             raise ToolError(str(exc)) from exc
         except ToolError:
+            raise
+        except McpError:
+            # Preserve FastMCP / MCP protocol-level errors verbatim.
+            # Native ``@tool(timeout=N)`` raises ``McpError(code=-32000)`` —
+            # rewriting it as a generic ``ToolError("internal error")`` would
+            # drop both the timeout signal and its diagnostic message.
             raise
         except Exception as exc:
             log.exception("unexpected error in tool")
