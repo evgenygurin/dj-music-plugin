@@ -46,3 +46,12 @@ class NotAllowedError(DJMusicError):
         self.entity = entity
         self.operation = operation
         super().__init__(f"operation {operation!r} not allowed on entity {entity!r}")
+
+
+class TransientError(Exception):
+    """Marker for errors safe to retry.
+
+    Raise from providers / DB / network layers when a call failed due to a
+    transient condition (timeout, rate-limit, connection reset). The
+    ``RetryMiddleware`` retries these with exponential backoff.
+    """
