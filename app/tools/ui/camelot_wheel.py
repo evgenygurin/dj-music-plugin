@@ -98,11 +98,12 @@ async def _gather(uow: UnitOfWork, playlist_id: int | None) -> dict[str, Any]:
     name="ui_camelot_wheel",
     tags={"namespace:ui:read", "ui", "read"},
     annotations={"readOnlyHint": True, "idempotentHint": True},
-    meta={"ui": True},
+    meta={"ui": True, "timeout_s": 30.0},
     description=(
         "Prefab Camelot wheel: tracks-per-slot RadialChart + DataTable. Scope: "
         "a playlist when playlist_id is given, otherwise the full library."
     ),
+    timeout=30.0,
 )
 async def ui_camelot_wheel(
     playlist_id: Annotated[

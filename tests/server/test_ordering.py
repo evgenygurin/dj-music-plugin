@@ -5,8 +5,11 @@ from __future__ import annotations
 from app.server.middleware import ALL_MIDDLEWARE
 
 
-def test_order_length_is_fifteen_after_pr1() -> None:
-    """PR1 dropped OTELTracingMiddleware. PR2 will drop ToolCallTimeoutMiddleware."""
+def test_order_length_is_fifteen_post_pr2() -> None:
+    """PR1 dropped OTELTracingMiddleware. ToolCallTimeoutMiddleware retained
+    because FastMCP's FileSystemProvider does not yet forward
+    ``@tool(timeout=N)`` into the Tool object; the middleware reads
+    ``tool.meta['timeout_s']`` as the effective cap."""
     assert len(ALL_MIDDLEWARE) == 15
 
 
@@ -24,7 +27,7 @@ def test_order_matches_spec() -> None:
         "CostTrackingMiddleware",
         "SamplingBudgetMiddleware",
         "ProgressThrottleMiddleware",
-        "ToolCallTimeoutMiddleware",  # drops in PR2
+        "ToolCallTimeoutMiddleware",
         "ProviderRateLimitMiddleware",
         "DbSessionMiddleware",
         "StructuredLoggingMiddleware",

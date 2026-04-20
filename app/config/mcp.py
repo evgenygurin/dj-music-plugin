@@ -33,6 +33,9 @@ class MCPSettings(BaseSettings):
     sampling_max_per_session: int = Field(default=10, ge=0, le=100)
     progress_throttle_hz: float = Field(default=1.0, ge=0.1, le=10.0)
     tool_timeout_default_s: float = Field(default=300.0, ge=1.0, le=3600.0)
+    # Used by ToolCallTimeoutMiddleware as the fallback when a tool does not
+    # expose ``meta["timeout_s"]``. Kept distinct from ``tool_timeout_default_s``
+    # for backwards compat with v1.0.3 env-var naming.
     default_tool_timeout_s: float = Field(default=300.0, ge=1.0, le=3600.0)
     tool_timeout_heavy_s: float = Field(default=600.0, ge=1.0, le=3600.0)
     tool_timeout_batch_s: float = Field(default=600.0, ge=1.0, le=3600.0)

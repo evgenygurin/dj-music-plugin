@@ -89,11 +89,12 @@ async def _compute(uow: UnitOfWork, scorer: Any, track_ids: list[int]) -> dict[s
     name="ui_score_pool_matrix",
     tags={"namespace:ui:read", "ui", "read"},
     annotations={"readOnlyHint": True, "idempotentHint": True},
-    meta={"ui": True},
+    meta={"ui": True, "timeout_s": 300.0},
     description=(
         "Prefab NxN heatmap of pairwise transition scores across a track pool. "
         "Color-coded cells (green = pass, amber = warn, red = fail). Fallback: JSON."
     ),
+    timeout=300.0,
 )
 async def ui_score_pool_matrix(
     track_ids: Annotated[

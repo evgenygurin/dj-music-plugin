@@ -1,4 +1,4 @@
-"""Middleware pipeline — 15 classes after PR1 (14 after PR2 drops ToolCallTimeout).
+"""Middleware pipeline — 15 classes post-PR2.
 
 Order is outermost→innermost; the first added wraps all others at call time.
 Do not reorder without updating blueprint §11 and ``tests/server/test_ordering.py``.
@@ -13,9 +13,18 @@ covers their behaviour.
 maps domain exceptions to ``ToolError`` and is distinct from FastMCP's built-in
 ``ErrorHandlingMiddleware`` (which focuses on exception logging/tracebacks).
 
-``OTELTracingMiddleware`` was removed: FastMCP v3 ships native OTEL instrumentation
-with MCP semantic conventions. ``ToolCallTimeoutMiddleware`` will be removed in
-PR2 and per-tool timeouts set via ``@tool(timeout=N)``.
+``OTELTracingMiddleware`` was removed in PR1: FastMCP v3 ships native OTEL
+instrumentation with MCP semantic conventions.
+
+``ToolCallTimeoutMiddleware`` is retained after PR2. The plan was to migrate
+every timeout to ``@tool(timeout=N)``, but FastMCP's ``FileSystemProvider``
+does not forward the decorator's ``timeout`` kwarg into the created ``Tool``
+object (verified empirically — every tool ends up with ``timeout=None``).
+Until that is fixed upstream, the middleware remains the effective runtime
+cap; it reads ``tool.meta["timeout_s"]`` per tool, with
+``settings.mcp.default_tool_timeout_s`` as the fallback. The
+``@tool(timeout=N)`` annotations stay in source as documentation + a
+forward-looking hook for when the FSP path learns to forward them.
 """
 
 from __future__ import annotations
@@ -127,7 +136,9 @@ def build_middleware_list(settings: Settings) -> list[Middleware]:
         SamplingBudgetMiddleware(),
         # 11 — throttle progress events to 1/sec
         ProgressThrottleMiddleware(),
-        # 12 — per-tool timeout (removed in PR2 — @tool(timeout=N))
+        # 12 — per-tool timeout. Reads ``tool.meta["timeout_s"]``; falls back to
+        # ``default_tool_timeout_s``. Retained as effective enforcer until
+        # FastMCP's FileSystemProvider forwards the ``@tool(timeout=N)`` kwarg.
         ToolCallTimeoutMiddleware(),
         # 13 — Yandex Music rate limit
         ProviderRateLimitMiddleware(),

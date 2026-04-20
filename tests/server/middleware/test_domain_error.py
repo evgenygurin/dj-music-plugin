@@ -5,6 +5,8 @@ from unittest.mock import AsyncMock
 import pytest
 from fastmcp.exceptions import ToolError
 from fastmcp.server.middleware import MiddlewareContext
+from mcp.shared.exceptions import McpError
+from mcp.types import ErrorData
 
 from app.server.middleware.domain_error import DomainErrorMiddleware
 from app.shared.errors import (
@@ -78,3 +80,20 @@ async def test_tool_error_passthrough() -> None:
     with pytest.raises(ToolError) as info:
         await mw.on_call_tool(_ctx(), call_next)
     assert info.value is original
+
+
+@pytest.mark.asyncio
+async def test_mcp_error_passthrough() -> None:
+    """Native ``@tool(timeout=N)`` raises ``McpError(code=-32000)`` — the
+    middleware must propagate it unchanged so clients keep the protocol-
+    level error code."""
+    mw = DomainErrorMiddleware(mask_details=True)
+    original = McpError(
+        ErrorData(code=-32000, message="Tool 'slow_op' execution timed out after 30s")
+    )
+    call_next = AsyncMock(side_effect=original)
+    with pytest.raises(McpError) as info:
+        await mw.on_call_tool(_ctx(), call_next)
+    assert info.value is original
+    assert info.value.error.code == -32000
+    assert "timed out" in info.value.error.message

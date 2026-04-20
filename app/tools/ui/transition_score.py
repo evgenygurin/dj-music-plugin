@@ -79,11 +79,12 @@ async def _compute(
     name="ui_transition_score",
     tags={"namespace:ui:read", "ui", "read"},
     annotations={"readOnlyHint": True, "idempotentHint": True},
-    meta={"ui": True},
+    meta={"ui": True, "timeout_s": 30.0},
     description=(
         "Prefab breakdown of the 6-component transition score between two tracks: "
         "RadarChart, hard-constraint status, style recipe. Fallback: JSON payload."
     ),
+    timeout=30.0,
 )
 async def ui_transition_score(
     from_track_id: Annotated[int, Field(description="Outgoing track ID")],

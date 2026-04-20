@@ -23,6 +23,8 @@ from app.shared.types import JsonDict
         "Mutate external platform. entity=playlist|likes. operation=add_tracks|"
         "remove_tracks|create|rename|delete|add|remove."
     ),
+    meta={"timeout_s": 120.0},
+    timeout=120.0,
 )
 async def provider_write(
     provider: Annotated[str, Field(description="Provider name")],

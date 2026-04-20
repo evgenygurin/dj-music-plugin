@@ -32,6 +32,9 @@ from app.shared.types import JsonDictOrNone
         "tool list (e.g. after unlock_namespace) and cannot address the tool "
         "directly."
     ),
+    # No timeout= — this is a proxy/fallback path. The delegated tool enforces
+    # its own @tool(timeout=N); wrapping it in a shorter outer timeout would
+    # cut off long-running compute tools (e.g. sequence_optimize = 300s).
 )
 async def tool_invoke(
     name: Annotated[str, Field(description="Target tool name, e.g. 'provider_write'")],
