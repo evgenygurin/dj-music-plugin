@@ -23,19 +23,26 @@ from app.tools.ui._fallback import (
     fallback_or,
     supports_ui,
 )
-from app.tools.ui._prefab import (
-    Card,
-    CardContent,
-    CardHeader,
-    CardTitle,
-    Column,
-    DataTable,
-    DataTableColumn,
-    Heading,
-    Metric,
-    Muted,
-    Row,
-)
+
+try:
+    from prefab_ui.components import (
+        Card,
+        CardContent,
+        CardHeader,
+        CardTitle,
+        Column,
+        DataTable,
+        DataTableColumn,
+        Heading,
+        Metric,
+        Muted,
+        Row,
+    )
+except ImportError as _exc:  # pragma: no cover — fastmcp[apps] extra missing
+    raise ImportError(
+        "ui_score_pool_matrix requires prefab-ui. Install with: uv sync --all-extras "
+        "(or `pip install 'fastmcp[apps]'`)."
+    ) from _exc
 
 
 def _heat_cell(score: float, hard_reject: bool) -> str:

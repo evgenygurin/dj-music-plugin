@@ -23,20 +23,25 @@ from app.repositories.unit_of_work import UnitOfWork
 from app.server.di import get_uow
 from app.shared.ui_colors import CAMELOT_WHEEL_COLORS, SUBGENRE_COLORS
 from app.tools.ui._fallback import DashboardFallback, fallback_or, supports_ui
-from app.tools.ui._prefab import (
-    BarChart,
-    Card,
-    CardContent,
-    CardHeader,
-    CardTitle,
-    ChartSeries,
-    Column,
-    Heading,
-    Metric,
-    Muted,
-    PieChart,
-    Row,
-)
+
+try:
+    from prefab_ui.components import (
+        Card,
+        CardContent,
+        CardHeader,
+        CardTitle,
+        Column,
+        Heading,
+        Metric,
+        Muted,
+        Row,
+    )
+    from prefab_ui.components.charts import BarChart, ChartSeries, PieChart
+except ImportError as _exc:  # pragma: no cover — fastmcp[apps] extra missing
+    raise ImportError(
+        "ui_library_dashboard requires prefab-ui. Install with: uv sync --all-extras "
+        "(or `pip install 'fastmcp[apps]'`)."
+    ) from _exc
 
 _BPM_BUCKETS: list[tuple[str, float, float]] = [
     ("<110", 0.0, 110.0),

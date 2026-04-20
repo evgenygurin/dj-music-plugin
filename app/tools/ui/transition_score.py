@@ -24,19 +24,26 @@ from app.tools.ui._fallback import (
     fallback_or,
     supports_ui,
 )
-from app.tools.ui._prefab import (
-    Badge,
-    Card,
-    CardContent,
-    CardHeader,
-    CardTitle,
-    Column,
-    Heading,
-    Metric,
-    Muted,
-    RadarChart,
-    Row,
-)
+
+try:
+    from prefab_ui.components import (
+        Badge,
+        Card,
+        CardContent,
+        CardHeader,
+        CardTitle,
+        Column,
+        Heading,
+        Metric,
+        Muted,
+        Row,
+    )
+    from prefab_ui.components.charts import RadarChart
+except ImportError as _exc:  # pragma: no cover — fastmcp[apps] extra missing
+    raise ImportError(
+        "ui_transition_score requires prefab-ui. Install with: uv sync --all-extras "
+        "(or `pip install 'fastmcp[apps]'`)."
+    ) from _exc
 
 _COMPONENTS = ("bpm", "harmonic", "energy", "spectral", "groove", "timbral")
 
