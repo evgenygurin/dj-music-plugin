@@ -2,10 +2,8 @@
 
 from __future__ import annotations
 
-from typing import Annotated
-
-from pydantic import Field, field_validator
-from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
+from pydantic import Field
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class MCPSettings(BaseSettings):
@@ -42,40 +40,7 @@ class MCPSettings(BaseSettings):
     log_payloads: bool = Field(
         default=False, description="Full request/response payloads in logs."
     )
-    # ── CORS (REST wrapper) ──────────────────────────────────────────────
-    # Trusted origins for browser MCP clients. ``NoDecode`` disables
-    # pydantic-settings' default JSON decoding on list fields so a plain CSV
-    # env var works without shell-escaped JSON:
-    #   DJ_MCP_CORS_ALLOW_ORIGINS="http://localhost:3000,https://panel-mine.vercel.app"
-    # Default covers only local panel dev. Deployers explicitly opt in to
-    # production origins — a blanket regex like ``*.vercel.app`` would trust
-    # every Vercel-hosted site and, combined with credentials, allow any
-    # visitor's browser to target our API.
-    cors_allow_origins: Annotated[list[str], NoDecode] = Field(
-        default_factory=lambda: ["http://localhost:3000"],
-        description="Comma-separated list of allowed CORS origins for the REST wrapper.",
-    )
-
-    @field_validator("cors_allow_origins", mode="before")
-    @classmethod
-    def _split_cors_csv(cls, value: object) -> object:
-        """Normalise env-var string to a list; JSON arrays also work.
-
-        ``NoDecode`` suppresses pydantic-settings' auto JSON-decode, so we
-        re-implement both shapes here: a leading ``[`` triggers ``json.loads``
-        (for arrays), otherwise the value is split on commas.
-        """
-        if isinstance(value, str):
-            stripped = value.strip()
-            if not stripped:
-                return []
-            if stripped.startswith("["):
-                import json
-
-                try:
-                    parsed = json.loads(stripped)
-                except json.JSONDecodeError:
-                    return [item.strip() for item in stripped.split(",") if item.strip()]
-                return parsed
-            return [item.strip() for item in stripped.split(",") if item.strip()]
-        return value
+    # ``DJ_MCP_CORS_ALLOW_ORIGINS`` is read directly by ``app/rest/app.py``
+    # (not routed through ``Settings``) to keep module-level REST import cheap
+    # — a full Settings load would eagerly parse database / yandex / audio
+    # sub-settings and abort import on any unrelated env error.
