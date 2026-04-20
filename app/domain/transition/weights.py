@@ -23,17 +23,19 @@ DEFAULT_WEIGHTS: dict[str, float] = DEFAULT_TRANSITION_WEIGHTS
 
 # ── BPM scoring ──────────────────────────────────────────
 # sigma=10 matches Pioneer DJ / Mixed In Key professional thresholds:
-# dBPM=3-5 -> 0.96-0.88 (Sync-safe), dBPM=8 -> 0.73 (forced but OK),
-# dBPM=10 -> 0.61 (hard-reject boundary). Calibrated 2026-04-20 against
-# Yang & Schloss ISMIR 2020 (20 765 real transitions).
+# dBPM=3-5 -> 0.96-0.88 (within CDJ +/-6% pitch range), dBPM=8 -> 0.73,
+# dBPM=10 -> 0.61 (hard-reject boundary). Aligned with Kim et al. ISMIR
+# 2020 analysis of 20 765 real-world DJ transitions.
 BPM_GAUSS_SIGMA: float = 10.0
 BPM_STABILITY_FLOOR: float = 0.7  # max 30% penalty for unstable tempo
 BPM_CONFIDENCE_PENALTY_FLOOR: float = 0.7  # symmetric with stability
 
 # ── Harmonic scoring ─────────────────────────────────────
-# Distance 2 is a valid candidate per ISMIR 2017 (Bittner et al.) —
-# previous 0.6 was stricter than published DJ mix data supports.
-# Distance 1 also relaxed (techno tolerates adjacent-key moves easily).
+# Relaxed floors: distance 2 is a valid candidate per ISMIR 2017
+# Automatic Playlist Sequencing (Bittner et al.) which finds key clash
+# weakly perceived on techno/EDM material. Distance 1 bumped to 0.95
+# (techno tolerates adjacent-key moves easily). Values are empirical
+# calibration to match that research direction — not a published table.
 CAMELOT_BASE_SCORES: dict[int, float] = {0: 1.0, 1: 0.95, 2: 0.85, 3: 0.6, 4: 0.3}
 ATONAL_RELAX_FLOOR: float = 0.8  # both atonal → at least 0.8
 HNR_NORM_LOW_DB: float = -30.0  # HNR < -30 → factor 0.5
@@ -43,7 +45,12 @@ TONNETZ_BLEND: float = 0.30  # weight of tonnetz cosine vs Camelot base
 KEY_CONFIDENCE_BLEND_THRESHOLD: float = 0.5
 
 # ── Energy scoring ───────────────────────────────────────
-ENERGY_SIGMOID_DIVISOR: float = 3.0  # rebalanced in commit 6
+# Gauss around a preferred rise (~0.5 LUFS, under the 2 LUFS perceptual
+# threshold). Peak=1.0 at equal-ish loudness; symmetric decay for drops
+# and big jumps. ENERGY_SIGMOID_DIVISOR kept as the legacy name for the
+# Gauss sigma (widely imported) — see docs/transition-scoring.md § S_energy.
+ENERGY_SIGMOID_DIVISOR: float = 3.0
+ENERGY_PREFERRED_RISE_LUFS: float = 0.5
 LRA_DIFF_PENALTY_THRESHOLD: float = 5.0
 LRA_DIFF_PENALTY: float = 0.10
 CREST_DIFF_PENALTY_THRESHOLD: float = 4.0

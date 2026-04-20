@@ -11,12 +11,10 @@ import math
 
 from app.config import get_settings
 from app.domain.transition.features import TrackFeatures
-from app.domain.transition.weights import ENERGY_SIGMOID_DIVISOR
-
-# Preferred rise in LUFS — matches professional mastering practice where
-# incoming track is ~0.5 LUFS hotter than outgoing to create subtle
-# forward momentum without crossing the 2 LUFS JND threshold.
-ENERGY_PREFERRED_RISE_LUFS: float = 0.5
+from app.domain.transition.weights import (
+    ENERGY_PREFERRED_RISE_LUFS,
+    ENERGY_SIGMOID_DIVISOR,
+)
 
 
 def score_energy(from_t: TrackFeatures, to_t: TrackFeatures) -> float:
@@ -25,10 +23,9 @@ def score_energy(from_t: TrackFeatures, to_t: TrackFeatures) -> float:
     if from_t.integrated_lufs is None or to_t.integrated_lufs is None:
         return 0.5
     delta = to_t.integrated_lufs - from_t.integrated_lufs
-    # Gauss around +0.5 LUFS preferred rise; peak=1.0 for ~equal, penalty
-    # grows symmetrically for drops and big jumps. sigma = ENERGY_SIGMOID_DIVISOR.
-    # Replaced sigmoid (which gave 0.5 for identical loudness - a bug
-    # that punished stable-energy peak-time sets). 2026-04-20.
+    # Gauss peaks at ENERGY_PREFERRED_RISE_LUFS (a tiny preferred rise,
+    # under the 2 LUFS perceptual threshold) — equal loudness gives ~1.0,
+    # symmetric decay for drops and big jumps.
     score = math.exp(
         -((delta - ENERGY_PREFERRED_RISE_LUFS) ** 2) / (2.0 * ENERGY_SIGMOID_DIVISOR**2)
     )
