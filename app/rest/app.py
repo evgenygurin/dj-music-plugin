@@ -5,6 +5,7 @@ from __future__ import annotations
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.config import get_settings
 from app.rest.lifespan import rest_lifespan
 from app.rest.routes import discovery, execution, health
 
@@ -15,15 +16,16 @@ def build_rest_app() -> FastAPI:
         version="2.0.0",
         lifespan=rest_lifespan,
     )
+    settings = get_settings()
+    # Trusted origins come from ``DJ_MCP_CORS_ALLOW_ORIGINS`` (comma-separated)
+    # or default to ``["http://localhost:3000"]``. We intentionally do NOT
+    # accept a broad wildcard like ``https://*.vercel.app``: with
+    # ``allow_credentials=True`` that would trust every Vercel-hosted site,
+    # letting any visitor's browser issue cross-origin calls to this API.
+    # Deployers opt in explicitly to production origins (panel, inspector, …).
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["http://localhost:3000"],
-        # Vercel assigns unique preview hostnames per deploy
-        # (e.g. ``panel-git-feat-foo-evgenygurin.vercel.app``).
-        # ``allow_origins`` uses exact-string matching, so wildcards there are
-        # silently ineffective; ``allow_origin_regex`` is the documented
-        # Starlette hook for pattern matching.
-        allow_origin_regex=r"https://[a-z0-9-]+\.vercel\.app",
+        allow_origins=settings.mcp.cors_allow_origins,
         allow_credentials=True,
         allow_methods=["GET", "POST", "DELETE", "OPTIONS"],
         allow_headers=[

@@ -16,7 +16,6 @@
     "env": {
       "DJ_DB_URL": "${DJ_DB_URL}",
       "DJ_YM_TOKEN": "${DJ_YM_TOKEN}",
-      "DJ_YM_USER_ID": "${DJ_YM_USER_ID}",
       "DJ_YM_LIBRARY_PATH": "${DJ_YM_LIBRARY_PATH}",
       "DJ_SENTRY_DSN": "${DJ_SENTRY_DSN}",
       "DJ_MCP_CODE_MODE": "${DJ_MCP_CODE_MODE:-0}"
