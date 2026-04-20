@@ -20,6 +20,18 @@ class TrackRepository(BaseRepository[Track]):
         )
         return await self.session.scalar(stmt)  # type: ignore[no-any-return]
 
+    async def get_many(self, track_ids: list[int]) -> dict[int, Track]:
+        """Batch-fetch tracks by primary keys. Returns ``{id: Track}``.
+
+        Avoids the N+1 pattern of ``await uow.tracks.get(tid)`` inside a
+        per-track loop. Missing IDs are simply absent from the result.
+        """
+        if not track_ids:
+            return {}
+        stmt = select(Track).where(Track.id.in_(track_ids))
+        rows = (await self.session.execute(stmt)).scalars().all()
+        return {t.id: t for t in rows}
+
     async def batch_get_by_provider_ids(
         self, platform: str, external_ids: list[str]
     ) -> dict[str, Track]:

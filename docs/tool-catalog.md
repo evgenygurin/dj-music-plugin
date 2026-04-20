@@ -70,6 +70,21 @@ Handlers wire side-effects on create/update/delete:
 |------|--------|-----|
 | `unlock_namespace` | namespace(crud:destructive\|provider:write\|sync\|all), action(unlock\|lock\|status)=status | no |
 
+### UI / Prefab Apps (6, namespace `ui:read`)
+
+Visual renderers marked with `meta={"ui": True}` (standalone-decorator equivalent of `@mcp.tool(app=True)`). Prefab-aware clients (Claude Desktop v3.1+) render the returned `prefab_ui.components.Column` tree inline. Non-Prefab clients fall back to a Pydantic JSON payload via `ctx.client_supports_extension("io.modelcontextprotocol/ui")`. All read-only, always visible.
+
+| Tool | Params | Rendered UI | Fallback shape |
+|------|--------|-------------|----------------|
+| `ui_set_view` | set_id, version_id? | Heading + LineChart (energy arc) + DataTable (tracks) + Row[Badge] transitions + Card cheatsheet | `SetViewFallback` |
+| `ui_transition_score` | from_track_id, to_track_id, intent? | Heading + Row[Metric×3] + RadarChart (6 components) + Card[hard constraints] + Card[style recipe] | `TransitionScoreFallback` |
+| `ui_library_audit` | playlist_id? | Heading + Row[Metric×4] + Card[PieChart subgenres] + DataTable[pass/fail] | `LibraryAuditFallback` |
+| `ui_score_pool_matrix` | track_ids (2..50) | Heading + Row[Metric×2] + DataTable (N×N heatmap) + Legend Card | `ScorePoolMatrixFallback` |
+| `ui_library_dashboard` | — | Heading + Row[Metric×3] + Card[BarChart BPM] + Row[Card[PieChart moods], Card[BarChart Camelot]] | `DashboardFallback` |
+| `ui_camelot_wheel` | playlist_id? | Heading + Row[Metric×2] + Card[RadialChart wheel] + DataTable (slots) | `CamelotWheelFallback` |
+
+Enable with `uv sync --all-extras` (pulls `fastmcp[apps]` → `prefab_ui>=0.19`).
+
 ## Resources (27)
 
 All read-only, MIME `application/json`, auto-discovered from `app/resources/`.
@@ -144,6 +159,7 @@ All read-only, MIME `application/json`, auto-discovered from `app/resources/`.
 | `compute` | transition_score_pool, sequence_optimize | visible |
 | `sync` | playlist_sync | **locked** |
 | `admin` | unlock_namespace | visible |
+| `ui:read` | ui_set_view, ui_transition_score, ui_library_audit, ui_score_pool_matrix, ui_library_dashboard, ui_camelot_wheel | visible |
 | `workflow` | all prompts | visible |
 
 Unlock hidden namespaces for the current session via
@@ -158,3 +174,4 @@ client re-fetches the tool list.
 | v0.8.0 | 88 | ~9 | 61 visible + 27 hidden; narrow per-operation tools |
 | v1.0.0 | 13 | 27 | Generic dispatchers + polymorphism; resources/prompts carry the rest |
 | v1.0.1 | 13 | 27 | +`provider_write(... set_description)` operation; auto-reload hook; entrypoint pinned to root `server.py` |
+| v1.0.3 | 19 | 27 | +6 Prefab UI tools (`ui_*`, namespace `ui:read`) — additive; core dispatchers unchanged |

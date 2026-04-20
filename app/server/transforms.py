@@ -50,6 +50,14 @@ ALWAYS_VISIBLE_TOOLS: tuple[str, ...] = (
     "playlist_sync",
     "unlock_namespace",
     "tool_invoke",
+    # Prefab Apps / UI renderers — always visible so Prefab-aware clients
+    # discover them without a BM25 query.
+    "ui_set_view",
+    "ui_transition_score",
+    "ui_library_audit",
+    "ui_score_pool_matrix",
+    "ui_library_dashboard",
+    "ui_camelot_wheel",
 )
 
 

@@ -33,6 +33,7 @@ KNOWN_NAMESPACES: frozenset[str] = frozenset(
         "crud:destructive",
         "provider:write",
         "sync",
+        "ui:read",
     }
 )
 
