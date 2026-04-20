@@ -7,7 +7,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "echo '{\"hookSpecificOutput\":{\"hookEventName\":\"SessionStart\",\"additionalContext\":\"DJ Music Plugin active (50 MCP tools). Commands: /build-set, /deliver-set, /expand-playlist, /curate-library, /ym-sync, /panel. Use unlock_tools to access hidden tool categories (audio, atomic).\"}}'",
+            "command": "echo '{\"hookSpecificOutput\":{\"hookEventName\":\"SessionStart\",\"additionalContext\":\"DJ Music Plugin v1.0.4 active (20 MCP dispatchers + 27 resources + 6 prompts). Skills: /dj-music:build-set, /dj-music:deliver-set, /dj-music:expand-playlist, /dj-music:curate-library, /dj-music:ym-sync. Commands: /dj-music:panel, /dj-music:panel-setup, /dj-music:reload-plugin. Call mcp__plugin_dj-music_mcp__unlock_namespace to enable locked namespaces.\"}}'",
             "statusMessage": "Loading DJ Music context..."
           }
         ]

@@ -9,8 +9,8 @@
   "plugins": [
     {
       "name": "dj-music",
-      "description": "DJ techno music library management — 13 generic MCP dispatchers + 20 resources + 6 prompts. FastMCP v3 bounded-contexts architecture.",
-      "version": "1.0.1",
+      "description": "DJ techno music library management — 20 MCP dispatchers (6 entity CRUD + 3 provider + 2 compute + sync + 2 admin + 6 UI Prefab Apps) + 27 resources + 6 prompts + 6 handlers. FastMCP v3 bounded-contexts architecture.",
+      "version": "1.0.4",
       "source": "./",
       "author": {
         "name": "Evgeny Gurin"

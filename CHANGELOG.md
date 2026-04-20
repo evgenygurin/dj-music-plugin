@@ -6,6 +6,18 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Changed
+- **Docs full sync with v1 code** (4 parallel specialized agents). Tool dispatcher count corrected 13 → **20** (6 entity + 3 provider + 2 compute + sync + 2 admin + 6 UI). Panel `actions/*.ts` still call legacy tool names (Blueprint D2 drift, documented).
+- **CLAUDE.md optimized**: 192 → 106 lines. Dropped duplicated "Команды" section, verbose version history, architecture tree duplicate, "Tiered Audio Analysis" table, "Плагины Claude Code" table.
+- **`panel/components/audio-player/CLAUDE.md`** optimized: 75 → 35 lines. Removed "v0.7.0 Additions" commit-log section and stale `<claude-mem-context>` block; module-specific gotchas kept.
+- **`.claude-plugin/plugin.json`** + **marketplace.json**: version bumped `1.0.1` → `1.0.4`; description updated to 20 dispatchers + 27 resources + 6 prompts + 6 handlers.
+- **`hooks/hooks.json`** `SessionStart` context: corrected tool count (50 → 20), `unlock_tools` → `unlock_namespace`, added `/dj-music:<skill>` namespace prefix.
+- **`commands/reload-plugin.md`**: `allowed-tools` format normalized (array → string, matches other commands); added `argument-hint`.
+
+### Removed
+- `REQUIREMENTS.md` — obsolete v0 spec (user request).
+- `scripts/vm_import_and_analyze.py` — raised `NotImplementedError` post-v1 (depended on deleted `app.services.*` / `app.ym.*` / `app.controllers.*`).
+
 ## [1.0.4] — 2026-04-20
 
 **FastMCP v3 polish — middleware dedupe, per-tool timeouts, fastmcp.json + CORS.**

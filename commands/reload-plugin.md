@@ -1,7 +1,8 @@
 ---
 name: reload-plugin
 description: Полная зачистка кешей плагина dj-music (bytecode, fastmcp venv-pyc, mypy/ruff/pytest caches) + kill MCP stdio → Claude Code respawn'ит процесс с нуля. Использовать после pull, rebase, update плагина, или когда MCP капризничает.
-allowed-tools: [Bash]
+argument-hint: (none)
+allowed-tools: Bash
 ---
 
 Зачисти все кеши установленного плагина и убей fastmcp процесс. Выполняй без подтверждения, один bash-блок:
