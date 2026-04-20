@@ -49,16 +49,7 @@ class BPMDetector(BaseAnalyzer):
         bpm = estimate.bpm
         confidence = estimate.confidence
         beat_times = find_beat_times(onset_env, sr, hop_length, bpm_hint=bpm)
-
-        # Stability: how consistent are inter-beat intervals
-        stability = 0.0
-        variable_tempo = False
-        if len(beat_times) > 2:
-            ibis = np.diff(beat_times)
-            if len(ibis) > 1 and np.mean(ibis) > 0:
-                cv = float(np.std(ibis) / np.mean(ibis))
-                stability = max(0.0, min(1.0, 1.0 - cv * 2))
-                variable_tempo = cv > 0.15
+        stability, variable_tempo = compute_tempo_stability(beat_times)
 
         return {
             "bpm": round(bpm, 2),
@@ -66,6 +57,44 @@ class BPMDetector(BaseAnalyzer):
             "bpm_stability": round(stability, 4),
             "variable_tempo": variable_tempo,
         }
+
+
+# Outlier-IBI cut-offs: keep only IBIs within [0.5, 1.5] x median. This
+# drops seam-discontinuity artifacts produced by the stitched-clip
+# pipeline (3 x 20 s windows joined with hann fades — phase alignment
+# across seams is not preserved) and missed-beat doublings. A real
+# tempo drift lies entirely inside this band and is still detected.
+_IBI_OUTLIER_LOW: float = 0.5
+_IBI_OUTLIER_HIGH: float = 1.5
+_VARIABLE_TEMPO_CV_THRESHOLD: float = 0.15
+
+
+def compute_tempo_stability(beat_times: np.ndarray) -> tuple[float, bool]:
+    """Compute ``(bpm_stability, variable_tempo)`` from beat positions.
+
+    Returns ``(0.0, False)`` on degenerate inputs (<3 beats, zero-mean
+    intervals, or all-outlier IBIs). Otherwise filters inter-beat
+    intervals to [0.5 x median, 1.5 x median] before computing the
+    coefficient of variation — isolates real tempo variability from
+    pipeline artifacts (seam discontinuities, missed beats).
+    """
+    if len(beat_times) <= 2:
+        return 0.0, False
+    ibis = np.diff(beat_times)
+    if len(ibis) < 2 or np.mean(ibis) <= 0:
+        return 0.0, False
+
+    median = float(np.median(ibis))
+    if median <= 0:
+        return 0.0, False
+    kept = ibis[(ibis >= _IBI_OUTLIER_LOW * median) & (ibis <= _IBI_OUTLIER_HIGH * median)]
+    if len(kept) < 2 or np.mean(kept) <= 0:
+        return 0.0, False
+
+    cv = float(np.std(kept) / np.mean(kept))
+    stability = max(0.0, min(1.0, 1.0 - cv * 2))
+    variable_tempo = cv > _VARIABLE_TEMPO_CV_THRESHOLD
+    return stability, variable_tempo
 
 
 def _bpm_from_onset_autocorrelation(
