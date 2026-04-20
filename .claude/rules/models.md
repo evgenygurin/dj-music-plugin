@@ -33,9 +33,10 @@ globs: app/models/**/*.py
   soundcloud_metadata, embeddings, transition_candidates,
   dj_saved_loops, dj_cue_points, dj_beatgrid_change_points,
   dj_set_constraints, dj_set_feedback, labels, track_labels,
-  app_exports — **Alembic migration `p2_drop_dead_tables` not yet
-  applied to Supabase**, but v1 code has no ORM models for them. Do
-  not reintroduce.
+  app_exports — the Alembic migration `p2_drop_dead_tables` is
+  **not present in the repo** (no files under
+  `app/db/migrations/versions/`) and has not been applied to
+  Supabase. v1 code has no ORM models for them — do not reintroduce.
 - Every new aggregate root must be registered in
   `app/registry/defaults.py:register_default_entities()` or it stays
   invisible to `entity_*` tools.

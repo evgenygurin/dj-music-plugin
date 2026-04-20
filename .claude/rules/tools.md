@@ -5,7 +5,9 @@ globs: app/tools/**/*.py
 
 # MCP Tools (v1)
 
-v1 has **13 generic tool dispatchers** — no narrow per-operation tools.
+v1 has **14 generic tool dispatchers** (6 entity CRUD + 3 provider + 2 compute
++ 1 sync + `unlock_namespace` + `tool_invoke`) plus **6 Prefab UI tools**
+(`app/tools/ui/`) — 20 tools total. No narrow per-operation tools.
 Add capability by extending `EntityRegistry`, `ProviderRegistry`, or a
 handler — not by writing a new `@tool`.
 
@@ -60,9 +62,15 @@ async def entity_list(
   `Field(description=...)`.
 - **No lazy imports** inside function bodies.
 - **No `if/elif` chains on action params** — use registry dispatch.
-- **Hidden namespaces.** `crud:destructive`, `provider:write`, `sync`
-  start locked. `unlock_namespace(namespace="...", action="unlock")`
-  fires `notifications/tools/list_changed`.
+- **Visibility (current state).** `DISABLED_NAMESPACE_TAGS` in
+  `app/server/visibility.py` is an empty frozenset — **every namespace
+  is visible at startup**. Rationale: Claude Code does not always honour
+  `notifications/tools/list_changed` mid-session, so a server-side
+  `mcp.disable(tags=...)` would hide tools without the client knowing
+  they became unlockable. `unlock_namespace` still exists for clients
+  that do honour the notification and for audit-log workflows.
+  `KNOWN_NAMESPACES` (advertised via `unlock_namespace`):
+  `crud:destructive`, `provider:write`, `sync`, `ui:read`.
 
 ## Prefab Apps (UI tools)
 

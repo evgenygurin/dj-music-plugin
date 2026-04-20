@@ -16,7 +16,7 @@ globs: panel/**/*
 ## Directory Structure
 
 - `app/` — Pages (dashboard, library, playlists, sets, discover). App router with `page.tsx` + `layout.tsx`
-- `actions/` — Server actions for MCP mutations (analysis, discovery, set-building, sync). Each calls MCP via `mcpCall()` from `lib/mcp-client.ts`
+- `actions/` — 17 server action files for MCP mutations (analysis, discovery, set-building, sync, mixer, feedback, tools). Each calls MCP via `callTool(name, args)` from `lib/mcp-client.ts`. Note: as of April 2026 actions still use legacy pre-v1 tool names (`build_set`, `analyze_track`, `ym_search`, …) — migration onto v1 dispatchers (`entity_*` / `provider_*`) is deferred per Blueprint D2.
 - `components/` — Shared UI: `charts/` (5 Recharts visualizations), `ui/` (25+ shadcn components), domain components (data-table, mood-badge, track-features, transition-table)
 - `lib/queries/` — Supabase read queries (dashboard stats, tracks, playlists, sets). Direct SQL via Supabase client, not ORM
 - `lib/supabase/` — SSR-compatible Supabase client (`createClient()` with Next.js cookies)

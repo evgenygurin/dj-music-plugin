@@ -7,6 +7,13 @@ globs: scripts/**/*.py
 
 Правила для скриптов и сервисов которые крутятся часами/днями (импорт/анализ на VM, batch jobs, систем сервисы). Применяются в `scripts/vm_*.py` и любых других long-running CLI.
 
+> **История:** `scripts/vm_import_and_analyze.py` был удалён в v1.0.4
+> — сломался при Phase-7 cutover на v1 (импорты `app.services.*`,
+> `app.ym.*`, `app.controllers.*`). Текущий batch анализ —
+> `scripts/vm_analyze.py` (одноразовый, без continuous loop).
+> Continuous-loop скрипт на v1 surface пока не переписан. Паттерны
+> ниже — канон для любого нового long-running CLI.
+
 ## Real-time output (без буферизации)
 
 `tail -F log` через ssh должен показывать новые строки **сразу**. Без этого пользователь видит "висит" а не реально работающий процесс.
@@ -46,7 +53,7 @@ logging.getLogger("urllib3").setLevel(logging.WARNING)
 
 ```python
 logging.getLogger("app.audio").setLevel(logging.INFO)
-logging.getLogger("app.handlers.tiered_pipeline").setLevel(logging.INFO)
+logging.getLogger("app.handlers").setLevel(logging.INFO)
 ```
 
 ## Per-task progress

@@ -1,5 +1,15 @@
 # Tiered Audio Analysis — Design Report
 
+> Historical design doc (2026-03-27). Current implementation lives in
+> `app/audio/level_config.py`. Levels have since expanded to **five**:
+> `NONE=0`, `TRIAGE=2` (L1+L2: loudness, energy, spectral, bpm, key, mfcc),
+> `SCORING=3` (+ beat), `TRANSITION=4` (+ structure / sections; permanent
+> MP3 download is handled by the `audio_file_download` handler, not the
+> analyzer pipeline — cue points are not generated), and `ADVANCED=5`
+> (+ danceability, dissonance, dynamic_complexity, spectral_complexity,
+> pitch_salience, tonnetz, tempogram, beats_loudness, bpm_histogram,
+> phrase). The L1→L4 model below captures the original design intent.
+
 > Как перестать тратить часы на анализ треков, которые никогда не попадут в сет
 
 ## Проблема

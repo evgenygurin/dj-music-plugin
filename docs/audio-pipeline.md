@@ -20,7 +20,7 @@ AnalyzerRegistry (18 implemented)
 │   ├── TempogramAnalyzer       → tempogram ratio vector
 │   ├── TonnetzAnalyzer         → tonnetz features for harmonic analysis
 │   ├── BpmHistogramAnalyzer    → BPM histogram (depends on beat)
-│   └── PhraseAnalyzer          → phrase boundaries (depends on beat + bpm)
+│   └── PhraseAnalyzer          → phrase boundaries (depends on beat)
 │
 ├── essentia (requires [audio] extra)
 │   ├── BeatsLoudnessAnalyzer   → beat-loudness band ratios

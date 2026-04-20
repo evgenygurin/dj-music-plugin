@@ -1,6 +1,6 @@
 # MCP Tool Catalog
 
-Quick reference for v1.0.1 — **13 tool dispatchers + 27 resources + 6 prompts + 6 handlers**.
+Quick reference — **20 tools total** (13 core dispatchers + 6 UI/Prefab + `tool_invoke`) + **27 resources** + **6 prompts** + **6 handlers** + **11 registered entities**.
 
 The 88-tool catalog of v0.8 was collapsed via polymorphism: generic CRUD
 (`entity_*`) dispatches via `EntityRegistry`, generic provider access
@@ -9,7 +9,7 @@ Everything else is exposed as **resources** (read-only views) or
 **prompts** (workflow recipes) — resources/prompts can be surfaced as
 tools via `app/server/transforms.py` for tool-only clients.
 
-## Tools (13)
+## Tools (20)
 
 ### Entity CRUD (6, namespace `crud:read` / `crud:write` / `crud:destructive`)
 
@@ -64,11 +64,18 @@ Handlers wire side-effects on create/update/delete:
 |------|--------|-----|--------|
 | `playlist_sync` | playlist_id, direction(pull\|push\|diff)=diff, source="yandex", dry_run=false | no | `sync` |
 
-### Admin (1, namespace `admin`)
+### Admin (2, namespace `admin`)
 
 | Tool | Params | RO |
 |------|--------|-----|
 | `unlock_namespace` | namespace(crud:destructive\|provider:write\|sync\|all), action(unlock\|lock\|status)=status | no |
+| `tool_invoke` | name, arguments? | no (proxy) |
+
+`tool_invoke` is an escape hatch for clients (e.g. Claude Code) that cache
+the tool list on startup: even when `unlock_namespace` flips visibility
+mid-session, such clients do not see newly visible tools until a full
+re-sync. `tool_invoke` stays always visible and proxies calls to any
+backend tool by name. Self-dispatch is blocked.
 
 ### UI / Prefab Apps (6, namespace `ui:read`)
 
@@ -149,23 +156,33 @@ All read-only, MIME `application/json`, auto-discovered from `app/resources/`.
 
 ## Visibility
 
+**Current state (see `app/server/visibility.py`):** `DISABLED_NAMESPACE_TAGS`
+is an empty frozenset — **no namespace is hidden at startup**. Rationale: Claude
+Code does not always honour `notifications/tools/list_changed` inside an active
+session, so `unlock_namespace` would flip server-side visibility without the
+client seeing the newly enabled tools. Keeping all namespaces visible avoids
+the UX footgun; `unlock_namespace` still exists for audit-log workflows and
+for clients that do honour the notification.
+
+`KNOWN_NAMESPACES` (advertised as unlockable by `unlock_namespace`):
+`crud:destructive`, `provider:write`, `sync`, `ui:read`.
+
 | Namespace | Tools | Default |
 |---|---|---|
 | `crud:read` | entity_list, entity_get, entity_aggregate | visible |
 | `crud:write` | entity_create | visible |
-| `crud:destructive` | entity_update, entity_delete | **locked** |
+| `crud:destructive` | entity_update, entity_delete | visible |
 | `provider:read` | provider_read, provider_search | visible |
-| `provider:write` | provider_write | **locked** |
+| `provider:write` | provider_write | visible |
 | `compute` | transition_score_pool, sequence_optimize | visible |
-| `sync` | playlist_sync | **locked** |
-| `admin` | unlock_namespace | visible |
+| `sync` | playlist_sync | visible |
+| `admin` | unlock_namespace, tool_invoke | visible |
 | `ui:read` | ui_set_view, ui_transition_score, ui_library_audit, ui_score_pool_matrix, ui_library_dashboard, ui_camelot_wheel | visible |
 | `workflow` | all prompts | visible |
 
-Unlock hidden namespaces for the current session via
-`unlock_namespace(namespace="provider:write", action="unlock")` or
-`namespace="all"`. FastMCP fires `notifications/tools/list_changed` so the
-client re-fetches the tool list.
+`ALWAYS_VISIBLE_TOOLS` in `app/server/transforms.py` whitelists every tool
+listed above (including `tool_invoke` and the 6 UI tools) so `BM25SearchTransform`
+never hides them behind a search query.
 
 ## Tool count history
 
@@ -175,3 +192,4 @@ client re-fetches the tool list.
 | v1.0.0 | 13 | 27 | Generic dispatchers + polymorphism; resources/prompts carry the rest |
 | v1.0.1 | 13 | 27 | +`provider_write(... set_description)` operation; auto-reload hook; entrypoint pinned to root `server.py` |
 | v1.0.3 | 19 | 27 | +6 Prefab UI tools (`ui_*`, namespace `ui:read`) — additive; core dispatchers unchanged |
+| current | 20 | 27 | +`tool_invoke` proxy (admin namespace) for clients that cache the tool list across `unlock_namespace` transitions |

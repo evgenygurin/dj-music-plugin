@@ -157,21 +157,21 @@ When `section_context=None` (the default), behaviour is **identical** to pre-red
 
 `app/domain/transition/intent.py:infer_intent(set_position, energy_delta_lufs, template=None)`:
 
-Phase boundaries are now per-template (`_TEMPLATE_PHASE_TABLE`):
+Phase boundaries are now per-template (`_TEMPLATE_PHASE_TABLE`, 3-tuple `(warmup_end, peak_start, peak_end)`):
 
-| Template | warmup_end | peak_end |
-|---|---|---|
-| WARM_UP_30 | 0.50 | 0.85 |
-| CLASSIC_60 | 0.20 | 0.80 |
-| PEAK_HOUR_60 | 0.10 | 0.90 |
-| ROLLER_90 | 0.15 | 0.85 |
-| PROGRESSIVE_120 | 0.30 | 0.85 |
-| WAVE_120 | 0.20 | 0.80 |
-| CLOSING_60 | 0.05 | 0.50 |
-| FULL_LIBRARY | 0.20 | 0.85 |
-| (no template) | 0.20 | 0.85 |
+| Template | warmup_end | peak_start | peak_end |
+|---|---|---|---|
+| WARM_UP_30 | 0.50 | 0.70 | 0.85 |
+| CLASSIC_60 | 0.20 | 0.50 | 0.80 |
+| PEAK_HOUR_60 | 0.10 | 0.30 | 0.90 |
+| ROLLER_90 | 0.15 | 0.40 | 0.85 |
+| PROGRESSIVE_120 | 0.30 | 0.60 | 0.85 |
+| WAVE_120 | 0.20 | 0.50 | 0.80 |
+| CLOSING_60 | 0.05 | 0.15 | 0.50 |
+| FULL_LIBRARY | 0.20 | 0.50 | 0.85 |
+| (no template) | 0.20 | 0.50 | 0.85 |
 
-When `template=None`, the historical 0.20 / 0.85 cutoffs are used — backward compatible.
+`infer_intent` currently reads `warmup_end` and `peak_end` for RAMP_UP/COOL_DOWN classification; `peak_start` is reserved for future use. When `template=None`, the historical 0.20 / 0.50 / 0.85 fallback is used — backward compatible.
 
 ## Runtime Wiring (Template + Mood + Section Context)
 

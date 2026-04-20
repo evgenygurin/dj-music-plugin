@@ -2,26 +2,70 @@
 description: Yandex Music client patterns
 globs:
   - app/providers/yandex/**/*.py
-  - app/tools/yandex/**/*.py
 ---
 
-# Yandex Music Client
+# Yandex Music Client (v1)
 
-- All methods async
-- Use `httpx.AsyncClient` with base_url from `settings.ym_base_url`
-- Rate limiting: `settings.ym_rate_limit_delay` between calls + exponential backoff on 429
-- Return typed Pydantic models, not raw dicts
-- Handle HTTP errors specifically:
-  - 429 → RateLimitedError (retry with backoff)
-  - 401/403 → AuthFailedError
-  - 400 → APIError with response body
-- Playlist modifications use JSON diff array format (YM-specific)
-- After playlist modification, always re-fetch for fresh revision/indices
-- Known broken endpoints: artist brief-info (403), lyrics (400 HMAC) — skip gracefully
-- OAuth token from `settings.ym_token`, user ID from `settings.ym_user_id`
+- Code lives under `app/providers/yandex/` —
+  `client.py` (raw httpx wrapper), `adapter.py` (Provider protocol
+  adapter), `rate_limiter.py` (token bucket), `filters.py` (genre /
+  duration / title rules).
+- All methods async. `YandexClient` returns raw dicts straight from YM;
+  `YandexAdapter` maps to v1 shapes; handlers (`track_import`) bridge to
+  DB models.
+- `YandexClient(token, user_id, base_url=..., rate_limiter=..., timeout_s=30.0)`.
+  Default `base_url="https://api.music.yandex.net"`.
+- Rate limiting via `TokenBucketRateLimiter(delay_s=1.5,
+  base_backoff_s=2.0, max_retries=3)` — exponential backoff on 429
+  (`base_backoff_s * 2 ** (retry - 1)`), resets on success.
+- HTTP error mapping (`client.py::_request`):
+  - 401 / 403 → `AuthFailedError("auth failed ... check DJ_YM_TOKEN")`
+  - 429 → `RateLimitedError` (increments retry count; once
+    `retries_exhausted` → raise)
+  - 4xx+ → `APIError(f"{code}: {body[:500]}")`
+- Playlist modifications use JSON diff array format (YM-specific).
+  Adapter fetches current revision via `_resolve_revision` when caller
+  doesn't supply one.
+- Known-broken endpoints (skip gracefully, not exposed by adapter):
+  artist brief-info (403 Antirobot), lyrics (400, requires HMAC).
+- OAuth token from `settings.yandex.token`; user id from
+  `settings.yandex.user_id` (split config under `app/config/yandex.py`).
+
+## Adapter surface
+
+`YandexAdapter` implements the universal `Provider` protocol
+(`app/registry/provider.py`):
+
+- `read(entity, id, params)` — entities: `track`, `track_batch`,
+  `track_similar`, `album`, `artist_tracks`, `playlist`,
+  `playlist_list`, `likes`, `dislikes`.
+- `write(entity, operation, params)`:
+  - `entity="playlist"` × `create | rename | set_description | delete
+    | add_tracks | remove_tracks`
+  - `entity="likes"` × `add | remove`
+- `search(query, type, limit)` — plural aliases accepted; client
+  rewrites to singular via `_SEARCH_TYPE_ALIASES`.
+- `download_audio(track_id, dest?)` — returns local `Path`. URL
+  resolution: `/tracks/{id}/download-info` → XML manifest with
+  (host, path, s, ts) → `md5(SALT + path[1:] + s)` signed URL.
 
 ## Gotchas
 
-- Search API: `type=tracks` (plural), not `type=track`
-- Playlist add_tracks: albumId resolves automatically via `ym.resolve_track_ids_with_albums()` — pass bare track IDs, `"trackId:albumId"` formatting happens under the hood
-- `ym_playlists` supports `action=get_tracks` (returns tracks with id/title/artists) and working `action=remove_tracks` (removes by track_id, not by index)
+- Search at the client layer expects SINGULAR `type=track`; plural
+  (`tracks`) works at adapter/tool layer and is rewritten under the
+  hood.
+- `add_tracks` diff uses BARE track IDs:
+  `[{"op":"insert", "at":N, "tracks":[{"id": tid}, ...]}]`. There is
+  no automatic `albumId` resolution in v1 — do NOT pass
+  `"trackId:albumId"`.
+- `remove_tracks` uses `{"op":"delete", "from":N, "to":M}` — index
+  range, inclusive / exclusive (YM semantics).
+- Playlist id: accepts both `"owner:kind"` and bare `kind`
+  (owner defaults to `settings.yandex.user_id`). See
+  `YandexClient._split_playlist_id`.
+- `provider_write(entity="playlist", operation="set_description")` is
+  supported end-to-end (adapter → `client.set_playlist_description`).
+- Download salt / MD5 signing lives only in
+  `YandexClient._build_signed_mp3_url` — don't duplicate.
+- `ym_*` tools referenced in legacy panel actions no longer exist;
+  v1 surface is `provider_read` / `provider_write` / `provider_search`.

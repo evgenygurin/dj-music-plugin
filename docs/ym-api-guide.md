@@ -4,25 +4,38 @@ Async HTTP client wrapping YM REST API. Key quirks and patterns.
 
 ## Client Architecture
 
-```text
-YandexMusicClient
-├── _request()           # base: auth header, rate limit, retry
-├── search()             # tracks, albums, artists, playlists
-├── get_tracks()         # batch by IDs
-├── get_album()          # with/without tracks
-├── get_artist_tracks()  # paginated
-├── get_similar()        # similar tracks
-├── get_playlist()       # by owner_id:kind
-├── create_playlist()
-├── modify_playlist()    # add/remove tracks (diff format!)
-├── get_liked_ids()      # liked track IDs
-├── download_track()     # resolve URL → download MP3
-└── ...
+Package layout (`app/providers/yandex/`):
 
-RateLimiter
-├── Token bucket: 1 request per 1.5s (configurable)
-├── Exponential backoff on 429: 2x multiplier, max 3 retries
-└── Backoff resets after successful request
+- `client.py` — `YandexClient` (raw httpx wrapper over YM REST).
+- `adapter.py` — `YandexAdapter` (universal Provider protocol adapter
+  registered in `ProviderRegistry` under `name="yandex"`).
+- `rate_limiter.py` — `TokenBucketRateLimiter`.
+- `filters.py` — `TrackFilter` (genre / duration / title rules used by
+  `track_import` handler).
+
+```text
+YandexClient
+├── _request()              # auth header, rate limit, status mapping
+├── search()                # singular + plural type aliases
+├── get_tracks()            # /tracks?trackIds=...
+├── get_similar()           # /tracks/{id}/similar
+├── get_download_info()     # /tracks/{id}/download-info
+├── download_track()        # manifest XML → signed MP3 URL → stream to disk
+├── get_album()             # optional with-tracks
+├── get_artist_tracks()     # paginated (page / page-size)
+├── get_playlist()          # accepts "owner:kind" or bare kind
+├── list_playlists()
+├── create_playlist() / rename_playlist() / set_playlist_description()
+│  / delete_playlist()
+├── modify_playlist()       # POST .../change-relative (diff + revision)
+├── get_liked_ids() / get_disliked_ids()
+├── add_likes() / remove_likes()
+└── close()
+
+TokenBucketRateLimiter(delay_s=1.5, base_backoff_s=2.0, max_retries=3)
+├── min 1.5s between calls (default)
+├── exponential backoff on 429 (2x per retry, resets on success)
+└── once retries exhausted → RateLimitedError("rate limited, retries exhausted")
 ```
 
 ## Authentication
@@ -49,18 +62,24 @@ YM API rate-limits aggressively (HTTP 429 on both reads and writes):
 
 ### Playlist Modifications Use JSON Diff Format
 
-YM expects playlist changes as a diff array, NOT a simple track list:
+YM expects playlist changes as a diff array, NOT a simple track list.
+Adapter wraps the diff (serialized as JSON) plus current revision into
+a POST form body:
 
 ```json
-// Adding tracks: POST /users/{uid}/playlists/{kind}/change-relative
+// Adding tracks: POST /users/{owner}/playlists/{kind}/change-relative
+// Body: diff=<json>&revision=<int>
 {
   "diff": [
-    {"op": "insert", "at": 0, "tracks": [
-      {"id": "12345", "albumId": "6789"}
-    ]}
-  ]
+    {"op": "insert", "at": 0, "tracks": [{"id": "12345"}]}
+  ],
+  "revision": 42
 }
 ```
+
+Bare track IDs only — v1 does NOT send `"albumId"` alongside. Revision
+is either passed via `params["revision"]` or auto-fetched by
+`_resolve_revision()`.
 
 ### Delete Uses Inclusive/Exclusive Index Ranges
 

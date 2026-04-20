@@ -28,9 +28,9 @@ default_template: peak_hour_60
 default_crossfade_bars: 32
 default_analysis_level: 3
 
-# VM background jobs (consumed by vm_import_and_analyze.py via env export)
+# VM batch analysis (consumed by scripts/deploy_to_vm.sh + vm_analyze.py)
 vm_host: root@155.212.128.27
-vm_workers: 12
+vm_workers: 20
 vm_sleep_sec: 600
 ---
 
@@ -53,9 +53,9 @@ for scheduled jobs.
 | `default_template` | `peak_hour_60` | `/build-set` skill |
 | `default_crossfade_bars` | `32` | Audio player initial state |
 | `default_analysis_level` | `3` | `/build-set`, `/deliver-set`, VM sweeps |
-| `vm_host` | — | `scripts/vm_import_and_analyze.py` deploy |
-| `vm_workers` | `12` | `scripts/vm_import_and_analyze.py` |
-| `vm_sleep_sec` | `600` | `scripts/vm_import_and_analyze.py` |
+| `vm_host` | — | `scripts/deploy_to_vm.sh` target |
+| `vm_workers` | `20` | `scripts/vm_analyze.py --workers` |
+| `vm_sleep_sec` | `600` | Pause between sweeps (if run via `/loop`) |
 
 ## Usage
 
