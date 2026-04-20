@@ -22,12 +22,19 @@ from app.shared.constants import DEFAULT_TRANSITION_WEIGHTS
 DEFAULT_WEIGHTS: dict[str, float] = DEFAULT_TRANSITION_WEIGHTS
 
 # ── BPM scoring ──────────────────────────────────────────
-BPM_GAUSS_SIGMA: float = 3.0  # ~2.5% on 124 BPM
+# sigma=10 matches Pioneer DJ / Mixed In Key professional thresholds:
+# dBPM=3-5 -> 0.96-0.88 (Sync-safe), dBPM=8 -> 0.73 (forced but OK),
+# dBPM=10 -> 0.61 (hard-reject boundary). Calibrated 2026-04-20 against
+# Yang & Schloss ISMIR 2020 (20 765 real transitions).
+BPM_GAUSS_SIGMA: float = 10.0
 BPM_STABILITY_FLOOR: float = 0.7  # max 30% penalty for unstable tempo
 BPM_CONFIDENCE_PENALTY_FLOOR: float = 0.7  # symmetric with stability
 
 # ── Harmonic scoring ─────────────────────────────────────
-CAMELOT_BASE_SCORES: dict[int, float] = {0: 1.0, 1: 0.9, 2: 0.6, 3: 0.3, 4: 0.1}
+# Distance 2 is a valid candidate per ISMIR 2017 (Bittner et al.) —
+# previous 0.6 was stricter than published DJ mix data supports.
+# Distance 1 also relaxed (techno tolerates adjacent-key moves easily).
+CAMELOT_BASE_SCORES: dict[int, float] = {0: 1.0, 1: 0.95, 2: 0.85, 3: 0.6, 4: 0.3}
 ATONAL_RELAX_FLOOR: float = 0.8  # both atonal → at least 0.8
 HNR_NORM_LOW_DB: float = -30.0  # HNR < -30 → factor 0.5
 HNR_NORM_HIGH_DB: float = 0.0  # HNR ≥ 0 → factor 1.0

@@ -1,8 +1,8 @@
 """Energy / loudness flow scoring.
 
-Sigmoid on the LUFS delta with optional penalties for inconsistent
-loudness range or crest factor and a small bonus when both tracks share
-the same energy slope direction.
+Gauss around a small preferred rise (+0.5 LUFS) on the LUFS delta with
+optional penalties for inconsistent loudness range or crest factor and
+a small bonus when both tracks share the same energy slope direction.
 """
 
 from __future__ import annotations
@@ -13,6 +13,11 @@ from app.config import get_settings
 from app.domain.transition.features import TrackFeatures
 from app.domain.transition.weights import ENERGY_SIGMOID_DIVISOR
 
+# Preferred rise in LUFS — matches professional mastering practice where
+# incoming track is ~0.5 LUFS hotter than outgoing to create subtle
+# forward momentum without crossing the 2 LUFS JND threshold.
+ENERGY_PREFERRED_RISE_LUFS: float = 0.5
+
 
 def score_energy(from_t: TrackFeatures, to_t: TrackFeatures) -> float:
     """Score energy flow. Range [0, 1]."""
@@ -20,8 +25,13 @@ def score_energy(from_t: TrackFeatures, to_t: TrackFeatures) -> float:
     if from_t.integrated_lufs is None or to_t.integrated_lufs is None:
         return 0.5
     delta = to_t.integrated_lufs - from_t.integrated_lufs
-    # Sigmoid centered at 0, slight preference for energy increase
-    score = 1.0 / (1.0 + math.exp(-delta / ENERGY_SIGMOID_DIVISOR))
+    # Gauss around +0.5 LUFS preferred rise; peak=1.0 for ~equal, penalty
+    # grows symmetrically for drops and big jumps. sigma = ENERGY_SIGMOID_DIVISOR.
+    # Replaced sigmoid (which gave 0.5 for identical loudness - a bug
+    # that punished stable-energy peak-time sets). 2026-04-20.
+    score = math.exp(
+        -((delta - ENERGY_PREFERRED_RISE_LUFS) ** 2) / (2.0 * ENERGY_SIGMOID_DIVISOR**2)
+    )
 
     # LRA penalty: large loudness range difference = inconsistent dynamics
     if from_t.loudness_range_lu is not None and to_t.loudness_range_lu is not None:
