@@ -25,7 +25,14 @@
 set -euo pipefail
 
 # ── Config ──────────────────────────────────────────────────────────
-ROOT="${CLAUDE_PLUGIN_ROOT:-$(cd "$(dirname "$0")/.." && pwd)}"
+# Prefer the working dir (DJ_PLUGIN_DEV_PATH) over the plugin cache so edits
+# in the repo take effect even when the hook fires from the cache copy.
+ROOT="${DJ_PLUGIN_DEV_PATH:-${CLAUDE_PLUGIN_ROOT:-$(cd "$(dirname "$0")/.." && pwd)}}"
+
+# bun and uv live in user-local bins that nohup'd children of Claude Code
+# don't always inherit. Prepend them before we fork the backend/panel.
+export PATH="$HOME/.bun/bin:$HOME/.local/bin:/opt/homebrew/bin:$PATH"
+
 BACKEND_PORT=8000
 PANEL_PORT=3000
 BACKEND_LOG=/tmp/dj-music-backend.log
@@ -127,22 +134,24 @@ rotate_log "$PANEL_LOG"
   # shellcheck disable=SC1091
   . .env 2>/dev/null || true
   set +a
-  nohup uv run --extra http uvicorn app.api.server:api \
+  nohup uv run --extra http uvicorn app.rest.app:api \
     --host 127.0.0.1 --port "$BACKEND_PORT" \
     >"$BACKEND_LOG" 2>&1 &
   disown
 )
 
-# ── Start Next.js panel (only if deps installed) ────────────────────
-if [ -d "$ROOT/panel/node_modules" ]; then
+# ── Start Next.js panel (only if deps + bun are available) ──────────
+if ! command -v bun >/dev/null 2>&1; then
+  log "bun not on PATH — skipping panel; install https://bun.sh and re-run"
+elif [ ! -d "$ROOT/panel/node_modules" ]; then
+  log "panel/node_modules missing — skipping panel; run 'cd panel && bun install'"
+else
   (
     cd "$ROOT/panel"
     nohup bun dev --port "$PANEL_PORT" \
       >"$PANEL_LOG" 2>&1 &
     disown
   )
-else
-  log "panel/node_modules missing — skipping panel; run 'cd panel && bun install'"
 fi
 
 # ── Wait for backend to actually be ready ───────────────────────────

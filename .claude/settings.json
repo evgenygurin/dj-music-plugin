@@ -1,11 +1,23 @@
 {
-  "sandbox": {
-    "network": {
-      "allowedDomains": [
-        "aws-1-eu-central-1.pooler.supabase.com",
-        "bowosphlnghhgaulcyfm.supabase.co"
-      ]
-    }
+  "enabledPlugins": {
+    "fastmcp-builder@fastmcp-builder-skill": true,
+    "python-expert@awesome-claude-code-plugins": true,
+    "backend-architect@awesome-claude-code-plugins": true,
+    "test-writer-fixer@awesome-claude-code-plugins": true,
+    "code-architect@awesome-claude-code-plugins": true,
+    "api-tester@awesome-claude-code-plugins": true,
+    "python@python-backend-plugins": true,
+    "fastapi@python-backend-plugins": true,
+    "tech-lead@python-backend-plugins": true,
+    "superpowers@superpowers-marketplace": true,
+    "episodic-memory@superpowers-marketplace": true,
+    "context7@claude-plugins-official": true,
+    "mcp-server-dev@claude-plugins-official": true,
+    "feature-dev@claude-plugins-official": true,
+    "commit-commands@claude-plugins-official": true,
+    "code-review@claude-plugins-official": true,
+    "pyright-lsp@claude-plugins-official": true,
+    "dj-music@dj-music-plugin": true
   },
   "extraKnownMarketplaces": {
     "fastmcp-builder-skill": {
@@ -33,26 +45,12 @@
       }
     }
   },
-  "enabledPlugins": {
-    "fastmcp-builder@fastmcp-builder-skill": true,
-    "python-expert@awesome-claude-code-plugins": true,
-    "backend-architect@awesome-claude-code-plugins": true,
-    "test-writer-fixer@awesome-claude-code-plugins": true,
-    "code-architect@awesome-claude-code-plugins": true,
-    "api-tester@awesome-claude-code-plugins": true,
-
-    "python@python-backend-plugins": true,
-    "fastapi@python-backend-plugins": true,
-    "tech-lead@python-backend-plugins": true,
-
-    "superpowers@superpowers-marketplace": true,
-    "episodic-memory@superpowers-marketplace": true,
-
-    "context7@claude-plugins-official": true,
-    "mcp-server-dev@claude-plugins-official": true,
-    "feature-dev@claude-plugins-official": true,
-    "commit-commands@claude-plugins-official": true,
-    "code-review@claude-plugins-official": true,
-    "pyright-lsp@claude-plugins-official": true
+  "sandbox": {
+    "network": {
+      "allowedDomains": [
+        "aws-1-eu-central-1.pooler.supabase.com",
+        "bowosphlnghhgaulcyfm.supabase.co"
+      ]
+    }
   }
 }
