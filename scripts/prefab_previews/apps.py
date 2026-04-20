@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import asyncio
 import itertools
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock
 
 from prefab_ui import PrefabApp
@@ -112,24 +113,11 @@ def _uow_for_set() -> MagicMock:
 
     from app.domain.transition.features import TrackFeatures
 
-    class _DuckFeatures:
-        """Wraps TrackFeatures so audit rules that touch non-TrackFeatures
-        attributes (``true_peak_db``) fall through to ``None`` instead of
-        raising AttributeError. Mood is attached as a plain attribute.
-        """
-
-        def __init__(self, tf: TrackFeatures, mood: str) -> None:
-            self._tf = tf
-            self.mood = mood
-
-        def __getattr__(self, name: str):
-            return getattr(self._tf, name, None)
-
-    def _features(t):
-        # Real TrackFeatures: has every attribute the audit rules touch
-        # (``true_peak_db``, ``crest_factor_db``, …) — default None keeps
-        # rules non-failing unless the demo data lights them up.
-        f = TrackFeatures(
+    def _features(t: dict[str, Any]) -> TrackFeatures:
+        # ``TrackFeatures`` now carries every field the audit rules inspect
+        # (``true_peak_db`` added in response to Codex PR #113 P1). No
+        # wrapper needed — the production type is audit-compatible.
+        return TrackFeatures(
             bpm=t["bpm"],
             key_code=t["key_code"],
             integrated_lufs=t["lufs"],
@@ -142,11 +130,14 @@ def _uow_for_set() -> MagicMock:
             spectral_flatness=0.18,
             bpm_stability=0.92,
             bpm_confidence=0.88,
+            key_confidence=0.82,
             crest_factor_db=11.5,
             loudness_range_lu=7.0,
             hnr_db=-8.5,
+            true_peak_db=-1.0,
+            variable_tempo=False,
+            mood=t["mood"],
         )
-        return _DuckFeatures(f, mood=t["mood"])
 
     feats = {t["id"]: _features(t) for t in DEMO_TRACKS}
     items = [_item(i, t) for i, t in enumerate(DEMO_TRACKS)]

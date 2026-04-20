@@ -57,6 +57,9 @@ class TrackFeatures:
     loudness_range_lu: float | None = None
     crest_factor_db: float | None = None
     energy_slope: float | None = None
+    # Audit-only (ClippingRiskRule). Not used by the scorer but mapped
+    # here so ``run_audit_rules`` can read it from a single feature object.
+    true_peak_db: float | None = None
 
     # P3 enrichment: Spectral
     spectral_rolloff_85: float | None = None
@@ -161,6 +164,7 @@ class TrackFeatures:
             loudness_range_lu=getattr(row, "loudness_range_lu", None),
             crest_factor_db=getattr(row, "crest_factor_db", None),
             energy_slope=getattr(row, "energy_slope", None),
+            true_peak_db=getattr(row, "true_peak_db", None),
             # P3 enrichment: Spectral
             spectral_rolloff_85=getattr(row, "spectral_rolloff_85", None),
             spectral_rolloff_95=getattr(row, "spectral_rolloff_95", None),

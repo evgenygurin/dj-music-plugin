@@ -49,6 +49,7 @@ class _FakeRow:
     dynamic_complexity: float | None = 2.0
     mood: str | None = "driving"
     first_downbeat_ms: float | None = 12.0
+    true_peak_db: float | None = -0.5
 
 
 def test_from_db_populates_primary_fields() -> None:
@@ -85,3 +86,20 @@ def test_from_db_handles_missing_json_fields() -> None:
     feat = TrackFeatures.from_db(row)
     assert feat.mfcc_vector is None
     assert feat.tonnetz_vector is None
+
+
+def test_from_db_exposes_true_peak_db_for_audit_rules() -> None:
+    """Regression: ``ClippingRiskRule`` reads ``features.true_peak_db``;
+    without the mapping audit raised AttributeError on every analyzed
+    track (Codex PR #113 P1 finding)."""
+    feat = TrackFeatures.from_db(_FakeRow(true_peak_db=-0.3))
+    assert feat.true_peak_db == -0.3
+
+    # And: feeding TrackFeatures straight into the audit chain must not
+    # throw — the exact failure mode Codex identified.
+    from app.domain.audit.rules import DEFAULT_AUDIT_RULES, run_audit_rules
+
+    issues = run_audit_rules(DEFAULT_AUDIT_RULES, track_id=1, title="T", features=feat)
+    # Default row data passes all thresholds — key assertion is that no
+    # AttributeError fired, not the issue count.
+    assert isinstance(issues, list)
