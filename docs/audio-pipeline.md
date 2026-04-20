@@ -111,6 +111,28 @@ Instead of recomputing it three times the pipeline caches it on the
 `AnalysisContext` via `ctx.get_onset_env()` — lazy + lock-protected, safe
 under concurrent thread dispatch. Saves ~3s per track.
 
+### IBI Outlier Filter (Stitching Gotcha)
+
+The stitched clip **does not preserve beat phase across seams**. A
+window ending on a beat-ON phase followed by a window starting at a
+different part of the track produces ~2 spurious inter-beat intervals
+per track at window boundaries (either ~0 s, "double detection", or
+~2x median, "missed beat"). `find_beat_times` can also miss beats in
+quiet breakdown sections where prominence/height thresholds don't
+fire.
+
+Without filtering, these ~5% outlier IBIs were enough to drive
+`cv = std(IBI) / mean(IBI) > 0.15` and false-flag 62.7% of the L3+
+library as `variable_tempo=True` (production snapshot 2026-04-20). The
+`-0.15 scoring_variable_tempo_penalty` in transition scoring then cost
+every affected pair a chunk of its `S_bpm` score.
+
+`app.audio.analyzers.bpm.compute_tempo_stability` drops IBIs outside
+`[0.5, 1.5] x median` before the CV computation. Genuine tempo drift
+(techno typically < 2% CV; anything > 15% is a clear variable-tempo
+signal) lives entirely inside the kept band and is still detected;
+doubled / halved / missed-beat artifacts are filtered.
+
 ### ProcessPool Path: SharedMemory + Per-Worker Context Cache
 
 When `AnalysisPipeline(use_processes=True)` is enabled, two further
