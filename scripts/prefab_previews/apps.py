@@ -160,20 +160,25 @@ def _uow_for_set() -> MagicMock:
     uow.set_versions.get = AsyncMock(return_value=_Version())
     uow.tracks = MagicMock()
     uow.tracks.get = AsyncMock(side_effect=lambda tid: tracks_by_id.get(tid))
+    uow.tracks.get_many = AsyncMock(return_value=tracks_by_id)
     uow.track_features = MagicMock()
     uow.track_features.get_scoring_features_batch = AsyncMock(return_value=feats)
 
     # Transition stubs — match pairwise
     pairs = list(itertools.pairwise(t["id"] for t in DEMO_TRACKS))
-    transition_map = {}
+    transition_map: dict[tuple[int, int], MagicMock] = {}
     for (a, b), s in zip(pairs, DEMO_TRANSITION_SCORES, strict=False):
         m = MagicMock()
         m.overall_quality = s
         m.hard_reject = False
+        m.from_track_id = a
+        m.to_track_id = b
         transition_map[(a, b)] = m
 
     uow.transitions = MagicMock()
     uow.transitions.get_by_pair = AsyncMock(side_effect=lambda a, b: transition_map.get((a, b)))
+    uow.transitions.get_pair = AsyncMock(side_effect=lambda a, b: transition_map.get((a, b)))
+    uow.transitions.get_pairs_batch = AsyncMock(return_value=transition_map)
     return uow
 
 
@@ -225,16 +230,10 @@ def _build_library_audit_app() -> PrefabApp:
     from app.tools.ui.library_audit import ui_library_audit
 
     uow = _uow_for_set()
-    # playlist-scope path; stub playlist + get_items + feature batch already set up for DEMO_TRACKS
+    # playlist-scope path; stub playlist via the real ``get_track_ids`` accessor
     uow.playlists = MagicMock()
     uow.playlists.get = AsyncMock(return_value=MagicMock(id=7, name="Peak Hour Pool"))
-
-    def _pl_item(tid):
-        m = MagicMock()
-        m.track_id = tid
-        return m
-
-    uow.playlists.get_items = AsyncMock(return_value=[_pl_item(t["id"]) for t in DEMO_TRACKS])
+    uow.playlists.get_track_ids = AsyncMock(return_value=[t["id"] for t in DEMO_TRACKS])
     ctx = _ctx()
     view = asyncio.run(ui_library_audit(playlist_id=7, uow=uow, ctx=ctx))
     return PrefabApp(view=view, title="ui_library_audit — Peak Hour Pool")

@@ -128,10 +128,12 @@ async def test_ui_set_view_returns_fallback_when_no_ui_support() -> None:
     uow.set_versions.get_items = AsyncMock(return_value=[])
     uow.tracks = MagicMock()
     uow.tracks.get = AsyncMock(return_value=None)
+    uow.tracks.get_many = AsyncMock(return_value={})
     uow.track_features = MagicMock()
     uow.track_features.get_scoring_features_batch = AsyncMock(return_value={})
     uow.transitions = MagicMock()
     uow.transitions.get_by_pair = AsyncMock(return_value=None)
+    uow.transitions.get_pairs_batch = AsyncMock(return_value={})
 
     data = await _gather(uow, set_id=1, version_id=None)
     result = fallback_or(SetViewFallback, data)

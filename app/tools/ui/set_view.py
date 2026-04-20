@@ -54,30 +54,33 @@ async def _gather(uow: UnitOfWork, set_id: int, version_id: int | None) -> dict[
         if ver is None or getattr(ver, "set_id", None) != set_id:
             raise NotFoundError("set_version", version_id)
     else:
-        fn = getattr(uow.set_versions, "get_latest", None) or getattr(
-            uow.set_versions, "latest_version", None
-        )
-        ver = await fn(set_id) if fn is not None else None
+        ver = await uow.set_versions.get_latest(set_id)
 
-    items_fn = getattr(uow.set_versions, "get_items", None)
-    items = await items_fn(ver.id) if (ver is not None and items_fn is not None) else []
+    items = await uow.set_versions.get_items(ver.id) if ver is not None else []
     items = sorted(items, key=lambda i: getattr(i, "sort_index", 0))
 
     track_ids = [it.track_id for it in items]
+
+    # Three batched DB roundtrips replace the previous N+1 (one tracks.get +
+    # one transitions.get_pair per item). Order matters only for the final
+    # render — we look everything up by id below.
     feat_map = await uow.track_features.get_scoring_features_batch(track_ids)
+    track_map = await uow.tracks.get_many(track_ids)
+    pair_keys = list(itertools.pairwise(track_ids))
+    pair_map = await uow.transitions.get_pairs_batch(pair_keys)
 
     rows: list[TrackRow] = []
     energy: list[EnergyPoint] = []
     for it in items:
         tid = it.track_id
-        t = await uow.tracks.get(tid)
+        track = track_map.get(tid)
         feat = feat_map.get(tid)
         key_code = getattr(feat, "key_code", None)
         rows.append(
             TrackRow(
                 position=int(getattr(it, "sort_index", 0) or 0),
                 track_id=tid,
-                title=getattr(t, "title", None) if t else None,
+                title=getattr(track, "title", None) if track else None,
                 bpm=getattr(feat, "bpm", None),
                 key_code=key_code,
                 camelot=key_code_to_camelot(key_code) if key_code is not None else None,
@@ -93,11 +96,8 @@ async def _gather(uow: UnitOfWork, set_id: int, version_id: int | None) -> dict[
         )
 
     transitions: list[TransitionEdge] = []
-    get_pair = getattr(uow.transitions, "get_by_pair", None)
-    for pos, (a, b) in enumerate(itertools.pairwise(track_ids)):
-        if get_pair is None:
-            break
-        tr = await get_pair(a, b)
+    for pos, (a, b) in enumerate(pair_keys):
+        tr = pair_map.get((a, b))
         transitions.append(
             TransitionEdge(
                 position=pos + 1,

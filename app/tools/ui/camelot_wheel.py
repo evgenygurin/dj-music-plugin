@@ -50,9 +50,7 @@ async def _track_ids_for_scope(uow: UnitOfWork, playlist_id: int | None) -> list
         return [r.id for r in page.items]
     if await uow.playlists.get(playlist_id) is None:
         raise NotFoundError("playlist", playlist_id)
-    get_items = getattr(uow.playlists, "get_items", None)
-    items = await get_items(playlist_id) if get_items is not None else []
-    return [it.track_id for it in items]
+    return await uow.playlists.get_track_ids(playlist_id)
 
 
 async def _gather(uow: UnitOfWork, playlist_id: int | None) -> dict[str, Any]:

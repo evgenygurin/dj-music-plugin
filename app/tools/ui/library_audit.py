@@ -47,15 +47,13 @@ async def _gather(uow: UnitOfWork, playlist_id: int | None) -> dict[str, Any]:
     if playlist_id is not None:
         if await uow.playlists.get(playlist_id) is None:
             raise NotFoundError("playlist", playlist_id)
-        get_items = getattr(uow.playlists, "get_items", None)
-        items = await get_items(playlist_id) if get_items is not None else []
-        track_ids = [it.track_id for it in items]
+        track_ids = await uow.playlists.get_track_ids(playlist_id)
     else:
         page = await uow.tracks.filter(limit=500)
-        rows = list(page.items)
-        track_ids = [r.id for r in rows]
+        track_ids = [r.id for r in page.items]
 
     feat_map = await uow.track_features.get_scoring_features_batch(track_ids)
+    track_map = await uow.tracks.get_many(track_ids)
 
     per_track: list[AuditTrackRow] = []
     passed = 0
@@ -64,7 +62,7 @@ async def _gather(uow: UnitOfWork, playlist_id: int | None) -> dict[str, Any]:
 
     for tid in track_ids:
         feat = feat_map.get(tid)
-        track = await uow.tracks.get(tid)
+        track = track_map.get(tid)
         title = getattr(track, "title", None) if track else None
         if feat is None:
             per_track.append(
