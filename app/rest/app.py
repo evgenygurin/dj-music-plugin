@@ -17,7 +17,13 @@ def build_rest_app() -> FastAPI:
     )
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["http://localhost:3000", "https://*.vercel.app"],
+        allow_origins=["http://localhost:3000"],
+        # Vercel assigns unique preview hostnames per deploy
+        # (e.g. ``panel-git-feat-foo-evgenygurin.vercel.app``).
+        # ``allow_origins`` uses exact-string matching, so wildcards there are
+        # silently ineffective; ``allow_origin_regex`` is the documented
+        # Starlette hook for pattern matching.
+        allow_origin_regex=r"https://[a-z0-9-]+\.vercel\.app",
         allow_credentials=True,
         allow_methods=["GET", "POST", "DELETE", "OPTIONS"],
         allow_headers=[
