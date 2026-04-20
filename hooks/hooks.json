@@ -1,17 +1,7 @@
 {
-  "description": "Loads DJ Music context and starts REST API + Next.js panel for the dashboard",
+  "description": "Starts REST API + Next.js panel on session start; reloads MCP on plugin edits.",
   "hooks": {
     "SessionStart": [
-      {
-        "matcher": "startup|resume|clear|compact",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "echo '{\"hookSpecificOutput\":{\"hookEventName\":\"SessionStart\",\"additionalContext\":\"DJ Music Plugin v1.0.4 active (20 MCP dispatchers + 27 resources + 6 prompts). Skills: /dj-music:build-set, /dj-music:deliver-set, /dj-music:expand-playlist, /dj-music:curate-library, /dj-music:ym-sync. Commands: /dj-music:panel, /dj-music:panel-setup, /dj-music:reload-plugin. Call mcp__plugin_dj-music_mcp__unlock_namespace to enable locked namespaces.\"}}'",
-            "statusMessage": "Loading DJ Music context..."
-          }
-        ]
-      },
       {
         "matcher": "startup|resume",
         "hooks": [
@@ -20,16 +10,6 @@
             "command": "bash \"${CLAUDE_PLUGIN_ROOT}/scripts/start-services.sh\"",
             "timeout": 30,
             "statusMessage": "Starting DJ Music backend + panel..."
-          }
-        ]
-      },
-      {
-        "matcher": "startup|resume|clear|compact",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "jq -Rs '{hookSpecificOutput:{hookEventName:\"SessionStart\",additionalContext:.}}' \"${CLAUDE_PLUGIN_ROOT}/hooks/bg-campaign-context.txt\"",
-            "statusMessage": "Loading BG campaign context..."
           }
         ]
       }
