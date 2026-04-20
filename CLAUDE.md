@@ -176,6 +176,8 @@ export DJ_PLUGIN_DEV_PATH=/Users/laptop/dev/dj-music-plugin
 
 ## Версия
 
+**v1.0.2** — bump `fastmcp[tasks]` pin `>=3.1.0` → `>=3.2.4,<4`. Забирает fakeredis-regression fix (v3.2.3) и background-tasks auth-scoping + security hardening (v3.2.4). Deprecations из v3.2.0 (`PromptToolMiddleware`, `ResourceToolMiddleware`) нас не касаются — используем `PromptsAsTools` / `ResourcesAsTools`. Новые v3.2.x фичи (`FastMCPApp`, Prefab, interactive UI providers) — не адоптированы, чисто аддитивные.
+
 **v1.0.1** — патч поверх v1.0.0 рефактора по `docs/superpowers/specs/2026-04-17-architecture-blueprint-design.md`. Добавлены `provider_write(... operation="set_description")` и hook авто-рестарта MCP на правки плагина. Entrypoint — корневой `server.py` (не `app/server/app.py`).
 
 **v1 surface:** 13 tool dispatchers (6 entity CRUD + 3 provider + 2 compute + 1 sync + 1 admin) + **27 resources** (16 `local://`, 4 `schema://`, 3 `session://`, 4 `reference://`) + 6 prompts + 6 handlers. FastMCP v3 canonical layout (`tools/`, `resources/`, `prompts/`). Polymorphism через EntityRegistry (11 registered entities) + ProviderRegistry + handlers. Unit of Work + BaseRepository[M]. Pure domain (transition / optimization / camelot / template / audit). 18 audio analyzers, tiered L1-L4, section-aware scoring. 16 middleware.

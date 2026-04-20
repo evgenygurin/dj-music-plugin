@@ -6,6 +6,11 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.0.2] — 2026-04-20
+
+### Changed
+- **FastMCP pin:** `fastmcp[tasks]>=3.1.0` → `fastmcp[tasks]>=3.2.4,<4`. Picks up fakeredis-regression fix (v3.2.3) and background-tasks auth-scoping + security hardening (v3.2.4). The v3.2.0 deprecations (`PromptToolMiddleware`, `ResourceToolMiddleware`) do not affect this project — we use `PromptsAsTools` / `ResourcesAsTools` (different classes). No code changes required.
+
 ## [1.0.1] — 2026-04-18
 
 ### Added

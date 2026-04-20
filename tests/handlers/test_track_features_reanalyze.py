@@ -34,8 +34,7 @@ def uow() -> MagicMock:
 @pytest.fixture
 def pipeline() -> AsyncMock:
     p = AsyncMock()
-    p.analyze.return_value = MagicMock(
-    )
+    p.analyze.return_value = MagicMock()
     return p
 
 
