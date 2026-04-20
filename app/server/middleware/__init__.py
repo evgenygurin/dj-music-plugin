@@ -65,6 +65,9 @@ _READ_ONLY_TOOLS: tuple[str, ...] = (
     "provider_read",
     "provider_search",
     "transition_score_pool",
+    # ``sequence_optimize`` carries ``readOnlyHint=True`` (it reads features and
+    # pair scores, no DB writes); cacheable in the v0 pipeline. Keep parity.
+    "sequence_optimize",
     # UI tools from PR #113 — all readOnlyHint=True, render Prefab dashboards.
     "ui_library_audit",
     "ui_library_dashboard",
