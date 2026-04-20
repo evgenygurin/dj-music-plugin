@@ -43,3 +43,7 @@ class MCPSettings(BaseSettings):
     log_payloads: bool = Field(
         default=False, description="Full request/response payloads in logs."
     )
+    # ``DJ_MCP_CORS_ALLOW_ORIGINS`` is read directly by ``app/rest/app.py``
+    # (not routed through ``Settings``) to keep module-level REST import cheap
+    # — a full Settings load would eagerly parse database / yandex / audio
+    # sub-settings and abort import on any unrelated env error.

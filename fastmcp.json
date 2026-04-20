@@ -5,8 +5,20 @@
     "path": "server.py",
     "entrypoint": "mcp"
   },
+  "environment": {
+    "type": "uv",
+    "python": ">=3.12",
+    "project": "."
+  },
   "deployment": {
     "transport": "stdio",
-    "log_level": "INFO"
+    "log_level": "INFO",
+    "env": {
+      "DJ_DB_URL": "${DJ_DB_URL}",
+      "DJ_YM_TOKEN": "${DJ_YM_TOKEN}",
+      "DJ_YM_LIBRARY_PATH": "${DJ_YM_LIBRARY_PATH}",
+      "DJ_SENTRY_DSN": "${DJ_SENTRY_DSN}",
+      "DJ_MCP_CODE_MODE": "${DJ_MCP_CODE_MODE:-0}"
+    }
   }
 }
