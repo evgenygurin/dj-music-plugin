@@ -45,6 +45,19 @@
           }
         ]
       }
+    ],
+    "FileChanged": [
+      {
+        "matcher": "server.py|fastmcp.json|.env|pyproject.toml|app.py|lifespan.py|di.py",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/dev-filewatch-reload.sh\"",
+            "timeout": 10,
+            "statusMessage": "Reloading dj-music MCP (external edit)..."
+          }
+        ]
+      }
     ]
   }
 }
