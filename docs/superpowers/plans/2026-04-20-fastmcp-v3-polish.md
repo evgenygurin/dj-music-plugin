@@ -267,63 +267,124 @@ Run:
 git commit -F /tmp/dj-commit-msg.txt && rm /tmp/dj-commit-msg.txt
 ```
 
-### Task 3: Reduce `app/server/middleware/retry.py` to a re-export shim
+### Task 3: Convert `app/server/middleware/retry.py` to a partial shim (keep `RetryMiddleware` class, re-export `TransientError`)
 
 **Files:**
-- Modify: `app/server/middleware/retry.py` — shrink to backward-compat shim
-- Test: `tests/shared/test_errors.py` — add back-compat import test
+- Modify: `app/server/middleware/retry.py` — drop the local `class TransientError(Exception)` definition and replace it with `from app.shared.errors import TransientError`. **Keep** the existing `class RetryMiddleware(Middleware)` intact.
+- Test: `tests/shared/test_errors.py` — add back-compat identity test
+
+**Why partial now, not full shim:** at this point in the plan, `app/server/middleware/__init__.py` still does `from app.server.middleware.retry import RetryMiddleware` to build `ALL_MIDDLEWARE`. If Task 3 removed the class, that import and the `tests/server/middleware/test_retry.py` suite would both break before Task 12 rewires the pipeline. The class gets deleted in a follow-up step inside Task 12, after the built-in `fastmcp.server.middleware.error_handling.RetryMiddleware` takes its place in the pipeline; this task's job is limited to unifying the `TransientError` definition.
 
 - [ ] **Step 1: Write failing test for backward-compat import path**
 
-Append to `tests/shared/test_errors.py`:
+Append to `tests/shared/test_errors.py` (file already has the two tests from Task 2):
 
 ```python
 def test_transient_error_legacy_import_still_works() -> None:
-    """Back-compat shim at app.server.middleware.retry must keep working
-    until v1.0.4. Remove after one release cycle."""
-    from app.server.middleware.retry import TransientError as _TE
-    assert _TE is TransientError  # same class, not a fork
+    """Back-compat shim at app.server.middleware.retry must keep re-exporting
+    the same TransientError as app.shared.errors. Shim deletable in v1.0.5."""
+    from app.server.middleware.retry import TransientError as LegacyTE
+    from app.shared.errors import TransientError as CanonicalTE
+    assert LegacyTE is CanonicalTE  # identity: the SAME class, not a fork
 ```
 
 Run:
 ```bash
 uv run pytest tests/shared/test_errors.py::test_transient_error_legacy_import_still_works -v 2>&1 | tail -10
 ```
-Expected: fails because `app/server/middleware/retry.py` still defines its own `RetryMiddleware` and a local `TransientError` (not identical-by-identity with the new one in `app.shared.errors`).
+Expected: **FAIL**. Current `retry.py` still defines its own `class TransientError(Exception)`, so `LegacyTE is CanonicalTE` is False (class identity, not structural).
 
-Actually — re-read what happens. Current `retry.py` defines `class TransientError(Exception)` locally. `is` comparison will fail because Python class identity requires the **same** class object. So test SHOULD fail.
+- [ ] **Step 2: Convert `app/server/middleware/retry.py` to a partial shim**
 
-- [ ] **Step 2: Rewrite `app/server/middleware/retry.py` as a shim**
+Replace ONLY the local `class TransientError(Exception)` block with `from app.shared.errors import TransientError` at the imports. Keep `class RetryMiddleware(Middleware)` and its body completely intact — `app/server/middleware/__init__.py` still imports `RetryMiddleware` into `ALL_MIDDLEWARE` (that import moves to the built-in in Task 12, which also deletes this whole file).
 
-Replace the full file contents with:
+Target shape of the file after this step:
 
 ```python
-"""Back-compat shim — scheduled for removal in v1.0.4.
+"""Partial back-compat shim — RetryMiddleware class retained until Task 12.
 
-Historically this file defined ``RetryMiddleware`` and ``TransientError``.
-As of v1.0.4:
+Historically this file owned both ``RetryMiddleware`` and ``TransientError``.
+As of v1.0.4 (Task 3):
 
-- ``RetryMiddleware`` is imported from ``fastmcp.server.middleware.error_handling``.
-- ``TransientError`` lives in ``app.shared.errors``.
+- ``TransientError`` is re-exported from ``app.shared.errors`` (canonical).
+- ``RetryMiddleware`` remains here until Task 12 rewires
+  ``app/server/middleware/__init__.py`` to import the built-in
+  ``fastmcp.server.middleware.error_handling.RetryMiddleware``.
 
-This shim re-exports ``TransientError`` to keep third-party imports working
-for one release cycle. Delete this file in v1.0.5.
+Task 12 then deletes both this module and
+``tests/server/middleware/test_retry.py``. Do not remove the
+``RetryMiddleware`` class earlier — ``ALL_MIDDLEWARE`` still imports it.
 """
 
 from __future__ import annotations
 
+import asyncio
+import logging
+from collections.abc import Awaitable, Callable
+from typing import Any
+
+from fastmcp.server.middleware import Middleware, MiddlewareContext
+
 from app.shared.errors import TransientError
 
-__all__ = ["TransientError"]
+log = logging.getLogger(__name__)
+
+class RetryMiddleware(Middleware):
+    """Exponential-backoff retry for TransientError. Scheduled for removal in Task 12."""
+
+    def __init__(
+        self,
+        *,
+        max_retries: int = 2,
+        base_delay: float = 0.5,
+        backoff_factor: float = 2.0,
+    ) -> None:
+        self.max_retries = max_retries
+        self.base_delay = base_delay
+        self.backoff_factor = backoff_factor
+
+    async def on_call_tool(
+        self,
+        context: MiddlewareContext,
+        call_next: Callable[[MiddlewareContext], Awaitable[Any]],
+    ) -> Any:
+        attempt = 0
+        while True:
+            try:
+                return await call_next(context)
+            except TransientError as exc:
+                if attempt >= self.max_retries:
+                    raise
+                delay = self.base_delay * (self.backoff_factor**attempt)
+                log.warning(
+                    "retry attempt=%d delay=%.2fs error=%s",
+                    attempt + 1,
+                    delay,
+                    exc,
+                )
+                if delay > 0:
+                    await asyncio.sleep(delay)
+                attempt += 1
+
+__all__ = ["RetryMiddleware", "TransientError"]
 ```
+
+The only semantic change is `TransientError` becoming a re-export. `RetryMiddleware` is byte-for-byte the same behaviour as before.
 
 - [ ] **Step 3: Run back-compat test to verify it passes**
 
 Run:
 ```bash
-uv run pytest tests/shared/test_errors.py -v 2>&1 | tail -10
+uv run pytest tests/shared/test_errors.py -v 2>&1 | tail -15
 ```
-Expected: `3 passed`.
+Expected: `9 passed` (6 pre-existing + 2 from Task 2 + 1 from this task). Confirm the new `test_transient_error_legacy_import_still_works` passes.
+
+Also run the existing custom-retry test to prove we didn't break the `RetryMiddleware` class while stripping the local `TransientError`:
+
+```bash
+uv run pytest tests/server/middleware/test_retry.py -v 2>&1 | tail -10
+```
+Expected: the existing tests (4–6) still pass. They import `RetryMiddleware, TransientError` from `app.server.middleware.retry` — both still resolvable (class + re-export).
 
 - [ ] **Step 4: Commit**
 
@@ -334,11 +395,14 @@ git add app/server/middleware/retry.py tests/shared/test_errors.py
 
 Write `/tmp/dj-commit-msg.txt`:
 ```bash
-refactor(middleware): reduce retry.py to TransientError re-export shim
+refactor(middleware): unify TransientError — retry.py partial shim
 
-Built-in fastmcp RetryMiddleware will replace our custom one in the
-upcoming middleware dedupe. Keep legacy import path working for one
-release cycle; file scheduled for deletion in v1.0.4.
+Drop local class TransientError(Exception) in favour of re-export from
+app.shared.errors (canonical as of Task 2). RetryMiddleware class kept
+in place — __init__.py still imports it for ALL_MIDDLEWARE. Task 12
+rewires the pipeline to the built-in
+fastmcp.server.middleware.error_handling.RetryMiddleware and deletes
+this module together with tests/server/middleware/test_retry.py.
 
 Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
 ```
@@ -435,12 +499,16 @@ Run:
 git commit -F /tmp/dj-commit-msg.txt && rm /tmp/dj-commit-msg.txt
 ```
 
-### Task 6: Delete custom `RetryMiddleware` (test) — built-in will replace
+### Task 6: Delete custom `RetryMiddleware` test file
 
 **Files:**
 - Delete: `tests/server/middleware/test_retry.py`
 
-**Rationale:** The built-in `fastmcp.server.middleware.error_handling.RetryMiddleware` is tested in FastMCP core. The legacy file `app/server/middleware/retry.py` is already reduced to a shim (Task 3) — not deleted because it preserves `TransientError` re-export. Only the test file is deleted here.
+**Rationale:** The built-in `fastmcp.server.middleware.error_handling.RetryMiddleware` is tested in FastMCP core. After Task 12 rewires `__init__.py` to the built-in, the custom `RetryMiddleware` class in `app/server/middleware/retry.py` becomes unreachable dead code — Task 12 itself deletes both the custom class and this test file.
+
+**Why this task is separate** (and happens inside Task 12, not before): Task 3 kept `RetryMiddleware` in `retry.py` precisely because `__init__.py` imports it for `ALL_MIDDLEWARE`. Deleting the test earlier would be premature — the class still exists and responds to `import`. Once Task 12 stops referencing the class, Task 12's final step deletes this test alongside the class in the same commit (the module becomes a pure re-export shim: `from app.shared.errors import TransientError`).
+
+**Net effect for the implementer of this "task":** nothing to do here separately. It's a bookkeeping marker that the test file dies inside Task 12. Skip ahead to Task 7.
 
 - [ ] **Step 1: Delete test file**
 
