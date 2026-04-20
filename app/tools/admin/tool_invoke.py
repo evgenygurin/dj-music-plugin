@@ -32,6 +32,7 @@ from app.shared.types import JsonDictOrNone
         "tool list (e.g. after unlock_namespace) and cannot address the tool "
         "directly."
     ),
+    timeout=30.0,
 )
 async def tool_invoke(
     name: Annotated[str, Field(description="Target tool name, e.g. 'provider_write'")],

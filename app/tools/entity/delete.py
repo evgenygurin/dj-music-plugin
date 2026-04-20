@@ -39,6 +39,7 @@ EntityName = Literal[
         "idempotentHint": True,
     },
     description="Delete an entity by ID. Cascades to related rows per FK definitions.",
+    timeout=120.0,
 )
 async def entity_delete(
     entity: Annotated[EntityName, Field(description="Entity type")],

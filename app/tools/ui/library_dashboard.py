@@ -100,6 +100,7 @@ async def _gather(uow: UnitOfWork) -> dict[str, Any]:
         "Prefab global library dashboard: totals + BPM histogram + mood PieChart "
         "+ Camelot BarChart. Fallback: JSON payload."
     ),
+    timeout=30.0,
 )
 async def ui_library_dashboard(
     uow: UnitOfWork = Depends(get_uow),

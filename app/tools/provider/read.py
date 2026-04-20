@@ -23,6 +23,7 @@ from app.shared.types import JsonDictOrNone
         "Read from external music platform. entity=track|album|playlist|artist_tracks|"
         "track_similar|track_batch|likes|dislikes|playlist_list."
     ),
+    timeout=30.0,
 )
 async def provider_read(
     provider: Annotated[str, Field(description="Provider name (e.g., 'yandex')")],

@@ -40,6 +40,7 @@ NAMESPACE_TAGS = {
         "Per-session activation of hidden tool namespaces. "
         "Namespaces: crud:destructive, provider:write, sync, or 'all'."
     ),
+    timeout=30.0,
 )
 async def unlock_namespace(
     namespace: Annotated[

@@ -23,6 +23,7 @@ from app.shared.types import JsonIntList, JsonIntListOrNone
         "Find optimal track ordering via GA or greedy. Supports pinned/excluded "
         "tracks + template-aware fitness. Returns ordering + quality score."
     ),
+    timeout=300.0,
 )
 async def sequence_optimize(
     track_ids: Annotated[

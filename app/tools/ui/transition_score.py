@@ -84,6 +84,7 @@ async def _compute(
         "Prefab breakdown of the 6-component transition score between two tracks: "
         "RadarChart, hard-constraint status, style recipe. Fallback: JSON payload."
     ),
+    timeout=30.0,
 )
 async def ui_transition_score(
     from_track_id: Annotated[int, Field(description="Outgoing track ID")],

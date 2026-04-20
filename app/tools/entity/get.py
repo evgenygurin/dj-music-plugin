@@ -37,6 +37,7 @@ EntityName = Literal[
     description=(
         "Fetch a single entity by ID with optional field projection or relation inclusion."
     ),
+    timeout=30.0,
 )
 async def entity_get(
     entity: Annotated[EntityName, Field(description="Entity type")],

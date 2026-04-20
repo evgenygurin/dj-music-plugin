@@ -106,6 +106,7 @@ async def _gather(uow: UnitOfWork, playlist_id: int | None) -> dict[str, Any]:
         "Prefab techno-quality audit for a playlist (or full library when omitted). "
         "Summary Cards + subgenre PieChart + DataTable with pass/fail per track."
     ),
+    timeout=30.0,
 )
 async def ui_library_audit(
     playlist_id: Annotated[

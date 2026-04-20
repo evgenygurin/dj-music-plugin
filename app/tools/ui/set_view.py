@@ -139,6 +139,7 @@ def _badge_variant(score: float | None) -> str:
         "Prefab dashboard for a DJ set: energy arc (LineChart), track table, "
         "transition badges, cheatsheet card. Fallback: JSON payload."
     ),
+    timeout=30.0,
 )
 async def ui_set_view(
     set_id: Annotated[int, Field(description="DJ set ID")],
