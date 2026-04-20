@@ -6,6 +6,33 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.0.4] — 2026-04-20
+
+**FastMCP v3 polish — middleware dedupe, per-tool timeouts, fastmcp.json + CORS.**
+
+### Changed
+- Replaced 5 custom middleware with canonical FastMCP v3 built-ins: `DetailedTimingMiddleware`, `RetryMiddleware`, `ResponseLimitingMiddleware`, `ResponseCachingMiddleware`, `StructuredLoggingMiddleware`. Behaviour equivalent, covered by FastMCP core tests.
+- Renamed `ErrorHandlingMiddleware` → `DomainErrorMiddleware` to avoid collision with FastMCP's built-in `ErrorHandlingMiddleware`. File renamed from `app/server/middleware/error_handling.py` to `app/server/middleware/domain_error.py`.
+- Moved `TransientError` from `app/server/middleware/retry.py` to `app/shared/errors.py`.
+- `DomainErrorMiddleware` now re-raises `McpError` unchanged, preserving native MCP protocol error codes (e.g. FastMCP timeout `-32000`) instead of wrapping them as `ToolError("internal error")`.
+- `ResponseCachingMiddleware`: bounded `MemoryStore(max_entries_per_collection=settings.mcp.response_cache_max)` and explicit `included_tools` allowlist for 13 `readOnlyHint=True` tools (dispatchers + UI).
+- `RetryMiddleware`: preserve the pre-migration 0.5s `base_delay` (FastMCP default 1.0s would double every retry wait).
+- Per-tool timeouts now carry **both** the forward-looking `@tool(timeout=N)` kwarg and `meta={"timeout_s": N}` on 19 tools (14 dispatchers + 5 read-only UI). The kwarg is documentation/future-proof until FastMCP's `FileSystemProvider` learns to forward it; `ToolCallTimeoutMiddleware` reads `meta["timeout_s"]` as the effective cap today. `tool_invoke` opts out (proxy/fallback — delegated tool enforces its own timeout).
+- CORS: explicit allowlist via `DJ_MCP_CORS_ALLOW_ORIGINS` (CSV or JSON array, read directly from env to avoid eager Settings load). Default remains `["http://localhost:3000"]`. Narrowed `allow_methods` to `["GET", "POST", "DELETE", "OPTIONS"]`, `allow_headers` to `["mcp-protocol-version", "mcp-session-id", "Authorization", "Content-Type"]`, added `expose_headers=["mcp-session-id"]` so browser MCP clients can read the session ID.
+- `.claude-plugin/plugin.json`: the `mcp` server command now runs `if [ -f .env ]; then source .env; fi` before `exec`, so `fastmcp.json` env interpolation finds the DJ_* vars without hard-failing when the file is absent.
+
+### Added
+- `fastmcp.json` `environment` section (uv / python ≥ 3.12 / project root) for declarative env management.
+- `fastmcp.json` `deployment.env` with `${VAR}` interpolation for string-valued DJ_* secrets (`DJ_DB_URL`, `DJ_YM_TOKEN`, `DJ_YM_LIBRARY_PATH`, `DJ_SENTRY_DSN`, `DJ_MCP_CODE_MODE` with default `0`).
+
+### Removed
+- `OTELTracingMiddleware` — FastMCP v3 ships native OpenTelemetry instrumentation with MCP semantic conventions (`tools/call {name}`, `gen_ai.tool.name`).
+
+### Breaking (internal to codebase only — MCP surface unchanged)
+- Import: `from app.server.middleware.error_handling import ErrorHandlingMiddleware` → `from app.server.middleware.domain_error import DomainErrorMiddleware`.
+- Import: `from app.server.middleware.retry import TransientError` → `from app.shared.errors import TransientError`.
+- `app/server/middleware/otel_tracing.py` deleted.
+
 ## [1.0.2] — 2026-04-20
 
 ### Changed
