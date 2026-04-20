@@ -15,7 +15,9 @@ def test_always_visible_list_matches_blueprint() -> None:
     # All dispatcher-level tools stay visible; BM25 still ranks the
     # synthetic-only / namespaced ones for large catalogs. Destructive/
     # write/sync tools are included because the global visibility gate
-    # is off (see app/server/visibility.py).
+    # is off (see app/server/visibility.py). The 6 ``ui_*`` entries are
+    # v1.0.3 Prefab UI renderers — always visible so Prefab-aware clients
+    # discover them without a BM25 query.
     assert ALWAYS_VISIBLE_TOOLS == (
         "entity_list",
         "entity_get",
@@ -31,6 +33,12 @@ def test_always_visible_list_matches_blueprint() -> None:
         "playlist_sync",
         "unlock_namespace",
         "tool_invoke",
+        "ui_set_view",
+        "ui_transition_score",
+        "ui_library_audit",
+        "ui_score_pool_matrix",
+        "ui_library_dashboard",
+        "ui_camelot_wheel",
     )
 
 

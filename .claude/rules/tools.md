@@ -64,6 +64,29 @@ async def entity_list(
   start locked. `unlock_namespace(namespace="...", action="unlock")`
   fires `notifications/tools/list_changed`.
 
+## Prefab Apps (UI tools)
+
+- v1.0.3+ ships 6 Prefab UI tools under `app/tools/ui/` (see
+  `docs/tool-catalog.md` § UI / Prefab Apps).
+- Each UI tool carries `meta={"ui": True}` — standalone-decorator
+  equivalent of `@mcp.tool(app=True)`. FastMCP auto-registers a
+  `ui://` renderer resource per tool at startup.
+- Tags: `{"namespace:ui:read", "ui", "read"}`. The namespace is in
+  `KNOWN_NAMESPACES` but not in `DISABLED_NAMESPACE_TAGS` — always
+  visible.
+- Tools must ALWAYS provide a JSON fallback: call `supports_ui(ctx)`
+  from `app/tools/ui/_fallback.py`; when False, return a Pydantic
+  model (one per UI tool, defined in `_fallback.py`) so non-Prefab
+  clients still receive structured data.
+- Add new UI tools to `ALWAYS_VISIBLE_TOOLS` in
+  `app/server/transforms.py` — otherwise `BM25SearchTransform` hides
+  them behind a BM25 search query.
+- Reuse existing handlers / repositories / domain via `Depends()`.
+  Never duplicate business logic in a UI tool.
+- Palette constants live in `app/shared/ui_colors.py`; keep them in
+  sync with `panel/lib/constants.ts` (parity tested in
+  `tests/shared/test_ui_colors_parity.py`).
+
 ## Gotchas
 
 - `Depends()`: use `param=Depends(factory)`, NOT `Annotated[Type,

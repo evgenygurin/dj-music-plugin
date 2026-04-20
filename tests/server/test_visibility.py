@@ -19,7 +19,11 @@ def test_disabled_namespace_tags_are_empty_by_default() -> None:
 
 
 def test_known_namespaces_matches_blueprint() -> None:
-    assert frozenset({"crud:destructive", "provider:write", "sync"}) == KNOWN_NAMESPACES
+    # ``ui:read`` added in v1.0.3 for Prefab Apps UI tools (``app/tools/ui/``).
+    assert (
+        frozenset({"crud:destructive", "provider:write", "sync", "ui:read"})
+        == KNOWN_NAMESPACES
+    )
 
 
 def test_apply_visibility_calls_disable_with_all_tags() -> None:

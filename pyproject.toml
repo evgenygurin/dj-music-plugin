@@ -1,10 +1,10 @@
 [project]
 name = "dj-music-plugin"
-version = "1.0.2"
+version = "1.0.3"
 description = "MCP server for DJ techno music library management"
 requires-python = ">=3.12"
 dependencies = [
-    "fastmcp[tasks]>=3.2.4,<4",
+    "fastmcp[tasks,apps]>=3.2.4,<4",
     "sqlalchemy[asyncio]>=2.0",
     "asyncpg>=0.29",
     "aiosqlite>=0.20",

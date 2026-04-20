@@ -87,6 +87,7 @@ Parallel layers (called from handlers, never from tools directly):
 | Context | Path | Responsibility |
 |---|---|---|
 | **Tools** | `app/tools/` | 13 `@tool` dispatchers — no business logic, only dispatch |
+| **UI Tools** | `app/tools/ui/` | 6 Prefab Apps renderers (`meta={"ui": True}`) — return `prefab_ui.components.Column` trees; JSON fallback via `ctx.client_supports_extension("io.modelcontextprotocol/ui")` |
 | **Resources** | `app/resources/` | 27 `@resource` URIs — read-only views (16 local://, 4 schema://, 3 session://, 4 reference://) |
 | **Prompts** | `app/prompts/` | 6 workflow recipes (LLM-visible) |
 | **Handlers** | `app/handlers/` | Entity-specific side-effect logic (registered in EntityRegistry) |
