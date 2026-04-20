@@ -49,6 +49,7 @@ EntityName = Literal[
         "Update an entity. Track_features has a reanalyze handler that re-runs "
         "the audio pipeline at a higher level."
     ),
+    meta={"timeout_s": 120.0},
     timeout=120.0,
 )
 async def entity_update(

@@ -13,7 +13,7 @@ def test_build_returns_fastmcp_instance() -> None:
     assert isinstance(mcp, FastMCP)
 
 
-def test_build_registers_all_14_middleware() -> None:
+def test_build_registers_all_15_middleware() -> None:
     mcp = build_mcp_server()
     added = [type(m).__name__ for m in mcp.middleware]
     expected = [
@@ -28,12 +28,13 @@ def test_build_registers_all_14_middleware() -> None:
         "CostTrackingMiddleware",
         "SamplingBudgetMiddleware",
         "ProgressThrottleMiddleware",
+        "ToolCallTimeoutMiddleware",
         "ProviderRateLimitMiddleware",
         "DbSessionMiddleware",
         "StructuredLoggingMiddleware",
     ]
     # FastMCP may auto-prepend built-in middleware (DereferenceRefs etc.).
-    # We assert our 14 appear as a contiguous suffix/subsequence in order.
+    # We assert our 15 appear as a contiguous suffix/subsequence in order.
     names = [n for n in added if n in expected]
     assert names == expected
 

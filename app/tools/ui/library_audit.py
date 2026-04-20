@@ -101,7 +101,7 @@ async def _gather(uow: UnitOfWork, playlist_id: int | None) -> dict[str, Any]:
     name="ui_library_audit",
     tags={"namespace:ui:read", "ui", "read"},
     annotations={"readOnlyHint": True, "idempotentHint": True},
-    meta={"ui": True},
+    meta={"ui": True, "timeout_s": 30.0},
     description=(
         "Prefab techno-quality audit for a playlist (or full library when omitted). "
         "Summary Cards + subgenre PieChart + DataTable with pass/fail per track."

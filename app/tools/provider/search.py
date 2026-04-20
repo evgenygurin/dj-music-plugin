@@ -19,6 +19,7 @@ from app.server.di import get_provider_registry
     tags={"namespace:provider:read", "read"},
     annotations={"readOnlyHint": True, "openWorldHint": True, "idempotentHint": True},
     description=("Search external platform catalog. type=tracks|albums|artists|playlists|all."),
+    meta={"timeout_s": 30.0},
     timeout=30.0,
 )
 async def provider_search(

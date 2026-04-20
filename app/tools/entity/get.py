@@ -37,6 +37,7 @@ EntityName = Literal[
     description=(
         "Fetch a single entity by ID with optional field projection or relation inclusion."
     ),
+    meta={"timeout_s": 30.0},
     timeout=30.0,
 )
 async def entity_get(

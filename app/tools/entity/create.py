@@ -46,6 +46,7 @@ EntityName = Literal[
         "track=import from provider, audio_file=download, track_features=run analysis, "
         "set_version=build + compute transitions."
     ),
+    meta={"timeout_s": 120.0},
     timeout=120.0,
 )
 async def entity_create(

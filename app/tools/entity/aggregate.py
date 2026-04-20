@@ -42,6 +42,7 @@ Operation = Literal["count", "distinct", "histogram", "min_max", "sum", "avg"]
         "Compute summary statistics: count, distinct, histogram, min_max, sum, avg. "
         "Optional group_by + filters. Use for dashboards without fetching rows."
     ),
+    meta={"timeout_s": 30.0},
     timeout=30.0,
 )
 async def entity_aggregate(

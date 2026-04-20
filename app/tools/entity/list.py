@@ -42,6 +42,7 @@ EntityName = Literal[
         "field projection. Use schema://entities/{entity} to discover available "
         "filters/presets."
     ),
+    meta={"timeout_s": 30.0},
     timeout=30.0,
 )
 async def entity_list(

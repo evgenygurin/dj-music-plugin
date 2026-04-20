@@ -95,7 +95,7 @@ async def _gather(uow: UnitOfWork) -> dict[str, Any]:
     name="ui_library_dashboard",
     tags={"namespace:ui:read", "ui", "read"},
     annotations={"readOnlyHint": True, "idempotentHint": True},
-    meta={"ui": True},
+    meta={"ui": True, "timeout_s": 30.0},
     description=(
         "Prefab global library dashboard: totals + BPM histogram + mood PieChart "
         "+ Camelot BarChart. Fallback: JSON payload."

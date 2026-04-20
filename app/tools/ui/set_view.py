@@ -134,7 +134,7 @@ def _badge_variant(score: float | None) -> str:
     name="ui_set_view",
     tags={"namespace:ui:read", "ui", "read"},
     annotations={"readOnlyHint": True, "idempotentHint": True},
-    meta={"ui": True},
+    meta={"ui": True, "timeout_s": 30.0},
     description=(
         "Prefab dashboard for a DJ set: energy arc (LineChart), track table, "
         "transition badges, cheatsheet card. Fallback: JSON payload."

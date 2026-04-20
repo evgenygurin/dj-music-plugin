@@ -34,6 +34,7 @@ class ConflictResolution(BaseModel):
         "(platform→local), push (local→platform), or diff (report-only). "
         "Use dry_run=true to preview."
     ),
+    meta={"timeout_s": 180.0},
     timeout=180.0,
 )
 async def playlist_sync(

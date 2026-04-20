@@ -22,6 +22,7 @@ from app.server.di import get_transition_scorer, get_uow
         "Compute pairwise transition scores for a pool of tracks (N*(N-1) directed "
         "pairs). Used as input to sequence_optimize."
     ),
+    meta={"timeout_s": 300.0},
     timeout=300.0,
 )
 async def transition_score_pool(
