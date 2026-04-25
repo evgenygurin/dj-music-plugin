@@ -4,7 +4,7 @@
 
 MCP-сервер для управления DJ techno библиотекой, построения оптимизированных сетов и интеграции с Яндекс Музыкой. Включает Next.js панель для мониторинга.
 
-**Текущая версия:** v1.0.6 (детальная история — [CHANGELOG.md](CHANGELOG.md)).
+**Текущая версия:** v1.0.7 (детальная история — [CHANGELOG.md](CHANGELOG.md)).
 
 ## Quick Start
 
@@ -103,7 +103,7 @@ Dev-режим целиком (4 слоя hot-reload + `/reload-plugins`) — @d
 
 Alembic-миграция `p2_drop_dead_tables` **не применена** к Supabase. 17 dead-таблиц (`spotify_*`, `beatport_metadata`, `soundcloud_metadata`, `embeddings`, `transition_candidates`, `dj_saved_loops`, `dj_cue_points`, `dj_beatgrid_change_points`, `dj_set_constraints`, `dj_set_feedback`, `labels`, `track_labels`, `app_exports`) живут в схеме с 0 rows. Всего **47 live tables**, после drop будет 31.
 
-## Panel state (v1.0.6)
+## Panel state (v1.0.7)
 
 Panel actions переписаны под v1 dispatcher surface (commit `dbf5a10`): `entity_*`, `provider_*`, `transition_score_pool`, `sequence_optimize`, `playlist_sync`, `read_resource`. `bun run build` зелёный, все 15 routes собираются.
 

@@ -38,6 +38,21 @@ def _init_otel(endpoint: str) -> None:  # pragma: no cover - optional
     trace.set_tracer_provider(provider)
 
 
+def _looks_like_url(value: str | None) -> bool:
+    """Reject empty / unresolved-interpolation / non-URL strings.
+
+    FastMCP's ``${VAR}`` interpolation in ``fastmcp.json`` leaves the literal
+    placeholder when the env var is unset, so a downstream ``getenv`` returns
+    ``"${DJ_SENTRY_DSN}"`` — truthy but invalid. Also tolerates whitespace.
+    """
+    if not value:
+        return False
+    s = value.strip()
+    if not s or s.startswith("${"):
+        return False
+    return "://" in s
+
+
 def bootstrap_observability() -> None:
     """Initialize Sentry and OTEL once per process. Idempotent."""
     global _bootstrapped
@@ -47,7 +62,7 @@ def bootstrap_observability() -> None:
         _bootstrapped = True
 
     dsn = os.getenv("DJ_SENTRY_DSN")
-    if dsn and sentry_sdk is not None:
+    if _looks_like_url(dsn) and sentry_sdk is not None:
         sentry_sdk.init(
             dsn=dsn,
             traces_sample_rate=float(os.getenv("DJ_SENTRY_TRACES_SAMPLE_RATE", "0.0")),
@@ -55,5 +70,5 @@ def bootstrap_observability() -> None:
         )
 
     otel_endpoint = os.getenv("DJ_OTEL_EXPORTER_OTLP_ENDPOINT")
-    if otel_endpoint:
-        _init_otel(otel_endpoint)
+    if _looks_like_url(otel_endpoint):
+        _init_otel(otel_endpoint)  # type: ignore[arg-type]

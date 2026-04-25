@@ -6,6 +6,22 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.0.7] — 2026-04-26
+
+**Critical hotfix: plugin MCP stdio process crashed on startup.**
+
+### Fixed
+- `app/server/observability.py:bootstrap_observability` — `os.getenv("DJ_SENTRY_DSN")` returned the literal `"${DJ_SENTRY_DSN}"` string when the var was not set in `.env`, because FastMCP's `${VAR}` interpolation in `fastmcp.json` leaves placeholders intact for unset vars. The literal is truthy → `if dsn and ...` passed → `sentry_sdk.init(dsn="${DJ_SENTRY_DSN}")` crashed with `Unsupported scheme ''` → MCP stdio process died on import → Claude Code reported `Server "plugin:dj-music:mcp" is not connected` and **no native MCP tools were available**.
+- New defensive guard `_looks_like_url(value)` rejects None / empty / whitespace / `${...}` literals / non-URL strings before passing to Sentry or OTEL.
+- Same guard now applied to `DJ_OTEL_EXPORTER_OTLP_ENDPOINT`.
+- 7 regression tests in `tests/server/test_observability_dsn.py`.
+
+### Impact
+Without this fix, fresh installs of the plugin (any user without `DJ_SENTRY_DSN` in `.env` — i.e. most users) could not use it from Claude Code at all — only via REST. v1.0.4 / v1.0.5 / v1.0.6 are all affected by this same bug; v1.0.7 is the first release where the plugin starts cleanly without observability env vars.
+
+### Tests
+- 714 passed (was 707 at v1.0.6).
+
 ## [1.0.6] — 2026-04-26
 
 **Hotfix: session:// resources crashed on stateless callers.**
