@@ -6,17 +6,68 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
-### Changed
-- **Docs full sync with v1 code** (4 parallel specialized agents). Tool dispatcher count corrected 13 → **20** (6 entity + 3 provider + 2 compute + sync + 2 admin + 6 UI). Panel `actions/*.ts` still call legacy tool names (Blueprint D2 drift, documented).
-- **CLAUDE.md optimized**: 192 → 106 lines. Dropped duplicated "Команды" section, verbose version history, architecture tree duplicate, "Tiered Audio Analysis" table, "Плагины Claude Code" table.
-- **`panel/components/audio-player/CLAUDE.md`** optimized: 75 → 35 lines. Removed "v0.7.0 Additions" commit-log section and stale `<claude-mem-context>` block; module-specific gotchas kept.
-- **`.claude-plugin/plugin.json`** + **marketplace.json**: version bumped `1.0.1` → `1.0.4`; description updated to 20 dispatchers + 27 resources + 6 prompts + 6 handlers.
-- **`hooks/hooks.json`** `SessionStart` context: corrected tool count (50 → 20), `unlock_tools` → `unlock_namespace`, added `/dj-music:<skill>` namespace prefix.
-- **`commands/reload-plugin.md`**: `allowed-tools` format normalized (array → string, matches other commands); added `argument-hint`.
+## [1.0.5] — 2026-04-26
 
-### Removed
-- `REQUIREMENTS.md` — obsolete v0 spec (user request).
-- `scripts/vm_import_and_analyze.py` — raised `NotImplementedError` post-v1 (depended on deleted `app.services.*` / `app.ym.*` / `app.controllers.*`).
+**Audit pass + Panel v1 rewire + Plugin packaging polish.**
+
+### Fixed
+- **MCP middleware stateless-context chain (5 bugs)** — every tool call via REST/in-process previously returned 500 with `'Context.session_id' raised RuntimeError`. Resolved across 4 middleware:
+  - `sentry_context.py` — `getattr` over `session_id`/`client_id`/`request_id` properties guarded with `try/except (RuntimeError, AttributeError)`.
+  - `cost_tracking.py` — `await fctx.set_state(...)` wrapped; cost telemetry skipped when no MCP session is active.
+  - `sampling_budget.py` — `getattr` and `set_state` both guarded; stateless callers bucket under `__global__` with separate cap.
+  - `db_session.py` — added module-level `ContextVar` (`_stateless_uow`) as a third DI fallback; `get_uow` reads it after typed paths fail. Also self-bootstraps `db_session_factory` from `app.db.session.get_session_factory()` when MCP lifespan was never entered.
+- **REST stateless DI bootstrap** — `app/rest/lifespan.py` now enters MCP composed lifespan and copies yielded keys into new `app/server/_stateless_state.py`. Tools needing `provider_registry`, `audio_pipeline`, `transition_scorer`, etc. now work via REST/in-process — not just over MCP transport.
+- **Real bugs surfaced by mypy `attr-defined` / `call-arg` drift**:
+  - `app/tools/admin/unlock_namespace.py:62,64` — added missing `await` on `ctx.enable_components()` / `disable_components()` (FastMCP v3 made them async; coroutines were silently dropped → namespace lock/unlock no-op'd in production).
+  - `app/tools/sync/playlist_sync.py` — `direction="diff"` no longer double-counts overlap (every remote_ext_id was emitted as `remote_only` regardless of local membership).
+  - `app/handlers/track_import.py:80` — replaced non-existent `PlaylistRepository.add_track` with the real `append_tracks`.
+  - `app/handlers/transition_persist.py:38` — added `TransitionRepository.upsert(...)` (handler referenced a non-existent method).
+  - `app/handlers/audio_file_download.py:90` — widened `Provider.download_audio` Protocol to accept the `dest=` kwarg the handler actually passes.
+- **Silent-failure hardening** (HIGH-severity audit findings):
+  - `app/server/middleware/db_session.py` — split too-broad `except Exception` into `except ImportError` (legitimate degraded mode) vs misconfig (log ERROR with `exc_info=True` and re-raise). Bad DB URLs now fail loudly at first request.
+  - `app/audio/core/loader.py` — backend chain distinguishes "library not installed" from "decode failed". Corrupt MP3s no longer silently fall through to `wave.open` with cryptic RIFF-id errors.
+  - `app/audio/analyzers/base.py` — narrowed `except Exception` in `BaseAnalyzer.run()` to `(ValueError, RuntimeError, ImportError, ArithmeticError, AssertionError)`. `MemoryError` / `KeyboardInterrupt` / `SystemExit` and unknown exceptions now propagate.
+  - `app/server/middleware/sampling_budget.py` — replaced unbounded `_used: dict` with `OrderedDict` LRU (`MCPSettings.sampling_buckets_max`, default 1024); added `MCPSettings.sampling_global_cap` (default 50) for stateless callers; WARN logs at 50% / 80% / 100%.
+
+### Changed
+- **`TrackFeatures` moved** `app/domain/transition/features.py` → `app/shared/features.py` (28 import sites updated atomically). Repos no longer reach into `domain` to grab a DTO. Resolves 1 of 3 import-linter violations.
+- **`.importlinter`** — added narrow `ignore_imports` for the two legitimate `app.server.lifespan → app.domain.optimization` and `→ app.domain.transition.scorer` edges (lifespan publishing singleton compute services per blueprint §11). `make arch` now reports **5/5 contracts kept** (was 4/1 broken).
+- **Panel actions rewired to v1 dispatcher API** — 13 action files updated, 30+ stale tool-name calls migrated:
+  - `ym_search` → `provider_search(yandex, ...)`
+  - `import_tracks` → `entity_create(track, ...)`
+  - `analyze_track` / `classify_mood` → `entity_create(track_features, level=3 or 2)`
+  - `audit_playlist` → `read_resource(local://playlists/{id}/audit)`
+  - `sync_playlist` → `playlist_sync(direction, source)`
+  - `build_set` / `rebuild_set` → composed `sequence_optimize` + `entity_create(set_version)`
+  - `score_transitions` → `transition_score_pool`
+  - `get_set_templates` → `read_resource(reference://templates)`
+  - `get_set_cheat_sheet` → `read_resource(local://sets/{id}/cheatsheet)`
+  - `like_track` / `ban_track` / `rate_track` → `entity_create(track_feedback, kind=...)`
+  - `log_transition` / `update_reaction` → `entity_create / entity_update(transition_history, ...)`
+  - feedback table-write → `entity_create(track_feedback)` (table dropped in v1)
+- **Panel build green** — `bunx tsc --noEmit` exit 0, `bun run build` PASS, all 15 routes built.
+- **Plugin packaging polish**:
+  - Supabase `--project-ref` is now env-driven via `${DJ_DB_PROJECT_REF}` (was hardcoded `bowosphlnghhgaulcyfm` — not portable for marketplace install). `.env.example` documents the new var.
+  - Removed unsupported `FileChanged` block from `hooks/hooks.json` (silently ignored in production; not a documented Claude Code hook event).
+- **Panel P0 blockers fixed**:
+  - `panel/lib/queries/mix-meta.ts` — hoisted async `await fetch(...)` out of a sync IIFE inside the return object.
+  - `panel/components/audio-player/audio-player-context.tsx` — extracted missing `transitionLog` const referenced at line 1564.
+  - `panel/.env.local` — created from `.env.example`; SSR pages no longer crash on Supabase `URL!`/`anon_key!` non-null asserts.
+- **Docs sync to v1.0.4 reality**:
+  - `README.md` — tool count 13 → 20, middleware 16 → 15, tests "1200+" → "704", added Panel section + Документация table + Лицензия.
+  - `CLAUDE.md` — Panel state section refreshed (actions migration done; remaining 6 `TODO(v1.0-actions-rewrite)` markers documented).
+
+### Added
+- **`LICENSE`** file (MIT) at repo root — `plugin.json` and `pyproject.toml` declared MIT but no LICENSE file existed. Was the only blocker for public marketplace publish.
+- **`app/server/_stateless_state.py`** — process-wide fallback storage for lifespan-yielded MCP state (used by REST/in-process callers that do not enter MCP's own lifespan).
+- **Surface-redesign-v2 Phase 1 skeleton** (`app/server/surface.py`, 116 LOC) — `ToolTransformConfig` for 10 declarative managers + 2 smoke tests. Phase 1 Tasks 2-10 deferred to subsequent releases. Specs: [`docs/superpowers/specs/2026-04-18-surface-redesign-v2-design.md`](docs/superpowers/specs/2026-04-18-surface-redesign-v2-design.md), [plan](docs/superpowers/plans/2026-04-18-surface-redesign-v2-phase1.md).
+
+### Tests
+- **704 passed** (was 682 at v1.0.4) — +22 regression tests across 4 hardened middleware areas.
+
+### Known follow-ups (panel only, deferred)
+- 6 `TODO(v1.0-actions-rewrite)` markers for composer workflows: `distributeToSubgenres`, `pushSetToYm`, `deliverSet`, `exportSet` (M3U/Rekordbox writers), `scoreTransitions` consecutive-pair filter, transition recommended style/bars.
+- `mixer-actions.ts` exports stubbed (not deleted) — DJ engine simulator removed in Phase 7 cutover (Blueprint §13 D15). Calling `set_eq` / `kill_eq` / `reset_eq` / `set_filter` / `mixer_state` / `mixer_crossfader` throws explicit error pointing at spec; UI button disable still pending.
 
 ## [1.0.4] — 2026-04-20
 
