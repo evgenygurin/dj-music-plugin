@@ -6,6 +6,17 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.0.6] — 2026-04-26
+
+**Hotfix: session:// resources crashed on stateless callers.**
+
+### Fixed
+- `app/resources/session.py:_session_id` — `getattr(ctx, "session_id", None)` triggered the FastMCP v3 property descriptor that raises `RuntimeError` outside an active MCP session, so every read of `session://set-draft`, `session://tool-history`, and `session://energy-trend` returned 500 from REST/in-process callers. Wrapped in try/except so stateless callers fall back to `session_id="anonymous"`. Same pattern as the v1.0.5 sentry/cost/sampling/db_session middleware fixes — this site was missed because it lives in resource code, not middleware.
+- 3 regression tests added in `tests/resources/test_session_id_helper.py` covering stateful / stateless property / missing attribute cases.
+
+### Tests
+- 707 passed (was 704 at v1.0.5).
+
 ## [1.0.5] — 2026-04-26
 
 **Audit pass + Panel v1 rewire + Plugin packaging polish.**

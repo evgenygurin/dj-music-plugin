@@ -30,7 +30,14 @@ _SESSION_ANNOTATIONS = {"readOnlyHint": True, "idempotentHint": False}
 
 
 def _session_id(ctx: Context) -> str:
-    return getattr(ctx, "session_id", None) or "anonymous"
+    # FastMCP v3 makes `session_id` a property that raises RuntimeError
+    # outside an active MCP session (REST/in-process callers). getattr's
+    # default does not shield from property exceptions, so wrap explicitly.
+    try:
+        sid = getattr(ctx, "session_id", None)
+    except (RuntimeError, AttributeError):
+        sid = None
+    return sid or "anonymous"
 
 
 @resource(
