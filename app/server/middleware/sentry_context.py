@@ -33,7 +33,12 @@ class SentryContextMiddleware(Middleware):
             scope.set_tag("mcp.tool", tool_name)
             fctx = getattr(context, "fastmcp_context", None)
             if fctx is not None:
-                scope.set_tag("mcp.session_id", getattr(fctx, "session_id", None))
-                scope.set_tag("mcp.client_id", getattr(fctx, "client_id", None))
-                scope.set_tag("mcp.request_id", getattr(fctx, "request_id", None))
+                for attr in ("session_id", "client_id", "request_id"):
+                    try:
+                        value = getattr(fctx, attr, None)
+                    except (RuntimeError, AttributeError):
+                        # FastMCP v3 raises RuntimeError when these properties
+                        # are accessed outside an active session (e.g. via REST).
+                        value = None
+                    scope.set_tag(f"mcp.{attr}", value)
             return await call_next(context)

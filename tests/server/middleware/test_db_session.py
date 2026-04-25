@@ -73,3 +73,45 @@ async def test_skips_when_no_factory_available() -> None:
     mw = DbSessionMiddleware()
     handler = AsyncMock(return_value="ok")
     assert await mw.on_call_tool(mc, handler) == "ok"
+
+
+@pytest.mark.asyncio
+async def test_uow_reachable_when_session_unavailable() -> None:
+    """REST/in-process: set_state raises RuntimeError; UoW must still reach DI.
+
+    FastMCP's Context has no ``.state`` attribute outside an active session, so
+    the middleware stashes the UoW on a module-level ContextVar (async-task
+    local). DI's get_uow reads it as the third fallback. Without this, tools
+    see "UnitOfWork not initialized" and every call returns 500.
+    """
+    from app.server.middleware.db_session import read_stateless_uow
+
+    session = _FakeSession()
+
+    async def _raises(*_a: object, **_kw: object) -> None:
+        raise RuntimeError("session_id is not available because no session exists")
+
+    fctx = MagicMock()
+    fctx.set_state = _raises
+    fctx.delete_state = _raises
+    fctx.request_context = SimpleNamespace(
+        lifespan_context={"db_session_factory": lambda: session}
+    )
+    msg = MagicMock()
+    msg.name = "entity_aggregate"
+    mc = MiddlewareContext(message=msg, fastmcp_context=fctx)
+
+    mw = DbSessionMiddleware()
+    seen: dict = {}
+
+    async def handler(_c):
+        # Simulates what app/server/di.get_uow does as third fallback.
+        seen["uow"] = read_stateless_uow()
+        return "ok"
+
+    result = await mw.on_call_tool(mc, handler)
+
+    assert result == "ok"
+    assert isinstance(seen["uow"], UnitOfWork)
+    assert session.committed and session.closed
+    assert read_stateless_uow() is None  # ContextVar reset in finally

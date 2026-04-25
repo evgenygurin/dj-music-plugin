@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from fastmcp.server.middleware import MiddlewareContext
@@ -56,3 +56,33 @@ async def test_records_zero_when_nothing_happened() -> None:
         "provider_calls": 0,
         "llm_tokens": 0,
     }
+
+
+@pytest.mark.asyncio
+async def test_skips_when_session_unavailable() -> None:
+    """REST/in-process callers have no MCP session.
+
+    `fctx.set_state(...)` internally builds a key from `session_id` (a property
+    that raises RuntimeError when there is no active session). The middleware
+    must catch this and pass through to call_next without emitting cost tags;
+    otherwise every tool call via REST returns 500.
+    """
+    emitted: list[dict] = []
+    mw = CostTrackingMiddleware(sink=emitted.append)
+
+    async def _raises(*_a: object, **_kw: object) -> None:
+        raise RuntimeError("session_id is not available because no session exists")
+
+    fctx = MagicMock()
+    fctx.set_state = _raises
+    fctx.get_state = _raises
+    msg = MagicMock()
+    msg.name = "entity_aggregate"
+    ctx = MiddlewareContext(message=msg, fastmcp_context=fctx)
+
+    call_next = AsyncMock(return_value="ok")
+    result = await mw.on_call_tool(ctx, call_next)
+
+    assert result == "ok"
+    call_next.assert_awaited_once()
+    assert emitted == []  # no sink event when no session

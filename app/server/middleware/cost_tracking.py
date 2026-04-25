@@ -31,7 +31,13 @@ class CostTrackingMiddleware(Middleware):
         fctx = getattr(context, "fastmcp_context", None)
         if fctx is None:
             return await call_next(context)
-        await fctx.set_state("cost", {"provider_calls": 0, "llm_tokens": 0})
+        try:
+            await fctx.set_state("cost", {"provider_calls": 0, "llm_tokens": 0})
+        except RuntimeError:
+            # Stateless context (REST/in-process): set_state internally builds
+            # a key from session_id, which raises when there is no MCP session.
+            # Cost tracking is per-call observability — silently skip.
+            return await call_next(context)
         try:
             return await call_next(context)
         finally:

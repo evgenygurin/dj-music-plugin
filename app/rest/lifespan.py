@@ -18,9 +18,15 @@ async def rest_lifespan(app: FastAPI) -> AsyncIterator[None]:
     state = ApiRuntimeState()
     app.state.runtime = state
     try:
+        from app.registry.defaults import register_default_entities
+        from app.registry.entity import EntityRegistry
         from app.server.app import build_mcp_server
 
         state.mcp = build_mcp_server()
+        # In-process REST does not enter MCP's own lifespan (db_lifespan),
+        # so the EntityRegistry is never seeded. Seed it here — idempotent.
+        if not EntityRegistry.names():
+            register_default_entities()
         state.mcp_ready = True
         log.info("REST wrapper: MCP ready")
     except Exception as exc:  # pragma: no cover - degraded mode
