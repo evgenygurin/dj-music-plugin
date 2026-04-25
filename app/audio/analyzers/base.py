@@ -74,7 +74,20 @@ class BaseAnalyzer(ABC):
                 features=features,
                 elapsed_s=time.perf_counter() - start,
             )
-        except Exception as e:
+        except (
+            ValueError,
+            RuntimeError,
+            ImportError,
+            ArithmeticError,
+            AssertionError,
+        ) as e:
+            # Known compute failures: absorb so a single broken analyzer
+            # cannot abort a full batch. Anything outside this allowlist
+            # (MemoryError, OS-level signals delivered as exceptions,
+            # custom errors) propagates so the pipeline can decide whether
+            # to abort the batch and the operator sees the root cause —
+            # otherwise numba/numpy ABI mismatches and OOM precursors get
+            # buried as "failed analyzer" → wrong subgenre classification.
             logger.warning("Analyzer %s failed: %s", self.name, e)
             return AnalyzerResult(
                 analyzer_name=self.name,

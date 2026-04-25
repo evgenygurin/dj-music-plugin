@@ -9,7 +9,6 @@ Pure domain logic — no DB, no HTTP, no framework imports.
 
 from __future__ import annotations
 
-from app.domain.transition.features import TrackFeatures
 from app.domain.transition.intent import TransitionIntent
 from app.domain.transition.recipe import (
     DjayTransition,
@@ -23,6 +22,7 @@ from app.domain.transition.score import TransitionScore
 from app.domain.transition.section_context import SectionContext
 from app.domain.transition.subgenre_rules import SubgenrePairType, clamp_bars, classify_pair
 from app.shared.constants import TechnoSubgenre
+from app.shared.features import TrackFeatures
 
 # ── Rescue moves per transition type ──
 

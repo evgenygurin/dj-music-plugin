@@ -29,8 +29,14 @@ class Provider(Protocol):
     async def search(self, query: str, type: str, limit: int) -> dict[str, Any]:
         """Search catalog. ``type`` is one of 'tracks' / 'albums' / 'artists' / 'playlists'."""
 
-    async def download_audio(self, track_id: str) -> Path:
-        """Download audio, return local file path."""
+    async def download_audio(self, track_id: str, *, dest: Path | None = None) -> Path:
+        """Download audio, return local file path.
+
+        ``dest`` is optional — adapters that consume it write the file to the
+        given path; adapters that ignore it use their internal download
+        directory. Either way the returned ``Path`` points at the bytes on
+        disk.
+        """
 
     async def close(self) -> None:
         """Release network resources."""

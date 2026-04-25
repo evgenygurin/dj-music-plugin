@@ -7,8 +7,8 @@ from collections.abc import Callable
 from app.domain.optimization.fitness import compute_fitness
 from app.domain.optimization.result import OptimizationResult
 from app.domain.template.models import SetTemplateDefinition
-from app.domain.transition.features import TrackFeatures
 from app.domain.transition.scorer import TransitionScorer
+from app.shared.features import TrackFeatures
 
 
 class GreedyChainBuilder:

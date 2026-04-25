@@ -10,7 +10,6 @@ from __future__ import annotations
 from fastmcp.dependencies import Depends
 from fastmcp.resources import resource
 
-from app.domain.transition.features import TrackFeatures
 from app.domain.transition.scorer import TransitionScorer
 from app.repositories.unit_of_work import UnitOfWork
 from app.resources._shared import ANNOTATIONS_READ_ONLY, RESOURCE_META
@@ -20,6 +19,7 @@ from app.schemas.resource_views import (
 )
 from app.server.di import get_uow
 from app.shared.errors import NotFoundError
+from app.shared.features import TrackFeatures
 
 
 async def _load_features_pair(uow: UnitOfWork, from_id: int, to_id: int) -> tuple[object, object]:

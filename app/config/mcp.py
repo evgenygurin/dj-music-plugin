@@ -31,6 +31,14 @@ class MCPSettings(BaseSettings):
     retry_base_delay_s: float = Field(default=0.5, ge=0.0, le=10.0)
     sampling_budget_per_session: int = Field(default=10, ge=0, le=100)
     sampling_max_per_session: int = Field(default=10, ge=0, le=100)
+    # Stateless callers (REST/in-process, no session_id) all bucket together
+    # — without a separate cap, one heavy caller would exhaust the per-session
+    # bucket and lock out everyone else. Keep this distinct (and larger).
+    sampling_global_cap: int = Field(default=50, ge=0, le=10_000)
+    # Bounds the in-memory map of session -> count. One bucket per session
+    # over a long-running server leaks memory; LRU-cap the dict to drop the
+    # oldest sessions instead.
+    sampling_buckets_max: int = Field(default=1024, ge=16, le=100_000)
     progress_throttle_hz: float = Field(default=1.0, ge=0.1, le=10.0)
     tool_timeout_default_s: float = Field(default=300.0, ge=1.0, le=3600.0)
     # Used by ToolCallTimeoutMiddleware as the fallback when a tool does not

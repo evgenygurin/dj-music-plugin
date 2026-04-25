@@ -6,10 +6,10 @@ from typing import Any
 
 from sqlalchemy import select, update
 
-from app.domain.transition.features import TrackFeatures
 from app.models.track_features import TrackAudioFeaturesComputed
 from app.repositories.base import BaseRepository
 from app.shared.errors import NotFoundError
+from app.shared.features import TrackFeatures
 
 
 class TrackFeaturesRepository(BaseRepository[TrackAudioFeaturesComputed]):

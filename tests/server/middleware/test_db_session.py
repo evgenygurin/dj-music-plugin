@@ -76,6 +76,69 @@ async def test_skips_when_no_factory_available() -> None:
 
 
 @pytest.mark.asyncio
+async def test_factory_misconfig_reraises_not_swallowed(monkeypatch) -> None:
+    """Bad DB URL / missing driver must surface, not silently degrade.
+
+    Self-bootstrap path (PR #125): the middleware previously caught any
+    ``Exception`` from ``get_session_factory()`` and continued without a
+    UoW — tools then fail with a generic "UnitOfWork not initialized"
+    that buries the real cause (settings parse error, bad asyncpg URL,
+    missing driver). Misconfig must fail loudly at first request.
+
+    Only ``ImportError`` (legitimate "extras not installed") is allowed
+    to be swallowed; anything else must propagate.
+    """
+    import app.server.middleware.db_session as mod
+
+    fctx = MagicMock()
+    fctx.request_context = SimpleNamespace(lifespan_context={})
+
+    msg = MagicMock()
+    msg.name = "entity_aggregate"
+    mc = MiddlewareContext(message=msg, fastmcp_context=fctx)
+
+    def _bad_factory():
+        raise RuntimeError("bad DB URL")
+
+    monkeypatch.setattr("app.db.session.get_session_factory", _bad_factory, raising=False)
+
+    mw = mod.DbSessionMiddleware()
+    handler = AsyncMock(return_value="ok")
+
+    with pytest.raises(RuntimeError, match="bad DB URL"):
+        await mw.on_call_tool(mc, handler)
+    handler.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_factory_import_error_swallowed_gracefully(monkeypatch) -> None:
+    """ImportError (extras not installed) is the legitimate degraded case.
+
+    Continue the request (DI will yield "UnitOfWork not initialized" if a
+    tool actually needs one, but the middleware itself does not abort).
+    """
+    import app.server.middleware.db_session as mod
+
+    fctx = MagicMock()
+    fctx.request_context = SimpleNamespace(lifespan_context={})
+
+    msg = MagicMock()
+    msg.name = "entity_aggregate"
+    mc = MiddlewareContext(message=msg, fastmcp_context=fctx)
+
+    def _missing_extra():
+        raise ImportError("asyncpg not installed")
+
+    monkeypatch.setattr("app.db.session.get_session_factory", _missing_extra, raising=False)
+
+    mw = mod.DbSessionMiddleware()
+    handler = AsyncMock(return_value="ok")
+    result = await mw.on_call_tool(mc, handler)
+    assert result == "ok"
+    handler.assert_awaited_once()
+
+
+@pytest.mark.asyncio
 async def test_uow_reachable_when_session_unavailable() -> None:
     """REST/in-process: set_state raises RuntimeError; UoW must still reach DI.
 

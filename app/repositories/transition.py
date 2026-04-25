@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from sqlalchemy import select, tuple_
 
 from app.models.transition import Transition
@@ -22,6 +24,32 @@ class TransitionRepository(BaseRepository[Transition]):
             .limit(1)
         )
         return await self.session.scalar(stmt)  # type: ignore[no-any-return]
+
+    async def upsert(
+        self,
+        *,
+        from_track_id: int,
+        to_track_id: int,
+        **fields: Any,
+    ) -> Transition:
+        """Insert or update the transition row for ``(from_track_id, to_track_id)``.
+
+        Used by ``transition_persist_handler`` so that re-scoring a pair
+        replaces the prior row instead of accumulating duplicates.
+        """
+        existing = await self.get_pair(from_track_id, to_track_id)
+        if existing is None:
+            return await self.create(
+                from_track_id=from_track_id,
+                to_track_id=to_track_id,
+                **fields,
+            )
+        for key, value in fields.items():
+            if hasattr(existing, key):
+                setattr(existing, key, value)
+        await self.session.flush()
+        await self.session.refresh(existing)
+        return existing
 
     async def get_pairs_batch(
         self, pairs: list[tuple[int, int]]

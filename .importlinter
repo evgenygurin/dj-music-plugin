@@ -53,6 +53,12 @@ forbidden_modules =
     httpx
 
 # ── Contract: v2 server composition must not pull domain internals ──
+# Lifespan legitimately instantiates pure-compute domain singletons
+# (GA / Greedy / TransitionScorer) per blueprint §11 and publishes them
+# on ctx.state. Those two import edges are the only sanctioned crossings;
+# everything else (handlers, tools, repos) must still go through app.shared.
+# Future cleanup: extract app/registry/algorithms.py with factories so
+# lifespan only imports from app.registry.* — see blueprint §3 / §11.
 [importlinter:contract:v2-server-no-domain]
 name = app.server may not import app.domain internals
 type = forbidden
@@ -60,6 +66,9 @@ source_modules =
     app.server
 forbidden_modules =
     app.domain
+ignore_imports =
+    app.server.lifespan -> app.domain.optimization
+    app.server.lifespan -> app.domain.transition.scorer
 
 # ── Contract: v2 REST wrapper must be a thin proxy ──────────────────
 # Only DIRECT imports are forbidden — transitive imports via app.server

@@ -43,8 +43,10 @@ def uow() -> MagicMock:
     u.tracks.ensure_external_id = AsyncMock()
     u.yandex_metadata = MagicMock()
     u.yandex_metadata.upsert = AsyncMock()
-    u.playlists = MagicMock()
-    u.playlists.add_track = AsyncMock()
+    # PlaylistRepository exposes ``append_tracks(playlist_id, track_ids)``
+    # — see ``app/repositories/playlist.py``. ``add_track`` does NOT exist.
+    u.playlists = MagicMock(spec=["append_tracks"])
+    u.playlists.append_tracks = AsyncMock(return_value=1)
     return u
 
 
@@ -91,10 +93,13 @@ async def test_import_skips_existing_by_provider_id(
 async def test_import_adds_to_playlist_when_given(
     ctx: MagicMock, uow: MagicMock, registry: MagicMock
 ) -> None:
+    """Regression: handler must call PlaylistRepository.append_tracks (the
+    real method) — not the non-existent ``add_track`` (BUG fix).
+    """
     data = {"source": "yandex", "external_ids": ["12345"], "playlist_id": 7}
     await track_import_handler(ctx, uow, data, registry)
 
-    uow.playlists.add_track.assert_awaited_once_with(playlist_id=7, track_id=1)
+    uow.playlists.append_tracks.assert_awaited_once_with(playlist_id=7, track_ids=[1])
 
 
 @pytest.mark.asyncio

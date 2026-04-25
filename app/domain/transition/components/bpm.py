@@ -10,13 +10,13 @@ from __future__ import annotations
 import math
 
 from app.config import get_settings
-from app.domain.transition.features import TrackFeatures
 from app.domain.transition.math_helpers import bpm_distance
 from app.domain.transition.weights import (
     BPM_CONFIDENCE_PENALTY_FLOOR,
     BPM_GAUSS_SIGMA,
     BPM_STABILITY_FLOOR,
 )
+from app.shared.features import TrackFeatures
 
 
 def score_bpm(from_t: TrackFeatures, to_t: TrackFeatures) -> float:

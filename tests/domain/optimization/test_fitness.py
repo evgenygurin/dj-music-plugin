@@ -5,8 +5,8 @@ from __future__ import annotations
 import pytest
 
 from app.domain.optimization.fitness import compute_fitness
-from app.domain.transition.features import TrackFeatures
 from app.domain.transition.scorer import TransitionScorer
+from app.shared.features import TrackFeatures
 
 
 def _features_map() -> dict[int, TrackFeatures]:

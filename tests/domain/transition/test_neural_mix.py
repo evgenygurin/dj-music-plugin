@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import pytest
 
-from app.domain.transition.features import TrackFeatures
 from app.domain.transition.neural_mix import (
     NEURAL_MIX_STEMS,
     TRANSITION_ENERGY_BIAS,
@@ -19,6 +18,7 @@ from app.domain.transition.neural_mix import (
     score_harmonic_compat,
     score_vocal_compat,
 )
+from app.shared.features import TrackFeatures
 
 
 @pytest.fixture

@@ -41,10 +41,10 @@ from dataclasses import dataclass, field
 from enum import StrEnum
 
 from app.domain.camelot.wheel import camelot_distance
-from app.domain.transition.features import TrackFeatures
 from app.domain.transition.hard_constraints import check_hard_constraints
 from app.domain.transition.math_helpers import bpm_distance, cosine_similarity
 from app.domain.transition.score import TransitionScore
+from app.shared.features import TrackFeatures
 
 
 class NeuralMixStem(StrEnum):

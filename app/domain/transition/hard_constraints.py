@@ -13,9 +13,9 @@ from __future__ import annotations
 
 from app.config import get_settings
 from app.domain.camelot.wheel import camelot_distance
-from app.domain.transition.features import TrackFeatures
 from app.domain.transition.math_helpers import bpm_distance
 from app.domain.transition.score import TransitionScore
+from app.shared.features import TrackFeatures
 
 
 def check_hard_constraints(
