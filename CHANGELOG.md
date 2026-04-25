@@ -6,6 +6,23 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.0.8] — 2026-04-26
+
+**Fix: `read_resource` tool wrapper no longer returns JSON wrapped in an escaped string.**
+
+### Fixed
+- `app/server/json_aware_resources.py` (new) — `JSONAwareResourcesAsTools` replaces FastMCP's stock `ResourcesAsTools` transform. Stock transform's `read_resource` returns `str`, which FastMCP wraps in `structuredContent` as `{"result": "<json-string>"}` — every quote inside the inner JSON gets escaped on the wire (`\"`). The new transform returns a Pydantic `ReadResourceResult{uri, items: [{mime_type, data, encoding}]}` so JSON resources land in `structuredContent` as a parsed nested object. Tool-only clients (Claude Code, etc.) now see clean structured payloads.
+- Workaround for upstream FastMCP 3.2.4 bug: `ResourceTemplate.convert_result` calls `ResourceResult(raw_value)` without forwarding `self.mime_type` ([fastmcp/resources/template.py:469](.venv/lib/python3.12/site-packages/fastmcp/resources/template.py)), so every templated resource (16 of 27 in this codebase) loses its declared `application/json` and arrives as `text/plain`. Heuristic JSON-parse for payloads starting with `{` or `[` recovers the mime type and produces a parsed object; non-JSON text passes through unchanged.
+
+### Added
+- `tests/server/test_json_aware_resources.py` — 8 regression tests: JSON-string, dict-return, plain text, malformed JSON, template mime-loss recovery, JSON-in-text/plain heuristic, base64 binary, schema shape.
+
+### Changed
+- `app/server/transforms.py` — swapped `ResourcesAsTools` → `JSONAwareResourcesAsTools` in `register_post_constructor_transforms`.
+
+### Tests
+- 722 passed (was 714 at v1.0.7) — all 27 resources verified end-to-end via the live MCP plugin.
+
 ## [1.0.7] — 2026-04-26
 
 **Critical hotfix: plugin MCP stdio process crashed on startup.**

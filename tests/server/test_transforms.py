@@ -52,7 +52,7 @@ def test_register_post_constructor_transforms_invokes_prompts_and_resources() ->
     mcp = MagicMock()
     with (
         patch("app.server.transforms.PromptsAsTools") as PAT,
-        patch("app.server.transforms.ResourcesAsTools") as RAT,
+        patch("app.server.transforms.JSONAwareResourcesAsTools") as RAT,
     ):
         register_post_constructor_transforms(mcp)
     PAT.assert_called_once_with(mcp)
@@ -65,7 +65,7 @@ def test_code_mode_disabled_by_default(monkeypatch) -> None:
     mcp = MagicMock()
     with (
         patch("app.server.transforms.PromptsAsTools"),
-        patch("app.server.transforms.ResourcesAsTools"),
+        patch("app.server.transforms.JSONAwareResourcesAsTools"),
         patch("app.server.transforms.CodeMode") as CM,
     ):
         register_post_constructor_transforms(mcp)
@@ -77,7 +77,7 @@ def test_code_mode_enabled_by_flag(monkeypatch) -> None:
     mcp = MagicMock()
     with (
         patch("app.server.transforms.PromptsAsTools"),
-        patch("app.server.transforms.ResourcesAsTools"),
+        patch("app.server.transforms.JSONAwareResourcesAsTools"),
         patch("app.server.transforms.CodeMode") as CM,
     ):
         register_post_constructor_transforms(mcp)
