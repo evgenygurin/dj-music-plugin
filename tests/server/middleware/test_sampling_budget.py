@@ -65,3 +65,30 @@ async def test_attaches_self_to_state() -> None:
     call_next = AsyncMock(return_value="ok")
     await mw.on_call_tool(ctx, call_next)
     assert ctx.fastmcp_context.state["sampling_budget"] is mw
+
+
+@pytest.mark.asyncio
+async def test_passthrough_when_session_unavailable() -> None:
+    """REST/in-process: set_state raises RuntimeError; middleware must not 500.
+
+    Cap-enforcement is best-effort observability; if there is no session we
+    cannot scope a budget anyway. Pass through to call_next.
+    """
+    from unittest.mock import MagicMock
+
+    async def _raises(*_a: object, **_kw: object) -> None:
+        raise RuntimeError("session_id is not available because no session exists")
+
+    state_dict: dict = {}
+    fctx = MagicMock()
+    fctx.state = state_dict
+    fctx.set_state = _raises
+    msg = MagicMock()
+    msg.name = "entity_aggregate"
+    mc = MiddlewareContext(message=msg, fastmcp_context=fctx)
+
+    mw = SamplingBudgetMiddleware(max_samples_per_session=5)
+    call_next = AsyncMock(return_value="ok")
+    result = await mw.on_call_tool(mc, call_next)
+    assert result == "ok"
+    call_next.assert_awaited_once()

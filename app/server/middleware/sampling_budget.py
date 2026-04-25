@@ -30,7 +30,11 @@ class SamplingBudgetMiddleware(Middleware):
     def note_sample(self, ctx: Any) -> None:
         """Called by the sampling handler before dispatching to Anthropic."""
         fctx = ctx.fastmcp_context if hasattr(ctx, "fastmcp_context") else ctx
-        session = getattr(fctx, "session_id", None) or "__global__"
+        try:
+            session = getattr(fctx, "session_id", None) or "__global__"
+        except (RuntimeError, AttributeError):
+            # Stateless context — bucket all stateless calls together.
+            session = "__global__"
         used = self._used.get(session, 0)
         if used >= self.max_samples_per_session:
             raise SamplingBudgetExceeded(
@@ -44,5 +48,12 @@ class SamplingBudgetMiddleware(Middleware):
         call_next: Callable[[MiddlewareContext], Awaitable[Any]],
     ) -> Any:
         if context.fastmcp_context is not None:
-            await context.fastmcp_context.set_state("sampling_budget", self, serializable=False)
+            try:
+                await context.fastmcp_context.set_state(
+                    "sampling_budget", self, serializable=False
+                )
+            except RuntimeError:
+                # Stateless context (REST/in-process): no per-session budget.
+                # Best-effort — pass through.
+                pass
         return await call_next(context)

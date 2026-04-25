@@ -66,7 +66,16 @@ async def _read_slot(ctx: Any, key: str, what: str) -> Any:
 
 async def get_uow(ctx: Any = None) -> UnitOfWork:
     """Return the per-tool-call UnitOfWork set by DbSessionMiddleware."""
-    return await _read_slot(ctx, "uow", "UnitOfWork")
+    try:
+        return await _read_slot(ctx, "uow", "UnitOfWork")
+    except RuntimeError:
+        # Stateless ContextVar fallback (REST/in-process — no MCP session).
+        from app.server.middleware.db_session import read_stateless_uow
+
+        uow = read_stateless_uow()
+        if uow is not None:
+            return uow
+        raise
 
 
 async def get_provider_registry(ctx: Any = None) -> ProviderRegistry:
