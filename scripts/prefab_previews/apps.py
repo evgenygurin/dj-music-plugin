@@ -111,7 +111,7 @@ def _uow_for_set() -> MagicMock:
         _T.title = t["title"]
         return _T
 
-    from app.domain.transition.features import TrackFeatures
+    from app.shared.features import TrackFeatures
 
     def _features(t: dict[str, Any]) -> TrackFeatures:
         # ``TrackFeatures`` now carries every field the audit rules inspect

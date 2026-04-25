@@ -145,6 +145,34 @@ export async function getTrackMixMeta(trackId: number): Promise<TrackMixMeta | n
   const pickNumber = (v: unknown): number | null =>
     typeof v === 'number' && Number.isFinite(v) ? v : null
 
+  // Prefer first_downbeat_ms from features, then beatgrid grid_offset_ms,
+  // then on-the-fly REST fetch as the final fallback. Hoisted out of the
+  // object literal because the network branch needs `await`.
+  let firstDownbeatSec = 0
+  const fromFeatures = pickNumber(features?.first_downbeat_ms)
+  if (fromFeatures != null) {
+    firstDownbeatSec = fromFeatures / 1000
+  } else if (firstDownbeatMs != null) {
+    firstDownbeatSec = firstDownbeatMs / 1000
+  } else {
+    try {
+      const REST_BASE = (process.env.MCP_HTTP_URL ?? 'http://localhost:8000')
+        .replace(/\/+mcp\/?$/, '')
+        .replace(/\/+$/, '')
+      const r = await fetch(`${REST_BASE}/api/audio/downbeat/${trackId}`, {
+        cache: 'no-store',
+        signal: AbortSignal.timeout(10_000),
+      })
+      if (r.ok) {
+        const d = await r.json()
+        const ms = typeof d.first_downbeat_ms === 'number' ? d.first_downbeat_ms : 0
+        firstDownbeatSec = ms / 1000
+      }
+    } catch {
+      /* ignore — fallback to 0 */
+    }
+  }
+
   return {
     trackId,
     durationMs: trackResult.data.duration_ms,
@@ -153,28 +181,7 @@ export async function getTrackMixMeta(trackId: number): Promise<TrackMixMeta | n
     // Both are reliable for techno but the beatgrid is what the
     // downbeat math uses, so use the same source for both.
     bpm: beatgridBpm ?? pickNumber(features?.bpm),
-    // Prefer first_downbeat_ms from features (populated by pipeline beat
-    // detection), then beatgrid grid_offset_ms, then fallback to 0.
-    firstDownbeatSec: (() => {
-      const fromFeatures = pickNumber(features?.first_downbeat_ms)
-      if (fromFeatures != null) return fromFeatures / 1000
-      if (firstDownbeatMs != null) return firstDownbeatMs / 1000
-      // On-the-fly: ask backend to compute and cache
-      try {
-        const REST_BASE = (process.env.MCP_HTTP_URL ?? 'http://localhost:8001')
-          .replace(/\/+mcp\/?$/, '').replace(/\/+$/, '')
-        const r = await fetch(`${REST_BASE}/api/audio/downbeat/${trackId}`, {
-          cache: 'no-store',
-          signal: AbortSignal.timeout(10_000),
-        })
-        if (r.ok) {
-          const d = await r.json()
-          const ms = typeof d.first_downbeat_ms === 'number' ? d.first_downbeat_ms : 0
-          return ms / 1000
-        }
-      } catch { /* ignore — fallback to 0 */ }
-      return 0
-    })(),
+    firstDownbeatSec,
     outroStartSec: outroStart != null ? outroStart / 1000 : null,
     introEndSec: introEnd != null ? introEnd / 1000 : null,
     introStartSec: introStart != null ? introStart / 1000 : null,
