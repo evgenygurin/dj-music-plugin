@@ -77,7 +77,7 @@ async def track_import_handler(
         id_mapping[ext_id] = track_row.id
 
         if playlist_id is not None:
-            await uow.playlists.add_track(playlist_id=playlist_id, track_id=track_row.id)
+            await uow.playlists.append_tracks(playlist_id=playlist_id, track_ids=[track_row.id])
 
         await ctx.report_progress(progress=i + 1, total=total)
 

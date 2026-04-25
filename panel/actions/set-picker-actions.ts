@@ -1,6 +1,5 @@
 'use server'
 
-import { callTool } from '@/lib/mcp-client'
 import { createClient } from '@/lib/supabase/server'
 import {
   BACKEND_CANDIDATES_TOP_N,
@@ -17,6 +16,7 @@ import type {
   ScoredCandidate,
   SetTemplate,
 } from '@/lib/set-narrative/types'
+import { scoreTransitionCandidates } from '@/actions/transition-actions'
 
 export interface PickerInput {
   currentTrackId: number
@@ -25,11 +25,6 @@ export interface PickerInput {
   totalDurationSec: number
   history: HistoryEntry[]
   varietyTier: 0 | 1 | 2
-}
-
-interface RawTransitionCandidate {
-  to_track_id: number
-  overall_quality: number
 }
 
 interface CandidateFeatures {
@@ -52,17 +47,17 @@ export async function pickNextSetTrack(
   )
   const alpha = getAlpha(current.slot, current.positionInSlot)
 
-  // 2. Ask backend TransitionScorer for top-N candidates from current track
-  const scoreResult = await callTool('score_transitions', {
-    mode: 'track_candidates',
-    track_id: input.currentTrackId,
-    top_n: BACKEND_CANDIDATES_TOP_N,
-  })
-  const sc = scoreResult?.structured_content as
-    | { candidates?: RawTransitionCandidate[]; transitions?: RawTransitionCandidate[] }
-    | undefined
-  const rawList = sc?.candidates ?? sc?.transitions ?? []
-  if (rawList.length === 0) return []
+  // 2. Ask backend TransitionScorer for top-N candidates from current track.
+  //
+  // v1.0 mapping: legacy `score_transitions(mode="track_candidates")` was
+  // a server-side helper. We now compose the same thing client-side via
+  // `scoreTransitionCandidates` (transition-actions.ts), which prunes by
+  // BPM and runs `transition_score_pool`.
+  const rawList = await scoreTransitionCandidates(
+    input.currentTrackId,
+    BACKEND_CANDIDATES_TOP_N,
+  )
+  if (!rawList || rawList.length === 0) return []
 
   // 3. Fetch features + artist ids for candidate tracks in one query
   const trackIds = rawList.map((c) => c.to_track_id)

@@ -59,9 +59,23 @@ class DbSessionMiddleware(Middleware):
                 from app.db.session import get_session_factory
 
                 factory = get_session_factory()
-            except Exception:
+            except ImportError:
+                # Legitimate degraded mode: optional DB extras not installed.
+                # Continue without a UoW; DI will surface
+                # "UnitOfWork not initialized" only if a tool actually needs it.
                 log.warning("could not bootstrap db_session_factory; UoW DI will fail")
                 return await call_next(context)
+            except Exception:
+                # Misconfig (bad DB URL, missing driver, settings parse error,
+                # etc.). Failing loudly here yields the real root cause —
+                # silently degrading buries it under a generic "UnitOfWork not
+                # initialized" from DI on every subsequent tool call.
+                log.error(
+                    "failed to bootstrap db_session_factory; misconfig — "
+                    "re-raising so the root cause is visible",
+                    exc_info=True,
+                )
+                raise
 
         session = factory()
         uow = UnitOfWork(session)

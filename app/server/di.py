@@ -107,6 +107,12 @@ def _read_lifespan(ctx: Any, key: str, what: str) -> Any:
     lc = getattr(rc, "lifespan_context", None) if rc is not None else None
     value = lc.get(key) if isinstance(lc, dict) else None
     if value is None:
+        # REST/in-process fallback — REST lifespan populates this store
+        # because it does not enter MCP's own lifespan.
+        from app.server._stateless_state import get_state
+
+        value = get_state(key)
+    if value is None:
         raise RuntimeError(f"{what} not initialized — check scoring_lifespan composition")
     return value
 

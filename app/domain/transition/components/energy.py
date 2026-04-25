@@ -10,11 +10,11 @@ from __future__ import annotations
 import math
 
 from app.config import get_settings
-from app.domain.transition.features import TrackFeatures
 from app.domain.transition.weights import (
     ENERGY_PREFERRED_RISE_LUFS,
     ENERGY_SIGMOID_DIVISOR,
 )
+from app.shared.features import TrackFeatures
 
 
 def score_energy(from_t: TrackFeatures, to_t: TrackFeatures) -> float:

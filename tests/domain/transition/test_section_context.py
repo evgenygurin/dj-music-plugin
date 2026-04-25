@@ -9,12 +9,12 @@ from __future__ import annotations
 
 from app.domain.transition import SectionContext, TransitionScorer
 from app.domain.transition.components.harmonic import score_harmonic
-from app.domain.transition.features import TrackFeatures
 from app.domain.transition.weights import (
     DRUM_ONLY_HARMONIC_FLOOR,
     DRUM_ONLY_WEIGHT_OVERRIDE,
 )
 from app.shared.constants import SectionType
+from app.shared.features import TrackFeatures
 
 # ── SectionContext invariants ────────────────────────────────────────
 

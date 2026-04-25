@@ -55,6 +55,47 @@ async def test_download_single_track(
     uow.audio_files.create.assert_awaited_once()
 
 
+def test_provider_protocol_download_audio_accepts_dest_kwarg() -> None:
+    """Regression: the ``Provider.download_audio`` signature MUST accept a
+    ``dest`` keyword argument so the handler's call site type-checks (mypy
+    [call-arg] error) and so concrete adapters like YandexAdapter that
+    consume ``dest`` are protocol-compatible.
+    """
+    import inspect
+
+    from app.registry.provider import Provider
+
+    sig = inspect.signature(Provider.download_audio)
+    assert "dest" in sig.parameters, (
+        "Provider.download_audio must accept a 'dest' keyword for handler "
+        "callers that pre-compute the target filename."
+    )
+
+
+@pytest.mark.asyncio
+async def test_handler_passes_dest_kwarg_to_provider(
+    ctx: MagicMock, uow: MagicMock, tmp_path: Path
+) -> None:
+    """Runtime regression: the handler must actually forward ``dest`` to the
+    provider so concrete adapters can honour the caller's filename choice.
+    """
+    target = tmp_path / "out.mp3"
+    target.write_bytes(b"\x00" * 1024)
+
+    provider = AsyncMock()
+    provider.download_audio.return_value = target
+
+    registry = MagicMock()
+    registry.get.return_value = provider
+    uow.tracks.get.return_value = MagicMock(id=1, title="X")
+
+    data = {"track_ids": [1], "source": "yandex", "target_dir": str(tmp_path)}
+    await audio_file_download_handler(ctx, uow, data, registry)
+
+    call = provider.download_audio.await_args
+    assert "dest" in call.kwargs, "handler must forward a 'dest' kwarg"
+
+
 @pytest.mark.asyncio
 async def test_skips_existing_library_item(
     ctx: MagicMock, uow: MagicMock, registry: MagicMock, tmp_path: Path

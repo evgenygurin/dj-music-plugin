@@ -7,7 +7,6 @@ blended with Tonnetz cosine similarity for a continuous estimate.
 from __future__ import annotations
 
 from app.domain.camelot.wheel import camelot_distance
-from app.domain.transition.features import TrackFeatures
 from app.domain.transition.math_helpers import cosine_similarity
 from app.domain.transition.section_context import SectionContext
 from app.domain.transition.weights import (
@@ -20,6 +19,7 @@ from app.domain.transition.weights import (
     KEY_CONFIDENCE_BLEND_THRESHOLD,
     TONNETZ_BLEND,
 )
+from app.shared.features import TrackFeatures
 
 
 def score_harmonic(

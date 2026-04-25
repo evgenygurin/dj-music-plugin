@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 from app.domain.optimization import GeneticAlgorithm
-from app.domain.transition.features import TrackFeatures
 from app.domain.transition.scorer import TransitionScorer
+from app.shared.features import TrackFeatures
 
 
 def test_ga_returns_permutation() -> None:

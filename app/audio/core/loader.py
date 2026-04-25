@@ -9,11 +9,14 @@ Zero app/ dependencies — target_sr passed as constructor parameter.
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 
 import numpy as np
 
 from app.audio.core.types import AudioSignal
+
+log = logging.getLogger(__name__)
 
 
 class AudioLoader:
@@ -55,22 +58,59 @@ class AudioLoader:
         """Read audio file using fallback chain.
 
         Returns (mono_samples_float32, original_sample_rate).
+
+        Exception policy: only ``ImportError`` (the optional extra is
+        not installed) lets us silently fall through to the next
+        backend. Library-specific decode failures
+        (``soundfile.LibsndfileError``,
+        ``librosa.util.exceptions.ParameterError``) are wrapped into a
+        clear ``RuntimeError("audio decode failed: …")`` — the previous
+        ``except Exception: pass`` over both backends made a corrupt
+        MP3 fall through to ``wave.open`` which then crashed with the
+        cryptic ``wave.Error("file does not start with RIFF id")``,
+        burying the real codec / numpy ABI / libsndfile error.
         """
+        sf_module = None
         try:
             import soundfile as sf
 
-            samples, file_sr = sf.read(str(path), dtype="float32", always_2d=True)
-            return samples.mean(axis=1), file_sr
-        except Exception:
+            sf_module = sf
+        except ImportError:
             pass
 
+        if sf_module is not None:
+            try:
+                samples, file_sr = sf_module.read(str(path), dtype="float32", always_2d=True)
+                return samples.mean(axis=1), file_sr
+            except sf_module.LibsndfileError as e:
+                # libsndfile recognised the file but could not decode it
+                # (corrupt MP3, unknown subtype, missing codec). Surface
+                # the real error rather than masking it with a fall-
+                # through to ``wave.open``.
+                log.warning("soundfile decode failed for %s: %s", path, e)
+                msg = f"audio decode failed: {e}"
+                raise RuntimeError(msg) from e
+            except RuntimeError:
+                # soundfile may raise generic RuntimeError on truly
+                # broken inputs — re-raise so it is not swallowed.
+                raise
+
+        librosa_module = None
         try:
             import librosa
 
-            samples, file_sr = librosa.load(str(path), sr=None, mono=True)
-            return samples, int(file_sr)
-        except Exception:
+            librosa_module = librosa
+        except ImportError:
             pass
+
+        if librosa_module is not None:
+            try:
+                samples, file_sr = librosa_module.load(str(path), sr=None, mono=True)
+                return samples, int(file_sr)
+            except librosa_module.util.exceptions.ParameterError as e:
+                log.warning("librosa decode failed for %s: %s", path, e)
+                msg = f"audio decode failed: {e}"
+                raise RuntimeError(msg) from e
 
         import wave
 

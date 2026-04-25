@@ -7,7 +7,6 @@ by their per-feature weights.
 
 from __future__ import annotations
 
-from app.domain.transition.features import TrackFeatures
 from app.domain.transition.weights import (
     TIMBRAL_DANCEABILITY_NORM,
     TIMBRAL_DYNAMIC_COMPLEXITY_NORM,
@@ -15,6 +14,7 @@ from app.domain.transition.weights import (
     TIMBRAL_SPECTRAL_CONTRAST_NORM,
     TIMBRAL_SUB_WEIGHTS,
 )
+from app.shared.features import TrackFeatures
 
 
 def score_timbral(from_t: TrackFeatures, to_t: TrackFeatures) -> float:

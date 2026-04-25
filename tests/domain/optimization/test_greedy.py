@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 from app.domain.optimization import GreedyChainBuilder
-from app.domain.transition.features import TrackFeatures
 from app.domain.transition.scorer import TransitionScorer
+from app.shared.features import TrackFeatures
 
 
 def _feats(bpms: tuple[float, ...]) -> list[TrackFeatures]:

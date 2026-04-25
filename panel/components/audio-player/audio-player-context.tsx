@@ -1541,7 +1541,7 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
             try {
               const outMeta = activeMeta
               const inMeta = resolvedIncomingMeta
-              console.info('[TRANSITION]', JSON.stringify({
+              const transitionLog = {
                 from: { id: outgoingTrack?.id, title: outgoingTrack?.title, bpm: outMeta?.bpm, key: outgoingTrack?.camelot },
                 to: { id: track.id, title: track.title, bpm: inMeta?.bpm, key: track.camelot },
                 style: resolvedStyle,
@@ -1558,7 +1558,8 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
                 setPosition: historyRef.current.length,
                 targetEnergy: Math.round(targetEnergy(Math.min(1, historyRef.current.length / 15)) * 100) / 100,
                 trackEnergy: track.mood ? (MOOD_ENERGY[track.mood] ?? null) : null,
-              }))
+              }
+              console.info('[TRANSITION]', JSON.stringify(transitionLog))
               // Persist to transition_history DB (fire-and-forget, non-blocking)
               import('@/actions/transition-log-actions').then(mod => {
                 void mod.logTransition(transitionLog)

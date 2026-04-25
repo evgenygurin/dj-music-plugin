@@ -38,27 +38,92 @@ export interface PairScoreResult {
   recommendedBars: number | null
 }
 
+const CANDIDATE_POOL_BPM_RADIUS = 8
+const CANDIDATE_POOL_MAX = 200
+
 /**
- * Asks the backend's TransitionScorer for the best matching next tracks.
- * Returns null when scoring is unavailable (track lacks audio features) so
- * the caller can fall back to the lightweight client-side heuristic.
+ * Score the best matching next tracks for a given source track.
+ *
+ * v1.0 mapping: legacy `score_transitions(mode="track_candidates",
+ * track_id, top_n)` is decomposed into:
+ *   1. Read source BPM via Supabase + pull `CANDIDATE_POOL_MAX` candidates
+ *      with BPM within ±`CANDIDATE_POOL_BPM_RADIUS` (the v1 `transition_
+ *      score_pool` caps at 500; this prunes early so we stay well under).
+ *   2. `transition_score_pool(track_ids=[source, ...candidates])` — returns
+ *      N*(N-1) directed pairs, including the (source → candidate) ones we
+ *      need.
+ *   3. Filter to pairs where `a == sourceId`, sort by overall desc, slice
+ *      top-N.
+ *
+ * Returns null when the source has no audio features (cannot prune the
+ * pool by BPM) so the caller can fall back to the lightweight client-side
+ * heuristic.
  */
 export async function scoreTransitionCandidates(
   fromTrackId: number,
   topN: number = 20,
 ): Promise<TransitionCandidate[] | null> {
   try {
-    const result = await callTool('score_transitions', {
-      mode: 'track_candidates',
-      track_id: fromTrackId,
-      top_n: topN,
-    })
-    const sc = result?.structured_content as
-      | { candidates?: TransitionCandidate[]; transitions?: TransitionCandidate[] }
-      | undefined
-    const list = sc?.candidates ?? sc?.transitions ?? null
-    if (!list || !Array.isArray(list)) return null
-    return await hydrateTransitionCandidates(list as TransitionCandidate[])
+    const supabase = await createClient()
+
+    // 1. Source BPM (needed to prune the candidate pool).
+    const { data: srcFeat } = await supabase
+      .from('track_audio_features_computed')
+      .select('bpm')
+      .eq('track_id', fromTrackId)
+      .single()
+    const srcBpm = srcFeat?.bpm
+    if (typeof srcBpm !== 'number') return null
+
+    // 2. Pull a BPM-pruned candidate pool.
+    const { data: poolRows } = await supabase
+      .from('track_audio_features_computed')
+      .select('track_id, bpm')
+      .gte('bpm', srcBpm - CANDIDATE_POOL_BPM_RADIUS)
+      .lte('bpm', srcBpm + CANDIDATE_POOL_BPM_RADIUS)
+      .neq('track_id', fromTrackId)
+      .not('bpm', 'is', null)
+      .limit(CANDIDATE_POOL_MAX)
+    if (!poolRows || poolRows.length === 0) return []
+
+    const candidateIds = poolRows.map(
+      (r: { track_id: number }) => r.track_id,
+    )
+    const trackIds = [fromTrackId, ...candidateIds]
+
+    // 3. Score N*(N-1) pairs, then keep only (source → candidate) edges.
+    const result = await callTool('transition_score_pool', { track_ids: trackIds })
+    if (result.is_error || !result.structured_content) return null
+    const sc = result.structured_content as {
+      pairs?: Array<{
+        a: number
+        b: number
+        overall: number
+        bpm: number
+        harmonic: number
+        energy: number
+        spectral: number
+        groove: number
+        timbral: number
+      }>
+    }
+    const pairs = sc.pairs ?? []
+    const fromSource = pairs
+      .filter((p) => p.a === fromTrackId)
+      .map(
+        (p): TransitionCandidate => ({
+          to_track_id: p.b,
+          overall_quality: p.overall,
+          bpm_distance: null,
+          energy_step: null,
+          groove_similarity: p.groove,
+          key_distance_weighted: null,
+        }),
+      )
+      .sort((x, y) => y.overall_quality - x.overall_quality)
+      .slice(0, topN)
+
+    return await hydrateTransitionCandidates(fromSource)
   } catch {
     return null
   }
@@ -66,46 +131,85 @@ export async function scoreTransitionCandidates(
 
 /**
  * Score a single (from, to) pair and return the recommended transition
- * style + bar count. Used by the audio engine to pick crossfade length
- * dynamically instead of relying on the fixed `crossfadeBars` slider.
+ * style + bar count.
  *
- * Returns null when scoring is unavailable (missing features, MCP
- * error). Callers should fall back to their default crossfade.
+ * v1.0 mapping: legacy `score_transitions(mode="pair", from_track_id,
+ * to_track_id)` → `read_resource(uri="local://transition/{from}/{to}/score")`.
+ *
+ * Note: the v1 transition resource does NOT include `recommended_style` /
+ * `recommended_bars` — those were a legacy add-on. The audio engine
+ * receives `recommendedStyle: null` here and falls back to its default
+ * crossfade style (manual chip / `fade`).
+ *
+ * TODO(v1.0-actions-rewrite): expose `recommend_style` from the backend
+ * (it lives in `app.domain.transition.style:recommend_style`) — either
+ * via a tool extension or by extending the local://transition resource
+ * payload.
  */
 export async function getTransitionStyle(
   fromTrackId: number,
   toTrackId: number,
 ): Promise<PairScoreResult | null> {
   try {
-    const result = await callTool('score_transitions', {
-      mode: 'pair',
-      from_track_id: fromTrackId,
-      to_track_id: toTrackId,
+    const result = await callTool('read_resource', {
+      uri: `local://transition/${fromTrackId}/${toTrackId}/score`,
     })
-    const sc = result?.structured_content as
-      | {
-          from_track_id?: number
-          to_track_id?: number
-          overall_quality?: number | null
-          hard_reject?: boolean
-          reject_reason?: string | null
-          recommended_style?: string | null
-          recommended_bars?: number | null
-        }
-      | undefined
-    if (!sc || sc.overall_quality == null) return null
+    if (result.is_error) return null
+    const sc = extractTransitionScore(result.structured_content, result.content)
+    if (!sc) return null
+    if (sc.overall == null) return null
     return {
       fromTrackId: sc.from_track_id ?? fromTrackId,
       toTrackId: sc.to_track_id ?? toTrackId,
-      overall: sc.overall_quality ?? null,
+      overall: sc.overall ?? null,
       hardReject: sc.hard_reject ?? false,
       rejectReason: sc.reject_reason ?? null,
-      recommendedStyle: (sc.recommended_style ?? null) as TransitionStyle | null,
-      recommendedBars: sc.recommended_bars ?? null,
+      // v1 transition resource does not carry style — engine uses default.
+      recommendedStyle: null,
+      recommendedBars: null,
     }
   } catch {
     return null
   }
+}
+
+interface RawTransitionScorePayload {
+  from_track_id?: number
+  to_track_id?: number
+  overall?: number | null
+  hard_reject?: boolean
+  reject_reason?: string | null
+}
+
+function extractTransitionScore(
+  structured: Record<string, unknown> | null,
+  content: Array<{ type: string; text?: string }>,
+): RawTransitionScorePayload | null {
+  if (structured) {
+    const direct = structured as RawTransitionScorePayload
+    if ('overall' in direct || 'from_track_id' in direct) return direct
+    const wrapped = structured as Record<string, unknown>
+    const result = wrapped.result as RawTransitionScorePayload | undefined
+    if (result) return result
+    const contents = wrapped.contents as Array<{ text?: string }> | undefined
+    if (Array.isArray(contents) && contents[0]?.text) {
+      try {
+        return JSON.parse(contents[0].text) as RawTransitionScorePayload
+      } catch {
+        // fall through
+      }
+    }
+  }
+  for (const item of content) {
+    if (item.type === 'text' && item.text) {
+      try {
+        return JSON.parse(item.text) as RawTransitionScorePayload
+      } catch {
+        // try next
+      }
+    }
+  }
+  return null
 }
 
 interface RawTrackRow {

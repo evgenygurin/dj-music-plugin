@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from app.config import get_settings
-from app.domain.transition.features import TrackFeatures
+from app.shared.features import TrackFeatures
 
 settings = get_settings().transition
 from app.domain.transition.hard_constraints import check_hard_constraints

@@ -12,7 +12,7 @@ from __future__ import annotations
 import pytest
 
 from app.domain.transition.components.energy import score_energy
-from app.domain.transition.features import TrackFeatures
+from app.shared.features import TrackFeatures
 
 
 def _f(lufs: float) -> TrackFeatures:

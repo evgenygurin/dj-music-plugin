@@ -1,6 +1,11 @@
 """TrackFeatures dataclass — minimal feature set for transition scoring.
 
-Lives in core layer so repositories can import it without depending on services.
+Lives in ``app.shared`` (leaf layer) so both repositories and pure-compute
+``app.domain`` modules can import it without crossing layer boundaries.
+Repositories must not import from ``app.domain`` (forbidden transitively
+by import-linter contract ``v2-server-no-domain`` via the
+``app.server → app.repositories`` path), so this DTO must live below the
+domain layer.
 """
 
 from __future__ import annotations

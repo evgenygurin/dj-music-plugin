@@ -9,7 +9,7 @@ if TYPE_CHECKING:
 
     from app.domain.optimization.result import OptimizationResult
     from app.domain.template.models import SetTemplateDefinition
-    from app.domain.transition.features import TrackFeatures
+    from app.shared.features import TrackFeatures
 
 
 class OptimizerStrategy(Protocol):

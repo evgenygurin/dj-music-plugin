@@ -8,10 +8,10 @@ from __future__ import annotations
 import math
 
 from app.domain.template.models import SetTemplateDefinition
-from app.domain.transition.features import TrackFeatures
 from app.domain.transition.intent import infer_intent
 from app.domain.transition.scorer import TransitionScorer
 from app.shared.constants import SetTemplate
+from app.shared.features import TrackFeatures
 
 _FITNESS_WEIGHTS = {
     "transition": 0.35,

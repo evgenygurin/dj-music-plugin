@@ -1,11 +1,11 @@
 """Tests for TransitionRecipeEngine decision tree."""
 
-from app.domain.transition.features import TrackFeatures
 from app.domain.transition.recipe import DjayTransition, TransitionType
 from app.domain.transition.recipe_engine import TransitionRecipeEngine
 from app.domain.transition.score import TransitionScore
 from app.domain.transition.section_context import SectionContext
 from app.shared.constants import SectionType, TechnoSubgenre
+from app.shared.features import TrackFeatures
 
 engine = TransitionRecipeEngine()
 

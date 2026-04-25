@@ -106,15 +106,18 @@ async def playlist_sync(
 
     else:  # diff
         known_remote = {str(t.get("id")) for t in remote_tracks}
+        local_ext_ids: set[str] = set()
         for tid in local_track_ids:
             ext = await uow.tracks.get_provider_id(tid, source)
             if ext is None:
                 conflicts.append({"track_id": tid, "reason": "no provider id"})
                 continue
+            local_ext_ids.add(ext)
             if ext not in known_remote:
                 applied.append({"op": "local_only", "track_id": tid, "external_id": ext})
-        for ext in remote_ext_ids:
-            applied.append({"op": "remote_has", "external_id": ext})
+        for ext_id in remote_ext_ids:
+            if ext_id not in local_ext_ids:
+                applied.append({"op": "remote_only", "ext_id": ext_id})
 
     return PlaylistSyncResult(
         playlist_id=playlist_id,

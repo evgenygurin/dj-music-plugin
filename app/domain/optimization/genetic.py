@@ -9,8 +9,8 @@ from app.config import get_settings
 from app.domain.optimization.fitness import compute_fitness
 from app.domain.optimization.result import OptimizationResult
 from app.domain.template.models import SetTemplateDefinition
-from app.domain.transition.features import TrackFeatures
 from app.domain.transition.scorer import TransitionScorer
+from app.shared.features import TrackFeatures
 
 
 class GeneticAlgorithm:

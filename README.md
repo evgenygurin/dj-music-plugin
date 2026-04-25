@@ -1,11 +1,13 @@
 # DJ Music Plugin
 
-MCP-сервер для управления личной DJ techno библиотекой, построения оптимизированных DJ сетов и интеграции с Яндекс Музыкой.
+**v1.0.5** · MIT · MCP-сервер для управления личной DJ techno библиотекой, построения оптимизированных DJ сетов и интеграции с Яндекс Музыкой.
+
+Три surface'а на одном backend'е: **MCP** (Claude Desktop / Cursor / любой MCP-client), **REST API** (FastAPI обёртка для скриптов), **Web Panel** (Next.js dashboard).
 
 ## Возможности
 
-- **13 MCP tool dispatchers** (v1 polymorphism): `entity_{list,get,create,update,delete,aggregate}` × 11 registered entities, `provider_{read,write,search}` × Yandex, `transition_score_pool`, `sequence_optimize`, `playlist_sync`, `unlock_namespace`
-- **27 MCP resources** — per-entity views, session state, schema introspection, static reference blobs
+- **20 MCP tools** — 13 generic dispatchers (v1 polymorphism: `entity_{list,get,create,update,delete,aggregate}` × 11 entities, `provider_{read,write,search}` × Yandex, `transition_score_pool`, `sequence_optimize`, `playlist_sync`, `unlock_namespace`) + 6 UI Prefab dashboards (camelot wheel, library audit/dashboard, set view, transition score, score-pool matrix) + `tool_invoke`
+- **27 MCP resources** — per-entity views (`local://`), session state (`session://`), schema introspection (`schema://`), static reference blobs (`reference://`)
 - **6 workflow prompts** — `dj_expert_session`, `build_set_workflow`, `deliver_set_workflow`, `expand_playlist_workflow`, `full_pipeline`, `quick_mix_check`
 - **Audio analysis pipeline** — 18 анализаторов (L1→L4 tiered), SharedMemory transport + per-worker AnalysisContext cache
 - **DJ set generation** — генетический алгоритм + greedy builder с transition scoring и section-aware весами
@@ -13,7 +15,8 @@ MCP-сервер для управления личной DJ techno библио
 - **Yandex Music интеграция** — `provider_search` / `provider_read` / `provider_write` (playlist add/remove/create/rename/delete/set_description, likes add/remove)
 - **Экспорт** — M3U8, Rekordbox XML, JSON guide, cheat sheet (через `local://sets/{id}/cheatsheet` + `deliver_set_workflow` prompt)
 - **Mood classification** — 15 techno subgenres, запускается внутри `track_features_analyze` handler
-- **REST API** (`app/rest/`) — thin FastAPI wrapper поверх MCP для Panel
+- **REST API** (`app/rest/`) — thin FastAPI wrapper поверх MCP для Panel и скриптов
+- **Web Panel** (`panel/`) — Next.js 16 + shadcn/ui дашборд: library, playlists, sets, discover, аналитика. Подробности в [docs/panel-guide.md](docs/panel-guide.md)
 
 ## Быстрый старт
 
@@ -63,19 +66,20 @@ claude plugin marketplace add https://github.com/evgenygurin/dj-music-plugin.git
 
 | Сервер | Назначение |
 |--------|------------|
-| `mcp` | 13 DJ tool dispatchers + 27 resources + 6 prompts — построение сетов, аудиоанализ, YM, экспорт (FastMCP v3) |
+| `mcp` | 20 DJ tools + 27 resources + 6 prompts — построение сетов, аудиоанализ, YM, экспорт (FastMCP v3) |
 | `db` | Read-only инспекция БД: схема, SQL, миграции, логи |
 
 Сервер `db` принудительно изолирован (security hardening по [официальным рекомендациям Supabase MCP](https://github.com/supabase-community/supabase-mcp#security-risks)):
 
 - `--read-only` — мутации БД блокируются (выполняются через `mcp`)
-- `--project-ref=bowosphlnghhgaulcyfm` — scoped к одному проекту
+- `--project-ref=${DJ_DB_PROJECT_REF}` — scoped к одному проекту (env-driven для marketplace-portability)
 - `--features=database,docs,debug` — surface ограничен: SQL, схема, миграции, логи. Account/branches/storage/edge-functions tools отключены
 
-Конфигурация токена — в [.env](.env.example):
+Конфигурация в [.env](.env.example):
 
 ```bash
-DJ_DB_ACCESS_TOKEN="..."   # personal access token
+DJ_DB_ACCESS_TOKEN="sbp_..."         # personal access token
+DJ_DB_PROJECT_REF="your_project_ref" # из URL Supabase Dashboard
 ```
 
 > Реализация — `@supabase/mcp-server-supabase@0.7.0` (запускается через `npx`). Токен генерится в [Supabase Dashboard](https://supabase.com/dashboard/account/tokens).
@@ -89,15 +93,31 @@ DJ_DB_ACCESS_TOKEN="..."   # personal access token
 ## Разработка
 
 ```bash
-uv run pytest -v                           # Тесты (1200+)
+uv run pytest -q                           # Тесты (704 passed)
 uv run ruff check && uv run ruff format --check  # Линтер
-uv run mypy app/                           # Типы
+uv run mypy app/                           # Типы (есть pre-existing tech debt)
+uv run lint-imports                        # Архитектурные контракты (5/5)
 uv run alembic upgrade head                # Миграции
-make check                                 # Всё вместе
+make check                                 # Всё вместе (lint + typecheck + arch + test)
 
 # Верификация audio pipeline на реальном MP3
 uv run python scripts/verify_audio_pipeline.py [path/to/track.mp3]
 ```
+
+### Panel (Next.js)
+
+```bash
+cd panel
+cp .env.example .env.local                 # Заполни SUPABASE_URL / ANON_KEY / MCP_HTTP_URL
+bun install
+bun dev                                    # http://localhost:3000
+
+# Проверка перед PR
+bunx tsc --noEmit                          # Типизация
+bun run build                              # Production build
+```
+
+Backend на `:8000` запускается параллельно через [start.sh](start.sh) или вручную: `uv run --extra http uvicorn app.rest.app:api --port 8000`.
 
 ## Архитектура
 
@@ -162,7 +182,7 @@ pipeline.py, level_config.py, temp_download.py, timeseries.py
 - **Eager context**: STFT/magnitude/freqs computed once, shared read-only — thread-safe
 - **SharedMemory transport** + per-worker `AnalysisContext` LRU — эффективный ProcessPool path
 
-**Server middleware (16 слоёв):** error handling, Sentry, OTEL, timing, audit log, retry, response limit/caching, deprecation, cost tracking, sampling budget, progress throttle, tool timeout, provider rate limit, DB session, structured logging.
+**Server middleware (15 слоёв):** domain error → ToolError, Sentry context, FastMCP timing, audit log, retry, response limit/caching, deprecation, cost tracking, sampling budget, progress throttle, tool timeout, provider rate limit, DB session (UoW), structured logging.
 
 Архитектурный блюпринт v1: [docs/superpowers/specs/2026-04-17-architecture-blueprint-design.md](docs/superpowers/specs/2026-04-17-architecture-blueprint-design.md)
 
@@ -203,4 +223,23 @@ entity_create("track",...)  → entity_create("audio_file",...)  → entity_crea
 - Python 3.12+
 - uv (менеджер пакетов)
 - Supabase PostgreSQL 16+ (prod), SQLite in-memory (tests only)
+- Bun (для Panel, опционально)
 - Опционально: librosa (audio analysis), demucs (stem separation), fastmcp[tasks] (background tasks)
+
+## Документация
+
+| Тема | Документ |
+|---|---|
+| Архитектурный блюпринт v1 | [docs/superpowers/specs/2026-04-17-architecture-blueprint-design.md](docs/superpowers/specs/2026-04-17-architecture-blueprint-design.md) |
+| Bounded contexts + data flow | [docs/architecture.md](docs/architecture.md) |
+| MCP tool catalog (20 tools, 27 resources, 6 prompts) | [docs/tool-catalog.md](docs/tool-catalog.md) |
+| Audio analysis pipeline L1→L4 | [docs/audio-pipeline.md](docs/audio-pipeline.md) |
+| Transition scoring (6-component formula) | [docs/transition-scoring.md](docs/transition-scoring.md) |
+| Yandex Music API quirks | [docs/ym-api-guide.md](docs/ym-api-guide.md) |
+| DJ-терминология (BPM, Camelot, LUFS, subgenres) | [docs/domain-glossary.md](docs/domain-glossary.md) |
+| Panel — пути данных, components, env | [docs/panel-guide.md](docs/panel-guide.md) |
+| Continuous L5 sweep на VM | [docs/vm-deployment.md](docs/vm-deployment.md) |
+
+## Лицензия
+
+[MIT](LICENSE) © Evgeny Gurin

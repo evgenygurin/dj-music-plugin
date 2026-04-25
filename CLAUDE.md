@@ -4,7 +4,7 @@
 
 MCP-сервер для управления DJ techno библиотекой, построения оптимизированных сетов и интеграции с Яндекс Музыкой. Включает Next.js панель для мониторинга.
 
-**Текущая версия:** v1.0.4 (детальная история — [CHANGELOG.md](CHANGELOG.md)).
+**Текущая версия:** v1.0.5 (детальная история — [CHANGELOG.md](CHANGELOG.md)).
 
 ## Quick Start
 
@@ -103,4 +103,18 @@ Dev-режим целиком (4 слоя hot-reload + `/reload-plugins`) — @d
 
 Alembic-миграция `p2_drop_dead_tables` **не применена** к Supabase. 17 dead-таблиц (`spotify_*`, `beatport_metadata`, `soundcloud_metadata`, `embeddings`, `transition_candidates`, `dj_saved_loops`, `dj_cue_points`, `dj_beatgrid_change_points`, `dj_set_constraints`, `dj_set_feedback`, `labels`, `track_labels`, `app_exports`) живут в схеме с 0 rows. Всего **47 live tables**, после drop будет 31.
 
-Panel actions в `panel/actions/*.ts` до сих пор вызывают legacy tool names (`build_set`, `analyze_track`, `ym_search`) — Blueprint D2 deferred, миграция на v1 dispatcher surface не выполнена. См. @docs/panel-guide.md.
+## Panel state (v1.0.5)
+
+Panel actions переписаны под v1 dispatcher surface (commit `dbf5a10`): `entity_*`, `provider_*`, `transition_score_pool`, `sequence_optimize`, `playlist_sync`, `read_resource`. `bun run build` зелёный, все 15 routes собираются.
+
+Остались 6 явных `TODO(v1.0-actions-rewrite)` маркеров для composer workflows:
+1. `sync-actions.ts:distributeToSubgenres` — нужен composed `entity_list mood histogram + per-subgenre playlist_sync`
+2. `sync-actions.ts:pushSetToYm` — нужен `provider_write(playlist, create) + add_tracks` chain
+3. `set-actions.ts:scoreTransitions` — N×N matrix, consumers фильтруют до consecutive pairs
+4. `set-actions.ts:deliverSet` — нужен server-side delivery handler
+5. `set-actions.ts:exportSet` — JSON через `local://sets/{id}/full`; M3U8/Rekordbox writers — нужен tool
+6. `transition-actions.ts:getTransitionStyle` — `recommended_style/bars` не expose'ит v1 transition resource
+
+DEAD: `mixer-actions.ts` (set_eq/kill_eq/reset_eq/set_filter/mixer_state/mixer_crossfader) — DJ engine simulator удалён в Phase 7 cutover (Blueprint §13 D15). Экспорты бросают explicit error; UI-кнопки нужно отдельно disable.
+
+Подробности: @docs/panel-guide.md.

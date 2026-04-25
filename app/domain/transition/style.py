@@ -31,7 +31,6 @@ from __future__ import annotations
 
 from typing import Any
 
-from app.domain.transition.features import TrackFeatures
 from app.domain.transition.recipe import (
     DjayTransition,
     EQPlan,
@@ -41,6 +40,7 @@ from app.domain.transition.recipe import (
 from app.domain.transition.score import TransitionScore
 from app.domain.transition.weights import DEFAULT_STYLE_RULES, StyleRules
 from app.shared.constants import TRANSITION_STYLE_PROFILES, TransitionStyle
+from app.shared.features import TrackFeatures
 
 
 def recommend_style(

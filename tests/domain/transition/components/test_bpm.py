@@ -12,8 +12,8 @@ import math
 import pytest
 
 from app.domain.transition.components.bpm import score_bpm
-from app.domain.transition.features import TrackFeatures
 from app.domain.transition.weights import BPM_GAUSS_SIGMA
+from app.shared.features import TrackFeatures
 
 
 def _f(

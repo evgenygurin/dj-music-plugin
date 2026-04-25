@@ -1,6 +1,18 @@
 'use server'
 
-import { callTool } from '@/lib/mcp-client'
+/**
+ * DJ engine mixer/EQ controls — REMOVED in v1.0.
+ *
+ * The entire `app/engines/` directory (DJ mixing simulator) was deleted in
+ * the Phase 7 cutover per the architecture blueprint §13 D15. There is no
+ * corresponding MCP tool in v1.0 — the audio engine lives in the browser
+ * (Web Audio API, see `panel/components/audio-player/audio-player-context.tsx`).
+ *
+ * These exports are kept so callers (`panel/app/page.tsx` Layer-0 hero)
+ * still compile, but every invocation throws a clear error pointing at
+ * the blueprint. UI buttons calling these should be disabled in a follow-up
+ * sweep.
+ */
 
 export interface MixerState {
   crossfader: number
@@ -9,34 +21,34 @@ export interface MixerState {
   filter: Record<number, number>
 }
 
-async function parseMixer(result: Awaited<ReturnType<typeof callTool>>): Promise<MixerState | null> {
-  if (result.is_error) return null
-  if (result.structured_content) return result.structured_content as unknown as MixerState
-  const text = result.content.find(c => c.type === 'text')?.text
-  if (text) try { return JSON.parse(text) } catch { /* ignore */ }
-  return null
+const DEAD_MESSAGE =
+  'mixer engine removed in v1.0; UI buttons calling this should be disabled. ' +
+  'See docs/superpowers/specs/2026-04-17-architecture-blueprint-design.md §13 D15.'
+
+export async function setEq(
+  _deckId: number,
+  _band: string,
+  _gain: number
+): Promise<MixerState | null> {
+  throw new Error(DEAD_MESSAGE)
 }
 
-export async function setEq(deckId: number, band: string, gain: number): Promise<MixerState | null> {
-  return parseMixer(await callTool('set_eq', { deck_id: deckId, band, gain }))
+export async function killEq(_deckId: number, _band: string): Promise<MixerState | null> {
+  throw new Error(DEAD_MESSAGE)
 }
 
-export async function killEq(deckId: number, band: string): Promise<MixerState | null> {
-  return parseMixer(await callTool('kill_eq', { deck_id: deckId, band }))
+export async function resetEq(_deckId: number): Promise<MixerState | null> {
+  throw new Error(DEAD_MESSAGE)
 }
 
-export async function resetEq(deckId: number): Promise<MixerState | null> {
-  return parseMixer(await callTool('reset_eq', { deck_id: deckId }))
-}
-
-export async function setFilter(deckId: number, cutoffHz: number): Promise<MixerState | null> {
-  return parseMixer(await callTool('set_filter', { deck_id: deckId, cutoff_hz: cutoffHz }))
+export async function setFilter(_deckId: number, _cutoffHz: number): Promise<MixerState | null> {
+  throw new Error(DEAD_MESSAGE)
 }
 
 export async function getMixerState(): Promise<MixerState | null> {
-  return parseMixer(await callTool('mixer_state', {}))
+  throw new Error(DEAD_MESSAGE)
 }
 
-export async function setCrossfader(target: number): Promise<MixerState | null> {
-  return parseMixer(await callTool('mixer_crossfader', { target }))
+export async function setCrossfader(_target: number): Promise<MixerState | null> {
+  throw new Error(DEAD_MESSAGE)
 }

@@ -8,7 +8,6 @@ spectral complexity.
 
 from __future__ import annotations
 
-from app.domain.transition.features import TrackFeatures
 from app.domain.transition.math_helpers import correlation, cosine_similarity
 from app.domain.transition.weights import (
     COMPLEXITY_DIFF_THRESHOLD,
@@ -17,6 +16,7 @@ from app.domain.transition.weights import (
     DISSONANCE_PENALTY,
     SPECTRAL_SUB_WEIGHTS,
 )
+from app.shared.features import TrackFeatures
 
 
 def score_spectral(from_t: TrackFeatures, to_t: TrackFeatures) -> float:

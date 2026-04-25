@@ -59,9 +59,9 @@ async def unlock_namespace(
     tags_for_ns = set(NAMESPACE_TAGS[namespace])
 
     if action == "unlock":
-        ctx.enable_components(tags=tags_for_ns)
+        await ctx.enable_components(tags=tags_for_ns)
     elif action == "lock":
-        ctx.disable_components(tags=tags_for_ns)
+        await ctx.disable_components(tags=tags_for_ns)
 
     enabled_tools: list[str] = []
     try:

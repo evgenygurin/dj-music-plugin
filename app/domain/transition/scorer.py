@@ -20,7 +20,6 @@ from app.domain.transition.components import (
     score_spectral,
     score_timbral,
 )
-from app.domain.transition.features import TrackFeatures
 from app.domain.transition.hard_constraints import check_hard_constraints
 from app.domain.transition.intent import INTENT_WEIGHT_MODIFIERS, TransitionIntent
 from app.domain.transition.score import TransitionScore
@@ -28,6 +27,7 @@ from app.domain.transition.section_context import SectionContext
 from app.domain.transition.style import recommend_style, style_profile
 from app.domain.transition.weights import DRUM_ONLY_WEIGHT_OVERRIDE
 from app.shared.constants import DEFAULT_TRANSITION_WEIGHTS
+from app.shared.features import TrackFeatures
 
 __all__ = [
     "TransitionScore",

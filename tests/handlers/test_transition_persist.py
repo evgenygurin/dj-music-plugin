@@ -2,12 +2,23 @@
 
 from __future__ import annotations
 
+from collections.abc import AsyncIterator
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+import pytest_asyncio
 from fastmcp.server.context import Context
+from sqlalchemy.ext.asyncio import (
+    AsyncEngine,
+    AsyncSession,
+    async_sessionmaker,
+    create_async_engine,
+)
 
 from app.handlers.transition_persist import transition_persist_handler
+from app.models.base import Base
+from app.models.track import Track
+from app.repositories.transition import TransitionRepository
 from app.shared.errors import NotFoundError
 
 
@@ -23,7 +34,9 @@ def uow() -> MagicMock:
     u.track_features.get_scoring_features_batch = AsyncMock(
         return_value={1: MagicMock(), 2: MagicMock()}
     )
-    u.transitions = MagicMock()
+    # Restrict to the actual repository surface so the test catches calls to
+    # methods that don't exist on the real ``TransitionRepository``.
+    u.transitions = MagicMock(spec=["upsert", "get_pair", "create", "update"])
     u.transitions.upsert = AsyncMock(return_value=MagicMock(id=10))
     return u
 
@@ -81,3 +94,74 @@ async def test_hard_reject_is_persisted_with_zero_overall(
     assert result["hard_reject"] is True
     assert result["overall"] == 0.0
     uow.transitions.upsert.assert_awaited_once()
+
+
+# ── Real-DB regression for BUG: TransitionRepository.upsert must exist. ──
+
+
+@pytest_asyncio.fixture
+async def real_engine() -> AsyncIterator[AsyncEngine]:
+    eng = create_async_engine("sqlite+aiosqlite:///:memory:", echo=False)
+    async with eng.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+    try:
+        yield eng
+    finally:
+        await eng.dispose()
+
+
+@pytest_asyncio.fixture
+async def real_session(real_engine: AsyncEngine) -> AsyncIterator[AsyncSession]:
+    factory = async_sessionmaker(real_engine, expire_on_commit=False)
+    async with factory() as s:
+        # Seed two real tracks so transition FKs validate.
+        s.add(Track(id=1, title="A", sort_title="a", duration_ms=180_000))
+        s.add(Track(id=2, title="B", sort_title="b", duration_ms=180_000))
+        await s.flush()
+        try:
+            yield s
+        finally:
+            await s.rollback()
+
+
+@pytest.mark.asyncio
+async def test_transition_repository_upsert_creates_then_updates(
+    real_session: AsyncSession,
+) -> None:
+    """Regression: ``TransitionRepository.upsert`` must exist and behave as
+    upsert — first call creates, second call with the same (from, to) pair
+    updates in place rather than raising AttributeError.
+    """
+    repo = TransitionRepository(real_session)
+
+    row1 = await repo.upsert(
+        from_track_id=1,
+        to_track_id=2,
+        bpm_score=0.9,
+        harmonic_score=0.8,
+        energy_score=0.7,
+        spectral_score=0.85,
+        groove_score=0.75,
+        timbral_score=0.8,
+        overall_quality=0.8,
+        hard_reject=False,
+        reject_reason=None,
+    )
+    assert row1.id is not None
+
+    row2 = await repo.upsert(
+        from_track_id=1,
+        to_track_id=2,
+        bpm_score=0.5,
+        harmonic_score=0.5,
+        energy_score=0.5,
+        spectral_score=0.5,
+        groove_score=0.5,
+        timbral_score=0.5,
+        overall_quality=0.5,
+        hard_reject=False,
+        reject_reason=None,
+    )
+    # Same row should be reused (upsert, not insert).
+    assert row2.id == row1.id
+    assert row2.overall_quality == pytest.approx(0.5)
