@@ -6,6 +6,24 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.2.36] - 2026-04-28
+
+**Audit-fix loop, iteration 39.** Same drift class on Set + AudioFile schemas — View dropped persisted columns, Update dropped fields that Create accepted, Filter dropped canonical id range queries.
+
+### Fixed
+- **T-37 (Set):**
+  - ``SetFilter``: + ``id__gt/gte/lt/lte`` (consistency with ``set_version`` which already had them).
+  - ``SetUpdate``: + ``target_bpm_min``, ``target_bpm_max``, ``source_playlist_id`` with ``ge/le`` validators mirroring ``SetCreate``. Without them, retargeting BPM range or re-attaching the source playlist required delete + recreate.
+- **T-37 (AudioFile):**
+  - ``AudioFileView``: + ``file_uri`` (file:// scheme), ``file_hash`` (sha256 dedup), ``mime_type`` (REQUIRED on the model — was always invisible), ``source_app``.
+  - ``AudioFileFilter``: + ``file_uri__icontains``, ``file_hash__eq/isnull``, ``mime_type__eq/in``, ``source_app__eq/in/isnull``.
+  - ``AudioFileUpdate``: + same 4 columns the View now exposes (with ``max_length`` matching the model). Re-running dedup or relocating ``source_app`` no longer requires delete + recreate.
+- **EntityRegistry**: ``filterable_fields`` for ``set`` and ``audio_file`` synced; both CI guards green.
+
+### Tests
+- 986 → **1015 passed** (+29 widening regression tests in ``tests/schemas/test_iter39_set_audio_widening.py``).
+- ``make check`` clean.
+
 ## [1.2.35] - 2026-04-28
 
 **Audit-fix loop, iteration 38.** ``TransitionView`` and ``TransitionFilter`` widening — same drift class as v1.2.29 (filterable_fields) and v1.2.31 (sortable_fields), this time on the View side.

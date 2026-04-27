@@ -16,6 +16,15 @@ class AudioFileView(BaseModel):
     bitrate: int | None = None
     sample_rate: int | None = None
     channels: int | None = None
+    # Audit iter 39: 4 persisted columns were dropped on the floor by
+    # the View — ``mime_type`` is even non-null on the model.
+    # ``file_uri`` (file:// scheme), ``file_hash`` (sha256 dedup), and
+    # ``source_app`` (which app produced the file) all matter for
+    # storage audit / dedup workflows but were unprojectable.
+    file_uri: str | None = None
+    file_hash: str | None = None
+    mime_type: str | None = None
+    source_app: str | None = None
 
 
 class AudioFileFilter(BaseModel):
@@ -39,6 +48,15 @@ class AudioFileFilter(BaseModel):
     sample_rate__eq: int | None = None
     sample_rate__in: list[int] | None = None
     channels__eq: int | None = None
+    # Audit iter 39: lookups for the 4 newly-exposed columns.
+    file_uri__icontains: str | None = None
+    file_hash__eq: str | None = None
+    file_hash__isnull: bool | None = None
+    mime_type__eq: str | None = None
+    mime_type__in: list[str] | None = None
+    source_app__eq: str | None = None
+    source_app__in: list[str] | None = None
+    source_app__isnull: bool | None = None
 
 
 class AudioFileCreate(BaseModel):
@@ -84,3 +102,10 @@ class AudioFileUpdate(BaseModel):
     bitrate: int | None = Field(default=None, ge=8, le=2_000)
     sample_rate: int | None = Field(default=None, ge=8_000, le=384_000)
     channels: int | None = Field(default=None, ge=1, le=8)
+    # Audit iter 39: same 4 columns the View now exposes — also
+    # write-able so callers can re-run dedup (file_hash) or relocate
+    # to a new ``source_app`` without delete + recreate.
+    file_uri: str | None = Field(default=None, max_length=1000)
+    file_hash: str | None = Field(default=None, max_length=128)
+    mime_type: str | None = Field(default=None, max_length=50)
+    source_app: str | None = Field(default=None, max_length=100)
