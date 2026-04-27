@@ -25,6 +25,11 @@ class AudioFileFilter(BaseModel):
     track_id__eq: int | None = None
     track_id__in: list[int] | None = None
     file_path__icontains: str | None = None
+    # file_size: range queries to find oversized / undersized files
+    # (audit iter 8).
+    file_size__gte: int | None = None
+    file_size__lte: int | None = None
+    file_size__range: list[int] | None = None
 
 
 class AudioFileCreate(BaseModel):

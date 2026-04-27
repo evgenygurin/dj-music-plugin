@@ -76,6 +76,12 @@ class SetVersionFilter(BaseModel):
     set_id__eq: int | None = None
     set_id__in: list[int] | None = None
     label__icontains: str | None = None
+    # quality_score: full numeric lookups - "find versions with
+    # quality >= 0.7" was the canonical "is this set good enough"
+    # query and used to be rejected (audit iter 8).
+    quality_score__gte: float | None = None
+    quality_score__lte: float | None = None
+    quality_score__range: list[float] | None = None
 
 
 class SetVersionCreate(BaseModel):

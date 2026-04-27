@@ -18,6 +18,11 @@ class TransitionView(BaseModel):
     groove_score: float | None = None
     timbral_score: float | None = None
     hard_reject: bool | None = None
+    # ``reject_reason`` mirrors the column on the model and the field
+    # already returned by ``local://transition/{a}/{b}/score`` -
+    # without it on the View, ``entity_get(transition, id)`` couldn't
+    # tell consumers WHY a pair was rejected (audit iter 8).
+    reject_reason: str | None = None
     fx_type: str | None = None
 
 
