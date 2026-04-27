@@ -79,3 +79,8 @@ class AudioFileUpdate(BaseModel):
     model_config = ConfigDict(extra="forbid")
     file_path: str | None = None
     file_size: int | None = Field(default=None, ge=0)
+    # Audio metadata - settable when running tag analysis on a file
+    # already on disk (audit iter 27).
+    bitrate: int | None = Field(default=None, ge=8, le=2_000)
+    sample_rate: int | None = Field(default=None, ge=8_000, le=384_000)
+    channels: int | None = Field(default=None, ge=1, le=8)

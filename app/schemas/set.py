@@ -90,6 +90,11 @@ class SetVersionFilter(BaseModel):
     model_config = ConfigDict(extra="forbid")
     id__in: list[int] | None = None
     id__eq: int | None = None
+    # id range lookups - audit iter 27.
+    id__gt: int | None = None
+    id__gte: int | None = None
+    id__lt: int | None = None
+    id__lte: int | None = None
     set_id__eq: int | None = None
     set_id__in: list[int] | None = None
     label__icontains: str | None = None
