@@ -6,6 +6,31 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.2.31] - 2026-04-27
+
+**Audit-fix loop, iteration 34.** Mass ``sortable_fields`` widening + CI guard. Same drift class as v1.2.29's ``filterable_fields`` mass-sync.
+
+### Fixed
+- **T-32:** ``entity_list(track, sort=['created_at__desc'])`` rejected with "cannot sort track by 'created_at'". ``sortable_fields`` for every entity was hand-curated to a tiny subset and never updated as columns landed:
+  - ``track``: + ``sort_title, status, created_at, updated_at``
+  - ``playlist``: + ``created_at, updated_at``
+  - ``set``: + ``template_name, target_duration_ms, created_at, updated_at``
+  - ``set_version``: + ``label, created_at``
+  - ``audio_file``: + ``track_id, bitrate, created_at``
+  - ``track_features``: + ``key_code, analysis_level, integrated_lufs, energy_mean, mood, mood_confidence``
+  - ``transition``: + ``from_track_id, to_track_id, hard_reject, fx_type, created_at``
+  - ``transition_history``: + ``from/to_track_id, user_reaction, style, duration_sec, created_at``
+  - ``track_feedback``: + ``track_id, kind, rating, created_at, updated_at``
+  - ``track_affinity``: + ``play_count``
+  - ``scoring_profile``: + ``created_at, updated_at``
+
+### Added
+- **CI guard** ``tests/registry/test_sortable_fields_match_model.py``: walks every registered entity and asserts every name in ``sortable_fields`` is a real attribute on the SQLAlchemy model. Catches typos and stale entries on the same drift principle as v1.2.29's filterable_fields guard.
+
+### Tests
+- 943 → **954 passed** (+11 sortable_fields guard tests, one per entity).
+- ``make check`` clean.
+
 ## [1.2.30] - 2026-04-27
 
 **Audit-fix loop, iteration 33.** ``transition_score_pool(intent=...)`` was the third silent-no-op parameter found in this loop (after ``sequence_optimize.template`` in v1.2.12 and ``set.template_name`` in v1.2.16/v1.2.26).
