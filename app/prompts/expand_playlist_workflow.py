@@ -21,7 +21,7 @@ def _body(playlist_id: int, target_count: int) -> str:
 4. Discover similar tracks per seed:
    provider_search(query=<seed title/artist>, type='tracks', limit=20)
    OR
-   provider_read(entity='similar_tracks', id=<provider_track_id>, params={{'limit': 20}})
+   provider_read(entity='track_similar', id=<provider_track_id>, params={{'limit': 20}})
 
 5. Filter candidates against feedback memory (if available):
    - Skip tracks already on entity_list(entity='track_feedback', filters={{'banned': True}})

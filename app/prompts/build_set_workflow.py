@@ -20,7 +20,7 @@ def _build_body(playlist_id: int, template: str) -> str:
    - Read local://tracks/{{id}}/audit for each and drop any with hard violations.
 
 4. Build the candidate pool (features projection):
-   entity_list(entity="track", filters={{"id__in": [...]}}, fields="scoring")
+   entity_list(entity="track_features", filters={{"track_id__in": [...]}}, fields="scoring")
 
 5. Compute pairwise scores across the candidate pool:
    transition_score_pool(track_ids=[...])
