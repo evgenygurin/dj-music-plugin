@@ -6,6 +6,19 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.2.35] - 2026-04-28
+
+**Audit-fix loop, iteration 38.** ``TransitionView`` and ``TransitionFilter`` widening — same drift class as v1.2.29 (filterable_fields) and v1.2.31 (sortable_fields), this time on the View side.
+
+### Fixed
+- **T-36:** ``TransitionView`` dropped 7 persisted columns on the floor; ``entity_get(transition, id)`` and ``entity_list(transition)`` could not surface them. Of these, ``transition_bars`` and ``transition_recipe_json`` are even write-able via ``TransitionUpdate`` — i.e. callers could write but had no read path back. Added to View: ``key_distance_weighted``, ``low_conflict_score``, ``transition_bars``, ``from_section_id``, ``to_section_id``, ``overlap_ms``, ``transition_recipe_json``.
+- **TransitionFilter** widened: ``id__eq/in/gt/gte/lt/lte`` (canonical "load these specific scored pairs"), ``key_distance_weighted__gte/lte``, ``low_conflict_score__gte/lte``, ``transition_bars__eq/in/gte/lte``, ``overlap_ms__gte/lte``.
+- **EntityRegistry**: ``filterable_fields`` and ``sortable_fields`` for transition synced with the new schema. Added ``transition_bars`` and ``overlap_ms`` to ``sortable_fields``.
+
+### Tests
+- 966 → **986 passed** (+20 widening regression tests in ``tests/schemas/test_iter38_transition_widening.py``).
+- ``make check`` clean.
+
 ## [1.2.34] - 2026-04-27
 
 **Audit-fix loop, iteration 37.** Two long-dead resource paths brought back online.
