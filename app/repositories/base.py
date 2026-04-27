@@ -174,6 +174,29 @@ class BaseRepository(Generic[M]):
         if op in {"sum", "avg", "min_max", "histogram"} and field_col is None:
             raise ValidationError(f"operation {op!r} requires a valid field")
 
+        # Audit iter 4: ``sum`` / ``avg`` on a non-numeric column leaked
+        # the raw asyncpg ``function avg(character varying) does not
+        # exist`` to MCP clients. Validate the column's Python type up
+        # front and raise a typed ValidationError instead of letting
+        # SQL fail.
+        if op in {"sum", "avg"} and field_col is not None:
+            try:
+                py_type = field_col.type.python_type
+            except (AttributeError, NotImplementedError):
+                py_type = None
+            numeric_types = (int, float)
+            try:
+                from decimal import Decimal
+
+                numeric_types = (int, float, Decimal)  # type: ignore[assignment]
+            except ImportError:
+                pass
+            if py_type is None or not issubclass(py_type, numeric_types):
+                raise ValidationError(
+                    f"operation {op!r} requires a numeric field; "
+                    f"{field!r} has type {py_type.__name__ if py_type else 'unknown'}"
+                )
+
         group_col = getattr(self.model, group_by, None) if group_by else None
         if group_by and group_col is None:
             raise ValidationError(f"unknown group_by field {group_by!r}")
