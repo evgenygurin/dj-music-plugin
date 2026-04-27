@@ -6,6 +6,17 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.2.13] - 2026-04-27
+
+**Audit-fix loop, iteration 12.** ``SetFilter`` rejected ``template_name__in`` ("show me sets built with classic_60 or peak_hour_60").
+
+### Fixed
+- ``SetFilter`` now accepts ``template_name__in`` and ``source_playlist_id__in``. ``EntityRegistry.set.filterable_fields`` synced.
+
+### Tests
+- 871 -> **873 passed**.
+- ``make check`` clean.
+
 ## [1.2.12] - 2026-04-27
 
 **Audit-fix loop, iteration 11.** Re-opened after v1.2.11 stabilization marker — deeper probe found one more declared-but-unused parameter.
