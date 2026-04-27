@@ -103,6 +103,12 @@ class LibraryAuditFallback(BaseModel):
     coverage: float
     per_track: list[AuditTrackRow] = Field(default_factory=list)
     subgenre_distribution: dict[str, int] = Field(default_factory=dict)
+    # ``truncated`` distinguishes "audited 23k tracks, all in" from
+    # "audited the first N of 23k tracks because the library exceeds
+    # the cap". None when scope is per-playlist (bounded already).
+    truncated: bool | None = None
+    library_size: int | None = None
+    limit: int | None = None
 
 
 class ScorePoolCell(BaseModel):
