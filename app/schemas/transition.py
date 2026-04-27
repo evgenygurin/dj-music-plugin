@@ -42,6 +42,24 @@ class TransitionFilter(BaseModel):
     # cause ("BPM diff", "Camelot distance") - audit iter 19.
     reject_reason__icontains: str | None = None
     reject_reason__isnull: bool | None = None
+    # Component scores: filter by individual scoring component (audit
+    # iter 22). "Find pairs with high BPM compatibility but weak
+    # harmonic" - the canonical scoring-debug query.
+    bpm_score__gte: float | None = None
+    bpm_score__lte: float | None = None
+    harmonic_score__gte: float | None = None
+    harmonic_score__lte: float | None = None
+    energy_score__gte: float | None = None
+    energy_score__lte: float | None = None
+    spectral_score__gte: float | None = None
+    spectral_score__lte: float | None = None
+    groove_score__gte: float | None = None
+    groove_score__lte: float | None = None
+    timbral_score__gte: float | None = None
+    timbral_score__lte: float | None = None
+    # fx_type: which transition style was tagged on a persisted pair.
+    fx_type__eq: str | None = None
+    fx_type__in: list[str] | None = None
 
 
 class TransitionCreate(BaseModel):

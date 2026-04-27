@@ -42,6 +42,10 @@ class TransitionHistoryFilter(BaseModel):
     style__eq: str | None = None
     style__in: list[str] | None = None
     style__icontains: str | None = None
+    # duration_sec: filter by transition length - audit iter 22.
+    duration_sec__gte: float | None = None
+    duration_sec__lte: float | None = None
+    duration_sec__range: list[float] | None = None
 
 
 class TransitionHistoryCreate(BaseModel):
