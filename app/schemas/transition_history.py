@@ -46,6 +46,25 @@ class TransitionHistoryFilter(BaseModel):
     duration_sec__gte: float | None = None
     duration_sec__lte: float | None = None
     duration_sec__range: list[float] | None = None
+    # Component scores: same as TransitionFilter for symmetry. Audit
+    # iter 23 caught the missing lookups when reviewing the analytics
+    # surface ("which transitions had high BPM compatibility but the
+    # DJ rated them poorly?" was unanswerable).
+    bpm_score__gte: float | None = None
+    bpm_score__lte: float | None = None
+    harmonic_score__gte: float | None = None
+    harmonic_score__lte: float | None = None
+    energy_score__gte: float | None = None
+    energy_score__lte: float | None = None
+    spectral_score__gte: float | None = None
+    spectral_score__lte: float | None = None
+    groove_score__gte: float | None = None
+    groove_score__lte: float | None = None
+    timbral_score__gte: float | None = None
+    timbral_score__lte: float | None = None
+    # tempo_match_ratio: how closely the BPMs aligned in practice.
+    tempo_match_ratio__gte: float | None = None
+    tempo_match_ratio__lte: float | None = None
 
 
 class TransitionHistoryCreate(BaseModel):
