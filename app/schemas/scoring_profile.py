@@ -20,8 +20,25 @@ class ScoringProfileView(BaseModel):
 
 class ScoringProfileFilter(BaseModel):
     model_config = ConfigDict(extra="forbid")
+    id__eq: int | None = None
+    id__in: list[int] | None = None
     name__eq: str | None = None
     name__icontains: str | None = None
+    # Component weights: "find harmonic-focused profiles" (audit iter
+    # 24). Same shape as the 6-component filters on Transition /
+    # TransitionHistory.
+    bpm_weight__gte: float | None = None
+    bpm_weight__lte: float | None = None
+    harmonic_weight__gte: float | None = None
+    harmonic_weight__lte: float | None = None
+    energy_weight__gte: float | None = None
+    energy_weight__lte: float | None = None
+    spectral_weight__gte: float | None = None
+    spectral_weight__lte: float | None = None
+    groove_weight__gte: float | None = None
+    groove_weight__lte: float | None = None
+    timbral_weight__gte: float | None = None
+    timbral_weight__lte: float | None = None
 
 
 class ScoringProfileCreate(BaseModel):
