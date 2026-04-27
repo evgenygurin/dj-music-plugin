@@ -24,6 +24,13 @@ class SetFilter(BaseModel):
     model_config = ConfigDict(extra="forbid")
     id__eq: int | None = None
     id__in: list[int] | None = None
+    # id range lookups — symmetry with set_version (which has them).
+    # Audit iter 39: canonical "load sets created in this id window"
+    # for migrations / batch ops was rejected.
+    id__gt: int | None = None
+    id__gte: int | None = None
+    id__lt: int | None = None
+    id__lte: int | None = None
     name__eq: str | None = None
     name__icontains: str | None = None
     template_name__eq: str | None = None
@@ -62,8 +69,15 @@ class SetUpdate(BaseModel):
     model_config = ConfigDict(extra="forbid")
     name: str | None = None
     description: str | None = None
-    target_duration_ms: int | None = None
+    target_duration_ms: int | None = Field(default=None, ge=60_000, le=12 * 3600_000)
     template_name: str | None = None
+    # Audit iter 39: callers could create a set with target_bpm_min /
+    # target_bpm_max / source_playlist_id but had no way to update them
+    # afterwards — to retarget BPM range or re-attach the source playlist
+    # they had to delete and recreate. Symmetry with ``SetCreate``.
+    target_bpm_min: int | None = Field(default=None, ge=60, le=250)
+    target_bpm_max: int | None = Field(default=None, ge=60, le=250)
+    source_playlist_id: int | None = None
 
 
 class SetVersionView(BaseModel):
