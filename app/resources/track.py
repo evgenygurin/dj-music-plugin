@@ -304,15 +304,62 @@ async def _compute_suggest_replacement(
     )
     if not candidates:
         return [], f"no library tracks within ±2 BPM of {bpm:.1f}"
-    return (
-        [
+
+    # Audit iter 42 (T-40): score each candidate against the surrounding
+    # set track instead of returning a hardcoded ``score=0.0``. The
+    # candidate slots in at ``position``; the natural anchor is the
+    # track BEFORE it (the candidate would mix INTO that track). If
+    # ``position`` is 0 (first slot, no predecessor), fall back to the
+    # NEXT track (the candidate would mix OUT of). If neither exists
+    # (single-track set), score=0.0 is honest.
+    from app.domain.transition.scorer import TransitionScorer
+
+    items_by_index = {item.sort_index: item for item in items}
+    anchor_track_id: int | None = None
+    anchor_role: str = "none"
+    # ``position`` semantics: 0-based slot in items list. ``position-1``
+    # = predecessor, ``position+1`` = successor (since the candidate
+    # replaces the slot at ``position`` itself).
+    if (position - 1) in items_by_index:
+        anchor_track_id = items_by_index[position - 1].track_id
+        anchor_role = "in"  # candidate mixes INTO anchor
+    elif (position + 1) in items_by_index:
+        anchor_track_id = items_by_index[position + 1].track_id
+        anchor_role = "out"  # candidate mixes OUT to anchor
+
+    candidate_ids = [t.id for t in candidates]
+    feat_ids = candidate_ids + ([anchor_track_id] if anchor_track_id else [])
+    feat_map = await uow.track_features.get_scoring_features_batch(feat_ids)
+    anchor_feat = feat_map.get(anchor_track_id) if anchor_track_id else None
+
+    scorer = TransitionScorer()
+    out: list[dict[str, Any]] = []
+    for t in candidates:
+        cand_feat = feat_map.get(t.id)
+        score: float = 0.0
+        if anchor_feat is not None and cand_feat is not None:
+            # Direction depends on whether the anchor is before or after
+            # the candidate slot in the set.
+            if anchor_role == "in":
+                # candidate → anchor (candidate ends, anchor takes over)
+                result = scorer.score(cand_feat, anchor_feat)
+            else:
+                # anchor → candidate (anchor ends, candidate takes over)
+                result = scorer.score(anchor_feat, cand_feat)
+            score = result.overall
+        reason_parts = [f"bpm within 2 of {bpm}"]
+        if anchor_track_id is None:
+            reason_parts.append("no anchor — score is 0")
+        elif cand_feat is None:
+            reason_parts.append("candidate has no features — score is 0")
+        out.append(
             {
                 "track_id": t.id,
                 "title": t.title,
-                "score": 0.0,
-                "reason": f"bpm within 2 of {bpm}",
+                "score": score,
+                "reason": "; ".join(reason_parts),
             }
-            for t in candidates
-        ],
-        None,
-    )
+        )
+    # Best-quality-first.
+    out.sort(key=lambda c: c["score"], reverse=True)
+    return out, None

@@ -6,6 +6,24 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.2.39] - 2026-04-28
+
+**Audit-fix loop, iteration 42.** ``suggest_replacement`` returned hardcoded ``score=0.0`` for every candidate.
+
+### Fixed
+- **T-40:** ``local://tracks/{id}/suggest_replacement/{set_id}/{position}`` returned ``score=0.0`` on every candidate, regardless of how compatible it was. The hardcoded zero made the resource useless for ranking — caller couldn't tell which BPM-compatible candidate was actually the best replacement.
+
+  Fix: score each candidate against the surrounding set track using the live ``TransitionScorer``. Anchor selection:
+  - ``position - 1`` if it exists (candidate mixes INTO predecessor)
+  - else ``position + 1`` (candidate mixes OUT to successor)
+  - else no anchor (single-track set) — ``score=0.0`` honestly, with a reason string explaining why.
+
+  Candidates returned best-score-first.
+
+### Tests
+- 1111 → **1114 passed** (+3 ``suggest_replacement`` scoring regression tests).
+- ``make check`` clean.
+
 ## [1.2.38] - 2026-04-28
 
 **Audit-fix loop, iteration 41.** Closing the widening sweep on the last two narrow entities — ``track_affinity`` + ``playlist``. Same drift class as v1.2.29/31/32/35/36/37.
