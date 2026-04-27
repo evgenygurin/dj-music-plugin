@@ -52,7 +52,14 @@ class TrackFilter(BaseModel):
     # Magic boolean: True → INNER JOIN track_audio_features_computed,
     # False → NOT EXISTS subquery, None → no constraint. Translated in
     # ``TrackRepository.filter`` before parse_filter sees the dict.
+    #
+    # Both the bare ``has_features`` form and the normalized
+    # ``has_features__eq`` form are declared because the entity_list
+    # dispatcher runs ``normalize_bare_fields`` before validation,
+    # which appends ``__eq`` to every bare key. The repository pops
+    # either form and treats ``None`` as "no constraint".
     has_features: bool | None = None
+    has_features__eq: bool | None = None
 
 
 class TrackCreate(BaseModel):
