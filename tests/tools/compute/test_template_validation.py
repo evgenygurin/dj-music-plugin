@@ -20,9 +20,24 @@ from app.tools.compute.sequence_optimize import sequence_optimize
 
 
 def _mock_uow() -> MagicMock:
+    """UoW with NO features — used for template-validation-only tests
+    that fail fast before the features path is hit."""
     uow = MagicMock()
     uow.track_features = MagicMock()
     uow.track_features.get_scoring_features_batch = AsyncMock(return_value={})
+    return uow
+
+
+def _mock_uow_with_features(track_ids: list[int]) -> MagicMock:
+    """UoW with real-shape ``TrackFeatures`` for each id — used for
+    success-path tests that need to reach the optimizer (audit iter
+    48 / T-46 added an upfront missing-features guard)."""
+    from app.shared.features import TrackFeatures
+
+    feats = {tid: TrackFeatures(bpm=128.0 + i) for i, tid in enumerate(track_ids)}
+    uow = MagicMock()
+    uow.track_features = MagicMock()
+    uow.track_features.get_scoring_features_batch = AsyncMock(return_value=feats)
     return uow
 
 
@@ -61,7 +76,7 @@ async def test_known_template_passes_through_to_optimizer() -> None:
         track_ids=[146, 147, 148],
         algorithm="greedy",
         template="classic_60",
-        uow=_mock_uow(),
+        uow=_mock_uow_with_features([146, 147, 148]),
         scorer=MagicMock(),
         optimizer_builder=fake_optimizer_builder,
     )
@@ -90,7 +105,7 @@ async def test_no_template_passes_none_through() -> None:
     await sequence_optimize(
         track_ids=[146, 147, 148],
         algorithm="greedy",
-        uow=_mock_uow(),
+        uow=_mock_uow_with_features([146, 147, 148]),
         scorer=MagicMock(),
         optimizer_builder=fake_optimizer_builder,
     )
