@@ -6,6 +6,19 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.2.55] - 2026-04-28
+
+**Audit-fix loop, iteration 57.** Same-track score / explain resources mirrored T-52 hole.
+
+### Fixed
+- **T-55:** ``local://transition/{from_id}/{to_id}/score`` and ``/explain`` recomputed via ``TransitionScorer`` regardless of whether ``from_id == to_id``, returning a synthetic 0.93 self-similarity row for a track-against-itself query. The read paths mirrored the T-52 hole on the write path (``entity_create(transition)`` with same id) which v1.2.51-52 already closed.
+
+  Fix: ``_load_features_pair`` now rejects same-id input up front with a clean ``ValidationError`` — both ``/score`` and ``/explain`` flow through this helper, so the guard fires once for both endpoints.
+
+### Tests
+- 1191 → **1194 passed** (+3 same-track resource regression tests).
+- ``make check`` clean.
+
 ## [1.2.54] - 2026-04-28
 
 **Audit-fix loop, iteration 56.** ``SetVersionCreate`` accepted track-order pathologies.

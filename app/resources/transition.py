@@ -23,6 +23,18 @@ from app.shared.features import TrackFeatures
 
 
 async def _load_features_pair(uow: UnitOfWork, from_id: int, to_id: int) -> tuple[object, object]:
+    # Audit iter 57 (T-55): same-track requests on the score / explain
+    # resources used to return a synthetic 0.93 self-similarity row,
+    # mirroring the now-fixed entity_create(transition) hole (T-52).
+    # Reject up front so /score and /explain stay consistent with the
+    # write paths.
+    from app.shared.errors import ValidationError
+
+    if from_id == to_id:
+        raise ValidationError(
+            f"transition score is undefined for a track against itself; "
+            f"from_track_id and to_track_id must differ (got {from_id} for both)"
+        )
     feats = await uow.track_features.get_scoring_features_batch([from_id, to_id])
     feat_a = feats.get(from_id)
     feat_b = feats.get(to_id)
