@@ -29,6 +29,10 @@ class TransitionFilter(BaseModel):
     to_track_id__in: list[int] | None = None
     overall_quality__gte: float | None = None
     overall_quality__lte: float | None = None
+    overall_quality__range: list[float] | None = None
+    # hard_reject: canonical "show me transitions that violate hard
+    # constraints" query - audit iter 7 caught the missing lookup.
+    hard_reject__eq: bool | None = None
 
 
 class TransitionCreate(BaseModel):

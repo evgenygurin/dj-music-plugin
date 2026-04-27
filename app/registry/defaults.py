@@ -289,7 +289,8 @@ def register_default_entities() -> None:
             filterable_fields={
                 "from_track_id": ("eq", "in"),
                 "to_track_id": ("eq", "in"),
-                "overall_quality": ("gte", "lte"),
+                "overall_quality": ("gte", "lte", "range"),
+                "hard_reject": ("eq",),
             },
             sortable_fields=("id", "overall_quality"),
             relations={},
