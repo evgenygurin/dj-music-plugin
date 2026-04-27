@@ -17,6 +17,13 @@ class TransitionView(BaseModel):
     spectral_score: float | None = None
     groove_score: float | None = None
     timbral_score: float | None = None
+    # Compound / derived scores persisted by ``transition_persist`` handler.
+    # Audit iter 38: missing from the View → ``entity_get`` / list could not
+    # surface the harmonic-distance-weighted score nor the low-band conflict
+    # score, both of which the scorer writes back and consumers (panel,
+    # set-review tools) want to read directly.
+    key_distance_weighted: float | None = None
+    low_conflict_score: float | None = None
     hard_reject: bool | None = None
     # ``reject_reason`` mirrors the column on the model and the field
     # already returned by ``local://transition/{a}/{b}/score`` -
@@ -24,10 +31,30 @@ class TransitionView(BaseModel):
     # tell consumers WHY a pair was rejected (audit iter 8).
     reject_reason: str | None = None
     fx_type: str | None = None
+    # Mix-execution metadata: bars to mix over, section anchors, raw
+    # overlap window. Audit iter 38: persisted by the transition handler
+    # but invisible on the View → caller had to ``entity_update`` to write
+    # but had no way to read what they previously wrote. Plus
+    # ``transition_recipe_json`` is the JSON recipe blob produced by
+    # ``recipe_engine.generate`` and equally needed in read paths.
+    transition_bars: int | None = None
+    from_section_id: int | None = None
+    to_section_id: int | None = None
+    overlap_ms: int | None = None
+    transition_recipe_json: str | None = None
 
 
 class TransitionFilter(BaseModel):
     model_config = ConfigDict(extra="forbid")
+    # Primary key lookups — audit iter 38: missing from the filter so
+    # callers couldn't ``entity_list(transition, filters={"id__in":[...]})``
+    # for the canonical "load these N specific scored pairs" query.
+    id__eq: int | None = None
+    id__in: list[int] | None = None
+    id__gt: int | None = None
+    id__gte: int | None = None
+    id__lt: int | None = None
+    id__lte: int | None = None
     from_track_id__eq: int | None = None
     to_track_id__eq: int | None = None
     from_track_id__in: list[int] | None = None
@@ -60,6 +87,20 @@ class TransitionFilter(BaseModel):
     # fx_type: which transition style was tagged on a persisted pair.
     fx_type__eq: str | None = None
     fx_type__in: list[str] | None = None
+    # Compound / derived scores — same drift class as the component
+    # filters above. Audit iter 38.
+    key_distance_weighted__gte: float | None = None
+    key_distance_weighted__lte: float | None = None
+    low_conflict_score__gte: float | None = None
+    low_conflict_score__lte: float | None = None
+    # Mix-execution metadata filters: "show me 32-bar mixes",
+    # "show pairs with overlap > 16 sec".
+    transition_bars__eq: int | None = None
+    transition_bars__in: list[int] | None = None
+    transition_bars__gte: int | None = None
+    transition_bars__lte: int | None = None
+    overlap_ms__gte: int | None = None
+    overlap_ms__lte: int | None = None
 
 
 class TransitionCreate(BaseModel):

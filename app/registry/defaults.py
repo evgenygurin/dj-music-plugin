@@ -341,6 +341,7 @@ def register_default_entities() -> None:
             default_preset="full",
             searchable_fields=(),
             filterable_fields={
+                "id": ("eq", "in", "gt", "gte", "lt", "lte"),
                 "from_track_id": ("eq", "in"),
                 "to_track_id": ("eq", "in"),
                 "overall_quality": ("gte", "lte", "range"),
@@ -353,6 +354,10 @@ def register_default_entities() -> None:
                 "spectral_score": ("gte", "lte"),
                 "groove_score": ("gte", "lte"),
                 "timbral_score": ("gte", "lte"),
+                "key_distance_weighted": ("gte", "lte"),
+                "low_conflict_score": ("gte", "lte"),
+                "transition_bars": ("eq", "in", "gte", "lte"),
+                "overlap_ms": ("gte", "lte"),
             },
             sortable_fields=(
                 "id",
@@ -361,6 +366,8 @@ def register_default_entities() -> None:
                 "overall_quality",
                 "hard_reject",
                 "fx_type",
+                "transition_bars",
+                "overlap_ms",
                 "created_at",
             ),
             relations={},
