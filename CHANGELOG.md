@@ -6,6 +6,18 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.2.27] - 2026-04-27
+
+**Audit-fix loop, iteration 27.** AudioFileUpdate widening + SetVersionFilter id range.
+
+### Fixed
+- ``AudioFileUpdate`` accepts ``bitrate``, ``sample_rate``, ``channels`` with sane bounds (8-2000 kbps, 8-384 kHz, 1-8 channels). Tag analysis runs that detect these properties post-import had no way to write them back through ``entity_update``.
+- ``SetVersionFilter`` accepts ``id__gt/gte/lt/lte`` for paging through versions.
+
+### Tests
+- 927 -> **930 passed**.
+- ``make check`` clean.
+
 ## [1.2.26] - 2026-04-27
 
 **Audit-fix loop, iteration 26.** ``entity_update(set, ...)`` mirror of v1.2.16's create-side template validation.
