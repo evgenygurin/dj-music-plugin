@@ -6,6 +6,17 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.2.30] - 2026-04-27
+
+**Audit-fix loop, iteration 33.** ``transition_score_pool(intent=...)`` was the third silent-no-op parameter found in this loop (after ``sequence_optimize.template`` in v1.2.12 and ``set.template_name`` in v1.2.16/v1.2.26).
+
+### Fixed
+- **T-31:** ``transition_score_pool(intent='ramp_up')`` returned identical scores regardless of intent value (or with ``intent='bogus_intent'``). The parameter was declared on the tool signature but never threaded to ``scorer.score(...)``. Now validated against the ``TransitionIntent`` enum (``maintain | ramp_up | cool_down | contrast``) at the dispatcher and passed through; per-intent component weights from ``INTENT_WEIGHT_MODIFIERS`` actually influence the result.
+
+### Tests
+- 941 → **943 passed** (+2 intent-threading regression tests).
+- ``make check`` clean.
+
 ## [1.2.29] - 2026-04-27
 
 **Audit-fix loop, iteration 32.** Mass ``filterable_fields`` ↔ ``filter_schema`` drift sync + CI guard.
