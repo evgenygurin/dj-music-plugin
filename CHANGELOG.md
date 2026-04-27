@@ -6,6 +6,34 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.2.28] - 2026-04-27
+
+**Audit-fix loop, iterations 28-29 — re-converged.** Two consecutive clean iterations after the v1.2.27 widening pass. No code changes; release marks the convergence point of the second sweep (v1.2.16 → v1.2.27).
+
+### Final loop summary (v1.2.0 → v1.2.28)
+
+29 patches across 29 iterations. Cumulative test count: 826 → **930 passed** (+104 regression tests).
+
+### Bug class taxonomy (all closed for typical surface)
+
+1. **Schema underspec** (Bug A class) — 30+ filter/update widenings across 9 entities. Every Pydantic Filter and most Update DTOs got widened to match the canonical DJ queries.
+2. **Silent caps** — 3 dashboards (``ui_library_dashboard``, ``ui_camelot_wheel``, ``ui_library_audit``) all had hardcoded ``LIMIT 10000`` / ``LIMIT 500`` silently truncating production-scale data.
+3. **Silent failures** — pinned/excluded overlap, fields=unknown_preset, provider_search empty query, sequence_optimize template name, set.template_name on create+update, provider_search type=all aggregation.
+4. **Type coercion** — Decimal → JSON string for ``avg(integer)``.
+5. **Cross-domain validation** — set.template_name registry check on both create and update dispatchers.
+6. **Drift sync** — ``EntityRegistry.filterable_fields`` synced on each entity to match the live filter schema.
+
+### Outstanding work (operations, not code)
+
+- ``track_feedback.kind`` column missing in production Supabase (declared on ORM)
+- ``track_affinity.positive_count`` / ``negative_count`` missing in production Supabase
+
+Apply Alembic migrations to sync. Code path is correct; the production schema lagged.
+
+### Tests
+- 930 passed, no regressions in this release.
+- ``make check`` clean.
+
 ## [1.2.27] - 2026-04-27
 
 **Audit-fix loop, iteration 27.** AudioFileUpdate widening + SetVersionFilter id range.
