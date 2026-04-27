@@ -17,7 +17,7 @@ from typing import Any
 try:  # pragma: no cover - optional extra
     from anthropic import AsyncAnthropic
 except ImportError:  # pragma: no cover
-    AsyncAnthropic = None  # type: ignore[assignment,misc]
+    AsyncAnthropic = None
 
 log = logging.getLogger(__name__)
 

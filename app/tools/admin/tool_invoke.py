@@ -48,7 +48,7 @@ async def tool_invoke(
     if name == "tool_invoke":
         raise ValueError("tool_invoke cannot dispatch to itself")
 
-    server = getattr(ctx, "fastmcp", None) or ctx.fastmcp_context.fastmcp
+    server = getattr(ctx, "fastmcp", None) or ctx.fastmcp_context.fastmcp  # type: ignore[attr-defined]
     tool_obj = await server.get_tool(name)
     if tool_obj is None:
         raise ValueError(f"tool {name!r} is not registered")

@@ -65,7 +65,7 @@ async def unlock_namespace(
 
     enabled_tools: list[str] = []
     try:
-        tools = await ctx.list_tools()
+        tools = await ctx.list_tools()  # type: ignore[attr-defined]
         for t in tools:
             tag_set = set(getattr(t, "tags", ()) or ())
             if tag_set & tags_for_ns:

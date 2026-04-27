@@ -22,9 +22,11 @@ from app.shared.errors import NotFoundError
 if TYPE_CHECKING:
     from sqlalchemy.orm import DeclarativeBase
 
-# Handler signature: (ctx, uow, data) -> view-dict(s)
+# Handler signature: (ctx, uow, data, *deps) -> view-dict(s).
+# Some handlers take an extra ProviderRegistry / AnalysisPipeline / scorer
+# arg injected by the entity dispatcher; ``...`` allows the variation.
 HandlerCallable = Callable[
-    [Any, Any, dict[str, Any]],
+    ...,
     Awaitable[dict[str, Any] | list[dict[str, Any]]],
 ]
 

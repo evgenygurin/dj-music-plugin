@@ -18,7 +18,7 @@ from fastmcp.server.middleware import Middleware, MiddlewareContext
 log = logging.getLogger(__name__)
 
 
-def _default_sink(event: dict) -> None:
+def _default_sink(event: dict[str, Any]) -> None:
     log.info("mcp_audit", extra={"mcp_extra": event})
 
 
@@ -31,7 +31,7 @@ def _hash_args(args: Any) -> str:
 
 
 class AuditLogMiddleware(Middleware):
-    def __init__(self, *, sink: Callable[[dict], None] = _default_sink) -> None:
+    def __init__(self, *, sink: Callable[[dict[str, Any]], None] = _default_sink) -> None:
         self._sink = sink
 
     async def on_call_tool(

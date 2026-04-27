@@ -3,7 +3,7 @@ from __future__ import annotations
 import dataclasses
 import json
 from enum import StrEnum
-from typing import Any, Literal
+from typing import Any, Literal, cast
 
 
 class TransitionType(StrEnum):
@@ -40,7 +40,7 @@ class StemAction(StrEnum):
 
 
 def _coerce_int(value: object) -> int | None:
-    if isinstance(value, bool):
+    if isinstance(value, bool) or not isinstance(value, int | float | str):
         return None
     try:
         return int(value)
@@ -49,7 +49,7 @@ def _coerce_int(value: object) -> int | None:
 
 
 def _coerce_float(value: object) -> float | None:
-    if isinstance(value, bool):
+    if isinstance(value, bool) or not isinstance(value, int | float | str):
         return None
     try:
         return float(value)
@@ -132,7 +132,7 @@ class RecipeStep:
 
         return cls(
             bar=bar,
-            deck=deck,
+            deck=cast(Literal["A", "B", "both"], deck),
             action=action,
             stem=stem,
             stem_action=stem_action,

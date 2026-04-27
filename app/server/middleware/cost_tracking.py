@@ -15,12 +15,12 @@ from fastmcp.server.middleware import Middleware, MiddlewareContext
 log = logging.getLogger(__name__)
 
 
-def _default_sink(event: dict) -> None:
+def _default_sink(event: dict[str, Any]) -> None:
     log.info("mcp_cost", extra={"mcp_extra": event})
 
 
 class CostTrackingMiddleware(Middleware):
-    def __init__(self, *, sink: Callable[[dict], None] = _default_sink) -> None:
+    def __init__(self, *, sink: Callable[[dict[str, Any]], None] = _default_sink) -> None:
         self._sink = sink
 
     async def on_call_tool(

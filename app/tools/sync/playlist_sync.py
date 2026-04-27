@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal
 
 from fastmcp.dependencies import CurrentContext, Depends
 from fastmcp.server.context import Context
@@ -69,9 +69,9 @@ async def playlist_sync(
     remote_tracks = remote.get("tracks") or []
     remote_ext_ids: list[str] = [str(t.get("id")) for t in remote_tracks if t.get("id")]
 
-    applied: list[dict] = []
-    skipped: list[dict] = []
-    conflicts: list[dict] = []
+    applied: list[dict[str, Any]] = []
+    skipped: list[dict[str, Any]] = []
+    conflicts: list[dict[str, Any]] = []
 
     if direction == "pull":
         existing = await uow.tracks.batch_get_by_provider_ids(source, remote_ext_ids)

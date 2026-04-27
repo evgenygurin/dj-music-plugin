@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Annotated
+from typing import Annotated, Any
 
 from fastmcp.dependencies import CurrentContext, Depends
 from fastmcp.server.context import Context
@@ -31,7 +31,7 @@ async def transition_score_pool(
     ],
     intent: Annotated[str | None, Field(description="Optional transition intent override")] = None,
     uow: UnitOfWork = Depends(get_uow),
-    scorer=Depends(get_transition_scorer),
+    scorer: Any = Depends(get_transition_scorer),
     ctx: Context = CurrentContext(),
 ) -> ScorePoolResult:
     if not track_ids:
