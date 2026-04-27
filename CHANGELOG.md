@@ -6,6 +6,21 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.2.54] - 2026-04-28
+
+**Audit-fix loop, iteration 56.** ``SetVersionCreate`` accepted track-order pathologies.
+
+### Fixed
+- **T-54:** ``entity_create(set_version, {"track_order": [146, 147, 146]})`` succeeded — set version 67 persisted with track 146 played twice, an obvious bug. Plus ``track_order=[146]`` (single track) was also accepted, producing a "set" with no transitions. Both contradict ``sequence_optimize`` and ``transition_score_pool`` which already reject duplicates.
+
+  Fix: ``model_validator(mode="after")`` on ``SetVersionCreate``:
+  - Duplicate track ids in ``track_order`` rejected with the explicit duplicate list
+  - Fewer than 2 tracks rejected (a set without transitions is not a set)
+
+### Tests
+- 1185 → **1191 passed** (+6 track-order schema validation tests).
+- ``make check`` clean.
+
 ## [1.2.53] - 2026-04-28
 
 **Audit-fix loop, iteration 55.** ``TrackFeaturesCreate`` accepted no-target payloads, leaking ``KeyError``.

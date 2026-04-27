@@ -1,6 +1,6 @@
 [project]
 name = "dj-music-plugin"
-version = "1.2.53"
+version = "1.2.54"
 description = "MCP server for DJ techno music library management"
 requires-python = ">=3.12"
 dependencies = [
