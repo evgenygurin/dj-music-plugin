@@ -6,6 +6,21 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.0.11] — 2026-04-27
+
+**Fix: extend JSON-string transport coercion to `get_prompt(arguments=…)`** — final residual JSON-string transport bug discovered during continuation of the manual MCP-surface audit. v1.0.10 covered tool params; this release covers the prompt path through FastMCP's stock `PromptsAsTools` transform, which used `dict[str, Any] | None` without a `BeforeValidator` and crashed on every Claude Code prompt invocation.
+
+### Fixed
+- `app/server/json_aware_prompts.py` (new) — `JSONAwarePromptsAsTools` subclass overrides `_make_get_prompt_tool` so `arguments` accepts EITHER a native dict OR a JSON-encoded string, via `app/shared/types.py:JsonDictOrNone`. Mirrors the existing `JSONAwareResourcesAsTools` pattern. `list_prompts` is preserved unchanged through `super()`.
+- `app/server/transforms.py` — registration switched from upstream `PromptsAsTools` to `JSONAwarePromptsAsTools`.
+
+### Added
+- `tests/server/test_json_aware_prompts.py` — 3 regression tests covering native-dict, JSON-string, and no-args prompt rendering.
+
+### Tests
+- **748 passed** (was 745 at v1.0.10) — +3 regression tests.
+- `make check` clean: ruff, mypy strict (240 files), import-linter (5 contracts kept), pytest.
+
 ## [1.0.10] — 2026-04-27
 
 **Fix: align MCP tool list-params with Claude Code's JSON-string transport** — manual end-to-end MCP-surface audit (post-v1.0.9 install) hit three latent type-mismatch bugs the test suite missed because in-memory FastMCP `Client` always passes native types, while the real Claude Code stdio transport stringifies complex args. Production tools were silently broken on every list-typed parameter call.
