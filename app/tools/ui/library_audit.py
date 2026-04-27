@@ -50,14 +50,34 @@ except ImportError as _exc:  # pragma: no cover — fastmcp[apps] extra missing
     ) from _exc
 
 
-async def _gather(uow: UnitOfWork, playlist_id: int | None) -> dict[str, Any]:
+_LIBRARY_AUDIT_DEFAULT_LIMIT = 5000
+
+
+async def _gather(
+    uow: UnitOfWork,
+    playlist_id: int | None,
+    limit: int = _LIBRARY_AUDIT_DEFAULT_LIMIT,
+) -> dict[str, Any]:
+    truncated: bool | None = None
+    library_size: int | None = None
+    effective_limit: int | None = None
+
     if playlist_id is not None:
         if await uow.playlists.get(playlist_id) is None:
             raise NotFoundError("playlist", playlist_id)
         track_ids = await uow.playlists.get_track_ids(playlist_id)
     else:
-        page = await uow.tracks.filter(limit=500)
+        # Whole library scope: pull up to ``limit`` track ids. Audit (iter
+        # 2) caught the prior hardcoded ``limit=500`` reporting
+        # ``total_tracks: 500`` for a 24k library - silent truncation
+        # the caller had no way to detect. Now the cap is configurable
+        # and the response carries ``truncated``/``library_size`` so
+        # consumers know whether they saw the full picture.
+        library_size = await uow.tracks.count()
+        effective_limit = limit
+        page = await uow.tracks.filter(limit=limit)
         track_ids = [r.id for r in page.items]
+        truncated = library_size > len(track_ids)
 
     feat_map = await uow.track_features.get_scoring_features_batch(track_ids)
     track_map = await uow.tracks.get_many(track_ids)
@@ -101,6 +121,9 @@ async def _gather(uow: UnitOfWork, playlist_id: int | None) -> dict[str, Any]:
         "coverage": coverage,
         "per_track": per_track,
         "subgenre_distribution": dict(subgenres),
+        "truncated": truncated,
+        "library_size": library_size,
+        "limit": effective_limit,
     }
 
 
@@ -118,12 +141,27 @@ async def _gather(uow: UnitOfWork, playlist_id: int | None) -> dict[str, Any]:
 async def ui_library_audit(
     playlist_id: Annotated[
         int | None,
-        Field(description="Playlist ID; when None, audit the whole library (first 500 tracks)"),
+        Field(
+            description=("Playlist ID; when None, audit the whole library subject to ``limit``.")
+        ),
     ] = None,
+    limit: Annotated[
+        int,
+        Field(
+            ge=1,
+            le=50000,
+            description=(
+                "Whole-library audit cap. Ignored when ``playlist_id`` is set "
+                "(playlist scope is bounded by membership). Response carries "
+                "``truncated`` and ``library_size`` so callers know whether "
+                "they saw everything."
+            ),
+        ),
+    ] = _LIBRARY_AUDIT_DEFAULT_LIMIT,
     uow: UnitOfWork = Depends(get_uow),
     ctx: Context = CurrentContext(),
 ) -> Column | LibraryAuditFallback:
-    data = await _gather(uow, playlist_id)
+    data = await _gather(uow, playlist_id, limit=limit)
 
     if not supports_ui(ctx):
         return fallback_or(LibraryAuditFallback, data)
