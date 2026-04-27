@@ -59,7 +59,10 @@ async def _gather(uow: UnitOfWork) -> dict[str, Any]:
     total = await uow.tracks.count()
     analyzed = await uow.track_features.count()
 
-    # Pull all feature rows up to a safe cap; dashboard is coarse.
+    # Pull every analyzed feature row. Audit (iter 1) caught the prior
+    # ``.limit(10000)`` silently dropping ~60% of the production
+    # library. Three tiny columns over 24k rows is ~700 KB - no need
+    # for the cap; the dashboard is on-demand, not realtime.
     session = uow.track_features.session
     from sqlalchemy import select
 
@@ -67,7 +70,7 @@ async def _gather(uow: UnitOfWork) -> dict[str, Any]:
         TrackAudioFeaturesComputed.bpm,
         TrackAudioFeaturesComputed.key_code,
         TrackAudioFeaturesComputed.mood,
-    ).limit(10000)
+    )
     rows = (await session.execute(stmt)).all()
 
     bpm_hist: Counter[str] = Counter()
@@ -88,11 +91,16 @@ async def _gather(uow: UnitOfWork) -> dict[str, Any]:
             mood_hist[mood] += 1
 
     coverage = (analyzed / total) if total else 0.0
+    # Emit ``bpm_histogram`` in ascending bucket order — Counter's
+    # insertion order is whatever bucket appeared first in the data,
+    # which scrambles the chart on Prefab-blind clients consuming the
+    # JSON fallback (audit iter 1).
+    bpm_histogram_ordered = {label: bpm_hist.get(label, 0) for label, _, _ in _BPM_BUCKETS}
     return {
         "total_tracks": total,
         "analyzed_tracks": analyzed,
         "coverage": coverage,
-        "bpm_histogram": dict(bpm_hist),
+        "bpm_histogram": bpm_histogram_ordered,
         "mood_distribution": dict(mood_hist),
         "camelot_distribution": dict(camelot_hist),
     }
