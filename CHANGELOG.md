@@ -6,6 +6,17 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.2.25] - 2026-04-27
+
+**Audit-fix loop, iteration 25.** TrackFeaturesFilter scalar/confidence widening - the analytics-quality filters.
+
+### Fixed
+- ``TrackFeaturesFilter`` accepts ``mood_confidence__gte/lte`` ("exclude low-confidence mood classifications") + ``mood__isnull`` + ``energy_mean``, ``spectral_centroid_hz``, ``hp_ratio``, ``kick_prominence`` (gte/lte each). The canonical "filter analytics-grade tracks" query is now expressible directly through entity_list.
+
+### Tests
+- 914 -> **925 passed** (+11 parametrized lookup tests).
+- ``make check`` clean.
+
 ## [1.2.24] - 2026-04-27
 
 **Audit-fix loop, iteration 24.** ScoringProfileFilter weight lookups + id family.
