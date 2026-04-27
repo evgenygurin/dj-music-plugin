@@ -6,6 +6,19 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.2.40] - 2026-04-28
+
+**Audit-fix loop, iteration 43.** ``suggest_next?energy_direction=up|down`` was a no-op.
+
+### Fixed
+- **T-41:** ``local://tracks/{id}/suggest_next?energy_direction=up|down`` filtered candidates against absolute thresholds — ``up`` dropped tracks with ``energy_mean <= 0``, ``down`` dropped tracks with ``energy_mean >= 1``. Real ``energy_mean`` always falls in (0, 1) for techno, so neither threshold ever fired and the directional knob did nothing. Live confirmation: ``?limit=5&energy_direction=down`` returned the same 5 candidates as the no-filter call.
+
+  Fix: compare candidate ``energy_mean`` against the SOURCE track's ``energy_mean`` — ``up`` = candidate hotter than source; ``down`` = candidate cooler. When either side has no energy data, the candidate falls through (we don't silently drop it).
+
+### Tests
+- 1114 → **1118 passed** (+4 ``energy_direction`` regression tests).
+- ``make check`` clean.
+
 ## [1.2.39] - 2026-04-28
 
 **Audit-fix loop, iteration 42.** ``suggest_replacement`` returned hardcoded ``score=0.0`` for every candidate.

@@ -239,16 +239,42 @@ async def _compute_suggest_next(
         return [], "no historical transitions logged for this track"
     out: list[dict[str, Any]] = []
     feat_ids = [r.to_track_id for r in rows]
+    # Audit iter 43 (T-41): the prior energy_direction filter compared
+    # ``candidate.energy_mean`` against absolute thresholds (``<= 0``
+    # for "up", ``>= 1`` for "down"). Real ``energy_mean`` always
+    # falls in (0, 1) for techno, so the filter was a no-op — the
+    # ``up`` / ``down`` knob did nothing. Fix: compare candidate
+    # against the SOURCE track's energy_mean. "up" => candidate hotter
+    # than source; "down" => candidate cooler.
+    if direction in {"up", "down"}:
+        feat_ids = [*feat_ids, track_id]
     feat_map = await uow.track_features.get_scoring_features_batch(feat_ids)
+    src_feat = feat_map.get(track_id) if direction in {"up", "down"} else None
+    src_energy = src_feat.energy_mean if src_feat else None
     filtered_by_direction = 0
     for r in rows:
         feat_to = feat_map.get(r.to_track_id)
         if feat_to is None:
             continue
-        if direction == "up" and (feat_to.energy_mean or 0) <= 0:
+        cand_energy = feat_to.energy_mean
+        # Need both energies to apply the directional filter; otherwise
+        # we can't compare and the candidate falls through (we don't
+        # silently drop it — log it via filtered_by_direction only when
+        # the comparison was actually decisive).
+        if (
+            direction == "up"
+            and cand_energy is not None
+            and src_energy is not None
+            and cand_energy <= src_energy
+        ):
             filtered_by_direction += 1
             continue
-        if direction == "down" and (feat_to.energy_mean or 0) >= 1:
+        if (
+            direction == "down"
+            and cand_energy is not None
+            and src_energy is not None
+            and cand_energy >= src_energy
+        ):
             filtered_by_direction += 1
             continue
         track = await uow.tracks.get(r.to_track_id)
