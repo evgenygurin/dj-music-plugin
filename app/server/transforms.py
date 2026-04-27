@@ -2,8 +2,11 @@
 
 - ``BM25SearchTransform`` — keeps a fixed set of core tools always visible,
   ranks the rest via BM25 on client queries.
-- ``PromptsAsTools`` — exposes prompts as tools for tool-only clients.
-- ``ResourcesAsTools`` — exposes resources as tools for tool-only clients.
+- ``JSONAwarePromptsAsTools`` — exposes prompts as tools for tool-only
+  clients; ``get_prompt(arguments=...)`` accepts both native dict and
+  JSON-encoded string (Claude Code stdio shim quirk).
+- ``JSONAwareResourcesAsTools`` — exposes resources as tools for
+  tool-only clients with parsed JSON payloads in ``structuredContent``.
 - ``CodeMode`` — optional zero-round-trip pipeline mode, gated by
   ``DJ_MCP_CODE_MODE`` env flag.
 
@@ -21,9 +24,9 @@ import os
 from typing import Any
 
 from fastmcp import FastMCP
-from fastmcp.server.transforms import PromptsAsTools
 from fastmcp.server.transforms.search import BM25SearchTransform
 
+from app.server.json_aware_prompts import JSONAwarePromptsAsTools
 from app.server.json_aware_resources import JSONAwareResourcesAsTools
 
 try:  # pragma: no cover - optional experimental module
@@ -74,11 +77,12 @@ def build_pre_constructor_transforms() -> list[Any]:
 def register_post_constructor_transforms(mcp: FastMCP) -> None:
     """Register transforms that need the fully-constructed ``mcp`` instance.
 
-    ``PromptsAsTools`` and ``ResourcesAsTools`` expose prompts/resources as
-    tools for tool-only clients. ``CodeMode`` is experimental and disabled
-    by default.
+    The two ``JSONAware*`` transforms expose prompts/resources as tools for
+    tool-only clients while transparently coercing JSON-string args from
+    transports that stringify complex parameters (Claude Code stdio shim).
+    ``CodeMode`` is experimental and disabled by default.
     """
-    mcp.add_transform(PromptsAsTools(mcp))
+    mcp.add_transform(JSONAwarePromptsAsTools(mcp))
     mcp.add_transform(JSONAwareResourcesAsTools(mcp))
     if os.getenv("DJ_MCP_CODE_MODE", "0") == "1" and CodeMode is not None:
         mcp.add_transform(CodeMode(mcp))  # type: ignore[misc,arg-type]
