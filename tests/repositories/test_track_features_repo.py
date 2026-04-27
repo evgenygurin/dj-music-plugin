@@ -102,6 +102,26 @@ def test_serialize_vectors_handles_none_and_missing() -> None:
     assert "tonnetz_vector" not in out
 
 
+def test_serialize_vectors_handles_numpy_ndarray() -> None:
+    """Pipeline analyzers historically return ``np.ndarray`` from some
+    paths; ``json.dumps`` cannot encode ndarray directly. The helper
+    must coerce via ``.tolist()`` so a future analyzer that forgets the
+    explicit conversion doesn't crash the L3 sweep.
+    """
+    import numpy as np
+
+    arr = np.array([0.1, 0.2, 0.3], dtype=np.float64)
+    out = _serialize_vectors({"mfcc_vector": arr})
+    assert isinstance(out["mfcc_vector"], str)
+    assert json.loads(out["mfcc_vector"]) == [0.1, 0.2, 0.3]
+
+
+def test_serialize_vectors_handles_tuple() -> None:
+    """Tuples are valid JSON arrays once converted to list."""
+    out = _serialize_vectors({"tonnetz_vector": (0.1, 0.2, 0.3)})
+    assert json.loads(out["tonnetz_vector"]) == [0.1, 0.2, 0.3]
+
+
 @pytest.mark.asyncio
 async def test_upsert_serializes_vector_columns(
     repo: TrackFeaturesRepository, session: AsyncSession

@@ -29,11 +29,27 @@ _JSON_ENCODED_VECTOR_COLUMNS = frozenset(
 
 
 def _serialize_vectors(values: dict[str, Any]) -> dict[str, Any]:
-    """Encode list-typed vector columns as JSON strings; pass others through."""
+    """Encode list-typed vector columns as JSON strings; pass others through.
+
+    Pipeline analyzers historically return ``np.ndarray`` from some code
+    paths and ``list[float]`` from others. ``json.dumps`` rejects ndarray
+    with an opaque ``TypeError`` deep in the encoder — coerce via
+    ``.tolist()`` first so a future analyzer that forgets the explicit
+    conversion still produces a valid JSON string instead of crashing
+    the entire L3 sweep on its first track.
+    """
     out = dict(values)
     for col in _JSON_ENCODED_VECTOR_COLUMNS:
-        if col in out and out[col] is not None and not isinstance(out[col], str):
-            out[col] = json.dumps(out[col])
+        if col not in out or out[col] is None or isinstance(out[col], str):
+            continue
+        value = out[col]
+        # ndarray / tuple → list, then JSON-encode. ``hasattr(... "tolist")``
+        # catches numpy without forcing a numpy import in this leaf module.
+        if hasattr(value, "tolist") and not isinstance(value, list):
+            value = value.tolist()
+        elif isinstance(value, tuple):
+            value = list(value)
+        out[col] = json.dumps(value)
     return out
 
 

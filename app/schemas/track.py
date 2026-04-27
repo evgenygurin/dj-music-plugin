@@ -44,16 +44,14 @@ class TrackCreate(BaseModel):
     Track + YandexMetadata + TrackExternalId row. Idempotent by
     (source, external_id): existing tracks are returned in ``skipped``.
 
-    Required: ``external_ids`` (list of provider track IDs as strings).
-    Optional: ``source`` (provider name registered in ProviderRegistry,
-    default ``"yandex"``), ``playlist_id`` (link imported tracks to a
-    playlist), ``title`` / ``sort_title`` / ``duration_ms`` / ``status``
-    (overrides — handler fills them from provider metadata otherwise).
+    There is no "default-INSERT" path on this entity — track rows are
+    always sourced from a provider — so only the import-relevant fields
+    are accepted. Title / duration / status come straight from the
+    provider response and cannot be overridden by the caller.
     """
 
     model_config = ConfigDict(extra="forbid")
 
-    # Handler-driven import path (primary surface):
     external_ids: list[str] = Field(
         ..., min_length=1, description="Provider track IDs (e.g. Yandex track ids)."
     )
@@ -64,12 +62,6 @@ class TrackCreate(BaseModel):
     playlist_id: int | None = Field(
         default=None, description="Optional playlist to append imported tracks to."
     )
-
-    # Optional metadata overrides (handler pulls from provider when omitted):
-    title: str | None = Field(default=None, min_length=1, max_length=500)
-    sort_title: str | None = None
-    duration_ms: int | None = Field(default=None, ge=0)
-    status: int = Field(default=0, ge=0, le=1)
 
 
 class TrackUpdate(BaseModel):
