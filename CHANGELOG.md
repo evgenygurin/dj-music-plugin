@@ -6,7 +6,33 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
-## [1.0.13] — 2026-04-27
+## [1.1.0] - 2026-04-27
+
+**Architectural hardening: closes the v1.0.10-v1.0.13 bug class at the architecture level.** The four PATCH releases that preceded this MINOR each fixed a different surface symptom of the same underlying problem: the FastMCP in-memory test client and the Claude Code stdio shim transport are not isomorphic, and the test suite was blind to it. This release replaces bug-by-bug patching with three system-level safeguards: (1) server-side coercion middleware, (2) stringified-args test fixture, (3) integration round-trip tests against real YM.
+
+Also implemented as part of `superpowers:writing-plans` -> `test-driven-development` cycle (plan saved at `docs/superpowers/plans/2026-04-27-v1.1.0-architectural-hardening.md`).
+
+### Added
+- `app/server/middleware/json_string_coerce.py` - new `JsonStringCoerceMiddleware` (16th in the chain, position #2 after `DomainErrorMiddleware`). Inspects each tool's `inputSchema` and coerces stringified `array`/`object` args to native types before Pydantic validation. New tools no longer need per-param `JsonIntList` / `JsonStrListOrNone` / `JsonDictOrNone` opt-in helpers - existing tools keep them as belt-and-suspenders (coercing twice is idempotent).
+- `tests/tools/conftest.py` - new `_StringifyingClientProxy` + `stringified_mcp_client` fixture that wraps `fastmcp.Client.call_tool` to JSON-stringify dict/list args before sending. Reproduces Claude Code stdio shim's transport quirk so transport-asymmetry regressions get caught in CI.
+- `tests/tools/entity/test_get_transport_parity.py` - 4 tests pinning that `entity_get(include_relations=…)` and `entity_list(filters=…)` work under both native and stringified transport, even with the middleware absent (server tests run with `with_middleware=False`).
+- `tests/providers/yandex/test_yandex_integration.py` - 3 round-trip tests against real `api.music.yandex.net` covering `provider_search`, `provider_read(likes)`, and `provider_write(playlist create+delete)`. Pins the v1.0.12 bare-`"ok"` shape that crashed the dispatcher before. Marker `pytest.mark.integration` + `skipif(not DJ_YM_TOKEN)` so CI without secrets stays green.
+- `[tool.pytest.ini_options].markers` += `"integration: live external-service round-trips, skipped without secrets"`.
+
+### Changed
+- `app/server/middleware/__init__.py` - middleware chain length 15 -> 16; `JsonStringCoerceMiddleware` registered at position #2 so every other middleware (audit log, response cache, DB session, …) sees already-coerced args.
+- `tests/server/test_ordering.py` - asserts `len(ALL_MIDDLEWARE) == 16` and the new ordering.
+
+### Tests
+- **775 passed** (was 761 at v1.0.13), +3 integration SKIPPED without YM token, +44 xfailed, +20 xpassed.
+- `make check` clean: ruff + mypy strict (242 files) + import-linter (5 contracts kept) + pytest 23.6s.
+- Live integration suite passes against real YM when `DJ_YM_TOKEN` is set: 3/3 PASSED.
+
+### Architecture verdict
+- v1.1.0 closes the bug class introduced in v1.0.10 and revisited in v1.0.11/v1.0.12/v1.0.13. New tools added with `Annotated[list[X], …]` or `Annotated[dict[str, Any], …]` are now safe by default.
+- The `Json*` per-param helpers in `app/shared/types.py` remain in place but are no longer mandatory.
+
+## [1.0.13] - 2026-04-27
 
 **Fix: implement `entity_list` / `entity_get` field projection** — `fields=…` parameter was declared in tool signatures since v1.0 but **never applied** to responses. Every call returned the full row regardless of what the caller asked for. Discovered by `superpowers:systematic-debugging` skill during architectural review of the v1.0.10–v1.0.12 patch streak.
 
