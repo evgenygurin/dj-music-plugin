@@ -6,6 +6,17 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.2.20] - 2026-04-27
+
+**Audit-fix loop, iteration 20.** Found a non-schema bug for the first time in many iterations.
+
+### Fixed
+- **T-21:** ``provider_search(type='all')`` silently returned ``{total: 0, items: []}`` regardless of the query. The parser read ``raw.get('results')`` while YM (and most providers) return a sectioned shape ``{tracks: {results, total}, albums: {results, total}, artists: {...}, playlists: {...}}``. Now ``type='all'`` aggregates items across every section and tags each result with ``_section`` so callers can disambiguate which kind of object each row is. ``total`` sums the per-section totals.
+
+### Tests
+- 886 -> **889 passed** (+3 type-all aggregation tests).
+- ``make check`` clean.
+
 ## [1.2.19] - 2026-04-27
 
 **Audit-fix loop, iteration 19.** 3 more filter schemas underspec'd vs canonical "filter audio quality" / "find rejected pairs" queries.
