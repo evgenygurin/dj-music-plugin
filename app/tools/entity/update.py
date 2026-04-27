@@ -102,6 +102,33 @@ async def entity_update(
                 details={"template_name": template_name_val},
             )
 
+    # Audit iter 53 (T-51): playlist hierarchy cycle prevention.
+    # ``entity_update(playlist, id=X, data={parent_id: Y})`` used to
+    # accept ``Y == X`` (self-cycle) and ``Y`` already in ``X``'s
+    # descendants (N-cycle), corrupting the playlist tree. Walk Y's
+    # ancestor chain and reject if X appears in it.
+    if entity == "playlist":
+        new_parent_id = data.get("parent_id")
+        if new_parent_id is not None:
+            from app.shared.errors import ValidationError
+
+            if new_parent_id == id:
+                raise ValidationError(
+                    f"playlist {id} cannot be its own parent (self-cycle)",
+                    details={"playlist_id": id, "parent_id": new_parent_id},
+                )
+            ancestor_chain = await uow.playlists.ancestor_ids(new_parent_id)
+            if id in ancestor_chain:
+                raise ValidationError(
+                    f"setting playlist {id}'s parent to {new_parent_id} would "
+                    f"create a cycle (chain: {' → '.join(str(p) for p in ancestor_chain)} → {id})",
+                    details={
+                        "playlist_id": id,
+                        "parent_id": new_parent_id,
+                        "ancestor_chain": ancestor_chain,
+                    },
+                )
+
     repo = getattr(uow, config.repo_attr)
     row = await repo.update(id, **validated.model_dump(exclude_unset=True))
     view = config.view_schema.model_validate(row).model_dump()

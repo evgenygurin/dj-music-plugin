@@ -27,6 +27,34 @@ class PlaylistRepository(BaseRepository[DjPlaylist]):
         )
         return int(await self.session.scalar(stmt) or 0)
 
+    async def ancestor_ids(self, playlist_id: int) -> list[int]:
+        """Walk the ``parent_id`` chain upward from ``playlist_id``.
+
+        Returns the chain in oldest→newest order (root first, the
+        playlist itself last). A self-loop or already-corrupt cycle
+        terminates the walk after at most ``MAX_DEPTH`` hops so this
+        never spins forever; callers can detect a duplicate id in
+        the result to prove a pre-existing cycle.
+
+        Audit iter 53 (T-51): used by the ``entity_update`` dispatcher
+        to reject ``parent_id`` assignments that would create a
+        cycle in the playlist hierarchy.
+        """
+        max_depth = 1000
+        chain: list[int] = []
+        seen: set[int] = set()
+        current: int | None = playlist_id
+        for _ in range(max_depth):
+            if current is None or current in seen:
+                break
+            seen.add(current)
+            chain.append(current)
+            row = await self.get(current)
+            if row is None:
+                break
+            current = row.parent_id
+        return list(reversed(chain))
+
     async def get_track_ids(self, playlist_id: int) -> list[int]:
         stmt = (
             select(DjPlaylistItem.track_id)

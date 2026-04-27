@@ -6,6 +6,28 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.2.50] - 2026-04-28
+
+**Audit-fix loop, iteration 53.** Playlist hierarchy could contain cycles.
+
+### Fixed
+- **T-51:** ``entity_update(playlist, id=X, data={parent_id: X})`` accepted self-cycles; ``entity_update`` also accepted N-cycles (e.g. setting playlist 32's parent to its descendant 33, when 33's parent was already 32). Live confirmation::
+
+      entity_create(playlist, {"name":"X"})              -> id=32
+      entity_update(playlist, 32, {"parent_id": 32})     -> 200 OK   ← self-cycle
+      entity_create(playlist, {"name":"Y","parent_id":32})-> id=33
+      entity_update(playlist, 32, {"parent_id": 33})     -> 200 OK   ← 32→33→32
+
+  Fix:
+  - New ``PlaylistRepository.ancestor_ids(playlist_id)`` walks the ``parent_id`` chain root-first (with ``max_depth=1000`` and a ``seen`` set to terminate on pre-existing data drift).
+  - ``entity_update`` rejects ``parent_id == id`` with a self-cycle message and walks the proposed parent's ancestor chain — if the playlist being updated appears in it, raises ``ValidationError`` with the full cycle path in ``details``.
+
+  ``entity_create`` is naturally safe (id is auto-generated post-insert; FK already catches non-existent parent).
+
+### Tests
+- 1165 → **1172 passed** (+7 cycle-prevention regression tests).
+- ``make check`` clean.
+
 ## [1.2.49] - 2026-04-28
 
 **Audit-fix loop, iteration 52.** Schema-mismatch ``ProgrammingError`` leaked raw SQL.
