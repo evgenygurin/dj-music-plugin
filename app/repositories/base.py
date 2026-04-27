@@ -232,13 +232,35 @@ class BaseRepository(Generic[M]):
             case _:
                 raise ValidationError(f"unsupported aggregate operation: {op!r}")
 
-        # count / sum / avg flow
+        # count / sum / avg flow.
+        #
+        # Audit iter 18 (T-18): Postgres ``AVG(integer_column)`` returns
+        # ``NUMERIC``, which asyncpg surfaces as ``Decimal``. Pydantic
+        # serialises ``Decimal`` as a JSON string ("9.16..."), so callers
+        # got a string where they expected a number. Coerce to ``float``
+        # for ``avg`` (always continuous) and to native ``int`` / ``float``
+        # for ``sum`` (matches the column type). ``count`` stays an int.
+        def _coerce_numeric(value: Any) -> Any:
+            from decimal import Decimal
+
+            if value is None:
+                return None
+            if isinstance(value, Decimal):
+                return (
+                    float(value)
+                    if op in {"avg"}
+                    else int(value)
+                    if op == "count"
+                    else float(value)
+                )
+            return value
+
         if group_col is not None:
             stmt = select(group_col, value_expr).select_from(self.model).group_by(group_col)
             for clause in parse_filter(self.model, where or {}):
                 stmt = stmt.where(clause)
             rows = (await self.session.execute(stmt)).all()
-            return [{"group": r[0], "value": r[1]} for r in rows]
+            return [{"group": r[0], "value": _coerce_numeric(r[1])} for r in rows]
 
         stmt = select(value_expr).select_from(self.model)
         for clause in parse_filter(self.model, where or {}):
@@ -249,4 +271,4 @@ class BaseRepository(Generic[M]):
         # for numeric ops and keep ``count`` at its real value.
         if raw is None and op in {"sum", "avg"}:
             return 0
-        return raw
+        return _coerce_numeric(raw)
