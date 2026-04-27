@@ -6,6 +6,20 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.2.10] - 2026-04-27
+
+**Audit-fix loop, iteration 8.** Three more filter schemas were underspec'd vs canonical scoring/library queries, plus ``TransitionView`` was missing ``reject_reason``.
+
+### Fixed
+- ``SetVersionFilter`` accepts ``quality_score__gte/lte/range`` ("show me set versions with quality >= 0.7" was rejected).
+- ``AudioFileFilter`` accepts ``file_size__gte/lte/range`` (range queries to find suspect files).
+- ``TransitionView`` declares ``reject_reason`` so ``entity_get(transition, id)`` exposes WHY a pair was hard-rejected. The column already existed on the ORM and the resource layer; only the entity DTO was missing it.
+- ``EntityRegistry.set_version.filterable_fields`` and ``EntityRegistry.audio_file.filterable_fields`` synced with the new lookups.
+
+### Tests
+- 864 -> **868 passed**.
+- ``make check`` clean.
+
 ## [1.2.9] - 2026-04-27
 
 **Audit-fix loop, iteration 7.** ``TransitionFilter`` rejected ``hard_reject__eq``, the canonical "show me hard-reject transitions" query.
