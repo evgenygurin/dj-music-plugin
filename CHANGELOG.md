@@ -6,6 +6,20 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.2.14] - 2026-04-27
+
+**Audit-fix loop, iteration 13.** Systematic sweep across remaining filter schemas - 4 widenings batched into one release instead of one-per-iteration.
+
+### Fixed
+- ``TrackFilter.sort_title__icontains`` (the canonical "find by sort name" query was rejected).
+- ``SetVersionFilter.label__eq`` (only the icontains form was declared).
+- ``AudioFileFilter.bitrate__eq/gte/lte`` (no bitrate lookups existed at all).
+- ``TransitionHistoryFilter.overall_score__lte/range`` (only ``__gte`` was declared).
+
+### Tests
+- 873 -> **877 passed**.
+- ``make check`` clean.
+
 ## [1.2.13] - 2026-04-27
 
 **Audit-fix loop, iteration 12.** ``SetFilter`` rejected ``template_name__in`` ("show me sets built with classic_60 or peak_hour_60").

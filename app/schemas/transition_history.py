@@ -34,6 +34,8 @@ class TransitionHistoryFilter(BaseModel):
     to_track_id__in: list[int] | None = None
     user_reaction__eq: Literal["positive", "neutral", "negative"] | None = None
     overall_score__gte: float | None = None
+    overall_score__lte: float | None = None
+    overall_score__range: list[float] | None = None
     session_id__eq: str | None = None
 
 
