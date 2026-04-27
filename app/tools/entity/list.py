@@ -10,7 +10,7 @@ from fastmcp.tools import tool
 from pydantic import Field
 from pydantic import ValidationError as PydanticValidationError
 
-from app.registry.entity import EntityRegistry
+from app.registry.entity import EntityRegistry, resolve_field_projection
 from app.repositories.unit_of_work import UnitOfWork
 from app.schemas.tool_responses import EntityListResult
 from app.server.di import get_uow
@@ -56,7 +56,13 @@ async def entity_list(
     ] = None,
     fields: Annotated[
         list[str] | str | None,
-        Field(description='Field list or preset name: "id" | "ref" | "summary" | "full"'),
+        Field(
+            description=(
+                "Field list (native, JSON-encoded, or CSV) or preset name: "
+                '"id" | "ref" | "summary" | "full". '
+                "Defaults to the entity's default_preset."
+            )
+        ),
     ] = None,
     sort: Annotated[JsonStrListOrNone, Field(description="e.g. ['bpm__desc', 'id']")] = None,
     limit: Annotated[int, Field(ge=1, le=500)] = 50,
@@ -115,6 +121,13 @@ async def entity_list(
         with_total=with_total,
     )
 
-    items = [config.view_schema.model_validate(row).model_dump() for row in page.items]
+    projection = resolve_field_projection(fields, config)
+    if projection is not None:
+        items = [
+            config.view_schema.model_validate(row).model_dump(include=projection)
+            for row in page.items
+        ]
+    else:
+        items = [config.view_schema.model_validate(row).model_dump() for row in page.items]
     total = page.total if with_total else None
     return EntityListResult(entity=entity, items=items, total=total, next_cursor=page.next_cursor)

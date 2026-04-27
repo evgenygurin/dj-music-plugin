@@ -9,7 +9,7 @@ from fastmcp.server.context import Context
 from fastmcp.tools import tool
 from pydantic import Field
 
-from app.registry.entity import EntityRegistry
+from app.registry.entity import EntityRegistry, resolve_field_projection
 from app.repositories.unit_of_work import UnitOfWork
 from app.schemas.tool_responses import EntityGetResult
 from app.server.di import get_uow
@@ -46,7 +46,7 @@ async def entity_get(
     id: Annotated[int, Field(ge=1, description="Entity primary key")],
     fields: Annotated[
         list[str] | str | None,
-        Field(description="Field list or preset name"),
+        Field(description="Field list, JSON-encoded list, CSV, or preset name"),
     ] = None,
     include_relations: Annotated[
         JsonStrListOrNone, Field(description="Relations to eager-load")
@@ -63,5 +63,7 @@ async def entity_get(
     if row is None:
         raise NotFoundError(entity, id)
 
-    data = config.view_schema.model_validate(row).model_dump()
+    view = config.view_schema.model_validate(row)
+    projection = resolve_field_projection(fields, config)
+    data = view.model_dump(include=projection) if projection is not None else view.model_dump()
     return EntityGetResult(entity=entity, id=id, data=data)
