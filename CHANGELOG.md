@@ -6,6 +6,19 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.2.52] - 2026-04-28
+
+**Audit-fix loop, iteration 54 (continued).** v1.2.51 added schema validators rejecting same-track endpoints, but the dispatcher's handler path bypassed the schema entirely.
+
+### Fixed
+- **T-52 (continued):** ``entity_create`` for handler-backed entities (``transition``, ``track``, ``track_features``, ``audio_file``, ``set_version``) read ``data`` raw and skipped ``config.create_schema.model_validate``. Live confirmation after v1.2.51: ``entity_create(transition, {"from_track_id":146,"to_track_id":146})`` STILL succeeded with overall=0.93 because the new validator on ``TransitionCreate`` was never invoked.
+
+  Fix: move ``config.create_schema.model_validate(data)`` BEFORE the handler dispatch in ``entity_create``. Cross-field invariants (T-52 distinct endpoints, T-49 weight sum, T-47 BPM range) are now enforced for ALL create paths, not just the default-INSERT path. Handlers continue to receive raw ``data`` (no signature change).
+
+### Tests
+- 1178 passed (no new tests; existing handler tests confirm no regression).
+- ``make check`` clean.
+
 ## [1.2.51] - 2026-04-28
 
 **Audit-fix loop, iteration 54.** Three relational schemas accepted "from track to itself" / "track paired with itself" rows.
