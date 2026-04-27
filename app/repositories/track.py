@@ -2,15 +2,132 @@
 
 from __future__ import annotations
 
-from sqlalchemy import select
+from collections.abc import Sequence
+from typing import Any
+
+from sqlalchemy import exists, select
 
 from app.models.track import Track, TrackExternalId
 from app.models.track_features import TrackAudioFeaturesComputed
 from app.repositories.base import BaseRepository
+from app.shared.pagination import Page
 
 
 class TrackRepository(BaseRepository[Track]):
     model = Track
+
+    async def filter(
+        self,
+        *,
+        where: dict[str, Any] | None = None,
+        order: Sequence[str] | None = None,
+        limit: int = 50,
+        cursor: str | None = None,
+        with_total: bool = False,
+    ) -> Page[Track]:
+        """Extends BaseRepository.filter with the ``has_features`` magic.
+
+        The ``has_features`` boolean lives on the ``track`` filter schema
+        but is NOT a column on ``tracks``. We translate it into either
+        an EXISTS or a NOT EXISTS subquery against
+        ``track_audio_features_computed`` and let the base class handle
+        every other lookup. ``None`` means "no constraint" — fall through.
+        """
+        where = dict(where or {})
+        # ``normalize_bare_fields`` from entity_list converts the bare
+        # ``has_features`` key to ``has_features__eq``; accept either form.
+        flag = where.pop("has_features__eq", None)
+        if flag is None:
+            flag = where.pop("has_features", None)
+
+        if flag is not None:
+            features_exists = exists().where(TrackAudioFeaturesComputed.track_id == Track.id)
+            extra = features_exists if flag else ~features_exists
+            return await self._filter_with_extra(
+                extra,
+                where=where,
+                order=order,
+                limit=limit,
+                cursor=cursor,
+                with_total=with_total,
+            )
+
+        return await super().filter(
+            where=where, order=order, limit=limit, cursor=cursor, with_total=with_total
+        )
+
+    async def _filter_with_extra(
+        self,
+        extra: Any,
+        *,
+        where: dict[str, Any] | None,
+        order: Sequence[str] | None,
+        limit: int,
+        cursor: str | None,
+        with_total: bool,
+    ) -> Page[Track]:
+        """``BaseRepository.filter`` re-implementation that adds an extra clause.
+
+        We can't override only the SELECT in the base class (it builds the
+        statement monolithically), so we rebuild here while sharing all the
+        keyset / order / cursor logic via the same helpers the base uses.
+        """
+        from app.shared.filters import parse_filter
+        from app.shared.pagination import decode_cursor, encode_cursor
+
+        stmt = select(Track).where(extra)
+        for clause in parse_filter(Track, where or {}):
+            stmt = stmt.where(clause)
+
+        order_clauses = list(order) if order else ["id"]
+        if cursor is not None:
+            cursor_id = decode_cursor(cursor)
+            first_field = order_clauses[0].removesuffix("_desc").removesuffix("_asc")
+            column = getattr(Track, first_field, None)
+            if column is None:
+                from app.shared.errors import ValidationError
+
+                raise ValidationError(f"unknown order field {first_field!r}")
+            stmt = (
+                stmt.where(column < cursor_id)
+                if order_clauses[0].endswith("_desc")
+                else stmt.where(column > cursor_id)
+            )
+
+        for spec in order_clauses:
+            if spec.endswith("_desc"):
+                field, direction = spec.removesuffix("_desc"), "desc"
+            elif spec.endswith("_asc"):
+                field, direction = spec.removesuffix("_asc"), "asc"
+            else:
+                field, direction = spec, "asc"
+            column = getattr(Track, field, None)
+            if column is None:
+                from app.shared.errors import ValidationError
+
+                raise ValidationError(f"unknown order field {field!r}")
+            stmt = stmt.order_by(column.desc() if direction == "desc" else column.asc())
+
+        stmt = stmt.limit(limit + 1)
+        rows = list((await self.session.execute(stmt)).scalars().all())
+        has_more = len(rows) > limit
+        items = rows[:limit]
+
+        next_cursor: str | None = None
+        if has_more and items:
+            first_field = order_clauses[0].removesuffix("_desc").removesuffix("_asc")
+            next_cursor = encode_cursor(int(getattr(items[-1], first_field)))
+
+        total: int | None = None
+        if with_total:
+            from sqlalchemy import func
+
+            count_stmt = select(func.count()).select_from(Track).where(extra)
+            for clause in parse_filter(Track, where or {}):
+                count_stmt = count_stmt.where(clause)
+            total = int((await self.session.execute(count_stmt)).scalar_one())
+
+        return Page(items=items, next_cursor=next_cursor, total=total)
 
     async def get_provider_id(self, track_id: int, platform: str) -> str | None:
         """Return ``external_id`` for ``track_id`` on ``platform`` or None."""
