@@ -84,6 +84,24 @@ async def entity_update(
         return EntityUpdateResult(entity=entity, id=id, data=result)
 
     validated = config.update_schema.model_validate(data)
+    # Audit iter 26 (T-26): mirror the entity_create template_name
+    # check on update path. ``set.template_name`` accepts free-form
+    # strings on the schema (schemas can't import ``app.domain``);
+    # the dispatcher validates against the registered templates so
+    # ``entity_update(set, ...)`` can't write a template name that
+    # ``sequence_optimize`` will later reject.
+    template_name_val = getattr(validated, "template_name", None) if entity == "set" else None
+    if template_name_val is not None:
+        from app.domain.template.registry import list_template_names
+        from app.shared.errors import ValidationError
+
+        if template_name_val not in list_template_names():
+            raise ValidationError(
+                f"unknown template_name {template_name_val!r}; "
+                f"valid templates: {sorted(list_template_names())}",
+                details={"template_name": template_name_val},
+            )
+
     repo = getattr(uow, config.repo_attr)
     row = await repo.update(id, **validated.model_dump(exclude_unset=True))
     view = config.view_schema.model_validate(row).model_dump()
