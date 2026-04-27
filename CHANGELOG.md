@@ -6,6 +6,17 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.2.23] - 2026-04-27
+
+**Audit-fix loop, iteration 23.** TransitionHistoryFilter component scores + tempo_match_ratio - mirrors the v1.2.22 symmetry.
+
+### Fixed
+- ``TransitionHistoryFilter`` accepts ``__gte/lte`` for all 6 component scores and ``tempo_match_ratio``. The analytics surface ("which logged transitions had high BPM compatibility but the DJ rated them poorly?") is now expressible.
+
+### Tests
+- 900 -> **907 passed** (+7 component-score parametrized tests).
+- ``make check`` clean.
+
 ## [1.2.22] - 2026-04-27
 
 **Audit-fix loop, iteration 22.** TransitionFilter component scores + fx_type, TransitionHistoryFilter duration_sec.
