@@ -6,6 +6,19 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.2.22] - 2026-04-27
+
+**Audit-fix loop, iteration 22.** TransitionFilter component scores + fx_type, TransitionHistoryFilter duration_sec.
+
+### Fixed
+- ``TransitionFilter`` adds ``__gte/lte`` for all 6 component scores (``bpm_score, harmonic_score, energy_score, spectral_score, groove_score, timbral_score``). Canonical scoring-debug queries ("find pairs with high BPM compatibility but weak harmonic") are now expressible directly through ``entity_list``.
+- ``TransitionFilter`` adds ``fx_type__eq/in`` so callers can filter persisted transitions by the recommended mix style (``long_blend``, ``bass_swap_short``, ``echo_out``, ...).
+- ``TransitionHistoryFilter`` adds ``duration_sec__gte/lte/range`` for "find transitions over 60 seconds long" queries.
+
+### Tests
+- 891 -> **900 passed** (+9 component-score parametrized tests).
+- ``make check`` clean.
+
 ## [1.2.21] - 2026-04-27
 
 **Audit-fix loop, iteration 21.** TransitionHistoryFilter and PlaylistFilter widening.
