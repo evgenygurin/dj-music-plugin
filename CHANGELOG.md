@@ -6,6 +6,39 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-04-27
+
+**Audit-driven sweep — closes 5 bug classes + 4 observations from the v1.1.0 manual MCP-surface audit.** v1.1.0 hardened the transport layer; this MINOR addresses the bug classes that hard-data probing of the live system surfaced that unit tests couldn't catch. Each fix landed via TDD red-green and ships with regression coverage. Net +48 tests in the suite (775 → 823).
+
+Audit doc: `docs/audit/2026-04-27-mcp-surface-audit-v1.1.0.md`.
+
+### Fixed (5 bug classes)
+
+- **Bug A — TrackFilter underspecification.** Schema rejected three documented probe shapes: `id__gt/gte/lt/lte` for paging/range queries, `title__contains` (case-sensitive complement to `title__icontains`), and `has_features` — the magic boolean filter promised in `.claude/rules/repositories.md`. Schema now declares the missing lookups (still `extra="forbid"`); `TrackRepository.filter` translates `has_features` into the appropriate (NOT) EXISTS subquery against `track_audio_features_computed` and composes cleanly with other lookups.
+- **Bug B — `entity_get` / `entity_list` default projection.** `default_preset="id"` made every response without explicit `fields=` collapse to `{"id": N}` — a UX regression vs pre-v1.0.13 when projection was advertised but not applied. All 11 registered entities now default to `"full"`, restoring the historic view-shape contract. New regression test asserts every default_preset is `"full"` so future entities don't backslide.
+- **Bug C — Stale persisted transitions.** `local://transition/{a}/{b}/score` and `/explain` for the same pair returned different `overall` values because `/score` short-circuited to a persisted row from the `transitions` table that goes stale once `track_features_reanalyze_handler` raises a track to a higher analysis level (no cascade invalidation). The standalone resource now always recomputes via `TransitionScorer` (≈1 ms/pair); the persisted table remains the source of truth for set composition history. `/score` and `/explain` agree by construction.
+- **Bug D — Prompt content correctness.** Four content drift issues across `build_set_workflow`, `deliver_set_workflow`, `expand_playlist_workflow`, and `full_pipeline` told the LLM to call non-existent surface (`entity='app_export'`, `provider_read(entity='similar_tracks')`, `entity_list(entity='track', fields='scoring')`). Strings corrected to match the live registry (`track_features` for the scoring projection, `track_similar` for the YM adapter, dropped `app_export` references in favour of client-side artefact assembly from existing resources until a server-side delivery handler ships).
+- **Bug F — `schema://providers/yandex` introspection.** `entities_supported` returned a hardcoded fallback list missing `track_batch`, `track_similar`, `artist_tracks`, `playlist_list`, and `dislikes`. `YandexAdapter` now declares the canonical list as a `ClassVar`; the resource fallback drops the lying default in favour of an empty tuple.
+
+### Fixed (4 observations)
+
+- **O-1 — `local://tracks/{id}.primary_artist_name` always null.** `TrackView.from_attributes` looked for a column that doesn't exist on `Track`. Repository now exposes `get_primary_artist_name` (primary role with first-artist fallback) and the resource injects it after `model_validate`.
+- **O-2 — `local://transition_history/best_pairs` ordered NULL scores first.** Postgres puts NULL first under `DESC` by default; SQLite hides this. Repository query now uses `.desc().nulls_last()`. New test compiles the SELECT against the Postgres dialect to guard the clause regardless of test backend.
+- **O-3 — Empty `suggest_next` / `suggest_replacement` were ambiguous.** Added `reason: str | None` to both views. `None` when the empty result is legitimate (no candidates), a short string when there's a structural cause (no logged history, repo gap, energy filter rejected all, no features on target, no library tracks within ±2 BPM, …).
+- **O-4 — `local://playlists/{id}/audit` reported `total_tracks: 0` for non-empty playlists.** The resource called `getattr(uow.playlists, "get_items", None)` and fell back to `[]` because the method was missing. Added `get_items` next to the existing `get_track_ids` (audit needs full items for per-track entries).
+
+### Added
+
+- New CI guard: `tests/prompts/test_prompt_content_correctness.py` renders every workflow prompt and cross-checks each `entity='...'` reference against `EntityRegistry`, each `provider_read(entity=...)` against `YandexAdapter.entities_supported`, and each `fields='<preset>'` against the entity's declared presets. Prompt drift fails CI.
+- New regression test files: `tests/schemas/test_track_filter.py`, `tests/repositories/test_track_has_features_filter.py`, `tests/repositories/test_track_primary_artist.py`, `tests/repositories/test_playlist_get_items.py`, `tests/repositories/test_transition_history_best_pairs_order.py`, `tests/resources/test_transition_score_freshness.py`, `tests/resources/test_suggest_reason.py`, `tests/resources/test_track_resource_artist.py`.
+- `YandexAdapter.entities_supported` ClassVar — single source of truth for `schema://providers/yandex`.
+
+### Tests
+
+- **823 passed** (was 775 at v1.1.0 — +48 new tests, ~1 ms/pair scorer regression covered, no SQLite-vs-Postgres drift left in the queries that matter).
+- `make check` clean: ruff + mypy strict + import-linter (5 contracts kept) + pytest 18.8s.
+- 3 SKIPPED (integration suite without `DJ_YM_TOKEN`), 44 xfailed, 20 xpassed — same baseline as v1.1.0.
+
 ## [1.1.0] - 2026-04-27
 
 **Architectural hardening: closes the v1.0.10-v1.0.13 bug class at the architecture level.** The four PATCH releases that preceded this MINOR each fixed a different surface symptom of the same underlying problem: the FastMCP in-memory test client and the Claude Code stdio shim transport are not isomorphic, and the test suite was blind to it. This release replaces bug-by-bug patching with three system-level safeguards: (1) server-side coercion middleware, (2) stringified-args test fixture, (3) integration round-trip tests against real YM.
