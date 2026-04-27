@@ -17,7 +17,10 @@ class ProviderWriteResult(BaseModel):
     provider: str
     entity: str
     operation: str
-    data: dict[str, Any] = Field(default_factory=dict)
+    # Some YM endpoints (e.g. playlist delete) return a bare string ``"ok"``
+    # instead of a dict. Accept both shapes so the dispatcher doesn't crash
+    # on response serialization.
+    data: dict[str, Any] | str = Field(default_factory=dict)
 
 
 class ProviderSearchResult(BaseModel):
