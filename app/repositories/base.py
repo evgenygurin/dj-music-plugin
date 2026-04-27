@@ -208,8 +208,18 @@ class BaseRepository(Generic[M]):
         """
         op = operation
         field_col = getattr(self.model, field, None) if field else None
-        if op in {"sum", "avg", "min_max", "histogram"} and field_col is None:
-            raise ValidationError(f"operation {op!r} requires a valid field")
+        # Audit iter 47 (T-45): distinguish "field not provided" from
+        # "field provided but unknown on the model". The prior message
+        # ``operation 'X' requires a valid field`` was emitted for both
+        # cases — callers that mistyped a column name got an error
+        # suggesting they forgot the parameter entirely.
+        if op in {"sum", "avg", "min_max", "histogram", "distinct"}:
+            if field is None:
+                raise ValidationError(f"operation {op!r} requires a ``field`` parameter")
+            if field_col is None:
+                raise ValidationError(
+                    f"unknown field {field!r} on {self.model.__name__} (operation {op!r})"
+                )
 
         # Audit iter 4: ``sum`` / ``avg`` on a non-numeric column leaked
         # the raw asyncpg ``function avg(character varying) does not
@@ -253,8 +263,8 @@ class BaseRepository(Generic[M]):
                 row = (await self.session.execute(stmt)).one()
                 return {"min": row[0], "max": row[1]}
             case "distinct":
-                if field_col is None:
-                    raise ValidationError("operation 'distinct' requires field")
+                # Field validity already checked up front (audit iter 47).
+                assert field_col is not None  # type narrowing for mypy
                 stmt = select(field_col).select_from(self.model).distinct()
                 for clause in parse_filter(self.model, where or {}):
                     stmt = stmt.where(clause)

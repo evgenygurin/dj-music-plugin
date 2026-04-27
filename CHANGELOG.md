@@ -6,6 +6,23 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.2.44] - 2026-04-28
+
+**Audit-fix loop, iteration 47.** Misleading error messages on ``entity_aggregate`` field validation.
+
+### Fixed
+- **T-45:** ``entity_aggregate(track, "distinct", field="nonexistent_field")`` raised ``operation 'distinct' requires field`` — implying the caller forgot the parameter, when in fact they passed it but mistyped the column name. The other field-required ops (``sum``, ``avg``, ``min_max``, ``histogram``) said ``"requires a valid field"`` — only marginally clearer.
+
+  Fix: distinguish the two cases in ``BaseRepository.aggregate``:
+  - field omitted entirely → ``operation 'X' requires a `field` parameter``
+  - field provided but unknown → ``unknown field 'nonexistent_field' on Track (operation 'X')``
+
+  Now mistypes are caught with the actual field name in the error.
+
+### Tests
+- 1128 → **1139 passed** (+11 ``aggregate`` field-validation regression tests).
+- ``make check`` clean.
+
 ## [1.2.43] - 2026-04-28
 
 **Audit-fix loop, iteration 46.** Derived View fields (``item_count``, ``version_count``) were declared but permanently ``null``.
