@@ -6,6 +6,27 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.2.45] - 2026-04-28
+
+**Audit-fix loop, iteration 48.** ``sequence_optimize`` crashed on typo'd / un-analysed track ids — same drift class as T-42 (``transition_score_pool``) but with a stack trace instead of silent empty.
+
+### Fixed
+- **T-46:** ``sequence_optimize(track_ids=[99999, 99998])`` crashed with::
+
+      'NoneType' object has no attribute 'integrated_lufs'
+
+  ``features.get(tid)`` returned ``None`` for missing ids and the optimizer indexed it into the GA / greedy fitness function. Same drift class as v1.2.41 (T-42) on ``transition_score_pool``, but here it leaked an internal exception instead of returning silently empty.
+
+  Fix: same upfront guard pattern.
+  - All ids missing → typed ``ValidationError`` with the explicit list.
+  - Partial pool with ≥ 2 valid ids → drop the dead ids and run the optimizer on the valid subset.
+  - Partial pool with < 2 valid ids → ``ValidationError`` (need ≥ 2 to optimize meaningfully).
+
+### Tests
+- 1139 → **1142 passed** (+3 ``sequence_optimize`` missing-features regression tests).
+- Existing ``test_template_validation.py`` updated to seed real features for success-path tests (the prior ``_mock_uow`` returned ``{}`` and now hits the new guard).
+- ``make check`` clean.
+
 ## [1.2.44] - 2026-04-28
 
 **Audit-fix loop, iteration 47.** Misleading error messages on ``entity_aggregate`` field validation.

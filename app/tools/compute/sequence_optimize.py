@@ -97,7 +97,40 @@ async def sequence_optimize(
         )
 
     features = await uow.track_features.get_scoring_features_batch(track_ids)
-    features_list = [features.get(tid) for tid in track_ids]
+
+    # Audit iter 48 (T-46): without this guard, a pool of typo'd /
+    # un-analysed ids leaked an internal error::
+    #
+    #   sequence_optimize(track_ids=[99999, 99998])
+    #   -> 'NoneType' object has no attribute 'integrated_lufs'
+    #
+    # The optimizer happily indexed ``None`` features into the GA /
+    # greedy fitness function and crashed mid-computation. Same drift
+    # class as T-42 on ``transition_score_pool`` — apply the same fix:
+    # raise typed ValidationError when EVERY id is missing; for
+    # partial pools, drop the dead ids and run on the valid subset
+    # (still returning at least a 2-track result if possible).
+    missing_track_ids = [tid for tid in track_ids if tid not in features]
+    if not features:
+        raise ValidationError(
+            f"none of the {len(track_ids)} track_ids have scoring features; "
+            "verify ids exist and are analysed (analysis_level >= 2). "
+            f"missing_track_ids={track_ids}",
+            details={"missing_track_ids": list(track_ids)},
+        )
+    if missing_track_ids:
+        # Drop dead ids — keep the valid subset. Need ≥ 2 valid ids to
+        # run the optimizer meaningfully.
+        valid_ids = [tid for tid in track_ids if tid in features]
+        if len(valid_ids) < 2:
+            raise ValidationError(
+                f"only {len(valid_ids)} of the {len(track_ids)} track_ids have "
+                "scoring features; need ≥ 2 to optimize. "
+                f"missing_track_ids={missing_track_ids}",
+                details={"missing_track_ids": missing_track_ids},
+            )
+        track_ids = valid_ids
+    features_list = [features[tid] for tid in track_ids]
 
     optimizer = optimizer_builder(algorithm=algorithm, scorer=scorer)
 
