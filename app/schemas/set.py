@@ -32,6 +32,15 @@ class SetFilter(BaseModel):
     template_name__in: list[str] | None = None
     source_playlist_id__eq: int | None = None
     source_playlist_id__in: list[int] | None = None
+    # target_bpm_min / target_bpm_max — range queries to find sets in
+    # a particular tempo bucket (audit iter 17).
+    target_bpm_min__gte: int | None = None
+    target_bpm_min__lte: int | None = None
+    target_bpm_max__gte: int | None = None
+    target_bpm_max__lte: int | None = None
+    # target_duration_ms — for "find 60-90 min sets" queries.
+    target_duration_ms__gte: int | None = None
+    target_duration_ms__lte: int | None = None
 
 
 class SetCreate(BaseModel):
