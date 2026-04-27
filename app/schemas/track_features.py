@@ -6,16 +6,106 @@ from pydantic import BaseModel, ConfigDict, Field
 
 
 class TrackFeaturesView(BaseModel):
+    """Audio features view — full surface over the persisted columns.
+
+    Audit iter 40 (T-38): the prior View exposed 11 of the 47+ columns
+    on ``track_audio_features_computed``. None of the P1/P2 enrichment
+    fields (``danceability``, ``dissonance_mean``, ``tonnetz_vector``,
+    ``spectral_complexity_mean``, …) and none of the loudness /
+    spectral / energy-band columns were projectable through
+    ``entity_get(track_features, id, fields=[...])``. The pipeline writes
+    them, the scorer reads them, but tooling was blind to them.
+
+    Fields are kept ``None``-default so older rows that haven't been
+    re-analysed at the higher tiers still validate cleanly.
+    """
+
     model_config = ConfigDict(from_attributes=True)
+
     track_id: int
     analysis_level: int = 0
+
+    # Tempo (4)
     bpm: float | None = None
-    key_code: int | None = None
+    bpm_confidence: float | None = None
+    bpm_stability: float | None = None
+    variable_tempo: bool | None = None
+
+    # Loudness (7)
     integrated_lufs: float | None = None
+    short_term_lufs_mean: float | None = None
+    momentary_max: float | None = None
+    rms_dbfs: float | None = None
+    true_peak_db: float | None = None
+    crest_factor_db: float | None = None
+    loudness_range_lu: float | None = None
+
+    # Energy — scalars + 6 band absolutes + 6 band ratios (16)
     energy_mean: float | None = None
+    energy_max: float | None = None
+    energy_std: float | None = None
+    energy_slope: float | None = None
+    energy_sub: float | None = None
+    energy_low: float | None = None
+    energy_lowmid: float | None = None
+    energy_mid: float | None = None
+    energy_highmid: float | None = None
+    energy_high: float | None = None
+    energy_sub_ratio: float | None = None
+    energy_low_ratio: float | None = None
+    energy_lowmid_ratio: float | None = None
+    energy_mid_ratio: float | None = None
+    energy_highmid_ratio: float | None = None
+    energy_high_ratio: float | None = None
+
+    # Spectral (8)
     spectral_centroid_hz: float | None = None
+    spectral_rolloff_85: float | None = None
+    spectral_rolloff_95: float | None = None
+    spectral_flatness: float | None = None
+    spectral_flux_mean: float | None = None
+    spectral_flux_std: float | None = None
+    spectral_slope: float | None = None
+    spectral_contrast: float | None = None
+
+    # Key / harmonic (5)
+    key_code: int | None = None
+    key_confidence: float | None = None
+    atonality: bool | None = None
+    hnr_db: float | None = None
+    chroma_entropy: float | None = None
+
+    # Rhythm (5)
+    # ``mfcc_vector`` is stored as JSON-encoded string; expose raw so
+    # callers can ``json.loads`` if they want the 13-coefficient vector.
+    mfcc_vector: str | None = None
     hp_ratio: float | None = None
+    onset_rate: float | None = None
+    pulse_clarity: float | None = None
     kick_prominence: float | None = None
+
+    # P1 enrichment (6) — vectors as JSON strings, scalars typed
+    danceability: float | None = None
+    dynamic_complexity: float | None = None
+    dissonance_mean: float | None = None
+    tonnetz_vector: str | None = None
+    tempogram_ratio_vector: str | None = None
+    beat_loudness_band_ratio: str | None = None
+
+    # P2 enrichment (6, ``phrase_boundaries_ms`` is too large to default-emit
+    # but available via explicit ``fields=...``)
+    spectral_complexity_mean: float | None = None
+    pitch_salience_mean: float | None = None
+    bpm_histogram_first_peak_weight: float | None = None
+    bpm_histogram_second_peak_bpm: float | None = None
+    bpm_histogram_second_peak_weight: float | None = None
+    dominant_phrase_bars: int | None = None
+    phrase_boundaries_ms: str | None = None
+
+    # Beatgrid phase
+    first_downbeat_ms: float | None = None
+
+    # Mood classification
     mood: str | None = None
     mood_confidence: float | None = None
 
@@ -57,6 +147,29 @@ class TrackFeaturesFilter(BaseModel):
     hp_ratio__lte: float | None = None
     kick_prominence__gte: float | None = None
     kick_prominence__lte: float | None = None
+    # Audit iter 40: scalar P1/P2/loudness fields lacking lookups.
+    # ``true_peak_db`` is the canonical clipping-audit query
+    # ("find tracks above 0 dBTP"); ``key_confidence`` filters out
+    # tracks with an unreliable detected key; ``atonality`` and
+    # ``variable_tempo`` are the boolean discriminators.
+    true_peak_db__gte: float | None = None
+    true_peak_db__lte: float | None = None
+    key_confidence__gte: float | None = None
+    key_confidence__lte: float | None = None
+    atonality__eq: bool | None = None
+    variable_tempo__eq: bool | None = None
+    danceability__gte: float | None = None
+    danceability__lte: float | None = None
+    dissonance_mean__gte: float | None = None
+    dissonance_mean__lte: float | None = None
+    bpm_confidence__gte: float | None = None
+    bpm_confidence__lte: float | None = None
+    bpm_stability__gte: float | None = None
+    bpm_stability__lte: float | None = None
+    onset_rate__gte: float | None = None
+    onset_rate__lte: float | None = None
+    pulse_clarity__gte: float | None = None
+    pulse_clarity__lte: float | None = None
 
 
 class TrackFeaturesCreate(BaseModel):
