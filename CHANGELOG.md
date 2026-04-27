@@ -6,6 +6,20 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.2.5] - 2026-04-27
+
+**Audit-fix loop, iteration 4.** Live MCP probe of ``entity_aggregate(track, avg, field='title')`` returned a raw asyncpg error: ``function avg(character varying) does not exist``. SQL backend errors should not surface to MCP clients — type validation belongs at the dispatcher / repo layer.
+
+### Fixed
+- ``BaseRepository.aggregate`` validates the column's Python type up front for ``sum`` / ``avg``. Non-numeric columns raise a clean ``ValidationError`` ("operation 'avg' requires a numeric field; 'title' has type str") instead of letting Postgres complain about a missing function. ``count`` / ``distinct`` / ``min_max`` / ``histogram`` are unchanged - lex min/max and discrete histograms over strings remain meaningful.
+
+### Added
+- ``tests/repositories/test_aggregate_type_check.py`` - 6 regression tests covering sum/avg type rejection, numeric sanity, plus distinct/min_max/count negative-space.
+
+### Tests
+- 835 -> **841 passed**.
+- ``make check`` clean.
+
 ## [1.2.4] - 2026-04-27
 
 **Audit-fix loop, iteration 3.** Live MCP probe with ``track_ids=[146, 146, 147]`` caught two compute tools disagreeing on duplicate-id semantics.
