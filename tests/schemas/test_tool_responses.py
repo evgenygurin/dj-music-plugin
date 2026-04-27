@@ -131,6 +131,21 @@ def test_provider_write_result_shape() -> None:
     assert result.operation == "add_tracks"
 
 
+def test_provider_write_result_accepts_string_data() -> None:
+    """Regression: YM ``playlist delete`` returns bare ``"ok"`` not a dict.
+
+    Previously ``ProviderWriteResult.data`` was strictly ``dict[str, Any]``,
+    so the dispatcher crashed on response serialization with
+    ``Input should be a valid dictionary [type=dict_type]`` even though the
+    YM-side delete had already succeeded.
+    """
+    result = ProviderWriteResult(
+        provider="yandex", entity="playlist", operation="delete", data="ok"
+    )
+    assert result.data == "ok"
+    assert result.operation == "delete"
+
+
 def test_entity_create_update_delete_shapes() -> None:
     c = EntityCreateResult(entity="track", data={"id": 1}, meta={"source": "yandex"})
     assert c.entity == "track"
