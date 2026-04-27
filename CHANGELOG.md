@@ -6,6 +6,22 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.2.41] - 2026-04-28
+
+**Audit-fix loop, iteration 44.** ``transition_score_pool`` silently returned empty pairs when callers passed typo'd / un-analysed track ids.
+
+### Fixed
+- **T-42:** ``transition_score_pool(track_ids=[99999, 99998])`` returned ``{"pairs":[],"hard_rejects":0}`` for non-existent ids — caller couldn't tell typo apart from "no compatible pairs". The same silent-empty applied to mixed pools (some valid, some un-analysed) — the missing ids were dropped without trace.
+
+  Fix:
+  - ``ScorePoolResult`` gained a ``missing_track_ids: list[int]`` field — track ids that had no scoring features (no ``track_audio_features_computed`` row).
+  - On non-trivial pools (``len(track_ids) >= 2``) where EVERY id is missing, raise typed ``ValidationError`` instead of returning silently — almost certainly a typo or un-analysed library.
+  - Mixed pools: continue computing pairs for the valid subset, but surface the rest in ``missing_track_ids``.
+
+### Tests
+- 1118 → **1120 passed** (updated existing duplicate-ids test + 2 new T-42 regression tests).
+- ``make check`` clean.
+
 ## [1.2.40] - 2026-04-28
 
 **Audit-fix loop, iteration 43.** ``suggest_next?energy_direction=up|down`` was a no-op.

@@ -56,6 +56,19 @@ class ScorePoolResult(BaseModel):
         description="[{a, b, overall, bpm, harmonic, energy, spectral, groove, timbral}]"
     )
     hard_rejects: int = 0
+    # Audit iter 44 (T-42): track which ids had no scoring features.
+    # Without this field, calling ``transition_score_pool`` with stale
+    # / non-existent ids returned ``pairs=[]`` silently — caller
+    # couldn't tell typo apart from "tracks aren't analyzed yet".
+    missing_track_ids: list[int] = Field(
+        default_factory=list,
+        description=(
+            "Track IDs that were dropped because they have no scoring features "
+            "(track_audio_features_computed row absent). When this is non-empty "
+            "and ``pairs`` is empty, the caller is hitting un-analysed / typo'd "
+            "ids — not a bug in scoring."
+        ),
+    )
 
 
 class SequenceOptimizeResult(BaseModel):
