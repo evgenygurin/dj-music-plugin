@@ -85,6 +85,24 @@ from app.schemas.transition_history import (
 )
 
 
+async def _enrich_playlist_view(uow: object, row: object, view: dict) -> dict:  # type: ignore[type-arg]
+    """Populate ``PlaylistView.item_count`` (audit iter 46 / T-44)."""
+    pid = getattr(row, "id", None)
+    if pid is None:
+        return view
+    view["item_count"] = await uow.playlists.item_count(pid)  # type: ignore[attr-defined]
+    return view
+
+
+async def _enrich_set_view(uow: object, row: object, view: dict) -> dict:  # type: ignore[type-arg]
+    """Populate ``SetView.version_count`` (audit iter 46 / T-44)."""
+    sid = getattr(row, "id", None)
+    if sid is None:
+        return view
+    view["version_count"] = await uow.sets.version_count(sid)  # type: ignore[attr-defined]
+    return view
+
+
 def register_default_entities() -> None:
     EntityRegistry.register(
         EntityConfig(
@@ -156,6 +174,7 @@ def register_default_entities() -> None:
             sortable_fields=("id", "name", "source_app", "created_at", "updated_at"),
             relations={"items": "dj_playlist_items"},
             tags=frozenset({"namespace:library"}),
+            view_enricher=_enrich_playlist_view,
         )
     )
 
@@ -196,6 +215,7 @@ def register_default_entities() -> None:
             ),
             relations={"versions": "dj_set_versions"},
             tags=frozenset({"namespace:sets"}),
+            view_enricher=_enrich_set_view,
         )
     )
 

@@ -11,6 +11,22 @@ from app.repositories.base import BaseRepository
 class PlaylistRepository(BaseRepository[DjPlaylist]):
     model = DjPlaylist
 
+    async def item_count(self, playlist_id: int) -> int:
+        """Number of items in a playlist (audit iter 46 / T-44).
+
+        ``PlaylistView.item_count`` was declared in the schema but
+        never populated by the dispatcher — every ``entity_get`` /
+        ``entity_list`` call returned ``item_count: null`` even for
+        playlists with hundreds of tracks. Used by the
+        ``view_enricher`` hook on the playlist EntityConfig.
+        """
+        stmt = (
+            select(func.count())
+            .select_from(DjPlaylistItem)
+            .where(DjPlaylistItem.playlist_id == playlist_id)
+        )
+        return int(await self.session.scalar(stmt) or 0)
+
     async def get_track_ids(self, playlist_id: int) -> list[int]:
         stmt = (
             select(DjPlaylistItem.track_id)

@@ -30,6 +30,16 @@ HandlerCallable = Callable[
     Awaitable[dict[str, Any] | list[dict[str, Any]]],
 ]
 
+# Audit iter 46 (T-44): some Views declare derived/computed fields
+# (e.g. ``PlaylistView.item_count``, ``SetView.version_count``) that
+# the dispatcher cannot read off the ORM row directly. Without an
+# enrichment hook, those fields stayed permanently ``None``. The
+# enricher receives ``(uow, row, view_dict)`` for a single entity and
+# returns the augmented ``view_dict`` (sync or async). Called by
+# ``entity_get`` per row and by ``entity_list`` once per row in the
+# page.
+ViewEnricher = Callable[..., Awaitable[dict[str, Any]]]
+
 Operation = Literal["list", "get", "create", "update", "delete", "aggregate"]
 _FieldPreset = Sequence[str] | Literal["*"]
 
@@ -58,6 +68,10 @@ class EntityConfig:
     create_handler: HandlerCallable | None = None
     update_handler: HandlerCallable | None = None
     delete_handler: HandlerCallable | None = None
+    # Audit iter 46 (T-44): optional post-validation enrichment for
+    # derived View fields (item_count, version_count, …). See
+    # ``ViewEnricher`` typedef above.
+    view_enricher: ViewEnricher | None = None
 
 
 class EntityRegistry:
