@@ -32,3 +32,29 @@ async def test_get_not_found_raises(mcp_client: Client, mock_uow: MagicMock) -> 
     mock_uow.tracks.get.return_value = None
     with pytest.raises(Exception, match="not found"):
         await mcp_client.call_tool("entity_get", {"entity": "track", "id": 999})
+
+
+@pytest.mark.asyncio
+async def test_include_relations_accepts_json_string(
+    mcp_client: Client, mock_uow: MagicMock
+) -> None:
+    """Some MCP clients stringify list args. ``include_relations`` must
+    coerce ``'["features"]'`` → ``["features"]`` via JsonStrListOrNone.
+
+    Regression: previously raised ``Input should be a valid list
+    [type=list_type]`` because the param accepted only ``list[str] | None``.
+    """
+    mock_uow.tracks.get.return_value = None
+    # Reaching the NotFoundError path means the JSON-string was successfully
+    # coerced to a list — i.e. param validation passed. The downstream lookup
+    # then fails because the mock returns None, which is the expected "happy
+    # path" for verifying the coercion layer in isolation.
+    with pytest.raises(Exception, match="not found"):
+        await mcp_client.call_tool(
+            "entity_get",
+            {
+                "entity": "track",
+                "id": 999,
+                "include_relations": '["features", "artists"]',
+            },
+        )

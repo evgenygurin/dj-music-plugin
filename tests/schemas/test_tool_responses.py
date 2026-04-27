@@ -45,6 +45,29 @@ def test_aggregate_result_accepts_scalar_and_list() -> None:
     assert isinstance(grouped.value, list)
 
 
+def test_aggregate_result_accepts_distinct_scalar_list() -> None:
+    """``distinct`` returns a flat list of scalars (str | int | float | None).
+
+    Regression: prior Union only allowed ``list[dict[str, Any]]`` so distinct
+    over ``mood`` (a string column) blew up with 16 ValidationErrors.
+    """
+    distinct_strings = AggregateResult(
+        entity="track_features",
+        operation="distinct",
+        field="mood",
+        value=["acid", "peak_time", "minimal", None],
+    )
+    assert distinct_strings.value == ["acid", "peak_time", "minimal", None]
+
+    distinct_ints = AggregateResult(
+        entity="track_features",
+        operation="distinct",
+        field="key_code",
+        value=[0, 5, 12, 21],
+    )
+    assert distinct_ints.value == [0, 5, 12, 21]
+
+
 def test_score_pool_result_shape() -> None:
     result = ScorePoolResult(
         track_ids=[1, 2, 3],
