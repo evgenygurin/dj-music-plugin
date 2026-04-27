@@ -6,6 +6,29 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.2.37] - 2026-04-28
+
+**Audit-fix loop, iteration 40.** ``TrackFeaturesView`` widening — the largest View gap in the codebase.
+
+### Fixed
+- **T-38:** ``TrackFeaturesView`` exposed 11 of the 47+ persisted columns. Live confirmation: ``entity_get(track_features, 146, fields=["danceability"])`` returned ``"unknown field name(s) in fields: ['danceability']"`` even though the column was populated. None of the P1 enrichment fields (``danceability``, ``dynamic_complexity``, ``dissonance_mean``, ``tonnetz_vector``, ``tempogram_ratio_vector``, ``beat_loudness_band_ratio``), none of the P2 fields (``spectral_complexity_mean``, ``pitch_salience_mean``, BPM histogram, phrase metadata), none of the loudness columns beyond ``integrated_lufs`` (``true_peak_db``, ``crest_factor_db``, ``loudness_range_lu``, ``rms_dbfs``, ``short_term_lufs_mean``, ``momentary_max``), and none of the energy bands or band ratios were projectable.
+
+  Fix: View now exposes ~45 fields. Heavy vectors (``mfcc_vector``, ``tonnetz_vector``, ``tempogram_ratio_vector``, ``beat_loudness_band_ratio``, ``phrase_boundaries_ms``) stay as JSON strings — caller does ``json.loads`` if they want.
+
+- **TrackFeaturesFilter** widened with 12 new lookup classes for the canonical scoring-debug queries:
+  - ``true_peak_db__gte/lte`` (clipping audit)
+  - ``key_confidence__gte/lte`` (filter unreliable keys)
+  - ``atonality__eq``, ``variable_tempo__eq`` (boolean discriminators)
+  - ``danceability__gte/lte``, ``dissonance_mean__gte/lte``
+  - ``bpm_confidence__gte/lte``, ``bpm_stability__gte/lte``
+  - ``onset_rate__gte/lte``, ``pulse_clarity__gte/lte``
+
+- **EntityRegistry**: ``filterable_fields`` for ``track_features`` synced (10 new column entries × their lookup ops). CI guards stay green.
+
+### Tests
+- 1015 → **1074 passed** (+59 widening regression tests in ``tests/schemas/test_iter40_track_features_view_widening.py``).
+- ``make check`` clean.
+
 ## [1.2.36] - 2026-04-28
 
 **Audit-fix loop, iteration 39.** Same drift class on Set + AudioFile schemas — View dropped persisted columns, Update dropped fields that Create accepted, Filter dropped canonical id range queries.
