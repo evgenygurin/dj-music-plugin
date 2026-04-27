@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from typing import Literal
+from typing import Literal, Self
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class TransitionHistoryView(BaseModel):
@@ -83,6 +83,17 @@ class TransitionHistoryCreate(BaseModel):
     tempo_match_ratio: float | None = None
     user_reaction: Literal["positive", "neutral", "negative"] | None = None
     session_id: str | None = None
+
+    @model_validator(mode="after")
+    def _validate_distinct_endpoints(self) -> Self:
+        # Audit iter 54 (T-52): same as TransitionCreate. A transition
+        # history row from a track to itself is meaningless — nothing
+        # was actually mixed.
+        if self.from_track_id == self.to_track_id:
+            raise ValueError(
+                f"from_track_id and to_track_id must differ; got {self.from_track_id} for both"
+            )
+        return self
 
 
 class TransitionHistoryUpdate(BaseModel):
