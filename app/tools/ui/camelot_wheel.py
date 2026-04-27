@@ -51,27 +51,42 @@ except ImportError as _exc:  # pragma: no cover — fastmcp[apps] extra missing
     ) from _exc
 
 
-async def _track_ids_for_scope(uow: UnitOfWork, playlist_id: int | None) -> list[int]:
-    if playlist_id is None:
-        page = await uow.tracks.filter(limit=10000)
-        return [r.id for r in page.items]
+async def _track_ids_for_scope(uow: UnitOfWork, playlist_id: int) -> list[int]:
+    """Resolve track ids for a specific playlist scope.
+
+    Whole-library scope intentionally bypasses this helper — see
+    ``_gather``. Audit (iter 1) caught the prior ``filter(limit=10000)``
+    here silently dropping ~60% of the production library when callers
+    asked for the whole-library view.
+    """
     if await uow.playlists.get(playlist_id) is None:
         raise NotFoundError("playlist", playlist_id)
     return await uow.playlists.get_track_ids(playlist_id)
 
 
 async def _gather(uow: UnitOfWork, playlist_id: int | None) -> dict[str, Any]:
-    track_ids = await _track_ids_for_scope(uow, playlist_id)
-    if not track_ids:
-        return {"playlist_id": playlist_id, "total_tracks": 0, "slots": []}
-
     from sqlalchemy import select
 
-    stmt = select(
-        TrackAudioFeaturesComputed.track_id,
-        TrackAudioFeaturesComputed.key_code,
-    ).where(TrackAudioFeaturesComputed.track_id.in_(track_ids))
-    rows = (await uow.track_features.session.execute(stmt)).all()
+    if playlist_id is None:
+        # Whole library: count features directly — no track-ids round trip.
+        # Audit iter 1 fix: prior code went tracks.filter(limit=10000)
+        # → IN(...) and silently dropped 60% of a 24k-track library.
+        stmt = select(
+            TrackAudioFeaturesComputed.track_id,
+            TrackAudioFeaturesComputed.key_code,
+        )
+        rows = (await uow.track_features.session.execute(stmt)).all()
+        total_tracks = len(rows)
+    else:
+        track_ids = await _track_ids_for_scope(uow, playlist_id)
+        if not track_ids:
+            return {"playlist_id": playlist_id, "total_tracks": 0, "slots": []}
+        stmt = select(
+            TrackAudioFeaturesComputed.track_id,
+            TrackAudioFeaturesComputed.key_code,
+        ).where(TrackAudioFeaturesComputed.track_id.in_(track_ids))
+        rows = (await uow.track_features.session.execute(stmt)).all()
+        total_tracks = len(track_ids)
 
     slot_counts: Counter[int] = Counter()
     for _tid, key_code in rows:
@@ -96,7 +111,7 @@ async def _gather(uow: UnitOfWork, playlist_id: int | None) -> dict[str, Any]:
 
     return {
         "playlist_id": playlist_id,
-        "total_tracks": len(track_ids),
+        "total_tracks": total_tracks,
         "slots": slots,
     }
 
@@ -114,7 +129,7 @@ async def _gather(uow: UnitOfWork, playlist_id: int | None) -> dict[str, Any]:
 )
 async def ui_camelot_wheel(
     playlist_id: Annotated[
-        int | None, Field(description="Playlist ID; None = whole library (first 10000 tracks)")
+        int | None, Field(description="Playlist ID; None = entire analyzed library")
     ] = None,
     uow: UnitOfWork = Depends(get_uow),
     ctx: Context = CurrentContext(),

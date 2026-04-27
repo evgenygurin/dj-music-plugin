@@ -6,6 +6,22 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.2.2] - 2026-04-27
+
+**Audit-fix loop, iteration 1.** Broader probes against the live MCP turned up two silent data-loss bugs in the Prefab UI tools that had aged badly with the library: ``ui_library_dashboard`` and ``ui_camelot_wheel`` capped at 10000 rows. Production library is now 24k+ — both dashboards reported numbers about the first ~10k tracks while pretending to summarise the whole library.
+
+### Fixed
+- ``ui_library_dashboard._gather`` no longer hard-caps at ``LIMIT 10000``. ``mood_distribution`` and ``camelot_distribution`` now sum to the full analyzed-track count instead of stopping at 10000. Three tiny columns over 24k rows is ~700 KB — the cap was a pre-scale paranoia that became a silent regression.
+- ``ui_library_dashboard.bpm_histogram`` is emitted in ascending bucket order (``<110, 110-119, ..., >=150``). Prior version returned ``Counter(...)`` insertion order, which scrambled the chart on Prefab-blind clients consuming the JSON fallback directly.
+- ``ui_camelot_wheel`` whole-library scope queries ``track_audio_features_computed`` directly instead of going through ``tracks.filter(limit=10000)`` -> ``IN(...)``. Same root cause, same impact: numbers reflected the first ~10k tracks, not the whole library.
+
+### Added
+- ``tests/tools/ui/test_dashboard_caps_and_order.py`` - regression coverage for the bucket order and the no-cap path. Live MCP probe re-verifies the totals.
+
+### Tests
+- 826 -> **829 passed** (+3 dashboard regression tests).
+- ``make check`` clean.
+
 ## [1.2.1] - 2026-04-27
 
 **End-to-end verification follow-up to v1.2.0.** Live-MCP probe after the v1.2.0 release caught one residual bug class A symptom that the unit tests missed: ``has_features`` survived schema validation directly and survived the repository, but the ``entity_list`` dispatcher's ``normalize_bare_fields`` step in between rewrote ``has_features`` to ``has_features__eq`` before the schema saw it, and ``TrackFilter`` only declared the bare form. Real callers continued to get ``extra_forbidden`` despite v1.2.0.
