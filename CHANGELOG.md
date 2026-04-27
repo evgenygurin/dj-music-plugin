@@ -6,6 +6,30 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.0.9] — 2026-04-27
+
+**Fix: align v1 entity_create surface with handler contracts** — first real-world run of `import → download → analyze → set` against a fresh user library exposed three latent schema/handler drifts that crashed every call following the schema as advertised.
+
+### Fixed
+- `app/schemas/track.py` — `TrackCreate` now requires `external_ids` (the field the `track_import` handler actually reads); the legacy `provider_ids` / lying `title` / `sort_title` / `duration_ms` / `status` "override" fields are removed because the handler unconditionally pulls them from provider metadata. Default `source` example fixed from non-existent `"yandex_music"` → `"yandex"`. `playlist_id` now properly typed (handler-level support pre-existed).
+- `app/schemas/audio_file.py` — `AudioFileCreate.source` now defaults to `"yandex"` (matching `ProviderRegistry`); `model_validator(mode="after")` enforces "exactly one of `track_id` / `track_ids`" + non-empty batch at validation time so callers see a clean Pydantic error instead of a mid-handler `ValueError`.
+- `app/repositories/track_features.py` — `_serialize_vectors()` helper called inside `upsert()` JSON-encodes 5 vector columns (`mfcc_vector`, `tonnetz_vector`, `tempogram_ratio_vector`, `beat_loudness_band_ratio`, `phrase_boundaries_ms`) before INSERT/UPDATE. Previously the analysis pipeline returned `list[float]` but the columns are `Mapped[str | None]` over `String(...)` — every L3 analyze crashed with `asyncpg DataError: expected str, got list`. Helper also coerces `numpy.ndarray` and `tuple` via `.tolist()` so a future analyzer that forgets the explicit conversion doesn't crash the whole sweep with an opaque `json.encoder` `TypeError`.
+- `app/handlers/audio_file_download.py` — handler now accepts `track_id` (single) OR `track_ids` (batch) per schema; previously hard-failed with `KeyError: 'track_ids'` on the single form.
+- `app/handlers/set_version_build.py` + `app/handlers/transition_persist.py` — extracted `persist_transition_score()` helper so both call sites route through a single source of truth instead of duplicating the 12-line `uow.transitions.upsert(...)` block.
+
+### Added
+- `app/prompts/expand_playlist_workflow.py` — recipe text updated from broken pre-v1 example (`{provider, provider_ids}`) to the actual v1 surface (`{source, external_ids}`); step numbering fixed; the obsolete `classify_mood` step removed (mood classification fires inside the analyze handler).
+
+### Tests
+- **743 passed** (was 722 at v1.0.8) — +21 regression tests:
+  - `tests/schemas/test_pydantic_shapes.py` — 11 round-trip tests for `TrackCreate` / `AudioFileCreate` (required fields, defaults, legacy field rejection, xor invariant, empty batch).
+  - `tests/repositories/test_track_features_repo.py` — 6 tests for `_serialize_vectors` covering list, None, already-encoded string, ndarray, tuple, and end-to-end ORM round-trip.
+  - `tests/handlers/test_audio_file_download.py` — 3 tests for single-form acceptance, missing-id error, default source.
+  - `tests/handlers/test_set_version_build.py` — `hard_reject=True` path test (in real libraries ~30% of pairs reject; previously only happy path was covered).
+
+### Notes
+- Dispatcher-level Pydantic validation for handler-driven entities (closing the "schema is dead code in MCP runtime" gap) was scoped out to a follow-up — it requires `DomainErrorMiddleware` to translate `pydantic_core.ValidationError` to `ToolError` so production users (where `mask_error_details=True`) see a clean message instead of `internal error`. Tracked for v1.1.0. PR #131 closed with rationale.
+
 ## [1.0.8] — 2026-04-26
 
 **Fix: `read_resource` tool wrapper no longer returns JSON wrapped in an escaped string.**
