@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 
 from fastmcp.dependencies import CurrentContext, Depends
 from fastmcp.server.context import Context
@@ -32,7 +32,16 @@ async def transition_score_pool(
         JsonIntList,
         Field(min_length=0, max_length=500, description="Track IDs to score"),
     ],
-    intent: Annotated[str | None, Field(description="Optional transition intent override")] = None,
+    intent: Annotated[
+        Literal["maintain", "ramp_up", "cool_down", "contrast"] | None,
+        Field(
+            description=(
+                "Optional intent override - picks per-intent component "
+                "weights (maintain/ramp_up/cool_down/contrast). Audit iter "
+                "33: was previously declared but never passed to the scorer."
+            )
+        ),
+    ] = None,
     uow: UnitOfWork = Depends(get_uow),
     scorer: Any = Depends(get_transition_scorer),
     ctx: Context = CurrentContext(),
@@ -57,6 +66,9 @@ async def transition_score_pool(
         )
 
     features = await uow.track_features.get_scoring_features_batch(track_ids)
+    from app.domain.transition.intent import TransitionIntent
+
+    intent_enum = TransitionIntent(intent) if intent is not None else None
     pairs: list[dict[str, float | int]] = []
     hard_rejects = 0
     total_pairs = len(track_ids) * (len(track_ids) - 1)
@@ -72,7 +84,7 @@ async def transition_score_pool(
             if b not in features:
                 done += 1
                 continue
-            score = scorer.score(features[a], features[b])
+            score = scorer.score(features[a], features[b], intent=intent_enum)
             if score.hard_reject:
                 hard_rejects += 1
             pairs.append(
