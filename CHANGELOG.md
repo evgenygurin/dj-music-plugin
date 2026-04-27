@@ -6,6 +6,45 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.2.15] - 2026-04-27
+
+**Audit-fix loop, iterations 14-15 — TRULY CONVERGED.** Two consecutive clean iterations against live MCP after the v1.2.14 sweep. No code changes; the release exists to mark the convergence point.
+
+### Final loop summary (v1.2.0 → v1.2.15)
+
+15 patches across 15 iterations of the audit-fix loop. Cumulative test count: 826 → **877 passed** (+51 regression tests across 16 new test files).
+
+| Iter | Release | Bugs closed |
+|---|---|---|
+| 0 | v1.2.0 | 5 bug classes (A/B/C/D/F) + 4 observations from initial manual audit |
+| - | v1.2.1 | has_features dispatcher path (audit residual) |
+| 1 | v1.2.2 | UI dashboard / camelot wheel 10000-row cap; bpm bucket order |
+| 2 | v1.2.3 | ui_library_audit hardcoded 500-row cap |
+| 3 | v1.2.4 | compute tools reject duplicate track_ids |
+| 4 | v1.2.5 | aggregate sum/avg numeric type pre-validation |
+| 5 | v1.2.6 | sequence_optimize pinned/excluded overlap, fields validation, provider_search empty query |
+| 6 | v1.2.7 | TrackFeaturesFilter widening (key_code, lufs) |
+| 6c | v1.2.8 | TrackFeedbackFilter widening + filterable_fields drift |
+| 7 | v1.2.9 | TransitionFilter widening (hard_reject) |
+| 8 | v1.2.10 | SetVersion / AudioFile widening + reject_reason on TransitionView |
+| 9-10 | v1.2.11 | first stabilization marker |
+| 11 | v1.2.12 | sequence_optimize template parameter validation + threading |
+| 12 | v1.2.13 | SetFilter widening (template_name__in, source_playlist_id__in) |
+| 13 | v1.2.14 | batched widening (Track sort_title, SetVersion label, AudioFile bitrate, TransitionHistory range) |
+| 14-15 | v1.2.15 | TRUE convergence (no new code bugs) |
+
+### Outstanding work (not code)
+
+Two pre-existing Postgres migration drifts deferred as operations work:
+- ``track_feedback.kind`` (declared iter 7)
+- ``track_affinity.positive_count`` / ``negative_count`` (declared iter 9)
+
+Apply Alembic to sync.
+
+### Tests
+- 873 -> 877 passed (no change in this release).
+- ``make check`` clean.
+
 ## [1.2.14] - 2026-04-27
 
 **Audit-fix loop, iteration 13.** Systematic sweep across remaining filter schemas - 4 widenings batched into one release instead of one-per-iteration.
