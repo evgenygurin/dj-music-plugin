@@ -6,6 +6,17 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.2.26] - 2026-04-27
+
+**Audit-fix loop, iteration 26.** ``entity_update(set, ...)`` mirror of v1.2.16's create-side template validation.
+
+### Fixed
+- **T-26:** ``entity_update(set, {template_name: 'bogus'})`` silently overwrote the set's template_name with the bogus string. v1.2.16 added template-name validation to the create dispatcher; the update dispatcher had no equivalent check, so the same bug class re-surfaced through the update path. Validation now mirrors create-side: bogus template_name raises ``ValidationError``; valid names pass through to the repo.
+
+### Tests
+- 925 -> **927 passed**.
+- ``make check`` clean.
+
 ## [1.2.25] - 2026-04-27
 
 **Audit-fix loop, iteration 25.** TrackFeaturesFilter scalar/confidence widening - the analytics-quality filters.
