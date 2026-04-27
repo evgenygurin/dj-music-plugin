@@ -6,6 +6,22 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.2.51] - 2026-04-28
+
+**Audit-fix loop, iteration 54.** Three relational schemas accepted "from track to itself" / "track paired with itself" rows.
+
+### Fixed
+- **T-52:**
+  - ``TransitionCreate`` accepted ``from_track_id == to_track_id`` — live confirmation: ``entity_create(transition, {"from_track_id":146,"to_track_id":146})`` returned a row with ``overall=0.93`` (track scored against its own features). The persisted row would mislead any "find best transitions from track X" query.
+  - ``TransitionHistoryCreate`` accepted the same self-pair — meaningless history row (nothing was actually mixed).
+  - ``TrackAffinityCreate`` accepted ``track_a_id == track_b_id`` — degenerate "self-affinity" row.
+
+  Fix: ``model_validator(mode="after")`` on all three Create schemas rejects same-id endpoints with a clean ``must differ`` error at schema-validation time. Update schemas don't carry the endpoint columns so they're naturally safe.
+
+### Tests
+- 1172 → **1178 passed** (+6 distinct-endpoints regression tests).
+- ``make check`` clean.
+
 ## [1.2.50] - 2026-04-28
 
 **Audit-fix loop, iteration 53.** Playlist hierarchy could contain cycles.

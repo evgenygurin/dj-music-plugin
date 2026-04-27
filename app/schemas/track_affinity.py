@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from pydantic import BaseModel, ConfigDict, Field
+from typing import Self
+
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class TrackAffinityView(BaseModel):
@@ -52,6 +54,16 @@ class TrackAffinityCreate(BaseModel):
     track_a_id: int
     track_b_id: int
     avg_score: float | None = Field(default=None, ge=0.0, le=1.0)
+
+    @model_validator(mode="after")
+    def _validate_distinct_endpoints(self) -> Self:
+        # Audit iter 54 (T-52): an affinity row between a track and
+        # itself is degenerate — there's no "pair history" to record.
+        if self.track_a_id == self.track_b_id:
+            raise ValueError(
+                f"track_a_id and track_b_id must differ; got {self.track_a_id} for both"
+            )
+        return self
 
 
 class TrackAffinityUpdate(BaseModel):

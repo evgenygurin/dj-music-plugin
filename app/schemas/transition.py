@@ -2,7 +2,20 @@
 
 from __future__ import annotations
 
-from pydantic import BaseModel, ConfigDict, Field
+from typing import Self
+
+from pydantic import BaseModel, ConfigDict, Field, model_validator
+
+
+def _check_distinct_endpoints(from_id: int, to_id: int) -> None:
+    """Audit iter 54 (T-52): a transition from a track to itself is
+    logically meaningless — every component would compare the track
+    against its own features and report perfect similarity. Without
+    this guard ``entity_create(transition, {"from_track_id":146,
+    "to_track_id":146})`` happily produced a 0.93 self-score row.
+    """
+    if from_id == to_id:
+        raise ValueError(f"from_track_id and to_track_id must differ; got {from_id} for both")
 
 
 class TransitionView(BaseModel):
@@ -111,6 +124,11 @@ class TransitionCreate(BaseModel):
     to_track_id: int
     persist: bool = True
     scoring_profile: str | None = None
+
+    @model_validator(mode="after")
+    def _validate_distinct_endpoints(self) -> Self:
+        _check_distinct_endpoints(self.from_track_id, self.to_track_id)
+        return self
 
 
 class TransitionUpdate(BaseModel):
