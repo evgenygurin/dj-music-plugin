@@ -21,6 +21,13 @@ class TrackFeedbackFilter(BaseModel):
     track_id__eq: int | None = None
     track_id__in: list[int] | None = None
     kind__eq: Literal["like", "ban", "rate"] | None = None
+    kind__in: list[Literal["like", "ban", "rate"]] | None = None
+    # rating: full numeric lookups - "find tracks rated >= 4" was the
+    # canonical query and used to be rejected (audit iter 6).
+    rating__eq: int | None = None
+    rating__gte: int | None = None
+    rating__lte: int | None = None
+    rating__in: list[int] | None = None
 
 
 class TrackFeedbackCreate(BaseModel):
