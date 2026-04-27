@@ -6,6 +6,22 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.2.6] - 2026-04-27
+
+**Audit-fix loop, iteration 5.** Three more silent-failure modes turned up in deeper edge probes — same anti-pattern across the surface: inputs that should be rejected up front instead leaked raw Python errors or quietly produced empty/contradictory results.
+
+### Fixed
+- **T-2:** ``sequence_optimize(pinned=[146,147], excluded=[146])`` no longer silently lets pinned win. Pinned ∩ excluded overlap raises ``ValidationError`` listing the conflicting ids.
+- **T-3:** ``entity_get`` / ``entity_list`` with an unknown ``fields`` preset name (e.g. ``fields="unknown_preset"``) no longer falls through the CSV path and projects ``{single_token}`` against a model that has no such field — which produced ``[{},{},{},{},{}]`` (5 empty rows). ``resolve_field_projection`` now validates every field name against the view schema and raises ``ValidationError`` with the bad names.
+- **T-4:** ``provider_search(query='')`` no longer leaks ``'str' object has no attribute 'get'`` from the YM client. Empty / whitespace-only queries fail fast with a typed error.
+
+### Added
+- ``tests/tools/test_iter5_silent_failures.py`` - 6 regression tests covering all three failures + sanity-positive paths.
+
+### Tests
+- 841 -> **847 passed**.
+- ``make check`` clean.
+
 ## [1.2.5] - 2026-04-27
 
 **Audit-fix loop, iteration 4.** Live MCP probe of ``entity_aggregate(track, avg, field='title')`` returned a raw asyncpg error: ``function avg(character varying) does not exist``. SQL backend errors should not surface to MCP clients — type validation belongs at the dispatcher / repo layer.
