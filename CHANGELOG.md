@@ -6,6 +6,27 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.0.13] — 2026-04-27
+
+**Fix: implement `entity_list` / `entity_get` field projection** — `fields=…` parameter was declared in tool signatures since v1.0 but **never applied** to responses. Every call returned the full row regardless of what the caller asked for. Discovered by `superpowers:systematic-debugging` skill during architectural review of the v1.0.10–v1.0.12 patch streak.
+
+### Fixed
+- `app/registry/entity.py` — new `resolve_field_projection(fields, config)` helper accepts four input shapes the dispatcher might see in production: preset name (`"id"`/`"ref"`/`"summary"`/`"full"`), native list, JSON-encoded list (Claude Code stdio transport), CSV. Returns `set[str]` for projection or `None` to signal "full row" (skip projection).
+- `app/tools/entity/get.py` — applies projection via `view.model_dump(include=projection)`; falls back to full dump when projection is `None`.
+- `app/tools/entity/list.py` — same projection applied per-row in the list comprehension.
+
+### Added
+- `tests/registry/test_field_projection.py` — 12 tests pinning every input shape (None default, preset name, full preset, native list, JSON-string, CSV, whitespace, empty inputs, malformed JSON fallback).
+
+### Tests
+- **761 passed** (was 749 at v1.0.12) — +12 regression tests.
+- `make check` clean: ruff + mypy strict (241 files) + import-linter + pytest 14.0s.
+
+### Known deferred (v1.1.0)
+- Server-side input-coercion middleware to replace per-param `Json*` helpers (would have caught v1.0.10–v1.0.13 transport bugs at architecture level).
+- Stringified-args test fixture to reproduce Claude Code stdio transport quirk in CI.
+- Integration round-trip tests against real YM (would have caught v1.0.12 `ProviderWriteResult.data` shape mismatch).
+
 ## [1.0.12] — 2026-04-27
 
 **Fix: `ProviderWriteResult.data` accepts bare string for YM delete** — completing the manual MCP-surface audit (now 20/20 dispatchers). YM `playlist delete` returns the bare string `"ok"` instead of a dict; the dispatcher previously crashed on response serialization with `Input should be a valid dictionary [type=dict_type]` even though the YM-side delete had already succeeded.
