@@ -6,6 +6,21 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.2.4] - 2026-04-27
+
+**Audit-fix loop, iteration 3.** Live MCP probe with ``track_ids=[146, 146, 147]`` caught two compute tools disagreeing on duplicate-id semantics.
+
+### Fixed
+- ``transition_score_pool`` no longer counts duplicates as distinct slots in the N*(N-1) matrix - same input as ``sequence_optimize`` now produces a clear ValidationError naming the duplicate ids.
+- ``sequence_optimize`` no longer silently dedupes through ``set()`` inside the optimizer. Same explicit ValidationError. The two compute tools now share input semantics; consumers know when their pool has accidental repetitions instead of getting two different answers from the same input.
+
+### Added
+- ``tests/tools/compute/test_duplicate_track_ids.py`` - regression coverage for both tools rejecting duplicates and accepting unique pools.
+
+### Tests
+- 832 -> **835 passed**.
+- ``make check`` clean.
+
 ## [1.2.3] - 2026-04-27
 
 **Audit-fix loop, iteration 2.** Same class as iter 1 (silent caps in UI tools), one cap location: ``ui_library_audit`` whole-library scope hardcoded ``limit=500``, reporting ``total_tracks: 500`` for a 24k library with no way for the caller to know they saw a 2% sample.

@@ -12,6 +12,7 @@ from pydantic import Field
 from app.repositories.unit_of_work import UnitOfWork
 from app.schemas.tool_responses import ScorePoolResult
 from app.server.di import get_transition_scorer, get_uow
+from app.shared.errors import ValidationError
 from app.shared.types import JsonIntList
 
 
@@ -38,6 +39,22 @@ async def transition_score_pool(
 ) -> ScorePoolResult:
     if not track_ids:
         return ScorePoolResult(track_ids=[], pairs=[], hard_rejects=0)
+
+    # Audit iter 3: reject duplicate ids explicitly. Prior behaviour
+    # produced N*(N-1) pairs counting duplicates as distinct slots,
+    # which silently inflated the matrix and disagreed with
+    # ``sequence_optimize`` (which deduped on the same input).
+    if len(set(track_ids)) != len(track_ids):
+        seen: set[int] = set()
+        duplicates: list[int] = []
+        for tid in track_ids:
+            if tid in seen and tid not in duplicates:
+                duplicates.append(tid)
+            seen.add(tid)
+        raise ValidationError(
+            f"track_ids contains duplicate id(s): {duplicates}",
+            details={"duplicates": duplicates},
+        )
 
     features = await uow.track_features.get_scoring_features_batch(track_ids)
     pairs: list[dict[str, float | int]] = []
