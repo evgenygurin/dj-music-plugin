@@ -2,9 +2,25 @@
 
 from __future__ import annotations
 
-from pydantic import BaseModel, ConfigDict, Field
+from typing import Self
+
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from app.shared.types import JsonDictOrNone
+
+
+def _check_bpm_range(bpm_min: int | None, bpm_max: int | None) -> None:
+    """Audit iter 49 (T-47): ``target_bpm_min`` and ``target_bpm_max``
+    must form a valid range. Without this guard ``entity_create(set,
+    {"target_bpm_min": 130, "target_bpm_max": 120})`` was accepted —
+    the set persisted with min > max, an obviously bogus constraint
+    that any downstream "in target range" query would treat as
+    "match nothing" silently.
+    """
+    if bpm_min is None or bpm_max is None:
+        return
+    if bpm_min > bpm_max:
+        raise ValueError(f"target_bpm_min ({bpm_min}) must be <= target_bpm_max ({bpm_max})")
 
 
 class SetView(BaseModel):
@@ -64,6 +80,11 @@ class SetCreate(BaseModel):
     template_name: str | None = None
     source_playlist_id: int | None = None
 
+    @model_validator(mode="after")
+    def _validate_bpm_range(self) -> Self:
+        _check_bpm_range(self.target_bpm_min, self.target_bpm_max)
+        return self
+
 
 class SetUpdate(BaseModel):
     model_config = ConfigDict(extra="forbid")
@@ -78,6 +99,17 @@ class SetUpdate(BaseModel):
     target_bpm_min: int | None = Field(default=None, ge=60, le=250)
     target_bpm_max: int | None = Field(default=None, ge=60, le=250)
     source_playlist_id: int | None = None
+
+    @model_validator(mode="after")
+    def _validate_bpm_range(self) -> Self:
+        # Audit iter 49 (T-47): only check when BOTH are supplied. A
+        # patch update with only one side leaves the other untouched
+        # on the row; we can't enforce range without a DB read here,
+        # so the dispatcher remains responsible for the cross-row
+        # invariant. Pure-payload check still catches the obvious
+        # ``{"target_bpm_min": 130, "target_bpm_max": 120}`` slip.
+        _check_bpm_range(self.target_bpm_min, self.target_bpm_max)
+        return self
 
 
 class SetVersionView(BaseModel):
