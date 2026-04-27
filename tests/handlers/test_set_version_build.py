@@ -38,6 +38,8 @@ def uow(session_spy: MagicMock) -> MagicMock:
     u.track_features.get_scoring_features_batch = AsyncMock(
         return_value={1: MagicMock(), 2: MagicMock(), 3: MagicMock()}
     )
+    u.transitions = MagicMock()
+    u.transitions.upsert = AsyncMock(return_value=MagicMock(id=42))
     return u
 
 
@@ -73,6 +75,13 @@ async def test_builds_version_with_items(
     assert result["item_count"] == 3
     assert result["transition_count"] == 2  # N-1 transitions for N tracks
     uow.set_versions.create_items.assert_awaited_once_with(version_id=10, track_order=[1, 2, 3])
+    # transitions persisted: N-1 upserts with directed pair fields
+    assert uow.transitions.upsert.await_count == 2
+    pairs = [
+        (c.kwargs["from_track_id"], c.kwargs["to_track_id"])
+        for c in uow.transitions.upsert.await_args_list
+    ]
+    assert pairs == [(1, 2), (2, 3)]
 
 
 @pytest.mark.asyncio
@@ -118,3 +127,53 @@ async def test_builds_without_scorer_when_lifespan_missing(ctx: MagicMock, uow: 
 
     assert result["transition_count"] == 0
     assert result["quality_score"] == 0.0
+
+
+@pytest.mark.asyncio
+async def test_persists_hard_rejects_with_reason(
+    ctx: MagicMock, uow: MagicMock, scorer: MagicMock
+) -> None:
+    """In real libraries (e.g. lat'30 mixed-BPM YM-likes set) ~30% of pairs
+    hard-reject. The persist path must propagate ``hard_reject=True`` and
+    the human-readable ``reject_reason`` to the DB so users can later
+    review WHY a transition failed via ``local://sets/{id}/review``.
+    """
+    uow.sets.get.return_value = MagicMock(id=5, name="S")
+    # Make pair (1,2) reject, pair (2,3) succeed.
+    good = MagicMock(
+        overall=0.8,
+        bpm=0.8,
+        harmonic=0.8,
+        energy=0.8,
+        spectral=0.8,
+        groove=0.8,
+        timbral=0.8,
+        hard_reject=False,
+        reject_reason=None,
+    )
+    bad = MagicMock(
+        overall=0.0,
+        bpm=0.0,
+        harmonic=0.5,
+        energy=0.5,
+        spectral=0.5,
+        groove=0.5,
+        timbral=0.5,
+        hard_reject=True,
+        reject_reason="BPM diff 25.2 > 10.0",
+    )
+    scorer.score.side_effect = [bad, good]
+
+    data = {"set_id": 5, "track_order": [1, 2, 3]}
+    with patch("app.server.di.get_transition_scorer", AsyncMock(return_value=scorer)):
+        await set_version_build_handler(ctx, uow, data)
+
+    # Both pairs persisted (hard_reject ones are NOT silently dropped).
+    assert uow.transitions.upsert.await_count == 2
+    first_call_kwargs = uow.transitions.upsert.await_args_list[0].kwargs
+    assert first_call_kwargs["hard_reject"] is True
+    assert first_call_kwargs["reject_reason"] == "BPM diff 25.2 > 10.0"
+    assert first_call_kwargs["overall_quality"] == 0.0
+    second_call_kwargs = uow.transitions.upsert.await_args_list[1].kwargs
+    assert second_call_kwargs["hard_reject"] is False
+    assert second_call_kwargs["reject_reason"] is None

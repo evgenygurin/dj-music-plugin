@@ -38,17 +38,30 @@ class TrackFilter(BaseModel):
 
 
 class TrackCreate(BaseModel):
-    """Create payload (no custom handler → default INSERT; with handler → import from provider)."""
+    """Create payload — dispatches to ``track_import`` handler.
+
+    The handler fetches metadata from the named provider and inserts a
+    Track + YandexMetadata + TrackExternalId row. Idempotent by
+    (source, external_id): existing tracks are returned in ``skipped``.
+
+    There is no "default-INSERT" path on this entity — track rows are
+    always sourced from a provider — so only the import-relevant fields
+    are accepted. Title / duration / status come straight from the
+    provider response and cannot be overridden by the caller.
+    """
 
     model_config = ConfigDict(extra="forbid")
 
-    title: str = Field(..., min_length=1, max_length=500)
-    sort_title: str | None = None
-    duration_ms: int | None = Field(default=None, ge=0)
-    status: int = Field(default=0, ge=0, le=1)
-    # Handler-driven import path:
-    source: str | None = Field(default=None, description='e.g. "yandex_music"')
-    provider_ids: list[str] | None = None
+    external_ids: list[str] = Field(
+        ..., min_length=1, description="Provider track IDs (e.g. Yandex track ids)."
+    )
+    source: str = Field(
+        default="yandex",
+        description='Provider name from ProviderRegistry (e.g. "yandex").',
+    )
+    playlist_id: int | None = Field(
+        default=None, description="Optional playlist to append imported tracks to."
+    )
 
 
 class TrackUpdate(BaseModel):

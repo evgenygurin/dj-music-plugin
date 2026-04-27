@@ -19,6 +19,37 @@ class TransitionScorerProtocol(Protocol):
     def score(self, a: Any, b: Any, *, intent: Any = None, section_context: Any = None) -> Any: ...
 
 
+async def persist_transition_score(
+    uow: UnitOfWork,
+    *,
+    from_track_id: int,
+    to_track_id: int,
+    score: Any,
+) -> Any:
+    """Upsert a single ``TransitionScore`` into the ``transitions`` table.
+
+    Single source of truth for the score → DB mapping. Both
+    ``transition_persist_handler`` (single pair via ``entity_create``)
+    and ``set_version_build_handler`` (every consecutive pair in a set)
+    funnel through here so the column→field mapping stays consistent.
+
+    Returns the persisted row so callers can read its id / timestamps.
+    """
+    return await uow.transitions.upsert(
+        from_track_id=from_track_id,
+        to_track_id=to_track_id,
+        bpm_score=float(score.bpm),
+        harmonic_score=float(score.harmonic),
+        energy_score=float(score.energy),
+        spectral_score=float(score.spectral),
+        groove_score=float(score.groove),
+        timbral_score=float(score.timbral),
+        overall_quality=float(score.overall),
+        hard_reject=bool(score.hard_reject),
+        reject_reason=score.reject_reason,
+    )
+
+
 async def transition_persist_handler(
     ctx: Context,
     uow: UnitOfWork,
@@ -35,19 +66,7 @@ async def transition_persist_handler(
         raise NotFoundError("track_features", b_id)
 
     score = scorer.score(features[a_id], features[b_id])
-    row = await uow.transitions.upsert(
-        from_track_id=a_id,
-        to_track_id=b_id,
-        bpm_score=float(score.bpm),
-        harmonic_score=float(score.harmonic),
-        energy_score=float(score.energy),
-        spectral_score=float(score.spectral),
-        groove_score=float(score.groove),
-        timbral_score=float(score.timbral),
-        overall_quality=float(score.overall),
-        hard_reject=bool(score.hard_reject),
-        reject_reason=score.reject_reason,
-    )
+    row = await persist_transition_score(uow, from_track_id=a_id, to_track_id=b_id, score=score)
     return {
         "id": row.id,
         "from_track_id": a_id,

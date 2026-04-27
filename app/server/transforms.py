@@ -27,9 +27,7 @@ from fastmcp.server.transforms.search import BM25SearchTransform
 from app.server.json_aware_resources import JSONAwareResourcesAsTools
 
 try:  # pragma: no cover - optional experimental module
-    from fastmcp.experimental.transforms.code_mode import (
-        CodeMode,  # type: ignore[import-not-found]
-    )
+    from fastmcp.experimental.transforms.code_mode import CodeMode
 except ImportError:  # pragma: no cover
     CodeMode = None  # type: ignore[assignment,misc]
 
@@ -83,4 +81,4 @@ def register_post_constructor_transforms(mcp: FastMCP) -> None:
     mcp.add_transform(PromptsAsTools(mcp))
     mcp.add_transform(JSONAwareResourcesAsTools(mcp))
     if os.getenv("DJ_MCP_CODE_MODE", "0") == "1" and CodeMode is not None:
-        mcp.add_transform(CodeMode(mcp))
+        mcp.add_transform(CodeMode(mcp))  # type: ignore[misc,arg-type]

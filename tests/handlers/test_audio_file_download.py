@@ -132,3 +132,42 @@ async def test_reports_progress_per_track(
     data = {"track_ids": [1, 2, 3], "source": "yandex", "target_dir": str(tmp_path)}
     await audio_file_download_handler(ctx, uow, data, registry)
     assert ctx.report_progress.await_count == 3
+
+
+@pytest.mark.asyncio
+async def test_accepts_single_track_id_form(
+    ctx: MagicMock, uow: MagicMock, registry: MagicMock, tmp_path: Path
+) -> None:
+    """``AudioFileCreate`` schema offers ``track_id`` (single) OR ``track_ids``
+    (batch). Regression: the handler used to hard-fail with KeyError on
+    ``data["track_ids"]`` when a caller passed ``track_id`` per the schema.
+    """
+    uow.tracks.get.return_value = MagicMock(id=42, title="Single")
+    data = {"track_id": 42, "source": "yandex", "target_dir": str(tmp_path)}
+    result = await audio_file_download_handler(ctx, uow, data, registry)
+
+    assert len(result["downloaded"]) == 1
+    assert result["downloaded"][0]["track_id"] == 42
+
+
+@pytest.mark.asyncio
+async def test_raises_when_no_track_id_provided(
+    ctx: MagicMock, uow: MagicMock, registry: MagicMock, tmp_path: Path
+) -> None:
+    """Empty payload now produces a clear ValueError instead of a confusing
+    ``KeyError: 'track_ids'`` from a missing handler key access.
+    """
+    data = {"source": "yandex", "target_dir": str(tmp_path)}
+    with pytest.raises(ValueError, match="track_id"):
+        await audio_file_download_handler(ctx, uow, data, registry)
+
+
+@pytest.mark.asyncio
+async def test_source_defaults_to_yandex(
+    ctx: MagicMock, uow: MagicMock, registry: MagicMock, tmp_path: Path
+) -> None:
+    """``source`` is optional now (default ``"yandex"``) — matches schema."""
+    uow.tracks.get.return_value = MagicMock(id=7, title="NoSource")
+    data = {"track_ids": [7], "target_dir": str(tmp_path)}
+    await audio_file_download_handler(ctx, uow, data, registry)
+    registry.get.assert_called_with("yandex")

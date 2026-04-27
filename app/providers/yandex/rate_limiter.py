@@ -51,7 +51,7 @@ class TokenBucketRateLimiter:
     def current_backoff(self) -> float:
         if self._retry_count == 0:
             return 0.0
-        return self._base_backoff_s * (2 ** (self._retry_count - 1))
+        return float(self._base_backoff_s * (2 ** (self._retry_count - 1)))
 
     def retries_exhausted(self) -> bool:
         return self._retry_count >= self._max_retries

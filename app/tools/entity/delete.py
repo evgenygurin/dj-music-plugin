@@ -54,7 +54,7 @@ async def entity_delete(
         raise ValueError(f"delete not allowed on {entity!r}")
 
     if config.delete_handler is not None:
-        await config.delete_handler(ctx, uow, {"id": id}, registry)  # type: ignore[misc]
+        await config.delete_handler(ctx, uow, {"id": id}, registry)
     else:
         repo = getattr(uow, config.repo_attr)
         await repo.delete(id)

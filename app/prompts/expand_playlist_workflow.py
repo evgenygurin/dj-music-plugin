@@ -27,20 +27,19 @@ def _body(playlist_id: int, target_count: int) -> str:
    - Skip tracks already on entity_list(entity='track_feedback', filters={{'banned': True}})
 
 6. Import new provider tracks that aren't in the library yet:
-   entity_create(entity='track', data={{'provider': 'yandex', 'provider_ids': [...]}})
-   — handler fetches metadata + creates rows + links playlist.
+   entity_create(entity='track', data={{'source': 'yandex', 'external_ids': [...]}})
+   — handler fetches metadata + creates rows; idempotent by (source, external_id).
+   Optional: pass 'playlist_id' to auto-append imports to a playlist.
 
 7. Download MP3s for newly-imported tracks:
-   entity_create(entity='audio_file', data={{'track_ids': [...]}})
+   entity_create(entity='audio_file', data={{'track_ids': [...], 'source': 'yandex'}})
    — handler downloads + writes file + registers DjLibraryItem.
 
-8. Analyze all newly-downloaded tracks at L3:
+8. Analyze all newly-downloaded tracks at L3 (mood classification fires
+   automatically inside this handler — no separate classify step needed):
    entity_create(entity='track_features', data={{'track_ids': [...], 'level': 3}})
 
-9. Classify mood for everything:
-   entity_update(entity='track_features', data={{'track_ids': [...], 'action': 'classify_mood'}})
-
-10. Re-audit:
+9. Re-audit:
     local://playlists/{playlist_id}/audit — verify pass rate improved.
 
 Return: {{"playlist_id": {playlist_id}, "added_tracks": N, "final_count": N}}.

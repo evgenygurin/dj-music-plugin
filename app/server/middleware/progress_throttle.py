@@ -45,8 +45,8 @@ class ProgressThrottleMiddleware(Middleware):
             last_emit["t"] = now
             await original(progress, total, message)
 
-        fctx.report_progress = throttled
+        fctx.report_progress = throttled  # type: ignore[method-assign]
         try:
             return await call_next(context)
         finally:
-            fctx.report_progress = original
+            fctx.report_progress = original  # type: ignore[method-assign]

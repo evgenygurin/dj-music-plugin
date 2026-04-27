@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal
 
 from fastmcp.dependencies import CurrentContext, Depends
 from fastmcp.server.context import Context
@@ -39,8 +39,8 @@ async def sequence_optimize(
     pinned: Annotated[JsonIntListOrNone, Field(description="Must-include track IDs")] = None,
     excluded: Annotated[JsonIntListOrNone, Field(description="Banned track IDs")] = None,
     uow: UnitOfWork = Depends(get_uow),
-    scorer=Depends(get_transition_scorer),
-    optimizer_builder=Depends(get_optimizer),
+    scorer: Any = Depends(get_transition_scorer),
+    optimizer_builder: Any = Depends(get_optimizer),
     ctx: Context = CurrentContext(),
 ) -> SequenceOptimizeResult:
     features = await uow.track_features.get_scoring_features_batch(track_ids)

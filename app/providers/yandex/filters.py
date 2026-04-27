@@ -59,7 +59,7 @@ class TrackFilter:
             if self.max_duration_ms is not None and duration > self.max_duration_ms:
                 return False
         title = track.get("title") or ""
-        return all(not pattern.search(title) for pattern in self._compiled)
+        return all(not pattern.search(title) for pattern in self._compiled)  # type: ignore[attr-defined]
 
     def apply(self, tracks: Collection[dict[str, Any]]) -> list[dict[str, Any]]:
         return [t for t in tracks if self.matches(t)]

@@ -7,7 +7,7 @@ defined by YM API); YandexAdapter maps them to v2 schemas.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, ClassVar
+from typing import Any, ClassVar, cast
 
 import httpx
 
@@ -74,6 +74,10 @@ class YandexClient:
         payload = resp.json()
         return payload.get("result", payload) if isinstance(payload, dict) else payload
 
+    async def _request_dict(self, method: str, path: str, **kwargs: Any) -> dict[str, Any]:
+        """``_request`` wrapper for endpoints whose ``result`` is a JSON object."""
+        return cast(dict[str, Any], await self._request(method, path, **kwargs))
+
     # ---------- search ---------- #
 
     _SEARCH_TYPE_ALIASES: ClassVar[dict[str, str]] = {
@@ -94,7 +98,7 @@ class YandexClient:
         # YM expects singular entity names and a mandatory `page` parameter;
         # accept the plural aliases used by the MCP tool surface for convenience.
         ym_type = self._SEARCH_TYPE_ALIASES.get(type, type)
-        return await self._request(
+        return await self._request_dict(
             "GET",
             "/search",
             params={
@@ -170,12 +174,12 @@ class YandexClient:
 
     async def get_album(self, album_id: str, *, with_tracks: bool = False) -> dict[str, Any]:
         path = f"/albums/{album_id}" + ("/with-tracks" if with_tracks else "")
-        return await self._request("GET", path)
+        return await self._request_dict("GET", path)
 
     async def get_artist_tracks(
         self, artist_id: str, *, offset: int = 0, limit: int = 50
     ) -> dict[str, Any]:
-        return await self._request(
+        return await self._request_dict(
             "GET",
             f"/artists/{artist_id}/tracks",
             params={"page": offset // limit, "page-size": limit},
@@ -198,14 +202,14 @@ class YandexClient:
 
     async def get_playlist(self, playlist_id: str | int) -> dict[str, Any]:
         owner, kind = self._split_playlist_id(playlist_id)
-        return await self._request("GET", f"/users/{owner}/playlists/{kind}")
+        return await self._request_dict("GET", f"/users/{owner}/playlists/{kind}")
 
     async def list_playlists(self) -> list[dict[str, Any]]:
         res = await self._request("GET", f"/users/{self._user_id}/playlists/list")
         return res if isinstance(res, list) else []
 
     async def create_playlist(self, *, title: str, visibility: str = "private") -> dict[str, Any]:
-        return await self._request(
+        return await self._request_dict(
             "POST",
             f"/users/{self._user_id}/playlists/create",
             data={"title": title, "visibility": visibility},
@@ -217,7 +221,7 @@ class YandexClient:
         owner, kind = self._split_playlist_id(playlist_id)
         import json as _json
 
-        return await self._request(
+        return await self._request_dict(
             "POST",
             f"/users/{owner}/playlists/{kind}/change-relative",
             data={"diff": _json.dumps(diff), "revision": revision},
@@ -225,11 +229,11 @@ class YandexClient:
 
     async def delete_playlist(self, playlist_id: str | int) -> dict[str, Any]:
         owner, kind = self._split_playlist_id(playlist_id)
-        return await self._request("POST", f"/users/{owner}/playlists/{kind}/delete")
+        return await self._request_dict("POST", f"/users/{owner}/playlists/{kind}/delete")
 
     async def rename_playlist(self, playlist_id: str | int, *, title: str) -> dict[str, Any]:
         owner, kind = self._split_playlist_id(playlist_id)
-        return await self._request(
+        return await self._request_dict(
             "POST", f"/users/{owner}/playlists/{kind}/name", data={"value": title}
         )
 
@@ -237,7 +241,7 @@ class YandexClient:
         self, playlist_id: str | int, *, description: str
     ) -> dict[str, Any]:
         owner, kind = self._split_playlist_id(playlist_id)
-        return await self._request(
+        return await self._request_dict(
             "POST",
             f"/users/{owner}/playlists/{kind}/description",
             data={"value": description},
@@ -260,14 +264,14 @@ class YandexClient:
         return []
 
     async def add_likes(self, track_ids: list[str]) -> dict[str, Any]:
-        return await self._request(
+        return await self._request_dict(
             "POST",
             f"/users/{self._user_id}/likes/tracks/add-multiple",
             data={"track-ids": ",".join(track_ids)},
         )
 
     async def remove_likes(self, track_ids: list[str]) -> dict[str, Any]:
-        return await self._request(
+        return await self._request_dict(
             "POST",
             f"/users/{self._user_id}/likes/tracks/remove",
             data={"track-ids": ",".join(track_ids)},

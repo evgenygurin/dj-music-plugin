@@ -104,7 +104,7 @@ class BaseRepository(Generic[M]):
         if order:
             order_clauses = list(order)
         else:
-            pk_cols = [c.name for c in self.model.__table__.primary_key.columns]
+            pk_cols = [c.name for c in self.model.__table__.primary_key.columns]  # type: ignore[attr-defined]
             order_clauses = [pk_cols[0]] if pk_cols else ["id"]
         # If cursor present, apply keyset predicate on the first sort field.
         if cursor is not None:
@@ -178,6 +178,7 @@ class BaseRepository(Generic[M]):
         if group_by and group_col is None:
             raise ValidationError(f"unknown group_by field {group_by!r}")
 
+        value_expr: Any
         match op:
             case "count":
                 value_expr = func.count()
@@ -200,7 +201,7 @@ class BaseRepository(Generic[M]):
                 return list((await self.session.execute(stmt)).scalars().all())
             case "histogram":
                 # {value: count} for discrete fields — caller buckets numeric ones.
-                stmt = select(field_col, func.count()).select_from(self.model).group_by(field_col)
+                stmt = select(field_col, func.count()).select_from(self.model).group_by(field_col)  # type: ignore[arg-type]
                 for clause in parse_filter(self.model, where or {}):
                     stmt = stmt.where(clause)
                 rows = (await self.session.execute(stmt)).all()

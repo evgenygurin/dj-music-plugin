@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from pydantic import BaseModel, ConfigDict, Field
+from typing import Self
+
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class AudioFileView(BaseModel):
@@ -28,14 +30,35 @@ class AudioFileFilter(BaseModel):
 class AudioFileCreate(BaseModel):
     """Single or batch download-and-register.
 
-    Either ``track_id`` (one) or ``track_ids`` (batch) must be set.
-    ``source`` picks the provider (e.g. ``"yandex_music"``).
+    Exactly one of ``track_id`` (single) or ``track_ids`` (batch) must be
+    set; the model validator below rejects both-set / both-None / empty
+    batch at validation time so callers see a clean Pydantic error
+    instead of a mid-handler ``ValueError``.
+
+    ``source`` picks the provider registered in ``ProviderRegistry``
+    (e.g. ``"yandex"`` — NOT the legacy DB seed name ``"yandex_music"``).
     """
 
     model_config = ConfigDict(extra="forbid")
-    track_id: int | None = None
-    track_ids: list[int] | None = None
-    source: str = Field(..., min_length=1)
+    track_id: int | None = Field(
+        default=None, description="Single track id (mutually exclusive with track_ids)."
+    )
+    track_ids: list[int] | None = Field(default=None, description="Batch of track ids.")
+    source: str = Field(
+        default="yandex",
+        min_length=1,
+        description='Provider name from ProviderRegistry, e.g. "yandex".',
+    )
+
+    @model_validator(mode="after")
+    def _exactly_one_target(self) -> Self:
+        has_single = self.track_id is not None
+        has_batch = self.track_ids is not None
+        if has_single == has_batch:
+            raise ValueError("AudioFileCreate requires exactly one of 'track_id' or 'track_ids'")
+        if has_batch and not self.track_ids:
+            raise ValueError("'track_ids' must contain at least one id")
+        return self
 
 
 class AudioFileUpdate(BaseModel):

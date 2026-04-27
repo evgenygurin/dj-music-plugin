@@ -153,14 +153,14 @@ async def set_view_resource(
         ).model_dump_json()
 
     # view == "full"
-    summary = await set_view_resource(id=id, view="summary", uow=uow)
-    tracks = await set_view_resource(id=id, view="tracks", uow=uow)
-    transitions = await set_view_resource(id=id, view="transitions", uow=uow)
+    summary_json = await set_view_resource(id=id, view="summary", uow=uow)
+    tracks_json = await set_view_resource(id=id, view="tracks", uow=uow)
+    transitions_json = await set_view_resource(id=id, view="transitions", uow=uow)
     return json_dump(
         {
-            "summary": _json.loads(summary),
-            "tracks": _json.loads(tracks),
-            "transitions": _json.loads(transitions),
+            "summary": _json.loads(summary_json),
+            "tracks": _json.loads(tracks_json),
+            "transitions": _json.loads(transitions_json),
         }
     )
 
