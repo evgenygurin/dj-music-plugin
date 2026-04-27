@@ -41,6 +41,10 @@ class SetCreate(BaseModel):
     target_duration_ms: int | None = Field(default=None, ge=60_000, le=12 * 3600_000)
     target_bpm_min: int | None = Field(default=None, ge=60, le=250)
     target_bpm_max: int | None = Field(default=None, ge=60, le=250)
+    # ``template_name`` is validated against the template registry by
+    # ``app.tools.entity.create`` (audit iter 16 / T-16). The check
+    # lives at the dispatcher rather than here because schemas cannot
+    # import ``app.domain`` per the v2-server import contract.
     template_name: str | None = None
     source_playlist_id: int | None = None
 

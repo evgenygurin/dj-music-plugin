@@ -83,6 +83,24 @@ async def entity_create(
 
     # Default path: validate + straight insert.
     validated = config.create_schema.model_validate(data)
+    # Audit iter 16 (T-16): post-validate cross-domain references that
+    # the schema can't enforce alone (schemas may not import
+    # ``app.domain`` per the v2-server import contract). For sets,
+    # ``template_name`` must point at a registered template -
+    # otherwise the optimizer rejects it later, and the set lingers
+    # with a bogus name that nothing can use.
+    template_name_val = getattr(validated, "template_name", None) if entity == "set" else None
+    if template_name_val is not None:
+        from app.domain.template.registry import list_template_names
+        from app.shared.errors import ValidationError
+
+        if template_name_val not in list_template_names():
+            raise ValidationError(
+                f"unknown template_name {template_name_val!r}; "
+                f"valid templates: {sorted(list_template_names())}",
+                details={"template_name": template_name_val},
+            )
+
     repo = getattr(uow, config.repo_attr)
     row = await repo.create(**validated.model_dump())
     view = config.view_schema.model_validate(row).model_dump()
