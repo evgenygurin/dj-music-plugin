@@ -137,6 +137,44 @@ class TrackRepository(BaseRepository[Track]):
         )
         return await self.session.scalar(stmt)  # type: ignore[no-any-return]
 
+    async def get_primary_artist_name(self, track_id: int) -> str | None:
+        """Return the display artist name for ``track_id`` or None.
+
+        Resolution order:
+
+        1. ``role='primary'`` row (current import convention).
+        2. Lowest ``artist_id`` among any role — covers older imports
+           that tagged every artist with ``role='artist'``.
+
+        Audit O-1: ``local://tracks/{id}.primary_artist_name`` was always
+        null because ``TrackView.from_attributes`` looked for an
+        attribute that ``Track`` doesn't expose. The resource now calls
+        this method explicitly.
+        """
+        from app.models.track import Artist, TrackArtist
+
+        primary = (
+            select(Artist.name)
+            .join(TrackArtist, TrackArtist.artist_id == Artist.id)
+            .where(
+                TrackArtist.track_id == track_id,
+                TrackArtist.role == "primary",
+            )
+            .limit(1)
+        )
+        name = await self.session.scalar(primary)
+        if name is not None:
+            return str(name)
+        any_role = (
+            select(Artist.name)
+            .join(TrackArtist, TrackArtist.artist_id == Artist.id)
+            .where(TrackArtist.track_id == track_id)
+            .order_by(TrackArtist.artist_id)
+            .limit(1)
+        )
+        fallback = await self.session.scalar(any_role)
+        return str(fallback) if fallback is not None else None
+
     async def get_many(self, track_ids: list[int]) -> dict[int, Track]:
         """Batch-fetch tracks by primary keys. Returns ``{id: Track}``.
 

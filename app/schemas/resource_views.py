@@ -33,6 +33,12 @@ class SuggestNextView(_Base):
     limit: int
     energy_direction: str | None
     candidates: list[dict[str, Any]]
+    # ``reason`` distinguishes "no candidates" cases — audit observation
+    # O-3. Empty ``candidates`` accompanied by ``reason=None`` means the
+    # suggestion ran cleanly and simply found nothing; a non-None
+    # ``reason`` flags a missing-data condition (no transitions logged
+    # for this track, energy filter ate everything, etc.).
+    reason: str | None = None
 
 
 class SuggestReplacementView(_Base):
@@ -40,6 +46,7 @@ class SuggestReplacementView(_Base):
     position: int
     removed_track_id: int | None
     candidates: list[dict[str, Any]]
+    reason: str | None = None
 
 
 # ── Playlist resources ──────────────────────────────────────────
