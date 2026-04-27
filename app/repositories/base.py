@@ -23,6 +23,21 @@ from app.shared.pagination import Page, decode_cursor, encode_cursor
 M = TypeVar("M", bound=DeclarativeBase)
 
 
+def _is_integer_column(column: Any) -> bool:
+    """True iff the column's Python type can round-trip through ``int()``.
+
+    Used by ``BaseRepository.filter`` to gate cursor pagination - the
+    cursor is encoded as a single integer, so non-integer sort fields
+    can't be safely paginated by cursor without a composite encoding
+    (out of scope for the audit fix; raise typed error instead).
+    """
+    try:
+        py_type = column.type.python_type
+    except (AttributeError, NotImplementedError):
+        return False
+    return py_type is int or (isinstance(py_type, type) and issubclass(py_type, int))
+
+
 class BaseRepository(Generic[M]):
     """Thin async CRUD + filter. Subclass + set ``model``."""
 
@@ -107,12 +122,26 @@ class BaseRepository(Generic[M]):
             pk_cols = [c.name for c in self.model.__table__.primary_key.columns]  # type: ignore[attr-defined]
             order_clauses = [pk_cols[0]] if pk_cols else ["id"]
         # If cursor present, apply keyset predicate on the first sort field.
+        # Cursor pagination only supports integer-comparable sort fields
+        # (the cursor is encoded as ``int``). Non-integer sort fields like
+        # ``created_at`` (datetime) or ``mood_confidence`` (nullable float)
+        # crashed with ``int() argument must be a string, ...`` when the
+        # encoder tried to coerce the column value (audit iter 35).
+        # Detect up front and raise a typed error instead.
         if cursor is not None:
-            cursor_id = decode_cursor(cursor)
             first_field = order_clauses[0].removesuffix("_desc").removesuffix("_asc")
             column = getattr(self.model, first_field, None)
             if column is None:
                 raise ValidationError(f"unknown order field {first_field!r}")
+            if not _is_integer_column(column):
+                raise ValidationError(
+                    f"cursor pagination requires an integer sort field; "
+                    f"{first_field!r} is not integer-comparable. "
+                    f"Sort by an int column (e.g. ``id``) when paginating "
+                    f"with ``cursor``.",
+                    details={"first_field": first_field},
+                )
+            cursor_id = decode_cursor(cursor)
             if order_clauses[0].endswith("_desc"):
                 stmt = stmt.where(column < cursor_id)
             else:
@@ -144,8 +173,16 @@ class BaseRepository(Generic[M]):
         next_cursor: str | None = None
         if has_more and items:
             first_field = order_clauses[0].removesuffix("_desc").removesuffix("_asc")
-            last_row = items[-1]
-            next_cursor = encode_cursor(int(getattr(last_row, first_field)))
+            column = getattr(self.model, first_field, None)
+            # Audit iter 35: only emit a cursor when the first sort field
+            # is integer-comparable. ``next_cursor=None`` on non-integer
+            # sorts signals end-of-stream cleanly instead of crashing
+            # ``int(datetime)`` / ``int(None)`` in the encoder.
+            if column is not None and _is_integer_column(column):
+                last_row = items[-1]
+                value = getattr(last_row, first_field)
+                if value is not None:
+                    next_cursor = encode_cursor(int(value))
 
         total: int | None = None
         if with_total:
