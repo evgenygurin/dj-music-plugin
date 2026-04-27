@@ -44,6 +44,27 @@ async def sequence_optimize(
     optimizer_builder: Any = Depends(get_optimizer),
     ctx: Context = CurrentContext(),
 ) -> SequenceOptimizeResult:
+    # Audit iter 11 (T-14): validate ``template`` name up front against
+    # the registered templates. Prior behaviour accepted any string and
+    # silently passed ``template=None`` to the optimizer regardless,
+    # giving callers a parameter they thought worked but didn't. Now
+    # invalid names fail fast and valid names resolve to a real
+    # ``SetTemplateDefinition`` that the optimizer can actually use.
+    template_def = None
+    if template is not None:
+        from app.domain.template.registry import get_template as _get_template
+        from app.domain.template.registry import (
+            list_template_names as _list_template_names,
+        )
+
+        if template not in _list_template_names():
+            raise ValidationError(
+                f"unknown template {template!r}; "
+                f"valid templates: {sorted(_list_template_names())}",
+                details={"template": template},
+            )
+        template_def = _get_template(template)
+
     # Audit iter 5 (T-2): reject pinned/excluded overlap up front. The
     # optimizer previously let pinned win silently, so a caller
     # passing ``pinned=[146], excluded=[146]`` got 146 in the result
@@ -88,7 +109,7 @@ async def sequence_optimize(
         track_ids=track_ids,
         pinned=set(pinned or []),
         excluded=set(excluded or []),
-        template=None,  # Phase 6 resolves template definition
+        template=template_def,
         moods=None,
         on_progress=lambda g, s: None,
     )
