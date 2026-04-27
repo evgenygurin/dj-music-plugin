@@ -6,6 +6,20 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.2.16] - 2026-04-27
+
+**Audit-fix loop, iteration 16.** Re-opened after v1.2.15's "TRUE convergence" marker — deeper CRUD probe found one more silent-accept on cross-domain references.
+
+### Fixed
+- **T-16:** ``entity_create(set, {template_name: 'bogus_template_xyz'})`` silently created the set with the bogus template name. Same anti-pattern as v1.2.12's ``sequence_optimize`` template fix - dispatcher accepted a free-form string that the optimizer would later reject. Validation now runs at the ``entity_create`` dispatcher (not in ``SetCreate`` itself, because schemas can't import ``app.domain`` per the v2-server import contract). Bogus template_name raises ``ValidationError`` listing the valid set; absent / null template stays accepted.
+
+### Tests
+- 877 -> **879 passed** (+2 dispatcher + schema regression tests).
+- ``make check`` clean.
+
+### Note
+v1.2.15's "TRULY converged" claim was premature - one more silent-accept found in iter 16. Convergence verification is a moving target: each iteration that introduces a new probe area can surface a new bug. The loop continues.
+
 ## [1.2.15] - 2026-04-27
 
 **Audit-fix loop, iterations 14-15 — TRULY CONVERGED.** Two consecutive clean iterations against live MCP after the v1.2.14 sweep. No code changes; the release exists to mark the convergence point.
