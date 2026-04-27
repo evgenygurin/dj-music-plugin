@@ -6,6 +6,20 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.2.1] - 2026-04-27
+
+**End-to-end verification follow-up to v1.2.0.** Live-MCP probe after the v1.2.0 release caught one residual bug class A symptom that the unit tests missed: ``has_features`` survived schema validation directly and survived the repository, but the ``entity_list`` dispatcher's ``normalize_bare_fields`` step in between rewrote ``has_features`` to ``has_features__eq`` before the schema saw it, and ``TrackFilter`` only declared the bare form. Real callers continued to get ``extra_forbidden`` despite v1.2.0.
+
+### Fixed
+- ``TrackFilter`` now declares both ``has_features`` and ``has_features__eq`` so the post-normalize shape passes validation. Repository already pops either form. Bug class same as v1.0.13: declared but not enforced — fix lives at the layer the user actually touches (the dispatcher).
+
+### Added
+- ``tests/tools/entity/test_has_features_dispatcher.py`` — end-to-end test that runs ``normalize_bare_fields`` against the schema, plus a dispatcher-level call. Pins the full path that the audit's manual probe exercises.
+
+### Tests
+- 823 → **826 passed** (+3 dispatcher coverage tests).
+- ``make check`` clean.
+
 ## [1.2.0] - 2026-04-27
 
 **Audit-driven sweep — closes 5 bug classes + 4 observations from the v1.1.0 manual MCP-surface audit.** v1.1.0 hardened the transport layer; this MINOR addresses the bug classes that hard-data probing of the live system surfaced that unit tests couldn't catch. Each fix landed via TDD red-green and ships with regression coverage. Net +48 tests in the suite (775 → 823).
