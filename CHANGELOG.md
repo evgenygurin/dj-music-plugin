@@ -6,6 +6,25 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.2.42] - 2026-04-28
+
+**Audit-fix loop, iteration 45.** ``get_prompt`` rejected native int / float / bool prompt argument values.
+
+### Fixed
+- **T-43:** ``mcp__plugin_dj-music_mcp__get_prompt(name="quick_mix_check", arguments={"from_track_id": 146, "to_track_id": 147})`` failed with::
+
+      2 validation errors for GetPromptRequestParams
+      arguments.from_track_id
+        Input should be a valid string [type=string_type, input_value=146]
+
+  The MCP wire format types ``GetPromptRequestParams.arguments`` as ``dict[str, str]``. ``list_prompts`` advertises ints via "Provide as a JSON string matching schema integer", but most clients (including Claude Code) pass native ints. Pydantic then crashed instead of coercing.
+
+  Fix: ``JSONAwarePromptsAsTools.get_prompt`` now coerces every non-``None`` value to a string via ``json.dumps(v)`` before forwarding to ``render_prompt``. Strings pass through; ``None`` values are dropped (treated as not-supplied per MCP semantics). Booleans become ``"true"`` / ``"false"``.
+
+### Tests
+- 1120 → **1123 passed** (+3 prompt-arg coercion regression tests).
+- ``make check`` clean.
+
 ## [1.2.41] - 2026-04-28
 
 **Audit-fix loop, iteration 44.** ``transition_score_pool`` silently returned empty pairs when callers passed typo'd / un-analysed track ids.

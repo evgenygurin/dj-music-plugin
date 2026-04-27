@@ -50,10 +50,46 @@ class JSONAwarePromptsAsTools(PromptsAsTools):
             ] = None,
         ) -> str:
             ctx = get_context()
-            result = await ctx.fastmcp.render_prompt(name, arguments=arguments or {})
+            # Audit iter 45 (T-43): the MCP protocol's
+            # ``GetPromptRequestParams.arguments`` is typed as
+            # ``dict[str, str]`` — every value MUST be a string.
+            # Callers that pass natively-typed values
+            # (``{"from_track_id": 146}``) used to crash with::
+            #
+            #   2 validation errors for GetPromptRequestParams
+            #   arguments.from_track_id
+            #     Input should be a valid string ...
+            #
+            # The list_prompts description hints at this with
+            # "Provide as a JSON string matching the schema integer"
+            # but most clients (including Claude Code) pass native
+            # ints. Coerce here so the client can pass either form.
+            coerced = _stringify_prompt_args(arguments or {})
+            result = await ctx.fastmcp.render_prompt(name, arguments=coerced)
             return _format_prompt_result(result)
 
         return Tool.from_function(fn=get_prompt)
+
+
+def _stringify_prompt_args(args: dict[str, Any]) -> dict[str, str]:
+    """Coerce every value in a prompt-arguments dict to a string.
+
+    The MCP wire format requires ``dict[str, str]``; Pydantic / JSON
+    primitives are converted via ``json.dumps`` for non-strings so
+    the prompt body, which usually does its own ``json.loads`` /
+    casting, sees a stable JSON-serialised form. Strings pass
+    through unchanged. None values are dropped (treated as
+    not-supplied) — matches MCP semantics.
+    """
+    out: dict[str, str] = {}
+    for k, v in args.items():
+        if v is None:
+            continue
+        if isinstance(v, str):
+            out[k] = v
+        else:
+            out[k] = json.dumps(v)
+    return out
 
 
 def _format_prompt_result(result: Any) -> str:
