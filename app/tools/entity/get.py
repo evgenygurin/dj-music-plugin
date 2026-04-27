@@ -64,6 +64,13 @@ async def entity_get(
         raise NotFoundError(entity, id)
 
     view = config.view_schema.model_validate(row)
+    data = view.model_dump()
+    # Audit iter 46 (T-44): some Views declare derived fields
+    # (item_count, version_count) the dispatcher cannot read off the
+    # ORM row directly. Optional enricher hook fills them in.
+    if config.view_enricher is not None:
+        data = await config.view_enricher(uow, row, data)
     projection = resolve_field_projection(fields, config)
-    data = view.model_dump(include=projection) if projection is not None else view.model_dump()
+    if projection is not None:
+        data = {k: v for k, v in data.items() if k in projection}
     return EntityGetResult(entity=entity, id=id, data=data)

@@ -6,6 +6,24 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.2.43] - 2026-04-28
+
+**Audit-fix loop, iteration 46.** Derived View fields (``item_count``, ``version_count``) were declared but permanently ``null``.
+
+### Fixed
+- **T-44:** ``PlaylistView.item_count`` and ``SetView.version_count`` were declared in the schemas (and thus advertised via ``schema://entities/{name}``) but every ``entity_get`` / ``entity_list`` response returned ``null``. The dispatcher built the View via ``model_validate(orm_row)`` and the ORM row has no such columns. Live confirmation: ``entity_get(playlist, 5)`` returned ``item_count: null`` for a playlist with 60 tracks; ``entity_get(set, 5)`` returned ``version_count: null`` for a set with 3 versions.
+
+  Fix:
+  - ``EntityConfig`` gained an optional ``view_enricher: Callable[(uow, row, view_dict), Awaitable[view_dict]]`` hook.
+  - ``entity_get`` and ``entity_list`` invoke the enricher (when present) after ``model_validate`` and before field-projection so derived fields land in the dumped View.
+  - ``PlaylistRepository.item_count(playlist_id)`` and the existing ``SetRepository.version_count(set_id)`` are wired to the playlist / set EntityConfigs respectively.
+
+  N+1 in ``entity_list`` (one count per row) is acceptable for the affected entities — both populations are small (< 100 rows). Future scale-up: gather IDs and bulk-enrich.
+
+### Tests
+- 1123 → **1128 passed** (+5 view-enricher regression tests).
+- ``make check`` clean.
+
 ## [1.2.42] - 2026-04-28
 
 **Audit-fix loop, iteration 45.** ``get_prompt`` rejected native int / float / bool prompt argument values.

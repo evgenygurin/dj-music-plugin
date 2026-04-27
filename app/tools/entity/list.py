@@ -122,12 +122,18 @@ async def entity_list(
     )
 
     projection = resolve_field_projection(fields, config)
-    if projection is not None:
-        items = [
-            config.view_schema.model_validate(row).model_dump(include=projection)
-            for row in page.items
-        ]
-    else:
-        items = [config.view_schema.model_validate(row).model_dump() for row in page.items]
+    items: list[dict] = []  # type: ignore[type-arg]
+    for row in page.items:
+        view = config.view_schema.model_validate(row).model_dump()
+        # Audit iter 46 (T-44): per-row enrichment for derived View
+        # fields (item_count, version_count). N+1 query — acceptable
+        # for entities that already use it (Playlist, Set; both
+        # small populations). Future scale-up: gather IDs and bulk-
+        # enrich.
+        if config.view_enricher is not None:
+            view = await config.view_enricher(uow, row, view)
+        if projection is not None:
+            view = {k: v for k, v in view.items() if k in projection}
+        items.append(view)
     total = page.total if with_total else None
     return EntityListResult(entity=entity, items=items, total=total, next_cursor=page.next_cursor)
