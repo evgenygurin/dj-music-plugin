@@ -37,6 +37,11 @@ class TransitionHistoryFilter(BaseModel):
     overall_score__lte: float | None = None
     overall_score__range: list[float] | None = None
     session_id__eq: str | None = None
+    # style: filter by mix-style label (e.g. ``bass_swap_short``,
+    # ``long_blend``) - audit iter 21.
+    style__eq: str | None = None
+    style__in: list[str] | None = None
+    style__icontains: str | None = None
 
 
 class TransitionHistoryCreate(BaseModel):

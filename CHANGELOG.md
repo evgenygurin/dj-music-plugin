@@ -6,6 +6,18 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.2.21] - 2026-04-27
+
+**Audit-fix loop, iteration 21.** TransitionHistoryFilter and PlaylistFilter widening.
+
+### Fixed
+- ``TransitionHistoryFilter.style`` (eq, in, icontains) - "find transitions where the DJ used a long_blend / bass_swap_short / echo_out" was rejected.
+- ``PlaylistFilter.name__startswith`` - "find all Subgenre: ..." playlists, complementing the existing ``name__icontains``.
+
+### Tests
+- 889 -> **891 passed**.
+- ``make check`` clean.
+
 ## [1.2.20] - 2026-04-27
 
 **Audit-fix loop, iteration 20.** Found a non-schema bug for the first time in many iterations.
