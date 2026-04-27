@@ -6,6 +6,17 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.2.12] - 2026-04-27
+
+**Audit-fix loop, iteration 11.** Re-opened after v1.2.11 stabilization marker — deeper probe found one more declared-but-unused parameter.
+
+### Fixed
+- **T-14:** ``sequence_optimize(template='bogus')`` was silently accepted. The tool's ``template`` parameter was exposed but the call hardcoded ``template=None`` to the optimizer, so the result was identical with and without the argument. Now invalid template names raise ``ValidationError`` listing valid options, and valid names resolve via ``app.domain.template.registry.get_template`` to a real ``SetTemplateDefinition`` that's threaded into the optimizer call. Template-aware fitness inside the GA is still gated on Phase 6, but at least the parameter contract holds and prompts that recommend ``template='classic_60'`` work end-to-end without silent ignore.
+
+### Tests
+- 868 -> **871 passed** (+3 template validation tests).
+- ``make check`` clean.
+
 ## [1.2.11] - 2026-04-27
 
 **Audit-fix loop, iterations 9-10 — STABILIZED.** Two consecutive clean iterations against live MCP found no new code bugs; only Postgres-side migration drift on two columns (``track_feedback.kind`` declared in iter 7 + ``track_affinity.positive_count`` / ``negative_count`` declared here). Loop terminates.
