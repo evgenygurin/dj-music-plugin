@@ -80,6 +80,9 @@ class SetVersionFilter(BaseModel):
     set_id__eq: int | None = None
     set_id__in: list[int] | None = None
     label__icontains: str | None = None
+    # label__eq: exact label match - "find the v1 build of set 5"
+    # (audit iter 13).
+    label__eq: str | None = None
     # quality_score: full numeric lookups - "find versions with
     # quality >= 0.7" was the canonical "is this set good enough"
     # query and used to be rejected (audit iter 8).

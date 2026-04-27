@@ -43,6 +43,8 @@ class TrackFilter(BaseModel):
     # title — both case-sensitive and case-insensitive substring match.
     title__icontains: str | None = None
     title__contains: str | None = None
+    # sort_title — case-insensitive substring (audit iter 13).
+    sort_title__icontains: str | None = None
     # status — discrete archive flag, eq/in.
     status__eq: int | None = None
     status__in: list[int] | None = None

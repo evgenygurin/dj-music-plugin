@@ -30,6 +30,10 @@ class AudioFileFilter(BaseModel):
     file_size__gte: int | None = None
     file_size__lte: int | None = None
     file_size__range: list[int] | None = None
+    # bitrate: filter by audio quality (audit iter 13).
+    bitrate__eq: int | None = None
+    bitrate__gte: int | None = None
+    bitrate__lte: int | None = None
 
 
 class AudioFileCreate(BaseModel):
