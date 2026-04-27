@@ -6,6 +6,25 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.0.12] — 2026-04-27
+
+**Fix: `ProviderWriteResult.data` accepts bare string for YM delete** — completing the manual MCP-surface audit (now 20/20 dispatchers). YM `playlist delete` returns the bare string `"ok"` instead of a dict; the dispatcher previously crashed on response serialization with `Input should be a valid dictionary [type=dict_type]` even though the YM-side delete had already succeeded.
+
+### Fixed
+- `app/schemas/provider_dto.py` — `ProviderWriteResult.data` Union extended `dict[str, Any] | str`. The mismatch was invisible to the test suite because round-trip integration tests for `provider_write(playlist, delete)` against a real YM account didn't exist.
+
+### Added
+- `tests/schemas/test_tool_responses.py::test_provider_write_result_accepts_string_data` — regression test pinning the string variant.
+
+### Tests
+- **749 passed** (was 748 at v1.0.11) — +1 regression test.
+- `make check` clean.
+
+### MCP-surface audit closed
+- **20 / 20 dispatchers verified end-to-end on live data** (was 18 / 20 at v1.0.11).
+- `entity_delete`: round-trip via throwaway local playlist (count 19 → 20 → 19).
+- `provider_write`: round-trip via throwaway YM playlist (`create kind=1387` → `delete data="ok"`).
+
 ## [1.0.11] — 2026-04-27
 
 **Fix: extend JSON-string transport coercion to `get_prompt(arguments=…)`** — final residual JSON-string transport bug discovered during continuation of the manual MCP-surface audit. v1.0.10 covered tool params; this release covers the prompt path through FastMCP's stock `PromptsAsTools` transform, which used `dict[str, Any] | None` without a `BeforeValidator` and crashed on every Claude Code prompt invocation.
