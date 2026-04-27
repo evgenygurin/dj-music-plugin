@@ -66,6 +66,23 @@ async def transition_score_pool(
         )
 
     features = await uow.track_features.get_scoring_features_batch(track_ids)
+
+    # Audit iter 44 (T-42): callers passing typo'd / un-analysed ids
+    # used to get ``pairs=[]`` with no signal. Surface ``missing_track_ids``
+    # so the caller can distinguish "no compatible pairs" (genuine
+    # feature) from "you fed me dead ids" (likely bug). Order-preserving.
+    missing_track_ids = [tid for tid in track_ids if tid not in features]
+    # Fail loud when EVERY id is missing AND the pool is non-trivial —
+    # that's almost certainly a typo or un-analysed library, not a
+    # legitimate query.
+    if not features and len(track_ids) >= 2:
+        raise ValidationError(
+            f"none of the {len(track_ids)} track_ids have scoring features; "
+            "verify ids exist and are analysed (analysis_level >= 2). "
+            f"missing_track_ids={track_ids}",
+            details={"missing_track_ids": list(track_ids)},
+        )
+
     from app.domain.transition.intent import TransitionIntent
 
     intent_enum = TransitionIntent(intent) if intent is not None else None
@@ -104,4 +121,9 @@ async def transition_score_pool(
             if done % 50 == 0 or done == total_pairs:
                 await ctx.report_progress(progress=done, total=total_pairs)
 
-    return ScorePoolResult(track_ids=track_ids, pairs=pairs, hard_rejects=hard_rejects)
+    return ScorePoolResult(
+        track_ids=track_ids,
+        pairs=pairs,
+        hard_rejects=hard_rejects,
+        missing_track_ids=missing_track_ids,
+    )

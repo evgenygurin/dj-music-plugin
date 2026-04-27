@@ -10,7 +10,7 @@
     {
       "name": "dj-music",
       "description": "DJ techno music library management — 20 MCP dispatchers (6 entity CRUD + 3 provider + 2 compute + sync + 2 admin + 6 UI Prefab Apps) + 27 resources + 6 prompts + 6 handlers. FastMCP v3 bounded-contexts architecture.",
-      "version": "1.2.40",
+      "version": "1.2.41",
       "source": "./",
       "author": {
         "name": "Evgeny Gurin"
