@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal
 
 from fastmcp.dependencies import CurrentContext, Depends
 from fastmcp.server.context import Context
@@ -43,7 +43,34 @@ async def provider_search(
     adapter = registry.get(provider)
     raw = await adapter.search(query, type=type, limit=limit)
     # Normalize: for type=tracks, raw["tracks"]["results"] is the list.
-    section = raw.get(type, {}) if type != "all" else raw
+    if type == "all":
+        # Audit iter 20 (T-21): ``type='all'`` previously read
+        # ``raw.get('results')`` which doesn't exist - YM (and most
+        # providers) return a sectioned response
+        # ``{tracks: {results, total}, albums: {results, total}, ...}``.
+        # Aggregate items across every section, tagging each with its
+        # ``_section`` so callers can disambiguate.
+        items: list[dict[str, Any]] = []
+        total = 0
+        for section_name, section in (raw or {}).items():
+            if not isinstance(section, dict):
+                continue
+            section_items = section.get("results") or []
+            if not isinstance(section_items, list):
+                continue
+            for it in section_items:
+                if isinstance(it, dict):
+                    tagged = dict(it)
+                    tagged.setdefault("_section", section_name)
+                    items.append(tagged)
+            section_total = section.get("total")
+            if isinstance(section_total, int):
+                total += section_total
+        return ProviderSearchResult(
+            provider=provider, query=query, type=type, total=total, items=items
+        )
+
+    section = raw.get(type, {})
     items = section.get("results", []) if isinstance(section, dict) else []
     total = int(section.get("total", len(items))) if isinstance(section, dict) else 0
     return ProviderSearchResult(
