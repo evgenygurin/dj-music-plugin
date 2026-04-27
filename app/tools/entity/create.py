@@ -65,6 +65,15 @@ async def entity_create(
     if "create" not in config.allowed_ops:
         raise ValueError(f"create not allowed on {entity!r}")
 
+    # Audit iter 54 (T-52): schema validation must run BEFORE the
+    # handler dispatch — previously the handler path read ``data``
+    # raw and skipped Pydantic validators, bypassing
+    # cross-field invariants like ``from_track_id != to_track_id``.
+    # Single-pass validate + cache the validated model so handlers
+    # that want it can pull the typed fields, while handlers that
+    # ignore it (e.g. ``track_import``) still get the raw dict.
+    validated = config.create_schema.model_validate(data)
+
     if config.create_handler is not None:
         # Dispatch inspects the handler's 4th parameter name and passes the
         # matching service (registry / pipeline / scorer). Previously we
@@ -81,8 +90,7 @@ async def entity_create(
         )
         return EntityCreateResult(entity=entity, data=result, meta={"via": "handler"})
 
-    # Default path: validate + straight insert.
-    validated = config.create_schema.model_validate(data)
+    # Default path: straight insert (schema already validated above).
     # Audit iter 16 (T-16): post-validate cross-domain references that
     # the schema can't enforce alone (schemas may not import
     # ``app.domain`` per the v2-server import contract). For sets,
