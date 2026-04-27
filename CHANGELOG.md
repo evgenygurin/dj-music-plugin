@@ -6,6 +6,23 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.0.10] — 2026-04-27
+
+**Fix: align MCP tool list-params with Claude Code's JSON-string transport** — manual end-to-end MCP-surface audit (post-v1.0.9 install) hit three latent type-mismatch bugs the test suite missed because in-memory FastMCP `Client` always passes native types, while the real Claude Code stdio transport stringifies complex args. Production tools were silently broken on every list-typed parameter call.
+
+### Fixed
+- `app/schemas/tool_responses.py` — `AggregateResult.value` Union extended with `list[int | float | str | None]` so `entity_aggregate(operation="distinct", field="mood")` doesn't crash with 16-error pydantic ValidationError. Previously only `int | float | list[dict[str, Any]] | dict[str, Any]` was accepted, so distinct over any scalar column (mood, key_code, ...) returned a `list[scalar]` that matched no Union variant.
+- `app/tools/entity/get.py` — `include_relations` retyped from `list[str] | None` → `JsonStrListOrNone`. Claude Code MCP shim sends `'["features", "artists"]'` as a JSON-encoded string for complex args; pydantic then crashed with `Input should be a valid list [type=list_type]`. The `JsonStrListOrNone` BeforeValidator (already present in `app/shared/types.py` for the same reason on dict-typed params) coerces the string before validation.
+- `app/tools/compute/score_pool.py` + `app/tools/ui/score_pool_matrix.py` — `track_ids` retyped from `list[int]` → `JsonIntList`. Same root cause: `transition_score_pool` and `ui_score_pool_matrix` rejected every real Claude Code call with the JSON-string-vs-list mismatch. `sequence_optimize` already used `JsonIntList` (partial earlier migration); this completes the sweep.
+
+### Added
+- `tests/schemas/test_tool_responses.py` — `test_aggregate_result_accepts_distinct_scalar_list` regression test (str + int variants).
+- `tests/tools/entity/test_get.py` — `test_include_relations_accepts_json_string` regression test for the JSON-string coercion path.
+
+### Tests
+- **745 passed** (was 743 at v1.0.9) — +2 regression tests.
+- `make check` clean: ruff, mypy strict (240 files), import-linter (5 contracts kept), pytest in 16.7s.
+
 ## [1.0.9] — 2026-04-27
 
 **Fix: align v1 entity_create surface with handler contracts** — first real-world run of `import → download → analyze → set` against a fresh user library exposed three latent schema/handler drifts that crashed every call following the schema as advertised.

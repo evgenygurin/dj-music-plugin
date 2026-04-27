@@ -12,6 +12,7 @@ from pydantic import Field
 from app.repositories.unit_of_work import UnitOfWork
 from app.schemas.tool_responses import ScorePoolResult
 from app.server.di import get_transition_scorer, get_uow
+from app.shared.types import JsonIntList
 
 
 @tool(
@@ -27,7 +28,8 @@ from app.server.di import get_transition_scorer, get_uow
 )
 async def transition_score_pool(
     track_ids: Annotated[
-        list[int], Field(min_length=0, max_length=500, description="Track IDs to score")
+        JsonIntList,
+        Field(min_length=0, max_length=500, description="Track IDs to score"),
     ],
     intent: Annotated[str | None, Field(description="Optional transition intent override")] = None,
     uow: UnitOfWork = Depends(get_uow),

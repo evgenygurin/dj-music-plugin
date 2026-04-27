@@ -16,6 +16,7 @@ from pydantic import Field
 
 from app.repositories.unit_of_work import UnitOfWork
 from app.server.di import get_transition_scorer, get_uow
+from app.shared.types import JsonIntList
 from app.shared.ui_colors import FAIL_COLOR, PASS_COLOR, WARN_COLOR
 from app.tools.ui._fallback import (
     ScorePoolCell,
@@ -105,7 +106,8 @@ async def _compute(uow: UnitOfWork, scorer: Any, track_ids: list[int]) -> dict[s
 )
 async def ui_score_pool_matrix(
     track_ids: Annotated[
-        list[int], Field(min_length=2, max_length=50, description="Track IDs (max 50)")
+        JsonIntList,
+        Field(min_length=2, max_length=50, description="Track IDs (max 50)"),
     ],
     uow: UnitOfWork = Depends(get_uow),
     scorer: Any = Depends(get_transition_scorer),

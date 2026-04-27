@@ -47,7 +47,7 @@ class AggregateResult(BaseModel):
     operation: Literal["count", "distinct", "histogram", "min_max", "sum", "avg"]
     field: str | None = None
     group_by: str | None = None
-    value: int | float | list[dict[str, Any]] | dict[str, Any]
+    value: int | float | list[dict[str, Any]] | list[int | float | str | None] | dict[str, Any]
 
 
 class ScorePoolResult(BaseModel):

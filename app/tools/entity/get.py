@@ -14,6 +14,7 @@ from app.repositories.unit_of_work import UnitOfWork
 from app.schemas.tool_responses import EntityGetResult
 from app.server.di import get_uow
 from app.shared.errors import NotFoundError
+from app.shared.types import JsonStrListOrNone
 
 EntityName = Literal[
     "track",
@@ -48,7 +49,7 @@ async def entity_get(
         Field(description="Field list or preset name"),
     ] = None,
     include_relations: Annotated[
-        list[str] | None, Field(description="Relations to eager-load")
+        JsonStrListOrNone, Field(description="Relations to eager-load")
     ] = None,
     uow: UnitOfWork = Depends(get_uow),
     ctx: Context = CurrentContext(),
