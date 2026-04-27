@@ -6,6 +6,20 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.2.9] - 2026-04-27
+
+**Audit-fix loop, iteration 7.** ``TransitionFilter`` rejected ``hard_reject__eq``, the canonical "show me hard-reject transitions" query.
+
+### Fixed
+- ``TransitionFilter`` now accepts ``hard_reject__eq`` and ``overall_quality__range``. ``EntityRegistry.transition.filterable_fields`` synced.
+
+### Known operations issue (deferred)
+- ``entity_list(track_feedback, ...)`` against the production Supabase DB raises ``column track_feedback.kind does not exist`` - the ORM model declares ``kind: String(10)`` but the live table is missing the column. This is migration drift, not a code bug. Documented here so the fix can be scheduled as an Alembic migration apply rather than mistaken for a v1.2.x regression. Same class as the drop-pending tables in CLAUDE.md.
+
+### Tests
+- 860 -> **864 passed**.
+- ``make check`` clean.
+
 ## [1.2.8] - 2026-04-27
 
 **Audit-fix loop, iteration 6 cont.** ``TrackFeedbackFilter`` rejected the canonical ``rating__gte`` query and ``schema://entities/track_features.filterable_fields`` was stale relative to v1.2.7's TrackFeaturesFilter widening — same drift class.
