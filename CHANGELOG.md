@@ -6,6 +6,24 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.2.38] - 2026-04-28
+
+**Audit-fix loop, iteration 41.** Closing the widening sweep on the last two narrow entities — ``track_affinity`` + ``playlist``. Same drift class as v1.2.29/31/32/35/36/37.
+
+### Fixed
+- **T-39 (TrackAffinity):**
+  - ``Filter`` previously had only 3 keys (``track_a_id__eq``, ``track_b_id__eq``, ``avg_score__gte``). Widened with ``id__eq/in/gt/gte/lt/lte``, ``track_a_id__in``, ``track_b_id__in``, ``avg_score__lte/range``, and crucially ``play_count__gte/lte``, ``positive_count__gte/lte``, ``negative_count__gte/lte`` — the canonical "popular pairs" / "all-positive feedback" queries depend on those columns and they were unfilterable.
+  - ``Update`` only mutated ``avg_score`` and ``play_count``. Added ``positive_count`` and ``negative_count`` so callers can do explicit recalibration without going through the implicit refresh handler.
+- **T-39 (Playlist):**
+  - ``View`` dropped ``source_app`` (rekordbox / ym / serato) and ``platform_ids`` (JSON-encoded provider IDs needed for ``playlist_sync``).
+  - ``Filter`` rejected ``id__gt/gte/lt/lte`` (drift from ``set_version``); added lookups for the 2 newly-exposed columns plus ``parent_id__in``, ``source_of_truth__in``.
+  - ``Create`` and ``Update`` couldn't write the same 2 columns — re-attaching a freshly-imported YM playlist to its bare-bones local twin required ``delete + recreate``. Added with ``max_length`` matching the model.
+- **EntityRegistry**: ``filterable_fields`` for ``playlist`` (+ id range, ``parent_id`` ``__in``, ``source_app``, ``platform_ids``) and ``track_affinity`` (+ id range, batch, count lookups). ``sortable_fields`` for ``playlist`` + ``source_app``. CI guards stay green.
+
+### Tests
+- 1074 → **1111 passed** (+37 widening regression tests in ``tests/schemas/test_iter41_affinity_playlist_widening.py``).
+- ``make check`` clean.
+
 ## [1.2.37] - 2026-04-28
 
 **Audit-fix loop, iteration 40.** ``TrackFeaturesView`` widening — the largest View gap in the codebase.
