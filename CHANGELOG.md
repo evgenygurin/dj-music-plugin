@@ -6,6 +6,22 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.2.53] - 2026-04-28
+
+**Audit-fix loop, iteration 55.** ``TrackFeaturesCreate`` accepted no-target payloads, leaking ``KeyError``.
+
+### Fixed
+- **T-53:** ``entity_create(track_features, {"level": 3})`` (no ``track_id`` and no ``track_ids``) leaked ``Error calling tool 'entity_create': 'track_ids'`` — a bare KeyError raised by the analyze handler when it tried to read the missing key. Same drift as the original ``AudioFileCreate`` no-target path (long since fixed by an explicit ``model_validator``).
+
+  Fix: ``model_validator(mode="after")`` on ``TrackFeaturesCreate`` mirrors ``AudioFileCreate``:
+  - Requires exactly one of ``track_id`` (single) or ``track_ids`` (batch)
+  - Empty ``track_ids: []`` rejected
+  - Both-set rejected (avoids ambiguous handler routing)
+
+### Tests
+- 1178 → **1185 passed** (+7 schema target-validation tests).
+- ``make check`` clean.
+
 ## [1.2.52] - 2026-04-28
 
 **Audit-fix loop, iteration 54 (continued).** v1.2.51 added schema validators rejecting same-track endpoints, but the dispatcher's handler path bypassed the schema entirely.

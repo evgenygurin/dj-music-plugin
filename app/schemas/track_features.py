@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from pydantic import BaseModel, ConfigDict, Field
+from typing import Self
+
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class TrackFeaturesView(BaseModel):
@@ -173,12 +175,31 @@ class TrackFeaturesFilter(BaseModel):
 
 
 class TrackFeaturesCreate(BaseModel):
-    """Creation triggers the audio pipeline via custom handler."""
+    """Creation triggers the audio pipeline via custom handler.
+
+    Exactly one of ``track_id`` (single) or ``track_ids`` (batch) must
+    be set. Audit iter 55 (T-53): without this guard ``entity_create
+    (track_features, {"level": 3})`` leaked a bare ``KeyError:
+    'track_ids'`` when the analyze handler tried to read missing keys.
+    Mirrors the equivalent guard on ``AudioFileCreate``.
+    """
 
     model_config = ConfigDict(extra="forbid")
     track_id: int | None = None
     track_ids: list[int] | None = None
     level: int = Field(default=3, ge=1, le=5)
+
+    @model_validator(mode="after")
+    def _exactly_one_target(self) -> Self:
+        has_single = self.track_id is not None
+        has_batch = self.track_ids is not None
+        if has_single == has_batch:
+            raise ValueError(
+                "TrackFeaturesCreate requires exactly one of 'track_id' or 'track_ids'"
+            )
+        if has_batch and not self.track_ids:
+            raise ValueError("'track_ids' must contain at least one id")
+        return self
 
 
 class TrackFeaturesUpdate(BaseModel):
