@@ -39,7 +39,7 @@ async def setup(
 async def test_has_features_true_only_keeps_tracks_with_features(
     setup: tuple[TrackRepository, Track, Track],
 ) -> None:
-    repo, with_feat, without = setup
+    repo, with_feat, _ = setup
     page = await repo.filter(where={"has_features__eq": True})
     ids = {t.id for t in page.items}
     assert ids == {with_feat.id}, f"only featured track expected, got {ids}"
@@ -49,7 +49,7 @@ async def test_has_features_true_only_keeps_tracks_with_features(
 async def test_has_features_false_only_keeps_tracks_without_features(
     setup: tuple[TrackRepository, Track, Track],
 ) -> None:
-    repo, with_feat, without = setup
+    repo, _, without = setup
     page = await repo.filter(where={"has_features__eq": False})
     ids = {t.id for t in page.items}
     assert ids == {without.id}, f"only un-featured track expected, got {ids}"
@@ -82,7 +82,7 @@ async def test_has_features_combines_with_other_filters(
     setup: tuple[TrackRepository, Track, Track],
 ) -> None:
     """``has_features`` must compose with ordinary lookups, not replace them."""
-    repo, with_feat, without = setup
+    repo, with_feat, _ = setup
     page = await repo.filter(
         where={
             "has_features__eq": True,
