@@ -38,6 +38,10 @@ class TransitionFilter(BaseModel):
     # hard_reject: canonical "show me transitions that violate hard
     # constraints" query - audit iter 7 caught the missing lookup.
     hard_reject__eq: bool | None = None
+    # reject_reason: text search to find pairs rejected for the same
+    # cause ("BPM diff", "Camelot distance") - audit iter 19.
+    reject_reason__icontains: str | None = None
+    reject_reason__isnull: bool | None = None
 
 
 class TransitionCreate(BaseModel):

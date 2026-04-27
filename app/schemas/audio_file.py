@@ -34,6 +34,11 @@ class AudioFileFilter(BaseModel):
     bitrate__eq: int | None = None
     bitrate__gte: int | None = None
     bitrate__lte: int | None = None
+    # sample_rate / channels: physical audio properties for filtering
+    # studio-quality vs streaming-quality files (audit iter 19).
+    sample_rate__eq: int | None = None
+    sample_rate__in: list[int] | None = None
+    channels__eq: int | None = None
 
 
 class AudioFileCreate(BaseModel):
