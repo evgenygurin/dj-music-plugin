@@ -50,6 +50,7 @@ from app.server.middleware.cost_tracking import CostTrackingMiddleware
 from app.server.middleware.db_session import DbSessionMiddleware
 from app.server.middleware.deprecation_warning import DeprecationWarningMiddleware
 from app.server.middleware.domain_error import DomainErrorMiddleware
+from app.server.middleware.json_string_coerce import JsonStringCoerceMiddleware
 from app.server.middleware.progress_throttle import ProgressThrottleMiddleware
 from app.server.middleware.provider_rate_limit import ProviderRateLimitMiddleware
 from app.server.middleware.sampling_budget import SamplingBudgetMiddleware
@@ -92,7 +93,11 @@ def build_middleware_list(settings: Settings) -> list[Middleware]:
     return [
         # 1 outermost — domain-error → ToolError translation
         DomainErrorMiddleware(mask_details=not settings.mcp.debug),
-        # 2 — sentry breadcrumb context
+        # 2 — JSON-string → native dict/list for stringifying transports
+        # (Claude Code stdio shim). Runs early so audit log / cache / DB
+        # session see already-coerced args.
+        JsonStringCoerceMiddleware(),
+        # 3 — sentry breadcrumb context
         SentryContextMiddleware(),
         # (OTELTracingMiddleware removed — FastMCP v3 native tracing)
         # 3 — per-tool/resource/prompt timing (built-in)
@@ -154,6 +159,7 @@ def build_middleware_list(settings: Settings) -> list[Middleware]:
 # ``build_middleware_list(settings)``; this tuple carries only types.
 ALL_MIDDLEWARE: tuple[type, ...] = (
     DomainErrorMiddleware,
+    JsonStringCoerceMiddleware,
     SentryContextMiddleware,
     DetailedTimingMiddleware,
     AuditLogMiddleware,

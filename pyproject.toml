@@ -1,6 +1,6 @@
 [project]
 name = "dj-music-plugin"
-version = "1.0.13"
+version = "1.1.0"
 description = "MCP server for DJ techno music library management"
 requires-python = ">=3.12"
 dependencies = [
@@ -92,6 +92,9 @@ filterwarnings = [
     # Production audio is always long enough; these only fire on test fixtures.
     "ignore:n_fft=.*is too large for input signal of length.*:UserWarning:librosa.*",
     "ignore:Trying to estimate tuning from empty frequency set.*:UserWarning:librosa.*",
+]
+markers = [
+    "integration: live external-service round-trips, skipped without secrets (e.g. DJ_YM_TOKEN)",
 ]
 
 [tool.hatch.build.targets.wheel]

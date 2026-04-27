@@ -9,6 +9,7 @@ monkey-patching the ``app.server.di`` resolvers.
 from __future__ import annotations
 
 from collections.abc import AsyncIterator
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -125,3 +126,39 @@ async def mcp_server(
 async def mcp_client(mcp_server: FastMCP) -> AsyncIterator[Client]:
     async with Client(transport=FastMCPTransport(mcp_server)) as c:
         yield c
+
+
+class _StringifyingClientProxy:
+    """Wraps a FastMCP ``Client`` and JSON-stringifies dict/list args before
+    ``call_tool``.
+
+    Reproduces the Claude Code stdio shim's transport quirk so in-memory
+    tests catch the same regressions a real client would. Used together
+    with the ``stringified_mcp_client`` fixture to verify the v1.1.0
+    server-side ``JsonStringCoerceMiddleware`` path.
+    """
+
+    def __init__(self, inner: Client) -> None:
+        self._inner = inner
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._inner, name)
+
+    async def call_tool(self, name: str, args: dict[str, Any] | None = None) -> Any:
+        import json as _json
+
+        coerced: dict[str, Any] = {}
+        for k, v in (args or {}).items():
+            if isinstance(v, dict | list):
+                coerced[k] = _json.dumps(v)
+            else:
+                coerced[k] = v
+        return await self._inner.call_tool(name, coerced)
+
+
+@pytest_asyncio.fixture
+async def stringified_mcp_client(
+    mcp_client: Client,
+) -> AsyncIterator[_StringifyingClientProxy]:
+    """Drop-in for ``mcp_client``; stringifies complex args before send."""
+    yield _StringifyingClientProxy(mcp_client)
