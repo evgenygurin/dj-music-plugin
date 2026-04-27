@@ -12,6 +12,7 @@ from pydantic import Field
 from app.repositories.unit_of_work import UnitOfWork
 from app.schemas.tool_responses import SequenceOptimizeResult
 from app.server.di import get_optimizer, get_transition_scorer, get_uow
+from app.shared.errors import ValidationError
 from app.shared.types import JsonIntList, JsonIntListOrNone
 
 
@@ -43,6 +44,23 @@ async def sequence_optimize(
     optimizer_builder: Any = Depends(get_optimizer),
     ctx: Context = CurrentContext(),
 ) -> SequenceOptimizeResult:
+    # Audit iter 3: reject duplicate ids explicitly. Prior behaviour
+    # silently deduped through ``set()`` inside the optimizer, so
+    # callers passing ``[146, 146, 147]`` got a 2-track order back
+    # without a signal. ``transition_score_pool`` agreed on the same
+    # validation in iter 3.
+    if len(set(track_ids)) != len(track_ids):
+        seen: set[int] = set()
+        duplicates: list[int] = []
+        for tid in track_ids:
+            if tid in seen and tid not in duplicates:
+                duplicates.append(tid)
+            seen.add(tid)
+        raise ValidationError(
+            f"track_ids contains duplicate id(s): {duplicates}",
+            details={"duplicates": duplicates},
+        )
+
     features = await uow.track_features.get_scoring_features_batch(track_ids)
     features_list = [features.get(tid) for tid in track_ids]
 
