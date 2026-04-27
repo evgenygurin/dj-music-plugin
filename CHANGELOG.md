@@ -6,6 +6,19 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.2.8] - 2026-04-27
+
+**Audit-fix loop, iteration 6 cont.** ``TrackFeedbackFilter`` rejected the canonical ``rating__gte`` query and ``schema://entities/track_features.filterable_fields`` was stale relative to v1.2.7's TrackFeaturesFilter widening — same drift class.
+
+### Fixed
+- ``TrackFeedbackFilter`` now declares ``rating__eq/gte/lte/in`` and ``kind__in``.
+- ``EntityRegistry.track_features.filterable_fields`` synced with the filter schema: now lists ``key_code (eq/in/range)``, ``integrated_lufs (gte/lte/range)``, and ``analysis_level (eq/gte/lt)`` so introspection clients see the real filter contract instead of a stale subset.
+- ``EntityRegistry.track_feedback.filterable_fields`` similarly synced with the new rating + kind__in lookups.
+
+### Tests
+- 854 -> **860 passed**.
+- ``make check`` clean.
+
 ## [1.2.7] - 2026-04-27
 
 **Audit-fix loop, iteration 6.** Same class as Bug A from v1.2.0 (filter underspec): ``TrackFeaturesFilter`` rejected ``key_code__in`` even though every harmonic compatibility query needs it.
