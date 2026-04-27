@@ -9,10 +9,12 @@ call, managed by DbSessionMiddleware in Phase 5.
 
 from __future__ import annotations
 
+import re
 from collections.abc import Sequence
 from typing import Any, ClassVar, Generic, TypeVar
 
 from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import DeclarativeBase
 
@@ -21,6 +23,43 @@ from app.shared.filters import parse_filter
 from app.shared.pagination import Page, decode_cursor, encode_cursor
 
 M = TypeVar("M", bound=DeclarativeBase)
+
+
+# Audit iter 50 (T-48): asyncpg ``ForeignKeyViolationError`` and
+# friends leaked raw SQL trace ("insert or update on table … violates
+# foreign key constraint", with the full SQL + parameters dump) to
+# MCP clients. Convert to a typed ``ValidationError`` so callers see
+# a clean, actionable message — and the SQL stays out of logs.
+_FK_DETAIL_RE = re.compile(
+    r"Key \(([^)]+)\)=\(([^)]+)\) is not present in table \"([^\"]+)\"",
+)
+
+
+def _integrity_error_to_validation(exc: IntegrityError, model_name: str) -> ValidationError:
+    """Map an asyncpg ``IntegrityError`` to a typed ``ValidationError``.
+
+    Recognises FK violations and unique-key collisions; falls back to
+    a generic "integrity violation" message when the detail string
+    doesn't match the known patterns.
+    """
+    body = str(exc.orig) if exc.orig is not None else str(exc)
+    fk_match = _FK_DETAIL_RE.search(body)
+    if fk_match:
+        col, value, parent_table = fk_match.groups()
+        return ValidationError(
+            f"foreign key violation on {model_name}.{col}: "
+            f"value {value!r} does not exist in {parent_table}",
+            details={"column": col, "value": value, "parent_table": parent_table},
+        )
+    if "duplicate key" in body.lower() or "unique constraint" in body.lower():
+        return ValidationError(
+            f"unique constraint violation on {model_name}",
+            details={"orig": body[:200]},
+        )
+    return ValidationError(
+        f"integrity violation on {model_name}",
+        details={"orig": body[:200]},
+    )
 
 
 def _is_integer_column(column: Any) -> bool:
@@ -57,7 +96,10 @@ class BaseRepository(Generic[M]):
     async def create(self, **data: Any) -> M:
         obj = self.model(**data)
         self.session.add(obj)
-        await self.session.flush()
+        try:
+            await self.session.flush()
+        except IntegrityError as exc:
+            raise _integrity_error_to_validation(exc, self.model.__name__) from exc
         await self.session.refresh(obj)
         return obj  # type: ignore[return-value]
 
@@ -69,7 +111,10 @@ class BaseRepository(Generic[M]):
             if not hasattr(obj, key):
                 raise ValidationError(f"unknown field {key!r} on {self.model.__name__}")
             setattr(obj, key, value)
-        await self.session.flush()
+        try:
+            await self.session.flush()
+        except IntegrityError as exc:
+            raise _integrity_error_to_validation(exc, self.model.__name__) from exc
         await self.session.refresh(obj)
         return obj
 
@@ -78,7 +123,10 @@ class BaseRepository(Generic[M]):
         if obj is None:
             raise NotFoundError(self.model.__name__, id)
         await self.session.delete(obj)
-        await self.session.flush()
+        try:
+            await self.session.flush()
+        except IntegrityError as exc:
+            raise _integrity_error_to_validation(exc, self.model.__name__) from exc
 
     # ── collection ────────────────────────────────────
 
