@@ -27,7 +27,11 @@ class SetFilter(BaseModel):
     name__eq: str | None = None
     name__icontains: str | None = None
     template_name__eq: str | None = None
+    # template_name__in: "show me sets built with classic_60 or
+    # peak_hour_60" - audit iter 12 caught the missing lookup.
+    template_name__in: list[str] | None = None
     source_playlist_id__eq: int | None = None
+    source_playlist_id__in: list[int] | None = None
 
 
 class SetCreate(BaseModel):

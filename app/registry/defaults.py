@@ -161,8 +161,9 @@ def register_default_entities() -> None:
             searchable_fields=("name",),
             filterable_fields={
                 "id": ("eq", "in"),
-                "name": ("icontains",),
-                "template_name": ("eq",),
+                "name": ("eq", "icontains"),
+                "template_name": ("eq", "in"),
+                "source_playlist_id": ("eq", "in"),
             },
             sortable_fields=("id", "name"),
             relations={"versions": "dj_set_versions"},
