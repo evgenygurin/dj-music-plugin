@@ -220,6 +220,47 @@ class TrackRepository(BaseRepository[Track]):
         )
         return list((await self.session.execute(stmt)).scalars())
 
+    async def search_by_bpm_range(
+        self,
+        *,
+        bpm_min: float,
+        bpm_max: float,
+        exclude_ids: set[int] | frozenset[int] | None = None,
+        limit: int = 10,
+    ) -> list[Track]:
+        """Tracks whose latest features row sits within ``[bpm_min, bpm_max]``.
+
+        Audit iter 37 (T-35): ``local://tracks/{id}/suggest_replacement``
+        wanted this method via ``getattr(uow.tracks, "search_by_bpm_range",
+        None)``; absent since v1.0 it always returned the placeholder
+        reason "tracks repository does not expose search_by_bpm_range
+        yet" — i.e. the replacement-candidate path never produced
+        anything.
+
+        Joined to ``track_audio_features_computed`` (INNER JOIN — tracks
+        without features can't pass a BPM gate anyway). ``status=0``
+        active filter is applied so archived/dead tracks are not offered
+        as replacements. Excluded IDs are removed via NOT IN.
+        """
+        stmt = (
+            select(Track)
+            .join(
+                TrackAudioFeaturesComputed,
+                TrackAudioFeaturesComputed.track_id == Track.id,
+            )
+            .where(
+                TrackAudioFeaturesComputed.bpm.is_not(None),
+                TrackAudioFeaturesComputed.bpm >= bpm_min,
+                TrackAudioFeaturesComputed.bpm <= bpm_max,
+                Track.status == 0,
+            )
+            .order_by(Track.id.asc())
+            .limit(limit)
+        )
+        if exclude_ids:
+            stmt = stmt.where(Track.id.notin_(exclude_ids))
+        return list((await self.session.execute(stmt)).scalars().all())
+
     async def ensure_external_id(
         self, track_id: int, platform: str, external_id: str
     ) -> TrackExternalId:
