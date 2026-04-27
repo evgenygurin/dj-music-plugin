@@ -66,6 +66,14 @@ async def entity_create(
         raise ValueError(f"create not allowed on {entity!r}")
 
     if config.create_handler is not None:
+        # Validate the payload against the entity's create_schema BEFORE
+        # the handler runs so callers get a clean Pydantic ValidationError
+        # at the MCP boundary instead of an opaque KeyError / DataError
+        # mid-handler. Schemas for handler-driven entities now describe
+        # the FULL handler input surface (including handler-only options
+        # like ``target_dir`` / ``force``), so ``extra="forbid"`` catches
+        # typos without rejecting legitimate fields.
+        validated = config.create_schema.model_validate(data)
         # Dispatch inspects the handler's 4th parameter name and passes the
         # matching service (registry / pipeline / scorer). Previously we
         # always passed the ProviderRegistry, which silently mis-typed the
@@ -74,7 +82,7 @@ async def entity_create(
             config.create_handler,
             ctx=ctx,
             uow=uow,
-            data=data,
+            data=validated.model_dump(),
             registry=registry,
             pipeline=pipeline,
             scorer=scorer,

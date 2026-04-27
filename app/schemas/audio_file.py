@@ -49,6 +49,16 @@ class AudioFileCreate(BaseModel):
         min_length=1,
         description='Provider name from ProviderRegistry, e.g. "yandex".',
     )
+    target_dir: str | None = Field(
+        default=None,
+        description="Override download directory (defaults to /tmp/dj_audio).",
+    )
+    skip_existing: bool = Field(
+        default=True, description="Skip tracks that already have a registered audio file."
+    )
+    number_files: bool = Field(
+        default=True, description="Prefix filenames with NN. for sortable listings."
+    )
 
     @model_validator(mode="after")
     def _exactly_one_target(self) -> Self:

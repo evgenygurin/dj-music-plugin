@@ -79,9 +79,23 @@ class SetVersionFilter(BaseModel):
 
 
 class SetVersionCreate(BaseModel):
+    """Build a new set version via the GA/greedy build handler.
+
+    ``label`` is the canonical version name; ``version_label`` accepted as
+    an alias for older callers (handler reads either). ``generator_run_meta``
+    captures algo + params for traceability (e.g. ``{"algorithm": "ga",
+    "template": "peak_hour_60"}``).
+    """
+
     model_config = ConfigDict(extra="forbid")
-    set_id: int
-    label: str
-    track_order: list[int]
+    set_id: int = Field(..., description="Parent set id.")
+    label: str | None = Field(default=None, description="Version label (alias for version_label).")
+    version_label: str | None = Field(default=None, description="Version label — alias of label.")
+    track_order: list[int] = Field(
+        ..., min_length=1, description="Ordered track ids to persist as set items."
+    )
     quality_score: float | None = Field(default=None, ge=0.0, le=1.0)
-    generator_run_meta: JsonDictOrNone = None
+    generator_run_meta: JsonDictOrNone = Field(
+        default=None,
+        description='Generator metadata, e.g. {"algorithm": "ga", "template": "peak_hour_60"}.',
+    )

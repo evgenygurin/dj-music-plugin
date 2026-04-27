@@ -32,13 +32,17 @@ class TransitionFilter(BaseModel):
 
 
 class TransitionCreate(BaseModel):
-    """Create triggers compute-score-then-persist via custom handler."""
+    """Score + persist a single directed pair via transition_persist handler.
+
+    The handler always persists (the row is the point of the call) and
+    always uses the default scoring profile — earlier ``persist`` /
+    ``scoring_profile`` fields advertised configurability the handler
+    never honoured and have been removed.
+    """
 
     model_config = ConfigDict(extra="forbid")
-    from_track_id: int
-    to_track_id: int
-    persist: bool = True
-    scoring_profile: str | None = None
+    from_track_id: int = Field(..., description="Outgoing track id.")
+    to_track_id: int = Field(..., description="Incoming track id.")
 
 
 class TransitionUpdate(BaseModel):

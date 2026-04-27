@@ -67,7 +67,13 @@ async def entity_update(
         raise ValueError(f"update not allowed on {entity!r}")
 
     if config.update_handler is not None:
-        merged = {**data, "id": id}
+        # Validate against update_schema before dispatching to the handler
+        # so payload typos / missing required fields surface as Pydantic
+        # ValidationError at the MCP boundary. ``id`` is injected from the
+        # tool-level path arg AFTER validation so callers don't have to
+        # double-supply it in ``data``.
+        validated = config.update_schema.model_validate(data)
+        merged = {**validated.model_dump(), "id": id}
         # Handler receives the service matching its 4th parameter name
         # (registry / pipeline / scorer). Without this the reanalyze handler
         # used to get a ProviderRegistry instead of the AnalysisPipeline and

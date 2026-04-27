@@ -36,16 +36,41 @@ class TrackFeaturesFilter(BaseModel):
 
 
 class TrackFeaturesCreate(BaseModel):
-    """Creation triggers the audio pipeline via custom handler."""
+    """Creation triggers the audio pipeline via the analyze handler.
+
+    The handler operates in batch — pass ``track_ids`` (singular
+    ``track_id`` is NOT accepted; wrap in a one-element list).
+    ``force=True`` re-runs analysis even when the cached level already
+    meets ``level``.
+    """
 
     model_config = ConfigDict(extra="forbid")
-    track_id: int | None = None
-    track_ids: list[int] | None = None
-    level: int = Field(default=3, ge=1, le=5)
+    track_ids: list[int] = Field(
+        ..., min_length=1, description="One or more track ids to analyze."
+    )
+    level: int = Field(
+        default=3,
+        ge=1,
+        le=5,
+        description="Target analysis level (L1..L5; L3 = scoring tier).",
+    )
+    force: bool = Field(
+        default=False,
+        description="Re-analyze even when current_level >= target.",
+    )
 
 
 class TrackFeaturesUpdate(BaseModel):
-    """Reanalyze with a higher level."""
+    """Reanalyze a single track at a higher level via reanalyze handler.
+
+    The track id comes from the ``entity_update(id=...)`` path argument
+    (dispatcher injects it), so callers only supply the new ``level``
+    here. ``force`` re-runs the pipeline even when current_level >= level.
+    """
 
     model_config = ConfigDict(extra="forbid")
-    level: int = Field(..., ge=1, le=5)
+    level: int = Field(..., ge=1, le=5, description="Target analysis level.")
+    force: bool = Field(
+        default=False,
+        description="Re-run pipeline even when current_level already meets level.",
+    )
