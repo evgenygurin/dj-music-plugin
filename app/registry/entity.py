@@ -122,8 +122,34 @@ def resolve_field_projection(
     """
     import json
 
+    from app.shared.errors import ValidationError
+
     presets = config.field_presets
     default = config.default_preset
+    view_fields: set[str] = set()
+    view_schema = getattr(config, "view_schema", None)
+    if view_schema is not None and hasattr(view_schema, "model_fields"):
+        view_fields = set(view_schema.model_fields.keys())
+
+    def _validate_field_names(names: set[str], context: str) -> set[str]:
+        """Audit iter 5 (T-3): reject unknown field names up front.
+
+        ``model_dump(include={...})`` silently drops keys missing from
+        the model, which let a typo or bogus preset name strip every
+        row to ``{}`` without any signal to the caller. Validate
+        against the view's declared fields and complain with the bad
+        names included.
+        """
+        if not view_fields:
+            return names
+        unknown = sorted(n for n in names if n not in view_fields)
+        if unknown:
+            raise ValidationError(
+                f"unknown field name(s) in {context}: {unknown}; "
+                f"declared fields are {sorted(view_fields)}",
+                details={"unknown": unknown, "context": context},
+            )
+        return names
 
     # 1. Normalise to ``list[str]`` (or signal "full" via ``None``).
     if fields is None:
@@ -148,12 +174,30 @@ def resolve_field_projection(
                 # we don't want to crash the dispatcher on a typo.
                 parsed = None
             if isinstance(parsed, list):
-                return {str(x) for x in parsed if str(x).strip()}
+                names = {str(x) for x in parsed if str(x).strip()}
+                return _validate_field_names(names, context="fields")
         # CSV fallback ("id,title" or single field "id").
         parts = {p.strip() for p in s.split(",") if p.strip()}
-        return parts or None
+        if not parts:
+            return None
+        # Audit iter 5: a single-token string that's neither a preset
+        # nor a real field used to silently project ``{single_token}``
+        # and ``model_dump(include=...)`` would yield ``{}`` per row.
+        # Validate against the view's declared fields so typos and
+        # missing presets fail loudly.
+        if len(parts) == 1 and view_fields:
+            (only,) = parts
+            if only not in view_fields:
+                raise ValidationError(
+                    f"unknown preset or field name {only!r}; presets are "
+                    f"{sorted(presets)}, declared fields are {sorted(view_fields)}",
+                    details={"unknown": [only]},
+                )
+        return _validate_field_names(parts, context="fields")
 
     # ``list[str]``: filter empties so an accidental ``[""]`` doesn't break
     # ``model_dump(include={...})``.
     cleaned = {str(x) for x in fields if str(x).strip()}
-    return cleaned or None
+    if not cleaned:
+        return None
+    return _validate_field_names(cleaned, context="fields")
