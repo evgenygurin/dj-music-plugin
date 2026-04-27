@@ -162,3 +162,25 @@ class SetVersionCreate(BaseModel):
     track_order: list[int]
     quality_score: float | None = Field(default=None, ge=0.0, le=1.0)
     generator_run_meta: JsonDictOrNone = None
+
+    @model_validator(mode="after")
+    def _validate_track_order(self) -> Self:
+        # Audit iter 56 (T-54): a DJ set never plays the same track
+        # twice — duplicate ids in ``track_order`` produce nonsensical
+        # transitions (track→itself), inflate item_count, and disagree
+        # with ``sequence_optimize`` / ``transition_score_pool`` which
+        # already reject duplicates. Sets also need at least 2 tracks
+        # to have any transitions at all.
+        if len(self.track_order) < 2:
+            raise ValueError(
+                f"track_order must contain at least 2 tracks; got {len(self.track_order)}"
+            )
+        seen: set[int] = set()
+        duplicates: list[int] = []
+        for tid in self.track_order:
+            if tid in seen and tid not in duplicates:
+                duplicates.append(tid)
+            seen.add(tid)
+        if duplicates:
+            raise ValueError(f"track_order contains duplicate id(s): {duplicates}")
+        return self
