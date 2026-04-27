@@ -43,11 +43,20 @@ async def track_view(
     id: int,
     uow: UnitOfWork = Depends(get_uow),
 ) -> str:
-    """Single-track view (core fields + relations projection)."""
+    """Single-track view (core fields + relations projection).
+
+    Resolves ``primary_artist_name`` via the repository (audit O-1):
+    ``TrackView.from_attributes`` alone returned ``null`` because the
+    field is a derived value over the ``track_artists`` relationship,
+    not a plain ORM column.
+    """
     row = await uow.tracks.get(id)
     if row is None:
         raise NotFoundError("track", id)
-    return TrackView.model_validate(row).model_dump_json()
+    view = TrackView.model_validate(row)
+    payload = view.model_dump()
+    payload["primary_artist_name"] = await uow.tracks.get_primary_artist_name(id)
+    return json_dump(payload)
 
 
 @resource(
@@ -124,10 +133,14 @@ async def track_suggest_next(
     """Suggest ``limit`` next-track candidates for a free-standing track.
 
     ``energy_direction`` ∈ {``up``, ``down``, ``flat``, ``None``}.
+    Empty ``candidates`` is paired with a ``reason`` string explaining
+    the cause (audit O-3), so consumers can distinguish "no historical
+    transitions for this track" from "the energy filter rejected
+    everything".
     """
     if await uow.tracks.get(id) is None:
         raise NotFoundError("track", id)
-    candidates = await _compute_suggest_next(
+    candidates, reason = await _compute_suggest_next(
         uow, track_id=id, limit=limit, direction=energy_direction
     )
     view = SuggestNextView(
@@ -135,6 +148,7 @@ async def track_suggest_next(
         limit=limit,
         energy_direction=energy_direction,
         candidates=candidates,
+        reason=reason,
     )
     return view.model_dump_json()
 
@@ -152,10 +166,15 @@ async def track_suggest_replacement(
     position: int,
     uow: UnitOfWork = Depends(get_uow),
 ) -> str:
-    """Suggest replacements for ``track_id=id`` at ``position`` in ``set_id``."""
+    """Suggest replacements for ``track_id=id`` at ``position`` in ``set_id``.
+
+    Empty ``candidates`` is paired with a ``reason`` string (audit O-3)
+    so consumers can distinguish "set has no version yet" from "no
+    track within ±2 BPM of the removed one".
+    """
     if await uow.sets.get(set_id) is None:
         raise NotFoundError("set", set_id)
-    candidates = await _compute_suggest_replacement(
+    candidates, reason = await _compute_suggest_replacement(
         uow, set_id=set_id, position=position, removed_track_id=id
     )
     view = SuggestReplacementView(
@@ -163,6 +182,7 @@ async def track_suggest_replacement(
         position=position,
         removed_track_id=id,
         candidates=candidates,
+        reason=reason,
     )
     return view.model_dump_json()
 
@@ -204,26 +224,32 @@ async def _compute_suggest_next(
     track_id: int,
     limit: int,
     direction: str | None,
-) -> list[dict[str, Any]]:
+) -> tuple[list[dict[str, Any]], str | None]:
     """Compute next-track candidates using the in-DB transition+features data.
 
-    Phase 5 will promote this to a richer strategy; for now it returns an
-    empty list when ``list_from`` is not yet available on the transition repo.
+    Returns ``(candidates, reason)`` — ``reason`` is ``None`` on success
+    (or empty for legitimate-no-data) and a short string when the empty
+    result has a structural cause the caller should know about.
     """
     list_from = getattr(uow.transitions, "list_from", None)
     if list_from is None:
-        return []
+        return [], "transitions repository does not expose list_from yet"
     rows = await list_from(track_id, limit=limit * 3)
+    if not rows:
+        return [], "no historical transitions logged for this track"
     out: list[dict[str, Any]] = []
     feat_ids = [r.to_track_id for r in rows]
     feat_map = await uow.track_features.get_scoring_features_batch(feat_ids)
+    filtered_by_direction = 0
     for r in rows:
         feat_to = feat_map.get(r.to_track_id)
         if feat_to is None:
             continue
         if direction == "up" and (feat_to.energy_mean or 0) <= 0:
+            filtered_by_direction += 1
             continue
         if direction == "down" and (feat_to.energy_mean or 0) >= 1:
+            filtered_by_direction += 1
             continue
         track = await uow.tracks.get(r.to_track_id)
         out.append(
@@ -237,7 +263,9 @@ async def _compute_suggest_next(
         )
         if len(out) >= limit:
             break
-    return out
+    if not out and filtered_by_direction > 0:
+        return [], f"all {filtered_by_direction} candidate(s) rejected by energy_direction filter"
+    return out, None
 
 
 async def _compute_suggest_replacement(
@@ -246,39 +274,45 @@ async def _compute_suggest_replacement(
     set_id: int,
     position: int,
     removed_track_id: int,
-) -> list[dict[str, Any]]:
+) -> tuple[list[dict[str, Any]], str | None]:
     """Candidate replacements: tracks with similar BPM/energy to removed_track_id,
     excluding tracks already in the set's latest version.
 
-    Falls back to an empty candidate list when the underlying repository
-    methods (``latest_version``, ``search_by_bpm_range``) are not yet
-    wired — Phase 5 completes the surface.
+    Returns ``(candidates, reason)`` — empty ``candidates`` carries a
+    short cause string so consumers can distinguish "set has no version
+    yet", "removed track has no features", and "nothing within BPM
+    window".
     """
     latest_version = getattr(uow.set_versions, "latest_version", None)
     if latest_version is None:
-        return []
+        return [], "set_versions repository does not expose latest_version yet"
     ver = await latest_version(set_id)
     if ver is None:
-        return []
+        return [], "set has no versions yet"
     items = await uow.set_versions.get_items(ver.id)
     excluded = {it.track_id for it in items}
     target_map = await uow.track_features.get_scoring_features_batch([removed_track_id])
     target_feat = target_map.get(removed_track_id)
     if target_feat is None:
-        return []
+        return [], f"track {removed_track_id} has no scoring features"
     bpm = target_feat.bpm or 0.0
     search_by_bpm_range = getattr(uow.tracks, "search_by_bpm_range", None)
     if search_by_bpm_range is None:
-        return []
+        return [], "tracks repository does not expose search_by_bpm_range yet"
     candidates = await search_by_bpm_range(
         bpm_min=bpm - 2.0, bpm_max=bpm + 2.0, exclude_ids=excluded, limit=10
     )
-    return [
-        {
-            "track_id": t.id,
-            "title": t.title,
-            "score": 0.0,
-            "reason": f"bpm within 2 of {bpm}",
-        }
-        for t in candidates
-    ]
+    if not candidates:
+        return [], f"no library tracks within ±2 BPM of {bpm:.1f}"
+    return (
+        [
+            {
+                "track_id": t.id,
+                "title": t.title,
+                "score": 0.0,
+                "reason": f"bpm within 2 of {bpm}",
+            }
+            for t in candidates
+        ],
+        None,
+    )

@@ -2,20 +2,35 @@
 
 from __future__ import annotations
 
-from sqlalchemy import desc, func, select
+from typing import Any
+
+from sqlalchemy import func, select
 
 from app.models.transition_history import TransitionHistory
 from app.repositories.base import BaseRepository
+
+
+def _best_pairs_stmt(limit: int) -> Any:
+    """Build the best-pairs SELECT.
+
+    Extracted to module level so a unit test can compile it against the
+    Postgres dialect and assert ``NULLS LAST`` is present (audit O-2:
+    SQLite ignores the clause silently and was hiding the prod bug —
+    on Postgres ``DESC`` puts NULL first by default, swallowing the
+    real "best" rows under the unscored ones).
+    """
+    return (
+        select(TransitionHistory)
+        .order_by(TransitionHistory.overall_score.desc().nulls_last())
+        .limit(limit)
+    )
 
 
 class TransitionHistoryRepository(BaseRepository[TransitionHistory]):
     model = TransitionHistory
 
     async def best_pairs(self, limit: int = 20) -> list[TransitionHistory]:
-        stmt = (
-            select(TransitionHistory).order_by(desc(TransitionHistory.overall_score)).limit(limit)
-        )
-        return list((await self.session.execute(stmt)).scalars())
+        return list((await self.session.execute(_best_pairs_stmt(limit))).scalars())
 
     async def reaction_counts(self) -> dict[str, int]:
         stmt = select(TransitionHistory.user_reaction, func.count()).group_by(

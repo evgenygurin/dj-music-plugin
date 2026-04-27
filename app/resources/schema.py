@@ -96,13 +96,12 @@ async def schema_provider_one(
 ) -> str:
     """Full provider schema. Raises ``NotFoundError`` via registry.get."""
     adapter = registry.get(name)
-    entities_supported = list(
-        getattr(
-            adapter,
-            "entities_supported",
-            ["track", "album", "artist", "playlist", "likes"],
-        )
-    )
+    # Adapters declare ``entities_supported`` as a ClassVar/property; the
+    # fallback is an empty tuple to avoid the audit-class bug where the
+    # hardcoded default lied about real surface area (``track_batch``,
+    # ``track_similar``, ``artist_tracks``, ``playlist_list``, ``dislikes``
+    # were all silently absent from the introspection answer).
+    entities_supported = list(getattr(adapter, "entities_supported", ()))
     operations: dict[str, bool] = {
         "read": hasattr(adapter, "read"),
         "write": hasattr(adapter, "write"),

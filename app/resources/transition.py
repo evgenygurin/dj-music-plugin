@@ -43,30 +43,20 @@ async def transition_score(
     to_id: int,
     uow: UnitOfWork = Depends(get_uow),
 ) -> str:
-    """Compute (or read persisted) transition score.
+    """Compute the live transition score for a pair.
 
-    Strategy: prefer persisted row via ``transitions.get_by_pair``; fall
-    back to live scoring using the pure-domain ``TransitionScorer``.
+    Always recomputes via the pure-domain ``TransitionScorer``. We
+    deliberately ignore the ``transitions`` table here: rows there are
+    written by ``set_version_build`` against features at the
+    analysis-level current at build time, and have no cascade
+    invalidation when ``track_features_reanalyze_handler`` raises a
+    track to a higher level — so persisted rows can disagree with the
+    live values (audit 2026-04-27, Bug C). ``TransitionScorer.score``
+    is pure compute (≈1 ms/pair), the cache hit isn't worth the
+    correctness risk, and ``/score`` and ``/explain`` now agree by
+    construction. The ``transitions`` table remains write-only for
+    set composition history.
     """
-    get_by_pair = getattr(uow.transitions, "get_by_pair", None)
-    persisted = await get_by_pair(from_id, to_id) if get_by_pair is not None else None
-    if persisted is not None:
-        return TransitionScoreView(
-            from_track_id=from_id,
-            to_track_id=to_id,
-            overall=getattr(persisted, "overall_quality", 0.0) or 0.0,
-            hard_reject=bool(getattr(persisted, "hard_reject", False)),
-            reject_reason=getattr(persisted, "reject_reason", None),
-            components={
-                "bpm": getattr(persisted, "bpm_score", 0.0) or 0.0,
-                "harmonic": getattr(persisted, "harmonic_score", 0.0) or 0.0,
-                "energy": getattr(persisted, "energy_score", 0.0) or 0.0,
-                "spectral": getattr(persisted, "spectral_score", 0.0) or 0.0,
-                "groove": getattr(persisted, "groove_score", 0.0) or 0.0,
-                "timbral": getattr(persisted, "timbral_score", 0.0) or 0.0,
-            },
-        ).model_dump_json()
-
     feat_a, feat_b = await _load_features_pair(uow, from_id, to_id)
     score = TransitionScorer().score(TrackFeatures.from_db(feat_a), TrackFeatures.from_db(feat_b))
     return TransitionScoreView(

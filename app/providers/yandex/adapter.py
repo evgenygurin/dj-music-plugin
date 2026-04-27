@@ -3,13 +3,30 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
+from typing import Any, ClassVar
 
 from app.providers.yandex.client import YandexClient
 
 
 class YandexAdapter:
     name: str = "yandex"
+
+    # Source of truth for ``schema://providers/yandex.entities_supported``.
+    # Must mirror the entity set handled by ``read`` and ``write`` below;
+    # any name added here without a matching ``match`` arm will raise at
+    # runtime, and any name handled by the methods but missing here will
+    # be invisible to introspection clients.
+    entities_supported: ClassVar[tuple[str, ...]] = (
+        "track",
+        "track_batch",
+        "track_similar",
+        "album",
+        "artist_tracks",
+        "playlist",
+        "playlist_list",
+        "likes",
+        "dislikes",
+    )
 
     def __init__(
         self,

@@ -19,6 +19,23 @@ class PlaylistRepository(BaseRepository[DjPlaylist]):
         )
         return list((await self.session.execute(stmt)).scalars())
 
+    async def get_items(self, playlist_id: int) -> list[DjPlaylistItem]:
+        """Return playlist items in sort_index order.
+
+        Audit observation O-4: ``local://playlists/{id}/audit`` reported
+        ``total_tracks: 0`` for non-empty playlists because the resource
+        called ``getattr(uow.playlists, "get_items", None)`` and fell
+        back to ``[]`` when the method was missing. The audit needs the
+        items themselves (not just track ids) to look up features and
+        compose per-track entries.
+        """
+        stmt = (
+            select(DjPlaylistItem)
+            .where(DjPlaylistItem.playlist_id == playlist_id)
+            .order_by(DjPlaylistItem.sort_index)
+        )
+        return list((await self.session.execute(stmt)).scalars())
+
     async def append_tracks(self, playlist_id: int, track_ids: list[int]) -> int:
         """Append tracks; returns new item count. Idempotent on duplicates."""
         start = (

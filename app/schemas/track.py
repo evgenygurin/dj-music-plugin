@@ -21,20 +21,38 @@ class TrackView(BaseModel):
 class TrackFilter(BaseModel):
     """Django-lookup filter schema for the ``track`` entity.
 
-    Only columns present on the ``tracks`` table are listed. Audio-feature
-    filters (BPM, key, LUFS, mood) live on the ``track_features`` entity —
-    use ``entity_list(entity="track_features", ...)`` to filter by those.
+    Direct columns on the ``tracks`` table plus one cross-table magic
+    filter (``has_features``) translated by ``TrackRepository.filter``
+    into an INNER JOIN / NOT EXISTS against
+    ``track_audio_features_computed``.
+
+    Audio-feature filters (BPM, key, LUFS, mood) live on the
+    ``track_features`` entity — use
+    ``entity_list(entity="track_features", ...)`` to filter by those.
     """
 
     model_config = ConfigDict(extra="forbid")
 
+    # id — full lookup family for paging / range queries.
     id__in: list[int] | None = None
     id__eq: int | None = None
+    id__gt: int | None = None
+    id__gte: int | None = None
+    id__lt: int | None = None
+    id__lte: int | None = None
+    # title — both case-sensitive and case-insensitive substring match.
     title__icontains: str | None = None
+    title__contains: str | None = None
+    # status — discrete archive flag, eq/in.
     status__eq: int | None = None
     status__in: list[int] | None = None
+    # duration_ms — range queries for length-based filtering.
     duration_ms__gte: int | None = None
     duration_ms__lte: int | None = None
+    # Magic boolean: True → INNER JOIN track_audio_features_computed,
+    # False → NOT EXISTS subquery, None → no constraint. Translated in
+    # ``TrackRepository.filter`` before parse_filter sees the dict.
+    has_features: bool | None = None
 
 
 class TrackCreate(BaseModel):
