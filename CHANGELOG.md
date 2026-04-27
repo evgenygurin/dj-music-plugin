@@ -6,6 +6,28 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.2.29] - 2026-04-27
+
+**Audit-fix loop, iteration 32.** Mass ``filterable_fields`` ↔ ``filter_schema`` drift sync + CI guard.
+
+### Fixed
+- **T-30:** ``schema://entities/{entity}.filterable_fields`` was stale on **5 of 11 entities** vs the actual ``filter_schema`` Pydantic class:
+  - ``track``: missing ``id__gt/gte/lt/lte``, ``has_features``, ``sort_title``, ``title__contains``, ``duration_ms__gte/lte``
+  - ``playlist``: missing ``name__eq``, ``name__startswith``, ``parent_id``, ``source_of_truth``
+  - ``set_version``: missing ``id__gt/gte/lt/lte``, ``label__eq``
+  - ``track_features``: missing ``mood_confidence``, ``mood__isnull``, ``energy_mean``, ``spectral_centroid_hz``, ``hp_ratio``, ``kick_prominence``
+  - ``transition``: missing ``fx_type``, all 6 component scores
+  - ``transition_history``: missing 30+ lookups added across iterations 21-23
+
+  Each iteration that widened a Filter schema in this loop forgot to also sync the registry's ``filterable_fields`` (the human-readable summary). Introspection clients reading ``schema://entities/{entity}`` saw an old narrow contract while the dispatcher actually accepted the wider one.
+
+### Added
+- **CI guard** ``tests/registry/test_filterable_fields_sync.py``: walks every registered entity and asserts every ``__<lookup>`` declared on the filter schema appears in ``filterable_fields``. Future schema widenings that forget to sync the summary fail CI immediately.
+
+### Tests
+- 930 → **941 passed** (+11 sync regression tests, one per entity).
+- ``make check`` clean.
+
 ## [1.2.28] - 2026-04-27
 
 **Audit-fix loop, iterations 28-29 — re-converged.** Two consecutive clean iterations after the v1.2.27 widening pass. No code changes; release marks the convergence point of the second sweep (v1.2.16 → v1.2.27).
