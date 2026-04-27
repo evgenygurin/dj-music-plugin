@@ -6,6 +6,19 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.2.48] - 2026-04-28
+
+**Audit-fix loop, iteration 51.** ``ScoringProfile`` accepted weights that didn't sum to 1.0.
+
+### Fixed
+- **T-49:** ``entity_create(scoring_profile, {"name":"bad", "bpm_weight":0.5, "harmonic_weight":0.5, ...})`` succeeded — every weight set to 0.5 yields sum=3.0. The 6 component weights are convex-combination weights; anything other than ``sum=1.0`` produces out-of-range scores when applied to a transition.
+
+  Fix: ``model_validator(mode="after")`` on ``ScoringProfileCreate`` and ``ScoringProfileUpdate`` rejects weights whose sum deviates from 1.0 by more than ``±0.001`` (float drift tolerance). On ``Update``, the check fires only when ALL 6 weights are supplied — partial patches can't enforce the cross-row invariant without a DB read of the existing values.
+
+### Tests
+- 1154 → **1163 passed** (+9 weight-sum schema tests).
+- ``make check`` clean.
+
 ## [1.2.47] - 2026-04-28
 
 **Audit-fix loop, iteration 50.** asyncpg integrity errors leaked raw SQL traces to MCP clients.
