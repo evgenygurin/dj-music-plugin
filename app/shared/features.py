@@ -85,6 +85,12 @@ class TrackFeatures:
 
     # Mood classification (used by reasoning / filtering, not by TransitionScorer)
     mood: str | None = None
+    mood_confidence: float | None = None
+
+    # Pipeline tier this row was computed at (0=none, 2=L1+L2, 3=L3, 4=L4, 5=L5).
+    # Surfaced via ``local://tracks/{id}/features`` so callers can tell whether
+    # P3-tier fields (e.g. ``danceability``, ``tonnetz_vector``) are populated.
+    analysis_level: int | None = None
 
     @classmethod
     def from_db(cls, row: Any) -> TrackFeatures:
@@ -183,6 +189,10 @@ class TrackFeatures:
             dynamic_complexity=getattr(row, "dynamic_complexity", None),
             # Mood classification (optional)
             mood=getattr(row, "mood", None),
+            mood_confidence=getattr(row, "mood_confidence", None),
+            # Pipeline tier (T-34: was missing → resource showed analysis_level=null
+            # for analyzed tracks, hiding which P3 fields are populated).
+            analysis_level=getattr(row, "analysis_level", None),
             # Beatgrid phase
             first_downbeat_ms=getattr(row, "first_downbeat_ms", None),
         )
