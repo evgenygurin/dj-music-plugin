@@ -6,6 +6,23 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.2.34] - 2026-04-27
+
+**Audit-fix loop, iteration 37.** Two long-dead resource paths brought back online.
+
+### Fixed
+- **T-35:** ``local://tracks/{id}/suggest_next`` and ``local://tracks/{id}/suggest_replacement/{set_id}/{position}`` always returned ``candidates=[]`` with placeholder reasons — *"transitions repository does not expose list_from yet"* and *"tracks repository does not expose search_by_bpm_range yet"*. Both repository methods were planned in Phase 5 but never landed; the resources had been silently no-op since v1.0.
+
+  Live confirmation: track 146 has 3+ persisted ``Transition`` rows from it, yet ``local://tracks/146/suggest_next`` returned the placeholder reason — i.e. the resource never actually queried the data.
+
+  Fix:
+  - ``TransitionRepository.list_from(from_track_id, *, limit)`` — best-quality-first (``overall_quality DESC NULLS LAST``, tiebreak ``id DESC``).
+  - ``TrackRepository.search_by_bpm_range(*, bpm_min, bpm_max, exclude_ids, limit)`` — INNER JOIN to ``track_audio_features_computed``, ``status=0`` active filter, ``exclude_ids`` honoured.
+
+### Tests
+- 959 → **966 passed** (+7 repo-method regression tests).
+- ``make check`` clean.
+
 ## [1.2.33] - 2026-04-27
 
 **Audit-fix loop, iteration 36.** Resource ``local://tracks/{id}/features`` published two fields that were always ``null``.

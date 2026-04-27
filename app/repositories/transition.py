@@ -79,3 +79,31 @@ class TransitionRepository(BaseRepository[Transition]):
 
     # Alias used by set-review / transitions resources.
     get_by_pair = get_pair
+
+    async def list_from(self, from_track_id: int, *, limit: int = 30) -> list[Transition]:
+        """All persisted transitions originating at ``from_track_id``,
+        best-quality-first.
+
+        Audit iter 37 (T-35): ``local://tracks/{id}/suggest_next``
+        wanted to read this method via ``getattr(uow.transitions,
+        "list_from", None)``; the resource has shipped since v1.0
+        always returning the placeholder reason "transitions
+        repository does not expose list_from yet" — i.e. the
+        suggestion path was effectively dead even for tracks that
+        have logged transitions.
+
+        Order:
+        - ``overall_quality DESC NULLS LAST`` (best score first; Postgres
+          orders NULL ahead of values in DESC by default, which would
+          push hard-rejects to the top — explicit nulls_last avoids it
+          and SQLite ignores the hint cleanly)
+        - tiebreaker on ``id DESC`` so newer scoring runs win on equal
+          quality.
+        """
+        stmt = (
+            select(Transition)
+            .where(Transition.from_track_id == from_track_id)
+            .order_by(Transition.overall_quality.desc().nulls_last(), Transition.id.desc())
+            .limit(limit)
+        )
+        return list((await self.session.execute(stmt)).scalars().all())
