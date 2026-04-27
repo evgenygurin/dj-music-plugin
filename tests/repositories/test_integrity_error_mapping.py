@@ -105,6 +105,47 @@ async def test_pure_function_maps_fk_detail_string() -> None:
 
 
 @pytest.mark.asyncio
+async def test_pure_function_maps_undefined_column() -> None:
+    """Audit iter 52 (T-50): ``UndefinedColumnError`` from a stale
+    Supabase schema (Alembic migration not applied) used to leak the
+    SQL trace. Now mapped to "schema mismatch" with column + table."""
+    from sqlalchemy.exc import ProgrammingError
+
+    from app.repositories.base import _programming_error_to_validation
+
+    class _FakeOrig:
+        def __str__(self) -> str:
+            return 'column "kind" of relation "track_feedback" does not exist'
+
+    err = ProgrammingError("INSERT", {}, _FakeOrig())
+    out = _programming_error_to_validation(err, "TrackFeedback")
+    assert "schema mismatch" in str(out).lower()
+    assert "'kind'" in str(out)
+    assert out.details is not None
+    assert out.details["column"] == "kind"
+    assert out.details["table"] == "track_feedback"
+
+
+@pytest.mark.asyncio
+async def test_pure_function_maps_undefined_table() -> None:
+    """Missing table → schema mismatch with table name."""
+    from sqlalchemy.exc import ProgrammingError
+
+    from app.repositories.base import _programming_error_to_validation
+
+    class _FakeOrig:
+        def __str__(self) -> str:
+            return 'relation "transitions" does not exist'
+
+    err = ProgrammingError("SELECT", {}, _FakeOrig())
+    out = _programming_error_to_validation(err, "Transition")
+    assert "schema mismatch" in str(out).lower()
+    assert "'transitions'" in str(out)
+    assert out.details is not None
+    assert out.details["table"] == "transitions"
+
+
+@pytest.mark.asyncio
 async def test_pure_function_maps_unique_collision() -> None:
     """Unique-constraint collisions get their own bucket."""
     from sqlalchemy.exc import IntegrityError
