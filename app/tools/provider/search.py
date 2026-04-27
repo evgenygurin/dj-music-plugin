@@ -33,6 +33,13 @@ async def provider_search(
     registry: ProviderRegistry = Depends(get_provider_registry),
     ctx: Context = CurrentContext(),
 ) -> ProviderSearchResult:
+    # Audit iter 5: empty query leaked the raw asyncpg/YM-client error
+    # ``'str' object has no attribute 'get'`` from the adapter parsing
+    # an empty response. Reject up front with a typed error.
+    from app.shared.errors import ValidationError
+
+    if not query or not query.strip():
+        raise ValidationError("query must not be empty or whitespace-only")
     adapter = registry.get(provider)
     raw = await adapter.search(query, type=type, limit=limit)
     # Normalize: for type=tracks, raw["tracks"]["results"] is the list.

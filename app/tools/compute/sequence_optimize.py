@@ -44,6 +44,20 @@ async def sequence_optimize(
     optimizer_builder: Any = Depends(get_optimizer),
     ctx: Context = CurrentContext(),
 ) -> SequenceOptimizeResult:
+    # Audit iter 5 (T-2): reject pinned/excluded overlap up front. The
+    # optimizer previously let pinned win silently, so a caller
+    # passing ``pinned=[146], excluded=[146]`` got 146 in the result
+    # despite asking for it banned - the contradiction never
+    # surfaced.
+    pinned_set = set(pinned or [])
+    excluded_set = set(excluded or [])
+    overlap = pinned_set & excluded_set
+    if overlap:
+        raise ValidationError(
+            f"track_ids cannot be both pinned and excluded: {sorted(overlap)}",
+            details={"overlap": sorted(overlap)},
+        )
+
     # Audit iter 3: reject duplicate ids explicitly. Prior behaviour
     # silently deduped through ``set()`` inside the optimizer, so
     # callers passing ``[146, 146, 147]`` got a 2-track order back
