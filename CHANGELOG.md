@@ -6,6 +6,17 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.2.24] - 2026-04-27
+
+**Audit-fix loop, iteration 24.** ScoringProfileFilter weight lookups + id family.
+
+### Fixed
+- ``ScoringProfileFilter`` accepts ``id__eq/in`` and ``__gte/lte`` for all 6 weight columns. ``EntityRegistry.scoring_profile.filterable_fields`` synced.
+
+### Tests
+- 907 -> **914 passed**.
+- ``make check`` clean.
+
 ## [1.2.23] - 2026-04-27
 
 **Audit-fix loop, iteration 23.** TransitionHistoryFilter component scores + tempo_match_ratio - mirrors the v1.2.22 symmetry.
