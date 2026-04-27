@@ -31,6 +31,16 @@ class TrackFeaturesFilter(BaseModel):
     bpm__gte: float | None = None
     bpm__lte: float | None = None
     bpm__range: list[float] | None = None
+    # key_code: full lookup family. Audit iter 6 caught ``key_code__in``
+    # rejected even though every harmonic compatibility query
+    # ("tracks in 8A or 8B") needs it.
+    key_code__eq: int | None = None
+    key_code__in: list[int] | None = None
+    key_code__range: list[int] | None = None
+    # integrated_lufs: range/gte/lte for loudness-bucket queries.
+    integrated_lufs__gte: float | None = None
+    integrated_lufs__lte: float | None = None
+    integrated_lufs__range: list[float] | None = None
     mood__eq: str | None = None
     mood__in: list[str] | None = None
 

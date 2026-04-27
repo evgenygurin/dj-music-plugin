@@ -6,6 +6,17 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.2.7] - 2026-04-27
+
+**Audit-fix loop, iteration 6.** Same class as Bug A from v1.2.0 (filter underspec): ``TrackFeaturesFilter`` rejected ``key_code__in`` even though every harmonic compatibility query needs it.
+
+### Fixed
+- ``TrackFeaturesFilter`` now accepts ``key_code__eq``, ``key_code__in``, ``key_code__range``, plus ``integrated_lufs__gte``, ``integrated_lufs__lte``, ``integrated_lufs__range``. ``find tracks in 8A or 8B with LUFS between -14 and -8`` is now expressible directly through ``entity_list``.
+
+### Tests
+- 847 -> **854 passed**.
+- ``make check`` clean.
+
 ## [1.2.6] - 2026-04-27
 
 **Audit-fix loop, iteration 5.** Three more silent-failure modes turned up in deeper edge probes — same anti-pattern across the surface: inputs that should be rejected up front instead leaked raw Python errors or quietly produced empty/contradictory results.
