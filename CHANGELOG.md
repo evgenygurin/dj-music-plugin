@@ -6,6 +6,19 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.2.19] - 2026-04-27
+
+**Audit-fix loop, iteration 19.** 3 more filter schemas underspec'd vs canonical "filter audio quality" / "find rejected pairs" queries.
+
+### Fixed
+- ``AudioFileFilter`` adds ``sample_rate (eq, in)`` and ``channels (eq)`` for separating studio-quality from streaming-quality files.
+- ``TransitionFilter`` adds ``reject_reason (icontains, isnull)`` so "find all pairs rejected for BPM diff" / "list pairs that didn't get rejected" become single-call entity_list queries instead of full-table scans + Python filtering.
+- ``EntityRegistry.audio_file.filterable_fields`` and ``EntityRegistry.transition.filterable_fields`` synced.
+
+### Tests
+- 883 -> **886 passed**.
+- ``make check`` clean.
+
 ## [1.2.18] - 2026-04-27
 
 **Audit-fix loop, iteration 18.** Live-MCP probe with ``avg(key_code)`` returned ``"9.16472..."`` (string) instead of ``9.16472`` (float).
