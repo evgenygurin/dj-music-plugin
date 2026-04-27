@@ -105,4 +105,8 @@ async def entity_update(
     repo = getattr(uow, config.repo_attr)
     row = await repo.update(id, **validated.model_dump(exclude_unset=True))
     view = config.view_schema.model_validate(row).model_dump()
+    # Audit iter 49 (T-47): same view-enricher hook as get/list/create
+    # so derived fields stay populated after an update too.
+    if config.view_enricher is not None:
+        view = await config.view_enricher(uow, row, view)
     return EntityUpdateResult(entity=entity, id=id, data=view)

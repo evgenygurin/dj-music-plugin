@@ -6,6 +6,22 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.2.46] - 2026-04-28
+
+**Audit-fix loop, iteration 49.** ``SetCreate`` accepted inverted BPM ranges; ``entity_create`` / ``entity_update`` skipped the View enricher.
+
+### Fixed
+- **T-47 (BPM range):** ``entity_create(set, {"target_bpm_min": 130, "target_bpm_max": 120})`` succeeded — the set persisted with min > max, an obviously bogus constraint that any downstream "in target range" query treats as "match nothing" silently. Same problem on ``entity_update``.
+
+  Fix: ``model_validator(mode="after")`` on both ``SetCreate`` and ``SetUpdate`` rejects ``target_bpm_min > target_bpm_max`` when both are supplied. Equal endpoints are valid (singleton range); half-open ranges (only one side) pass through — the other side stays untouched on the row, and the dispatcher remains responsible for the cross-row invariant on partial updates.
+
+- **T-47 (enricher consistency):** ``entity_create(set, ...)`` returned ``version_count: null`` even on a fresh row — the View enricher (added in v1.2.43 / T-44) was wired only to ``entity_get`` and ``entity_list``, not ``entity_create`` or ``entity_update``. Fresh rows now correctly return ``0``; updates re-populate derived fields too.
+
+### Tests
+- 1142 → **1151 passed** (+9 BPM-range schema validation tests).
+- ``test_update_template_validation.py`` updated: mock ``uow.sets.version_count`` since update now runs the enricher.
+- ``make check`` clean.
+
 ## [1.2.45] - 2026-04-28
 
 **Audit-fix loop, iteration 48.** ``sequence_optimize`` crashed on typo'd / un-analysed track ids — same drift class as T-42 (``transition_score_pool``) but with a stack trace instead of silent empty.

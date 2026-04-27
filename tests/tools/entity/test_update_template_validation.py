@@ -69,6 +69,9 @@ async def test_update_set_known_template_name_accepted() -> None:
     uow = MagicMock()
     uow.sets = MagicMock()
     uow.sets.update = AsyncMock(return_value=fake_row)
+    # Audit iter 49 (T-47): the update dispatcher now runs view_enricher,
+    # which on the set entity calls ``uow.sets.version_count(id)``.
+    uow.sets.version_count = AsyncMock(return_value=0)
 
     result = await entity_update(
         entity="set",

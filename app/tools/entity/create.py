@@ -104,4 +104,10 @@ async def entity_create(
     repo = getattr(uow, config.repo_attr)
     row = await repo.create(**validated.model_dump())
     view = config.view_schema.model_validate(row).model_dump()
+    # Audit iter 49 (T-47): also run the View enricher on create so
+    # derived fields (item_count, version_count) are populated in the
+    # response — a fresh row has 0 items / 0 versions but the field
+    # should be ``0`` not ``null``.
+    if config.view_enricher is not None:
+        view = await config.view_enricher(uow, row, view)
     return EntityCreateResult(entity=entity, data=view, meta={"via": "default"})
