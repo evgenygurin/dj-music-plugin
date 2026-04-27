@@ -6,6 +6,31 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.2.49] - 2026-04-28
+
+**Audit-fix loop, iteration 52.** Schema-mismatch ``ProgrammingError`` leaked raw SQL.
+
+### Fixed
+- **T-50:** ``entity_create(track_feedback, {"track_id": 99999, "kind": "like"})`` leaked::
+
+      (sqlalchemy.dialects.postgresql.asyncpg.ProgrammingError)
+      <class 'asyncpg.exceptions.UndefinedColumnError'>:
+      column "kind" of relation "track_feedback" does not exist
+      [SQL: INSERT INTO track_feedback ...]
+
+  The actual issue is well-known: the SQLAlchemy model has a ``kind`` column the production Supabase doesn't yet (Alembic migration ``p2_drop_dead_tables`` and friends are pending). Same drift class as v1.2.47 (T-48) but on ``ProgrammingError`` not ``IntegrityError``.
+
+  Fix: extend ``BaseRepository`` to also catch ``ProgrammingError`` and convert via ``_programming_error_to_validation``:
+  - Undefined column → ``schema mismatch on TrackFeedback: column 'kind' missing in table 'track_feedback'. Apply the pending Alembic migration.``
+  - Undefined table → ``schema mismatch on X: table 'Y' does not exist. Apply the pending Alembic migration.``
+  - Anything else → ``database programming error on X``.
+
+  Surfaces the actionable cause (missing migration) instead of the SQL dump.
+
+### Tests
+- 1163 → **1165 passed** (+2 ProgrammingError mapping regression tests).
+- ``make check`` clean.
+
 ## [1.2.48] - 2026-04-28
 
 **Audit-fix loop, iteration 51.** ``ScoringProfile`` accepted weights that didn't sum to 1.0.

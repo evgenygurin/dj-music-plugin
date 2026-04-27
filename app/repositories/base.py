@@ -14,7 +14,7 @@ from collections.abc import Sequence
 from typing import Any, ClassVar, Generic, TypeVar
 
 from sqlalchemy import func, select
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import IntegrityError, ProgrammingError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import DeclarativeBase
 
@@ -62,6 +62,49 @@ def _integrity_error_to_validation(exc: IntegrityError, model_name: str) -> Vali
     )
 
 
+_UNDEFINED_COLUMN_RE = re.compile(
+    r'column "([^"]+)" of relation "([^"]+)" does not exist',
+)
+_UNDEFINED_TABLE_RE = re.compile(
+    r'relation "([^"]+)" does not exist',
+)
+
+
+def _programming_error_to_validation(exc: ProgrammingError, model_name: str) -> ValidationError:
+    """Map an asyncpg ``ProgrammingError`` (undefined column / table) to
+    a typed ``ValidationError``.
+
+    Audit iter 52 (T-50): ``UndefinedColumnError`` from a stale
+    Supabase schema (Alembic migration not applied) was leaking the
+    raw SQL trace to MCP clients. The most common case for this
+    project is a column on the SQLAlchemy model that hasn't yet
+    been added to the production DB — surface that explicitly so
+    ops folk can apply the missing migration without grepping the
+    SQL dump.
+    """
+    body = str(exc.orig) if exc.orig is not None else str(exc)
+    col_match = _UNDEFINED_COLUMN_RE.search(body)
+    if col_match:
+        col, table = col_match.groups()
+        return ValidationError(
+            f"schema mismatch on {model_name}: column {col!r} missing in table "
+            f"{table!r}. Apply the pending Alembic migration.",
+            details={"column": col, "table": table},
+        )
+    tbl_match = _UNDEFINED_TABLE_RE.search(body)
+    if tbl_match:
+        (table,) = tbl_match.groups()
+        return ValidationError(
+            f"schema mismatch on {model_name}: table {table!r} does not exist. "
+            "Apply the pending Alembic migration.",
+            details={"table": table},
+        )
+    return ValidationError(
+        f"database programming error on {model_name}",
+        details={"orig": body[:200]},
+    )
+
+
 def _is_integer_column(column: Any) -> bool:
     """True iff the column's Python type can round-trip through ``int()``.
 
@@ -100,6 +143,8 @@ class BaseRepository(Generic[M]):
             await self.session.flush()
         except IntegrityError as exc:
             raise _integrity_error_to_validation(exc, self.model.__name__) from exc
+        except ProgrammingError as exc:
+            raise _programming_error_to_validation(exc, self.model.__name__) from exc
         await self.session.refresh(obj)
         return obj  # type: ignore[return-value]
 
@@ -115,6 +160,8 @@ class BaseRepository(Generic[M]):
             await self.session.flush()
         except IntegrityError as exc:
             raise _integrity_error_to_validation(exc, self.model.__name__) from exc
+        except ProgrammingError as exc:
+            raise _programming_error_to_validation(exc, self.model.__name__) from exc
         await self.session.refresh(obj)
         return obj
 
@@ -127,6 +174,8 @@ class BaseRepository(Generic[M]):
             await self.session.flush()
         except IntegrityError as exc:
             raise _integrity_error_to_validation(exc, self.model.__name__) from exc
+        except ProgrammingError as exc:
+            raise _programming_error_to_validation(exc, self.model.__name__) from exc
 
     # ── collection ────────────────────────────────────
 
