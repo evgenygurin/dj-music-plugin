@@ -6,6 +6,19 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.2.32] - 2026-04-27
+
+**Audit-fix loop, iteration 35.** Critical regression introduced by v1.2.31's sortable_fields widening.
+
+### Fixed
+- **T-33 (critical):** ``entity_list(track, sort=['created_at__desc'])`` and similar non-integer sort fields crashed with ``int() argument must be a string, ..., not 'datetime.datetime'`` (or ``NoneType`` for nullable floats like ``mood_confidence``). The cursor encoder hardcoded ``int(getattr(last_row, first_field))``; v1.2.31 widened sortable_fields without adapting cursor logic.
+
+  Fix: ``BaseRepository.filter`` now detects non-integer sort columns up front. Cursor encode/decode is gated by ``_is_integer_column`` — non-integer sorts return ``next_cursor=None`` cleanly (signalling end-of-stream); attempting to pass a cursor on a non-integer sort raises a typed ``ValidationError`` instead of crashing the dispatcher. Composite cursors (``(sort_value, pk)``) are out of scope here; callers paginating by datetime should use ``id`` sort or rely on the explicit error.
+
+### Tests
+- 954 → **957 passed** (+3 cursor regression tests).
+- ``make check`` clean.
+
 ## [1.2.31] - 2026-04-27
 
 **Audit-fix loop, iteration 34.** Mass ``sortable_fields`` widening + CI guard. Same drift class as v1.2.29's ``filterable_fields`` mass-sync.
