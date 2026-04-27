@@ -6,6 +6,17 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.2.17] - 2026-04-27
+
+**Audit-fix loop, iteration 17.** ``SetFilter`` rejected target_bpm and target_duration range queries even though ``SetView`` exposes all three columns.
+
+### Fixed
+- **T-17:** ``SetFilter`` accepts ``target_bpm_min__gte/lte``, ``target_bpm_max__gte/lte``, and ``target_duration_ms__gte/lte``. ``EntityRegistry.set.filterable_fields`` synced.
+
+### Tests
+- 879 -> **881 passed**.
+- ``make check`` clean.
+
 ## [1.2.16] - 2026-04-27
 
 **Audit-fix loop, iteration 16.** Re-opened after v1.2.15's "TRUE convergence" marker — deeper CRUD probe found one more silent-accept on cross-domain references.
