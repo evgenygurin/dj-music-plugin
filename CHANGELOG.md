@@ -6,6 +6,19 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.2.33] - 2026-04-27
+
+**Audit-fix loop, iteration 36.** Resource ``local://tracks/{id}/features`` published two fields that were always ``null``.
+
+### Fixed
+- **T-34:** ``local://tracks/{id}/features`` returned ``analysis_level: null`` and ``mood_confidence: null`` for every track, including fully L3-analyzed ones. Root cause: the resource builds its payload via ``getattr(feat, ...)`` on a ``TrackFeatures`` dataclass, but ``app/shared/features.py:TrackFeatures`` simply did not declare those two fields. ``from_db`` filled the dataclass from a ``TrackAudioFeaturesComputed`` row (where both columns exist), but the dataclass dropped them on the floor.
+
+  Fix: declare ``analysis_level: int | None`` and ``mood_confidence: float | None`` on ``TrackFeatures``; populate them in ``from_db``. Callers can now tell which P3-tier fields are populated, and mood confidence is finally surfaced.
+
+### Tests
+- 957 → **959 passed** (+2 ``TrackFeatures.from_db`` regression tests).
+- ``make check`` clean.
+
 ## [1.2.32] - 2026-04-27
 
 **Audit-fix loop, iteration 35.** Critical regression introduced by v1.2.31's sortable_fields widening.
