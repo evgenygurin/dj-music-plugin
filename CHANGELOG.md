@@ -6,6 +6,24 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.2.47] - 2026-04-28
+
+**Audit-fix loop, iteration 50.** asyncpg integrity errors leaked raw SQL traces to MCP clients.
+
+### Fixed
+- **T-48:** ``entity_create(playlist, {"parent_id": 99999})`` and ``entity_create(set, {"source_playlist_id": 99999})`` leaked the raw asyncpg ``ForeignKeyViolationError`` to MCP clients — including the full SQL + parameter dump and the constraint name. The wall of text told the caller nothing actionable.
+
+  Fix: ``BaseRepository.create`` / ``update`` / ``delete`` now catch ``IntegrityError`` and convert via ``_integrity_error_to_validation``:
+  - FK violation → ``foreign key violation on Playlist.parent_id: value '99999' does not exist in dj_playlists`` (with structured ``details``).
+  - Unique-key collision → ``unique constraint violation on Track``.
+  - Anything else → ``integrity violation on X``.
+
+  SQL details are kept off the wire (truncated to first 200 chars in ``details``) so production logs stay clean.
+
+### Tests
+- 1151 → **1154 passed** (+3 integrity-error mapping regression tests).
+- ``make check`` clean.
+
 ## [1.2.46] - 2026-04-28
 
 **Audit-fix loop, iteration 49.** ``SetCreate`` accepted inverted BPM ranges; ``entity_create`` / ``entity_update`` skipped the View enricher.
