@@ -30,6 +30,30 @@ def test_adapter_satisfies_protocol(mock_client: AsyncMock) -> None:
     assert adapter.name == "yandex"
 
 
+def test_adapter_advertises_all_supported_entities(mock_client: AsyncMock) -> None:
+    """``schema://providers/yandex`` reads ``adapter.entities_supported``.
+
+    Until v1.1.0 the resource fell back to a hardcoded short list missing
+    ``track_batch``, ``track_similar``, ``artist_tracks``, ``playlist_list``
+    and ``dislikes`` — the audit caught the discrepancy. Surface the
+    truth via a ClassVar so introspection clients see what ``read`` /
+    ``write`` actually handle.
+    """
+    adapter = YandexAdapter(client=mock_client)
+    expected = {
+        "track",
+        "track_batch",
+        "track_similar",
+        "album",
+        "artist_tracks",
+        "playlist",
+        "playlist_list",
+        "likes",
+        "dislikes",
+    }
+    assert set(adapter.entities_supported) == expected
+
+
 @pytest.mark.asyncio
 async def test_read_tracks(mock_client: AsyncMock) -> None:
     adapter = YandexAdapter(client=mock_client)
