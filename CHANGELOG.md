@@ -6,6 +6,17 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.2.18] - 2026-04-27
+
+**Audit-fix loop, iteration 18.** Live-MCP probe with ``avg(key_code)`` returned ``"9.16472..."`` (string) instead of ``9.16472`` (float).
+
+### Fixed
+- **T-18:** ``BaseRepository.aggregate`` coerces ``Decimal`` → ``float`` for ``avg`` and ``→ int`` for ``count``. Postgres ``AVG(integer_column)`` returns ``NUMERIC``; asyncpg surfaces it as ``Decimal``; Pydantic JSON-serialises ``Decimal`` as a quoted string. Callers expecting numbers got strings and couldn't compute without an extra parse step. SQLite returns ``float`` natively so unit tests didn't catch it.
+
+### Tests
+- 881 -> **883 passed**.
+- ``make check`` clean.
+
 ## [1.2.17] - 2026-04-27
 
 **Audit-fix loop, iteration 17.** ``SetFilter`` rejected target_bpm and target_duration range queries even though ``SetView`` exposes all three columns.
