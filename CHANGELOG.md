@@ -6,6 +6,20 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.2.3] - 2026-04-27
+
+**Audit-fix loop, iteration 2.** Same class as iter 1 (silent caps in UI tools), one cap location: ``ui_library_audit`` whole-library scope hardcoded ``limit=500``, reporting ``total_tracks: 500`` for a 24k library with no way for the caller to know they saw a 2% sample.
+
+### Fixed
+- ``ui_library_audit`` whole-library scope now exposes a configurable ``limit`` (default 5000, max 50000) and the response carries ``truncated``, ``library_size``, and ``limit`` so consumers can detect partial coverage. Per-playlist scope is still bounded by membership and reports ``truncated=null``.
+
+### Added
+- ``tests/tools/ui/test_library_audit_cap.py`` - regression coverage: default cap honoured, explicit limit above library size returns all tracks with ``truncated=False``, per-playlist scope ignores ``limit`` and ``truncated`` is null.
+
+### Tests
+- 829 -> **832 passed**.
+- ``make check`` clean.
+
 ## [1.2.2] - 2026-04-27
 
 **Audit-fix loop, iteration 1.** Broader probes against the live MCP turned up two silent data-loss bugs in the Prefab UI tools that had aged badly with the library: ``ui_library_dashboard`` and ``ui_camelot_wheel`` capped at 10000 rows. Production library is now 24k+ — both dashboards reported numbers about the first ~10k tracks while pretending to summarise the whole library.
