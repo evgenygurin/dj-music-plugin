@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from typing import Any
 
 from sqlalchemy import select, update
@@ -10,6 +11,30 @@ from app.models.track_features import TrackAudioFeaturesComputed
 from app.repositories.base import BaseRepository
 from app.shared.errors import NotFoundError
 from app.shared.features import TrackFeatures
+
+# Vector / array columns stored as JSON-encoded strings in Postgres
+# (model declares them as ``Mapped[str | None]`` over ``String(...)``).
+# The pipeline returns them as ``list[float]`` / ``list[int]`` — encode
+# on the way in so handlers can splat ``**result.features`` without
+# per-column serialization gymnastics.
+_JSON_ENCODED_VECTOR_COLUMNS = frozenset(
+    {
+        "mfcc_vector",
+        "tonnetz_vector",
+        "tempogram_ratio_vector",
+        "beat_loudness_band_ratio",
+        "phrase_boundaries_ms",
+    }
+)
+
+
+def _serialize_vectors(values: dict[str, Any]) -> dict[str, Any]:
+    """Encode list-typed vector columns as JSON strings; pass others through."""
+    out = dict(values)
+    for col in _JSON_ENCODED_VECTOR_COLUMNS:
+        if col in out and out[col] is not None and not isinstance(out[col], str):
+            out[col] = json.dumps(out[col])
+    return out
 
 
 class TrackFeaturesRepository(BaseRepository[TrackAudioFeaturesComputed]):
@@ -26,10 +51,15 @@ class TrackFeaturesRepository(BaseRepository[TrackAudioFeaturesComputed]):
         """INSERT or UPDATE the features row for ``track_id``.
 
         Used by the analyze handler after pipeline completion. Only whitelists
-        columns that exist on the model to tolerate pipeline extras.
+        columns that exist on the model to tolerate pipeline extras, and
+        JSON-encodes list-valued vector columns so callers can splat
+        ``**result.features`` (which contains raw ``list[float]`` vectors)
+        directly into the upsert without manual serialization.
         """
         allowed = {c.key for c in TrackAudioFeaturesComputed.__table__.columns}
-        clean = {k: v for k, v in values.items() if k in allowed and k != "track_id"}
+        clean = _serialize_vectors(
+            {k: v for k, v in values.items() if k in allowed and k != "track_id"}
+        )
         existing = await self.get_by_track_id(track_id)
         if existing is not None:
             for key, val in clean.items():

@@ -32,7 +32,19 @@ async def audio_file_download_handler(
     data: dict[str, Any],
     registry: ProviderRegistry,
 ) -> dict[str, Any]:
-    track_ids: list[int] = [int(x) for x in data["track_ids"]]
+    # ``AudioFileCreate`` lets callers pass either ``track_id`` (single) or
+    # ``track_ids`` (batch); normalise both to a list here so the schema's
+    # promise actually holds. Empty / missing inputs raise a clear
+    # ``ValueError`` instead of a confusing ``KeyError``.
+    raw_ids = data.get("track_ids")
+    if raw_ids is None:
+        single = data.get("track_id")
+        if single is None:
+            raise ValueError("audio_file_download requires 'track_id' or 'track_ids'")
+        raw_ids = [single]
+    track_ids: list[int] = [int(x) for x in raw_ids]
+    if not track_ids:
+        raise ValueError("audio_file_download requires at least one track id")
     source: str = data.get("source", "yandex")
     target_dir = Path(data.get("target_dir") or "/tmp/dj_audio").expanduser()
     skip_existing: bool = bool(data.get("skip_existing", True))

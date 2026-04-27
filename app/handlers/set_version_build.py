@@ -66,6 +66,19 @@ async def set_version_build_handler(
                 continue
             score = scorer.score(features[a], features[b])
             transition_scores.append(float(score.overall))
+            await uow.transitions.upsert(
+                from_track_id=a,
+                to_track_id=b,
+                bpm_score=float(score.bpm),
+                harmonic_score=float(score.harmonic),
+                energy_score=float(score.energy),
+                spectral_score=float(score.spectral),
+                groove_score=float(score.groove),
+                timbral_score=float(score.timbral),
+                overall_quality=float(score.overall),
+                hard_reject=bool(score.hard_reject),
+                reject_reason=score.reject_reason,
+            )
 
     quality = fmean(transition_scores) if transition_scores else 0.0
     if transition_scores:

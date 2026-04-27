@@ -38,6 +38,8 @@ def uow(session_spy: MagicMock) -> MagicMock:
     u.track_features.get_scoring_features_batch = AsyncMock(
         return_value={1: MagicMock(), 2: MagicMock(), 3: MagicMock()}
     )
+    u.transitions = MagicMock()
+    u.transitions.upsert = AsyncMock(return_value=MagicMock(id=42))
     return u
 
 
@@ -73,6 +75,13 @@ async def test_builds_version_with_items(
     assert result["item_count"] == 3
     assert result["transition_count"] == 2  # N-1 transitions for N tracks
     uow.set_versions.create_items.assert_awaited_once_with(version_id=10, track_order=[1, 2, 3])
+    # transitions persisted: N-1 upserts with directed pair fields
+    assert uow.transitions.upsert.await_count == 2
+    pairs = [
+        (c.kwargs["from_track_id"], c.kwargs["to_track_id"])
+        for c in uow.transitions.upsert.await_args_list
+    ]
+    assert pairs == [(1, 2), (2, 3)]
 
 
 @pytest.mark.asyncio

@@ -29,13 +29,20 @@ class AudioFileCreate(BaseModel):
     """Single or batch download-and-register.
 
     Either ``track_id`` (one) or ``track_ids`` (batch) must be set.
-    ``source`` picks the provider (e.g. ``"yandex_music"``).
+    ``source`` picks the provider registered in ``ProviderRegistry``
+    (e.g. ``"yandex"`` — NOT ``"yandex_music"``).
     """
 
     model_config = ConfigDict(extra="forbid")
-    track_id: int | None = None
-    track_ids: list[int] | None = None
-    source: str = Field(..., min_length=1)
+    track_id: int | None = Field(
+        default=None, description="Single track id (mutually exclusive with track_ids)."
+    )
+    track_ids: list[int] | None = Field(default=None, description="Batch of track ids.")
+    source: str = Field(
+        default="yandex",
+        min_length=1,
+        description='Provider name from ProviderRegistry, e.g. "yandex".',
+    )
 
 
 class AudioFileUpdate(BaseModel):

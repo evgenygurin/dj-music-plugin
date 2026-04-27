@@ -38,17 +38,38 @@ class TrackFilter(BaseModel):
 
 
 class TrackCreate(BaseModel):
-    """Create payload (no custom handler → default INSERT; with handler → import from provider)."""
+    """Create payload — dispatches to ``track_import`` handler.
+
+    The handler fetches metadata from the named provider and inserts a
+    Track + YandexMetadata + TrackExternalId row. Idempotent by
+    (source, external_id): existing tracks are returned in ``skipped``.
+
+    Required: ``external_ids`` (list of provider track IDs as strings).
+    Optional: ``source`` (provider name registered in ProviderRegistry,
+    default ``"yandex"``), ``playlist_id`` (link imported tracks to a
+    playlist), ``title`` / ``sort_title`` / ``duration_ms`` / ``status``
+    (overrides — handler fills them from provider metadata otherwise).
+    """
 
     model_config = ConfigDict(extra="forbid")
 
-    title: str = Field(..., min_length=1, max_length=500)
+    # Handler-driven import path (primary surface):
+    external_ids: list[str] = Field(
+        ..., min_length=1, description="Provider track IDs (e.g. Yandex track ids)."
+    )
+    source: str = Field(
+        default="yandex",
+        description='Provider name from ProviderRegistry (e.g. "yandex").',
+    )
+    playlist_id: int | None = Field(
+        default=None, description="Optional playlist to append imported tracks to."
+    )
+
+    # Optional metadata overrides (handler pulls from provider when omitted):
+    title: str | None = Field(default=None, min_length=1, max_length=500)
     sort_title: str | None = None
     duration_ms: int | None = Field(default=None, ge=0)
     status: int = Field(default=0, ge=0, le=1)
-    # Handler-driven import path:
-    source: str | None = Field(default=None, description='e.g. "yandex_music"')
-    provider_ids: list[str] | None = None
 
 
 class TrackUpdate(BaseModel):
