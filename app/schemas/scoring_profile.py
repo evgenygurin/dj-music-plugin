@@ -2,7 +2,45 @@
 
 from __future__ import annotations
 
-from pydantic import BaseModel, ConfigDict, Field
+from typing import Self
+
+from pydantic import BaseModel, ConfigDict, Field, model_validator
+
+# Audit iter 51 (T-49): the 6 component weights are convex-combination
+# weights — they must sum to 1.0 for the resulting score to stay in
+# [0, 1]. Without this guard ``entity_create(scoring_profile, ...)``
+# accepted a profile with all-0.5 weights (sum 3.0) which would
+# produce nonsensical out-of-range scores when applied. ``epsilon``
+# tolerates float drift; the scorer rebalances via DEFAULT_WEIGHTS
+# but a persisted bogus profile would mask the bug.
+_WEIGHT_FIELDS: tuple[str, ...] = (
+    "bpm_weight",
+    "harmonic_weight",
+    "energy_weight",
+    "spectral_weight",
+    "groove_weight",
+    "timbral_weight",
+)
+_WEIGHT_SUM_EPS = 0.001
+
+
+def _check_weights_sum_to_one(model: object) -> None:
+    """Raise ValueError if the 6 weight fields don't sum to ~1.0.
+
+    Skips the check on partial updates where any weight is ``None`` —
+    the cross-row invariant can't be enforced without a DB read.
+    """
+    raw = [getattr(model, f, None) for f in _WEIGHT_FIELDS]
+    if any(w is None for w in raw):
+        return
+    weights: list[float] = [float(w) for w in raw if w is not None]
+    total = sum(weights)
+    if abs(total - 1.0) > _WEIGHT_SUM_EPS:
+        pairs = ", ".join(f"{f}={w}" for f, w in zip(_WEIGHT_FIELDS, weights, strict=True))
+        raise ValueError(
+            f"scoring_profile weights must sum to 1.0 (±{_WEIGHT_SUM_EPS}); "
+            f"got {total:.4f} ({pairs})"
+        )
 
 
 class ScoringProfileView(BaseModel):
@@ -52,6 +90,11 @@ class ScoringProfileCreate(BaseModel):
     timbral_weight: float = Field(..., ge=0.0, le=1.0)
     description: str | None = None
 
+    @model_validator(mode="after")
+    def _validate_weight_sum(self) -> Self:
+        _check_weights_sum_to_one(self)
+        return self
+
 
 class ScoringProfileUpdate(BaseModel):
     model_config = ConfigDict(extra="forbid")
@@ -62,3 +105,11 @@ class ScoringProfileUpdate(BaseModel):
     groove_weight: float | None = Field(default=None, ge=0.0, le=1.0)
     timbral_weight: float | None = Field(default=None, ge=0.0, le=1.0)
     description: str | None = None
+
+    @model_validator(mode="after")
+    def _validate_weight_sum(self) -> Self:
+        # Only enforce the sum invariant when ALL 6 weights are
+        # supplied — partial patches cannot be checked here without
+        # a DB read of the existing row's values.
+        _check_weights_sum_to_one(self)
+        return self
