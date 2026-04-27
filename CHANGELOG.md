@@ -6,6 +6,38 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.2.11] - 2026-04-27
+
+**Audit-fix loop, iterations 9-10 — STABILIZED.** Two consecutive clean iterations against live MCP found no new code bugs; only Postgres-side migration drift on two columns (``track_feedback.kind`` declared in iter 7 + ``track_affinity.positive_count`` / ``negative_count`` declared here). Loop terminates.
+
+### Audit summary (v1.2.0 → v1.2.11)
+
+11 patches across 10 iterations of the audit-fix loop. Cumulative test count: 826 → **868 passed** (+42 regression tests across 12 new test files). Each fix landed via TDD red→green and live-MCP verification after a fresh respawn.
+
+| Iter | Release | Findings closed |
+|---|---|---|
+| 0 | v1.2.0 | 5 bug classes (A/B/C/D/F) + 4 observations from manual audit |
+| - | v1.2.1 | has_features dispatcher path (audit residual) |
+| 1 | v1.2.2 | UI dashboard + camelot wheel 10000-row cap; bpm bucket order |
+| 2 | v1.2.3 | ui_library_audit hardcoded 500-row cap |
+| 3 | v1.2.4 | compute tools reject duplicate track_ids consistently |
+| 4 | v1.2.5 | aggregate sum/avg pre-validates numeric column type |
+| 5 | v1.2.6 | sequence_optimize pinned/excluded overlap, fields validation, provider_search empty query |
+| 6 | v1.2.7 | TrackFeaturesFilter widening (key_code, integrated_lufs) |
+| 6c | v1.2.8 | TrackFeedbackFilter widening + filterable_fields drift sync |
+| 7 | v1.2.9 | TransitionFilter widening (hard_reject) |
+| 8 | v1.2.10 | SetVersionFilter, AudioFileFilter widening + reject_reason on TransitionView |
+| 9-10 | v1.2.11 | (no new code bugs — stabilized) |
+
+### Documented operations issues (deferred — not code bugs)
+
+These surface as ``UndefinedColumnError`` on live ``entity_list`` calls but the ORM declarations are correct; the production Supabase schema has lagged the model migrations. Apply Alembic to sync.
+
+- ``track_feedback.kind`` (declared iter 7)
+- ``track_affinity.positive_count``, ``track_affinity.negative_count`` (declared iter 9)
+
+Same class as the drop-pending tables already documented in CLAUDE.md.
+
 ## [1.2.10] - 2026-04-27
 
 **Audit-fix loop, iteration 8.** Three more filter schemas were underspec'd vs canonical scoring/library queries, plus ``TransitionView`` was missing ``reject_reason``.
