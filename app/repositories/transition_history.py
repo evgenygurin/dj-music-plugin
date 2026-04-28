@@ -18,9 +18,16 @@ def _best_pairs_stmt(limit: int) -> Any:
     SQLite ignores the clause silently and was hiding the prod bug —
     on Postgres ``DESC`` puts NULL first by default, swallowing the
     real "best" rows under the unscored ones).
+
+    Audit iter 59 (T-57): pre-T-52 data left a handful of degenerate
+    self-pair rows (``from_track_id == to_track_id``) on production.
+    Schema validators (v1.2.51-52) prevent new ones, but the existing
+    rows pollute the "best pairs" view. Filter them out at the SELECT
+    so all consumers benefit.
     """
     return (
         select(TransitionHistory)
+        .where(TransitionHistory.from_track_id != TransitionHistory.to_track_id)
         .order_by(TransitionHistory.overall_score.desc().nulls_last())
         .limit(limit)
     )

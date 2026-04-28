@@ -6,6 +6,19 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.2.57] - 2026-04-28
+
+**Audit-fix loop, iteration 59.** ``best_pairs`` returned leftover self-pair rows from pre-T-52 inserts.
+
+### Fixed
+- **T-57:** ``local://transition_history/best_pairs`` and ``/history`` (which falls back to ``best_pairs``) returned ``from_track_id == to_track_id`` rows that historical pre-v1.2.51 inserts had left in production. Live confirmation: ``best_pairs?limit=3`` returned 2 of 3 entries with ``146→146`` self-pairs polluting the "best" view.
+
+  Schema validators (v1.2.51-52) prevent NEW self-pair inserts, but the existing rows still surfaced through every read. Fix: ``_best_pairs_stmt`` adds ``WHERE from_track_id != to_track_id`` so all consumers (best_pairs resource + history endpoint) skip degenerate rows.
+
+### Tests
+- 1199 → **1201 passed** (+2 self-pair filter regression tests).
+- ``make check`` clean.
+
 ## [1.2.56] - 2026-04-28
 
 **Audit-fix loop, iteration 58.** ``local://sets/{id}/versions/compare/{a}/{b}`` had three issues.
