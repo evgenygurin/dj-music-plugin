@@ -6,6 +6,20 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.2.56] - 2026-04-28
+
+**Audit-fix loop, iteration 58.** ``local://sets/{id}/versions/compare/{a}/{b}`` had three issues.
+
+### Fixed
+- **T-56:**
+  - Same-version compare (``a == b``) returned a trivial ``delta=0, changed_positions=[]`` row instead of rejecting. Live confirmation: ``/sets/5/versions/compare/6/6`` succeeded with empty diff. Now: ``ValidationError`` with explicit "two distinct version ids" message.
+  - Cross-set ids leaked a misleading ``set_version not found: 3`` even though version 3 existed in a different set. Now: ``NotFoundError("set_version", "3 (belongs to set 4, not 5)")``.
+  - ``zip(items_a, items_b, strict=False)`` silently dropped tail positions when the two versions had different lengths. Switched to length-aware iteration: tail differences are now counted as changed.
+
+### Tests
+- 1194 → **1199 passed** (+5 compare-resource regression tests).
+- ``make check`` clean.
+
 ## [1.2.55] - 2026-04-28
 
 **Audit-fix loop, iteration 57.** Same-track score / explain resources mirrored T-52 hole.

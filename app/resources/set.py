@@ -310,12 +310,41 @@ async def set_versions_compare(
     uow: UnitOfWork = Depends(get_uow),
 ) -> str:
     """Compare two versions of the same set: quality delta + changed positions."""
+    # Audit iter 58 (T-56):
+    # 1. Same-version compare (``a == b``) used to return a trivial
+    #    ``delta=0, changed_positions=[]`` row. That's not a comparison
+    #    — reject it explicitly so callers don't think "no diff" hides
+    #    a real change.
+    # 2. Cross-set ids leaked a misleading ``set_version not found: 3``
+    #    even though version 3 EXISTS — just in a different set. Now
+    #    we surface the actual set mismatch.
+    # 3. ``zip(items_a, items_b, strict=False)`` silently dropped tail
+    #    positions when the two versions had different lengths. Switch
+    #    to length-aware iteration so any tail difference is also
+    #    counted as ``changed``.
+    from app.shared.errors import ValidationError
+
+    if a == b:
+        raise ValidationError(
+            f"compare requires two distinct version ids; got {a} for both",
+            details={"set_id": id, "a": a, "b": b},
+        )
     va = await uow.set_versions.get(a)
     vb = await uow.set_versions.get(b)
-    if va is None or getattr(va, "set_id", None) != id:
+    if va is None:
         raise NotFoundError("set_version", a)
-    if vb is None or getattr(vb, "set_id", None) != id:
+    if getattr(va, "set_id", None) != id:
+        raise NotFoundError(
+            "set_version",
+            f"{a} (belongs to set {va.set_id}, not {id})",
+        )
+    if vb is None:
         raise NotFoundError("set_version", b)
+    if getattr(vb, "set_id", None) != id:
+        raise NotFoundError(
+            "set_version",
+            f"{b} (belongs to set {vb.set_id}, not {id})",
+        )
     items_a = sorted(
         await _get_version_items(uow, va.id),
         key=lambda i: getattr(i, "sort_index", 0),
@@ -325,8 +354,11 @@ async def set_versions_compare(
         key=lambda i: getattr(i, "sort_index", 0),
     )
     changed: list[int] = []
-    for i, (x, y) in enumerate(zip(items_a, items_b, strict=False)):
-        if x.track_id != y.track_id:
+    max_len = max(len(items_a), len(items_b))
+    for i in range(max_len):
+        track_a = items_a[i].track_id if i < len(items_a) else None
+        track_b = items_b[i].track_id if i < len(items_b) else None
+        if track_a != track_b:
             changed.append(i + 1)
     qa = getattr(va, "quality_score", None)
     qb = getattr(vb, "quality_score", None)
