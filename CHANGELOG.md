@@ -6,6 +6,21 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.2.58] - 2026-04-28
+
+**Audit-fix loop, iteration 60.** ``TrackFeedbackCreate`` had no cross-field validation between ``kind`` and ``rating``.
+
+### Fixed
+- **T-58:** ``entity_create(track_feedback, {"kind":"rate"})`` (without rating) would persist a "rate" with ``rating=null`` — a no-op rate. ``{"kind":"like", "rating":5}`` would persist a stray rating alongside a binary like. Both broke downstream consumers (UI showing 0★ rates, affinity scoring confused by phantom values).
+
+  Fix: ``model_validator(mode="after")`` on ``TrackFeedbackCreate`` enforces the kind/rating pairing:
+  - ``kind="rate"`` → rating REQUIRED (1-5)
+  - ``kind="like"`` / ``kind="ban"`` → rating MUST be absent (binary signals)
+
+### Tests
+- 1201 → **1210 passed** (+9 kind/rating pairing regression tests).
+- ``make check`` clean.
+
 ## [1.2.57] - 2026-04-28
 
 **Audit-fix loop, iteration 59.** ``best_pairs`` returned leftover self-pair rows from pre-T-52 inserts.
