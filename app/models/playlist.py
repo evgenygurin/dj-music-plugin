@@ -7,8 +7,8 @@ from __future__ import annotations
 
 import datetime
 
-from sqlalchemy import DateTime, ForeignKey, String, Text, UniqueConstraint
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy import DateTime, ForeignKey, String, Text, UniqueConstraint, func, select
+from sqlalchemy.orm import Mapped, column_property, mapped_column, relationship
 
 from app.models.base import Base, TimestampMixin
 from app.shared.time import utc_now
@@ -52,3 +52,16 @@ class DjPlaylistItem(Base):
     added_at: Mapped[datetime.datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
 
     playlist: Mapped[DjPlaylist] = relationship(back_populates="items")
+
+
+# Correlated subquery exposing the item count as a first-class column on
+# ``DjPlaylist``. Defined after both classes are declared so the
+# ``DjPlaylistItem`` reference resolves cleanly. ``column_property``
+# attaches the expression to the mapped class so it participates in
+# filter / sort / aggregate paths without a JOIN.
+DjPlaylist.item_count = column_property(
+    select(func.count(DjPlaylistItem.id))
+    .where(DjPlaylistItem.playlist_id == DjPlaylist.id)
+    .correlate_except(DjPlaylistItem)
+    .scalar_subquery(),
+)

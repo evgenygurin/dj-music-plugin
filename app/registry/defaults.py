@@ -170,8 +170,18 @@ def register_default_entities() -> None:
                 "parent_id": ("eq", "in", "isnull"),
                 "source_app": ("eq", "in", "isnull"),
                 "platform_ids": ("icontains", "isnull"),
+                # ``item_count`` is a correlated subquery column on
+                # ``DjPlaylist`` (see ``app/models/playlist.py``).
+                "item_count": ("eq", "gt", "gte", "lt", "lte"),
             },
-            sortable_fields=("id", "name", "source_app", "created_at", "updated_at"),
+            sortable_fields=(
+                "id",
+                "name",
+                "source_app",
+                "item_count",
+                "created_at",
+                "updated_at",
+            ),
             relations={"items": "dj_playlist_items"},
             tags=frozenset({"namespace:library"}),
             view_enricher=_enrich_playlist_view,
