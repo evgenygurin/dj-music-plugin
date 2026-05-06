@@ -36,16 +36,22 @@ main session (user) ← финальный summary
 
 ### Планирование campaigns
 
-Типовые campaigns в проекте:
+> **Замечание:** continuous BFS-expansion и VM batch-loop скрипты
+> (`ym_bfs_expand.py`, `vm_analyze.py`, `vm_import_and_analyze.py`)
+> удалены в Phase 7 cutover — зависели от legacy `app.services.*` /
+> `app.ym.*` / `app.controllers.*`, которых больше нет. Возможные
+> campaign'ы сейчас собираются через MCP v1 dispatchers + Claude Code
+> `/loop` cron'ом, а не отдельные nohup-скрипты. Этот агент
+> остаётся как orchestration role для будущего восстановления
+> continuous-loop инфраструктуры на v1 surface.
 
-| Campaign | Фазы | Скрипты |
-|---|---|---|
-| **Playlist expansion** | BFS от source playlist → target N треков | `scripts/ym_bfs_expand.py` |
-| **Tiered L1→L5 coverage** | Import → genre gate → L5 analyze в continuous mode | `scripts/vm_import_and_analyze.py` |
-| **Fresh playlist onboarding** | Expand + continuous analyze в параллель | оба выше |
-| **Backfill L5 existing tracks** | `--force` pass по уже импортированным | `vm_import_and_analyze.py --force` |
-| **Subgenre distribution** | Classify moods (через `entity_create(entity="track_features")`) → distribute к 15 subgenre плейлистам через `entity_list` + `entity_update` + `playlist_sync` | MCP v1 dispatchers |
-| **VM continuous loop** | `dj-loop` systemd unit на VM | `docs/vm-deployment.md` |
+Типовые MCP-driven campaigns:
+
+| Campaign | Реализация |
+|---|---|
+| **Playlist expansion** | `provider_search` + `provider_read(entity="track_similar")` → `entity_create(entity="track")` цепочка через prompt `expand_playlist_workflow` |
+| **Tiered L1→L4 coverage** | `entity_aggregate(entity="track_features", operation="histogram", field="analysis_level")` → batched `entity_create(entity="track_features", level=N)` |
+| **Subgenre distribution** | Mood classification (`entity_create(entity="track_features", level=2)`) → `entity_list` + `entity_update` + `playlist_sync` |
 
 ### Принятие решений
 
@@ -82,12 +88,11 @@ main session (user) ← финальный summary
 
 ```text
 Task(subagent_type="bg-jobs-watcher",
-     description="Launch L5 sweep on Techno 2 Mega Boost",
-     prompt="Запусти scripts/vm_import_and_analyze.py с флагами:
-             --level 5 --batch 50 --workers 8 --sleep 300
-             --no-likes --playlist-filter 'Mega Boost'.
-             Вывод в /tmp/ym-l5-megaboost.log.
-             После старта покажи первые 15 строк лога и PID.")
+     description="Status check on local services",
+     prompt="Покажи статус uvicorn (REST API на :8000) и bun dev
+             (panel на :3000): ps aux + lsof + последние 20 строк
+             /tmp/dj-rest-api.log. Если что-то лежит — перезапусти
+             через start.sh и покажи smoke check.")
 ```
 
 ### Что ты НЕ делаешь

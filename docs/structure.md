@@ -1,7 +1,7 @@
 # Project Structure & Database Schema
 
-> Структура директорий, файлов и таблиц БД проекта DJ Music Plugin (v1.0.1).
-> Обновлено: 2026-04-18.
+> Структура директорий, файлов и таблиц БД проекта DJ Music Plugin (v1.3.6).
+> Обновлено: 2026-05-07.
 
 ## 1. Directory Tree
 
@@ -37,7 +37,6 @@ dj-music-plugin/
 │   ├── transition-scoring.md
 │   ├── panel-guide.md
 │   ├── structure.md                # ← этот файл
-│   ├── vm-deployment.md
 │   ├── reports/
 │   └── superpowers/specs/
 │
@@ -154,7 +153,7 @@ dj-music-plugin/
 │       └── seed.py                 # 24 keys + providers
 │
 ├── tests/                          # pytest + in-memory SQLite
-├── scripts/                        # Dev / ops scripts (vm_analyze, deploy_to_vm, …)
+├── scripts/                        # Dev / ops scripts (smoke_test_all_tools, verify_audio_pipeline, prefab_previews, …)
 ├── panel/                          # Next.js dashboard (Bun, shadcn, Supabase)
 └── hooks/                          # git pre-push
 ```

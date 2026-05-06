@@ -56,6 +56,6 @@ librosa.feature.mfcc(y=y, sr=sr, n_mfcc=13)
 librosa.feature.spectral_centroid(y=y, sr=sr)
 ```
 
-Должно быть реализовано в любом long-running batch скрипте (например `scripts/vm_analyze.py`) до запуска `AnalysisPipeline`. Тест-сервер MCP (`fastmcp dev`) обычно не нуждается — анализирует треки последовательно. Long-running batch jobs — обязательно.
+Должно быть реализовано в любом long-running batch CLI до запуска `AnalysisPipeline`. Тест-сервер MCP (`fastmcp dev`) обычно не нуждается — анализирует треки последовательно. Long-running batch jobs — обязательно.
 
 `AnalysisPipeline._warmup_librosa()` делает только pre-import submodules (избегает scipy/PytestTester race на lazy loader), но **не** прогревает JIT. Это два разных warmup'а — нужны оба.
