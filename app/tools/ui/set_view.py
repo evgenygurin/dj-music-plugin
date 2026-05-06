@@ -102,16 +102,40 @@ async def _gather(uow: UnitOfWork, set_id: int, version_id: int | None) -> dict[
             )
         )
 
+    # Live-score any pair that has no persisted ``transitions`` row.
+    # Smoke test 2026-05-07: sets built before the v1.3.0 recipe cutover
+    # have no rows in the ``transitions`` table for their pairs, so every
+    # transition badge in ui_set_view used to render as ``overall=null``
+    # / ``hard_reject=null`` — visually a gap, no quality signal at all.
+    # ``TransitionScorer`` is pure compute (~1 ms per pair), already
+    # uses ``feat_map`` from the batch above, and matches what the
+    # ``local://transition/{a}/{b}/score`` resource returns. Fall back
+    # to it when the persisted row is missing so legacy sets surface
+    # with the same shape as freshly built ones.
+    scorer: Any = None
     transitions: list[TransitionEdge] = []
     for pos, (a, b) in enumerate(pair_keys):
         tr = pair_map.get((a, b))
+        overall = getattr(tr, "overall_quality", None) if tr else None
+        hard_reject = bool(getattr(tr, "hard_reject", False)) if tr else None
+        if overall is None and hard_reject is None:
+            feat_a = feat_map.get(a)
+            feat_b = feat_map.get(b)
+            if feat_a is not None and feat_b is not None:
+                if scorer is None:
+                    from app.domain.transition.scorer import TransitionScorer
+
+                    scorer = TransitionScorer()
+                live = scorer.score(feat_a, feat_b)
+                overall = live.overall
+                hard_reject = live.hard_reject
         transitions.append(
             TransitionEdge(
                 position=pos + 1,
                 from_track_id=a,
                 to_track_id=b,
-                overall=getattr(tr, "overall_quality", None) if tr else None,
-                hard_reject=bool(getattr(tr, "hard_reject", False)) if tr else None,
+                overall=overall,
+                hard_reject=hard_reject,
             )
         )
 
