@@ -2,16 +2,14 @@
 
 from __future__ import annotations
 
-import os
 import random
 from collections.abc import Callable
-from concurrent.futures import ProcessPoolExecutor
-from multiprocessing import get_context
 
 from app.config import get_settings
 from app.domain.optimization.fitness import compute_fitness
 from app.domain.optimization.result import OptimizationResult
 from app.domain.template.models import SetTemplateDefinition
+from app.domain.transition.bulk_scorer import extract_feature_arrays, score_pairs_bulk
 from app.domain.transition.hard_constraints import check_hard_constraints
 from app.domain.transition.intent import TransitionIntent
 from app.domain.transition.scorer import TransitionScorer
@@ -40,60 +38,6 @@ _PRECOMPUTE_INTENTS: tuple[TransitionIntent, ...] = (
     TransitionIntent.CONTRAST,
 )
 
-# Pool-size cutoff above which ``_eager_populate_cache`` distributes
-# its O(N²) scorer pass across worker processes. Below this the
-# process-spawn + tracks-pickle overhead (~150-300 ms) dominates the
-# bulk compute. From n=200 onwards the pre-compute is heavy enough
-# that even on a 4-core machine the parallel path wins net wall-clock.
-_PARALLEL_POPULATE_THRESHOLD = 200
-
-# Hard upper bound on populate workers. The bottleneck is per-task
-# pickle of (idx_a, idx_b, intent) — a few microseconds each — so
-# beyond ~8 workers the dispatcher becomes the limit, not the workers.
-_PARALLEL_MAX_WORKERS = 8
-
-
-# ── Process-pool worker state ──────────────────────────────────────
-#
-# ``_eager_populate_cache`` is the heaviest CPU-bound stage of
-# ``optimize`` for large pools — a dense O(N²·|intents|) loop of
-# stem-aware ``TransitionScorer.score_all_intents`` calls. We pin the
-# track features (immutable) into worker module globals via
-# ``initializer`` so each per-task message is just a single
-# ``(idx_a, idx_b)`` pair → 4 floats round-trip. The GA + 2-opt loop
-# itself stays single-process — its fitness calls are dict lookups
-# (~1-3 µs each), and IPC overhead would swamp them.
-
-_W_TRACKS: list[TrackFeatures] | None = None
-_W_SCORER: TransitionScorer | None = None
-
-
-def _populate_init(tracks: list[TrackFeatures]) -> None:
-    """Pin tracks + a fresh scorer to the worker's module globals."""
-    global _W_TRACKS, _W_SCORER
-    _W_TRACKS = tracks
-    _W_SCORER = TransitionScorer()
-
-
-def _populate_pair(
-    pair: tuple[int, int],
-) -> tuple[tuple[int, int], dict[str, float]]:
-    """Score a single (idx_a, idx_b) pair across every precompute intent.
-
-    Returns ``((idx_a, idx_b), {intent_value: overall_or_zero})``. The
-    main process unpacks this into ``score_cache``; rejected pairs were
-    already filtered upstream so we never see them here.
-    """
-    assert _W_TRACKS is not None and _W_SCORER is not None
-    idx_a, idx_b = pair
-    a = _W_TRACKS[idx_a]
-    b = _W_TRACKS[idx_b]
-    scores = _W_SCORER.score_all_intents(a, b, _PRECOMPUTE_INTENTS)
-    return pair, {
-        intent.value: 0.0 if score.hard_reject else score.overall
-        for intent, score in scores.items()
-    }
-
 
 class GeneticAlgorithm:
     """GA optimizer for set track ordering with 2-opt post-processing."""
@@ -107,9 +51,6 @@ class GeneticAlgorithm:
         elitism_rate: float | None = None,
         tournament_size: int | None = None,
         convergence_threshold: int | None = None,
-        parallel_populate: bool = True,
-        max_workers: int | None = None,
-        parallel_populate_threshold: int = _PARALLEL_POPULATE_THRESHOLD,
     ) -> None:
         settings = get_settings().optimization
         self.scorer = scorer
@@ -119,9 +60,6 @@ class GeneticAlgorithm:
         self.elitism_rate = elitism_rate or settings.elitism_rate
         self.tournament_size = tournament_size or settings.tournament_size
         self.convergence_threshold = convergence_threshold or settings.convergence_threshold
-        self.parallel_populate = parallel_populate
-        self.max_workers = max_workers or min(os.cpu_count() or 1, _PARALLEL_MAX_WORKERS)
-        self.parallel_populate_threshold = parallel_populate_threshold
 
     def optimize(
         self,
@@ -406,20 +344,19 @@ class GeneticAlgorithm:
         scorer either. Pairs in ``reject_mask`` are skipped (fitness
         contributes ``0.0`` for them via the mask, no cache entry needed).
 
-        Uses ``TransitionScorer.score_all_intents`` so each pair pays
-        the expensive stem-compat compute (NeuralMixScorer + BPM +
-        energy — ~80 % of one ``score`` call) only once, and the four
-        per-intent overall scores are derived from the shared parts.
-        On peak-time-shaped pools (low hard-reject rate) this is the
-        difference between ~14-16 s pre-compute and ~3-4 s.
+        Implementation goes through ``bulk_scorer.score_pairs_bulk`` —
+        every component (BPM, energy, four stem compats) is a numpy
+        bulk op over the surviving (idx_a, idx_b) pair arrays. The
+        intent loop fans the same precomputed stem matrix into four
+        weighted sums via broadcasting. The bulk path is ``np.allclose``-
+        equivalent to the scalar path used by ``transition_score_pool``
+        and ``ui_transition_score`` (parity-tested in
+        ``tests/domain/transition/test_bulk_scorer_parity.py``).
 
-        For pools above ``parallel_populate_threshold`` the (a, b)
-        scoring loop is fanned across a process pool: tracks are
-        pickled into workers exactly once via ``initializer`` and
-        per-task messages are just an ``(idx_a, idx_b)`` pair. This
-        is genuinely embarrassingly-parallel work — distinct from
-        the GA's per-generation fitness eval, where IPC overhead
-        beat the savings.
+        On a real ``Subgenre: peak_time`` 242-track pool this stage
+        drops from ~3-4 s (intent-share serial) / ~3 s (parallel) to
+        sub-second, and tests/benchmark show ~5-10x compared to the
+        scalar Python loop on dense (low-reject-rate) workloads.
         """
         indices = [idx_map[tid] for tid in active_ids]
         pairs: list[tuple[int, int]] = []
@@ -434,33 +371,9 @@ class GeneticAlgorithm:
         if not pairs:
             return
 
-        use_parallel = (
-            self.parallel_populate and len(active_ids) >= self.parallel_populate_threshold
-        )
-
-        if use_parallel:
-            # Chunk size: enough work per worker round-trip to dwarf
-            # the per-message pickle, but small enough to keep all
-            # workers fed even when one pair is faster than another.
-            chunksize = max(1, len(pairs) // (self.max_workers * 4))
-            with ProcessPoolExecutor(
-                max_workers=self.max_workers,
-                mp_context=get_context("spawn"),
-                initializer=_populate_init,
-                initargs=(tracks,),
-            ) as ex:
-                for pair, intent_scores in ex.map(_populate_pair, pairs, chunksize=chunksize):
-                    idx_a, idx_b = pair
-                    for intent_value, value in intent_scores.items():
-                        score_cache[(idx_a, idx_b, intent_value)] = value
-        else:
-            for idx_a, idx_b in pairs:
-                a = tracks[idx_a]
-                b = tracks[idx_b]
-                scores = self.scorer.score_all_intents(a, b, _PRECOMPUTE_INTENTS)
-                for intent, score in scores.items():
-                    key = (idx_a, idx_b, intent.value)
-                    score_cache[key] = 0.0 if score.hard_reject else score.overall
+        fa = extract_feature_arrays(tracks)
+        bulk = score_pairs_bulk(fa, pairs, _PRECOMPUTE_INTENTS)
+        score_cache.update(bulk)
 
     # ── Selection ───────────────────────────────────────
 

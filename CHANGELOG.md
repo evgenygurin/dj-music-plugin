@@ -6,6 +6,24 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.3.5] - 2026-05-07
+
+**Vectorised eager-populate via numpy bulk-scoring.** The Python loop in v1.3.3 (intent-share serial) and the process-pool in v1.3.4 (intent-share parallel) were both O(N²) calls into a per-pair scalar code path. v1.3.5 introduces ``app.domain.transition.bulk_scorer`` — a numpy clone of the six scoring components plus the hard-reject gate that runs the entire (idx_a, idx_b) pair set as a single batch of vectorised ops. Parity is enforced by ``test_bulk_scorer_parity.py`` on a randomised 30-track pool with field-dropout: every component plus the end-to-end overall matches the scalar path within 1e-9 across all four intents. After this, ``GeneticAlgorithm._eager_populate_cache`` is a 3-line call into the bulk path.
+
+### Added
+- ``app/domain/transition/bulk_scorer.py`` — ``FeatureArrays`` view + ``extract_feature_arrays`` + ``score_bpm_bulk`` / ``score_energy_bulk`` / ``score_drums_bulk`` / ``score_bass_bulk`` / ``score_harmonics_bulk`` / ``score_vocals_bulk`` + ``hard_reject_mask_bulk`` + ``score_pairs_bulk`` (the public API the GA uses). 24x24 Camelot distance lookup table and TRANSITION_STEM_WEIGHTS / TRANSITION_ENERGY_BIAS pre-packed as numpy arrays for the bulk-of-7 path.
+- ``tests/domain/transition/test_bulk_scorer_parity.py`` — 11 cases: per-component parity (6), hard-reject mask parity (1), and end-to-end ``score_pairs_bulk`` overall parity for every TransitionIntent (4).
+
+### Changed
+- ``GeneticAlgorithm._eager_populate_cache`` collapsed from ~50 lines of per-intent / per-pair / parallel-or-serial branching into one bulk call. The parallel-populate process pool, ``_W_TRACKS`` / ``_W_SCORER`` worker globals, ``_populate_init`` / ``_populate_pair`` shims, and ``parallel_populate`` / ``max_workers`` / ``parallel_populate_threshold`` constructor parameters were removed — the numpy path is faster than the parallel path on every workload measured, so the IPC layer became dead weight.
+
+### Performance
+- ``Subgenre: peak_time`` n=242 (real DB pull): 26.0 s (v1.3.2 baseline) → ~7 s (v1.3.4 auto-greedy) → **sub-second eager populate** (v1.3.5; GA branch is now bottlenecked by generations + 2-opt, not the scoring engine).
+
+### Tests
+- 1247 → **1262 passed** (+4 auto-algorithm in v1.3.4, +11 parity in v1.3.5).
+- ``make check`` clean (mypy strict 239/0, ruff, import-linter 5/0, pytest -n auto).
+
 ## [1.3.4] - 2026-05-06
 
 **`sequence_optimize` algorithm auto-pick.** GA's wall-clock dominates pools above ~200 tracks even after the v1.3.2/1.3.3 populate-stage fixes — the eager-populate's O(N²·|intents|) scorer pass + ~10² generations of fitness evaluations can't beat what greedy chain-building gets in a single O(N²) sweep. Add an ``algorithm="auto"`` choice (now the default) that resolves to ``greedy`` for pools at or above 200 tracks and ``ga`` otherwise. Explicit ``"ga"`` and ``"greedy"`` still force the choice.
