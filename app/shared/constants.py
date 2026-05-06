@@ -95,28 +95,11 @@ class SetTemplate(StrEnum):
     FULL_LIBRARY = "full_library"
 
 
-class TransitionStyle(StrEnum):
-    """Recommended *type* of transition for an A→B pair."""
-
-    CUT = "cut"
-    BASS_SWAP_SHORT = "bass_swap_short"
-    BASS_SWAP_LONG = "bass_swap_long"
-    LONG_BLEND = "long_blend"
-    ECHO_OUT = "echo_out"
-    FILTER_SWEEP = "filter_sweep"
-
-
-TRANSITION_STYLE_PROFILES: dict[TransitionStyle, dict[str, float | str]] = {
-    TransitionStyle.CUT: {"bars": 0, "reason": "perfect match — drop on the bar"},
-    TransitionStyle.BASS_SWAP_SHORT: {"bars": 8, "reason": "good match — quick bass swap"},
-    TransitionStyle.BASS_SWAP_LONG: {
-        "bars": 32,
-        "reason": "default blend — bass swap with breathing room",
-    },
-    TransitionStyle.LONG_BLEND: {"bars": 64, "reason": "key shift — slow harmonic blend"},
-    TransitionStyle.ECHO_OUT: {"bars": 16, "reason": "energy gap — tail outgoing with echo"},
-    TransitionStyle.FILTER_SWEEP: {"bars": 16, "reason": "spectral collision — HPF the outgoing"},
-}
+# NB. The pre-Neural-Mix refactor exposed a `TransitionStyle` enum
+# (CUT / BASS_SWAP_SHORT / BASS_SWAP_LONG / LONG_BLEND / ECHO_OUT /
+# FILTER_SWEEP) plus a TRANSITION_STYLE_PROFILES table. Those were
+# replaced by ``app.domain.transition.NeuralMixTransition`` (seven
+# djay Pro 5 presets) and per-preset stem-keyframe builders.
 
 
 # Camelot wheel: 24 keys, static reference data
@@ -163,12 +146,6 @@ HOTCUE_INDEX_MAX: int = 15
 KEY_CODE_MIN: int = 0
 KEY_CODE_MAX: int = 23
 
-# Transition scoring weights (default, overridable per-template).
-DEFAULT_TRANSITION_WEIGHTS: dict[str, float] = {
-    "bpm": 0.20,
-    "harmonic": 0.12,
-    "energy": 0.18,
-    "spectral": 0.20,
-    "groove": 0.15,
-    "timbral": 0.15,
-}
+# NB. ``DEFAULT_TRANSITION_WEIGHTS`` lived here pre Neural Mix refactor.
+# It now lives in ``app.domain.transition.weights.DEFAULT_WEIGHTS`` to
+# colocate with the rest of the per-component scoring constants.

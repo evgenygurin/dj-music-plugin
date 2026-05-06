@@ -1,11 +1,15 @@
-# app/transition/subgenre_rules.py
-"""Subgenre-specific transition rules for techno pair classification."""
+"""Subgenre-specific transition rules for techno pair classification.
+
+Reduced post Neural Mix refactor: the legacy ``preferred_type_for_pair``
+table is gone — the picker (``app/domain/transition/picker.py``)
+encodes pair-aware preferences inline against the seven Neural Mix
+transitions. ``classify_pair`` + ``clamp_bars`` remain as pure helpers.
+"""
 
 from __future__ import annotations
 
 from enum import StrEnum
 
-from app.domain.transition.recipe import TransitionType
 from app.shared.constants import TechnoSubgenre
 
 _AMBIENT = frozenset({TechnoSubgenre.AMBIENT_DUB, TechnoSubgenre.DUB_TECHNO})
@@ -55,36 +59,20 @@ def classify_pair(
     return SubgenrePairType.MIXED_PAIR
 
 
+# Per-pair bar clamps used by templates to scale the default 32-bar
+# Neural Mix transition window. AMBIENT pairs want long blends; HARD
+# pairs want short stabs.
 _BAR_CLAMPS: dict[SubgenrePairType, tuple[int, int]] = {
     SubgenrePairType.AMBIENT_PAIR: (32, 128),
-    SubgenrePairType.HARD_PAIR: (0, 8),
+    SubgenrePairType.HARD_PAIR: (4, 16),
     SubgenrePairType.HYPNOTIC_PAIR: (16, 64),
     SubgenrePairType.ACID_PAIR: (8, 32),
     SubgenrePairType.MELODIC_PAIR: (16, 64),
-    SubgenrePairType.MIXED_PAIR: (0, 64),
+    SubgenrePairType.MIXED_PAIR: (8, 64),
 }
 
 
 def clamp_bars(bars: int, pair_type: SubgenrePairType) -> int:
     """Clamp transition bar count based on subgenre pair rules."""
-    lo, hi = _BAR_CLAMPS.get(pair_type, (0, 64))
+    lo, hi = _BAR_CLAMPS.get(pair_type, (8, 64))
     return max(lo, min(bars, hi))
-
-
-_PREFERRED_TYPES: dict[SubgenrePairType, tuple[TransitionType, ...]] = {
-    SubgenrePairType.AMBIENT_PAIR: (TransitionType.DISSOLVE, TransitionType.LONG_BLEND),
-    SubgenrePairType.HARD_PAIR: (
-        TransitionType.CUT,
-        TransitionType.DROP_SWAP,
-        TransitionType.FILTER_SWEEP,
-    ),
-    SubgenrePairType.ACID_PAIR: (TransitionType.FILTER_SWEEP,),
-    SubgenrePairType.MELODIC_PAIR: (TransitionType.EQ_BLEND, TransitionType.LONG_BLEND),
-    SubgenrePairType.HYPNOTIC_PAIR: (TransitionType.NEURAL_MIX_BLEND, TransitionType.EQ_BLEND),
-    SubgenrePairType.MIXED_PAIR: (TransitionType.EQ_BLEND, TransitionType.FILTER_SWEEP),
-}
-
-
-def preferred_type_for_pair(pair_type: SubgenrePairType) -> tuple[TransitionType, ...]:
-    """Return preferred transition types for a subgenre pair."""
-    return _PREFERRED_TYPES.get(pair_type, (TransitionType.EQ_BLEND,))

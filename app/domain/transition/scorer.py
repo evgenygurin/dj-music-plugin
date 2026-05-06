@@ -1,39 +1,30 @@
-"""Transition scoring engine — orchestrator for the 6-component formula.
+"""Transition scoring engine — orchestrator for the stem-aware formula.
 
-Pure domain logic: no I/O, no DB, no async. The actual scoring lives in
-``app/transition/components/`` (one pure function per component);
-this file only checks hard constraints, dispatches to the components,
-and combines the results with weights.
+Pure domain logic: no I/O, no DB, no async. Combines BPM + energy
+component scores with the four Neural Mix stem compats from
+``neural_mix.py`` into a single ``TransitionScore``.
 
-See docs/transition-scoring.md for the full algorithm description and
-docs/superpowers/specs/2026-04-08-transition-system-redesign.md for the
-redesign that produced this layout.
+See docs/transition-scoring.md for the full algorithm description.
 """
 
 from __future__ import annotations
 
-from app.domain.transition.components import (
-    score_bpm,
-    score_energy,
-    score_groove,
-    score_harmonic,
-    score_spectral,
-    score_timbral,
-)
+from app.domain.transition.components import score_bpm, score_energy
 from app.domain.transition.hard_constraints import check_hard_constraints
 from app.domain.transition.intent import INTENT_WEIGHT_MODIFIERS, TransitionIntent
+from app.domain.transition.neural_mix import (
+    NeuralMixScorer,
+    NeuralMixStem,
+    NeuralMixTransition,
+)
 from app.domain.transition.score import TransitionScore
 from app.domain.transition.section_context import SectionContext
-from app.domain.transition.style import recommend_style, style_profile
-from app.domain.transition.weights import DRUM_ONLY_WEIGHT_OVERRIDE
-from app.shared.constants import DEFAULT_TRANSITION_WEIGHTS
+from app.domain.transition.weights import DEFAULT_WEIGHTS
 from app.shared.features import TrackFeatures
 
 __all__ = [
     "TransitionScore",
     "TransitionScorer",
-    "recommend_style",
-    "style_profile",
 ]
 
 
@@ -41,15 +32,19 @@ class TransitionScorer:
     """Compute transition quality between two tracks.
 
     Uses ``settings.*`` (via ``check_hard_constraints``) for hard reject
-    thresholds and the supplied ``weights`` dict (or
-    ``DEFAULT_TRANSITION_WEIGHTS``) for the weighted sum.
+    thresholds and the supplied ``weights`` dict (or ``DEFAULT_WEIGHTS``
+    from ``weights.py``) for the weighted sum. Stem compatibility scores
+    come from ``NeuralMixScorer``; the orchestrator collapses them into
+    the public six-field ``TransitionScore`` shape and exposes the
+    Neural Mix scorer's ``best_transition`` argmax.
     """
 
     def __init__(
         self,
         weights: dict[str, float] | None = None,
     ) -> None:
-        self.weights = weights or dict(DEFAULT_TRANSITION_WEIGHTS)
+        self.weights = weights or dict(DEFAULT_WEIGHTS)
+        self._neural = NeuralMixScorer()
 
     def score(
         self,
@@ -59,32 +54,20 @@ class TransitionScorer:
         intent: TransitionIntent | None = None,
         section_context: SectionContext | None = None,
     ) -> TransitionScore:
-        """Compute the full 6-component score.
+        """Compute the full six-component score.
 
-        Args:
-            from_t: Features of the outgoing track.
-            to_t: Features of the incoming track.
-            intent: Optional context-aware intent for weight modifiers.
-                When provided, per-intent weights override instance defaults.
-            section_context: Optional structural context for the mix
-                windows. When both sides are percussion-only sections,
-                ``DRUM_ONLY_WEIGHT_OVERRIDE`` is used for the weighted
-                sum and ``score_harmonic`` applies its drum-only floor.
-                Drum-only override takes precedence over ``intent``.
+        ``section_context`` is currently accepted but unused — the picker
+        (``app.domain.transition.picker``) consumes it to pick the right
+        Neural Mix preset; the scorer itself stays context-free in v1.3.
         """
+        del section_context  # reserved for future per-section weight overrides
+
         rejection = check_hard_constraints(from_t, to_t)
         if rejection is not None:
             return rejection
 
-        # Pick weight set: drum-only > intent override > instance default
-        if section_context is not None and section_context.is_drum_only_pair:
-            weights: dict[str, float] | None = DRUM_ONLY_WEIGHT_OVERRIDE
-        elif intent is not None:
-            weights = INTENT_WEIGHT_MODIFIERS[intent]
-        else:
-            weights = None
-
-        return self._compute_score(from_t, to_t, weights=weights, section_context=section_context)
+        weights = INTENT_WEIGHT_MODIFIERS[intent] if intent is not None else self.weights
+        return self._compute_score(from_t, to_t, weights=weights)
 
     def score_with_candidates(
         self,
@@ -94,14 +77,7 @@ class TransitionScorer:
         candidate_key_distance: int | None = None,
         candidate_energy_delta: float | None = None,
     ) -> TransitionScore:
-        """Score a transition, reusing pre-computed candidate distances.
-
-        When transition candidates are available, the BPM/key/energy
-        distances have already been computed by ``CandidateService``.
-        Skip recomputing them for hard-constraint checks.
-
-        Falls back to a full ``score()`` if no candidate data is provided.
-        """
+        """Score reusing pre-computed candidate distances for hard checks."""
         rejection = check_hard_constraints(
             from_t,
             to_t,
@@ -112,7 +88,7 @@ class TransitionScorer:
         if rejection is not None:
             return rejection
 
-        return self._compute_score(from_t, to_t)
+        return self._compute_score(from_t, to_t, weights=self.weights)
 
     # ── Shared internals ───────────────────────────
 
@@ -120,26 +96,32 @@ class TransitionScorer:
         self,
         from_t: TrackFeatures,
         to_t: TrackFeatures,
-        weights: dict[str, float] | None = None,
-        section_context: SectionContext | None = None,
+        *,
+        weights: dict[str, float],
     ) -> TransitionScore:
-        """Run all 6 component functions and combine them with weights."""
-        w = weights or self.weights
+        """Compose BPM + energy + four stem compats into a TransitionScore."""
+        nm = self._neural.score(from_t, to_t)
+
         bpm = score_bpm(from_t, to_t)
-        harmonic = score_harmonic(from_t, to_t, section_context=section_context)
         energy = score_energy(from_t, to_t)
-        spectral = score_spectral(from_t, to_t)
-        groove = score_groove(from_t, to_t)
-        timbral = score_timbral(from_t, to_t)
+
+        # NeuralMixStem → public TransitionScore field name mapping.
+        # See ``score.py`` docstring for the conceptual rationale.
+        harmonic = nm.stem_scores.get(NeuralMixStem.HARMONICS, 0.0)
+        spectral = nm.stem_scores.get(NeuralMixStem.BASS, 0.0)
+        groove = nm.stem_scores.get(NeuralMixStem.DRUMS, 0.0)
+        timbral = nm.stem_scores.get(NeuralMixStem.VOCALS, 0.0)
 
         overall = (
-            w.get("bpm", 0) * bpm
-            + w.get("harmonic", 0) * harmonic
-            + w.get("energy", 0) * energy
-            + w.get("spectral", 0) * spectral
-            + w.get("groove", 0) * groove
-            + w.get("timbral", 0) * timbral
+            weights.get("bpm", 0.0) * bpm
+            + weights.get("harmonic", 0.0) * harmonic
+            + weights.get("energy", 0.0) * energy
+            + weights.get("spectral", 0.0) * spectral
+            + weights.get("groove", 0.0) * groove
+            + weights.get("timbral", 0.0) * timbral
         )
+
+        best: NeuralMixTransition | None = nm.best_transition
 
         return TransitionScore(
             bpm=bpm,
@@ -149,10 +131,5 @@ class TransitionScorer:
             groove=groove,
             timbral=timbral,
             overall=overall,
+            best_transition=best,
         )
-
-
-# recommend_style and style_profile live in app/transition/style.py
-# and are re-exported above so existing
-# `from app.transition.scorer import recommend_style` calls
-# remain valid.

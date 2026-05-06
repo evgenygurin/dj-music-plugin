@@ -1,37 +1,17 @@
-"""Neural Mix stem-aware scoring — djay Pro-inspired additive layer.
+"""Neural Mix stem-aware transition scoring (djay Pro 5 paradigm).
 
-Algoriddim's **Neural Mix™** (djay Pro) is real-time AI stem separation
-that splits a track into four independent channels: drums, bass,
-harmonics, vocals. djay Pro's Automix engine then applies nine distinct
-transition styles (fade, dissolve, filter, EQ, neural_mix, echo,
-echo_out, riser, tremolo) by routing those stems between decks.
+djay Pro 5 ships exactly seven Neural Mix transitions in its Automix UI:
+``Fade``, ``Echo Out``, ``Vocal Sustain``, ``Harmonic Sustain``,
+``Drum Swap``, ``Vocal Cut``, ``Drum Cut``. Each is a stem-routing recipe
+between two decks; this module models the same seven presets as a
+scoring layer over four stems (drums / bass / harmonic / vocals) using
+existing ``TrackFeatures`` proxies — no real-time stem separation is
+required at scoring time.
 
-This module models the same four stems and nine transitions as a
-scoring layer on top of the existing 6-component scorer in
-``app/transition/scorer.py``. It computes:
-
-1. Four stem compatibility scores (drums/bass/harmonics/vocals), each
-   approximated from already-available audio features.
-2. Nine per-transition scores, each a weighted mix of the stem scores
-   with a transition-specific stem emphasis.
-3. The best-matching Neural Mix transition for a given pair.
-
-Important: this module is **additive**. It does not replace the existing
-6-component scorer — it gives a second, stem-aware view of the same
-pair. Main's ``TransitionScorer`` still drives the overall quality
-score; callers that care specifically about the best Neural Mix
-transition style can read from ``NeuralMixScorer``.
-
-The enums here overlap intentionally with ``app.transition.recipe``'s
-``DjayTransition`` and ``TransitionType``: the recipe engine models a
-bar-by-bar plan, while this module gives a continuous compatibility
-score for each Neural Mix transition style.
-
-Sources:
-- https://www.algoriddim.com/djay-pro-mac
-- https://help.algoriddim.com/topic/hardware/using-neural-mix-on-supported-controllers
-- https://help.algoriddim.com/user-manual/djay-pro-mac/settings/automix
-- https://www.algoriddim.com/press_releases/435-algoriddim-announces-major-update-to-djay-pro-ai
+Sources for the per-preset stem behaviour:
+- https://help.algoriddim.com/user-manual/djay-pro-mac/neural-mix/overview
+- https://help.algoriddim.com/user-manual/djay-ios/neural-mix/mute-fx
+- https://www.algoriddim.com/press_releases/447-algoriddim-unveils-djay-pro-5
 """
 
 from __future__ import annotations
@@ -48,7 +28,7 @@ from app.shared.features import TrackFeatures
 
 
 class NeuralMixStem(StrEnum):
-    """Four stems Neural Mix separates in real time."""
+    """Four stems Neural Mix routes independently between decks."""
 
     DRUMS = "drums"
     BASS = "bass"
@@ -57,20 +37,19 @@ class NeuralMixStem(StrEnum):
 
 
 class NeuralMixTransition(StrEnum):
-    """djay Pro Automix transition styles, all stem-aware via Neural Mix.
+    """The seven djay Pro 5 Neural Mix Automix transitions.
 
-    Ordered roughly from gentlest to most dramatic.
+    Ordered roughly from gentlest (linear stem crossfade) to most
+    dramatic (drumless drop into B's slam).
     """
 
     FADE = "fade"
-    DISSOLVE = "dissolve"
-    FILTER = "filter"
-    EQ = "eq"
-    NEURAL_MIX = "neural_mix"
-    ECHO = "echo"
     ECHO_OUT = "echo_out"
-    RISER = "riser"
-    TREMOLO = "tremolo"
+    VOCAL_SUSTAIN = "vocal_sustain"
+    HARMONIC_SUSTAIN = "harmonic_sustain"
+    DRUM_SWAP = "drum_swap"
+    VOCAL_CUT = "vocal_cut"
+    DRUM_CUT = "drum_cut"
 
 
 NEURAL_MIX_STEMS: tuple[NeuralMixStem, ...] = tuple(NeuralMixStem)
@@ -78,19 +57,17 @@ TRANSITION_TYPES: tuple[NeuralMixTransition, ...] = tuple(NeuralMixTransition)
 
 
 # ── Per-transition stem weighting ──────────────────────────────────
-# Each transition style weights the four stem compatibility scores
-# differently. Weights sum to 1.0 per transition.
+# Each preset weights the four stem compatibility scores by which
+# stems it actively routes during the transition. Weights sum to 1.0.
 #
-# Intuition:
-#  * FADE — all stems equal (smooth blend)
-#  * DISSOLVE — harmonics & vocals dominate (ambient texture)
-#  * FILTER — harmonics dominate (sweep kills bass/drums anyway)
-#  * EQ — drums anchor the transition while other bands trade
-#  * NEURAL_MIX — balanced (flagship, needs all stems)
-#  * ECHO — drums + bass (rhythm foundation for the tail)
-#  * ECHO_OUT — drums dominant (tight drum lock critical)
-#  * RISER — harmonics for the build, bass for impact
-#  * TREMOLO — drums + harmonics (rhythmic pulse)
+# Intuition (per djay Pro 5 stem-routing behaviour):
+#  * FADE — pairwise crossfade of all 4 stems → uniform 0.25
+#  * ECHO_OUT — sequential stem-kill, drums hold the rescue groove → drums dominant
+#  * VOCAL_SUSTAIN — A.vocals carries over B.{drums,harmonic} → vocals + harmonics dominant
+#  * HARMONIC_SUSTAIN — A.harmonic carries over B.{drums,vocals} → harmonics + vocals dominant
+#  * DRUM_SWAP — B.drums under A.{harmonic,vocals,bass} continuity → drums + bass dominant
+#  * VOCAL_CUT — A.vocals killed early, drums+harmonic crossfade → drums + harmonics dominant
+#  * DRUM_CUT — A.drums killed early, drumless window carries → bass + harmonics + vocals
 
 TRANSITION_STEM_WEIGHTS: dict[NeuralMixTransition, dict[NeuralMixStem, float]] = {
     NeuralMixTransition.FADE: {
@@ -99,72 +76,58 @@ TRANSITION_STEM_WEIGHTS: dict[NeuralMixTransition, dict[NeuralMixStem, float]] =
         NeuralMixStem.HARMONICS: 0.25,
         NeuralMixStem.VOCALS: 0.25,
     },
-    NeuralMixTransition.DISSOLVE: {
-        NeuralMixStem.DRUMS: 0.10,
-        NeuralMixStem.BASS: 0.15,
-        NeuralMixStem.HARMONICS: 0.45,
-        NeuralMixStem.VOCALS: 0.30,
-    },
-    NeuralMixTransition.FILTER: {
-        NeuralMixStem.DRUMS: 0.15,
-        NeuralMixStem.BASS: 0.15,
-        NeuralMixStem.HARMONICS: 0.55,
+    NeuralMixTransition.ECHO_OUT: {
+        NeuralMixStem.DRUMS: 0.40,
+        NeuralMixStem.BASS: 0.25,
+        NeuralMixStem.HARMONICS: 0.20,
         NeuralMixStem.VOCALS: 0.15,
     },
-    NeuralMixTransition.EQ: {
-        NeuralMixStem.DRUMS: 0.45,
-        NeuralMixStem.BASS: 0.25,
+    NeuralMixTransition.VOCAL_SUSTAIN: {
+        NeuralMixStem.DRUMS: 0.20,
+        NeuralMixStem.BASS: 0.10,
+        NeuralMixStem.HARMONICS: 0.30,
+        NeuralMixStem.VOCALS: 0.40,
+    },
+    NeuralMixTransition.HARMONIC_SUSTAIN: {
+        NeuralMixStem.DRUMS: 0.20,
+        NeuralMixStem.BASS: 0.15,
+        NeuralMixStem.HARMONICS: 0.40,
+        NeuralMixStem.VOCALS: 0.25,
+    },
+    NeuralMixTransition.DRUM_SWAP: {
+        NeuralMixStem.DRUMS: 0.40,
+        NeuralMixStem.BASS: 0.30,
         NeuralMixStem.HARMONICS: 0.20,
         NeuralMixStem.VOCALS: 0.10,
     },
-    NeuralMixTransition.NEURAL_MIX: {
+    NeuralMixTransition.VOCAL_CUT: {
         NeuralMixStem.DRUMS: 0.30,
         NeuralMixStem.BASS: 0.25,
-        NeuralMixStem.HARMONICS: 0.25,
-        NeuralMixStem.VOCALS: 0.20,
-    },
-    NeuralMixTransition.ECHO: {
-        NeuralMixStem.DRUMS: 0.35,
-        NeuralMixStem.BASS: 0.30,
-        NeuralMixStem.HARMONICS: 0.20,
-        NeuralMixStem.VOCALS: 0.15,
-    },
-    NeuralMixTransition.ECHO_OUT: {
-        NeuralMixStem.DRUMS: 0.50,
-        NeuralMixStem.BASS: 0.30,
-        NeuralMixStem.HARMONICS: 0.10,
-        NeuralMixStem.VOCALS: 0.10,
-    },
-    NeuralMixTransition.RISER: {
-        NeuralMixStem.DRUMS: 0.20,
-        NeuralMixStem.BASS: 0.25,
-        NeuralMixStem.HARMONICS: 0.40,
-        NeuralMixStem.VOCALS: 0.15,
-    },
-    NeuralMixTransition.TREMOLO: {
-        NeuralMixStem.DRUMS: 0.40,
-        NeuralMixStem.BASS: 0.20,
         NeuralMixStem.HARMONICS: 0.30,
-        NeuralMixStem.VOCALS: 0.10,
+        NeuralMixStem.VOCALS: 0.15,
+    },
+    NeuralMixTransition.DRUM_CUT: {
+        NeuralMixStem.DRUMS: 0.15,
+        NeuralMixStem.BASS: 0.30,
+        NeuralMixStem.HARMONICS: 0.30,
+        NeuralMixStem.VOCALS: 0.25,
     },
 }
 
 
 # ── Energy-flow bias ───────────────────────────────────────────────
-# Some transitions prefer a specific energy direction. +1 means the
-# transition works best when incoming B is louder than outgoing A,
-# -1 means the opposite, 0 means neutral.
+# Each preset has a preferred energy direction.
+# +1.0 = strongly prefers ramp-up (B louder than A), -1.0 = prefers cool-down,
+# 0.0 = neutral. Magnitudes reflect how dramatic the energy assumption is.
 
 TRANSITION_ENERGY_BIAS: dict[NeuralMixTransition, float] = {
     NeuralMixTransition.FADE: 0.0,
-    NeuralMixTransition.DISSOLVE: -0.5,
-    NeuralMixTransition.FILTER: 0.0,
-    NeuralMixTransition.EQ: 0.0,
-    NeuralMixTransition.NEURAL_MIX: 0.0,
-    NeuralMixTransition.ECHO: -0.2,
-    NeuralMixTransition.ECHO_OUT: -0.3,
-    NeuralMixTransition.RISER: 1.0,
-    NeuralMixTransition.TREMOLO: 0.0,
+    NeuralMixTransition.ECHO_OUT: -0.2,  # echo tail = gentle wind-down
+    NeuralMixTransition.VOCAL_SUSTAIN: 0.0,  # neutral, vocal carry-over works either way
+    NeuralMixTransition.HARMONIC_SUSTAIN: -0.1,  # slight cool-down (continuity, not impact)
+    NeuralMixTransition.DRUM_SWAP: 0.0,  # groove change without energy change
+    NeuralMixTransition.VOCAL_CUT: 0.1,  # decisive cut feels slightly aspirational
+    NeuralMixTransition.DRUM_CUT: 0.5,  # drop-style breakdown into slam = ramp-up
 }
 
 
@@ -179,7 +142,7 @@ class NeuralMixScore:
         stem_scores: Per-stem compatibility (drums/bass/harmonics/vocals),
             values in ``[0, 1]``.
         transition_scores: Per-transition-style compatibility, values in
-            ``[0, 1]`` for each of the nine Neural Mix transitions.
+            ``[0, 1]`` for each of the seven Neural Mix transitions.
         best_transition: The transition style with the highest score, or
             ``None`` on hard reject.
         overall: The score of ``best_transition``. What optimizers read.
@@ -193,8 +156,6 @@ class NeuralMixScore:
     overall: float = 0.0
     hard_reject: bool = False
     reject_reason: str | None = None
-
-    # Convenience accessors ────────────────────────────────
 
     @property
     def drums_compat(self) -> float:
@@ -218,15 +179,10 @@ class NeuralMixScore:
 
 
 def score_drums_compat(from_t: TrackFeatures, to_t: TrackFeatures) -> float:
-    """Drum stem compatibility approximation.
-
-    Drums lock to the master BPM, so drum compat is dominated by tempo
-    lock and kick/onset character.
-    """
+    """Drum stem compatibility — dominated by tempo lock + kick character."""
     components: list[float] = []
     weights: list[float] = []
 
-    # BPM match — Gaussian around exact tempo with double/half awareness.
     if from_t.bpm is not None and to_t.bpm is not None:
         delta = bpm_distance(from_t.bpm, to_t.bpm)
         sigma = 3.0
@@ -260,12 +216,7 @@ def score_drums_compat(from_t: TrackFeatures, to_t: TrackFeatures) -> float:
 
 
 def score_bass_compat(from_t: TrackFeatures, to_t: TrackFeatures) -> float:
-    """Bass stem compatibility.
-
-    Bass sits on the fundamental of the key — key compatibility
-    dominates because a bass clash is the #1 reason Neural Mix
-    transitions sound muddy.
-    """
+    """Bass stem compatibility — key compatibility dominates (fundamental clash)."""
     components: list[float] = []
     weights: list[float] = []
 
@@ -340,13 +291,7 @@ def score_harmonic_compat(from_t: TrackFeatures, to_t: TrackFeatures) -> float:
 
 
 def score_vocal_compat(from_t: TrackFeatures, to_t: TrackFeatures) -> float:
-    """Vocal stem compatibility approximation.
-
-    We don't have real vocal extraction, so we approximate from:
-    * spectral centroid proximity (presence band),
-    * chroma entropy similarity (vocal phrasing regularity),
-    * pitch salience proximity (dominant-pitch presence).
-    """
+    """Vocal stem compatibility — proxy from centroid + chroma + pitch salience."""
     components: list[float] = []
     weights: list[float] = []
 
@@ -380,20 +325,13 @@ def score_vocal_compat(from_t: TrackFeatures, to_t: TrackFeatures) -> float:
 
 
 class NeuralMixScorer:
-    """Stem-aware scorer for the nine djay Pro Neural Mix transitions.
-
-    Complements ``app.transition.scorer.TransitionScorer`` (the
-    6-component quality scorer) by giving a per-stem and per-transition
-    view of the same pair of tracks. Hard constraints are shared with
-    the main scorer via ``check_hard_constraints``.
-    """
+    """Stem-aware scorer for the seven djay Pro 5 Neural Mix transitions."""
 
     def score(
         self,
         from_t: TrackFeatures,
         to_t: TrackFeatures,
     ) -> NeuralMixScore:
-        """Compute the Neural Mix score for a transition A → B."""
         rejection = check_hard_constraints(from_t, to_t)
         return (
             self._from_rejection(rejection)
@@ -409,7 +347,6 @@ class NeuralMixScorer:
         candidate_key_distance: int | None = None,
         candidate_energy_delta: float | None = None,
     ) -> NeuralMixScore:
-        """Score reusing pre-computed candidate distances for hard checks."""
         rejection = check_hard_constraints(
             from_t,
             to_t,
@@ -423,11 +360,8 @@ class NeuralMixScorer:
             else self._compute(from_t, to_t)
         )
 
-    # ── Internals ─────────────────────────────────────────
-
     @staticmethod
     def _from_rejection(rejection: TransitionScore) -> NeuralMixScore:
-        """Lift a TransitionScore hard-reject into a NeuralMixScore reject."""
         return NeuralMixScore(
             hard_reject=True,
             reject_reason=rejection.reject_reason,
@@ -468,7 +402,6 @@ class NeuralMixScorer:
 
 
 def _weighted_average(values: list[float], weights: list[float]) -> float:
-    """Weighted average — returns 0.5 if no components available."""
     if not values:
         return 0.5
     total_w = sum(weights)
@@ -478,19 +411,13 @@ def _weighted_average(values: list[float], weights: list[float]) -> float:
 
 
 def _energy_delta_lufs(from_t: TrackFeatures, to_t: TrackFeatures) -> float:
-    """Signed LUFS delta B - A (positive = ramp up)."""
     if from_t.integrated_lufs is None or to_t.integrated_lufs is None:
         return 0.0
     return to_t.integrated_lufs - from_t.integrated_lufs
 
 
 def _energy_bias_modifier(transition: NeuralMixTransition, energy_delta: float) -> float:
-    """Multiplier in ``[0.7, 1.15]`` depending on transition energy bias.
-
-    - RISER prefers positive delta, penalised on negative.
-    - DISSOLVE / ECHO / ECHO_OUT prefer cool-down, penalised on ramp-up.
-    - FADE / FILTER / EQ / NEURAL_MIX / TREMOLO are neutral.
-    """
+    """Multiplier in ``[0.7, 1.15]`` reflecting the preset's energy preference."""
     bias = TRANSITION_ENERGY_BIAS[transition]
     if bias == 0.0:
         return 1.0
