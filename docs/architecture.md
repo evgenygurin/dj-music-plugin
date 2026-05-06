@@ -185,8 +185,14 @@ EntityRegistry
 ├── transition      → TransitionRepository
 │                     + handlers(create=transition_persist)
 ├── transition_history, track_affinity, track_feedback,
-│  scoring_profile, key, provider_metadata → BaseRepository[M]
+│  scoring_profile → BaseRepository[M]
 ```
+
+Note: `key` and `provider_metadata` have ORM models + repositories
+under `app/repositories/` but are **not** registered in
+`EntityRegistry` — they're internal references (Camelot wheel lookup,
+provider response cache). Surface via `reference://camelot` /
+`reference://providers` instead of `entity_*`.
 
 `entity_list(entity="track", filter={...})` → `EntityRegistry.get("track").repo.list(filter)`.
 `entity_create(entity="track", data={ym_id: 42})` → dispatches to `track_import` handler
