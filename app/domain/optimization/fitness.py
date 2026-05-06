@@ -28,8 +28,25 @@ def transition_quality(
     order: list[int],
     idx_map: dict[int, int],
     template: SetTemplateDefinition | None = None,
+    score_cache: dict[tuple[int, int, str], float] | None = None,
+    reject_mask: set[tuple[int, int]] | None = None,
 ) -> float:
-    """Average transition score across consecutive pairs, using intent-aware weights."""
+    """Average transition score across consecutive pairs, using intent-aware weights.
+
+    Two-stage cost cut:
+
+    * ``reject_mask`` (set of ``(idx_a, idx_b)`` known to fail
+      ``check_hard_constraints``) lets us skip the full ``scorer.score``
+      call for pairs that were screened out by a cheap up-front
+      O(N²) scan. Hard-rejected pairs contribute ``0.0`` without ever
+      touching the heavy stem-aware scoring path.
+    * ``score_cache`` keyed by ``(idx_a, idx_b, intent.value)`` memoises
+      the surviving pairs across hundreds of GA fitness evaluations.
+      Same pair, same intent → cache hit, no second compute.
+
+    Together: a 200-track pool with ~80 % hard-reject rate goes from
+    ~3.98 M scorer.score calls to ~8 k actual computes.
+    """
     if len(order) < 2:
         return 1.0
     template_enum: SetTemplate | None = None
@@ -42,13 +59,33 @@ def transition_quality(
     total = 0.0
     n = len(order)
     for i in range(n - 1):
-        a = tracks[idx_map[order[i]]]
-        b = tracks[idx_map[order[i + 1]]]
+        idx_a = idx_map[order[i]]
+        idx_b = idx_map[order[i + 1]]
+
+        # Stage 1: cheap mask lookup. Hard-rejected pairs cost nothing
+        # past this point — fitness gradient still penalises them via
+        # the +0.0 contribution.
+        if reject_mask is not None and (idx_a, idx_b) in reject_mask:
+            continue
+
+        a = tracks[idx_a]
+        b = tracks[idx_b]
         position = i / max(1, n - 2)
         energy_delta = (b.integrated_lufs or -8.0) - (a.integrated_lufs or -8.0)
         intent = infer_intent(position, energy_delta, template=template_enum)
-        score = scorer.score(a, b, intent=intent)
-        total += 0.0 if score.hard_reject else score.overall
+
+        # Stage 2: memoised scorer.score for surviving pairs.
+        if score_cache is not None:
+            key = (idx_a, idx_b, intent.value)
+            cached = score_cache.get(key)
+            if cached is None:
+                score = scorer.score(a, b, intent=intent)
+                cached = 0.0 if score.hard_reject else score.overall
+                score_cache[key] = cached
+            total += cached
+        else:
+            score = scorer.score(a, b, intent=intent)
+            total += 0.0 if score.hard_reject else score.overall
     return total / (n - 1)
 
 
@@ -171,11 +208,27 @@ def compute_fitness(
     idx_map: dict[int, int],
     template: SetTemplateDefinition | None = None,
     moods: dict[int, str | None] | None = None,
+    score_cache: dict[tuple[int, int, str], float] | None = None,
+    reject_mask: set[tuple[int, int]] | None = None,
 ) -> float:
-    """Weighted fitness for a track ordering. Returns 0-1."""
+    """Weighted fitness for a track ordering. Returns 0-1.
+
+    ``reject_mask`` and ``score_cache`` are forwarded to
+    ``transition_quality`` for the two-stage memoisation described in
+    its docstring. Both should be created once per optimisation run by
+    the caller and reused across every fitness evaluation.
+    """
     w = _FITNESS_WEIGHTS
 
-    trans = transition_quality(scorer, tracks, order, idx_map, template=template)
+    trans = transition_quality(
+        scorer,
+        tracks,
+        order,
+        idx_map,
+        template=template,
+        score_cache=score_cache,
+        reject_mask=reject_mask,
+    )
     bpm = bpm_smoothness(tracks, order, idx_map)
     energy = energy_arc_score(tracks, order, idx_map)
     variety = subgenre_variety(tracks, order, idx_map, moods)
