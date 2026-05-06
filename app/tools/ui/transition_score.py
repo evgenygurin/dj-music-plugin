@@ -47,10 +47,24 @@ except ImportError as _exc:  # pragma: no cover — fastmcp[apps] extra missing
         "(or `pip install 'fastmcp[apps]'`)."
     ) from _exc
 
-# Public TransitionScore field names. The four stem-mapped fields kept
-# their v0 labels (harmonic / spectral / groove / timbral) — see
-# ``app/domain/transition/score.py`` docstring for the conceptual map.
-_COMPONENTS = ("bpm", "harmonic", "energy", "spectral", "groove", "timbral")
+# UI label → ``TransitionScore`` attribute. The dataclass moved to
+# stem-named fields (``harmonics`` / ``bass`` / ``drums`` / ``vocals``)
+# but ``docs/transition-scoring.md`` still presents them as the v0
+# conceptual labels (``harmonic`` / ``spectral`` / ``groove`` /
+# ``timbral``) — the radar chart keeps the v0 labels for axis text
+# while reading the actual attribute via this map. Smoke test
+# 2026-05-07: prior tuple did ``getattr(score, "harmonic", 0.0)``
+# blind, which silently returned ``0.0`` for four of the six axes
+# because no such attribute exists on the dataclass.
+_COMPONENT_FIELD_MAP: dict[str, str] = {
+    "bpm": "bpm",
+    "harmonic": "harmonics",
+    "energy": "energy",
+    "spectral": "bass",
+    "groove": "drums",
+    "timbral": "vocals",
+}
+_COMPONENTS = tuple(_COMPONENT_FIELD_MAP)
 
 
 def _parse_intent(value: str | None) -> TransitionIntent | None:
@@ -76,7 +90,10 @@ async def _compute(
     return {
         "from_track_id": a,
         "to_track_id": b,
-        "components": {c: float(getattr(score, c, 0.0) or 0.0) for c in _COMPONENTS},
+        "components": {
+            label: float(getattr(score, attr, 0.0) or 0.0)
+            for label, attr in _COMPONENT_FIELD_MAP.items()
+        },
         "overall": float(score.overall or 0.0),
         "hard_reject": bool(score.hard_reject),
         "reject_reason": score.reject_reason,
