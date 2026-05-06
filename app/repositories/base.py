@@ -65,6 +65,15 @@ def _integrity_error_to_validation(exc: IntegrityError, model_name: str) -> Vali
 _UNDEFINED_COLUMN_RE = re.compile(
     r'column "([^"]+)" of relation "([^"]+)" does not exist',
 )
+# asyncpg also surfaces the variant ``column TABLE.COL does not exist``
+# when the column appears in a SELECT projection rather than INSERT/UPDATE
+# (smoke test 2026-05-07: ``track_feedback.kind`` and
+# ``track_affinity.positive_count`` hit this branch). Capture both forms
+# so the typed ``ValidationError`` carries column + table details either
+# way and the SQL trace stays out of the response.
+_UNDEFINED_COLUMN_QUALIFIED_RE = re.compile(
+    r"column ([A-Za-z_][\w]*)\.([A-Za-z_][\w]*) does not exist",
+)
 _UNDEFINED_TABLE_RE = re.compile(
     r'relation "([^"]+)" does not exist',
 )
@@ -86,6 +95,14 @@ def _programming_error_to_validation(exc: ProgrammingError, model_name: str) -> 
     col_match = _UNDEFINED_COLUMN_RE.search(body)
     if col_match:
         col, table = col_match.groups()
+        return ValidationError(
+            f"schema mismatch on {model_name}: column {col!r} missing in table "
+            f"{table!r}. Apply the pending Alembic migration.",
+            details={"column": col, "table": table},
+        )
+    qcol_match = _UNDEFINED_COLUMN_QUALIFIED_RE.search(body)
+    if qcol_match:
+        table, col = qcol_match.groups()
         return ValidationError(
             f"schema mismatch on {model_name}: column {col!r} missing in table "
             f"{table!r}. Apply the pending Alembic migration.",
@@ -127,6 +144,25 @@ class BaseRepository(Generic[M]):
 
     def __init__(self, session: AsyncSession) -> None:
         self.session = session
+
+    async def _execute(self, stmt: Any) -> Any:
+        """Execute ``stmt`` and translate Postgres schema-drift errors.
+
+        Smoke test 2026-05-07: read-side ops (``count``, ``filter``,
+        ``aggregate``) used to leak raw asyncpg ``UndefinedColumnError``
+        / ``UndefinedTableError`` traces (full SQL + bound parameters)
+        when the production Supabase schema lagged the SQLAlchemy
+        models — for example, ``track_feedback.kind`` and
+        ``track_affinity.positive_count`` are declared on the ORM but
+        absent from the live DB. The write-side helpers
+        (``_programming_error_to_validation``) already surface a typed
+        ``ValidationError`` for the same root cause; this method
+        extends that contract to read-side execution.
+        """
+        try:
+            return await self.session.execute(stmt)
+        except ProgrammingError as exc:
+            raise _programming_error_to_validation(exc, self.model.__name__) from exc
 
     # ── single-row ────────────────────────────────────
 
@@ -183,7 +219,7 @@ class BaseRepository(Generic[M]):
         stmt = select(func.count()).select_from(self.model)
         for clause in parse_filter(self.model, where or {}):
             stmt = stmt.where(clause)
-        result = await self.session.execute(stmt)
+        result = await self._execute(stmt)
         return int(result.scalar_one())
 
     async def filter(
@@ -261,7 +297,7 @@ class BaseRepository(Generic[M]):
             stmt = stmt.order_by(column.desc() if direction == "desc" else column.asc())
 
         stmt = stmt.limit(limit + 1)
-        result = await self.session.execute(stmt)
+        result = await self._execute(stmt)
         rows = list(result.scalars().all())
 
         has_more = len(rows) > limit
@@ -285,7 +321,7 @@ class BaseRepository(Generic[M]):
         if with_total:
             total = await self.count(where=where)
 
-        return Page(items=items, next_cursor=next_cursor, total=total)  # type: ignore[arg-type]
+        return Page(items=items, next_cursor=next_cursor, total=total)
 
     # ── aggregate ─────────────────────────────────────
 
@@ -296,12 +332,20 @@ class BaseRepository(Generic[M]):
         field: str | None = None,
         group_by: str | None = None,
         where: dict[str, Any] | None = None,
+        bin_size: float | None = None,
     ) -> Any:
         """Run a single-pass aggregate (count/sum/avg/min_max/distinct/histogram).
 
         Returns a scalar for ungrouped count/sum/avg, a mapping for
         ``min_max``, a list for ``distinct``/``histogram``, or — when
         ``group_by`` is set — a list of ``{group, value}`` dicts.
+
+        ``bin_size`` only matters for ``operation="histogram"`` over a
+        continuous numeric column (float). When supplied, values are
+        bucketed into ``floor(value / bin_size) * bin_size`` groups.
+        When omitted, float columns auto-bin into ~30 buckets via a
+        cheap min/max pre-query; integer / discrete columns continue
+        to ``GROUP BY value`` directly (e.g. ``key_code``, ``mood``).
         """
         op = operation
         field_col = getattr(self.model, field, None) if field else None
@@ -357,7 +401,7 @@ class BaseRepository(Generic[M]):
                 stmt = select(func.min(field_col), func.max(field_col)).select_from(self.model)
                 for clause in parse_filter(self.model, where or {}):
                     stmt = stmt.where(clause)
-                row = (await self.session.execute(stmt)).one()
+                row = (await self._execute(stmt)).one()
                 return {"min": row[0], "max": row[1]}
             case "distinct":
                 # Field validity already checked up front (audit iter 47).
@@ -365,13 +409,49 @@ class BaseRepository(Generic[M]):
                 stmt = select(field_col).select_from(self.model).distinct()
                 for clause in parse_filter(self.model, where or {}):
                     stmt = stmt.where(clause)
-                return list((await self.session.execute(stmt)).scalars().all())
+                return list((await self._execute(stmt)).scalars().all())
             case "histogram":
-                # {value: count} for discrete fields — caller buckets numeric ones.
-                stmt = select(field_col, func.count()).select_from(self.model).group_by(field_col)  # type: ignore[arg-type]
+                # Smoke test 2026-05-07: this op used to be a plain
+                # ``GROUP BY value`` — fine for discrete columns
+                # (``mood``, ``key_code``) but a context-bomb for
+                # continuous floats (``bpm`` returned >1500 buckets,
+                # one per distinct value). Now: bucket float columns,
+                # keep GROUP BY for ints/strings.
+                assert field_col is not None  # type narrowing for mypy
+                try:
+                    py_type = field_col.type.python_type
+                except (AttributeError, NotImplementedError):
+                    py_type = None
+                is_continuous = py_type is float
+                effective_bin = bin_size
+                if is_continuous and effective_bin is None:
+                    # Cheap auto-bin: compute min/max in one pre-query,
+                    # divide span into ~30 buckets. Falls back to
+                    # bin_size=1.0 when the column is empty / single-valued.
+                    span_stmt = select(func.min(field_col), func.max(field_col)).select_from(
+                        self.model
+                    )
+                    for clause in parse_filter(self.model, where or {}):
+                        span_stmt = span_stmt.where(clause)
+                    span_row = (await self._execute(span_stmt)).one()
+                    lo, hi = span_row[0], span_row[1]
+                    if lo is not None and hi is not None and hi > lo:
+                        effective_bin = (float(hi) - float(lo)) / 30.0
+                    else:
+                        effective_bin = 1.0
+                if effective_bin is not None and effective_bin > 0:
+                    bucket_expr = func.floor(field_col / effective_bin) * effective_bin
+                else:
+                    bucket_expr = field_col
+                stmt = (
+                    select(bucket_expr.label("bucket"), func.count())
+                    .select_from(self.model)
+                    .group_by(bucket_expr)
+                    .order_by(bucket_expr)
+                )
                 for clause in parse_filter(self.model, where or {}):
                     stmt = stmt.where(clause)
-                rows = (await self.session.execute(stmt)).all()
+                rows = (await self._execute(stmt)).all()
                 return [{"bucket": r[0], "count": int(r[1])} for r in rows]
             case _:
                 raise ValidationError(f"unsupported aggregate operation: {op!r}")
@@ -403,13 +483,13 @@ class BaseRepository(Generic[M]):
             stmt = select(group_col, value_expr).select_from(self.model).group_by(group_col)
             for clause in parse_filter(self.model, where or {}):
                 stmt = stmt.where(clause)
-            rows = (await self.session.execute(stmt)).all()
+            rows = (await self._execute(stmt)).all()
             return [{"group": r[0], "value": _coerce_numeric(r[1])} for r in rows]
 
         stmt = select(value_expr).select_from(self.model)
         for clause in parse_filter(self.model, where or {}):
             stmt = stmt.where(clause)
-        raw = (await self.session.execute(stmt)).scalar_one()
+        raw = (await self._execute(stmt)).scalar_one()
         # ``sum`` / ``avg`` over zero rows (or all-NULL) returns None from
         # Postgres. AggregateResult.value is non-nullable, so coalesce to 0
         # for numeric ops and keep ``count`` at its real value.
