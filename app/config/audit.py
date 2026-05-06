@@ -46,7 +46,14 @@ class AuditSettings(BaseSettings):
     techno_hnr_min: float = Field(default=-30.0)  # dB
 
     # ── Audit-specific gates ──
-    audit_true_peak_max: float = Field(default=-0.3, le=0.0)  # dB
+    # Loosened from -0.3 dBTP (smoke test 2026-05-07): modern techno mastering
+    # routinely sits at +0.0..+1.0 dBTP. Snapshot 2026-05-07 of
+    # ``track_audio_features_computed.true_peak_db`` (~24k rows): ~17k tracks
+    # have ``true_peak_db ≥ -0.5``; ~12k have ``true_peak_db ≥ +0.0``. With
+    # the prior -0.3 cap audit returned ``passed=0/N`` for every playlist
+    # — useless. ``0.0`` keeps the rule meaningful (flags genuine positive
+    # clipping) without false-failing every mastered track.
+    audit_true_peak_max: float = Field(default=0.0, le=0.0)  # dB
     audit_bpm_confidence_min: float = Field(default=0.5, ge=0.0, le=1.0)
     audit_key_confidence_min: float = Field(default=0.4, ge=0.0, le=1.0)
     audit_hp_ratio_max: float = Field(default=8.0, ge=0.0)

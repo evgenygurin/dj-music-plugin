@@ -173,6 +173,15 @@ def resolve_field_projection(
         s = fields.strip()
         if not s:
             return None
+        # Smoke test 2026-05-07: callers that JSON-encode a single preset
+        # name (``fields="\"summary\""``) used to land here as ``'"summary"'``
+        # (with literal quote chars) and miss the preset table. Strip a
+        # single pair of matching outer quotes so the same preset name
+        # works whether it was passed bare or pre-quoted.
+        if len(s) >= 2 and s[0] == s[-1] and s[0] in {'"', "'"}:
+            s = s[1:-1].strip()
+            if not s:
+                return None
         # Preset name?
         if s in presets:
             preset_val = presets[s]

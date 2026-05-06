@@ -53,6 +53,18 @@ async def entity_aggregate(
     ] = None,
     group_by: Annotated[str | None, Field(description="Group column")] = None,
     filters: Annotated[JsonDictOrNone, Field(description="Django-style filters")] = None,
+    bin_size: Annotated[
+        float | None,
+        Field(
+            gt=0.0,
+            description=(
+                "Histogram bucket width for continuous numeric fields "
+                "(e.g. ``bin_size=1.0`` for BPM). Ignored for discrete "
+                "columns. Defaults to auto-bin into ~30 buckets when "
+                "omitted on a float column."
+            ),
+        ),
+    ] = None,
     uow: UnitOfWork = Depends(get_uow),
     ctx: Context = CurrentContext(),
 ) -> AggregateResult:
@@ -75,7 +87,13 @@ async def entity_aggregate(
         ) from exc
 
     repo = getattr(uow, config.repo_attr)
-    value = await repo.aggregate(operation=operation, field=field, group_by=group_by, where=where)
+    value = await repo.aggregate(
+        operation=operation,
+        field=field,
+        group_by=group_by,
+        where=where,
+        bin_size=bin_size,
+    )
     return AggregateResult(
         entity=entity,
         operation=operation,
