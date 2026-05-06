@@ -105,31 +105,30 @@ class TransitionScorer:
         bpm = score_bpm(from_t, to_t)
         energy = score_energy(from_t, to_t)
 
-        # NeuralMixStem → public TransitionScore field name mapping.
-        # See ``score.py`` docstring for the conceptual rationale.
-        harmonic = nm.stem_scores.get(NeuralMixStem.HARMONICS, 0.0)
-        spectral = nm.stem_scores.get(NeuralMixStem.BASS, 0.0)
-        groove = nm.stem_scores.get(NeuralMixStem.DRUMS, 0.0)
-        timbral = nm.stem_scores.get(NeuralMixStem.VOCALS, 0.0)
+        # NeuralMixStem → public TransitionScore field 1:1.
+        drums = nm.stem_scores.get(NeuralMixStem.DRUMS, 0.0)
+        bass = nm.stem_scores.get(NeuralMixStem.BASS, 0.0)
+        harmonics = nm.stem_scores.get(NeuralMixStem.HARMONICS, 0.0)
+        vocals = nm.stem_scores.get(NeuralMixStem.VOCALS, 0.0)
 
         overall = (
             weights.get("bpm", 0.0) * bpm
-            + weights.get("harmonic", 0.0) * harmonic
             + weights.get("energy", 0.0) * energy
-            + weights.get("spectral", 0.0) * spectral
-            + weights.get("groove", 0.0) * groove
-            + weights.get("timbral", 0.0) * timbral
+            + weights.get("drums", 0.0) * drums
+            + weights.get("bass", 0.0) * bass
+            + weights.get("harmonics", 0.0) * harmonics
+            + weights.get("vocals", 0.0) * vocals
         )
 
         best: NeuralMixTransition | None = nm.best_transition
 
         return TransitionScore(
             bpm=bpm,
-            harmonic=harmonic,
             energy=energy,
-            spectral=spectral,
-            groove=groove,
-            timbral=timbral,
+            drums=drums,
+            bass=bass,
+            harmonics=harmonics,
+            vocals=vocals,
             overall=overall,
             best_transition=best,
         )

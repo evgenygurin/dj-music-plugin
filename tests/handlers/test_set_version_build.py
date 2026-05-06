@@ -48,8 +48,8 @@ def scorer() -> MagicMock:
     s = MagicMock()
     score = MagicMock()
     score.overall = 0.8
-    score.bpm = score.harmonic = score.energy = 0.8
-    score.spectral = score.groove = score.timbral = 0.8
+    score.bpm = score.harmonics = score.energy = 0.8
+    score.bass = score.drums = score.vocals = 0.8
     score.hard_reject = False
     score.reject_reason = None
     s.score.return_value = score
@@ -143,22 +143,22 @@ async def test_persists_hard_rejects_with_reason(
     good = MagicMock(
         overall=0.8,
         bpm=0.8,
-        harmonic=0.8,
+        harmonics=0.8,
         energy=0.8,
-        spectral=0.8,
-        groove=0.8,
-        timbral=0.8,
+        bass=0.8,
+        drums=0.8,
+        vocals=0.8,
         hard_reject=False,
         reject_reason=None,
     )
     bad = MagicMock(
         overall=0.0,
         bpm=0.0,
-        harmonic=0.5,
+        harmonics=0.5,
         energy=0.5,
-        spectral=0.5,
-        groove=0.5,
-        timbral=0.5,
+        bass=0.5,
+        drums=0.5,
+        vocals=0.5,
         hard_reject=True,
         reject_reason="BPM diff 25.2 > 10.0",
     )

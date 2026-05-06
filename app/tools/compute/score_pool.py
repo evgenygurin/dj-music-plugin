@@ -110,11 +110,11 @@ async def transition_score_pool(
                     "b": b,
                     "overall": float(score.overall),
                     "bpm": float(score.bpm),
-                    "harmonic": float(score.harmonic),
+                    "harmonics": float(score.harmonics),
                     "energy": float(score.energy),
-                    "spectral": float(score.spectral),
-                    "groove": float(score.groove),
-                    "timbral": float(score.timbral),
+                    "bass": float(score.bass),
+                    "drums": float(score.drums),
+                    "vocals": float(score.vocals),
                 }
             )
             done += 1

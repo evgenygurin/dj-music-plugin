@@ -24,7 +24,7 @@ class TestDefaultWeights:
         )
 
     def test_has_six_components(self) -> None:
-        expected = {"bpm", "harmonic", "energy", "spectral", "groove", "timbral"}
+        expected = {"bpm", "energy", "drums", "bass", "harmonics", "vocals"}
         assert set(DEFAULT_WEIGHTS.keys()) == expected
 
     @pytest.mark.parametrize("name,weight", list(DEFAULT_WEIGHTS.items()))

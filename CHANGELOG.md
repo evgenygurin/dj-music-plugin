@@ -6,6 +6,26 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.3.1] - 2026-05-06
+
+**Score-column / weight-column rename to match Neural Mix stem vocabulary.** Closes the residual mismatch from v1.3.0 where the four perceptual ``TransitionScore`` fields kept their pre-Neural-Mix names (``harmonic`` / ``spectral`` / ``groove`` / ``timbral``) even though they semantically held stem compats. v1.3.1 renames them everywhere — dataclass fields, DB columns, weight dict keys, Pydantic schemas, Django-style filter lookups, ``ScoringProfile`` weight fields and CheckConstraint names — to match the Neural Mix stem they hold.
+
+### Changed
+- ``TransitionScore`` fields: ``harmonic→harmonics``, ``spectral→bass``, ``groove→drums``, ``timbral→vocals``. Field order: ``bpm, energy, drums, bass, harmonics, vocals, overall, hard_reject, reject_reason, best_transition``.
+- DB columns on ``transitions`` and ``transition_history``: same rename.
+- ``DEFAULT_WEIGHTS`` and ``INTENT_WEIGHT_MODIFIERS`` dict keys: same rename.
+- ``ScoringProfile`` columns + Pydantic schemas: ``harmonic_weight→harmonics_weight``, ``spectral_weight→bass_weight``, ``groove_weight→drums_weight``, ``timbral_weight→vocals_weight``.
+- ``ScoringProfile`` CheckConstraint names: ``ck_profile_{harm,spectral,groove,timbral}→ck_profile_{harmonics,bass,drums,vocals}``.
+- Picker constants: ``_DRUM_ONLY_GROOVE_{HIGH,MID}→_DRUM_ONLY_DRUMS_{HIGH,MID}``.
+- `app/resources/transition.py` JSON output keys mirror the field rename.
+
+### Migration
+- ``migrations/2026-05-06_neural_mix_score_columns.sql`` — direct SQL DDL renaming the 4+4+4 columns plus 4 CheckConstraint names. Apply against Supabase once.
+
+### Tests
+- 1247 → **1247 passed** (no test count change; bulk rename, behaviour identical).
+- ``make check`` clean (mypy strict, ruff, import-linter, pytest -n auto).
+
 ## [1.3.0] - 2026-05-06
 
 **Adopt the djay Pro 5 Neural Mix paradigm.** Collapse four parallel transition enums (``TransitionStyle``×6, ``TransitionType``×12, ``DjayTransition``×6, ``NeuralMixTransition``×9) into a single ``NeuralMixTransition`` with exactly seven values matching the djay Pro 5 Automix UI: FADE, ECHO_OUT, VOCAL_SUSTAIN, HARMONIC_SUSTAIN, DRUM_SWAP, VOCAL_CUT, DRUM_CUT. Replace the prose ``RecipeStep`` / ``EQPlan`` recipe model with a stem-keyframe envelope. Rework the six-component scorer around four stem compatibilities (drums / bass / harmonics / vocals) plus BPM and energy.

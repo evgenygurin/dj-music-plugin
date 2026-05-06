@@ -5,27 +5,23 @@ import it without dragging the full scorer engine. The shape is part of
 the public API; persisted DB rows from ``transitions`` are reconstructed
 into TransitionScore instances by ``app/handlers/transition_persist``.
 
-Field semantics (post Neural Mix refactor):
+Field semantics (Neural Mix paradigm, v1.3.1):
 
 * ``bpm`` — tempo compatibility (BPM Gauss + stability + double/half).
 * ``energy`` — LUFS energy-flow compatibility.
-* ``harmonic`` — Neural Mix HARMONICS stem compatibility (key + Tonnetz +
-  MFCC + spectral contrast). NB the column name kept its v0 semantic
-  label "harmonic"; conceptually this is the harmonics stem from the
-  djay Pro Neural Mix paradigm.
-* ``spectral`` — Neural Mix BASS stem compatibility (Camelot + bass
-  band energy + BPM). v0 column name kept; conceptually the bass stem.
-* ``groove`` — Neural Mix DRUMS stem compatibility (BPM + kick
-  prominence + onset rate + beat-loudness band cosine). v0 column name
-  kept; conceptually the drums stem.
-* ``timbral`` — Neural Mix VOCALS stem compatibility (centroid + chroma
-  entropy + pitch salience). v0 column name kept; conceptually the
-  vocals stem.
+* ``drums`` — Neural Mix DRUMS stem compatibility (BPM lock + kick
+  prominence + onset rate + beat-loudness band cosine).
+* ``bass`` — Neural Mix BASS stem compatibility (Camelot wheel + bass
+  band energy + BPM Gauss).
+* ``harmonics`` — Neural Mix HARMONICS stem compatibility (Camelot +
+  Tonnetz + MFCC + spectral contrast; HNR-weighted).
+* ``vocals`` — Neural Mix VOCALS stem compatibility (spectral centroid
+  + chroma entropy + pitch salience proxies).
 
-Future task (T6/T7) will rename the four stem fields/columns to
-``drums``, ``bass``, ``harmonics``, ``vocals`` end-to-end. For now the
-v0 names persist so the DB column rename can land as a separate atomic
-migration without churning every consumer in this commit.
+Pre-v1.3.1 field names were ``harmonic`` / ``spectral`` / ``groove`` /
+``timbral`` — semantic but no longer descriptive after the Neural Mix
+refactor reused them as stem compats. The v1.3.1 rename brings field,
+DB column, and weights-dict labels in sync with the stem they hold.
 
 * ``overall`` — weighted sum of the six components.
 * ``hard_reject`` — True iff a hard constraint (BPM > 10, Camelot ≥ 5,
@@ -33,9 +29,6 @@ migration without churning every consumer in this commit.
 * ``reject_reason`` — human-readable rejection cause.
 * ``best_transition`` — the Neural Mix preset the scorer believes fits
   best (argmax over the seven per-transition stem-weighted scores).
-  Optional; ``None`` on hard reject. The picker (T3) returns the same
-  value through a richer decision tree once context (sections, intent,
-  subgenres) is in scope.
 """
 
 from __future__ import annotations
@@ -52,11 +45,11 @@ class TransitionScore:
     """Six-component transition score between two tracks (stem-aware)."""
 
     bpm: float = 0.0
-    harmonic: float = 0.0
     energy: float = 0.0
-    spectral: float = 0.0
-    groove: float = 0.0
-    timbral: float = 0.0
+    drums: float = 0.0
+    bass: float = 0.0
+    harmonics: float = 0.0
+    vocals: float = 0.0
     overall: float = 0.0
     hard_reject: bool = False
     reject_reason: str | None = None

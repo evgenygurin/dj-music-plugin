@@ -15,11 +15,11 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 # but a persisted bogus profile would mask the bug.
 _WEIGHT_FIELDS: tuple[str, ...] = (
     "bpm_weight",
-    "harmonic_weight",
+    "harmonics_weight",
     "energy_weight",
-    "spectral_weight",
-    "groove_weight",
-    "timbral_weight",
+    "bass_weight",
+    "drums_weight",
+    "vocals_weight",
 )
 _WEIGHT_SUM_EPS = 0.001
 
@@ -48,11 +48,11 @@ class ScoringProfileView(BaseModel):
     id: int
     name: str
     bpm_weight: float
-    harmonic_weight: float
+    harmonics_weight: float
     energy_weight: float
-    spectral_weight: float
-    groove_weight: float
-    timbral_weight: float
+    bass_weight: float
+    drums_weight: float
+    vocals_weight: float
     description: str | None = None
 
 
@@ -67,27 +67,27 @@ class ScoringProfileFilter(BaseModel):
     # TransitionHistory.
     bpm_weight__gte: float | None = None
     bpm_weight__lte: float | None = None
-    harmonic_weight__gte: float | None = None
-    harmonic_weight__lte: float | None = None
+    harmonics_weight__gte: float | None = None
+    harmonics_weight__lte: float | None = None
     energy_weight__gte: float | None = None
     energy_weight__lte: float | None = None
-    spectral_weight__gte: float | None = None
-    spectral_weight__lte: float | None = None
-    groove_weight__gte: float | None = None
-    groove_weight__lte: float | None = None
-    timbral_weight__gte: float | None = None
-    timbral_weight__lte: float | None = None
+    bass_weight__gte: float | None = None
+    bass_weight__lte: float | None = None
+    drums_weight__gte: float | None = None
+    drums_weight__lte: float | None = None
+    vocals_weight__gte: float | None = None
+    vocals_weight__lte: float | None = None
 
 
 class ScoringProfileCreate(BaseModel):
     model_config = ConfigDict(extra="forbid")
     name: str = Field(..., min_length=1, max_length=100)
     bpm_weight: float = Field(..., ge=0.0, le=1.0)
-    harmonic_weight: float = Field(..., ge=0.0, le=1.0)
+    harmonics_weight: float = Field(..., ge=0.0, le=1.0)
     energy_weight: float = Field(..., ge=0.0, le=1.0)
-    spectral_weight: float = Field(..., ge=0.0, le=1.0)
-    groove_weight: float = Field(..., ge=0.0, le=1.0)
-    timbral_weight: float = Field(..., ge=0.0, le=1.0)
+    bass_weight: float = Field(..., ge=0.0, le=1.0)
+    drums_weight: float = Field(..., ge=0.0, le=1.0)
+    vocals_weight: float = Field(..., ge=0.0, le=1.0)
     description: str | None = None
 
     @model_validator(mode="after")
@@ -99,11 +99,11 @@ class ScoringProfileCreate(BaseModel):
 class ScoringProfileUpdate(BaseModel):
     model_config = ConfigDict(extra="forbid")
     bpm_weight: float | None = Field(default=None, ge=0.0, le=1.0)
-    harmonic_weight: float | None = Field(default=None, ge=0.0, le=1.0)
+    harmonics_weight: float | None = Field(default=None, ge=0.0, le=1.0)
     energy_weight: float | None = Field(default=None, ge=0.0, le=1.0)
-    spectral_weight: float | None = Field(default=None, ge=0.0, le=1.0)
-    groove_weight: float | None = Field(default=None, ge=0.0, le=1.0)
-    timbral_weight: float | None = Field(default=None, ge=0.0, le=1.0)
+    bass_weight: float | None = Field(default=None, ge=0.0, le=1.0)
+    drums_weight: float | None = Field(default=None, ge=0.0, le=1.0)
+    vocals_weight: float | None = Field(default=None, ge=0.0, le=1.0)
     description: str | None = None
 
     @model_validator(mode="after")

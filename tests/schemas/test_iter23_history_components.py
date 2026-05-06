@@ -14,11 +14,11 @@ from app.schemas.transition_history import TransitionHistoryFilter
     "lookup,value",
     [
         ("bpm_score__gte", 0.7),
-        ("harmonic_score__lte", 0.4),
+        ("harmonics_score__lte", 0.4),
         ("energy_score__gte", 0.5),
-        ("spectral_score__lte", 0.5),
-        ("groove_score__gte", 0.6),
-        ("timbral_score__lte", 0.5),
+        ("bass_score__lte", 0.5),
+        ("drums_score__gte", 0.6),
+        ("vocals_score__lte", 0.5),
         ("tempo_match_ratio__gte", 0.95),
     ],
 )

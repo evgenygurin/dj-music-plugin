@@ -25,11 +25,11 @@ class TransitionView(BaseModel):
     to_track_id: int
     overall_quality: float | None = None
     bpm_score: float | None = None
-    harmonic_score: float | None = None
+    harmonics_score: float | None = None
     energy_score: float | None = None
-    spectral_score: float | None = None
-    groove_score: float | None = None
-    timbral_score: float | None = None
+    bass_score: float | None = None
+    drums_score: float | None = None
+    vocals_score: float | None = None
     # Compound / derived scores persisted by ``transition_persist`` handler.
     # Audit iter 38: missing from the View → ``entity_get`` / list could not
     # surface the harmonic-distance-weighted score nor the low-band conflict
@@ -87,16 +87,16 @@ class TransitionFilter(BaseModel):
     # harmonic" - the canonical scoring-debug query.
     bpm_score__gte: float | None = None
     bpm_score__lte: float | None = None
-    harmonic_score__gte: float | None = None
-    harmonic_score__lte: float | None = None
+    harmonics_score__gte: float | None = None
+    harmonics_score__lte: float | None = None
     energy_score__gte: float | None = None
     energy_score__lte: float | None = None
-    spectral_score__gte: float | None = None
-    spectral_score__lte: float | None = None
-    groove_score__gte: float | None = None
-    groove_score__lte: float | None = None
-    timbral_score__gte: float | None = None
-    timbral_score__lte: float | None = None
+    bass_score__gte: float | None = None
+    bass_score__lte: float | None = None
+    drums_score__gte: float | None = None
+    drums_score__lte: float | None = None
+    vocals_score__gte: float | None = None
+    vocals_score__lte: float | None = None
     # fx_type: which transition style was tagged on a persisted pair.
     fx_type__eq: str | None = None
     fx_type__in: list[str] | None = None

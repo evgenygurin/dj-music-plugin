@@ -11,11 +11,11 @@ from app.schemas.scoring_profile import ScoringProfileFilter
     "lookup",
     [
         "bpm_weight__gte",
-        "harmonic_weight__lte",
+        "harmonics_weight__lte",
         "energy_weight__gte",
-        "spectral_weight__lte",
-        "groove_weight__gte",
-        "timbral_weight__lte",
+        "bass_weight__lte",
+        "drums_weight__gte",
+        "vocals_weight__lte",
     ],
 )
 def test_scoring_profile_filter_accepts_weight_lookups(lookup: str) -> None:

@@ -13,26 +13,19 @@ single source of truth for stem-aware scoring.
 from __future__ import annotations
 
 # ── Component weights (sum = 1.0) ────────────────────────
-# Six top-level components: bpm + energy + four stem compats.
-# Field names on ``TransitionScore`` keep their v0 labels (harmonic,
-# spectral, groove, timbral); semantically they map to the four Neural
-# Mix stems via the table in ``neural_mix.TRANSITION_STEM_WEIGHTS``.
+# Six top-level components: bpm + energy + four Neural Mix stem compats
+# (drums, bass, harmonics, vocals).
 #
-#  * harmonic ↔ NeuralMixStem.HARMONICS
-#  * spectral ↔ NeuralMixStem.BASS
-#  * groove   ↔ NeuralMixStem.DRUMS
-#  * timbral  ↔ NeuralMixStem.VOCALS
-#
-# The slight uplift on ``groove`` (drums stem) reflects techno DJ
-# practice — kick / onset alignment is the load-bearing scoring axis
-# even more than key matching at peak time.
+# The slight uplift on ``drums`` reflects techno DJ practice — kick /
+# onset alignment is the load-bearing scoring axis even more than key
+# matching at peak time.
 DEFAULT_WEIGHTS: dict[str, float] = {
     "bpm": 0.20,
-    "harmonic": 0.15,
     "energy": 0.15,
-    "spectral": 0.15,
-    "groove": 0.20,
-    "timbral": 0.15,
+    "drums": 0.20,
+    "bass": 0.15,
+    "harmonics": 0.15,
+    "vocals": 0.15,
 }
 
 # ── BPM scoring ──────────────────────────────────────────

@@ -79,11 +79,11 @@ async def transition_score(
         reject_reason=score.reject_reason,
         components={
             "bpm": score.bpm,
-            "harmonic": score.harmonic,
+            "harmonics": score.harmonics,
             "energy": score.energy,
-            "spectral": score.spectral,
-            "groove": score.groove,
-            "timbral": score.timbral,
+            "bass": score.bass,
+            "drums": score.drums,
+            "vocals": score.vocals,
         },
     ).model_dump_json()
 
@@ -107,13 +107,13 @@ async def transition_explain(
     bpm_b = getattr(feat_b, "bpm", None)
     parts: list[str] = [
         f"BPM: {bpm_a} -> {bpm_b} (component {score.bpm:.2f}).",
-        f"Harmonic component {score.harmonic:.2f}.",
+        f"Harmonic component {score.harmonics:.2f}.",
         f"Energy component {score.energy:.2f}.",
     ]
     suggestions: list[str] = []
     if score.hard_reject:
         suggestions.append("hard reject — consider a bridge track")
-    if score.harmonic < 0.55:
+    if score.harmonics < 0.55:
         suggestions.append("long blend (32 bars) over key drift")
     if score.energy < 0.4:
         suggestions.append("echo-out to soften energy gap")

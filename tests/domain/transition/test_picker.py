@@ -20,11 +20,11 @@ from app.shared.features import TrackFeatures
 def _ok_score(**kwargs: object) -> TransitionScore:
     defaults: dict[str, object] = {
         "bpm": 0.9,
-        "harmonic": 0.8,
+        "harmonics": 0.8,
         "energy": 0.85,
-        "spectral": 0.8,
-        "groove": 0.75,
-        "timbral": 0.7,
+        "bass": 0.8,
+        "drums": 0.75,
+        "vocals": 0.7,
         "overall": 0.8,
         "hard_reject": False,
         "reject_reason": None,
@@ -52,21 +52,21 @@ def test_hard_reject_routes_to_echo_out() -> None:
 
 
 def test_drum_only_high_groove_picks_drum_swap() -> None:
-    score = _ok_score(groove=0.90)
+    score = _ok_score(drums=0.90)
     ctx = SectionContext(from_section=SectionType.OUTRO, to_section=SectionType.INTRO)
     decision = pick_neural_mix(score, _track(), _track(), section_context=ctx)
     assert decision.transition is NeuralMixTransition.DRUM_SWAP
 
 
 def test_drum_only_mid_groove_picks_drum_cut() -> None:
-    score = _ok_score(groove=0.70)
+    score = _ok_score(drums=0.70)
     ctx = SectionContext(from_section=SectionType.OUTRO, to_section=SectionType.INTRO)
     decision = pick_neural_mix(score, _track(), _track(), section_context=ctx)
     assert decision.transition is NeuralMixTransition.DRUM_CUT
 
 
 def test_drum_only_low_groove_picks_fade() -> None:
-    score = _ok_score(groove=0.40)
+    score = _ok_score(drums=0.40)
     ctx = SectionContext(from_section=SectionType.OUTRO, to_section=SectionType.INTRO)
     decision = pick_neural_mix(score, _track(), _track(), section_context=ctx)
     assert decision.transition is NeuralMixTransition.FADE
@@ -232,6 +232,6 @@ def test_build_recipe_for_pair_records_section_labels() -> None:
     a = _track(pitch_salience_mean=0.6, spectral_centroid_hz=3000.0)
     b = _track(pitch_salience_mean=0.2, spectral_centroid_hz=1800.0)
     ctx = SectionContext(from_section=SectionType.OUTRO, to_section=SectionType.INTRO)
-    recipe = build_recipe_for_pair(_ok_score(groove=0.40), a, b, section_context=ctx)
+    recipe = build_recipe_for_pair(_ok_score(drums=0.40), a, b, section_context=ctx)
     assert recipe.mix_out_section == "outro"
     assert recipe.mix_in_section == "intro"

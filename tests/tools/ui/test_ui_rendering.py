@@ -127,11 +127,11 @@ async def test_ui_transition_score_renders_column() -> None:
     # Score must have the 6 component attrs + overall + hard_reject + reject_reason.
     score = MagicMock(
         bpm=0.8,
-        harmonic=0.7,
+        harmonics=0.7,
         energy=0.6,
-        spectral=0.5,
-        groove=0.4,
-        timbral=0.3,
+        bass=0.5,
+        drums=0.4,
+        vocals=0.3,
         overall=0.65,
         hard_reject=False,
         reject_reason=None,
@@ -277,11 +277,11 @@ async def test_ui_transition_score_renders_with_hard_reject() -> None:
     scorer = MagicMock()
     score = MagicMock(
         bpm=0.0,
-        harmonic=0.0,
+        harmonics=0.0,
         energy=0.0,
-        spectral=0.0,
-        groove=0.0,
-        timbral=0.0,
+        bass=0.0,
+        drums=0.0,
+        vocals=0.0,
         overall=0.0,
         hard_reject=True,
         reject_reason="bpm difference 20.0 > 10",

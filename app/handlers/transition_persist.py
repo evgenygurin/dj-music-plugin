@@ -57,17 +57,17 @@ async def persist_transition_score(
     funnel through here so the column→field mapping stays consistent.
 
     Public TransitionScore field names are persisted into the v0
-    ``harmonic_score`` / ``spectral_score`` / ``groove_score`` /
-    ``timbral_score`` columns; internally these now hold the Neural Mix
+    ``drums_score`` / ``bass_score`` / ``harmonics_score`` /
+    ``vocals_score`` columns, holding Neural Mix
     HARMONICS / BASS / DRUMS / VOCALS stem compatibilities.
     """
     fields: dict[str, Any] = dict(
         bpm_score=float(score.bpm),
-        harmonic_score=float(score.harmonic),
         energy_score=float(score.energy),
-        spectral_score=float(score.spectral),
-        groove_score=float(score.groove),
-        timbral_score=float(score.timbral),
+        drums_score=float(score.drums),
+        bass_score=float(score.bass),
+        harmonics_score=float(score.harmonics),
+        vocals_score=float(score.vocals),
         overall_quality=float(score.overall),
         hard_reject=bool(score.hard_reject),
         reject_reason=score.reject_reason,
@@ -142,11 +142,11 @@ async def transition_persist_handler(
         "to_track_id": b_id,
         "overall": float(score.overall),
         "bpm": float(score.bpm),
-        "harmonic": float(score.harmonic),
         "energy": float(score.energy),
-        "spectral": float(score.spectral),
-        "groove": float(score.groove),
-        "timbral": float(score.timbral),
+        "drums": float(score.drums),
+        "bass": float(score.bass),
+        "harmonics": float(score.harmonics),
+        "vocals": float(score.vocals),
         "hard_reject": bool(score.hard_reject),
         "reject_reason": score.reject_reason,
         "transition": str(recipe.transition) if recipe is not None else None,

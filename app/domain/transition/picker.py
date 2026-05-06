@@ -10,7 +10,7 @@ Decision tree (first match wins):
 1. ``score.hard_reject`` → ECHO_OUT (rescue, masks the failure with
    echo tail).
 2. Drum-only mix windows (both sides on intro/outro/sustain/ambient):
-   ``score.groove > 0.85`` → DRUM_SWAP (groove-transfer);
+   ``score.drums > 0.85`` → DRUM_SWAP (groove-transfer);
    ``> 0.65`` → DRUM_CUT (drumless reset);
    else → FADE.
 3. Vocal-active outro on A (proxy: ``pitch_salience_mean > 0.4`` AND
@@ -54,8 +54,8 @@ _HARMONIC_KEY_DIST_MAX = 1
 
 _ENERGY_DELTA_RAMP_UP_LUFS = 2.0
 
-_DRUM_ONLY_GROOVE_HIGH = 0.85
-_DRUM_ONLY_GROOVE_MID = 0.65
+_DRUM_ONLY_DRUMS_HIGH = 0.85
+_DRUM_ONLY_DRUMS_MID = 0.65
 
 
 @dataclass(frozen=True)
@@ -145,22 +145,22 @@ def pick_neural_mix(
 
     # 2. Drum-only pair (both mix-out and mix-in on percussion-only sections).
     if section_context is not None and section_context.is_drum_only_pair:
-        if score.groove > _DRUM_ONLY_GROOVE_HIGH:
+        if score.drums > _DRUM_ONLY_DRUMS_HIGH:
             return PickerDecision(
                 transition=NeuralMixTransition.DRUM_SWAP,
                 confidence=0.92,
-                reason=f"drum-only sections, groove={score.groove:.2f} — swap drum bed",
+                reason=f"drum-only sections, drums={score.drums:.2f} — swap drum bed",
             )
-        if score.groove > _DRUM_ONLY_GROOVE_MID:
+        if score.drums > _DRUM_ONLY_DRUMS_MID:
             return PickerDecision(
                 transition=NeuralMixTransition.DRUM_CUT,
                 confidence=0.85,
-                reason=f"drum-only sections, groove={score.groove:.2f} — drumless reset",
+                reason=f"drum-only sections, drums={score.drums:.2f} — drumless reset",
             )
         return PickerDecision(
             transition=NeuralMixTransition.FADE,
             confidence=0.70,
-            reason=f"drum-only sections, groove={score.groove:.2f} too low — linear fade",
+            reason=f"drum-only sections, drums={score.drums:.2f} too low — linear fade",
         )
 
     # 3. Vocal-active A outro.

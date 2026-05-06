@@ -14,11 +14,11 @@ class TransitionHistoryView(BaseModel):
     to_track_id: int
     overall_score: float | None = None
     bpm_score: float | None = None
-    harmonic_score: float | None = None
+    harmonics_score: float | None = None
     energy_score: float | None = None
-    spectral_score: float | None = None
-    groove_score: float | None = None
-    timbral_score: float | None = None
+    bass_score: float | None = None
+    drums_score: float | None = None
+    vocals_score: float | None = None
     style: str | None = None
     duration_sec: float | None = None
     tempo_match_ratio: float | None = None
@@ -52,16 +52,16 @@ class TransitionHistoryFilter(BaseModel):
     # DJ rated them poorly?" was unanswerable).
     bpm_score__gte: float | None = None
     bpm_score__lte: float | None = None
-    harmonic_score__gte: float | None = None
-    harmonic_score__lte: float | None = None
+    harmonics_score__gte: float | None = None
+    harmonics_score__lte: float | None = None
     energy_score__gte: float | None = None
     energy_score__lte: float | None = None
-    spectral_score__gte: float | None = None
-    spectral_score__lte: float | None = None
-    groove_score__gte: float | None = None
-    groove_score__lte: float | None = None
-    timbral_score__gte: float | None = None
-    timbral_score__lte: float | None = None
+    bass_score__gte: float | None = None
+    bass_score__lte: float | None = None
+    drums_score__gte: float | None = None
+    drums_score__lte: float | None = None
+    vocals_score__gte: float | None = None
+    vocals_score__lte: float | None = None
     # tempo_match_ratio: how closely the BPMs aligned in practice.
     tempo_match_ratio__gte: float | None = None
     tempo_match_ratio__lte: float | None = None
@@ -73,11 +73,11 @@ class TransitionHistoryCreate(BaseModel):
     to_track_id: int
     overall_score: float | None = Field(default=None, ge=0.0, le=1.0)
     bpm_score: float | None = None
-    harmonic_score: float | None = None
+    harmonics_score: float | None = None
     energy_score: float | None = None
-    spectral_score: float | None = None
-    groove_score: float | None = None
-    timbral_score: float | None = None
+    bass_score: float | None = None
+    drums_score: float | None = None
+    vocals_score: float | None = None
     style: str | None = None
     duration_sec: float | None = None
     tempo_match_ratio: float | None = None
