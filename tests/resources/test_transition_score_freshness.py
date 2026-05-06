@@ -38,11 +38,11 @@ async def test_transition_score_does_not_consult_persisted_table() -> None:
         hard_reject=True,
         reject_reason="stale: was written when features differed",
         bpm_score=0.0,
-        harmonic_score=0.0,
+        harmonics_score=0.0,
         energy_score=0.0,
-        spectral_score=0.0,
-        groove_score=0.0,
-        timbral_score=0.0,
+        bass_score=0.0,
+        drums_score=0.0,
+        vocals_score=0.0,
     )
     uow = MagicMock()
     uow.transitions = MagicMock()
@@ -146,11 +146,11 @@ async def test_transition_score_and_explain_agree_on_overall() -> None:
             hard_reject=True,
             reject_reason="stale",
             bpm_score=0.0,
-            harmonic_score=0.0,
+            harmonics_score=0.0,
             energy_score=0.0,
-            spectral_score=0.0,
-            groove_score=0.0,
-            timbral_score=0.0,
+            bass_score=0.0,
+            drums_score=0.0,
+            vocals_score=0.0,
         )
     )
     uow.track_features = MagicMock()

@@ -6,7 +6,7 @@ other than sum=1.0 produces out-of-range scores when applied.
 Live confirmation:
 
     entity_create(scoring_profile, {"name":"bad-weights",
-                                    "bpm_weight":0.5, "harmonic_weight":0.5,
+                                    "bpm_weight":0.5, "harmonics_weight":0.5,
                                     ...all 0.5})
     -> 200 OK (profile persists with sum=3.0)
 
@@ -26,11 +26,11 @@ from app.schemas.scoring_profile import ScoringProfileCreate, ScoringProfileUpda
 _DEFAULT_VALID = {
     "name": "x",
     "bpm_weight": 0.20,
-    "harmonic_weight": 0.12,
+    "harmonics_weight": 0.12,
     "energy_weight": 0.18,
-    "spectral_weight": 0.20,
-    "groove_weight": 0.15,
-    "timbral_weight": 0.15,
+    "bass_weight": 0.20,
+    "drums_weight": 0.15,
+    "vocals_weight": 0.15,
 }
 
 
@@ -48,11 +48,11 @@ class TestScoringProfileCreateWeightSum:
                 f: 0.5
                 for f in (
                     "bpm_weight",
-                    "harmonic_weight",
+                    "harmonics_weight",
                     "energy_weight",
-                    "spectral_weight",
-                    "groove_weight",
-                    "timbral_weight",
+                    "bass_weight",
+                    "drums_weight",
+                    "vocals_weight",
                 )
             }
         )
@@ -67,11 +67,11 @@ class TestScoringProfileCreateWeightSum:
                 f: 0.083
                 for f in (
                     "bpm_weight",
-                    "harmonic_weight",
+                    "harmonics_weight",
                     "energy_weight",
-                    "spectral_weight",
-                    "groove_weight",
-                    "timbral_weight",
+                    "bass_weight",
+                    "drums_weight",
+                    "vocals_weight",
                 )
             }
         )
@@ -83,13 +83,13 @@ class TestScoringProfileCreateWeightSum:
         # Sum = 0.20 + 0.12 + 0.18 + 0.20 + 0.15 + 0.15 = 1.0000…
         # nudge timbral by +0.0005 → sum = 1.0005 → still within eps
         almost = dict(_DEFAULT_VALID)
-        almost["timbral_weight"] = 0.1505
+        almost["vocals_weight"] = 0.1505
         ScoringProfileCreate.model_validate(almost)
 
     def test_outside_epsilon_rejected(self) -> None:
         """Sum=1.01 (outside ±0.001) → fail."""
         almost = dict(_DEFAULT_VALID)
-        almost["timbral_weight"] = 0.16  # sum = 1.01
+        almost["vocals_weight"] = 0.16  # sum = 1.01
         with pytest.raises(ValidationError, match=r"weights must sum to 1\.0"):
             ScoringProfileCreate.model_validate(almost)
 
@@ -101,11 +101,11 @@ class TestScoringProfileUpdateWeightSum:
             f: 0.5
             for f in (
                 "bpm_weight",
-                "harmonic_weight",
+                "harmonics_weight",
                 "energy_weight",
-                "spectral_weight",
-                "groove_weight",
-                "timbral_weight",
+                "bass_weight",
+                "drums_weight",
+                "vocals_weight",
             )
         }
         with pytest.raises(ValidationError, match=r"weights must sum to 1\.0"):
@@ -115,11 +115,11 @@ class TestScoringProfileUpdateWeightSum:
         ScoringProfileUpdate.model_validate(
             {
                 "bpm_weight": 0.20,
-                "harmonic_weight": 0.12,
+                "harmonics_weight": 0.12,
                 "energy_weight": 0.18,
-                "spectral_weight": 0.20,
-                "groove_weight": 0.15,
-                "timbral_weight": 0.15,
+                "bass_weight": 0.20,
+                "drums_weight": 0.15,
+                "vocals_weight": 0.15,
             }
         )
 
@@ -127,7 +127,7 @@ class TestScoringProfileUpdateWeightSum:
         """Single-weight patch passes (sum invariant can't be checked
         without the existing row's other 5 weights)."""
         ScoringProfileUpdate.model_validate({"bpm_weight": 0.99})
-        ScoringProfileUpdate.model_validate({"bpm_weight": 0.5, "harmonic_weight": 0.5})
+        ScoringProfileUpdate.model_validate({"bpm_weight": 0.5, "harmonics_weight": 0.5})
 
     def test_description_only_accepted(self) -> None:
         ScoringProfileUpdate.model_validate({"description": "tweaked"})

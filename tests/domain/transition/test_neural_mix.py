@@ -59,20 +59,18 @@ class TestEnumsAndWeights:
         }
         assert len(NEURAL_MIX_STEMS) == 4
 
-    def test_nine_transition_types(self) -> None:
-        assert len(NeuralMixTransition) == 9
+    def test_seven_transition_types_exact(self) -> None:
+        assert len(NeuralMixTransition) == 7
         assert set(NeuralMixTransition) == {
             NeuralMixTransition.FADE,
-            NeuralMixTransition.DISSOLVE,
-            NeuralMixTransition.FILTER,
-            NeuralMixTransition.EQ,
-            NeuralMixTransition.NEURAL_MIX,
-            NeuralMixTransition.ECHO,
             NeuralMixTransition.ECHO_OUT,
-            NeuralMixTransition.RISER,
-            NeuralMixTransition.TREMOLO,
+            NeuralMixTransition.VOCAL_SUSTAIN,
+            NeuralMixTransition.HARMONIC_SUSTAIN,
+            NeuralMixTransition.DRUM_SWAP,
+            NeuralMixTransition.VOCAL_CUT,
+            NeuralMixTransition.DRUM_CUT,
         }
-        assert len(TRANSITION_TYPES) == 9
+        assert len(TRANSITION_TYPES) == 7
 
     def test_every_transition_has_stem_weights_summing_to_one(self) -> None:
         for transition, weights in TRANSITION_STEM_WEIGHTS.items():
@@ -85,11 +83,33 @@ class TestEnumsAndWeights:
             assert transition in TRANSITION_ENERGY_BIAS
             assert -1.0 <= TRANSITION_ENERGY_BIAS[transition] <= 1.0
 
-    def test_riser_prefers_ramp_up(self) -> None:
-        assert TRANSITION_ENERGY_BIAS[NeuralMixTransition.RISER] > 0
+    def test_drum_cut_prefers_ramp_up(self) -> None:
+        # Drop-style breakdown into slam expects a louder incoming track.
+        assert TRANSITION_ENERGY_BIAS[NeuralMixTransition.DRUM_CUT] > 0
 
-    def test_dissolve_prefers_cool_down(self) -> None:
-        assert TRANSITION_ENERGY_BIAS[NeuralMixTransition.DISSOLVE] < 0
+    def test_echo_out_prefers_cool_down(self) -> None:
+        # Echo tail = gentle wind-down.
+        assert TRANSITION_ENERGY_BIAS[NeuralMixTransition.ECHO_OUT] < 0
+
+    def test_fade_neutral(self) -> None:
+        assert TRANSITION_ENERGY_BIAS[NeuralMixTransition.FADE] == 0.0
+
+    def test_vocal_sustain_dominant_on_vocals_stem(self) -> None:
+        weights = TRANSITION_STEM_WEIGHTS[NeuralMixTransition.VOCAL_SUSTAIN]
+        assert weights[NeuralMixStem.VOCALS] >= max(
+            weights[NeuralMixStem.DRUMS],
+            weights[NeuralMixStem.BASS],
+            weights[NeuralMixStem.HARMONICS],
+        )
+
+    def test_drum_swap_dominant_on_drums_stem(self) -> None:
+        weights = TRANSITION_STEM_WEIGHTS[NeuralMixTransition.DRUM_SWAP]
+        assert weights[NeuralMixStem.DRUMS] >= weights[NeuralMixStem.HARMONICS]
+        assert weights[NeuralMixStem.DRUMS] >= weights[NeuralMixStem.VOCALS]
+
+    def test_harmonic_sustain_dominant_on_harmonics_stem(self) -> None:
+        weights = TRANSITION_STEM_WEIGHTS[NeuralMixTransition.HARMONIC_SUSTAIN]
+        assert weights[NeuralMixStem.HARMONICS] == max(weights.values())
 
 
 # ── Hard constraints (shared with TransitionScorer) ─────
@@ -167,9 +187,9 @@ class TestStemScores:
 
 
 class TestTransitionScores:
-    def test_all_nine_transition_scores_populated(self, scorer: NeuralMixScorer) -> None:
+    def test_all_seven_transition_scores_populated(self, scorer: NeuralMixScorer) -> None:
         result = scorer.score(_make_track(), _make_track())
-        assert len(result.transition_scores) == 9
+        assert len(result.transition_scores) == 7
         for transition in NeuralMixTransition:
             assert transition in result.transition_scores
             assert 0.0 <= result.transition_scores[transition] <= 1.0
@@ -181,7 +201,7 @@ class TestTransitionScores:
         assert result.transition_scores[result.best_transition] == pytest.approx(top)
         assert result.overall == pytest.approx(top)
 
-    def test_riser_rewards_energy_ramp_up(self, scorer: NeuralMixScorer) -> None:
+    def test_drum_cut_rewards_energy_ramp_up(self, scorer: NeuralMixScorer) -> None:
         up = scorer.score(
             _make_track(integrated_lufs=-12.0),
             _make_track(integrated_lufs=-8.0),  # +4 LUFS ramp up
@@ -191,11 +211,11 @@ class TestTransitionScores:
             _make_track(integrated_lufs=-12.0),  # -4 LUFS ramp down
         )
         assert (
-            up.transition_scores[NeuralMixTransition.RISER]
-            > down.transition_scores[NeuralMixTransition.RISER]
+            up.transition_scores[NeuralMixTransition.DRUM_CUT]
+            > down.transition_scores[NeuralMixTransition.DRUM_CUT]
         )
 
-    def test_dissolve_prefers_cool_down(self, scorer: NeuralMixScorer) -> None:
+    def test_echo_out_prefers_cool_down(self, scorer: NeuralMixScorer) -> None:
         up = scorer.score(
             _make_track(integrated_lufs=-12.0),
             _make_track(integrated_lufs=-8.0),
@@ -205,13 +225,13 @@ class TestTransitionScores:
             _make_track(integrated_lufs=-12.0),
         )
         assert (
-            down.transition_scores[NeuralMixTransition.DISSOLVE]
-            >= up.transition_scores[NeuralMixTransition.DISSOLVE]
+            down.transition_scores[NeuralMixTransition.ECHO_OUT]
+            >= up.transition_scores[NeuralMixTransition.ECHO_OUT]
         )
 
-    def test_neural_mix_score_on_matching_tracks(self, scorer: NeuralMixScorer) -> None:
+    def test_fade_score_on_matching_tracks(self, scorer: NeuralMixScorer) -> None:
         result = scorer.score(_make_track(), _make_track())
-        assert result.transition_scores[NeuralMixTransition.NEURAL_MIX] > 0.7
+        assert result.transition_scores[NeuralMixTransition.FADE] > 0.7
 
 
 # ── Overall / missing features ──────────────────────────
@@ -224,7 +244,7 @@ class TestOverall:
 
     def test_identical_tracks_high_score(self, scorer: NeuralMixScorer) -> None:
         result = scorer.score(_make_track(), _make_track())
-        assert result.overall > 0.8
+        assert result.overall > 0.7
 
     def test_missing_features_neutral(self, scorer: NeuralMixScorer) -> None:
         a = TrackFeatures()

@@ -118,11 +118,11 @@ async def test_scoring_profile_by_name(setup: None, session: AsyncSession) -> No
     await repo.create(
         name="x",
         bpm_weight=0.2,
-        harmonic_weight=0.15,
+        harmonics_weight=0.15,
         energy_weight=0.15,
-        spectral_weight=0.2,
-        groove_weight=0.15,
-        timbral_weight=0.15,
+        bass_weight=0.2,
+        drums_weight=0.15,
+        vocals_weight=0.15,
     )
     found = await repo.get_by_name("x")
     assert found is not None

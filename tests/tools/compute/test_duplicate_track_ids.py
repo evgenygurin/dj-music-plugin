@@ -80,11 +80,11 @@ async def test_transition_score_pool_accepts_unique_ids() -> None:
         hard_reject=False,
         overall=0.7,
         bpm=0.9,
-        harmonic=0.8,
+        harmonics=0.8,
         energy=0.7,
-        spectral=0.6,
-        groove=0.5,
-        timbral=0.4,
+        bass=0.6,
+        drums=0.5,
+        vocals=0.4,
     )
     scorer = MagicMock()
     scorer.score = MagicMock(return_value=score)
@@ -133,11 +133,11 @@ async def test_transition_score_pool_reports_partial_missing() -> None:
         hard_reject=False,
         overall=0.7,
         bpm=0.9,
-        harmonic=0.8,
+        harmonics=0.8,
         energy=0.7,
-        spectral=0.6,
-        groove=0.5,
-        timbral=0.4,
+        bass=0.6,
+        drums=0.5,
+        vocals=0.4,
     )
     scorer = MagicMock()
     scorer.score = MagicMock(return_value=score)

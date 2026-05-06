@@ -45,6 +45,14 @@ class PlaylistFilter(BaseModel):
     source_app__isnull: bool | None = None
     platform_ids__icontains: str | None = None
     platform_ids__isnull: bool | None = None
+    # ``item_count`` is a correlated subquery column on ``DjPlaylist``
+    # (see ``app/models/playlist.py``). Exposes the standard numeric
+    # comparison lookups so callers can do "playlists with ≥150 tracks".
+    item_count__eq: int | None = None
+    item_count__gt: int | None = None
+    item_count__gte: int | None = None
+    item_count__lt: int | None = None
+    item_count__lte: int | None = None
 
 
 class PlaylistCreate(BaseModel):

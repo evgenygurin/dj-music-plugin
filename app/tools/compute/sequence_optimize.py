@@ -15,14 +15,26 @@ from app.server.di import get_optimizer, get_transition_scorer, get_uow
 from app.shared.errors import ValidationError
 from app.shared.types import JsonIntList, JsonIntListOrNone
 
+# Pool size at or above which the ``auto`` algorithm choice picks
+# greedy over GA. Reasoning: greedy chain-building is O(N²) scoring
+# (one walk through the surviving pool, picking the best next track
+# at each step) versus the GA's O(N²) populate + ~10² generations of
+# fitness evaluation. For pools of 200+ tracks the ratio is roughly
+# 30:1 in greedy's favour, and quality drift is small enough on
+# uniform-subgenre pools that the speedup is the better trade.
+# Callers who explicitly want GA at any size can still pass
+# ``algorithm="ga"``.
+_AUTO_GREEDY_THRESHOLD = 200
+
 
 @tool(
     name="sequence_optimize",
     tags={"namespace:compute", "read"},
     annotations={"readOnlyHint": True, "idempotentHint": False},
     description=(
-        "Find optimal track ordering via GA or greedy. Supports pinned/excluded "
-        "tracks + template-aware fitness. Returns ordering + quality score."
+        "Find optimal track ordering. Defaults to ``auto``: GA for pools "
+        "<200 tracks, greedy otherwise. Pass ``ga`` or ``greedy`` to force. "
+        "Supports pinned/excluded + template-aware fitness."
     ),
     meta={"timeout_s": 300.0},
     timeout=300.0,
@@ -32,8 +44,15 @@ async def sequence_optimize(
         JsonIntList, Field(min_length=2, max_length=500, description="Pool of track IDs")
     ],
     algorithm: Annotated[
-        Literal["ga", "greedy"], Field(description="Optimization algorithm")
-    ] = "ga",
+        Literal["auto", "ga", "greedy"],
+        Field(
+            description=(
+                "``auto`` (default) picks greedy for pools >=200 tracks where "
+                "GA wall-clock dominates the request. ``ga`` and ``greedy`` "
+                "force the choice."
+            )
+        ),
+    ] = "auto",
     template: Annotated[
         str | None, Field(description="Set template name (for template-aware fitness)")
     ] = None,
@@ -132,7 +151,17 @@ async def sequence_optimize(
         track_ids = valid_ids
     features_list = [features[tid] for tid in track_ids]
 
-    optimizer = optimizer_builder(algorithm=algorithm, scorer=scorer)
+    # Resolve ``auto`` to a concrete algorithm based on pool size. The
+    # response carries the *resolved* algorithm name so callers can
+    # observe what actually ran (also surfaced in OptimizationResult
+    # via ``algorithm`` field on the optimizer's own return).
+    resolved_algorithm: Literal["ga", "greedy"]
+    if algorithm == "auto":
+        resolved_algorithm = "greedy" if len(track_ids) >= _AUTO_GREEDY_THRESHOLD else "ga"
+    else:
+        resolved_algorithm = algorithm
+
+    optimizer = optimizer_builder(algorithm=resolved_algorithm, scorer=scorer)
 
     async def _progress(gen: int, score: float) -> None:
         await ctx.report_progress(progress=gen, total=100, message=f"best={score:.3f}")
@@ -150,6 +179,6 @@ async def sequence_optimize(
     return SequenceOptimizeResult(
         track_order=list(result.track_order),
         quality_score=float(result.quality_score),
-        algorithm=algorithm,
+        algorithm=resolved_algorithm,
         generations=result.generations or 0,
     )

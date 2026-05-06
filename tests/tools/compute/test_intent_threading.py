@@ -22,11 +22,11 @@ def _mock_score() -> MagicMock:
     score = MagicMock()
     score.overall = 0.5
     score.bpm = 0.5
-    score.harmonic = 0.5
+    score.harmonics = 0.5
     score.energy = 0.5
-    score.spectral = 0.5
-    score.groove = 0.5
-    score.timbral = 0.5
+    score.bass = 0.5
+    score.drums = 0.5
+    score.vocals = 0.5
     score.hard_reject = False
     return score
 

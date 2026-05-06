@@ -1,51 +1,66 @@
+"""Stem-keyframe recipe model for djay Pro 5 Neural Mix transitions.
+
+A ``NeuralMixRecipe`` describes a transition between deck A and deck B
+as a deterministic envelope over the four Neural Mix stems
+(drums / bass / harmonic / vocals) on each deck. It is the persisted
+artefact a DJ tool (or a human DJ) would replay against the two tracks
+to reproduce the chosen transition.
+
+Shape:
+
+* ``transition`` — which of the seven Neural Mix presets this recipe
+  realises (FADE / ECHO_OUT / VOCAL_SUSTAIN / HARMONIC_SUSTAIN /
+  DRUM_SWAP / VOCAL_CUT / DRUM_CUT).
+* ``bars`` — total transition length in bars. Default 32.
+* ``keyframes`` — ordered tuple of ``StemKeyframe`` entries. Each
+  keyframe sets the level (in dB, ``LEVEL_SILENT`` for muted) of one
+  stem on one deck at one bar position. Linear interpolation between
+  consecutive keyframes for the same (deck, stem) channel.
+* ``fx_events`` — Mute FX echo-tail trigger events (1, ¾ or ½ beat
+  spacing per Algoriddim's Mute FX engine). Used by ECHO_OUT,
+  VOCAL_CUT, DRUM_CUT.
+* ``mix_in_section`` / ``mix_out_section`` — optional structural anchor
+  labels (``"intro"``, ``"outro"``, ``"breakdown"``...).
+* ``confidence`` — picker confidence in [0, 1].
+* ``rescue`` — fallback transition if the recipe fails at runtime.
+* ``explanation`` — human-readable why-this-preset string.
+* ``warnings`` — caveats the picker raised (vocal overlap, key clash...).
+
+JSON serialisation is symmetric (``to_json`` / ``from_json``); the
+DB column ``transitions.transition_recipe_json`` stores the round-tripped
+form.
+"""
+
 from __future__ import annotations
 
 import dataclasses
 import json
+import math
 from enum import StrEnum
 from typing import Any, Literal, cast
 
+from app.domain.transition.neural_mix import NeuralMixStem, NeuralMixTransition
 
-class TransitionType(StrEnum):
-    CUT = "cut"
-    BASS_SWAP_SHORT = "bass_swap_short"
-    BASS_SWAP_LONG = "bass_swap_long"
-    EQ_BLEND = "eq_blend"
-    FILTER_SWEEP = "filter_sweep"
-    ECHO_OUT = "echo_out"
-    LONG_BLEND = "long_blend"
-    RISER = "riser"
-    DROP_SWAP = "drop_swap"
-    NEURAL_MIX_BLEND = "neural_mix_blend"
-    DISSOLVE = "dissolve"
-    STEMS_CREATIVE = "stems_creative"
+# Sentinel level value representing full silence. Below this floor a
+# stem is treated as muted by any audio engine that consumes the recipe.
+# Stored in JSON as a finite number (JSON doesn't support ``-Infinity``);
+# in Python we read both ``-inf`` and ``LEVEL_SILENT`` as silent.
+LEVEL_SILENT: float = -120.0
+LEVEL_UNITY: float = 0.0
+DEFAULT_TRANSITION_BARS: int = 32
+
+Deck = Literal["A", "B"]
 
 
-class DjayTransition(StrEnum):
-    NONE = "none"
-    FILTER = "filter"
-    ECHO = "echo"
-    TREMOLO = "tremolo"
-    RISER = "riser"
-    NEURAL_MIX = "neural_mix"
+class MuteFXTrigger(StrEnum):
+    """Mute FX echo-tail trigger spacing (per djay's Mute FX engine).
 
+    See https://help.algoriddim.com/user-manual/djay-ios/neural-mix/mute-fx
+    """
 
-class StemAction(StrEnum):
-    FADE_IN = "fade_in"
-    FADE_OUT = "fade_out"
-    CUT = "cut"
-    SWAP = "swap"
-    MUTE = "mute"
-    SOLO = "solo"
-
-
-def _coerce_int(value: object) -> int | None:
-    if isinstance(value, bool) or not isinstance(value, int | float | str):
-        return None
-    try:
-        return int(value)
-    except (TypeError, ValueError):
-        return None
+    ECHO_1 = "echo_1"  # one-beat echo tail
+    ECHO_3_4 = "echo_3_4"  # three-quarter beat tail (default for ECHO_OUT)
+    ECHO_1_2 = "echo_1_2"  # half-beat tail (stutter feel; VOCAL_CUT, DRUM_CUT)
 
 
 def _coerce_float(value: object) -> float | None:
@@ -57,206 +72,234 @@ def _coerce_float(value: object) -> float | None:
         return None
 
 
+def _coerce_int(value: object) -> int | None:
+    if isinstance(value, bool) or not isinstance(value, int | float | str):
+        return None
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
 def _coerce_optional_str(value: object) -> str | None:
     if value is None:
         return None
     return value if isinstance(value, str) else None
 
 
+def _coerce_level(value: object) -> float | None:
+    """Coerce a level_db value, treating non-finite as silence."""
+    f = _coerce_float(value)
+    if f is None:
+        return None
+    if not math.isfinite(f) or f <= LEVEL_SILENT:
+        return LEVEL_SILENT
+    return f
+
+
 @dataclasses.dataclass(frozen=True)
-class RecipeStep:
-    bar: int
-    deck: Literal["A", "B", "both"]
-    action: str
-    stem: str | None = None
-    stem_action: StemAction | None = None
-    eq_band: str | None = None
-    eq_value: float | None = None
-    effect: str | None = None
-    effect_param: float | None = None
+class StemKeyframe:
+    """One level keyframe for one stem channel at one bar position.
+
+    A keyframe declares ``stem`` on ``deck`` should reach ``level_db``
+    at musical position ``bar``. The audio engine linearly interpolates
+    between consecutive keyframes for the same (deck, stem) channel.
+    """
+
+    bar: float
+    deck: Deck
+    stem: NeuralMixStem
+    level_db: float
 
     def to_dict(self) -> dict[str, object]:
-        d: dict[str, object] = {"bar": self.bar, "deck": self.deck, "action": self.action}
-        if self.stem is not None:
-            d["stem"] = self.stem
-        if self.stem_action is not None:
-            d["stem_action"] = str(self.stem_action)
-        if self.eq_band is not None:
-            d["eq_band"] = self.eq_band
-        if self.eq_value is not None:
-            d["eq_value"] = self.eq_value
-        if self.effect is not None:
-            d["effect"] = self.effect
-        if self.effect_param is not None:
-            d["effect_param"] = self.effect_param
-        return d
+        # Preserve -inf as LEVEL_SILENT so JSON stays finite.
+        level = self.level_db
+        if not math.isfinite(level) or level <= LEVEL_SILENT:
+            level = LEVEL_SILENT
+        return {
+            "bar": self.bar,
+            "deck": self.deck,
+            "stem": str(self.stem),
+            "level_db": level,
+        }
 
     @classmethod
-    def from_dict(cls, data: object) -> RecipeStep | None:
+    def from_dict(cls, data: object) -> StemKeyframe | None:
         if not isinstance(data, dict):
             return None
 
-        bar = _coerce_int(data.get("bar"))
+        bar = _coerce_float(data.get("bar"))
+        if bar is None:
+            return None
+
         deck = data.get("deck")
-        action = data.get("action")
-        if bar is None or not isinstance(deck, str) or deck not in {"A", "B", "both"}:
-            return None
-        if not isinstance(action, str):
+        if not isinstance(deck, str) or deck not in ("A", "B"):
             return None
 
-        stem = _coerce_optional_str(data.get("stem"))
-        eq_band = _coerce_optional_str(data.get("eq_band"))
-        effect = _coerce_optional_str(data.get("effect"))
+        stem_raw = data.get("stem")
+        if not isinstance(stem_raw, str):
+            return None
+        try:
+            stem = NeuralMixStem(stem_raw)
+        except ValueError:
+            return None
 
-        stem_action: StemAction | None = None
-        stem_action_raw = data.get("stem_action")
-        if stem_action_raw is not None:
-            if not isinstance(stem_action_raw, str):
-                return None
-            try:
-                stem_action = StemAction(stem_action_raw)
-            except ValueError:
-                return None
-
-        eq_value: float | None = None
-        if data.get("eq_value") is not None:
-            eq_value = _coerce_float(data.get("eq_value"))
-            if eq_value is None:
-                return None
-
-        effect_param: float | None = None
-        if data.get("effect_param") is not None:
-            effect_param = _coerce_float(data.get("effect_param"))
-            if effect_param is None:
-                return None
+        level = _coerce_level(data.get("level_db"))
+        if level is None:
+            return None
 
         return cls(
             bar=bar,
-            deck=cast(Literal["A", "B", "both"], deck),
-            action=action,
+            deck=cast(Deck, deck),
             stem=stem,
-            stem_action=stem_action,
-            eq_band=eq_band,
-            eq_value=eq_value,
-            effect=effect,
-            effect_param=effect_param,
+            level_db=level,
         )
 
 
 @dataclasses.dataclass(frozen=True)
-class EQPlan:
-    low: str
-    mid: str
-    high: str
+class MuteFXEvent:
+    """Mute FX echo-tail trigger on one stem channel at one bar position."""
+
+    bar: float
+    deck: Deck
+    stem: NeuralMixStem
+    trigger: MuteFXTrigger
 
     def to_dict(self) -> dict[str, object]:
-        return {"low": self.low, "mid": self.mid, "high": self.high}
+        return {
+            "bar": self.bar,
+            "deck": self.deck,
+            "stem": str(self.stem),
+            "trigger": str(self.trigger),
+        }
 
     @classmethod
-    def from_dict(cls, data: object) -> EQPlan | None:
+    def from_dict(cls, data: object) -> MuteFXEvent | None:
         if not isinstance(data, dict):
             return None
-        low = data.get("low", "keep")
-        mid = data.get("mid", "keep")
-        high = data.get("high", "keep")
-        if not isinstance(low, str) or not isinstance(mid, str) or not isinstance(high, str):
+
+        bar = _coerce_float(data.get("bar"))
+        if bar is None:
             return None
-        return cls(low=low, mid=mid, high=high)
+
+        deck = data.get("deck")
+        if not isinstance(deck, str) or deck not in ("A", "B"):
+            return None
+
+        stem_raw = data.get("stem")
+        if not isinstance(stem_raw, str):
+            return None
+        try:
+            stem = NeuralMixStem(stem_raw)
+        except ValueError:
+            return None
+
+        trigger_raw = data.get("trigger")
+        if not isinstance(trigger_raw, str):
+            return None
+        try:
+            trigger = MuteFXTrigger(trigger_raw)
+        except ValueError:
+            return None
+
+        return cls(
+            bar=bar,
+            deck=cast(Deck, deck),
+            stem=stem,
+            trigger=trigger,
+        )
 
 
 @dataclasses.dataclass(frozen=True)
-class TransitionRecipe:
-    transition_type: TransitionType
+class NeuralMixRecipe:
+    """A complete Neural Mix transition recipe ready for playback or persistence."""
+
+    transition: NeuralMixTransition
     bars: int
-    djay_transition: DjayTransition
-    djay_tempo_adjust: str
-    steps: tuple[RecipeStep, ...]
-    eq_plan: EQPlan
+    keyframes: tuple[StemKeyframe, ...]
+    fx_events: tuple[MuteFXEvent, ...]
     mix_in_section: str | None
     mix_out_section: str | None
-    phrase_align: bool
-    warnings: tuple[str, ...]
     confidence: float
-    subgenre_modifier: str | None
-    rescue_move: str
+    rescue: NeuralMixTransition
+    explanation: str
+    warnings: tuple[str, ...]
 
     def to_dict(self) -> dict[str, object]:
         d: dict[str, object] = {
-            "transition_type": str(self.transition_type),
+            "transition": str(self.transition),
             "bars": self.bars,
-            "djay_transition": str(self.djay_transition),
-            "djay_tempo_adjust": self.djay_tempo_adjust,
-            "steps": [s.to_dict() for s in self.steps],
-            "eq_plan": self.eq_plan.to_dict(),
-            "phrase_align": self.phrase_align,
-            "warnings": list(self.warnings),
+            "keyframes": [k.to_dict() for k in self.keyframes],
+            "fx_events": [e.to_dict() for e in self.fx_events],
             "confidence": self.confidence,
-            "rescue_move": self.rescue_move,
+            "rescue": str(self.rescue),
+            "explanation": self.explanation,
+            "warnings": list(self.warnings),
         }
         if self.mix_in_section is not None:
             d["mix_in_section"] = self.mix_in_section
         if self.mix_out_section is not None:
             d["mix_out_section"] = self.mix_out_section
-        if self.subgenre_modifier is not None:
-            d["subgenre_modifier"] = self.subgenre_modifier
         return d
 
     def to_json(self) -> str:
         return json.dumps(self.to_dict(), ensure_ascii=False)
 
     @classmethod
-    def from_dict(cls, data: object) -> TransitionRecipe | None:
+    def from_dict(cls, data: object) -> NeuralMixRecipe | None:
         if not isinstance(data, dict):
             return None
 
-        transition_type_raw = data.get("transition_type")
-        if not isinstance(transition_type_raw, str):
+        transition_raw = data.get("transition")
+        if not isinstance(transition_raw, str):
             return None
         try:
-            transition_type = TransitionType(transition_type_raw)
+            transition = NeuralMixTransition(transition_raw)
         except ValueError:
             return None
 
-        bars = _coerce_int(data.get("bars", 0))
+        bars = _coerce_int(data.get("bars", DEFAULT_TRANSITION_BARS))
         if bars is None:
             return None
 
-        djay_transition_raw = data.get("djay_transition", "none")
-        if not isinstance(djay_transition_raw, str):
+        keyframes_raw = data.get("keyframes", [])
+        if not isinstance(keyframes_raw, list):
+            return None
+        keyframes: list[StemKeyframe] = []
+        for kf_raw in keyframes_raw:
+            kf = StemKeyframe.from_dict(kf_raw)
+            if kf is None:
+                return None
+            keyframes.append(kf)
+
+        fx_raw = data.get("fx_events", [])
+        if not isinstance(fx_raw, list):
+            return None
+        fx_events: list[MuteFXEvent] = []
+        for ev_raw in fx_raw:
+            ev = MuteFXEvent.from_dict(ev_raw)
+            if ev is None:
+                return None
+            fx_events.append(ev)
+
+        confidence = _coerce_float(data.get("confidence", 0.5))
+        if confidence is None:
+            return None
+
+        rescue_raw = data.get("rescue", "echo_out")
+        if not isinstance(rescue_raw, str):
             return None
         try:
-            djay_transition = DjayTransition(djay_transition_raw)
+            rescue = NeuralMixTransition(rescue_raw)
         except ValueError:
             return None
 
-        djay_tempo_adjust = data.get("djay_tempo_adjust", "sync")
-        if not isinstance(djay_tempo_adjust, str):
-            return None
-
-        steps_raw = data.get("steps", [])
-        if not isinstance(steps_raw, list):
-            return None
-        steps: list[RecipeStep] = []
-        for step_raw in steps_raw:
-            step = RecipeStep.from_dict(step_raw)
-            if step is None:
-                return None
-            steps.append(step)
-
-        eq_plan = EQPlan.from_dict(data.get("eq_plan", {}))
-        if eq_plan is None:
-            return None
-
-        phrase_align = data.get("phrase_align", True)
-        if not isinstance(phrase_align, bool):
+        explanation = data.get("explanation", "")
+        if not isinstance(explanation, str):
             return None
 
         warnings_raw = data.get("warnings", [])
         if not isinstance(warnings_raw, list):
-            return None
-
-        confidence = _coerce_float(data.get("confidence", 0.5))
-        if confidence is None:
             return None
 
         mix_in_section = _coerce_optional_str(data.get("mix_in_section"))
@@ -265,32 +308,22 @@ class TransitionRecipe:
         mix_out_section = _coerce_optional_str(data.get("mix_out_section"))
         if data.get("mix_out_section") is not None and mix_out_section is None:
             return None
-        subgenre_modifier = _coerce_optional_str(data.get("subgenre_modifier"))
-        if data.get("subgenre_modifier") is not None and subgenre_modifier is None:
-            return None
-
-        rescue_move = data.get("rescue_move", "filter sweep + hard cut")
-        if not isinstance(rescue_move, str):
-            return None
 
         return cls(
-            transition_type=transition_type,
+            transition=transition,
             bars=bars,
-            djay_transition=djay_transition,
-            djay_tempo_adjust=djay_tempo_adjust,
-            steps=tuple(steps),
-            eq_plan=eq_plan,
+            keyframes=tuple(keyframes),
+            fx_events=tuple(fx_events),
             mix_in_section=mix_in_section,
             mix_out_section=mix_out_section,
-            phrase_align=phrase_align,
-            warnings=tuple(str(w) for w in warnings_raw),
             confidence=confidence,
-            subgenre_modifier=subgenre_modifier,
-            rescue_move=rescue_move,
+            rescue=rescue,
+            explanation=explanation,
+            warnings=tuple(str(w) for w in warnings_raw),
         )
 
     @classmethod
-    def from_json(cls, raw: str | None) -> TransitionRecipe | None:
+    def from_json(cls, raw: str | None) -> NeuralMixRecipe | None:
         if not isinstance(raw, str):
             return None
         try:

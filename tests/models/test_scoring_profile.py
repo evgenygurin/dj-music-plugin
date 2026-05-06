@@ -17,11 +17,11 @@ async def test_profile_weights_sum(engine: AsyncEngine, session: AsyncSession) -
     p = ScoringProfile(
         name="melodic_priority",
         bpm_weight=0.15,
-        harmonic_weight=0.25,
+        harmonics_weight=0.25,
         energy_weight=0.15,
-        spectral_weight=0.20,
-        groove_weight=0.15,
-        timbral_weight=0.10,
+        bass_weight=0.20,
+        drums_weight=0.15,
+        vocals_weight=0.10,
         description="more harmony weight for melodic sets",
     )
     session.add(p)
@@ -36,11 +36,11 @@ async def test_profile_weight_range(engine: AsyncEngine, session: AsyncSession) 
     p = ScoringProfile(
         name="bad",
         bpm_weight=2.0,
-        harmonic_weight=0.1,
+        harmonics_weight=0.1,
         energy_weight=0.1,
-        spectral_weight=0.1,
-        groove_weight=0.1,
-        timbral_weight=0.1,
+        bass_weight=0.1,
+        drums_weight=0.1,
+        vocals_weight=0.1,
     )
     session.add(p)
     with pytest.raises(IntegrityError):

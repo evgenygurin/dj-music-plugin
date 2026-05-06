@@ -1,25 +1,32 @@
-"""All transition scoring magic numbers in one place.
+"""Numeric constants for transition scoring (post Neural Mix refactor).
 
-Pure data — no I/O, no logic. Imported by component scorers, the
-hard-constraint check, and ``recommend_style``.
+Pure data — no I/O, no logic. Imported by the BPM and energy component
+scorers, the hard-constraint check, and the legacy bass/harmonic compat
+helpers in ``neural_mix.py``.
 
-Values mirror the previous inline constants from ``scorer.py`` so that
-extracting them is a no-op for behaviour. The actual rebalancing of
-``DEFAULT_WEIGHTS`` (research §4.4) lands in commit 6.
+The pre-refactor sub-weights for spectral / groove / timbral / harmonic
+component scorers have been deleted along with those modules — the
+Neural Mix scorer in ``app/domain/transition/neural_mix.py`` is the
+single source of truth for stem-aware scoring.
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-
-from app.shared.constants import DEFAULT_TRANSITION_WEIGHTS
-
 # ── Component weights (sum = 1.0) ────────────────────────
-# Single source of truth lives in ``app/core/constants.py`` so the core
-# layer doesn't depend on the domain layer. This module re-exports it
-# as ``DEFAULT_WEIGHTS`` for ergonomic imports inside the transition
-# package.
-DEFAULT_WEIGHTS: dict[str, float] = DEFAULT_TRANSITION_WEIGHTS
+# Six top-level components: bpm + energy + four Neural Mix stem compats
+# (drums, bass, harmonics, vocals).
+#
+# The slight uplift on ``drums`` reflects techno DJ practice — kick /
+# onset alignment is the load-bearing scoring axis even more than key
+# matching at peak time.
+DEFAULT_WEIGHTS: dict[str, float] = {
+    "bpm": 0.20,
+    "energy": 0.15,
+    "drums": 0.20,
+    "bass": 0.15,
+    "harmonics": 0.15,
+    "vocals": 0.15,
+}
 
 # ── BPM scoring ──────────────────────────────────────────
 # sigma=10 matches Pioneer DJ / Mixed In Key professional thresholds:
@@ -30,25 +37,20 @@ BPM_GAUSS_SIGMA: float = 10.0
 BPM_STABILITY_FLOOR: float = 0.7  # max 30% penalty for unstable tempo
 BPM_CONFIDENCE_PENALTY_FLOOR: float = 0.7  # symmetric with stability
 
-# ── Harmonic scoring ─────────────────────────────────────
-# Relaxed floors: distance 2 is a valid candidate per ISMIR 2017
-# Automatic Playlist Sequencing (Bittner et al.) which finds key clash
-# weakly perceived on techno/EDM material. Distance 1 bumped to 0.95
-# (techno tolerates adjacent-key moves easily). Values are empirical
-# calibration to match that research direction — not a published table.
+# ── Harmonic scoring (legacy table for stem compat helpers) ──────
+# Used by ``neural_mix.score_bass_compat`` / ``score_harmonic_compat``.
 CAMELOT_BASE_SCORES: dict[int, float] = {0: 1.0, 1: 0.95, 2: 0.85, 3: 0.6, 4: 0.3}
 ATONAL_RELAX_FLOOR: float = 0.8  # both atonal → at least 0.8
-HNR_NORM_LOW_DB: float = -30.0  # HNR < -30 → factor 0.5
-HNR_NORM_HIGH_DB: float = 0.0  # HNR ≥ 0 → factor 1.0
+HNR_NORM_LOW_DB: float = -30.0
+HNR_NORM_HIGH_DB: float = 0.0
 HNR_NORM_FLOOR: float = 0.5
-TONNETZ_BLEND: float = 0.30  # weight of tonnetz cosine vs Camelot base
+TONNETZ_BLEND: float = 0.30
 KEY_CONFIDENCE_BLEND_THRESHOLD: float = 0.5
 
 # ── Energy scoring ───────────────────────────────────────
 # Gauss around a preferred rise (~0.5 LUFS, under the 2 LUFS perceptual
 # threshold). Peak=1.0 at equal-ish loudness; symmetric decay for drops
-# and big jumps. ENERGY_SIGMOID_DIVISOR kept as the legacy name for the
-# Gauss sigma (widely imported) — see docs/transition-scoring.md § S_energy.
+# and big jumps.
 ENERGY_SIGMOID_DIVISOR: float = 3.0
 ENERGY_PREFERRED_RISE_LUFS: float = 0.5
 LRA_DIFF_PENALTY_THRESHOLD: float = 5.0
@@ -56,81 +58,3 @@ LRA_DIFF_PENALTY: float = 0.10
 CREST_DIFF_PENALTY_THRESHOLD: float = 4.0
 CREST_DIFF_PENALTY: float = 0.10
 ENERGY_SLOPE_BONUS: float = 0.05
-
-# ── Spectral scoring ─────────────────────────────────────
-SPECTRAL_SUB_WEIGHTS: dict[str, float] = {
-    "mfcc": 0.30,
-    "centroid": 0.20,
-    "energy_bands": 0.20,
-    "rolloff": 0.15,
-    "slope": 0.10,
-    "flux": 0.05,
-}
-DISSONANCE_PAIR_THRESHOLD: float = 0.4
-DISSONANCE_PENALTY: float = 0.15
-COMPLEXITY_DIFF_THRESHOLD: float = 10.0
-COMPLEXITY_PENALTY: float = 0.10
-
-# ── Groove scoring ───────────────────────────────────────
-GROOVE_SUB_WEIGHTS: dict[str, float] = {
-    "onset_rate": 0.25,
-    "kick_prominence": 0.25,
-    "beat_loudness": 0.20,
-    "pulse_clarity": 0.10,
-    "hp_ratio": 0.10,
-    "tempogram": 0.10,
-}
-
-# ── Timbral scoring ──────────────────────────────────────
-TIMBRAL_SPECTRAL_CONTRAST_NORM: float = 15.0  # dB
-TIMBRAL_PITCH_SALIENCE_NORM: float = 0.5
-TIMBRAL_DANCEABILITY_NORM: float = 3.0
-TIMBRAL_DYNAMIC_COMPLEXITY_NORM: float = 10.0
-TIMBRAL_SUB_WEIGHTS: dict[str, float] = {
-    "spectral_contrast": 0.35,
-    "pitch_salience": 0.35,
-    "danceability": 0.15,
-    "dynamic_complexity": 0.15,
-}
-
-
-# ── Style recommendation thresholds ──────────────────────
-@dataclass(frozen=True)
-class StyleRules:
-    """Decision-tree thresholds for ``recommend_style``.
-
-    Defaults reflect the historical behaviour from ``scorer.py``.
-    Held in a dataclass so future per-template overrides can swap them
-    without touching component code.
-    """
-
-    spectral_collision_cutoff: float = 0.45
-    energy_gap_cutoff: float = 0.40
-    harmonic_drift_cutoff: float = 0.55
-    perfect_bpm_cutoff: float = 0.95
-    perfect_harmonic_cutoff: float = 0.85
-    perfect_groove_cutoff: float = 0.75
-    confident_overall_cutoff: float = 0.75
-
-
-DEFAULT_STYLE_RULES = StyleRules()
-
-# ── Section-aware modifiers (commit 5) ───────────────────
-# When both the mix-out and mix-in windows fall on percussion-only
-# sections (intro/outro/sustain/ambient), key compatibility loses
-# perceptual relevance — Pioneer DJ blog, Vande Veire & De Bie 2018.
-# `score_harmonic` applies the floor; `TransitionScorer.score` swaps to
-# the override weight set for the weighted sum.
-DRUM_ONLY_HARMONIC_FLOOR: float = 0.85
-
-# Sums to 1.0. Harmonic collapsed, groove boosted relative to the
-# default — the structural rationale is in
-# docs/research/2026-04-08-techno-transitions-research.md §4.1.
-DRUM_ONLY_WEIGHT_OVERRIDE: dict[str, float] = {
-    "bpm": 0.22,
-    "harmonic": 0.05,
-    "energy": 0.18,
-    "spectral": 0.20,
-    "groove": 0.20,
-    "timbral": 0.15,
-}

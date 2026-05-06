@@ -61,18 +61,30 @@ async def set_version_build_handler(
 
     if scorer is not None:
         # Lazy import — same circular-import dance as the scorer itself.
-        from app.handlers.transition_persist import persist_transition_score
+        from app.handlers.transition_persist import (
+            _build_recipe_or_none,
+            persist_transition_score,
+        )
 
         features = await uow.track_features.get_scoring_features_batch(track_order)
         for a, b in itertools.pairwise(track_order):
             if a not in features or b not in features:
                 continue
-            score = scorer.score(features[a], features[b])
+            feat_a = features[a]
+            feat_b = features[b]
+            score = scorer.score(feat_a, feat_b)
             transition_scores.append(float(score.overall))
+            recipe = _build_recipe_or_none(score, feat_a, feat_b)
             # All-or-nothing intentional: if any upsert raises (FK race,
             # constraint violation), the surrounding UoW rolls back the
             # version + its items, leaving the DB consistent.
-            await persist_transition_score(uow, from_track_id=a, to_track_id=b, score=score)
+            await persist_transition_score(
+                uow,
+                from_track_id=a,
+                to_track_id=b,
+                score=score,
+                recipe=recipe,
+            )
 
     quality = fmean(transition_scores) if transition_scores else 0.0
     if transition_scores:

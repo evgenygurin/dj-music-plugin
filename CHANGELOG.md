@@ -6,6 +6,140 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.3.5] - 2026-05-07
+
+**Vectorised eager-populate via numpy bulk-scoring.** The Python loop in v1.3.3 (intent-share serial) and the process-pool in v1.3.4 (intent-share parallel) were both O(N²) calls into a per-pair scalar code path. v1.3.5 introduces ``app.domain.transition.bulk_scorer`` — a numpy clone of the six scoring components plus the hard-reject gate that runs the entire (idx_a, idx_b) pair set as a single batch of vectorised ops. Parity is enforced by ``test_bulk_scorer_parity.py`` on a randomised 30-track pool with field-dropout: every component plus the end-to-end overall matches the scalar path within 1e-9 across all four intents. After this, ``GeneticAlgorithm._eager_populate_cache`` is a 3-line call into the bulk path.
+
+### Added
+- ``app/domain/transition/bulk_scorer.py`` — ``FeatureArrays`` view + ``extract_feature_arrays`` + ``score_bpm_bulk`` / ``score_energy_bulk`` / ``score_drums_bulk`` / ``score_bass_bulk`` / ``score_harmonics_bulk`` / ``score_vocals_bulk`` + ``hard_reject_mask_bulk`` + ``score_pairs_bulk`` (the public API the GA uses). 24x24 Camelot distance lookup table and TRANSITION_STEM_WEIGHTS / TRANSITION_ENERGY_BIAS pre-packed as numpy arrays for the bulk-of-7 path.
+- ``tests/domain/transition/test_bulk_scorer_parity.py`` — 11 cases: per-component parity (6), hard-reject mask parity (1), and end-to-end ``score_pairs_bulk`` overall parity for every TransitionIntent (4).
+
+### Changed
+- ``GeneticAlgorithm._eager_populate_cache`` collapsed from ~50 lines of per-intent / per-pair / parallel-or-serial branching into one bulk call. The parallel-populate process pool, ``_W_TRACKS`` / ``_W_SCORER`` worker globals, ``_populate_init`` / ``_populate_pair`` shims, and ``parallel_populate`` / ``max_workers`` / ``parallel_populate_threshold`` constructor parameters were removed — the numpy path is faster than the parallel path on every workload measured, so the IPC layer became dead weight.
+
+### Performance
+- ``Subgenre: peak_time`` n=242 (real DB pull): 26.0 s (v1.3.2 baseline) → ~7 s (v1.3.4 auto-greedy) → **sub-second eager populate** (v1.3.5; GA branch is now bottlenecked by generations + 2-opt, not the scoring engine).
+
+### Tests
+- 1247 → **1262 passed** (+4 auto-algorithm in v1.3.4, +11 parity in v1.3.5).
+- ``make check`` clean (mypy strict 239/0, ruff, import-linter 5/0, pytest -n auto).
+
+## [1.3.4] - 2026-05-06
+
+**`sequence_optimize` algorithm auto-pick.** GA's wall-clock dominates pools above ~200 tracks even after the v1.3.2/1.3.3 populate-stage fixes — the eager-populate's O(N²·|intents|) scorer pass + ~10² generations of fitness evaluations can't beat what greedy chain-building gets in a single O(N²) sweep. Add an ``algorithm="auto"`` choice (now the default) that resolves to ``greedy`` for pools at or above 200 tracks and ``ga`` otherwise. Explicit ``"ga"`` and ``"greedy"`` still force the choice.
+
+### Added
+- ``sequence_optimize.algorithm: Literal["auto", "ga", "greedy"]`` — ``auto`` is the new default. The response carries the resolved name (``"ga"`` or ``"greedy"``) so callers can observe what actually ran.
+- ``_AUTO_GREEDY_THRESHOLD = 200`` — pool-size cutoff above which ``auto`` picks greedy.
+- ``tests/tools/compute/test_sequence_optimize_auto_algorithm.py`` — 4 cases covering boundary inclusivity and explicit-override semantics.
+
+### Changed
+- Default algorithm flipped from ``"ga"`` to ``"auto"``. Existing callers that pass ``"ga"`` or ``"greedy"`` are unaffected.
+
+### Tests
+- 1247 → **1251 passed** (+4 auto-algorithm).
+- ``make check`` clean (mypy strict 238/0, ruff, import-linter 5/0, pytest -n auto).
+
+## [1.3.3] - 2026-05-06
+
+**`sequence_optimize` second-stage perf cut targeting real-world subgenre playlists.** v1.3.2's eager-populate stage worked great on synthetic randomised pools but stalled on production pools that share a subgenre / BPM range — those have a much lower hard-reject rate (~25-30 % vs ~50 % synthetic), which doubles the surviving-pair count and therefore the wall-clock of `_eager_populate_cache`. v1.3.3 attacks the populate stage on two fronts: a bulk-scoring API that shares the expensive stem-compat compute across all four intents, and an opt-in process-pool that fans the populate sweep across CPU cores.
+
+### Added
+- ``TransitionScorer.score_all_intents(a, b, intents=...)`` — bulk path that calls ``NeuralMixScorer.score`` + ``score_bpm`` + ``score_energy`` exactly once per pair and derives the four per-intent ``TransitionScore`` objects from the shared parts. ~80 % of one ``score`` call's wall-clock is the stem compats, which the per-intent loop in v1.3.2 was repeating 4× per pair.
+- ``GeneticAlgorithm(parallel_populate=True, max_workers=…, parallel_populate_threshold=200)`` — pool-size-gated process pool for the populate stage. Workers receive ``tracks`` once via ``initializer`` and then per-task messages are just ``(idx_a, idx_b)`` pairs; results stream back as ``{intent_value: overall}`` dicts.
+
+### Changed
+- ``GeneticAlgorithm._eager_populate_cache`` now batches surviving pairs into a single list and dispatches via ``score_all_intents``. For pools at or above ``parallel_populate_threshold`` the dispatch fans out across ``ProcessPoolExecutor``; below the threshold it stays in-process.
+
+### Performance
+Real ``Subgenre: peak_time`` playlist (n=242, 99 % features coverage):
+- v1.3.2 baseline (per-intent loop, serial populate): n=100 17.0 s, n=242 26.0 s.
+- v1.3.3 intent-share + parallel populate (target measurement): see post-deploy bench in `docs/`.
+
+### Tests
+- 1247 → **1247 passed** (no test count change; pure refactor of the populate path).
+- ``make check`` clean (mypy strict 238/0, ruff, import-linter 5/0, pytest -n auto).
+
+### Open
+- Parallel-populate threshold (200) and worker cap (8) are currently hard-coded constants — TODO surface them via ``settings.optimization`` if the field finds a real use case for tuning.
+
+## [1.3.2] - 2026-05-06
+
+**`sequence_optimize` wall-clock collapse on >100-track pools.** The GA + 2-opt loop is now strictly bound. On a synthetic 200-track techno pool, optimisation drops from OOM/timeout to **~9 s**; on a 100-track pool, **78 s → 3.6 s** (~22×) at the cost of ~12 % quality recovered via the adaptive expansion path.
+
+### Changed
+- ``GeneticAlgorithm.optimize`` now eagerly populates ``score_cache`` for every surviving ``(idx_a, idx_b, intent)`` triple after ``_prefilter_pool``. After this pre-pass, the GA + 2-opt inner loop never re-enters ``TransitionScorer.score``: every fitness evaluation lands on a dict lookup. Cost: ``|surviving_pairs| · 4`` scorer calls (≈84 k for n=200 after prefilter, single-digit seconds).
+- ``GeneticAlgorithm._two_opt`` now uses **adaptive window expansion**: starts at ``window=12`` (cheap local groove repair), keeps the window when a pass finds an improvement, doubles the window on plateau, and only escalates to the full O(N²) sweep when the local search has run out of moves. Total passes capped by ``settings.optimization.two_opt_iterations`` (default 50).
+
+### Added
+- Module-level ``_TWO_OPT_WINDOW`` constant (12) and ``_PRECOMPUTE_INTENTS`` tuple (MAINTAIN / RAMP_UP / COOL_DOWN / CONTRAST) covering every intent ``infer_intent`` can return.
+- ``GeneticAlgorithm._eager_populate_cache`` helper documenting the pair × intent eager fill.
+
+### Performance
+- n=50: 8.8 s → **1.3 s** (~6.8×), quality 0.724 → 0.715.
+- n=100: 78.2 s → **3.6 s** (~21.7×), quality 0.752 → 0.658 (adaptive expansion recovers most of the loss vs fixed window=12 which scored 0.632).
+- n=200: baseline OOM/timeout → **8.7 s**, quality 0.621.
+
+### Tests
+- 1247 → **1247 passed** (no test count change; behaviour-preserving inside the existing optimisation contract).
+- ``make check`` clean (mypy strict 238/0, ruff, import-linter 5/0, pytest -n auto).
+
+## [1.3.1] - 2026-05-06
+
+**Score-column / weight-column rename to match Neural Mix stem vocabulary.** Closes the residual mismatch from v1.3.0 where the four perceptual ``TransitionScore`` fields kept their pre-Neural-Mix names (``harmonic`` / ``spectral`` / ``groove`` / ``timbral``) even though they semantically held stem compats. v1.3.1 renames them everywhere — dataclass fields, DB columns, weight dict keys, Pydantic schemas, Django-style filter lookups, ``ScoringProfile`` weight fields and CheckConstraint names — to match the Neural Mix stem they hold.
+
+### Changed
+- ``TransitionScore`` fields: ``harmonic→harmonics``, ``spectral→bass``, ``groove→drums``, ``timbral→vocals``. Field order: ``bpm, energy, drums, bass, harmonics, vocals, overall, hard_reject, reject_reason, best_transition``.
+- DB columns on ``transitions`` and ``transition_history``: same rename.
+- ``DEFAULT_WEIGHTS`` and ``INTENT_WEIGHT_MODIFIERS`` dict keys: same rename.
+- ``ScoringProfile`` columns + Pydantic schemas: ``harmonic_weight→harmonics_weight``, ``spectral_weight→bass_weight``, ``groove_weight→drums_weight``, ``timbral_weight→vocals_weight``.
+- ``ScoringProfile`` CheckConstraint names: ``ck_profile_{harm,spectral,groove,timbral}→ck_profile_{harmonics,bass,drums,vocals}``.
+- Picker constants: ``_DRUM_ONLY_GROOVE_{HIGH,MID}→_DRUM_ONLY_DRUMS_{HIGH,MID}``.
+- `app/resources/transition.py` JSON output keys mirror the field rename.
+
+### Migration
+- ``migrations/2026-05-06_neural_mix_score_columns.sql`` — direct SQL DDL renaming the 4+4+4 columns plus 4 CheckConstraint names. Apply against Supabase once.
+
+### Tests
+- 1247 → **1247 passed** (no test count change; bulk rename, behaviour identical).
+- ``make check`` clean (mypy strict, ruff, import-linter, pytest -n auto).
+
+## [1.3.0] - 2026-05-06
+
+**Adopt the djay Pro 5 Neural Mix paradigm.** Collapse four parallel transition enums (``TransitionStyle``×6, ``TransitionType``×12, ``DjayTransition``×6, ``NeuralMixTransition``×9) into a single ``NeuralMixTransition`` with exactly seven values matching the djay Pro 5 Automix UI: FADE, ECHO_OUT, VOCAL_SUSTAIN, HARMONIC_SUSTAIN, DRUM_SWAP, VOCAL_CUT, DRUM_CUT. Replace the prose ``RecipeStep`` / ``EQPlan`` recipe model with a stem-keyframe envelope. Rework the six-component scorer around four stem compatibilities (drums / bass / harmonics / vocals) plus BPM and energy.
+
+### Added
+- **NeuralMixTransition × 7** — matches the djay Pro 5 Automix transition presets.
+- **Stem-keyframe recipe model** (``StemKeyframe``, ``MuteFXEvent``, ``MuteFXTrigger``, ``NeuralMixRecipe``) — declarative envelope describing per-deck per-stem level over bars + Mute FX echo-tail events.
+- **7 32-bar pure builders** in ``app/domain/transition/builders.py`` — one per preset, materialise the published Algoriddim stem-routing matrices.
+- **Context-aware picker** in ``app/domain/transition/picker.py`` — selects a Neural Mix preset from score + features + section context + subgenre pair + intent. Decision tree first-match-wins on hard reject → drum-only → vocal-active → harmonic motif → energy ramp-up → ambient/cool-down → default.
+- **build_recipe_for_pair** convenience wrapper materialises a fully-populated ``NeuralMixRecipe`` from a scoring pair.
+- **Recipe persistence** — ``transition_persist`` and ``set_version_build`` now write ``fx_type``, ``transition_bars``, and ``transition_recipe_json`` columns alongside every score upsert.
+- **TransitionScore.best_transition** — argmax over the seven Neural Mix per-preset stem-weighted scores from ``NeuralMixScorer``.
+
+### Changed
+- **6-component scorer reworked stem-aware**: the four perceptual components (harmonic / spectral / groove / timbral) now hold the four Neural Mix stem compatibilities (HARMONICS / BASS / DRUMS / VOCALS). Public field names are preserved to avoid a column rename in this commit; semantic mapping documented in ``app/domain/transition/score.py``.
+- **DEFAULT_WEIGHTS**: bpm 0.20, harmonic 0.15, energy 0.15, spectral 0.15, groove 0.20, timbral 0.15 (groove uplift reflects techno DJ practice).
+- **All seven transitions default to bars=32**; templates may scale via ``clamp_bars`` per subgenre pair.
+
+### Removed
+- ``TransitionStyle`` (6 values) and ``TRANSITION_STYLE_PROFILES`` from ``app/shared/constants.py``.
+- ``TransitionType`` (12 values), ``DjayTransition`` (6 values), ``StemAction``, ``RecipeStep``, ``EQPlan``, and ``TransitionRecipe`` from ``app/domain/transition/recipe.py``.
+- ``app/domain/transition/recipe_engine.py`` (522 lines) and ``app/domain/transition/style.py`` (140 lines).
+- ``app/domain/transition/components/{harmonic,spectral,groove,timbral}.py`` — replaced by stem-compat helpers in ``neural_mix.py``.
+- ``StyleRules`` dataclass + ``DRUM_ONLY_WEIGHT_OVERRIDE`` + ``DRUM_ONLY_HARMONIC_FLOOR`` from ``weights.py``.
+- ``preferred_type_for_pair`` from ``subgenre_rules.py``.
+- ``DEFAULT_TRANSITION_WEIGHTS`` from ``app/shared/constants.py`` (now in ``app/domain/transition/weights.py:DEFAULT_WEIGHTS``).
+
+### Migration notes
+- DB columns ``harmonic_score``, ``spectral_score``, ``groove_score``, ``timbral_score`` retain their v1.2 names but now hold stem compats. Deferred rename → ``harmonics_score``, ``bass_score``, ``drums_score``, ``vocals_score`` is a follow-up.
+- ``transitions.fx_type`` is now constrained at the application layer to one of the seven ``NeuralMixTransition`` values when populated.
+- Panel (``ManualTransitionStyle`` UI override) is intentionally out of scope for this release.
+
+### Tests
+- 1228 → **1247 passed** (+19 picker, +54 builder, − removed legacy style/recipe-engine/component-scorer tests).
+- ``make check`` clean (mypy strict, ruff, import-linter, pytest).
+
 ## [1.2.58] - 2026-04-28
 
 **Audit-fix loop, iteration 60.** ``TrackFeedbackCreate`` had no cross-field validation between ``kind`` and ``rating``.
