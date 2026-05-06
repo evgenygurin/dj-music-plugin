@@ -124,8 +124,15 @@ async def test_view_enricher_populates_set_version_count(
 
 @pytest.mark.asyncio
 async def test_entity_config_exposes_view_enricher_field() -> None:
-    """``EntityConfig.view_enricher`` is wired on playlist + set
-    after ``register_default_entities`` runs."""
+    """``EntityConfig.view_enricher`` is wired on playlist, set, and track
+    after ``register_default_entities`` runs.
+
+    ``track`` got its enricher in the 2026-05-07 smoke-test fix so that
+    ``entity_get(track, …)`` and ``entity_list(track, …)`` populate
+    ``primary_artist_name`` instead of returning ``null`` (the
+    ``local://tracks/{id}`` resource had been doing this since audit
+    O-1, but the entity dispatcher path was blind to it).
+    """
     from app.registry.defaults import register_default_entities
     from app.registry.entity import EntityRegistry
 
@@ -138,6 +145,9 @@ async def test_entity_config_exposes_view_enricher_field() -> None:
     set_cfg = EntityRegistry.get("set")
     assert set_cfg.view_enricher is not None
 
-    # Other entities have no enricher (they don't need one yet).
     track_cfg = EntityRegistry.get("track")
-    assert track_cfg.view_enricher is None
+    assert track_cfg.view_enricher is not None
+
+    # Entities without derived view fields still have no enricher.
+    feedback_cfg = EntityRegistry.get("track_feedback")
+    assert feedback_cfg.view_enricher is None

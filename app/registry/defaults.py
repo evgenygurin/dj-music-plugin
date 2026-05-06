@@ -94,6 +94,23 @@ async def _enrich_playlist_view(uow: object, row: object, view: dict) -> dict:  
     return view
 
 
+async def _enrich_track_view(uow: object, row: object, view: dict) -> dict:  # type: ignore[type-arg]
+    """Populate ``TrackView.primary_artist_name`` (smoke test 2026-05-07).
+
+    Mirrors what ``local://tracks/{id}`` resource has been doing since
+    audit O-1: ``primary_artist_name`` is derived from the
+    ``track_artists`` relationship, not a column on ``tracks``.
+    Without this enricher ``entity_get(track, …)`` and
+    ``entity_list(track, …)`` returned ``primary_artist_name=null`` for
+    every row even when the resource showed the real name.
+    """
+    tid = getattr(row, "id", None)
+    if tid is None:
+        return view
+    view["primary_artist_name"] = await uow.tracks.get_primary_artist_name(tid)  # type: ignore[attr-defined]
+    return view
+
+
 async def _enrich_set_view(uow: object, row: object, view: dict) -> dict:  # type: ignore[type-arg]
     """Populate ``SetView.version_count`` (audit iter 46 / T-44)."""
     sid = getattr(row, "id", None)
@@ -142,6 +159,7 @@ def register_default_entities() -> None:
             relations={"artists": "artists", "features": "track_audio_features_computed"},
             tags=frozenset({"namespace:library"}),
             create_handler=track_import_handler,
+            view_enricher=_enrich_track_view,
         )
     )
 
