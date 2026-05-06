@@ -40,8 +40,12 @@ globs: app/models/**/*.py
 - Every new aggregate root must be registered in
   `app/registry/defaults.py:register_default_entities()` or it stays
   invisible to `entity_*` tools.
-- Current live aggregate roots (12 models + 11 registered entities —
-  `key` is read-only reference, exposed via `reference://camelot`):
+- Current live aggregate roots: **11 registered entities** (visible via
+  `schema://entities`):
   `track`, `track_features`, `audio_file`, `playlist`, `set`,
   `set_version`, `transition`, `transition_history`, `track_feedback`,
-  `track_affinity`, `scoring_profile`, `key`, `provider_metadata`.
+  `track_affinity`, `scoring_profile`.
+- Plus 2 reference-only models that have ORM + repos but are NOT in
+  `EntityRegistry`: `key` (Camelot wheel — exposed via
+  `reference://camelot`) and `provider_metadata` (raw provider response
+  cache — surfaced through `provider_*` tools).

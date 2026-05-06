@@ -22,9 +22,13 @@ tools via `app/server/transforms.py` for tool-only clients.
 | `entity_update` | entity, id, data | no | `crud:destructive` |
 | `entity_delete` | entity, id | no (destructive) | `crud:destructive` |
 
-Supported entities (via `EntityRegistry`): track, track_features, audio_file,
-playlist, set, set_version, transition, transition_history, track_affinity,
-track_feedback, scoring_profile, key, provider_metadata.
+Supported entities (via `EntityRegistry`, 11 total): track, track_features,
+audio_file, playlist, set, set_version, transition, transition_history,
+track_affinity, track_feedback, scoring_profile.
+
+`key` and `provider_metadata` have ORM models + repositories but are
+**not** registered as `EntityRegistry` entities — `key` is exposed via
+`reference://camelot`, provider responses via the `provider_*` tools.
 
 Handlers wire side-effects on create/update/delete:
 
