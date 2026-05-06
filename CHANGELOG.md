@@ -6,6 +6,22 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.3.4] - 2026-05-06
+
+**`sequence_optimize` algorithm auto-pick.** GA's wall-clock dominates pools above ~200 tracks even after the v1.3.2/1.3.3 populate-stage fixes — the eager-populate's O(N²·|intents|) scorer pass + ~10² generations of fitness evaluations can't beat what greedy chain-building gets in a single O(N²) sweep. Add an ``algorithm="auto"`` choice (now the default) that resolves to ``greedy`` for pools at or above 200 tracks and ``ga`` otherwise. Explicit ``"ga"`` and ``"greedy"`` still force the choice.
+
+### Added
+- ``sequence_optimize.algorithm: Literal["auto", "ga", "greedy"]`` — ``auto`` is the new default. The response carries the resolved name (``"ga"`` or ``"greedy"``) so callers can observe what actually ran.
+- ``_AUTO_GREEDY_THRESHOLD = 200`` — pool-size cutoff above which ``auto`` picks greedy.
+- ``tests/tools/compute/test_sequence_optimize_auto_algorithm.py`` — 4 cases covering boundary inclusivity and explicit-override semantics.
+
+### Changed
+- Default algorithm flipped from ``"ga"`` to ``"auto"``. Existing callers that pass ``"ga"`` or ``"greedy"`` are unaffected.
+
+### Tests
+- 1247 → **1251 passed** (+4 auto-algorithm).
+- ``make check`` clean (mypy strict 238/0, ruff, import-linter 5/0, pytest -n auto).
+
 ## [1.3.3] - 2026-05-06
 
 **`sequence_optimize` second-stage perf cut targeting real-world subgenre playlists.** v1.3.2's eager-populate stage worked great on synthetic randomised pools but stalled on production pools that share a subgenre / BPM range — those have a much lower hard-reject rate (~25-30 % vs ~50 % synthetic), which doubles the surviving-pair count and therefore the wall-clock of `_eager_populate_cache`. v1.3.3 attacks the populate stage on two fronts: a bulk-scoring API that shares the expensive stem-compat compute across all four intents, and an opt-in process-pool that fans the populate sweep across CPU cores.
