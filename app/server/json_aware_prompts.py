@@ -17,10 +17,19 @@ resource side; this module mirrors the fix for prompts.
 
 Behaviour
 ---------
-``JSONAwarePromptsAsTools`` is drop-in for ``PromptsAsTools`` — it only
-overrides ``_make_get_prompt_tool`` so the ``arguments`` parameter
-accepts EITHER a native dict OR a JSON-encoded string. ``list_prompts``
-is preserved unchanged via ``super()``.
+``JSONAwarePromptsAsTools`` is drop-in for ``PromptsAsTools`` with two
+deviations:
+
+1. ``arguments`` accepts EITHER a native dict OR a JSON-encoded string
+   (``JsonDictOrNone`` BeforeValidator) — fixes Claude Code's
+   stringifying stdio shim.
+2. ``get_prompt`` returns a native ``dict[str, Any]`` (not
+   ``json.dumps``-encoded ``str``) so FastMCP populates
+   ``structuredContent`` with the native shape. Clients see
+   ``{"messages": [...]}`` directly instead of
+   ``{"result": "<escaped JSON>"}``.
+
+``list_prompts`` is preserved unchanged via ``super()``.
 """
 
 from __future__ import annotations
@@ -48,7 +57,7 @@ class JSONAwarePromptsAsTools(PromptsAsTools):
                 JsonDictOrNone,
                 "Optional arguments for the prompt (dict or JSON-encoded string)",
             ] = None,
-        ) -> str:
+        ) -> dict[str, Any]:
             ctx = get_context()
             # Audit iter 45 (T-43): the MCP protocol's
             # ``GetPromptRequestParams.arguments`` is typed as
@@ -92,8 +101,15 @@ def _stringify_prompt_args(args: dict[str, Any]) -> dict[str, str]:
     return out
 
 
-def _format_prompt_result(result: Any) -> str:
-    """Format ``PromptResult`` for tool output (JSON with messages array)."""
+def _format_prompt_result(result: Any) -> dict[str, Any]:
+    """Format ``PromptResult`` as a native dict ``{"messages": [...]}``.
+
+    Returning a ``dict`` (instead of a ``json.dumps``-encoded string)
+    lets FastMCP populate ``structuredContent`` with the native shape,
+    so MCP clients see ``{"messages": [...]}`` directly instead of
+    ``{"result": "<escaped JSON>"}`` — symmetric with how every other
+    v1 dispatcher (e.g. ``entity_list``) returns Pydantic models.
+    """
     messages = []
     for msg in result.messages:
         if isinstance(msg.content, TextContent):
@@ -101,4 +117,4 @@ def _format_prompt_result(result: Any) -> str:
         else:
             content = msg.content.model_dump(mode="json", exclude_none=True)
         messages.append({"role": msg.role, "content": content})
-    return json.dumps({"messages": messages}, indent=2)
+    return {"messages": messages}
