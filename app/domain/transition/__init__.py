@@ -16,12 +16,18 @@ Public surface (post Neural Mix refactor):
 * Math helpers (``bpm_distance``, ``correlation``, ``cosine_similarity``).
 """
 
+from app.domain.transition.builders import build_recipe
 from app.domain.transition.math_helpers import bpm_distance, correlation, cosine_similarity
 from app.domain.transition.neural_mix import (
     NeuralMixScore,
     NeuralMixScorer,
     NeuralMixStem,
     NeuralMixTransition,
+)
+from app.domain.transition.picker import (
+    PickerDecision,
+    build_recipe_for_pair,
+    pick_neural_mix,
 )
 from app.domain.transition.recipe import (
     DEFAULT_TRANSITION_BARS,
@@ -47,11 +53,15 @@ __all__ = [
     "NeuralMixScorer",
     "NeuralMixStem",
     "NeuralMixTransition",
+    "PickerDecision",
     "SectionContext",
     "StemKeyframe",
     "TransitionScore",
     "TransitionScorer",
     "bpm_distance",
+    "build_recipe",
+    "build_recipe_for_pair",
     "correlation",
     "cosine_similarity",
+    "pick_neural_mix",
 ]
