@@ -11,8 +11,6 @@ transparently via ``app/shared/types.py:JsonDictOrNone``.
 
 from __future__ import annotations
 
-import json
-
 import pytest
 from fastmcp import Client, FastMCP
 
@@ -38,7 +36,7 @@ async def test_get_prompt_accepts_native_dict() -> None:
             "get_prompt",
             {"name": "echo_prompt", "arguments": {"name": "world", "count": "3"}},
         )
-        payload = json.loads(result.data)
+        payload = result.data
         assert "hi world x3" in payload["messages"][0]["content"]
 
 
@@ -59,7 +57,7 @@ async def test_get_prompt_accepts_json_string() -> None:
                 "arguments": '{"name": "stringified", "count": "7"}',
             },
         )
-        payload = json.loads(result.data)
+        payload = result.data
         assert "hi stringified x7" in payload["messages"][0]["content"]
 
 
@@ -76,7 +74,7 @@ async def test_get_prompt_accepts_omitted_arguments_for_no_arg_prompt() -> None:
 
     async with Client(mcp) as client:
         result = await client.call_tool("get_prompt", {"name": "no_args_prompt"})
-        payload = json.loads(result.data)
+        payload = result.data
         assert "static body" in payload["messages"][0]["content"]
 
 
@@ -107,7 +105,7 @@ async def test_get_prompt_accepts_native_int_values() -> None:
             "get_prompt",
             {"name": "with_int_arg", "arguments": {"track_id": 146, "count": 5}},
         )
-        payload = json.loads(result.data)
+        payload = result.data
         # Both ints survived as-is on the way through (json.dumps(146) == "146").
         assert "track=146 count=5" in payload["messages"][0]["content"]
 
@@ -128,7 +126,7 @@ async def test_get_prompt_drops_none_values() -> None:
             "get_prompt",
             {"name": "with_optional", "arguments": {"name": "x", "optional": None}},
         )
-        payload = json.loads(result.data)
+        payload = result.data
         # ``optional`` was None → dropped → default applied.
         assert "name=x optional=default" in payload["messages"][0]["content"]
 
@@ -149,5 +147,5 @@ async def test_get_prompt_accepts_native_bool_values() -> None:
             "get_prompt",
             {"name": "with_bool", "arguments": {"flag": True}},
         )
-        payload = json.loads(result.data)
+        payload = result.data
         assert "flag=true" in payload["messages"][0]["content"]
