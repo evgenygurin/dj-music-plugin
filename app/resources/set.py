@@ -136,16 +136,36 @@ async def set_view_resource(
             key=lambda i: getattr(i, "sort_index", 0),
         )
         ordered = [it.track_id for it in items]
+        # Smoke test 2026-05-07 (mirrors ui_set_view fix): pre-v1.3 sets
+        # have no rows in ``transitions`` for their pairs, so every entry
+        # used to render as ``overall=null`` / ``hard_reject=null``. Fall
+        # back to live ``TransitionScorer`` (~1 ms per pair, pure
+        # compute) when the persisted row is missing.
+        feat_map = await uow.track_features.get_scoring_features_batch(ordered)
+        scorer: Any = None
         transitions: list[dict[str, Any]] = []
         for pos, (a, b) in enumerate(itertools.pairwise(ordered)):
             t = await _get_transition(uow, a, b)
+            overall = getattr(t, "overall_quality", None) if t else None
+            hard_reject = bool(getattr(t, "hard_reject", False)) if t else None
+            if overall is None and hard_reject is None:
+                feat_a = feat_map.get(a)
+                feat_b = feat_map.get(b)
+                if feat_a is not None and feat_b is not None:
+                    if scorer is None:
+                        from app.domain.transition.scorer import TransitionScorer
+
+                        scorer = TransitionScorer()
+                    live = scorer.score(feat_a, feat_b)
+                    overall = live.overall
+                    hard_reject = live.hard_reject
             transitions.append(
                 {
                     "position": pos + 1,
                     "from_track_id": a,
                     "to_track_id": b,
-                    "overall": getattr(t, "overall_quality", None) if t else None,
-                    "hard_reject": bool(getattr(t, "hard_reject", False)) if t else None,
+                    "overall": overall,
+                    "hard_reject": hard_reject,
                 }
             )
         return SetTransitionsView(
