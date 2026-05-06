@@ -96,8 +96,8 @@ async def test_feedback_list(setup: None, session: AsyncSession) -> None:
     session.add(t)
     await session.flush()
     repo = TrackFeedbackRepository(session)
-    await repo.create(track_id=t.id, kind="like")
-    rows = await repo.list_by_kind("like")
+    await repo.create(track_id=t.id, status="liked")
+    rows = await repo.list_by_status("liked")
     assert len(rows) == 1
 
 

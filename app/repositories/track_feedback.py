@@ -1,4 +1,4 @@
-"""TrackFeedback repository."""
+"""TrackFeedback repository — single row per track keyed by ``track_id``."""
 
 from __future__ import annotations
 
@@ -11,15 +11,17 @@ from app.repositories.base import BaseRepository
 class TrackFeedbackRepository(BaseRepository[TrackFeedback]):
     model = TrackFeedback
 
-    async def list_by_kind(self, kind: str, limit: int = 100) -> list[TrackFeedback]:
-        stmt = select(TrackFeedback).where(TrackFeedback.kind == kind).limit(limit)
-        return list((await self.session.execute(stmt)).scalars())
+    async def list_by_status(self, status: str, limit: int = 100) -> list[TrackFeedback]:
+        """Return up to ``limit`` rows whose ``status`` matches.
 
-    async def latest_for_track(self, track_id: int) -> TrackFeedback | None:
-        stmt = (
-            select(TrackFeedback)
-            .where(TrackFeedback.track_id == track_id)
-            .order_by(TrackFeedback.id.desc())
-            .limit(1)
-        )
+        Replaces the prior ``list_by_kind`` (the column was renamed to
+        ``status`` in the prod schema sync 2026-05-07).
+        """
+        stmt = select(TrackFeedback).where(TrackFeedback.status == status).limit(limit)
+        return list((await self._execute(stmt)).scalars())
+
+    async def for_track(self, track_id: int) -> TrackFeedback | None:
+        """Return the single feedback row for ``track_id`` (table is
+        UNIQUE on ``track_id``) or ``None``."""
+        stmt = select(TrackFeedback).where(TrackFeedback.track_id == track_id)
         return await self.session.scalar(stmt)  # type: ignore[no-any-return]

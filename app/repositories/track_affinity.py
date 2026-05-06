@@ -19,10 +19,15 @@ class TrackAffinityRepository(BaseRepository[TrackAffinity]):
         return await self.session.scalar(stmt)  # type: ignore[no-any-return]
 
     async def recommend(self, track_id: int, limit: int = 10) -> list[TrackAffinity]:
+        """Return the top-``limit`` neighbours of ``track_id`` ranked by
+        ``net_sentiment`` (the denormalised score column populated by
+        the feedback handler), falling back to play count for pairs
+        without an explicit sentiment signal yet.
+        """
         stmt = (
             select(TrackAffinity)
             .where((TrackAffinity.track_a_id == track_id) | (TrackAffinity.track_b_id == track_id))
-            .order_by(desc(TrackAffinity.avg_score))
+            .order_by(desc(TrackAffinity.net_sentiment), desc(TrackAffinity.play_count))
             .limit(limit)
         )
-        return list((await self.session.execute(stmt)).scalars())
+        return list((await self._execute(stmt)).scalars())
