@@ -6,6 +6,42 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-05-06
+
+**Adopt the djay Pro 5 Neural Mix paradigm.** Collapse four parallel transition enums (``TransitionStyle``×6, ``TransitionType``×12, ``DjayTransition``×6, ``NeuralMixTransition``×9) into a single ``NeuralMixTransition`` with exactly seven values matching the djay Pro 5 Automix UI: FADE, ECHO_OUT, VOCAL_SUSTAIN, HARMONIC_SUSTAIN, DRUM_SWAP, VOCAL_CUT, DRUM_CUT. Replace the prose ``RecipeStep`` / ``EQPlan`` recipe model with a stem-keyframe envelope. Rework the six-component scorer around four stem compatibilities (drums / bass / harmonics / vocals) plus BPM and energy.
+
+### Added
+- **NeuralMixTransition × 7** — matches the djay Pro 5 Automix transition presets.
+- **Stem-keyframe recipe model** (``StemKeyframe``, ``MuteFXEvent``, ``MuteFXTrigger``, ``NeuralMixRecipe``) — declarative envelope describing per-deck per-stem level over bars + Mute FX echo-tail events.
+- **7 32-bar pure builders** in ``app/domain/transition/builders.py`` — one per preset, materialise the published Algoriddim stem-routing matrices.
+- **Context-aware picker** in ``app/domain/transition/picker.py`` — selects a Neural Mix preset from score + features + section context + subgenre pair + intent. Decision tree first-match-wins on hard reject → drum-only → vocal-active → harmonic motif → energy ramp-up → ambient/cool-down → default.
+- **build_recipe_for_pair** convenience wrapper materialises a fully-populated ``NeuralMixRecipe`` from a scoring pair.
+- **Recipe persistence** — ``transition_persist`` and ``set_version_build`` now write ``fx_type``, ``transition_bars``, and ``transition_recipe_json`` columns alongside every score upsert.
+- **TransitionScore.best_transition** — argmax over the seven Neural Mix per-preset stem-weighted scores from ``NeuralMixScorer``.
+
+### Changed
+- **6-component scorer reworked stem-aware**: the four perceptual components (harmonic / spectral / groove / timbral) now hold the four Neural Mix stem compatibilities (HARMONICS / BASS / DRUMS / VOCALS). Public field names are preserved to avoid a column rename in this commit; semantic mapping documented in ``app/domain/transition/score.py``.
+- **DEFAULT_WEIGHTS**: bpm 0.20, harmonic 0.15, energy 0.15, spectral 0.15, groove 0.20, timbral 0.15 (groove uplift reflects techno DJ practice).
+- **All seven transitions default to bars=32**; templates may scale via ``clamp_bars`` per subgenre pair.
+
+### Removed
+- ``TransitionStyle`` (6 values) and ``TRANSITION_STYLE_PROFILES`` from ``app/shared/constants.py``.
+- ``TransitionType`` (12 values), ``DjayTransition`` (6 values), ``StemAction``, ``RecipeStep``, ``EQPlan``, and ``TransitionRecipe`` from ``app/domain/transition/recipe.py``.
+- ``app/domain/transition/recipe_engine.py`` (522 lines) and ``app/domain/transition/style.py`` (140 lines).
+- ``app/domain/transition/components/{harmonic,spectral,groove,timbral}.py`` — replaced by stem-compat helpers in ``neural_mix.py``.
+- ``StyleRules`` dataclass + ``DRUM_ONLY_WEIGHT_OVERRIDE`` + ``DRUM_ONLY_HARMONIC_FLOOR`` from ``weights.py``.
+- ``preferred_type_for_pair`` from ``subgenre_rules.py``.
+- ``DEFAULT_TRANSITION_WEIGHTS`` from ``app/shared/constants.py`` (now in ``app/domain/transition/weights.py:DEFAULT_WEIGHTS``).
+
+### Migration notes
+- DB columns ``harmonic_score``, ``spectral_score``, ``groove_score``, ``timbral_score`` retain their v1.2 names but now hold stem compats. Deferred rename → ``harmonics_score``, ``bass_score``, ``drums_score``, ``vocals_score`` is a follow-up.
+- ``transitions.fx_type`` is now constrained at the application layer to one of the seven ``NeuralMixTransition`` values when populated.
+- Panel (``ManualTransitionStyle`` UI override) is intentionally out of scope for this release.
+
+### Tests
+- 1228 → **1247 passed** (+19 picker, +54 builder, − removed legacy style/recipe-engine/component-scorer tests).
+- ``make check`` clean (mypy strict, ruff, import-linter, pytest).
+
 ## [1.2.58] - 2026-04-28
 
 **Audit-fix loop, iteration 60.** ``TrackFeedbackCreate`` had no cross-field validation between ``kind`` and ``rating``.

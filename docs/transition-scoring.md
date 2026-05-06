@@ -1,9 +1,10 @@
 # Transition Scoring
 
-6-component weighted formula for evaluating track-to-track transitions, with optional section-aware relaxation for percussion-only mix windows.
+Stem-aware 6-component weighted formula for evaluating track-to-track transitions, paired with the seven djay Pro 5 Neural Mix presets and a context-aware picker that selects the right preset for each pair.
 
-> Background and rebalance rationale: [docs/research/2026-04-08-techno-transitions-research.md](research/2026-04-08-techno-transitions-research.md)
+> Background: [docs/research/2026-04-08-techno-transitions-research.md](research/2026-04-08-techno-transitions-research.md)
 > Architecture decision: [docs/superpowers/specs/2026-04-08-transition-system-redesign.md](superpowers/specs/2026-04-08-transition-system-redesign.md)
+> Neural Mix paradigm (v1.3.0): [Algoriddim Neural Mix overview](https://help.algoriddim.com/user-manual/djay-pro-mac/neural-mix/overview)
 
 ## Module Layout
 
@@ -11,23 +12,27 @@
 app/domain/transition/
 ├── __init__.py            (public re-exports)
 ├── math_helpers.py        (bpm_distance, cosine_similarity, correlation)
-├── weights.py             (ALL magic numbers + StyleRules dataclass +
-│                           DRUM_ONLY_WEIGHT_OVERRIDE / DRUM_ONLY_HARMONIC_FLOOR)
-├── score.py               (TransitionScore dataclass)
+├── weights.py             (DEFAULT_WEIGHTS + BPM/energy/Camelot constants)
+├── score.py               (TransitionScore dataclass + best_transition)
 ├── hard_constraints.py    (check_hard_constraints — standalone gate)
 ├── components/
-│   ├── bpm.py             (score_bpm)
-│   ├── harmonic.py        (score_harmonic — accepts SectionContext)
-│   ├── energy.py          (score_energy)
-│   ├── spectral.py        (score_spectral — 6 sub-signals)
-│   ├── groove.py          (score_groove — 6 sub-signals)
-│   └── timbral.py         (score_timbral)
+│   ├── bpm.py             (score_bpm — pure-numpy)
+│   └── energy.py          (score_energy — pure-numpy)
+├── neural_mix.py          (NeuralMixTransition × 7 + NeuralMixStem × 4
+│                           + NeuralMixScorer + 4 stem-compat functions
+│                           + TRANSITION_STEM_WEIGHTS / ENERGY_BIAS)
+├── recipe.py              (NeuralMixRecipe + StemKeyframe + MuteFXEvent
+│                           + MuteFXTrigger + JSON serialisation)
+├── builders.py            (7 pure 32-bar builders, build_recipe dispatcher)
+├── picker.py              (pick_neural_mix decision tree
+│                           + build_recipe_for_pair convenience wrapper)
 ├── section_context.py     (SectionContext dataclass + is_drum_only_pair)
-├── style.py               (recommend_style + style_profile)
-└── scorer.py              (~140 lines: TransitionScorer orchestrator)
+├── subgenre_rules.py      (classify_pair + clamp_bars)
+├── intent.py              (TransitionIntent + per-template phase table)
+└── scorer.py              (TransitionScorer orchestrator — ~120 lines)
 ```
 
-`scorer.py` is a thin orchestrator: it calls `check_hard_constraints`, dispatches to the 6 component functions, and combines them with weights. It contains zero domain math and zero magic numbers.
+`scorer.py` is a thin orchestrator: it calls `check_hard_constraints`, dispatches to `score_bpm` + `score_energy` + the four `NeuralMixScorer` stem compats, and combines them with weights. It contains zero domain math and zero magic numbers.
 
 ## Formula
 
@@ -36,18 +41,29 @@ score = w_bpm * S_bpm + w_harmonic * S_harmonic + w_energy * S_energy
       + w_spectral * S_spectral + w_groove * S_groove + w_timbral * S_timbral
 ```
 
-Default weights (single source of truth: `app/shared/constants.py:DEFAULT_TRANSITION_WEIGHTS`, re-exported as `app/domain/transition/weights.py:DEFAULT_WEIGHTS`):
+Public field names on `TransitionScore` map to the four Neural Mix stems internally:
 
-| Component | Weight | Was | Purpose |
-|-----------|--------|-----|---------|
-| BPM       | 0.20 | 0.22 | Tempo compatibility |
-| Harmonic  | 0.12 | 0.20 | Key compatibility (Camelot) |
-| Energy    | 0.18 | 0.23 | Energy flow (LUFS) |
-| Spectral  | **0.20** | 0.15 | Timbral similarity (MFCC + centroid + bands + …) |
-| Groove    | 0.15 | 0.10 | Rhythmic compatibility |
-| Timbral   | 0.15 | 0.10 | Timbral texture matching |
+| Public field | Conceptual stem | Source function |
+|---|---|---|
+| `bpm` | — | `components.bpm.score_bpm` |
+| `harmonic` | HARMONICS | `neural_mix.score_harmonic_compat` |
+| `energy` | — | `components.energy.score_energy` |
+| `spectral` | BASS | `neural_mix.score_bass_compat` |
+| `groove` | DRUMS | `neural_mix.score_drums_compat` |
+| `timbral` | VOCALS | `neural_mix.score_vocal_compat` |
 
-Total = 1.00. Rebalance rationale: Kim et al. ISMIR 2020 found MFCC similarity to be the strongest empirical predictor of real DJ-set transitions (#1 factor) while Camelot harmonic compatibility was statistically weaker than the industry assumes. Bibbó & Faraldo (ISMIR 2022 LBD) confirmed continuous timbral measures bear DJ-perceived compatibility better than discrete Camelot.
+Default weights (`app/domain/transition/weights.py:DEFAULT_WEIGHTS`):
+
+| Component | Weight | Stem | Purpose |
+|-----------|--------|------|---------|
+| BPM       | 0.20 | — | Tempo compatibility |
+| Harmonic  | 0.15 | HARMONICS | Pads / leads / chord-progression compat |
+| Energy    | 0.15 | — | LUFS energy-flow compatibility |
+| Spectral  | 0.15 | BASS | Bass-stem compat (Camelot + bass band + BPM) |
+| Groove    | 0.20 | DRUMS | Drum-stem compat (BPM + kick + onset + beat-loudness) |
+| Timbral   | 0.15 | VOCALS | Vocal-stem compat (centroid + chroma + pitch-salience) |
+
+Total = 1.00. Rebalance rationale: Kim et al. ISMIR 2020 found stem-level features to be the strongest empirical predictors of real DJ-set transitions; Algoriddim's djay Pro 5 reorganised its Automix UI around four-stem routing (Drums / Bass / Harmonic / Vocals). The slight uplift on `groove` reflects techno DJ practice — kick / onset alignment is the load-bearing scoring axis at peak time.
 
 ## Hard Constraints
 
@@ -86,20 +102,16 @@ S_bpm -= scoring_variable_tempo_penalty     # if either side variable
 
 Prior σ=3.0 produced 0.25 for Δ=5 BPM, punishing the normal sync workflow. All thresholds in `weights.py` and `settings`.
 
-### S_harmonic — Key Compatibility
+### S_harmonic — HARMONICS Stem Compatibility
 
-Camelot wheel distance lookup, weighted by HNR / chroma quality, blended with Tonnetz cosine similarity. Section-aware floor when both mix windows are drum-only.
+Camelot wheel distance lookup (40 % weight), weighted by HNR quality, blended with Tonnetz cosine similarity (20 %), MFCC cosine (20 %), and spectral-contrast similarity (10 %). Dissonance penalty when both sides have `dissonance_mean > 0.4`. The drum-only relaxation floor was retired with the v1.3.0 picker — drum-only sections now route through DRUM_SWAP / DRUM_CUT / FADE directly instead of compensating in the score.
 
 ```text
-base = CAMELOT_BASE_SCORES[dist]            # {0:1.0, 1:0.95, 2:0.85, 3:0.6, 4:0.3}
-if both atonal:                             base = max(ATONAL_RELAX_FLOOR, base)
+base = CAMELOT_BASE_SCORES[dist]            # {0:1.0, 1:0.9, 2:0.6, 3:0.3, 4:0.1}
 hnr_factor = normalize(avg_hnr, -30..0 → 0.5..1.0)
-score = base * hnr_factor
-if both have tonnetz:                       score = (1-TONNETZ_BLEND)*score + TONNETZ_BLEND*tonnetz_cos
-score = blend_toward_neutral_on_low_confidence(score)
-
-# Section-aware (commit 5):
-if section_context.is_drum_only_pair:       score = max(score, DRUM_ONLY_HARMONIC_FLOOR)  # 0.85
+S_h = 0.40 * base * hnr_factor + 0.20 * tonnetz_cos + 0.20 * mfcc_cos
+    + 0.10 * spectral_contrast_proximity
+S_h -= DISSONANCE_PENALTY                   # if both sides dissonant
 ```
 
 ### S_energy — Energy Flow
@@ -129,55 +141,36 @@ Values:
 
 Prior sigmoid centred at Δ=0 returned 0.5 for identical loudness — a bug that punished stable-energy peak-time sets (2026-04-20 fix).
 
-### S_spectral — Spectral / Timbral Similarity
+### S_spectral — BASS Stem Compatibility
 
-Six sub-signals collapsed by per-feature weights from `SPECTRAL_SUB_WEIGHTS`:
+Camelot wheel distance (65 % weight) + bass-band energy proximity (20 %, via `energy_bands[0]+energy_bands[1]`) + BPM Gauss (15 %). Bass clash is the #1 reason Neural Mix transitions sound muddy — key compat dominates because the bass stem sits on the fundamental.
 
-| Sub-signal | Weight | Source |
-|---|---|---|
-| MFCC cosine | 0.30 | mfcc_vector |
-| Centroid proximity | 0.20 | spectral_centroid_hz |
-| Energy band correlation | 0.20 | energy_bands |
-| Rolloff similarity (85% + 95%, averaged) | 0.15 | spectral_rolloff_85/95 |
-| Spectral slope | 0.10 | spectral_slope |
-| Flux std | 0.05 | spectral_flux_std |
+```text
+base = CAMELOT_BASE_SCORES_BASS[dist]       # {0:1.0, 1:0.85, 2:0.55, 3:0.25, 4:0.05}
+bass_band_proximity = 1 - |bass_a - bass_b| / max_bass
+bpm_gauss = exp(-Δbpm² / 18)
+S_s = 0.65 * base + 0.20 * bass_band_proximity + 0.15 * bpm_gauss
+```
 
-Then optional penalties: `DISSONANCE_PENALTY` (0.15) when both `dissonance_mean > 0.4`; `COMPLEXITY_PENALTY` (0.10) when `|spectral_complexity_mean diff| > 10`.
+### S_groove — DRUMS Stem Compatibility
 
-### S_groove — Rhythmic Compatibility
+BPM lock (50 %, σ=3 with stability ceiling) + kick prominence proximity (25 %) + onset rate proximity (15 %) + beat-loudness band cosine (10 %).
 
-Six sub-signals from `GROOVE_SUB_WEIGHTS`:
+```text
+S_g = 0.50 * (exp(-Δbpm² / 18) * stability) + 0.25 * (1 - |kickP_a - kickP_b|)
+    + 0.15 * (1 - |onset_a - onset_b| / max_onset)
+    + 0.10 * cos(beat_loudness_band_ratio_a, beat_loudness_band_ratio_b)
+```
 
-| Sub-signal | Weight | Source |
-|---|---|---|
-| Onset rate similarity | 0.25 | onset_rate |
-| Kick prominence similarity | 0.25 | kick_prominence |
-| Beat-loudness band ratio cosine | 0.20 | beat_loudness_band_ratio |
-| Pulse clarity similarity | 0.10 | pulse_clarity |
-| HP ratio similarity | 0.10 | hp_ratio |
-| Tempogram ratio cosine | 0.10 | tempogram_ratio_vector |
+### S_timbral — VOCALS Stem Compatibility
 
-### S_timbral — Timbral Texture
+Spectral centroid proximity (40 %) + chroma entropy proximity (30 %) + pitch salience proximity (30 %). All proxies for vocal presence — the project has no real-time stem separation, so vocal compat is approximated from features that change when vocals enter.
 
-Four sub-signals from `TIMBRAL_SUB_WEIGHTS`, each normalised to [0, 1] over a domain-typical range:
-
-| Sub-signal | Weight | Norm range |
-|---|---|---|
-| Spectral contrast | 0.35 | 15 dB |
-| Pitch salience | 0.35 | 0.5 |
-| Danceability | 0.15 | 3.0 (essentia is unbounded) |
-| Dynamic complexity | 0.15 | 10 |
-
-## Section-Aware Scoring (commit 5)
-
-`TransitionScorer.score(a, b, *, intent=None, section_context=None)` accepts an optional `SectionContext`. The dataclass holds `from_section` and `to_section` (`SectionType` enum values). When BOTH sides fall on percussion-only sections — `{INTRO, OUTRO, SUSTAIN, AMBIENT}` — the scorer:
-
-1. **Floors `S_harmonic` at `DRUM_ONLY_HARMONIC_FLOOR = 0.85`** (key compatibility loses perceptual relevance on drum-only material — Pioneer DJ blog, Vande Veire & De Bie JASMP 2018).
-2. **Swaps to `DRUM_ONLY_WEIGHT_OVERRIDE`**: bpm 0.22, harmonic 0.05, energy 0.18, spectral 0.20, groove 0.20, timbral 0.15 (Σ=1.00). Harmonic collapsed, groove boosted.
-
-`SectionContext` is built by `app/handlers/mix_point.py:build_section_context` from `track_sections` rows + already-detected mix-out / mix-in points. The detection helpers (`detect_mix_out_point`, `detect_mix_in_point`) quantise to the nearest downbeat following Zehren et al. (CMJ 2022) — >95% of EDM cue points fall on 16-bar phrase boundaries.
-
-When `section_context=None` (the default), behaviour is **identical** to pre-redesign — backward compatible.
+```text
+S_t = 0.40 * (1 - |centroid_a - centroid_b| / max_centroid)
+    + 0.30 * (1 - |chromaH_a - chromaH_b| / 3)
+    + 0.30 * (1 - |pitchS_a - pitchS_b| / 0.5)
+```
 
 ## Context-Aware Intent (`infer_intent` v2)
 
@@ -244,41 +237,64 @@ Compatible transitions (distance ≤ 1):
 - ±1 on wheel: 8A → 7A, 8A → 9A (adjacent keys)
 - A↔B same number: 8A → 8B (relative major/minor)
 
-## Style Recommendation
+## Neural Mix Picker (v1.3.0)
 
-`app/domain/transition/style.py:recommend_style(score, *, rules=DEFAULT_STYLE_RULES)`. Pure function on a `TransitionScore` (works on synthetic scores reconstructed from persisted DB rows — used by `app/handlers/transition_persist.py`).
+`app/domain/transition/picker.py:pick_neural_mix(score, fa, fb, *, section_context=None, subgenre_pair=None, intent=None)` returns a `PickerDecision` carrying the chosen `NeuralMixTransition`, picker confidence, a reason string, and any warnings. Pure function on `TransitionScore` + `TrackFeatures` + optional context — works on synthetic scores reconstructed from persisted DB rows.
 
-Decision tree (default `StyleRules` thresholds in parentheses):
+Decision tree (first match wins):
 
-1. `hard_reject` → `FILTER_SWEEP`
-2. `spectral < 0.45` → `FILTER_SWEEP` (spectral collision)
-3. `energy < 0.40` → `ECHO_OUT` (energy gap)
-4. `harmonic < 0.55` → `LONG_BLEND` (key drift)
-5. `bpm > 0.95 AND harmonic > 0.85 AND groove > 0.75` → `CUT`
-6. `overall > 0.75` → `BASS_SWAP_SHORT` (8 bars)
-7. else → `BASS_SWAP_LONG` (32 bars)
+1. `score.hard_reject` → **ECHO_OUT** (echo-tail rescue, masks the failure).
+2. Drum-only mix windows (`SectionContext.is_drum_only_pair`):
+   - `score.groove > 0.85` → **DRUM_SWAP** (groove transfer, harmonic continuity)
+   - `score.groove > 0.65` → **DRUM_CUT** (drumless reset)
+   - else → **FADE** (linear stem crossfade)
+3. Vocal-active outro on A (`pitch_salience_mean > 0.4` AND `spectral_centroid_hz > 2200 Hz`):
+   - Low-vocal B intro (`pitch_salience_mean < 0.3`) → **VOCAL_SUSTAIN**
+   - High-vocal B intro → **VOCAL_CUT**
+   - Missing B vocal data → **ECHO_OUT** (safe default)
+4. Harmonic motif on A (low pitch salience, mid centroid, tonnetz present) + Camelot distance ≤ 1 + low-vocal B → **HARMONIC_SUSTAIN**.
+5. High B-over-A energy delta (>2 LUFS) AND (`intent=RAMP_UP` OR `subgenre_pair=HARD_PAIR`) → **DRUM_CUT** (drop-style breakdown into slam).
+6. `subgenre_pair=AMBIENT_PAIR` OR `intent=COOL_DOWN` → **FADE**.
+7. Default → **ECHO_OUT** (universally safe).
 
-`style_profile(style)` returns `{bars, reason}` from `TRANSITION_STYLE_PROFILES`. Bar lengths: CUT 0, BASS_SWAP_SHORT 8, BASS_SWAP_LONG 32, LONG_BLEND 64, ECHO_OUT 16, FILTER_SWEEP 16.
+## Neural Mix Recipe (v1.3.0)
 
-`StyleRules` is a frozen dataclass — pass a custom instance to override per-template:
+`app/domain/transition/recipe.py:NeuralMixRecipe` is the persisted artefact a DJ tool replays against the two tracks to reproduce the chosen transition. Shape:
 
 ```python
-from app.domain.transition.weights import StyleRules
-strict = StyleRules(spectral_collision_cutoff=0.55, harmonic_drift_cutoff=0.65)
-recommend_style(score, rules=strict)
+@dataclass(frozen=True)
+class NeuralMixRecipe:
+    transition: NeuralMixTransition
+    bars: int                        # default 32, scaled by template
+    keyframes: tuple[StemKeyframe, ...]
+    fx_events: tuple[MuteFXEvent, ...]
+    mix_in_section: str | None
+    mix_out_section: str | None
+    confidence: float
+    rescue: NeuralMixTransition       # fallback if recipe fails at runtime
+    explanation: str
+    warnings: tuple[str, ...]
 ```
 
-## Transition Recipe Engine (v0.7.0)
+Each `StemKeyframe` declares the level (in dB, `LEVEL_SILENT = -120 dB` floor) of one of eight (deck × stem) channels at one bar position. Linear interpolation between consecutive keyframes for the same channel. `MuteFXEvent` carries echo-tail trigger spacing — `echo_1`, `echo_3_4` (default), or `echo_1_2` (stutter).
 
-`app/domain/transition/recipe_engine.py:TransitionRecipeEngine.generate()` extends style recommendation with **12 djay Pro AI transition types** and step-by-step stem/EQ/effect instructions.
+JSON serialisation is symmetric (`to_json` / `from_json`); the `transitions.transition_recipe_json` column stores the round-tripped form. `transitions.fx_type` carries the `NeuralMixTransition` string value; `transitions.transition_bars` carries the bar count.
 
-See `docs/superpowers/specs/2026-04-10-transition-recipe-engine-design.md` for the full spec.
+### Per-preset 32-bar stem matrices
 
-12 types: CUT, BASS_SWAP_SHORT, BASS_SWAP_LONG, EQ_BLEND, FILTER_SWEEP, ECHO_OUT, LONG_BLEND, RISER, DROP_SWAP, NEURAL_MIX_BLEND, DISSOLVE, STEMS_CREATIVE.
+The seven builders in `app/domain/transition/builders.py` materialise the following envelopes (default bars=32, all positions are bars; `0 dB` = unity, `−∞` = silent):
 
-Decision tree uses scores + features + subgenre pair classification (ambient, hard, acid, melodic, hypnotic, mixed) + section context. Each recipe includes bar-by-bar steps, EQ plan, djay FX mapping, and rescue move.
+| Preset | A behaviour | B behaviour | Mute FX |
+|---|---|---|---|
+| **FADE** | All four stems linear ↘ from 0 dB at bar 0 to silent at bar 32 | Mirror ↗ | — |
+| **ECHO_OUT** | Sequential kill: vocals at bar 8 → harmonic at 16 → drums+bass at 24 (each with echo_3_4 tail) | drums+bass enter at bar 16 ↗ 0 dB by 24; harmonic enters at 20 ↗ 0 dB by 28; vocals enter at 28 ↗ 0 dB by 32 | echo_3_4 ×4 |
+| **VOCAL_SUSTAIN** | Vocals hold 0 dB through bar 24, fade to silent by 32. Other stems hold through bar 8, fade to silent by 24 | Drums/bass/harmonic enter at bar 8 ↗ 0 dB by 24. Vocals stay silent through bar 28, ↗ 0 dB by 32 | — |
+| **HARMONIC_SUSTAIN** | Mirror of VOCAL_SUSTAIN with harmonic ↔ vocals roles swapped | Mirror | — |
+| **DRUM_SWAP** | Phase 1 (0–16): drums ↘ silent; bass/harmonic/vocals hold. Phase 2 (16–32): bass/harmonic/vocals ↘ silent | Phase 1: drums ↗ 0 dB; rest silent. Phase 2: bass/harmonic/vocals ↗ 0 dB | — |
+| **VOCAL_CUT** | Vocals killed at bar 4 with echo_1_2. Other stems hold through bar 4, fade to silent by 28 | Drums/bass/harmonic enter at 4 ↗ 0 dB by 28. Vocals stay silent through bar 28, ↗ 0 dB by 32 | echo_1_2 ×1 |
+| **DRUM_CUT** | Drums killed at bar 4 with echo_1_2. Bass/harmonic/vocals hold through bar 4, fade to silent by 28 | Bass/harmonic/vocals enter at 4 ↗ 0 dB by 28. Drums stay silent through bar 31.5, then ramp to 0 dB by 32 (slam) | echo_1_2 ×1 |
 
-`recommend_recipe(score, features_a, features_b)` — public API in `app/domain/transition/style.py`, falls back to `recommend_style()` when features unavailable.
+`build_recipe_for_pair(score, fa, fb, *, section_context, subgenre_pair, intent, bars=32)` is the convenience wrapper — runs the picker, scales `bars` via `clamp_bars` when a subgenre pair is supplied, and dispatches into the appropriate builder. Used by `transition_persist_handler` and `set_version_build_handler` so every persisted transition row carries a fully-materialised recipe.
 
 ## Feature Loading
 

@@ -69,6 +69,12 @@ forbidden_modules =
 ignore_imports =
     app.server.lifespan -> app.domain.optimization
     app.server.lifespan -> app.domain.transition.scorer
+    app.handlers.transition_persist -> app.domain.transition.picker
+    app.handlers.transition_persist -> app.domain.transition.intent
+    app.handlers.transition_persist -> app.domain.transition.recipe
+    app.handlers.transition_persist -> app.domain.transition.score
+    app.handlers.transition_persist -> app.domain.transition.section_context
+    app.handlers.transition_persist -> app.domain.transition.subgenre_rules
 
 # ── Contract: v2 REST wrapper must be a thin proxy ──────────────────
 # Only DIRECT imports are forbidden — transitive imports via app.server

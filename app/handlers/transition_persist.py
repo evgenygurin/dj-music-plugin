@@ -4,23 +4,30 @@ Loads scoring features for the pair, calls ``TransitionScorer``, picks a
 Neural Mix preset via ``pick_neural_mix`` + ``build_recipe_for_pair``,
 and persists the score *and* the materialised recipe into the
 ``transitions`` table (upsert on ``(from_track_id, to_track_id)``).
+
+Domain-side imports are deliberately lazy inside function bodies —
+``app.handlers.transition_persist`` is reached transitively from
+``app.server.lifespan`` via ``app.registry.defaults``, and the
+``v2-server-no-domain`` import-linter contract forbids the server
+package from statically pulling ``app.domain``.
 """
 
 from __future__ import annotations
 
-from typing import Any, Protocol
+from typing import TYPE_CHECKING, Any, Protocol
 
 from fastmcp.server.context import Context
 
-from app.domain.transition.intent import TransitionIntent
-from app.domain.transition.picker import build_recipe_for_pair
-from app.domain.transition.recipe import NeuralMixRecipe
-from app.domain.transition.score import TransitionScore
-from app.domain.transition.section_context import SectionContext
-from app.domain.transition.subgenre_rules import SubgenrePairType
 from app.repositories.unit_of_work import UnitOfWork
 from app.shared.errors import NotFoundError
-from app.shared.features import TrackFeatures
+
+if TYPE_CHECKING:
+    from app.domain.transition.intent import TransitionIntent
+    from app.domain.transition.recipe import NeuralMixRecipe
+    from app.domain.transition.score import TransitionScore
+    from app.domain.transition.section_context import SectionContext
+    from app.domain.transition.subgenre_rules import SubgenrePairType
+    from app.shared.features import TrackFeatures
 
 
 class TransitionScorerProtocol(Protocol):
@@ -42,7 +49,7 @@ async def persist_transition_score(
     score: TransitionScore,
     recipe: NeuralMixRecipe | None = None,
 ) -> Any:
-    """Upsert a single ``TransitionScore`` (+ optional Neural Mix recipe) into ``transitions``.
+    """Upsert a single ``TransitionScore`` (+ optional Neural Mix recipe).
 
     Single source of truth for the score → DB mapping. Both
     ``transition_persist_handler`` (single pair via ``entity_create``)
@@ -52,10 +59,7 @@ async def persist_transition_score(
     Public TransitionScore field names are persisted into the v0
     ``harmonic_score`` / ``spectral_score`` / ``groove_score`` /
     ``timbral_score`` columns; internally these now hold the Neural Mix
-    HARMONICS / BASS / DRUMS / VOCALS stem compatibilities (see
-    ``app/domain/transition/score.py`` for the conceptual mapping).
-
-    Returns the persisted row so callers can read its id / timestamps.
+    HARMONICS / BASS / DRUMS / VOCALS stem compatibilities.
     """
     fields: dict[str, Any] = dict(
         bpm_score=float(score.bpm),
@@ -90,6 +94,10 @@ def _build_recipe_or_none(
 ) -> NeuralMixRecipe | None:
     """Materialise a Neural Mix recipe; swallow recipe-side errors so persist still lands."""
     try:
+        # Lazy import — keeps app.server transitively clean of app.domain
+        # per the v2-server-no-domain import-linter contract.
+        from app.domain.transition.picker import build_recipe_for_pair
+
         return build_recipe_for_pair(
             score,
             feat_a,
