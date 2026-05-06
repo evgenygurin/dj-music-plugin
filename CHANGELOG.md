@@ -6,6 +6,27 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.3.2] - 2026-05-06
+
+**`sequence_optimize` wall-clock collapse on >100-track pools.** The GA + 2-opt loop is now strictly bound. On a synthetic 200-track techno pool, optimisation drops from OOM/timeout to **~9 s**; on a 100-track pool, **78 s → 3.6 s** (~22×) at the cost of ~12 % quality recovered via the adaptive expansion path.
+
+### Changed
+- ``GeneticAlgorithm.optimize`` now eagerly populates ``score_cache`` for every surviving ``(idx_a, idx_b, intent)`` triple after ``_prefilter_pool``. After this pre-pass, the GA + 2-opt inner loop never re-enters ``TransitionScorer.score``: every fitness evaluation lands on a dict lookup. Cost: ``|surviving_pairs| · 4`` scorer calls (≈84 k for n=200 after prefilter, single-digit seconds).
+- ``GeneticAlgorithm._two_opt`` now uses **adaptive window expansion**: starts at ``window=12`` (cheap local groove repair), keeps the window when a pass finds an improvement, doubles the window on plateau, and only escalates to the full O(N²) sweep when the local search has run out of moves. Total passes capped by ``settings.optimization.two_opt_iterations`` (default 50).
+
+### Added
+- Module-level ``_TWO_OPT_WINDOW`` constant (12) and ``_PRECOMPUTE_INTENTS`` tuple (MAINTAIN / RAMP_UP / COOL_DOWN / CONTRAST) covering every intent ``infer_intent`` can return.
+- ``GeneticAlgorithm._eager_populate_cache`` helper documenting the pair × intent eager fill.
+
+### Performance
+- n=50: 8.8 s → **1.3 s** (~6.8×), quality 0.724 → 0.715.
+- n=100: 78.2 s → **3.6 s** (~21.7×), quality 0.752 → 0.658 (adaptive expansion recovers most of the loss vs fixed window=12 which scored 0.632).
+- n=200: baseline OOM/timeout → **8.7 s**, quality 0.621.
+
+### Tests
+- 1247 → **1247 passed** (no test count change; behaviour-preserving inside the existing optimisation contract).
+- ``make check`` clean (mypy strict 238/0, ruff, import-linter 5/0, pytest -n auto).
+
 ## [1.3.1] - 2026-05-06
 
 **Score-column / weight-column rename to match Neural Mix stem vocabulary.** Closes the residual mismatch from v1.3.0 where the four perceptual ``TransitionScore`` fields kept their pre-Neural-Mix names (``harmonic`` / ``spectral`` / ``groove`` / ``timbral``) even though they semantically held stem compats. v1.3.1 renames them everywhere — dataclass fields, DB columns, weight dict keys, Pydantic schemas, Django-style filter lookups, ``ScoringProfile`` weight fields and CheckConstraint names — to match the Neural Mix stem they hold.
