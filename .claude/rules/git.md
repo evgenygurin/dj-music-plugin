@@ -12,18 +12,21 @@ Extends global `~/.claude/rules/git.md`. Project-specific overrides below.
 See `.github/BRANCH_STRATEGY.md` for full details.
 
 ```text
-main ← production, squash-merge PRs from dev ONLY
-dev  ← integration, all work merges here
-feat/*, fix/*, chore/* ← short-lived, branch from dev
+main ← production-ready, default branch, only mover via PR
+release/*, feat/*, fix/*, chore/*, docs/*, refactor/* ← short-lived
 ```
+
+The historical `dev` integration branch was retired 2026-05-07 — the
+documented dev→main path no longer matched practice (v1.2.x and v1.3.x
+all shipped via PRs straight from `release/*` into `main`).
 
 ## Critical Rules
 
-1. **NEVER push directly to main** — pre-push hook blocks it
-2. **NEVER cherry-pick between main and dev** — caused April 2026 divergence
-3. **ALL PRs target dev** unless hotfix (then main → merge main back to dev)
-4. **Sync cadence**: PR dev → main after each milestone (~10 commits max drift)
-5. **Feature branches**: max 1-3 days, delete after merge
+1. **NEVER push directly to main** — pre-push hook blocks it.
+2. **Branch from main, PR back into main** — there is no integration branch.
+3. **Squash-merge** is the only sanctioned merge strategy on main.
+4. **Feature branches**: max 1-3 days, GitHub auto-deletes the remote branch on merge.
+5. **Releases live in `release/vX.Y.Z`** branches — see release flow below.
 
 ## Merge Settings (configured via gh API)
 
@@ -31,33 +34,28 @@ feat/*, fix/*, chore/* ← short-lived, branch from dev
 |---------|-------|
 | Squash merge | ✅ enabled (default) |
 | Merge commits | ❌ disabled |
-| Rebase merge | ✅ enabled |
+| Rebase merge | ✅ enabled (backup) |
 | Auto-delete branches | ✅ enabled |
 | Default branch | main |
 
 ## Pre-push Hook
 
-`hooks/pre-push` prevents direct pushes to main from main branch.
-Installed via: `ln -sf ../../hooks/pre-push .git/hooks/pre-push`
+`hooks/pre-push` prevents direct pushes to `main` when the current
+branch is `main`. Installed via:
+`ln -sf ../../hooks/pre-push .git/hooks/pre-push`.
 
 ## PR Conventions
 
 - Template: `.github/pull_request_template.md`
 - Title: `<type>(<scope>): <description>` (max 70 chars)
-- Target: `dev` (not `main`)
+- Target: `main`
 - Checklist includes `make check` pass
-
-## When to sync main
-
-After completing a milestone or ~10 dev commits:
-```bash
-gh pr create --base main --head dev --title "Release: <milestone>"
-gh pr merge <num> --squash
-```
 
 ## Versioning (SemVer)
 
-Single source of truth: `pyproject.toml` → `version = "X.Y.Z"`
+Single source of truth: `pyproject.toml` → `version = "X.Y.Z"`. The
+same value is mirrored in `CLAUDE.md`, `.claude-plugin/plugin.json`,
+`.claude-plugin/marketplace.json`.
 
 | Bump | When | Example |
 |------|------|---------|
@@ -65,26 +63,43 @@ Single source of truth: `pyproject.toml` → `version = "X.Y.Z"`
 | MINOR (Y) | New tools, features, analyzers | 0.7.0 → 0.8.0 |
 | PATCH (Z) | Bug fixes, metadata, docs, refactors | 0.7.0 → 0.7.1 |
 
-### Release checklist
+## Release checklist (PR-based)
 
 ```bash
-# 1. Update version
-# pyproject.toml: version = "X.Y.Z"
-# CLAUDE.md: version line
-# CHANGELOG.md: move [Unreleased] → [X.Y.Z] — YYYY-MM-DD
+# 1. Branch from current main
+git checkout main && git pull --ff-only
+git checkout -b release/vX.Y.Z
 
-# 2. Commit
-git add pyproject.toml CLAUDE.md CHANGELOG.md
-git commit -m "release: vX.Y.Z"
+# 2. Bump version everywhere + CHANGELOG
+# - pyproject.toml: version = "X.Y.Z"
+# - CLAUDE.md: "Текущая версия:" line
+# - .claude-plugin/plugin.json + marketplace.json: "version"
+# - CHANGELOG.md: insert ## [X.Y.Z] - YYYY-MM-DD section
 
-# 3. Tag
+# 3. Commit + push
+git add pyproject.toml CLAUDE.md CHANGELOG.md \
+        .claude-plugin/plugin.json .claude-plugin/marketplace.json
+git commit -F /tmp/commit-msg.txt   # see global rules for format
+git push -u origin release/vX.Y.Z
+
+# 4. PR + squash-merge
+gh pr create --base main --title "release: vX.Y.Z — <summary>" \
+             --body-file /tmp/pr-body.md
+gh pr merge <num> --squash --delete-branch
+
+# 5. Sync local main
+git checkout main && git pull --ff-only
+
+# 6. Tag the squash commit + push tag
 git tag -a vX.Y.Z -m "vX.Y.Z"
-git push origin dev --tags
-git push origin dev:main --tags
+git push origin vX.Y.Z
 
-# 4. GitHub Release
-gh release create vX.Y.Z --title "vX.Y.Z" --notes-file /tmp/release-notes.md
+# 7. GitHub Release
+gh release create vX.Y.Z --title "vX.Y.Z — <summary>" \
+                         --notes-file /tmp/release-notes.md
 ```
+
+Canonical examples: PR #199 (v1.3.5), PR #200 (v1.3.6).
 
 ### Tag naming: `vX.Y.Z` (with `v` prefix)
 
