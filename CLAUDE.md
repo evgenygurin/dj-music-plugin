@@ -31,7 +31,6 @@ cd panel && bun dev                        # Panel → http://localhost:3000
 - @docs/ym-api-guide.md — YM API quirks, rate limiting, diff format
 - @docs/panel-guide.md — Panel архитектура, data flow, компоненты
 - @docs/dev-mode.md — hot-reload: DJ_PLUGIN_DEV_PATH + hooks + /reload-plugins
-- @docs/vm-deployment.md — batch анализ (`deploy_to_vm.sh` + `vm_analyze.py`)
 - @docs/plugin-settings.md — per-project config (`.claude/dj-music.local.md`)
 - @docs/structure.md — файловая карта репозитория
 

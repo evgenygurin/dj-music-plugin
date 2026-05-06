@@ -88,7 +88,7 @@ updated = await client.get_playlist(...)    # теперь revision N+1
 # следующая модификация должна использовать updated.revision
 ```
 
-В `scripts/ym_bfs_expand.py` видно правильный паттерн — `_refresh_playlist` вызывается после каждого batch'а (но сам скрипт был stub'нут в v1.0.0 release — перед доверием проверь, переписан ли он уже на `provider_*` dispatchers).
+После любой playlist-mutation revision сразу устаревает — refetch через `provider_read(entity="playlist", id=..., params={"with_revision": true})` обязателен перед следующим diff.
 
 ### 3. Track ID формат в diff
 

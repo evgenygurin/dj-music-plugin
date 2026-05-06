@@ -55,9 +55,6 @@ changelog-draft:
 	@echo "=== Commits since last tag ==="
 	@git log $$(git describe --tags --abbrev=0)..HEAD --oneline --format="- %s" | sort
 
-release:
-	@./scripts/release.sh $(VERSION) "$(DESC)"
-
 clean:
 	find . -type d -name __pycache__ -exec rm -rf {} +
 	find . -type d -name .pytest_cache -exec rm -rf {} +

@@ -5,14 +5,14 @@ globs: scripts/**/*.py
 
 # Logging for long-running CLI
 
-Правила для скриптов и сервисов которые крутятся часами/днями (импорт/анализ на VM, batch jobs, систем сервисы). Применяются в `scripts/vm_*.py` и любых других long-running CLI.
+Правила для скриптов и сервисов которые крутятся часами/днями (batch import/analyze jobs, systemd services, любые long-running CLI поверх v1 dispatchers).
 
-> **История:** `scripts/vm_import_and_analyze.py` был удалён в v1.0.4
-> — сломался при Phase-7 cutover на v1 (импорты `app.services.*`,
-> `app.ym.*`, `app.controllers.*`). Текущий batch анализ —
-> `scripts/vm_analyze.py` (одноразовый, без continuous loop).
-> Continuous-loop скрипт на v1 surface пока не переписан. Паттерны
-> ниже — канон для любого нового long-running CLI.
+> **История:** `scripts/vm_import_and_analyze.py` (continuous loop) и
+> `scripts/vm_analyze.py` (one-shot) удалены в Phase-7 cutover —
+> зависели от legacy `app.services.*` / `app.ym.*` /
+> `app.controllers.*`, которых больше нет. Continuous batch job на v1
+> surface (`entity_create(entity="track_features", ...)` через MCP)
+> пока не переписан. Паттерны ниже — канон для будущей реализации.
 
 ## Real-time output (без буферизации)
 

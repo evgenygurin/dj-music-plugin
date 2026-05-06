@@ -22,7 +22,7 @@ audio = [
     "scipy>=1.12",
     "essentia>=2.1b6.dev1389",
     # numba 0.64 + numpy 2.x segfaults inside librosa.beat.beat_track gufunc
-    # (single-threaded, on first call). 0.65+ ships the fix. See docs/vm-deployment.md.
+    # (single-threaded, on first call). 0.65+ ships the fix.
     "numba>=0.65",
     "llvmlite>=0.47",
 ]

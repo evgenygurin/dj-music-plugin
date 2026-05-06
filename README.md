@@ -1,12 +1,12 @@
 # DJ Music Plugin
 
-**v1.0.7** · MIT · MCP-сервер для управления личной DJ techno библиотекой, построения оптимизированных DJ сетов и интеграции с Яндекс Музыкой.
+**v1.3.6** · MIT · MCP-сервер для управления личной DJ techno библиотекой, построения оптимизированных DJ сетов и интеграции с Яндекс Музыкой.
 
 Три surface'а на одном backend'е: **MCP** (Claude Desktop / Cursor / любой MCP-client), **REST API** (FastAPI обёртка для скриптов), **Web Panel** (Next.js dashboard).
 
 ## Возможности
 
-- **20 MCP tools** — 13 generic dispatchers (v1 polymorphism: `entity_{list,get,create,update,delete,aggregate}` × 11 entities, `provider_{read,write,search}` × Yandex, `transition_score_pool`, `sequence_optimize`, `playlist_sync`, `unlock_namespace`) + 6 UI Prefab dashboards (camelot wheel, library audit/dashboard, set view, transition score, score-pool matrix) + `tool_invoke`
+- **20 MCP tools** — 14 generic dispatchers (v1 polymorphism: `entity_{list,get,create,update,delete,aggregate}` × 11 entities, `provider_{read,write,search}` × Yandex, `transition_score_pool`, `sequence_optimize`, `playlist_sync`, `unlock_namespace`, `tool_invoke`) + 6 UI Prefab dashboards (camelot wheel, library audit/dashboard, set view, transition score, score-pool matrix)
 - **27 MCP resources** — per-entity views (`local://`), session state (`session://`), schema introspection (`schema://`), static reference blobs (`reference://`)
 - **6 workflow prompts** — `dj_expert_session`, `build_set_workflow`, `deliver_set_workflow`, `expand_playlist_workflow`, `full_pipeline`, `quick_mix_check`
 - **Audio analysis pipeline** — 18 анализаторов (L1→L4 tiered), SharedMemory transport + per-worker AnalysisContext cache
@@ -93,7 +93,7 @@ DJ_DB_PROJECT_REF="your_project_ref" # из URL Supabase Dashboard
 ## Разработка
 
 ```bash
-uv run pytest -q                           # Тесты (704 passed)
+uv run pytest -q                           # Тесты (1262 passed)
 uv run ruff check && uv run ruff format --check  # Линтер
 uv run mypy app/                           # Типы (есть pre-existing tech debt)
 uv run lint-imports                        # Архитектурные контракты (5/5)
@@ -124,7 +124,7 @@ Backend на `:8000` запускается параллельно через [s
 FastMCP v3 + FileSystemProvider (standalone `@tool` / `@resource` / `@prompt`, auto-discovery):
 
 ```text
-tools/       # 13 @tool dispatchers (entity/provider/compute/sync/admin)
+tools/       # 14 @tool dispatchers (entity/provider/compute/sync/admin) + 6 UI Prefab
 resources/   # 27 @resource URIs
 prompts/     # 6 @prompt workflow recipes
 handlers/    # 6 entity-scoped side-effect handlers
@@ -144,7 +144,7 @@ db/          # session, seed, Alembic migrations
 
 **Ключевые решения:**
 - **MCP — primary interface.** Композиция — через prompts / CodeMode / Tool Search, а не императивный service-слой.
-- **Polymorphism over proliferation.** 13 tool dispatchers вместо 88 (v0.8).
+- **Polymorphism over proliferation.** 20 tools вместо 88 (v0.8) — 14 generic dispatchers + 6 UI Prefab.
 - **Anchor на DB entities.** Один aggregate root = один model + один repo + семья Pydantic schemas.
 - **Unit of Work.** Одна `UnitOfWork` на tool call, commit/rollback через `DbSessionMiddleware`.
 - **Pure domain.** `app/domain/` не знает о DB / HTTP / FastMCP (enforced by import-linter).
@@ -238,7 +238,6 @@ entity_create("track",...)  → entity_create("audio_file",...)  → entity_crea
 | Yandex Music API quirks | [docs/ym-api-guide.md](docs/ym-api-guide.md) |
 | DJ-терминология (BPM, Camelot, LUFS, subgenres) | [docs/domain-glossary.md](docs/domain-glossary.md) |
 | Panel — пути данных, components, env | [docs/panel-guide.md](docs/panel-guide.md) |
-| Continuous L5 sweep на VM | [docs/vm-deployment.md](docs/vm-deployment.md) |
 
 ## Лицензия
 

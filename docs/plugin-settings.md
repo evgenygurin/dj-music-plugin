@@ -27,11 +27,6 @@ enable_filter_sweep_style: true
 default_template: peak_hour_60
 default_crossfade_bars: 32
 default_analysis_level: 3
-
-# VM batch analysis (consumed by scripts/deploy_to_vm.sh + vm_analyze.py)
-vm_host: root@155.212.128.27
-vm_workers: 20
-vm_sleep_sec: 600
 ---
 
 # Notes
@@ -52,10 +47,7 @@ for scheduled jobs.
 | `enable_filter_sweep_style` | `true` | Audio player dispatcher (future: hide chip if false) |
 | `default_template` | `peak_hour_60` | `/build-set` skill |
 | `default_crossfade_bars` | `32` | Audio player initial state |
-| `default_analysis_level` | `3` | `/build-set`, `/deliver-set`, VM sweeps |
-| `vm_host` | — | `scripts/deploy_to_vm.sh` target |
-| `vm_workers` | `20` | `scripts/vm_analyze.py --workers` |
-| `vm_sleep_sec` | `600` | Pause between sweeps (if run via `/loop`) |
+| `default_analysis_level` | `3` | `/build-set`, `/deliver-set` skills |
 
 ## Usage
 
