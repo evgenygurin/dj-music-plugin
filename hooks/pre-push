@@ -1,20 +1,25 @@
 #!/bin/sh
-# Prevent direct pushes to main. All changes must go through PR from dev.
+# Prevent direct pushes to main. All changes must go through a PR.
 # Install: ln -sf ../../hooks/pre-push .git/hooks/pre-push
 
 remote="$1"
 
 while read -r local_ref local_sha remote_ref remote_sha; do
     if echo "$remote_ref" | grep -qE "refs/heads/main$"; then
-        # Allow only if pushing dev branch to main (force-sync scenario)
         current_branch=$(git symbolic-ref --short HEAD 2>/dev/null)
         if [ "$current_branch" = "main" ]; then
             echo ""
             echo "⛔ Direct push to main is blocked."
-            echo "   All changes must go through a PR from dev."
+            echo "   All changes must reach main via a PR (squash-merged)."
             echo ""
-            echo "   To sync main with dev:"
-            echo "     git push origin dev:main --force-with-lease"
+            echo "   Standard flow:"
+            echo "     git checkout -b feat/<topic>     # branch from main"
+            echo "     # ... commit ..."
+            echo "     git push -u origin feat/<topic>"
+            echo "     gh pr create --base main"
+            echo "     gh pr merge --squash --delete-branch"
+            echo ""
+            echo "   See .github/BRANCH_STRATEGY.md for the full flow."
             echo ""
             exit 1
         fi

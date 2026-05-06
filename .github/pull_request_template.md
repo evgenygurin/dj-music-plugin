@@ -13,7 +13,7 @@
 - [ ] test — test only
 
 ## Checklist
-- [ ] Target branch is `dev` (not `main`)
+- [ ] Target branch is `main` (squash-merge via PR)
 - [ ] `make check` passes (lint + typecheck + arch + test)
 - [ ] No magic numbers — uses `settings.*` or `constants.py`
 - [ ] New tools have `title`, `tags`, `annotations`, `icons`, `meta`
