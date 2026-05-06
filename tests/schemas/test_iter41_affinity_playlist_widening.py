@@ -55,30 +55,44 @@ class TestTrackAffinityFilterIdAndBatch:
 
 
 class TestTrackAffinityFilterScoreAndCounts:
+    """Counter columns renamed in 2026-05-07 schema sync —
+    ``positive_count``/``negative_count`` are now
+    ``like_count``/``ban_count`` plus a fresh ``skip_count`` and a
+    denormalised ``net_sentiment`` float."""
+
     def test_avg_score_lte_accepted(self) -> None:
         TrackAffinityFilter.model_validate({"avg_score__lte": 0.4})
 
     def test_avg_score_range_accepted(self) -> None:
         TrackAffinityFilter.model_validate({"avg_score__range": [0.3, 0.8]})
 
-    @pytest.mark.parametrize("field", ["play_count", "positive_count", "negative_count"])
+    @pytest.mark.parametrize("field", ["play_count", "like_count", "ban_count", "skip_count"])
     def test_count_lookup(self, field: str) -> None:
         TrackAffinityFilter.model_validate({f"{field}__gte": 5})
         TrackAffinityFilter.model_validate({f"{field}__lte": 100})
 
+    def test_net_sentiment_range_accepted(self) -> None:
+        TrackAffinityFilter.model_validate({"net_sentiment__range": [-0.5, 0.9]})
+
 
 class TestTrackAffinityUpdate:
-    def test_positive_count_round_trips(self) -> None:
-        upd = TrackAffinityUpdate.model_validate({"positive_count": 7})
-        assert upd.positive_count == 7
+    def test_like_count_round_trips(self) -> None:
+        upd = TrackAffinityUpdate.model_validate({"like_count": 7})
+        assert upd.like_count == 7
 
-    def test_negative_count_round_trips(self) -> None:
-        upd = TrackAffinityUpdate.model_validate({"negative_count": 3})
-        assert upd.negative_count == 3
+    def test_ban_count_round_trips(self) -> None:
+        upd = TrackAffinityUpdate.model_validate({"ban_count": 3})
+        assert upd.ban_count == 3
 
-    def test_negative_count_rejects_negative(self) -> None:
+    def test_ban_count_rejects_negative(self) -> None:
         with pytest.raises(ValidationError):
-            TrackAffinityUpdate.model_validate({"negative_count": -1})
+            TrackAffinityUpdate.model_validate({"ban_count": -1})
+
+    def test_net_sentiment_clamped_to_unit_range(self) -> None:
+        with pytest.raises(ValidationError):
+            TrackAffinityUpdate.model_validate({"net_sentiment": 1.5})
+        upd = TrackAffinityUpdate.model_validate({"net_sentiment": -0.25})
+        assert upd.net_sentiment == -0.25
 
 
 class TestPlaylistViewExposesProvenance:

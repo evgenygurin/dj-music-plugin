@@ -1,4 +1,4 @@
-"""TrackAffinity (aggregated pair stats from history)."""
+"""TrackAffinity (aggregated pair stats from history) — synced 2026-05-07."""
 
 from __future__ import annotations
 
@@ -21,10 +21,14 @@ async def test_affinity_pair(engine: AsyncEngine, session: AsyncSession) -> None
         track_a_id=t1.id,
         track_b_id=t2.id,
         play_count=3,
-        positive_count=2,
-        negative_count=0,
+        like_count=2,
+        ban_count=0,
+        skip_count=1,
+        net_sentiment=0.5,
         avg_score=0.82,
     )
     session.add(a)
     await session.commit()
     assert a.id is not None
+    assert a.like_count == 2
+    assert a.net_sentiment == 0.5

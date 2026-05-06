@@ -1,16 +1,11 @@
-"""Audit iter 60 (T-58): ``TrackFeedbackCreate`` had no cross-field
-validation between ``kind`` and ``rating``. The strict semantic is:
+"""Smoke test 2026-05-07: ``TrackFeedbackCreate`` after schema sync.
 
-- ``kind="rate"`` → ``rating`` REQUIRED (1-5)
-- ``kind="like"`` → ``rating`` MUST be absent (binary signal)
-- ``kind="ban"``  → ``rating`` MUST be absent (binary signal)
-
-Without this, ``entity_create(track_feedback, {kind:"rate"})``
-persisted with ``rating=null`` (a "rate" with no rating);
-``{kind:"like", rating:5}`` persisted a stray rating next to a
-binary like. Both forms break downstream consumers.
-
-Now ``model_validator(mode="after")`` enforces the pairing.
+The prior ``kind`` (``like``/``ban``/``rate``) triplet was retired
+when prod schema turned out to use ``status``
+(``active``/``liked``/``banned``/``archived``) with a non-null
+``rating`` defaulting to 3. Cross-field rules are now schema-enforced
+(CHECK constraints in DB + Literal in Pydantic), so this file holds
+only the behavioural sanity tests.
 """
 
 from __future__ import annotations
@@ -21,50 +16,43 @@ from pydantic import ValidationError
 from app.schemas.track_feedback import TrackFeedbackCreate
 
 
-class TestKindRatePairing:
-    def test_rate_with_rating_accepted(self) -> None:
-        c = TrackFeedbackCreate.model_validate({"track_id": 146, "kind": "rate", "rating": 5})
-        assert c.rating == 5
+class TestStatusEnum:
+    def test_default_status_active(self) -> None:
+        c = TrackFeedbackCreate.model_validate({"track_id": 146})
+        assert c.status == "active"
+        assert c.rating == 3
 
-    def test_rate_without_rating_rejected(self) -> None:
-        with pytest.raises(ValidationError, match=r"kind='rate' requires a rating"):
-            TrackFeedbackCreate.model_validate({"track_id": 146, "kind": "rate"})
+    @pytest.mark.parametrize("status", ["active", "liked", "banned", "archived"])
+    def test_known_status_values_accepted(self, status: str) -> None:
+        c = TrackFeedbackCreate.model_validate({"track_id": 146, "status": status})
+        assert c.status == status
 
-
-class TestKindLikePairing:
-    def test_like_without_rating_accepted(self) -> None:
-        c = TrackFeedbackCreate.model_validate({"track_id": 146, "kind": "like"})
-        assert c.rating is None
-
-    def test_like_with_rating_rejected(self) -> None:
-        with pytest.raises(ValidationError, match=r"kind='like' is binary"):
-            TrackFeedbackCreate.model_validate({"track_id": 146, "kind": "like", "rating": 5})
-
-
-class TestKindBanPairing:
-    def test_ban_without_rating_accepted(self) -> None:
-        c = TrackFeedbackCreate.model_validate({"track_id": 146, "kind": "ban"})
-        assert c.rating is None
-
-    def test_ban_with_rating_rejected(self) -> None:
-        with pytest.raises(ValidationError, match=r"kind='ban' is binary"):
-            TrackFeedbackCreate.model_validate({"track_id": 146, "kind": "ban", "rating": 3})
+    def test_unknown_status_rejected(self) -> None:
+        with pytest.raises(ValidationError):
+            TrackFeedbackCreate.model_validate({"track_id": 146, "status": "bogus"})
 
 
 class TestRatingBoundsStillEnforced:
-    """Sanity: existing ge=1 / le=5 bounds still fire (kind='rate'
-    case, where rating is supplied)."""
-
     def test_rating_below_one_rejected(self) -> None:
         with pytest.raises(ValidationError):
-            TrackFeedbackCreate.model_validate({"track_id": 146, "kind": "rate", "rating": 0})
+            TrackFeedbackCreate.model_validate({"track_id": 146, "rating": 0})
 
     def test_rating_above_five_rejected(self) -> None:
         with pytest.raises(ValidationError):
-            TrackFeedbackCreate.model_validate({"track_id": 146, "kind": "rate", "rating": 6})
+            TrackFeedbackCreate.model_validate({"track_id": 146, "rating": 6})
 
     def test_notes_independently_optional(self) -> None:
         c = TrackFeedbackCreate.model_validate(
-            {"track_id": 146, "kind": "like", "notes": "hot track"}
+            {"track_id": 146, "status": "liked", "notes": "hot track"}
         )
         assert c.notes == "hot track"
+
+
+class TestCounters:
+    def test_play_count_round_trips(self) -> None:
+        c = TrackFeedbackCreate.model_validate({"track_id": 146, "play_count": 12})
+        assert c.play_count == 12
+
+    def test_skip_count_rejects_negative(self) -> None:
+        with pytest.raises(ValidationError):
+            TrackFeedbackCreate.model_validate({"track_id": 146, "skip_count": -1})
