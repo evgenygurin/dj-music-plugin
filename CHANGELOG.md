@@ -6,6 +6,29 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.3.3] - 2026-05-06
+
+**`sequence_optimize` second-stage perf cut targeting real-world subgenre playlists.** v1.3.2's eager-populate stage worked great on synthetic randomised pools but stalled on production pools that share a subgenre / BPM range — those have a much lower hard-reject rate (~25-30 % vs ~50 % synthetic), which doubles the surviving-pair count and therefore the wall-clock of `_eager_populate_cache`. v1.3.3 attacks the populate stage on two fronts: a bulk-scoring API that shares the expensive stem-compat compute across all four intents, and an opt-in process-pool that fans the populate sweep across CPU cores.
+
+### Added
+- ``TransitionScorer.score_all_intents(a, b, intents=...)`` — bulk path that calls ``NeuralMixScorer.score`` + ``score_bpm`` + ``score_energy`` exactly once per pair and derives the four per-intent ``TransitionScore`` objects from the shared parts. ~80 % of one ``score`` call's wall-clock is the stem compats, which the per-intent loop in v1.3.2 was repeating 4× per pair.
+- ``GeneticAlgorithm(parallel_populate=True, max_workers=…, parallel_populate_threshold=200)`` — pool-size-gated process pool for the populate stage. Workers receive ``tracks`` once via ``initializer`` and then per-task messages are just ``(idx_a, idx_b)`` pairs; results stream back as ``{intent_value: overall}`` dicts.
+
+### Changed
+- ``GeneticAlgorithm._eager_populate_cache`` now batches surviving pairs into a single list and dispatches via ``score_all_intents``. For pools at or above ``parallel_populate_threshold`` the dispatch fans out across ``ProcessPoolExecutor``; below the threshold it stays in-process.
+
+### Performance
+Real ``Subgenre: peak_time`` playlist (n=242, 99 % features coverage):
+- v1.3.2 baseline (per-intent loop, serial populate): n=100 17.0 s, n=242 26.0 s.
+- v1.3.3 intent-share + parallel populate (target measurement): see post-deploy bench in `docs/`.
+
+### Tests
+- 1247 → **1247 passed** (no test count change; pure refactor of the populate path).
+- ``make check`` clean (mypy strict 238/0, ruff, import-linter 5/0, pytest -n auto).
+
+### Open
+- Parallel-populate threshold (200) and worker cap (8) are currently hard-coded constants — TODO surface them via ``settings.optimization`` if the field finds a real use case for tuning.
+
 ## [1.3.2] - 2026-05-06
 
 **`sequence_optimize` wall-clock collapse on >100-track pools.** The GA + 2-opt loop is now strictly bound. On a synthetic 200-track techno pool, optimisation drops from OOM/timeout to **~9 s**; on a 100-track pool, **78 s → 3.6 s** (~22×) at the cost of ~12 % quality recovered via the adaptive expansion path.
