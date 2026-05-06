@@ -20,7 +20,7 @@ from __future__ import annotations
 import os
 
 import httpx
-from prefect import flow, get_run_logger, task
+from prefect import flow, get_run_logger, task  # pyright: ignore[reportMissingImports]
 
 DEFAULT_URL = os.environ.get("DJ_MUSIC_API_URL", "http://127.0.0.1:8000")
 

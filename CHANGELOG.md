@@ -6,6 +6,18 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.3.6] - 2026-05-07
+
+**Silence basedpyright `reportMissingImports` on the optional `prefect` flow.** ``flows/dj_health_check.py`` is deployed via Prefect Cloud (``uvx prefect-cloud deploy …``); Prefect installs its own runtime remotely, so ``prefect`` is intentionally absent from the local ``pyproject.toml``. A one-line ``# pyright: ignore[reportMissingImports]`` keeps the basedpyright IDE noise away without dragging Prefect into the local virtualenv.
+
+### Changed
+- ``flows/dj_health_check.py:23`` — annotated the ``from prefect import …`` line with ``# pyright: ignore[reportMissingImports]``.
+
+### Notes
+- ``make check`` unaffected — its mypy run targets ``app/`` only; ``flows/`` is out-of-scope (mypy on the file still reports the missing module, which is by design).
+- ``ruff`` on ``flows/`` stays clean.
+- No behaviour change; v1 dispatcher surface and tool catalog unchanged from v1.3.5.
+
 ## [1.3.5] - 2026-05-07
 
 **Vectorised eager-populate via numpy bulk-scoring.** The Python loop in v1.3.3 (intent-share serial) and the process-pool in v1.3.4 (intent-share parallel) were both O(N²) calls into a per-pair scalar code path. v1.3.5 introduces ``app.domain.transition.bulk_scorer`` — a numpy clone of the six scoring components plus the hard-reject gate that runs the entire (idx_a, idx_b) pair set as a single batch of vectorised ops. Parity is enforced by ``test_bulk_scorer_parity.py`` on a randomised 30-track pool with field-dropout: every component plus the end-to-end overall matches the scalar path within 1e-9 across all four intents. After this, ``GeneticAlgorithm._eager_populate_cache`` is a 3-line call into the bulk path.
