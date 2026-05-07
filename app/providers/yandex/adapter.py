@@ -47,8 +47,14 @@ class YandexAdapter:
                 tracks = await self._client.get_tracks([id])
                 return tracks[0] if tracks else {}
             case "track_batch":
-                ids = params.get("ids", [])
-                tracks = await self._client.get_tracks(list(ids))
+                # Accept both ``track_ids`` (canonical, matches add_tracks /
+                # remove_tracks / likes) and ``ids`` (legacy, documented in
+                # skills/ym-sync). Numeric IDs are stringified before reaching
+                # the YM client.
+                raw_ids = params.get("track_ids")
+                if raw_ids is None:
+                    raw_ids = params.get("ids", [])
+                tracks = await self._client.get_tracks([str(t) for t in raw_ids])
                 return {"tracks": tracks}
             case "track_similar":
                 if id is None:

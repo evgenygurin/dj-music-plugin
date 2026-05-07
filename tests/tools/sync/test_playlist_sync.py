@@ -29,18 +29,15 @@ async def test_diff_direction_does_not_double_count_overlap() -> None:
     ``local_only`` and once as ``remote_only``).
     """
     # Local playlist has tracks 1 and 2; provider IDs map "a" → 1, "b" → 2.
-    item1 = MagicMock()
-    item1.track_id = 1
-    item2 = MagicMock()
-    item2.track_id = 2
-
     pl = MagicMock()
     pl.platform_ids = '{"yandex": "remote-1"}'
-    pl.items = [item1, item2]
 
     uow = MagicMock()
     uow.playlists = MagicMock()
     uow.playlists.get = AsyncMock(return_value=pl)
+    # Regression: tool must NOT touch ``pl.items`` (lazy-load triggers
+    # ``greenlet_spawn`` in async sessions). Use the explicit repo helper.
+    uow.playlists.get_track_ids = AsyncMock(return_value=[1, 2])
 
     uow.tracks = MagicMock()
 
@@ -75,3 +72,5 @@ async def test_diff_direction_does_not_double_count_overlap() -> None:
     remote_only = [a for a in result.applied if a.get("op") == "remote_only"]
     assert len(remote_only) == 1
     assert remote_only[0]["ext_id"] == "c"
+    # Ensure local items came from the repo helper, not lazy-load.
+    uow.playlists.get_track_ids.assert_awaited_once_with(42)

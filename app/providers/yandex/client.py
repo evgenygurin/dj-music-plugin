@@ -112,7 +112,9 @@ class YandexClient:
     # ---------- tracks ---------- #
 
     async def get_tracks(self, track_ids: list[str]) -> list[dict[str, Any]]:
-        res = await self._request("GET", "/tracks", params={"trackIds": ",".join(track_ids)})
+        # Defensive: stringify each id — callers occasionally pass int.
+        joined = ",".join(str(tid) for tid in track_ids)
+        res = await self._request("GET", "/tracks", params={"trackIds": joined})
         return res if isinstance(res, list) else []
 
     async def get_similar(self, track_id: str) -> list[dict[str, Any]]:

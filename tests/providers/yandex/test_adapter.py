@@ -64,6 +64,26 @@ async def test_read_tracks(mock_client: AsyncMock) -> None:
 
 
 @pytest.mark.asyncio
+async def test_read_track_batch_canonical_track_ids(mock_client: AsyncMock) -> None:
+    """Canonical key — matches add_tracks / likes / remove_tracks shape."""
+    adapter = YandexAdapter(client=mock_client)
+    result = await adapter.read(
+        "track_batch", id=None, params={"track_ids": [137518650, "98765"]}
+    )
+    assert "tracks" in result
+    # Numeric ids are stringified before reaching the YM client.
+    mock_client.get_tracks.assert_awaited_once_with(["137518650", "98765"])
+
+
+@pytest.mark.asyncio
+async def test_read_track_batch_legacy_ids_key(mock_client: AsyncMock) -> None:
+    """Legacy ``ids`` key (per skills/ym-sync.md) still works for back-compat."""
+    adapter = YandexAdapter(client=mock_client)
+    await adapter.read("track_batch", id=None, params={"ids": ["1", "2"]})
+    mock_client.get_tracks.assert_awaited_once_with(["1", "2"])
+
+
+@pytest.mark.asyncio
 async def test_read_similar(mock_client: AsyncMock) -> None:
     adapter = YandexAdapter(client=mock_client)
     result = await adapter.read("track_similar", id="1", params={})

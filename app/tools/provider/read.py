@@ -29,7 +29,10 @@ from app.shared.types import JsonDictOrNone
 async def provider_read(
     provider: Annotated[str, Field(description="Provider name (e.g., 'yandex')")],
     entity: Annotated[str, Field(description="Provider entity type")],
-    id: Annotated[str | None, Field(description="Entity ID (optional for list ops)")] = None,
+    id: Annotated[
+        str | int | None,
+        Field(description="Entity ID (optional for list ops); int and str both accepted"),
+    ] = None,
     params: Annotated[
         JsonDictOrNone, Field(description="Extra params (offset, limit, etc.)")
     ] = None,
@@ -37,5 +40,8 @@ async def provider_read(
     ctx: Context = CurrentContext(),
 ) -> ProviderReadResult:
     adapter = registry.get(provider)
-    data = await adapter.read(entity, id=id, params=params or {})
+    # Normalize numeric IDs to str — YM (and most providers) accept opaque
+    # string IDs but callers naturally pass int for numeric platform IDs.
+    norm_id = str(id) if id is not None else None
+    data = await adapter.read(entity, id=norm_id, params=params or {})
     return ProviderReadResult(provider=provider, entity=entity, data=data)

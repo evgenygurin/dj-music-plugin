@@ -65,7 +65,10 @@ async def playlist_sync(
     provider = registry.get(source)
     remote = await provider.read("playlist", id=remote_id, params={})
 
-    local_track_ids: list[int] = [item.track_id for item in getattr(pl, "items", []) or []]
+    # Use the repo helper instead of ``pl.items`` lazy-load — accessing an
+    # async-session relationship attribute outside an explicit ``selectinload``
+    # raises ``greenlet_spawn has not been called``.
+    local_track_ids: list[int] = await uow.playlists.get_track_ids(playlist_id)
     remote_tracks = remote.get("tracks") or []
     remote_ext_ids: list[str] = [str(t.get("id")) for t in remote_tracks if t.get("id")]
 
