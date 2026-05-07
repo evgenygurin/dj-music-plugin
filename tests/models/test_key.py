@@ -35,6 +35,10 @@ async def test_key_code_range(engine: AsyncEngine, session: AsyncSession) -> Non
 async def test_key_edge_distance_range(engine: AsyncEngine, session: AsyncSession) -> None:
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
-    session.add(KeyEdge(from_key=0, to_key=1, distance=99, weight=1.0, rule_name="bad"))
+    # Seed referenced keys first — KeyEdge has FK on key_code.
+    session.add(Key(key_code=0, pitch_class=0, mode=0, name="C minor", camelot="5A"))
+    session.add(Key(key_code=1, pitch_class=7, mode=0, name="G minor", camelot="6A"))
+    await session.flush()
+    session.add(KeyEdge(from_key_code=0, to_key_code=1, distance=99, weight=1.0, rule_name="bad"))
     with pytest.raises(IntegrityError):
         await session.commit()

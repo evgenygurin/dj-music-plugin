@@ -40,11 +40,11 @@ _KEYS: tuple[tuple[int, int, int, str, str], ...] = (
     (23, 5, 1, "F major", "7B"),
 )
 
-_PROVIDERS: tuple[tuple[str, str], ...] = (
-    ("yandex_music", "Yandex Music"),
-    ("spotify", "Spotify"),
-    ("beatport", "Beatport"),
-    ("soundcloud", "SoundCloud"),
+_PROVIDERS: tuple[str, ...] = (
+    "yandex_music",
+    "spotify",
+    "beatport",
+    "soundcloud",
 )
 
 
@@ -63,9 +63,9 @@ async def seed_reference(session: AsyncSession) -> None:
                 )
             )
 
-    existing_provs = {c for (c,) in (await session.execute(select(Provider.code))).all()}
-    for code, display in _PROVIDERS:
-        if code not in existing_provs:
-            session.add(Provider(code=code, display_name=display))
+    existing_provs = {n for (n,) in (await session.execute(select(Provider.name))).all()}
+    for name in _PROVIDERS:
+        if name not in existing_provs:
+            session.add(Provider(name=name))
 
     await session.flush()
