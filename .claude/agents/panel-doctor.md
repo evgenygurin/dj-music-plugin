@@ -110,8 +110,8 @@ sleep 3 && curl -sf http://localhost:8000/api/health
 **Workflow**:
 1. Error в next dev log? Прочитай stack.
 2. `actions/X-actions.ts` → `mcpCall('tool_name', args)` → REST API.
-3. Проверь что tool существует: `curl http://localhost:8000/api/tools/tool_name`.
-4. Проверь что args матчат inputSchema: `curl http://localhost:8000/api/tools/tool_name/schema`.
+3. Проверь что tool существует: `curl -sf http://localhost:8000/api/tools/tool_name | jq` (вернёт `ToolSummary` с tags/description).
+4. Для inputSchema — список всех tools `curl -sf http://localhost:8000/api/tools | jq` (per-tool schema endpoint `/schema` не реализован в v1 REST, см. `.claude/rules/rest-api.md`). Inputs valid'ятся внутри MCP при `/call`; неверные args возвращаются как typed `ValidationError("invalid payload for entity 'X': ...")` в `result.error`.
 5. Проверь что REST API UP.
 6. Проверь что MCP lifespan инициализирован (`"mcp_ready": true` в /api/health).
 
@@ -154,8 +154,8 @@ curl -sf http://localhost:3000 -o /dev/null -w "%{http_code}\n"
 # Логи panel
 tail -F /tmp/dj-panel.log   # если запущен через скрипт
 
-# Tool schema
-curl -sf http://localhost:8000/api/tools/<tool_name>/schema | jq
+# Tool metadata (description, tags). NOTE: per-tool /schema endpoint is deferred — see .claude/rules/rest-api.md
+curl -sf http://localhost:8000/api/tools/<tool_name> | jq
 
 # Supabase ping (через env из panel/.env.local)
 # загляни в lib/supabase/server.ts для URL и прогони .from('tracks').select('count').head()

@@ -1,12 +1,12 @@
 ---
 name: curate-library
-description: "Use when the user asks to classify tracks, audit playlist, get library stats, distribute to subgenres, run mood classification, or review library quality. Covers mood classification, audits, subgenre distribution and stats."
+description: "This skill should be used when the user asks to classify tracks, audit playlist, get library stats, distribute to subgenres, run mood classification, or review library quality. Covers mood classification, audits, subgenre distribution and stats."
 version: 1.0.1
 ---
 
 # Curate DJ Library Workflow
 
-Guide the user through classifying, auditing, and organizing their techno library via the v1 polymorphic dispatchers (13 tool dispatchers — см. @docs/tool-catalog.md).
+Guide the user through classifying, auditing, and organizing their techno library via the v1 polymorphic dispatchers (**20 tools** = 14 core dispatchers + 6 UI Prefab Apps — см. @docs/tool-catalog.md).
 
 ## Actions
 
@@ -39,12 +39,18 @@ Static reference: read `reference://subgenres`.
 
 ### Library Statistics
 
-Aggregate directly with `entity_aggregate`:
+Aggregate directly with `entity_aggregate`. Valid `operation` values: `count | distinct | histogram | min_max | sum | avg`. `group_by` is a **parameter**, not an operation — combine it with `operation="count"` (or `distinct`/`sum`/`avg`/`min_max`) to bucket results.
 - Total tracks: `entity_aggregate(entity="track", operation="count")`
 - Feature coverage: `entity_aggregate(entity="track_features", operation="count")`
-- Subgenre distribution: `entity_aggregate(entity="track_features", operation="group_by", group_by="mood")`
-- BPM histogram: `entity_aggregate(entity="track_features", operation="histogram", field="bpm")`
-- Key distribution: `entity_aggregate(entity="track_features", operation="group_by", group_by="key_code")`
+- Subgenre distribution: `entity_aggregate(entity="track_features", operation="count", group_by="mood")`
+- BPM histogram: `entity_aggregate(entity="track_features", operation="histogram", field="bpm", bin_size=2.0)`
+- Key distribution: `entity_aggregate(entity="track_features", operation="count", group_by="key_code")`
+- Distinct boolean field: `entity_aggregate(entity="track_features", operation="distinct", field="variable_tempo")` → returns `[false, true]` (v1.3.7 bool-before-int union fix)
+
+**Visual dashboards (Prefab UI)**:
+- `ui_library_dashboard()` — global totals + BPM histogram + mood PieChart + Camelot BarChart
+- `ui_library_audit(playlist_id?)` — DataTable of pass/fail per track + subgenre PieChart
+- `ui_camelot_wheel(playlist_id?)` — RadialChart of tracks-per-key + DataTable
 
 ### Distribute to Subgenre Playlists
 
@@ -78,5 +84,5 @@ Tracks must meet these thresholds to be valid techno (see `reference://audit_rul
 - `driving` / `hypnotic` are catch-all subgenres — penalized via `settings.mood_catch_all_penalty`
 - Audit before building sets — ensures enough quality tracks are available
 - Use Django-style filters on `entity_list(entity="track", filters={...})`: `bpm__gte`, `mood__in`, `energy_mean__between`, `title__icontains`
-- Domain criteria & quality thresholds: see @REQUIREMENTS.md §12 and @docs/audio-pipeline.md
-- Tool reference: @docs/tool-catalog.md (13 dispatchers + 27 resources + 6 prompts)
+- Domain criteria & quality thresholds: see `reference://audit_rules` (live) and @docs/audio-pipeline.md
+- Tool reference: @docs/tool-catalog.md (20 tools = 14 core + 6 UI Prefab; 27 resources; 6 prompts)

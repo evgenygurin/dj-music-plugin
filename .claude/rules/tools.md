@@ -95,6 +95,15 @@ async def entity_list(
   sync with `panel/lib/constants.ts` (parity tested in
   `tests/shared/test_ui_colors_parity.py`).
 
+## FK gates + validation envelopes (v1.3.7)
+
+- **FK gate is auto-derived.** `app/tools/entity/_fk_gate.py:validate_fk_constraints(uow, config, validated, partial_keys=...)` runs before any `entity_create` / `entity_update` persist. `EntityConfig.fk_constraints` is built at `register_default_entities()` time from `cls.__table__.foreign_keys ∩ Create/Update schema fields` — zero manual declarations, drift-impossible. Handler-only fields not present as columns (e.g. `TrackCreate.playlist_id`) live in `_HANDLER_ONLY_FKS` override map.
+- **Pydantic → Domain error translation.** `entity_create` / `entity_update` wrap raw `pydantic.ValidationError` into typed `app.shared.errors.ValidationError("invalid payload for entity 'X': ...")` so production envelopes (`mask_details=True`) stay informative instead of collapsing to a blank `"internal error"`.
+- **`DomainErrorMiddleware`** wraps `on_read_resource` + `on_get_prompt` envelopes in addition to tools — `NotFoundError` from a resource template surfaces as `"not found: ..."`, not `"internal error: Error reading resource ..."`.
+- **`AggregateResult.value`** union has `bool` BEFORE `int` so `entity_aggregate(entity="track_features", operation="distinct", field="variable_tempo")` returns `[false, true]` (not `[0, 1]`).
+- **Server-side validation gates** (each returns typed `ValidationError`): `entity_get.include_relations` rejects typos; `local://tracks/{id}/suggest_next?energy_direction` ∈ `{up, down, flat, None}`; `transition.scoring_profile` against `uow.scoring_profiles.get_by_name`; `transition.fx_type` against `NeuralMixTransition` enum; `transition.persist=false` honoured by handler; `sequence_optimize.pinned` not in pool / `excluded` covering full pool — typed reject; `ui_score_pool_matrix` rejects duplicate ids; `ui_transition_score` rejects `from == to`; `unlock_namespace` accepts `ui:read`; `entity_update(entity="set")` enforces BPM range invariant on partial updates.
+- **`provider_read.id`** accepts `int | str` (YM track IDs are numeric). `YandexAdapter.read("track_batch", ...)` accepts both canonical `track_ids` and legacy `ids`; numeric IDs are stringified.
+
 ## Gotchas
 
 - `Depends()`: use `param=Depends(factory)`, NOT `Annotated[Type,
@@ -108,3 +117,8 @@ async def entity_list(
   higher level.
 - `sequence_optimize` calls `transition_score_pool` internally when
   features aren't cached — don't require the caller to score first.
+- `entity_create(entity="set_version", ...)` handler schema is strict
+  (`extra="forbid"`): only `set_id`, `label`, `track_order`,
+  `quality_score?`, `generator_run_meta?` are accepted. `algorithm` /
+  `template` / `pinned` / `excluded` belong to `sequence_optimize`,
+  not the `set_version_build` handler.

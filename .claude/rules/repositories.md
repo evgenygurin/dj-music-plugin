@@ -63,3 +63,15 @@ All tools receive `uow` via `Depends(get_uow)`. Handlers receive
 - Sort suffix: `bpm__desc`, `bpm__asc`, etc. Cursor pagination works
   correctly only when the sort key is unique (prefer `id` as final
   tiebreaker).
+- **Cursor non-unique sort guard (v1.3.7).**
+  `BaseRepository.filter` refuses to emit `next_cursor` when the first
+  sort field is non-unique, and rejects an incoming `cursor` on a
+  non-unique sort with a typed error. The prior behaviour silently
+  dropped rows sharing the boundary value with the last seen row.
+  Always include a unique tiebreaker (typically `id`) in `sort` for
+  paginated queries.
+- **SQLite FK enforcement (v1.3.7).** `app/db/session.py` registers a
+  `connect` event listener that issues `PRAGMA foreign_keys=ON` on
+  every aiosqlite connection. SQLite tests now reject FK violations
+  the same way Supabase Postgres does in prod — seed parents before
+  children or the insert raises.

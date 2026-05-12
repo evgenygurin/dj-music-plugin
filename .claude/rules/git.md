@@ -97,9 +97,16 @@ git push origin vX.Y.Z
 # 7. GitHub Release
 gh release create vX.Y.Z --title "vX.Y.Z — <summary>" \
                          --notes-file /tmp/release-notes.md
+
+# 8. (Опционально) Manifest validation pre-tag — на pre-push hook нет, рекомендуется вручную
+claude plugin validate .   # проверяет plugin.json + marketplace.json + frontmatter
+
+# 9. User-side apply (что выполнить пользователям после tag-push)
+# claude plugin marketplace update dj-music-plugin   # подтянуть свежий marketplace.json
+# claude plugin update dj-music@dj-music-plugin      # apply (требует restart Claude Code)
 ```
 
-Canonical examples: PR #199 (v1.3.5), PR #200 (v1.3.6).
+Canonical examples: PR #199 (v1.3.5), PR #200 (v1.3.6), PR #214 (v1.3.7).
 
 ### Tag naming: `vX.Y.Z` (with `v` prefix)
 

@@ -1,24 +1,29 @@
 ---
 name: ym-sync
-description: "Use when the user asks to sync a playlist, push or pull from Yandex Music, search YM, manage YM playlists, or manage YM likes. Covers bidirectional sync, playlist management, search and likes."
+description: "This skill should be used when the user asks to sync a playlist, push or pull from Yandex Music, search YM, manage YM playlists, or manage YM likes. Covers bidirectional sync, playlist management, search and likes."
 version: 1.0.1
 ---
 
 # Yandex Music Sync Workflow
 
-Guide the user through syncing local playlists with Yandex Music via the v1 polymorphic dispatchers. See @docs/tool-catalog.md (13 dispatchers + 27 resources).
+Guide the user through syncing local playlists with Yandex Music via the v1 polymorphic dispatchers. See @docs/tool-catalog.md (**20 tools** = 14 core dispatchers + 6 UI Prefab + 27 resources).
 
-## Unlock Namespaces First
+## Namespace Visibility
 
-Read ops are visible by default. Mutating ops live in locked namespaces — unlock per session:
+**Current state (v1.3.7):** `DISABLED_NAMESPACE_TAGS` in `app/server/visibility.py` is an empty frozenset — **every namespace is visible at startup**, including `provider:write` and `sync`. Rationale: Claude Code does not always honour `notifications/tools/list_changed` mid-session, so server-side `mcp.disable(tags=...)` would hide tools without the client knowing they became unlockable.
+
+`unlock_namespace` is still useful for:
+- Audit-log workflows (records which namespaces were activated when)
+- Clients that DO honour `notifications/tools/list_changed`
 
 ```text
-unlock_namespace(namespace="provider:write", action="unlock")   # provider_write
-unlock_namespace(namespace="sync",          action="unlock")   # playlist_sync
-unlock_namespace(namespace="all",           action="unlock")   # both + crud:destructive
+unlock_namespace(namespace="provider:write", action="status")   # check status
+unlock_namespace(namespace="provider:write", action="unlock")   # unlock (no-op for visibility in Claude Code today)
+unlock_namespace(namespace="sync",          action="unlock")
+unlock_namespace(namespace="all",           action="unlock")   # provider:write + sync + crud:destructive + ui:read
 ```
 
-`unlock_namespace` fires `notifications/tools/list_changed` — the client will re-fetch the tool list.
+`namespace` accepts: `crud:destructive`, `provider:write`, `sync`, `ui:read`, `all`.
 
 ## Sync Actions
 

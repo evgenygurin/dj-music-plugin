@@ -105,6 +105,25 @@ logging.basicConfig(
 log = logging.getLogger("loop")  # короткий name → "loop:" в строках
 ```
 
+## Handlers — `safe_info` / `safe_report_progress` (v1.3.7)
+
+Handlers (`app/handlers/*.py`) больше **не** зовут `ctx.info()` / `ctx.report_progress()` напрямую. Эти методы требуют активной MCP-сессии, которой нет за REST proxy (`app/rest/app.py`), в headless-скриптах и unit-тестах — прямой вызов падает с `RuntimeError`.
+
+Канонический паттерн:
+
+```python
+from app.handlers._context_log import safe_info, safe_report_progress
+
+async def my_handler(ctx, uow, data, _registry=None):
+    safe_info(ctx, "starting work on %s items", len(items))
+    for i, item in enumerate(items):
+        await do_work(item)
+        safe_report_progress(ctx, progress=i + 1, total=len(items))
+    safe_info(ctx, "done")
+```
+
+`safe_info` / `safe_report_progress` молча fallback'ятся в stdlib `logging` когда `ctx is None` или сессия не активна. 5 handlers переведены в v1.3.7 (`track_import`, `track_features_{analyze,reanalyze}`, `audio_file_download`, `set_version_build`). Никогда не вызывай `ctx.info` напрямую из handler — пишем через wrapper.
+
 ## Wrapping core services for progress
 
 Если core service (например `TieredPipeline`) логирует только итоги, **не патчь core** — оборачивай метод в скрипте через monkey-patch:

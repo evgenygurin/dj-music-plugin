@@ -119,6 +119,10 @@ Many endpoints accept batch IDs:
 - `POST /playlists/list` with body `{"playlistIds": [...]}` — batch playlists
 - `POST /albums` with body `{"albumIds": [...]}` — batch albums
 
+**Adapter compatibility (v1.3.7).** `YandexAdapter.read("track_batch", params={...})` accepts both canonical `params={"track_ids": [...]}` and legacy `params={"ids": [...]}` — old call sites keep working without migration. Numeric IDs are auto-stringified by the adapter before hitting the YM client (which expects strings in the `trackIds=` query param).
+
+`provider_read(provider="yandex", entity="track", id=<X>)` accepts `id` as `int | str` since v1.3.7 — `provider_read(..., id=137518650)` and `id="137518650"` both resolve correctly.
+
 ### Search Response Structure
 
 ```json
