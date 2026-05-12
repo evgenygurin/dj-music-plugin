@@ -13,7 +13,7 @@ from app.registry.entity import EntityRegistry, resolve_field_projection
 from app.repositories.unit_of_work import UnitOfWork
 from app.schemas.tool_responses import EntityGetResult
 from app.server.di import get_uow
-from app.shared.errors import NotFoundError
+from app.shared.errors import NotFoundError, ValidationError
 from app.shared.types import JsonStrListOrNone
 
 EntityName = Literal[
@@ -57,6 +57,19 @@ async def entity_get(
     config = EntityRegistry.get(entity)
     if "get" not in config.allowed_ops:
         raise ValueError(f"get not allowed on entity {entity!r}")
+
+    # Validate include_relations against the entity's declared relations
+    # map — previously typos were silently ignored (no eager-load, no
+    # error), which surprised callers expecting symmetric strictness with
+    # ``fields`` (which raises "unknown preset" on typo).
+    if include_relations:
+        allowed = set(config.relations.keys())
+        unknown = [r for r in include_relations if r not in allowed]
+        if unknown:
+            raise ValidationError(
+                f"unknown relation(s) {unknown!r} for entity {entity!r}; "
+                f"declared relations: {sorted(allowed) or 'none'}"
+            )
 
     repo = getattr(uow, config.repo_attr)
     row = await repo.get(id)

@@ -149,6 +149,31 @@ async def test_ui_transition_score_renders_column() -> None:
     assert isinstance(result, Column)
 
 
+@pytest.mark.asyncio
+async def test_ui_transition_score_rejects_same_track() -> None:
+    """Regression: mixing a track into itself is meaningless and
+    ``transition_score_pool`` / ``entity_create(transition)`` /
+    ``sequence_optimize`` all reject duplicate ids. ``ui_transition_score``
+    used to accept ``from == to`` and return synthetic self-similarity
+    numbers — now it raises ``ValueError`` mirroring the rest of v1.
+    """
+    from app.tools.ui.transition_score import ui_transition_score
+
+    uow = _uow_stub()
+    uow.track_features.get_scoring_features_batch = AsyncMock(return_value={})
+    scorer = MagicMock()
+    ctx = _ui_ctx()
+    with pytest.raises(ValueError, match="must differ"):
+        await ui_transition_score(
+            from_track_id=1,
+            to_track_id=1,
+            intent=None,
+            uow=uow,
+            scorer=scorer,
+            ctx=ctx,
+        )
+
+
 # ── Non-empty rendering paths (Codex review #6) ───────────────────────
 
 

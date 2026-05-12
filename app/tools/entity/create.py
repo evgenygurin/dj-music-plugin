@@ -8,6 +8,7 @@ from fastmcp.dependencies import CurrentContext, Depends
 from fastmcp.server.context import Context
 from fastmcp.tools import tool
 from pydantic import Field
+from pydantic import ValidationError as PydanticValidationError
 
 from app.registry.entity import EntityRegistry
 from app.registry.provider import ProviderRegistry
@@ -19,6 +20,7 @@ from app.server.di import (
     get_transition_scorer,
     get_uow,
 )
+from app.shared.errors import ValidationError
 from app.shared.types import JsonDict
 from app.tools.entity._dispatch import call_handler
 
@@ -72,7 +74,18 @@ async def entity_create(
     # Single-pass validate + cache the validated model so handlers
     # that want it can pull the typed fields, while handlers that
     # ignore it (e.g. ``track_import``) still get the raw dict.
-    validated = config.create_schema.model_validate(data)
+    try:
+        validated = config.create_schema.model_validate(data)
+    except PydanticValidationError as exc:
+        # Convert Pydantic schema errors into a domain ValidationError so
+        # DomainErrorMiddleware emits a clean "invalid input: ..." message
+        # instead of the generic "internal error" wrapper (which in prod,
+        # with ``mask_details=True``, leaked zero diagnostic info).
+        raise ValidationError(
+            f"invalid payload for entity {entity!r}: {exc.error_count()} "
+            f"schema error(s); {exc.errors(include_url=False)}",
+            details={"errors": exc.errors(include_url=False)},
+        ) from exc
 
     if config.create_handler is not None:
         # Dispatch inspects the handler's 4th parameter name and passes the
@@ -100,7 +113,6 @@ async def entity_create(
     template_name_val = getattr(validated, "template_name", None) if entity == "set" else None
     if template_name_val is not None:
         from app.domain.template.registry import list_template_names
-        from app.shared.errors import ValidationError
 
         if template_name_val not in list_template_names():
             raise ValidationError(

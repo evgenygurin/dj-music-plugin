@@ -8,6 +8,7 @@ from fastmcp.dependencies import CurrentContext, Depends
 from fastmcp.server.context import Context
 from fastmcp.tools import tool
 from pydantic import Field
+from pydantic import ValidationError as PydanticValidationError
 
 from app.registry.entity import EntityRegistry
 from app.registry.provider import ProviderRegistry
@@ -19,6 +20,7 @@ from app.server.di import (
     get_transition_scorer,
     get_uow,
 )
+from app.shared.errors import ValidationError
 from app.shared.types import JsonDict
 from app.tools.entity._dispatch import call_handler
 
@@ -83,7 +85,17 @@ async def entity_update(
         )
         return EntityUpdateResult(entity=entity, id=id, data=result)
 
-    validated = config.update_schema.model_validate(data)
+    try:
+        validated = config.update_schema.model_validate(data)
+    except PydanticValidationError as exc:
+        # Convert raw Pydantic errors into a domain ValidationError so
+        # DomainErrorMiddleware emits "invalid input: ..." rather than the
+        # generic "internal error" wrapper (which masks all detail in prod).
+        raise ValidationError(
+            f"invalid payload for entity {entity!r}: {exc.error_count()} "
+            f"schema error(s); {exc.errors(include_url=False)}",
+            details={"errors": exc.errors(include_url=False)},
+        ) from exc
     # Audit iter 26 (T-26): mirror the entity_create template_name
     # check on update path. ``set.template_name`` accepts free-form
     # strings on the schema (schemas can't import ``app.domain``);
@@ -93,7 +105,6 @@ async def entity_update(
     template_name_val = getattr(validated, "template_name", None) if entity == "set" else None
     if template_name_val is not None:
         from app.domain.template.registry import list_template_names
-        from app.shared.errors import ValidationError
 
         if template_name_val not in list_template_names():
             raise ValidationError(
@@ -110,8 +121,6 @@ async def entity_update(
     if entity == "playlist":
         new_parent_id = data.get("parent_id")
         if new_parent_id is not None:
-            from app.shared.errors import ValidationError
-
             if new_parent_id == id:
                 raise ValidationError(
                     f"playlist {id} cannot be its own parent (self-cycle)",
