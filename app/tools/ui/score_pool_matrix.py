@@ -66,6 +66,25 @@ async def _compute(uow: UnitOfWork, scorer: Any, track_ids: list[int]) -> dict[s
     if len(track_ids) < 2:
         return {"track_ids": track_ids, "cells": [], "hard_rejects": 0}
 
+    # Reject duplicates the way the sibling compute tools already do
+    # (``transition_score_pool``, ``sequence_optimize``). Otherwise a
+    # caller passing ``[1, 1, 2, 2]`` got 8 cells back — four
+    # duplicates of {1,2} plus four of {2,1} — and a 4-column matrix
+    # with two columns sharing the same id, which is meaningless.
+    if len(set(track_ids)) != len(track_ids):
+        from app.shared.errors import ValidationError
+
+        seen: set[int] = set()
+        duplicates: list[int] = []
+        for tid in track_ids:
+            if tid in seen and tid not in duplicates:
+                duplicates.append(tid)
+            seen.add(tid)
+        raise ValidationError(
+            f"track_ids contains duplicate id(s): {duplicates}",
+            details={"duplicates": duplicates},
+        )
+
     feats = await uow.track_features.get_scoring_features_batch(track_ids)
     cells: list[ScorePoolCell] = []
     hard = 0

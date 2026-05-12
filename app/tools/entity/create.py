@@ -121,6 +121,17 @@ async def entity_create(
                 details={"template_name": template_name_val},
             )
 
+    # ``set.source_playlist_id`` is a ForeignKey to ``dj_playlists.id``.
+    # SQLite (default FK enforcement off) lets a bogus id through to the
+    # row; PostgreSQL rejects it as an opaque ``ForeignKeyViolationError``.
+    # Validate up front so the message names the bad id.
+    src_pl = getattr(validated, "source_playlist_id", None) if entity == "set" else None
+    if src_pl is not None and await uow.playlists.get(src_pl) is None:
+        raise ValidationError(
+            f"source_playlist_id {src_pl} does not reference an existing playlist",
+            details={"source_playlist_id": src_pl},
+        )
+
     repo = getattr(uow, config.repo_attr)
     row = await repo.create(**validated.model_dump())
     view = config.view_schema.model_validate(row).model_dump()

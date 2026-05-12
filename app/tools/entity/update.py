@@ -113,6 +113,20 @@ async def entity_update(
                 details={"template_name": template_name_val},
             )
 
+    # Mirror the create-path FK gate for ``set.source_playlist_id``:
+    # SQLite would silently accept a bogus id, PostgreSQL would raise an
+    # opaque FK violation.
+    src_pl = (
+        data.get("source_playlist_id")
+        if entity == "set" and "source_playlist_id" in data
+        else None
+    )
+    if src_pl is not None and await uow.playlists.get(int(src_pl)) is None:
+        raise ValidationError(
+            f"source_playlist_id {src_pl} does not reference an existing playlist",
+            details={"source_playlist_id": src_pl},
+        )
+
     # Audit iter 53 (T-51): playlist hierarchy cycle prevention.
     # ``entity_update(playlist, id=X, data={parent_id: Y})`` used to
     # accept ``Y == X`` (self-cycle) and ``Y`` already in ``X``'s
