@@ -147,17 +147,32 @@ async def transition_persist_handler(
     feat_b = features[b_id]
     score = scorer.score(feat_a, feat_b)
     recipe = _build_recipe_or_none(score, feat_a, feat_b)
-    row = await persist_transition_score(
-        uow,
-        from_track_id=a_id,
-        to_track_id=b_id,
-        score=score,
-        recipe=recipe,
-    )
+
+    # Honour ``persist=False`` from ``TransitionCreate`` — the schema's
+    # default is ``True`` but a caller asking ``persist=False`` wants the
+    # score computed and returned without touching the ``transitions``
+    # table. Previously the field was advertised on the schema but the
+    # handler always wrote — same dead-parameter shape as
+    # ``scoring_profile``. The compute path is identical; only the
+    # ``upsert`` is conditional.
+    persist_flag = data.get("persist", True)
+    if persist_flag:
+        row = await persist_transition_score(
+            uow,
+            from_track_id=a_id,
+            to_track_id=b_id,
+            score=score,
+            recipe=recipe,
+        )
+        row_id: int | None = row.id
+    else:
+        row_id = None
+
     return {
-        "id": row.id,
+        "id": row_id,
         "from_track_id": a_id,
         "to_track_id": b_id,
+        "persisted": bool(persist_flag),
         "overall": float(score.overall),
         "bpm": float(score.bpm),
         "energy": float(score.energy),

@@ -127,6 +127,32 @@ async def entity_update(
             details={"source_playlist_id": src_pl},
         )
 
+    # Cross-row BPM-range invariant for ``set``: ``SetUpdate`` schema
+    # can only catch the case where BOTH sides come in the same payload
+    # (``_validate_bpm_range``). Partial updates that change only one
+    # side need a DB read to check against the existing value.
+    # Previously this slipped through — ``entity_update(set, id=N, data=
+    # {target_bpm_min: 150})`` on a row with ``target_bpm_max=140``
+    # ended with a row violating ``min <= max``.
+    if entity == "set" and ("target_bpm_min" in data or "target_bpm_max" in data):
+        existing = await uow.sets.get(id)
+        if existing is not None:
+            new_min = (
+                data.get("target_bpm_min", existing.target_bpm_min)
+            )
+            new_max = (
+                data.get("target_bpm_max", existing.target_bpm_max)
+            )
+            if new_min is not None and new_max is not None and new_min > new_max:
+                raise ValidationError(
+                    f"target_bpm_min ({new_min}) must be <= target_bpm_max "
+                    f"({new_max}) after applying partial update",
+                    details={
+                        "target_bpm_min": new_min,
+                        "target_bpm_max": new_max,
+                    },
+                )
+
     # Audit iter 53 (T-51): playlist hierarchy cycle prevention.
     # ``entity_update(playlist, id=X, data={parent_id: Y})`` used to
     # accept ``Y == X`` (self-cycle) and ``Y`` already in ``X``'s
