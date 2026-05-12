@@ -6,6 +6,31 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.3.8] - 2026-05-13
+
+**Docs-only release.** Brings GitHub-marketplace consumers up to the documentation surface produced in #215 (CHANGELOG backfill) and #216 (full v1.3.7 md sweep). No code, no MCP surface, no behaviour changes vs. v1.3.7 — installing from `@v1.3.7` would have given users an MCP-runtime equivalent to 1.3.7 but with stale docs claiming "13 dispatchers", missing v1.3.7 specifics (FK gate, validation gates, `safe_info` wrappers, SQLite PRAGMA, AggregateResult bool fix), and missing the v1.3.7 CHANGELOG entry. This tag fixes that drift.
+
+### Changed
+- All 20 documentation files (4 `agents/`, 5 `skills/**/SKILL.md`, 3 `commands/`, 11 `docs/` top-level, 7 `.claude/rules/`, `README.md`, `CLAUDE.md`) synchronized to v1.3.7 surface state. Stale "13 dispatchers" claim replaced with "20 tools (14 core + 6 UI Prefab)" across 7 files. Transition formula weights in `agents/dj-assistant.md` aligned with `docs/transition-scoring.md` (0.20/0.15/0.15/0.15/0.20/0.15). FK gate (`app/tools/entity/_fk_gate.py`), `safe_info`/`safe_report_progress` wrappers (`app/handlers/_context_log.py`), SQLite `PRAGMA foreign_keys=ON` event listener, `DomainErrorMiddleware` resource+prompt envelope wrap, `AggregateResult` bool-before-int union, validation gates, cursor non-unique sort guard, `provider_read.id int|str`, `track_batch` legacy `ids` alias, `wave.Error` → typed `RuntimeError` — all documented across rules/docs.
+- Bug fixes in 5 `SKILL.md`: `entity_aggregate operation="group_by"` (invalid op) → `operation="count" + group_by="X"` (curate-library); `pinned_track_ids` misattributed to `entity_create(set_version)` → split into `sequence_optimize(pinned, excluded)` → `entity_create(set_version, data={track_order})` (build-set); `external_id__in` filter on `track` (column doesn't exist) → documented via `external_ids` relation (expand-playlist); locked-namespace wording softened to reflect v1.3.7 `DISABLED_NAMESPACE_TAGS=frozenset()` (ym-sync).
+- All 5 `SKILL.md` descriptions: `"Use when..."` → `"This skill should be used when..."` per `plugin-dev:skill-development` (third-person required for correct triggering).
+- `.claude/agents/bg-jobs-watcher.md`: non-existent `get_library_stats` tool → `entity_aggregate` examples. `panel-doctor.md`: removed references to deferred `/api/tools/{name}/schema` endpoint.
+
+### Added
+- `docs/dev-mode.md`: new sections "Claude Code CLI tools для plugin dev" (`claude plugin validate`, `--plugin-dir`, `--debug filter`, `claude doctor`, `/plugin → Errors tab`) and "Платформенные ограничения" (Cursor SessionStart skip, Windows-bash hooks, `$schema` validator reject, marketplace remove cascade).
+- `README.md`: session-only `--plugin-dir` install option + `claude plugin validate` pre-PR check.
+- `.claude/rules/git.md`: post-tag user-side `claude plugin marketplace update` + `claude plugin update` step in release checklist.
+- `CLAUDE.md`: one-line reference to `Skill(dj-music:reload-plugin)` under Plugin cache block.
+- `chore(ruff)`: `F401 / F811 / F841` added to `[tool.ruff.lint] unfixable` to prevent PostToolUse hook from auto-deleting unused imports between multi-step edits (was a recurring agent-loop pain point).
+
+### Tests
+- 1323 passed, 0 failed (unchanged from v1.3.7 — no code changes).
+- `ruff` / `mypy` / `import-linter` all green.
+
+### Notes
+- MCP tool surface unchanged: 20 tools / 27 resources / 6 prompts / 11 registered entities.
+- For users already on `@v1.3.7` via directory-source or `DJ_PLUGIN_DEV_PATH`: this release is a no-op (you already see updated docs from main). For GitHub-marketplace users: `claude plugin marketplace update dj-music-plugin && claude plugin update dj-music@dj-music-plugin` picks it up.
+
 ## [1.3.7] - 2026-05-13
 
 **Manual MCP hardening + systemic FK gate refactor.** Outcome of ~11 rounds of manual MCP testing through the in-memory FastMCP client and the REST proxy (curl). Each round picked a fresh angle — entity CRUD edges, build-a-set workflow, FK gates, resource templates, pagination, provider tools — and fixed every issue surfaced before the next round. After per-entity FK gates accreted across rounds 4–10, the final commit collapses them into a single source-of-truth design driven by SQLAlchemy ORM metadata. **28 distinct bug classes fixed, ~70 regression tests added.** Substance: #213 (squashed to ``d8ff1fc``). Version bump: #214 (squashed to ``0f62b27``). Full notes in the [v1.3.7 GitHub Release](https://github.com/evgenygurin/dj-music-plugin/releases/tag/v1.3.7).
