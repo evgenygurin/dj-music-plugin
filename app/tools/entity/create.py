@@ -162,6 +162,21 @@ async def entity_create(
                 f"track_affinity references missing track(s): {details_msg}",
                 details={"missing": [{"field": n, "id": t} for n, t in missing]},
             )
+    elif entity == "transition_history":
+        # Same FK shape as track_affinity (two refs to tracks).
+        ft = getattr(validated, "from_track_id", None)
+        tt = getattr(validated, "to_track_id", None)
+        missing_th: list[tuple[str, int]] = []
+        if ft is not None and await uow.tracks.get(ft) is None:
+            missing_th.append(("from_track_id", ft))
+        if tt is not None and await uow.tracks.get(tt) is None:
+            missing_th.append(("to_track_id", tt))
+        if missing_th:
+            details_msg = ", ".join(f"{name}={tid}" for name, tid in missing_th)
+            raise ValidationError(
+                f"transition_history references missing track(s): {details_msg}",
+                details={"missing": [{"field": n, "id": t} for n, t in missing_th]},
+            )
 
     repo = getattr(uow, config.repo_attr)
     row = await repo.create(**validated.model_dump())

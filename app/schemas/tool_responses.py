@@ -47,7 +47,14 @@ class AggregateResult(BaseModel):
     operation: Literal["count", "distinct", "histogram", "min_max", "sum", "avg"]
     field: str | None = None
     group_by: str | None = None
-    value: int | float | list[dict[str, Any]] | list[int | float | str | None] | dict[str, Any]
+    # ``bool`` must appear BEFORE ``int`` in the union — Pydantic v2 picks the
+    # first compatible type, and bool is a subclass of int. Without an explicit
+    # ``bool`` slot, ``distinct(field="variable_tempo")`` coerced ``False`` to
+    # ``0`` on the way out, contradicting the group_by branch (where ``Any``
+    # preserves the real Python type). See round-10 manual test.
+    value: (
+        int | float | list[dict[str, Any]] | list[bool | int | float | str | None] | dict[str, Any]
+    )
 
 
 class ScorePoolResult(BaseModel):
