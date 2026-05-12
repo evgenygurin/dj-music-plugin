@@ -98,6 +98,35 @@ async def sequence_optimize(
             details={"overlap": sorted(overlap)},
         )
 
+    # ``pinned=[99]`` where 99 ∉ track_ids used to be silently ignored — the
+    # caller's "must-include" intent was discarded with no signal, and the
+    # result looked identical to a call with no pinning at all.
+    pool_set = set(track_ids)
+    pinned_orphans = sorted(pinned_set - pool_set)
+    if pinned_orphans:
+        raise ValidationError(
+            f"pinned track_ids not in pool: {pinned_orphans}; "
+            f"pinned must be a subset of track_ids",
+            details={"pinned_orphans": pinned_orphans},
+        )
+
+    # ``excluded`` covering the entire pool used to silently return
+    # ``track_order=[]`` with ``quality_score=0`` — a valid-looking
+    # success response for what is really a contradictory request
+    # (caller demanded ≥ 2 tracks and then banned them all).
+    remaining = pool_set - excluded_set
+    if len(remaining) < 2:
+        raise ValidationError(
+            f"after excluding {sorted(excluded_set)!r}, only "
+            f"{len(remaining)} track(s) remain in the pool; "
+            f"need ≥ 2 to optimize",
+            details={
+                "track_ids": list(track_ids),
+                "excluded": sorted(excluded_set),
+                "remaining": sorted(remaining),
+            },
+        )
+
     # Audit iter 3: reject duplicate ids explicitly. Prior behaviour
     # silently deduped through ``set()`` inside the optimizer, so
     # callers passing ``[146, 146, 147]`` got a 2-track order back

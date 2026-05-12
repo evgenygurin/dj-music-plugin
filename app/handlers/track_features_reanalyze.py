@@ -11,6 +11,7 @@ from typing import Any
 
 from fastmcp.server.context import Context
 
+from app.handlers._context_log import safe_info
 from app.handlers.track_features_analyze import AnalysisPipeline
 from app.repositories.unit_of_work import UnitOfWork
 from app.shared.errors import NotFoundError
@@ -44,7 +45,7 @@ async def track_features_reanalyze_handler(
         analysis_level=level,
         **result.features,
     )
-    await ctx.info(f"reanalyzed track {track_id} at L{level}")
+    await safe_info(ctx, f"reanalyzed track {track_id} at L{level}")
 
     return {
         "track_id": track_id,

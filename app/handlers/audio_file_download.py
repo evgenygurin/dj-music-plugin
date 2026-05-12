@@ -15,6 +15,7 @@ from typing import Any
 
 from fastmcp.server.context import Context
 
+from app.handlers._context_log import safe_info
 from app.registry.provider import ProviderRegistry
 from app.repositories.unit_of_work import UnitOfWork
 
@@ -118,9 +119,10 @@ async def audio_file_download_handler(
         downloaded.append({"track_id": tid, "library_item_id": item.id, "path": str(path)})
         await ctx.report_progress(progress=i + 1, total=total)
 
-    await ctx.info(
+    await safe_info(
+        ctx,
         f"audio_file_download: {len(downloaded)} downloaded, "
-        f"{len(skipped)} skipped, {len(errors)} errors"
+        f"{len(skipped)} skipped, {len(errors)} errors",
     )
 
     return {"downloaded": downloaded, "skipped": skipped, "errors": errors}

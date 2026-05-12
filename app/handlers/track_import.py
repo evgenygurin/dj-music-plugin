@@ -12,6 +12,7 @@ from typing import Any
 
 from fastmcp.server.context import Context
 
+from app.handlers._context_log import safe_info
 from app.registry.provider import ProviderRegistry
 from app.repositories.unit_of_work import UnitOfWork
 
@@ -81,8 +82,9 @@ async def track_import_handler(
 
         await ctx.report_progress(progress=i + 1, total=total)
 
-    await ctx.info(
-        f"track_import: {len(imported)} imported, {len(skipped)} skipped, {len(errors)} errors"
+    await safe_info(
+        ctx,
+        f"track_import: {len(imported)} imported, {len(skipped)} skipped, {len(errors)} errors",
     )
 
     return {

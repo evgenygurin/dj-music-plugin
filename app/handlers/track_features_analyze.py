@@ -11,6 +11,7 @@ from typing import Any, Protocol
 
 from fastmcp.server.context import Context
 
+from app.handlers._context_log import safe_info
 from app.repositories.unit_of_work import UnitOfWork
 
 
@@ -87,9 +88,10 @@ async def track_features_analyze_handler(
         )
         await ctx.report_progress(progress=i + 1, total=total)
 
-    await ctx.info(
+    await safe_info(
+        ctx,
         f"features_analyze L{level}: {len(analyzed)} analyzed, "
-        f"{len(skipped)} skipped, {len(errors)} errors"
+        f"{len(skipped)} skipped, {len(errors)} errors",
     )
 
     return {"analyzed": analyzed, "skipped": skipped, "errors": errors}

@@ -15,6 +15,7 @@ from typing import Any
 
 from fastmcp.server.context import Context
 
+from app.handlers._context_log import safe_info
 from app.repositories.unit_of_work import UnitOfWork
 from app.shared.errors import NotFoundError, ValidationError
 
@@ -91,9 +92,10 @@ async def set_version_build_handler(
         version.quality_score = quality
         await uow.session.flush()
 
-    await ctx.info(
+    await safe_info(
+        ctx,
         f"built version {version.id}: {item_count} items, "
-        f"{len(transition_scores)} transitions scored, quality={quality:.3f}"
+        f"{len(transition_scores)} transitions scored, quality={quality:.3f}",
     )
     return {
         "version_id": version.id,
