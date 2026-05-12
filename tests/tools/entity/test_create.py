@@ -43,3 +43,22 @@ async def test_create_track_invokes_import_handler(
     assert data["entity"] == "track"
     # Handler returns dict with imported/skipped/errors keys.
     assert "imported" in data["data"] or "id_mapping" in data["data"]
+
+
+@pytest.mark.asyncio
+async def test_create_pydantic_validation_error_wrapped_as_domain(
+    mcp_client: Client, mock_uow: MagicMock
+) -> None:
+    """Regression: a malformed ``data`` payload used to leak the raw
+    ``pydantic.ValidationError`` to clients as ``"internal error: 1
+    validation error for ScoringProfileCreate ..."`` because the
+    DomainErrorMiddleware only catches ``app.shared.errors.ValidationError``.
+    Now ``entity_create`` translates Pydantic errors into a domain
+    ``ValidationError`` so the wire message starts with ``invalid input:``
+    and remains informative under ``mask_details=True`` (production).
+    """
+    with pytest.raises(Exception, match=r"invalid (input|payload)"):
+        await mcp_client.call_tool(
+            "entity_create",
+            {"entity": "scoring_profile", "data": {"name": "x"}},  # missing weights
+        )

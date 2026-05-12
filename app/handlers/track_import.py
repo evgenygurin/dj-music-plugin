@@ -12,6 +12,7 @@ from typing import Any
 
 from fastmcp.server.context import Context
 
+from app.handlers._context_log import safe_info, safe_report_progress
 from app.registry.provider import ProviderRegistry
 from app.repositories.unit_of_work import UnitOfWork
 
@@ -42,14 +43,14 @@ async def track_import_handler(
             row = existing_map[ext_id]
             skipped.append({"external_id": ext_id, "local_id": row.id})
             id_mapping[ext_id] = row.id
-            await ctx.report_progress(progress=i + 1, total=total)
+            await safe_report_progress(ctx, progress=i + 1, total=total)
             continue
 
         try:
             meta = await provider.read("track", id=ext_id, params={})
         except Exception as exc:
             errors.append({"external_id": ext_id, "error": str(exc)})
-            await ctx.report_progress(progress=i + 1, total=total)
+            await safe_report_progress(ctx, progress=i + 1, total=total)
             continue
 
         track_row = await uow.tracks.create(
@@ -79,10 +80,11 @@ async def track_import_handler(
         if playlist_id is not None:
             await uow.playlists.append_tracks(playlist_id=playlist_id, track_ids=[track_row.id])
 
-        await ctx.report_progress(progress=i + 1, total=total)
+        await safe_report_progress(ctx, progress=i + 1, total=total)
 
-    await ctx.info(
-        f"track_import: {len(imported)} imported, {len(skipped)} skipped, {len(errors)} errors"
+    await safe_info(
+        ctx,
+        f"track_import: {len(imported)} imported, {len(skipped)} skipped, {len(errors)} errors",
     )
 
     return {

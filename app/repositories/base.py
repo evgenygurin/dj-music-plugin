@@ -274,6 +274,29 @@ class BaseRepository(Generic[M]):
                     f"with ``cursor``.",
                     details={"first_field": first_field},
                 )
+            # Cursor predicate ``WHERE col > value`` is only safe when the
+            # sort column is UNIQUE — otherwise rows that share the cursor
+            # value with the last item on the previous page are silently
+            # excluded ("page 2 empty" when all rows have the same value).
+            # Refuse the request loudly instead of returning bad data;
+            # composite (col, id) cursors are future work, the easy fix
+            # in the meantime is to either sort by the PK or use
+            # ``with_total`` + manual offsetting.
+            pk_cols = [
+                c.name
+                for c in self.model.__table__.primary_key.columns  # type: ignore[attr-defined]
+            ]
+            is_unique = first_field in pk_cols or bool(getattr(column, "unique", False))
+            if not is_unique:
+                raise ValidationError(
+                    f"cursor pagination on non-unique sort field "
+                    f"{first_field!r} is unsafe (rows with the same value "
+                    f"as the last seen row would be silently dropped). "
+                    f"Sort by the primary key {pk_cols[0]!r} when "
+                    f"paginating, or add it as a tie-breaker once "
+                    f"composite cursors are implemented.",
+                    details={"first_field": first_field, "pk": pk_cols},
+                )
             cursor_id = decode_cursor(cursor)
             if order_clauses[0].endswith("_desc"):
                 stmt = stmt.where(column < cursor_id)
@@ -311,7 +334,19 @@ class BaseRepository(Generic[M]):
             # is integer-comparable. ``next_cursor=None`` on non-integer
             # sorts signals end-of-stream cleanly instead of crashing
             # ``int(datetime)`` / ``int(None)`` in the encoder.
-            if column is not None and _is_integer_column(column):
+            #
+            # Additionally: only emit a cursor on a UNIQUE sort field.
+            # On a non-unique field the next-page cursor predicate
+            # (``col > cur``) silently drops rows that share the boundary
+            # value with the last seen item — the dispatcher's input gate
+            # now refuses those follow-up calls, so emitting a cursor
+            # here would just hand the caller a guaranteed 4xx.
+            pk_cols = [
+                c.name
+                for c in self.model.__table__.primary_key.columns  # type: ignore[attr-defined]
+            ]
+            sort_is_unique = first_field in pk_cols or bool(getattr(column, "unique", False))
+            if column is not None and _is_integer_column(column) and sort_is_unique:
                 last_row = items[-1]
                 value = getattr(last_row, first_field)
                 if value is not None:

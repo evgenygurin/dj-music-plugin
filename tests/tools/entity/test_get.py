@@ -58,3 +58,24 @@ async def test_include_relations_accepts_json_string(
                 "include_relations": '["features", "artists"]',
             },
         )
+
+
+@pytest.mark.asyncio
+async def test_include_relations_unknown_name_rejected(
+    mcp_client: Client, mock_uow: MagicMock
+) -> None:
+    """Regression: typos in ``include_relations`` were silently ignored —
+    the param flowed through but the body never used it, so a caller asking
+    for a misspelt relation got the same response as without the arg, with
+    no signal that the relation was bogus.
+
+    Now the dispatcher validates names against the entity's declared
+    ``relations`` map and raises a domain ``ValidationError`` mirroring the
+    "unknown preset or field name" behaviour of ``fields``.
+    """
+    mock_uow.tracks.get.return_value = MagicMock(id=1, title="X")
+    with pytest.raises(Exception, match="unknown relation"):
+        await mcp_client.call_tool(
+            "entity_get",
+            {"entity": "track", "id": 1, "include_relations": ["nonexistent"]},
+        )

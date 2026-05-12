@@ -8,6 +8,7 @@ from fastmcp.dependencies import CurrentContext, Depends
 from fastmcp.server.context import Context
 from fastmcp.tools import tool
 from pydantic import Field
+from pydantic import ValidationError as PydanticValidationError
 
 from app.registry.entity import EntityRegistry
 from app.registry.provider import ProviderRegistry
@@ -19,8 +20,10 @@ from app.server.di import (
     get_transition_scorer,
     get_uow,
 )
+from app.shared.errors import ValidationError
 from app.shared.types import JsonDict
 from app.tools.entity._dispatch import call_handler
+from app.tools.entity._fk_gate import validate_fk_constraints
 
 EntityName = Literal[
     "track",
@@ -83,7 +86,17 @@ async def entity_update(
         )
         return EntityUpdateResult(entity=entity, id=id, data=result)
 
-    validated = config.update_schema.model_validate(data)
+    try:
+        validated = config.update_schema.model_validate(data)
+    except PydanticValidationError as exc:
+        # Convert raw Pydantic errors into a domain ValidationError so
+        # DomainErrorMiddleware emits "invalid input: ..." rather than the
+        # generic "internal error" wrapper (which masks all detail in prod).
+        raise ValidationError(
+            f"invalid payload for entity {entity!r}: {exc.error_count()} "
+            f"schema error(s); {exc.errors(include_url=False)}",
+            details={"errors": exc.errors(include_url=False)},
+        ) from exc
     # Audit iter 26 (T-26): mirror the entity_create template_name
     # check on update path. ``set.template_name`` accepts free-form
     # strings on the schema (schemas can't import ``app.domain``);
@@ -93,7 +106,6 @@ async def entity_update(
     template_name_val = getattr(validated, "template_name", None) if entity == "set" else None
     if template_name_val is not None:
         from app.domain.template.registry import list_template_names
-        from app.shared.errors import ValidationError
 
         if template_name_val not in list_template_names():
             raise ValidationError(
@@ -101,6 +113,57 @@ async def entity_update(
                 f"valid templates: {sorted(list_template_names())}",
                 details={"template_name": template_name_val},
             )
+
+    # ``transition.fx_type`` is a free-form string on the schema (the
+    # schema can't import ``app.domain``) but downstream Neural Mix
+    # recipe builders + UI renderers only know the seven enum values.
+    # A typo like ``fx_type="lol_wut"`` used to slip into the row and
+    # then either crash the renderer or silently fall back to defaults.
+    # Validate against the same enum the picker / recipe builders use.
+    fx_type_val = getattr(validated, "fx_type", None) if entity == "transition" else None
+    if fx_type_val is not None:
+        from app.domain.transition.neural_mix import NeuralMixTransition
+
+        allowed = [t.value for t in NeuralMixTransition]
+        if fx_type_val not in allowed:
+            raise ValidationError(
+                f"unknown fx_type {fx_type_val!r}; "
+                f"valid Neural Mix transitions: {sorted(allowed)}",
+                details={"fx_type": fx_type_val},
+            )
+
+    # FK gates — generic, data-driven (see ``EntityConfig.fk_constraints``
+    # auto-derived from ORM in ``app.registry.defaults._wire_fk_constraints``).
+    # SQLite (default FK enforcement off — overridden in
+    # ``app/db/session.py`` via ``PRAGMA foreign_keys=ON``) would otherwise
+    # silently write orphan FK refs; PostgreSQL would raise an opaque
+    # FK violation. The app-level gate gives an informative typed error
+    # naming the bad id BEFORE the DB rejects it. ``partial_keys=data.keys()``
+    # ensures only FK fields actually present in the patch payload are
+    # checked (others stay at their existing row values).
+    await validate_fk_constraints(uow, config, validated, partial_keys=data.keys())
+
+    # Cross-row BPM-range invariant for ``set``: ``SetUpdate`` schema
+    # can only catch the case where BOTH sides come in the same payload
+    # (``_validate_bpm_range``). Partial updates that change only one
+    # side need a DB read to check against the existing value.
+    # Previously this slipped through — ``entity_update(set, id=N, data=
+    # {target_bpm_min: 150})`` on a row with ``target_bpm_max=140``
+    # ended with a row violating ``min <= max``.
+    if entity == "set" and ("target_bpm_min" in data or "target_bpm_max" in data):
+        existing = await uow.sets.get(id)
+        if existing is not None:
+            new_min = data.get("target_bpm_min", existing.target_bpm_min)
+            new_max = data.get("target_bpm_max", existing.target_bpm_max)
+            if new_min is not None and new_max is not None and new_min > new_max:
+                raise ValidationError(
+                    f"target_bpm_min ({new_min}) must be <= target_bpm_max "
+                    f"({new_max}) after applying partial update",
+                    details={
+                        "target_bpm_min": new_min,
+                        "target_bpm_max": new_max,
+                    },
+                )
 
     # Audit iter 53 (T-51): playlist hierarchy cycle prevention.
     # ``entity_update(playlist, id=X, data={parent_id: Y})`` used to
@@ -110,8 +173,6 @@ async def entity_update(
     if entity == "playlist":
         new_parent_id = data.get("parent_id")
         if new_parent_id is not None:
-            from app.shared.errors import ValidationError
-
             if new_parent_id == id:
                 raise ValidationError(
                     f"playlist {id} cannot be its own parent (self-cycle)",

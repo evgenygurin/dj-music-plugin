@@ -19,7 +19,7 @@ from typing import TYPE_CHECKING, Any, Protocol
 from fastmcp.server.context import Context
 
 from app.repositories.unit_of_work import UnitOfWork
-from app.shared.errors import NotFoundError
+from app.shared.errors import NotFoundError, ValidationError
 
 if TYPE_CHECKING:
     from app.domain.transition.intent import TransitionIntent
@@ -119,6 +119,24 @@ async def transition_persist_handler(
     a_id: int = int(data["from_track_id"])
     b_id: int = int(data["to_track_id"])
 
+    # ``TransitionCreate.scoring_profile`` is exposed in the schema as
+    # "use this named profile's weights" but the handler currently
+    # ignores it — a typo (``scoring_profile="bogus"``) used to silently
+    # fall through to the default weights. At minimum validate the
+    # profile exists so the caller's intent isn't dropped without a
+    # signal. Wiring the weights into a custom ``TransitionScorer``
+    # is future work.
+    profile_name = data.get("scoring_profile")
+    if profile_name:
+        profile = await uow.scoring_profiles.get_by_name(str(profile_name))
+        if profile is None:
+            raise ValidationError(
+                f"scoring_profile {profile_name!r} not found; "
+                f"create it via entity_create(scoring_profile, ...) first, "
+                f"or omit the field to use the default weights",
+                details={"scoring_profile": profile_name},
+            )
+
     features = await uow.track_features.get_scoring_features_batch([a_id, b_id])
     if a_id not in features:
         raise NotFoundError("track_features", a_id)
@@ -129,17 +147,32 @@ async def transition_persist_handler(
     feat_b = features[b_id]
     score = scorer.score(feat_a, feat_b)
     recipe = _build_recipe_or_none(score, feat_a, feat_b)
-    row = await persist_transition_score(
-        uow,
-        from_track_id=a_id,
-        to_track_id=b_id,
-        score=score,
-        recipe=recipe,
-    )
+
+    # Honour ``persist=False`` from ``TransitionCreate`` — the schema's
+    # default is ``True`` but a caller asking ``persist=False`` wants the
+    # score computed and returned without touching the ``transitions``
+    # table. Previously the field was advertised on the schema but the
+    # handler always wrote — same dead-parameter shape as
+    # ``scoring_profile``. The compute path is identical; only the
+    # ``upsert`` is conditional.
+    persist_flag = data.get("persist", True)
+    if persist_flag:
+        row = await persist_transition_score(
+            uow,
+            from_track_id=a_id,
+            to_track_id=b_id,
+            score=score,
+            recipe=recipe,
+        )
+        row_id: int | None = row.id
+    else:
+        row_id = None
+
     return {
-        "id": row.id,
+        "id": row_id,
         "from_track_id": a_id,
         "to_track_id": b_id,
+        "persisted": bool(persist_flag),
         "overall": float(score.overall),
         "bpm": float(score.bpm),
         "energy": float(score.energy),

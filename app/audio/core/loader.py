@@ -114,7 +114,30 @@ class AudioLoader:
 
         import wave
 
-        with wave.open(str(path), "rb") as wf:
+        try:
+            wf = wave.open(str(path), "rb")  # noqa: SIM115 — wrapped in custom error guard below; manager applied right after
+        except wave.Error as e:
+            # The stdlib ``wave`` module is WAV-only — anything that
+            # isn't a RIFF container (MP3, FLAC, OGG, plain garbage,
+            # …) reaches this branch when both ``soundfile`` and
+            # ``librosa`` are unavailable. The raw ``wave.Error("file
+            # does not start with RIFF id")`` is useless to the caller
+            # because it hides the actual cause (missing optional
+            # decoder), so wrap it with a hint pointing at the right
+            # extra. Same wrapping shape as the soundfile / librosa
+            # branches above so downstream error handling can rely on
+            # the ``audio decode failed: …`` prefix.
+            suffix = path.suffix.lower()
+            hint = ""
+            if suffix and suffix != ".wav":
+                hint = (
+                    f" (no decoder for {suffix!r}; install soundfile or "
+                    f"librosa via ``uv sync --extra audio``)"
+                )
+            msg = f"audio decode failed: {e}{hint}"
+            raise RuntimeError(msg) from e
+
+        with wf:
             n_channels = wf.getnchannels()
             sampwidth = wf.getsampwidth()
             file_sr = wf.getframerate()

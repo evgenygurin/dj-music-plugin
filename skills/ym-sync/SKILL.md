@@ -28,7 +28,7 @@ unlock_namespace(namespace="all",           action="unlock")   # both + crud:des
 
 ### Read YM Data (`provider_read`)
 - Single track: `provider_read(provider="yandex", entity="track", id=<ym_track_id>)`
-- Batch tracks: `provider_read(provider="yandex", entity="track_batch", params={"ids": ["t1","t2"]})`
+- Batch tracks: `provider_read(provider="yandex", entity="track_batch", params={"track_ids": ["t1","t2"]})` (legacy `ids` key still accepted)
 - Album: `provider_read(provider="yandex", entity="album", id=<album_id>, params={"include_tracks": true})`
 - Artist tracks (paginated): `provider_read(provider="yandex", entity="artist_tracks", id=<artist_id>, params={"page": 0})`
 - Similar tracks: `provider_read(provider="yandex", entity="track_similar", id=<ym_track_id>, params={"limit": 20})`

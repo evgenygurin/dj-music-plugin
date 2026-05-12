@@ -21,6 +21,11 @@ def test_known_namespaces() -> None:
     assert "sync" in _mod.NAMESPACES
     assert "crud:destructive" in _mod.NAMESPACES
     assert "provider:write" in _mod.NAMESPACES
+    # ``ui:read`` was advertised in docs/tool-catalog.md + visibility.py:KNOWN_NAMESPACES
+    # but missing from the Literal — callers got a literal_error.
+    assert "ui:read" in _mod.NAMESPACES
+    assert "namespace:ui:read" in _mod.NAMESPACE_TAGS["ui:read"]
+    assert "namespace:ui:read" in _mod.NAMESPACE_TAGS["all"]
 
 
 def _ctx() -> MagicMock:

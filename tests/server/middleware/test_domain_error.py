@@ -3,7 +3,14 @@ from __future__ import annotations
 from unittest.mock import AsyncMock
 
 import pytest
-from fastmcp.exceptions import ToolError
+from fastmcp.exceptions import (
+    NotFoundError as FastMCPNotFoundError,
+)
+from fastmcp.exceptions import (
+    PromptError,
+    ResourceError,
+    ToolError,
+)
 from fastmcp.server.middleware import MiddlewareContext
 from mcp.shared.exceptions import McpError
 from mcp.types import ErrorData
@@ -97,3 +104,46 @@ async def test_mcp_error_passthrough() -> None:
     assert info.value is original
     assert info.value.error.code == -32000
     assert "timed out" in info.value.error.message
+
+
+# ── Resource / Prompt envelopes (manual smoke testing 2026-05-12) ─────
+
+
+@pytest.mark.asyncio
+async def test_resource_domain_error_wrapped_as_resource_error() -> None:
+    """Regression: ``on_read_resource`` used to be unimplemented — domain
+    ``NotFoundError`` from a resource handler bubbled to the generic
+    Exception path and surfaced as ``"internal error: ..."``. Now it
+    becomes a ``ResourceError("not found: ...")``.
+    """
+    mw = DomainErrorMiddleware(mask_details=True)
+    call_next = AsyncMock(side_effect=NotFoundError("track", 9999))
+    with pytest.raises(ResourceError) as info:
+        await mw.on_read_resource(_ctx(), call_next)
+    assert "not found" in str(info.value).lower()
+
+
+@pytest.mark.asyncio
+async def test_prompt_domain_error_wrapped_as_prompt_error() -> None:
+    """Same as the resource case but for the prompt envelope."""
+    mw = DomainErrorMiddleware(mask_details=True)
+    call_next = AsyncMock(side_effect=ValidationError("bad arg"))
+    with pytest.raises(PromptError) as info:
+        await mw.on_get_prompt(_ctx(), call_next)
+    assert "invalid" in str(info.value).lower()
+
+
+@pytest.mark.asyncio
+async def test_fastmcp_native_not_found_wrapped() -> None:
+    """Regression: ``fastmcp.exceptions.NotFoundError`` (raised by the
+    server when a prompt / resource name is unknown) is a different class
+    from ``app.shared.errors.NotFoundError`` — the previous middleware
+    didn't catch it, so ``get_prompt('typo')`` returned ``"internal
+    error: Unknown prompt: 'typo'"`` instead of a clean ``not found``.
+    """
+    mw = DomainErrorMiddleware(mask_details=True)
+    call_next = AsyncMock(side_effect=FastMCPNotFoundError("Unknown prompt: 'bogus'"))
+    with pytest.raises(PromptError) as info:
+        await mw.on_get_prompt(_ctx(), call_next)
+    assert "not found" in str(info.value).lower()
+    assert "bogus" in str(info.value)

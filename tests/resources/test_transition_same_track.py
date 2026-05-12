@@ -60,3 +60,41 @@ async def test_score_distinct_pair_still_runs_features_load() -> None:
     uow.track_features.get_scoring_features_batch = AsyncMock(return_value={})
     with pytest.raises(NotFoundError, match=r"track_features"):
         await transition_score(from_id=146, to_id=147, uow=uow)
+
+
+@pytest.mark.asyncio
+async def test_missing_features_message_pinpoints_the_actual_id() -> None:
+    """Regression: the message used to say ``"track_features not found:
+    '9999 or 2'"`` (literally "X or Y") even when only one side was
+    missing, leaving callers guessing. Now it reports the missing id
+    directly.
+    """
+    from app.shared.errors import NotFoundError
+
+    feat = MagicMock()
+    uow = MagicMock()
+    uow.track_features = MagicMock()
+    # Only ``2`` has features; ``9999`` is the one truly missing.
+    uow.track_features.get_scoring_features_batch = AsyncMock(return_value={2: feat})
+    with pytest.raises(NotFoundError) as info:
+        await transition_score(from_id=9999, to_id=2, uow=uow)
+    msg = str(info.value)
+    assert "9999" in msg
+    assert " or " not in msg, f"old ambiguous 'X or Y' phrasing leaked: {msg!r}"
+
+
+@pytest.mark.asyncio
+async def test_missing_features_message_when_both_sides_missing() -> None:
+    """When both sides are missing the message uses ``both X and Y``
+    instead of the ambiguous ``X or Y`` (so the caller knows that
+    seeding either side alone won't be enough)."""
+    from app.shared.errors import NotFoundError
+
+    uow = MagicMock()
+    uow.track_features = MagicMock()
+    uow.track_features.get_scoring_features_batch = AsyncMock(return_value={})
+    with pytest.raises(NotFoundError) as info:
+        await transition_score(from_id=8888, to_id=9999, uow=uow)
+    msg = str(info.value)
+    assert "8888" in msg and "9999" in msg
+    assert "both" in msg

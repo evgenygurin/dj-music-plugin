@@ -116,6 +116,27 @@ async def test_ui_score_pool_matrix_renders_column_with_empty_pool() -> None:
 
 
 @pytest.mark.asyncio
+async def test_ui_score_pool_matrix_rejects_duplicate_track_ids() -> None:
+    """Regression: ``track_ids=[1, 1, 2, 2]`` used to return 8 cells
+    (4 duplicates of {1,2} + 4 of {2,1}) and build a 4-column matrix
+    with two columns sharing the same id — meaningless heatmap.
+
+    Sibling compute tools (``transition_score_pool``,
+    ``sequence_optimize``) reject duplicates explicitly; ``ui_score_pool_matrix``
+    now matches.
+    """
+    from app.shared.errors import ValidationError
+    from app.tools.ui.score_pool_matrix import ui_score_pool_matrix
+
+    uow = _uow_stub()
+    uow.track_features.get_scoring_features_batch = AsyncMock(return_value={})
+    scorer = MagicMock()
+    ctx = _ui_ctx()
+    with pytest.raises(ValidationError, match=r"duplicate id\(s\):"):
+        await ui_score_pool_matrix(track_ids=[1, 1, 2, 2], uow=uow, scorer=scorer, ctx=ctx)
+
+
+@pytest.mark.asyncio
 async def test_ui_transition_score_renders_column() -> None:
     from app.tools.ui.transition_score import ui_transition_score
 
@@ -147,6 +168,31 @@ async def test_ui_transition_score_renders_column() -> None:
         ctx=ctx,
     )
     assert isinstance(result, Column)
+
+
+@pytest.mark.asyncio
+async def test_ui_transition_score_rejects_same_track() -> None:
+    """Regression: mixing a track into itself is meaningless and
+    ``transition_score_pool`` / ``entity_create(transition)`` /
+    ``sequence_optimize`` all reject duplicate ids. ``ui_transition_score``
+    used to accept ``from == to`` and return synthetic self-similarity
+    numbers — now it raises ``ValueError`` mirroring the rest of v1.
+    """
+    from app.tools.ui.transition_score import ui_transition_score
+
+    uow = _uow_stub()
+    uow.track_features.get_scoring_features_batch = AsyncMock(return_value={})
+    scorer = MagicMock()
+    ctx = _ui_ctx()
+    with pytest.raises(ValueError, match="must differ"):
+        await ui_transition_score(
+            from_track_id=1,
+            to_track_id=1,
+            intent=None,
+            uow=uow,
+            scorer=scorer,
+            ctx=ctx,
+        )
 
 
 # ── Non-empty rendering paths (Codex review #6) ───────────────────────

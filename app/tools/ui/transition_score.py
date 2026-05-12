@@ -80,6 +80,13 @@ def _parse_intent(value: str | None) -> TransitionIntent | None:
 async def _compute(
     uow: UnitOfWork, scorer: Any, a: int, b: int, intent: str | None
 ) -> dict[str, Any]:
+    # Mixing a track into itself is meaningless and elsewhere in the v1
+    # surface (``transition_score_pool``, ``entity_create(transition)``,
+    # ``sequence_optimize``) it is rejected up front. Mirror that here so
+    # ``ui_transition_score(from=1, to=1)`` does not silently return a
+    # bogus 0.9 overall (synthetic self-similarity numbers).
+    if a == b:
+        raise ValueError(f"from_track_id and to_track_id must differ; got {a} for both")
     feats = await uow.track_features.get_scoring_features_batch([a, b])
     if a not in feats:
         raise NotFoundError("track_features", a)

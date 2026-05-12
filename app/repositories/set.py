@@ -5,7 +5,9 @@ from __future__ import annotations
 from sqlalchemy import func, select
 
 from app.models.set import DjSet, DjSetItem, DjSetVersion
+from app.models.track import Track
 from app.repositories.base import BaseRepository
+from app.shared.errors import ValidationError
 
 
 class SetRepository(BaseRepository[DjSet]):
@@ -37,6 +39,22 @@ class SetVersionRepository(BaseRepository[DjSetVersion]):
         return list((await self.session.execute(stmt)).scalars())
 
     async def create_items(self, version_id: int, track_order: list[int]) -> int:
+        # Verify every track_id exists before bulk-inserting; otherwise SQLite
+        # (tests, default FK enforcement off) silently writes orphans and
+        # PostgreSQL raises an opaque foreign-key violation. A single batch
+        # ``SELECT id IN (...)`` is cheap and produces a typed
+        # ValidationError naming the bogus ids.
+        if track_order:
+            unique_ids = list(set(track_order))
+            stmt = select(Track.id).where(Track.id.in_(unique_ids))
+            existing = {row for (row,) in (await self.session.execute(stmt)).all()}
+            missing = [tid for tid in unique_ids if tid not in existing]
+            if missing:
+                raise ValidationError(
+                    f"track_order references unknown track id(s) {sorted(missing)!r}; "
+                    f"verified {len(existing)}/{len(unique_ids)} exist",
+                    details={"missing_track_ids": sorted(missing)},
+                )
         items = [
             DjSetItem(version_id=version_id, track_id=tid, sort_index=i)
             for i, tid in enumerate(track_order)
