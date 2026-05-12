@@ -6,6 +6,24 @@ from pathlib import Path
 from typing import Any, ClassVar
 
 from app.providers.yandex.client import YandexClient
+from app.shared.errors import ValidationError
+
+
+def _require(params: dict[str, Any], *keys: str, op: str) -> tuple[Any, ...]:
+    """Pull required params or raise a typed ValidationError listing them.
+
+    Previously a missing key in ``provider_write`` surfaced as
+    ``KeyError('title')`` → wire message ``"'title'"`` (just the bare key
+    name in quotes), which gave the caller zero hint about what was
+    wrong or what shape the payload should have.
+    """
+    missing = [k for k in keys if k not in params or params[k] is None]
+    if missing:
+        raise ValidationError(
+            f"provider_write {op!r} requires param(s) {missing!r}; "
+            f"got keys {sorted(params.keys()) or 'none'}"
+        )
+    return tuple(params[k] for k in keys)
 
 
 class YandexAdapter:
@@ -113,23 +131,27 @@ class YandexAdapter:
     async def _write_playlist(self, operation: str, params: dict[str, Any]) -> dict[str, Any]:
         match operation:
             case "create":
+                (title,) = _require(params, "title", op="playlist.create")
                 return await self._client.create_playlist(
-                    title=params["title"], visibility=params.get("visibility", "private")
+                    title=title, visibility=params.get("visibility", "private")
                 )
             case "rename":
-                return await self._client.rename_playlist(
-                    params["playlist_id"], title=params["title"]
-                )
+                pid, title = _require(params, "playlist_id", "title", op="playlist.rename")
+                return await self._client.rename_playlist(pid, title=title)
             case "set_description":
-                return await self._client.set_playlist_description(
-                    params["playlist_id"], description=params["description"]
+                pid, description = _require(
+                    params, "playlist_id", "description", op="playlist.set_description"
                 )
+                return await self._client.set_playlist_description(pid, description=description)
             case "delete":
-                return await self._client.delete_playlist(params["playlist_id"])
+                (pid,) = _require(params, "playlist_id", op="playlist.delete")
+                return await self._client.delete_playlist(pid)
             case "add_tracks":
-                pid = params["playlist_id"]
+                pid, raw_ids = _require(
+                    params, "playlist_id", "track_ids", op="playlist.add_tracks"
+                )
                 revision = await self._resolve_revision(pid, params)
-                track_ids = [str(t) for t in params["track_ids"]]
+                track_ids = [str(t) for t in raw_ids]
                 diff = [
                     {
                         "op": "insert",
@@ -139,13 +161,15 @@ class YandexAdapter:
                 ]
                 return await self._client.modify_playlist(pid, diff=diff, revision=revision)
             case "remove_tracks":
-                pid = params["playlist_id"]
+                pid, frm, to = _require(
+                    params, "playlist_id", "from", "to", op="playlist.remove_tracks"
+                )
                 revision = await self._resolve_revision(pid, params)
                 diff = [
                     {
                         "op": "delete",
-                        "from": int(params["from"]),
-                        "to": int(params["to"]),
+                        "from": int(frm),
+                        "to": int(to),
                     }
                 ]
                 return await self._client.modify_playlist(pid, diff=diff, revision=revision)
@@ -153,7 +177,8 @@ class YandexAdapter:
                 raise ValueError(f"unknown playlist operation: {operation}")
 
     async def _write_likes(self, operation: str, params: dict[str, Any]) -> dict[str, Any]:
-        track_ids = list(params["track_ids"])
+        (raw_ids,) = _require(params, "track_ids", op=f"likes.{operation}")
+        track_ids = list(raw_ids)
         if operation == "add":
             return await self._client.add_likes(track_ids)
         if operation == "remove":

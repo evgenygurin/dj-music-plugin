@@ -67,9 +67,7 @@ async def test_read_tracks(mock_client: AsyncMock) -> None:
 async def test_read_track_batch_canonical_track_ids(mock_client: AsyncMock) -> None:
     """Canonical key — matches add_tracks / likes / remove_tracks shape."""
     adapter = YandexAdapter(client=mock_client)
-    result = await adapter.read(
-        "track_batch", id=None, params={"track_ids": [137518650, "98765"]}
-    )
+    result = await adapter.read("track_batch", id=None, params={"track_ids": [137518650, "98765"]})
     assert "tracks" in result
     # Numeric ids are stringified before reaching the YM client.
     mock_client.get_tracks.assert_awaited_once_with(["137518650", "98765"])
@@ -102,6 +100,36 @@ async def test_read_unknown_entity_raises(mock_client: AsyncMock) -> None:
     adapter = YandexAdapter(client=mock_client)
     with pytest.raises(ValueError, match="unknown"):
         await adapter.read("bogus", id="1", params={})
+
+
+@pytest.mark.asyncio
+async def test_write_playlist_create_missing_title_raises_typed(
+    mock_client: AsyncMock,
+) -> None:
+    """Regression: ``provider_write playlist create`` with empty params used
+    to surface as a bare ``KeyError('title')`` whose wire message was just
+    ``"'title'"`` — no hint about what was missing or what the payload
+    should look like. Now raises a typed domain ``ValidationError``
+    listing the missing param(s) and the keys actually supplied.
+    """
+    from app.shared.errors import ValidationError
+
+    adapter = YandexAdapter(client=mock_client)
+    with pytest.raises(ValidationError, match=r"playlist\.create.*title"):
+        await adapter.write("playlist", operation="create", params={})
+
+
+@pytest.mark.asyncio
+async def test_write_likes_add_missing_track_ids_raises_typed(
+    mock_client: AsyncMock,
+) -> None:
+    """Same fix applied to the likes branch — missing ``track_ids`` used
+    to leak as KeyError. Now typed."""
+    from app.shared.errors import ValidationError
+
+    adapter = YandexAdapter(client=mock_client)
+    with pytest.raises(ValidationError, match=r"likes\.add.*track_ids"):
+        await adapter.write("likes", operation="add", params={})
 
 
 @pytest.mark.asyncio

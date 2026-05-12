@@ -29,7 +29,7 @@ from app.schemas.resource_views import (
 )
 from app.schemas.track import TrackView
 from app.server.di import get_uow
-from app.shared.errors import NotFoundError
+from app.shared.errors import NotFoundError, ValidationError
 
 
 @resource(
@@ -138,6 +138,15 @@ async def track_suggest_next(
     transitions for this track" from "the energy filter rejected
     everything".
     """
+    # Resources don't get Pydantic Field validation the way @tool params do —
+    # the URI template just hands a raw string through. Bogus values
+    # (``energy_direction=sideways``) used to fall through ``direction in
+    # {"up", "down"}`` and silently behave like ``None``, which masked typos.
+    allowed_directions = {"up", "down", "flat", None}
+    if energy_direction not in allowed_directions:
+        raise ValidationError(
+            f"invalid energy_direction {energy_direction!r}; allowed: ['up', 'down', 'flat', null]"
+        )
     if await uow.tracks.get(id) is None:
         raise NotFoundError("track", id)
     candidates, reason = await _compute_suggest_next(

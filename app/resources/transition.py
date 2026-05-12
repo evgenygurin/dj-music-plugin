@@ -38,8 +38,14 @@ async def _load_features_pair(uow: UnitOfWork, from_id: int, to_id: int) -> tupl
     feats = await uow.track_features.get_scoring_features_batch([from_id, to_id])
     feat_a = feats.get(from_id)
     feat_b = feats.get(to_id)
-    if feat_a is None or feat_b is None:
-        raise NotFoundError("track_features", f"{from_id} or {to_id}")
+    # Report the actually-missing id(s) instead of "X or Y" which left the
+    # caller guessing which side was the problem when only one was missing.
+    missing = [tid for tid, f in ((from_id, feat_a), (to_id, feat_b)) if f is None]
+    if missing:
+        raise NotFoundError(
+            "track_features",
+            missing[0] if len(missing) == 1 else f"both {missing[0]} and {missing[1]}",
+        )
     return feat_a, feat_b
 
 
