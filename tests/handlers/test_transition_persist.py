@@ -70,6 +70,42 @@ async def test_scores_and_persists_pair(ctx: MagicMock, uow: MagicMock, scorer: 
 
 
 @pytest.mark.asyncio
+async def test_unknown_scoring_profile_rejected(
+    ctx: MagicMock, uow: MagicMock, scorer: MagicMock
+) -> None:
+    """Regression: ``TransitionCreate.scoring_profile`` was advertised on
+    the schema but never read by the handler, so a typo (or any
+    non-existent profile) silently fell through to the default weights.
+    Now the handler verifies the profile exists and raises a clear
+    ``ValidationError`` before any scoring work.
+    """
+    from app.shared.errors import ValidationError
+
+    uow.scoring_profiles = MagicMock()
+    uow.scoring_profiles.get_by_name = AsyncMock(return_value=None)
+    data = {"from_track_id": 1, "to_track_id": 2, "scoring_profile": "bogus"}
+    with pytest.raises(ValidationError, match=r"scoring_profile 'bogus' not found"):
+        await transition_persist_handler(ctx, uow, data, scorer)
+    uow.scoring_profiles.get_by_name.assert_awaited_once_with("bogus")
+    # No score / persist should have happened.
+    scorer.score.assert_not_called()
+    uow.transitions.upsert.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_known_scoring_profile_passes_validation(
+    ctx: MagicMock, uow: MagicMock, scorer: MagicMock
+) -> None:
+    """When the profile exists, validation clears and the handler proceeds
+    to its normal score+persist path."""
+    uow.scoring_profiles = MagicMock()
+    uow.scoring_profiles.get_by_name = AsyncMock(return_value=MagicMock(name="manual_test"))
+    data = {"from_track_id": 1, "to_track_id": 2, "scoring_profile": "manual_test"}
+    result = await transition_persist_handler(ctx, uow, data, scorer)
+    assert result["overall"] == pytest.approx(0.82)
+
+
+@pytest.mark.asyncio
 async def test_missing_features_raises(ctx: MagicMock, uow: MagicMock, scorer: MagicMock) -> None:
     uow.track_features.get_scoring_features_batch.return_value = {1: MagicMock()}
     data = {"from_track_id": 1, "to_track_id": 2}
