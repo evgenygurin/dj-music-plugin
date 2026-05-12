@@ -1,7 +1,7 @@
 # Project Structure & Database Schema
 
-> Структура директорий, файлов и таблиц БД проекта DJ Music Plugin (v1.3.6).
-> Обновлено: 2026-05-07.
+> Структура директорий, файлов и таблиц БД проекта DJ Music Plugin (v1.3.7).
+> Обновлено: 2026-05-13.
 
 ## 1. Directory Tree
 
@@ -45,6 +45,7 @@ dj-music-plugin/
 │   │
 │   ├── tools/                      # @tool — 20 dispatchers
 │   │   ├── entity/                 # list, get, aggregate, create, update, delete
+│   │   │   └── _fk_gate.py         # v1.3.7: validate_fk_constraints, auto-derived from table.foreign_keys
 │   │   ├── provider/               # read, write, search
 │   │   ├── compute/                # score_pool, sequence_optimize
 │   │   ├── sync/                   # playlist_sync
@@ -55,6 +56,10 @@ dj-music-plugin/
 │   │   ├── track.py, playlist.py, set.py, transition.py,
 │   │   │  transition_history.py, session.py, schema.py
 │   │   └── reference/              # camelot, subgenres, templates, audit_rules
+│   │
+│   ├── handlers/                   # 6 entity-scoped side-effect handlers
+│   │   ├── _context_log.py         # v1.3.7: safe_info / safe_report_progress wrappers (ctx may be None in REST/tests)
+│   │   └── track_import.py, track_features_{analyze,reanalyze}.py, audio_file_download.py, set_version_build.py, transition_persist.py
 │   │
 │   ├── prompts/                    # @prompt — 6 workflow recipes
 │   │   ├── dj_expert_session.py

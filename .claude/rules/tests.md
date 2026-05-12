@@ -52,3 +52,15 @@ globs: tests/**/*.py
 - **EntityRegistry**: tests that add a new entity must register it
   via the fixture, not by mutating the global registry directly
   (test pollution).
+- **SQLite PRAGMA foreign_keys=ON (v1.3.7).** `app/db/session.py`
+  registers a `connect` event listener that enables FK enforcement on
+  every aiosqlite connection. Tests that previously slipped through
+  with orphan FK references now raise. Seed parents (e.g. `Track`,
+  `Playlist`, `DjSet`) before children (`TrackFeatures`,
+  `DjPlaylistItem`, `DjSetItem`) in fixtures.
+- **`safe_info` / `safe_report_progress` in handlers (v1.3.7).**
+  Handlers must use the wrappers from `app/handlers/_context_log.py`
+  instead of `ctx.info()` / `ctx.report_progress()` directly — the
+  wrappers fall back to stdlib logger when no active MCP session
+  exists (REST proxy, headless scripts, unit tests). Test handlers
+  in isolation by passing `ctx=None` — wrappers handle it.

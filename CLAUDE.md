@@ -91,6 +91,8 @@ Claude Code грузит плагин в `~/.claude/plugins/cache/dj-music-plugi
 
 Dev-режим целиком (4 слоя hot-reload + `/reload-plugins`) — @docs/dev-mode.md.
 
+После plugin update (bump version, symlink в cache, sync `installed_plugins.json`) — `Skill(dj-music:reload-plugin)`: чистит bytecode/pyc/mypy/ruff/pytest caches и убивает MCP stdio → Claude Code respawn'ит сервер с свежим кодом. Альтернатива `/reload-plugins` для полного rescan plugin-wide.
+
 ## FastMCP v3 правила
 
 Перед любой работой с tools / resources / prompts / lifespan / visibility:

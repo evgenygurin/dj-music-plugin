@@ -137,19 +137,28 @@ Parallel layers (called from handlers, never from tools directly):
 ```text
 1. Client sends tool call → FastMCP
 2. Middleware pipeline (app/server/middleware/):
-   log → timing → rate limit → response limit → session → error masking
+   log → timing → rate limit → response limit → session → DomainErrorMiddleware
+   (wraps tool + resource + prompt envelopes since v1.3.7 — translates
+   NotFoundError / ValidationError / etc. into typed MCP error envelopes
+   instead of leaking as "internal error: ...")
 3. FastMCP resolves tool via FileSystemProvider (flat scan of app/tools/)
 4. DI chain (app/server/di.py):
    Depends(get_uow) → UnitOfWork(AsyncSession) with repos attached
    Depends(get_entity_registry) / Depends(get_provider_registry)
 5. Generic tool dispatches:
-   - entity_* → EntityRegistry lookup → BaseRepository[M] call
-     (+ optional handler for side-effects on create/update/delete)
+   - entity_create / entity_update → schema-validate payload → FK gate
+     (app/tools/entity/_fk_gate.py:validate_fk_constraints, auto-derived
+     from cls.__table__.foreign_keys) → handler if registered → repo persist
+   - entity_list / entity_get / entity_aggregate → EntityRegistry lookup →
+     BaseRepository[M] call (+ optional handler for side-effects)
    - provider_* → ProviderRegistry lookup → provider client
    - compute_* → app/domain/ pure function
    - playlist_sync → handler chain
 6. On success: UoW.commit() in DI wrapper
-7. On error: UoW.rollback() in DI wrapper
+7. On error: UoW.rollback(); raw pydantic ValidationError is wrapped into
+   typed app.shared.errors.ValidationError("invalid payload for entity 'X': ...")
+   for entity_create/update so mask_details=True production envelopes stay
+   informative.
 8. Return typed Pydantic model → structuredContent + content + meta
 9. Response through middleware (timing recorded, logged)
 10. Back to client
@@ -167,6 +176,21 @@ Parallel layers (called from handlers, never from tools directly):
 └── Panel: cd panel && bun dev --port 3000
     └── Connects to Supabase + MCP_HTTP_URL
 ```
+
+**DB session setup (v1.3.7).** `app/db/session.py` registers a SQLAlchemy
+`connect` event listener that issues `PRAGMA foreign_keys=ON` on every
+aiosqlite connection. Erases the prod-on-Supabase-Postgres (FK enforced
+by default) / dev-tests-on-SQLite (FK off by default) behaviour drift
+that previously masked orphan-row bugs. Production (Postgres) is
+unaffected.
+
+**Handler ctx wrappers (v1.3.7).** Handlers (`app/handlers/*.py`) use
+`safe_info(ctx, ...)` / `safe_report_progress(ctx, ...)` from
+`app/handlers/_context_log.py` instead of calling `ctx.info()` /
+`ctx.report_progress()` directly. The wrappers fall back to stdlib
+logger when no active MCP session exists (REST proxy, headless scripts,
+unit tests) — successful builds are no longer misreported as failures
+behind the REST API.
 
 ## EntityRegistry
 

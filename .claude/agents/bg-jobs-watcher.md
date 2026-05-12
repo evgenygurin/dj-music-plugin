@@ -41,7 +41,15 @@ tools: ["Read", "Grep", "Glob", "Bash", "mcp__plugin_dj-music_mcp__*"]
 - `track_external_ids` — mapping локальных ID → YM ID
 - `feature_extraction_runs` — traceability для каждого прохода pipeline
 
-Query через `mcp__plugin_dj-music_mcp__run_tool` с `get_library_stats` для быстрой статистики, или прямо psql/SQL через существующий MCP.
+Query через `mcp__plugin_dj-music_mcp__entity_aggregate` для быстрой статистики (нет тула `get_library_stats` — v1 surface использует polymorphic dispatchers):
+
+```text
+entity_aggregate(entity="track", operation="count")
+entity_aggregate(entity="track_features", operation="count", group_by="analysis_level")
+entity_aggregate(entity="track_features", operation="histogram", field="bpm", bin_size=5)
+```
+
+Или прямо psql/SQL через MCP `db` server (read-only).
 
 ## Стандартный workflow статус-проверки
 

@@ -95,3 +95,67 @@ echo '{"file_path":"/Users/you/dev/dj-music-plugin/server.py"}' \
 # Проверить hooks.json валидный
 python3 -c "import json; json.load(open('hooks/hooks.json'))"
 ```
+
+## Claude Code CLI tools для plugin dev
+
+### Pre-push / pre-release: `claude plugin validate`
+
+Полная проверка plugin manifest до push'а:
+
+```bash
+claude plugin validate /Users/laptop/dev/dj-music-plugin
+# Проверяет: .claude-plugin/plugin.json + marketplace.json синтаксис,
+# commands/*.md + agents/*.md + skills/**/SKILL.md frontmatter,
+# hooks/hooks.json валидность, .mcp.json (если есть),
+# отсутствие `..` в source paths, отсутствие дубликатов имён.
+```
+
+Стоит запускать после правок `plugin.json` / `marketplace.json` / любых `*.md` со фронтматтером. Эквивалент `/plugin validate <path>` внутри сессии.
+
+### Session-only тест без install: `--plugin-dir`
+
+Альтернатива `DJ_PLUGIN_DEV_PATH` для проверки в чистом environment (без записи в `~/.claude/settings.json`, без `installed_plugins.json` update):
+
+```bash
+claude --plugin-dir /Users/laptop/dev/dj-music-plugin
+```
+
+Каждый запуск подтягивает плагин свежий — изменения видны мгновенно без `claude plugin update`. Полезно когда нужно проверить плагин «как у нового пользователя» без затирания текущей user-scope установки.
+
+### Plugin loading debug
+
+```bash
+# Фильтр только по plugins+hooks+mcp (без шума file/1p)
+claude --debug "plugins,hooks,mcp"
+
+# В файл (для отправки в issue)
+claude --plugin-dir /Users/laptop/dev/dj-music-plugin --debug-file /tmp/dj-debug.log
+```
+
+### Diagnostics
+
+```bash
+claude doctor
+# Installation type + version, malformed settings.json, MCP server config errors,
+# plugin/agent loading errors, context usage warnings.
+```
+
+Внутри сессии: `/plugin` → вкладка **Errors** показывает все ошибки загрузки плагинов с путями и трассировкой.
+
+### После release tag — обновить marketplace + plugin
+
+После `git push origin v1.X.Y` GitHub-marketplace user'ам нужно:
+
+```bash
+claude plugin marketplace update dj-music-plugin    # подтянуть свежий marketplace.json
+claude plugin update dj-music@dj-music-plugin       # apply (требует restart Claude Code)
+```
+
+`@docs/dev-mode.md` локальный dev не затронут — он работает через directory-source marketplace (см. CLAUDE.md «Plugin cache ≠ working dir»).
+
+## Платформенные ограничения
+
+- **Cursor пропускает `SessionStart` hooks.** Наш welcome banner / health smoke-test (`hooks/session-start.sh` в `SessionStart`) не сработает в Cursor — запусти проверку вручную (`mcp__plugin_dj-music_mcp__entity_aggregate(entity="track", operation="count")` или `ui_library_dashboard`).
+- **Windows native без WSL / Git-Bash не запустит наши хуки.** `PostToolUse` (`hooks/reload-mcp.sh`) и `FileChanged` (`hooks/dev-filewatch-reload.sh`) требуют bash. На Windows используй WSL2 или Git-Bash; альтернативно — перепиши hooks на sh-совместимый shell.
+- **`$schema` поле в `plugin.json` / `marketplace.json`** отвергается validator'ом Claude Code 2.1.114+ с ошибкой `Unrecognized key`. Не добавляй для IDE-completion — оно сломает install.
+- **`claude plugin marketplace remove dj-music-plugin`** автоматически удалит установленный плагин из всех scopes (user/project/local). Осторожно при чистке dev-окружений.

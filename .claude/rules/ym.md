@@ -69,3 +69,13 @@ globs:
   `YandexClient._build_signed_mp3_url` — don't duplicate.
 - `ym_*` tools referenced in legacy panel actions no longer exist;
   v1 surface is `provider_read` / `provider_write` / `provider_search`.
+- **`track_batch` legacy `ids` alias (v1.3.7).**
+  `YandexAdapter.read("track_batch", params={...})` accepts both
+  canonical `track_ids` and legacy `ids` — old call sites that pass
+  `{"ids": [...]}` keep working without migration. Numeric IDs are
+  auto-stringified by the adapter before hitting the YM client (which
+  needs string IDs in the `trackIds=` query param).
+- **`provider_read.id` accepts `int | str` (v1.3.7).** YM track IDs
+  are naturally numeric, and the previous Pydantic-strict signature
+  rejected `id=137518650`. Now both `id=137518650` and `id="137518650"`
+  resolve correctly through the dispatcher.

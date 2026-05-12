@@ -1,17 +1,18 @@
 ---
 name: deliver-set
-description: "Use when the user asks to deliver a set, export a set, finalize a set, do a rekordbox export, sync a set to YM, or generate a cheat sheet. Covers M3U8, Rekordbox XML, JSON guide, cheat sheet export and YM sync."
+description: "This skill should be used when the user asks to deliver a set, export a set, finalize a set, do a rekordbox export, sync a set to YM, or generate a cheat sheet. Covers M3U8, Rekordbox XML, JSON guide, cheat sheet export and YM sync."
 version: 1.0.1
 ---
 
 # Deliver DJ Set Workflow
 
-Guide the user through exporting a completed DJ set via the v1 polymorphic dispatchers. See @docs/tool-catalog.md (13 dispatchers + 27 resources + 6 prompts).
+Guide the user through exporting a completed DJ set via the v1 polymorphic dispatchers. See @docs/tool-catalog.md (**20 tools** = 14 core dispatchers + 6 UI Prefab + 27 resources + 6 prompts).
 
 ## Steps
 
 1. **Review set quality first**
    - Read `local://sets/{id}/review` — hard conflicts (score=0.0) surface here
+   - Optional visual preview: `ui_set_view(set_id=<id>)` — energy arc + transition badges + cheatsheet
    - If conflicts exist, warn the user and suggest fixing (see skill `build-set` — replacement / new version) before delivery
 
 2. **Ensure audio files on disk (L4)**

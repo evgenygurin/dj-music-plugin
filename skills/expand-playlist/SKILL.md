@@ -1,12 +1,12 @@
 ---
 name: expand-playlist
-description: "Use when the user asks to expand a playlist, find similar tracks, add more tracks, discover new tracks, import from Yandex Music, or fill gaps in a playlist. Covers discovery, feedback gating, import, download and analysis."
+description: "This skill should be used when the user asks to expand a playlist, find similar tracks, add more tracks, discover new tracks, import from Yandex Music, or fill gaps in a playlist. Covers discovery, feedback gating, import, download and analysis."
 version: 1.0.1
 ---
 
 # Expand Playlist Workflow
 
-Guide the user through discovering and importing new tracks via the v1 polymorphic dispatchers. See @docs/tool-catalog.md (13 dispatchers + 27 resources + 6 prompts).
+Guide the user through discovering and importing new tracks via the v1 polymorphic dispatchers. See @docs/tool-catalog.md (**20 tools** = 14 core dispatchers + 6 UI Prefab + 27 resources + 6 prompts).
 
 ## Quick Path (one-call)
 
@@ -28,8 +28,8 @@ Run once with `dry_run=true` to preview, then again without it.
    - LLM-driven discovery lives in the `expand_playlist_workflow` prompt (it asks Claude for search queries, then feeds them to `provider_search`) — see @.claude/rules/llm-sampling.md
 
 3. **Filter candidates by feedback** (dedupe / drop disliked / boost liked)
-   - Known tracks already in DB: `entity_list(entity="track", filters={"external_id__in": [...]}, fields="summary")` — anything returned is already imported
-   - Feedback history: `entity_list(entity="track_feedback", filters={"ym_track_id__in": [...]}, fields="full")`
+   - Known tracks already in DB: `Track` has no `external_id` column directly — provider IDs live in `track_external_ids` (relation `external_ids`). Resolve by calling `provider_read(provider="yandex", entity="track_batch", params={"track_ids": [...]})` to fetch metadata, then dedupe via `entity_list(entity="track", filters={"id__in": [...]})` once you have local IDs. For YM specifically, the `YandexMetadata` join exposes `yandex_track_id` — query via the `yandex_metadata` relation if you've imported them.
+   - Feedback history: `entity_list(entity="track_feedback", filters={"track_id__in": [...]}, fields="full")` (after import) or via raw provider id through the feedback model's external link.
    - Let Claude decide which to import, which to skip.
 
 4. **Review candidates**
