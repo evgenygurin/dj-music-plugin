@@ -121,16 +121,40 @@ async def entity_create(
                 details={"template_name": template_name_val},
             )
 
-    # ``set.source_playlist_id`` is a ForeignKey to ``dj_playlists.id``.
-    # SQLite (default FK enforcement off) lets a bogus id through to the
-    # row; PostgreSQL rejects it as an opaque ``ForeignKeyViolationError``.
-    # Validate up front so the message names the bad id.
-    src_pl = getattr(validated, "source_playlist_id", None) if entity == "set" else None
-    if src_pl is not None and await uow.playlists.get(src_pl) is None:
-        raise ValidationError(
-            f"source_playlist_id {src_pl} does not reference an existing playlist",
-            details={"source_playlist_id": src_pl},
-        )
+    # ── Foreign-key gates ────────────────────────────────────────────
+    # SQLite (default FK enforcement off) lets bogus references through
+    # to the row; PostgreSQL rejects them as opaque
+    # ``ForeignKeyViolationError`` long after a clean message would have
+    # named the bad id. Validate per-entity up front.
+    if entity == "set":
+        src_pl = getattr(validated, "source_playlist_id", None)
+        if src_pl is not None and await uow.playlists.get(src_pl) is None:
+            raise ValidationError(
+                f"source_playlist_id {src_pl} does not reference an existing playlist",
+                details={"source_playlist_id": src_pl},
+            )
+    elif entity == "track_feedback":
+        tid = getattr(validated, "track_id", None)
+        if tid is not None and await uow.tracks.get(tid) is None:
+            raise ValidationError(
+                f"track_id {tid} does not reference an existing track",
+                details={"track_id": tid},
+            )
+    elif entity == "track_affinity":
+        # Two FK references — validate both with a single round-trip.
+        a = getattr(validated, "track_a_id", None)
+        b = getattr(validated, "track_b_id", None)
+        missing: list[tuple[str, int]] = []
+        if a is not None and await uow.tracks.get(a) is None:
+            missing.append(("track_a_id", a))
+        if b is not None and await uow.tracks.get(b) is None:
+            missing.append(("track_b_id", b))
+        if missing:
+            details_msg = ", ".join(f"{name}={tid}" for name, tid in missing)
+            raise ValidationError(
+                f"track_affinity references missing track(s): {details_msg}",
+                details={"missing": [{"field": n, "id": t} for n, t in missing]},
+            )
 
     repo = getattr(uow, config.repo_attr)
     row = await repo.create(**validated.model_dump())
