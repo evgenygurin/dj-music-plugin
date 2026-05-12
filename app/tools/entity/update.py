@@ -113,6 +113,24 @@ async def entity_update(
                 details={"template_name": template_name_val},
             )
 
+    # ``transition.fx_type`` is a free-form string on the schema (the
+    # schema can't import ``app.domain``) but downstream Neural Mix
+    # recipe builders + UI renderers only know the seven enum values.
+    # A typo like ``fx_type="lol_wut"`` used to slip into the row and
+    # then either crash the renderer or silently fall back to defaults.
+    # Validate against the same enum the picker / recipe builders use.
+    fx_type_val = getattr(validated, "fx_type", None) if entity == "transition" else None
+    if fx_type_val is not None:
+        from app.domain.transition.neural_mix import NeuralMixTransition
+
+        allowed = [t.value for t in NeuralMixTransition]
+        if fx_type_val not in allowed:
+            raise ValidationError(
+                f"unknown fx_type {fx_type_val!r}; "
+                f"valid Neural Mix transitions: {sorted(allowed)}",
+                details={"fx_type": fx_type_val},
+            )
+
     # Mirror the create-path FK gate for ``set.source_playlist_id``:
     # SQLite would silently accept a bogus id, PostgreSQL would raise an
     # opaque FK violation.
@@ -137,12 +155,8 @@ async def entity_update(
     if entity == "set" and ("target_bpm_min" in data or "target_bpm_max" in data):
         existing = await uow.sets.get(id)
         if existing is not None:
-            new_min = (
-                data.get("target_bpm_min", existing.target_bpm_min)
-            )
-            new_max = (
-                data.get("target_bpm_max", existing.target_bpm_max)
-            )
+            new_min = data.get("target_bpm_min", existing.target_bpm_min)
+            new_max = data.get("target_bpm_max", existing.target_bpm_max)
             if new_min is not None and new_max is not None and new_min > new_max:
                 raise ValidationError(
                     f"target_bpm_min ({new_min}) must be <= target_bpm_max "

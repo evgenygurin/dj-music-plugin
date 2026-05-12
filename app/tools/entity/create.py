@@ -133,6 +133,13 @@ async def entity_create(
                 f"source_playlist_id {src_pl} does not reference an existing playlist",
                 details={"source_playlist_id": src_pl},
             )
+    elif entity == "playlist":
+        parent_id = getattr(validated, "parent_id", None)
+        if parent_id is not None and await uow.playlists.get(parent_id) is None:
+            raise ValidationError(
+                f"parent_id {parent_id} does not reference an existing playlist",
+                details={"parent_id": parent_id},
+            )
     elif entity == "track_feedback":
         tid = getattr(validated, "track_id", None)
         if tid is not None and await uow.tracks.get(tid) is None:
