@@ -6,6 +6,43 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.3.7] - 2026-05-13
+
+**Manual MCP hardening + systemic FK gate refactor.** Outcome of ~11 rounds of manual MCP testing through the in-memory FastMCP client and the REST proxy (curl). Each round picked a fresh angle — entity CRUD edges, build-a-set workflow, FK gates, resource templates, pagination, provider tools — and fixed every issue surfaced before the next round. After per-entity FK gates accreted across rounds 4–10, the final commit collapses them into a single source-of-truth design driven by SQLAlchemy ORM metadata. **28 distinct bug classes fixed, ~70 regression tests added.** Substance: #213 (squashed to ``d8ff1fc``). Version bump: #214 (squashed to ``0f62b27``). Full notes in the [v1.3.7 GitHub Release](https://github.com/evgenygurin/dj-music-plugin/releases/tag/v1.3.7).
+
+### Added
+- ``app/db/session.py`` — ``connect`` event listener issuing ``PRAGMA foreign_keys=ON`` on every aiosqlite connection. Erases the prod-on-Supabase-Postgres / dev-on-SQLite FK-enforcement drift that hid orphan-row bugs through 9 rounds of testing.
+- ``app/tools/entity/_fk_gate.py`` — ``validate_fk_constraints(uow, config, validated, partial_keys=...)``. ``EntityConfig.fk_constraints`` is auto-derived from ``cls.__table__.foreign_keys`` ∩ Create/Update schema fields at ``register_default_entities()`` time. ``_HANDLER_ONLY_FKS`` overrides cover handler-only fields not present as columns (e.g. ``TrackCreate.playlist_id``).
+- ``app/handlers/_context_log.py`` — ``safe_info(ctx, …)`` and ``safe_report_progress(ctx, …)`` wrappers. ``ctx.info()`` / ``ctx.report_progress()`` require an active MCP session, which doesn't exist behind the REST proxy; wrappers fall back to stdlib logger so successful builds aren't misreported as failures.
+- ~70 regression tests across ``tests/handlers/``, ``tests/repositories/``, ``tests/resources/``, ``tests/server/middleware/``, ``tests/tools/admin/``, ``tests/tools/compute/``, ``tests/tools/entity/``, ``tests/tools/provider/``, ``tests/tools/sync/``, ``tests/tools/ui/``.
+
+### Changed
+- ``DomainErrorMiddleware`` wraps **resource** + **prompt** envelopes too (``on_read_resource`` / ``on_get_prompt``), not just tools. Catches ``fastmcp.exceptions.NotFoundError`` distinctly so ``Unknown prompt: 'bogus'`` surfaces as ``"not found: …"`` instead of ``"internal error: …"``.
+- ``entity_create`` / ``entity_update`` translate raw ``pydantic.ValidationError`` into typed ``app.shared.errors.ValidationError("invalid payload for entity 'X': …")`` so production (``mask_details=True``) no longer collapses to a blank ``"internal error"``.
+- ``AggregateResult.value`` union now includes ``bool`` BEFORE ``int`` — ``distinct(variable_tempo)`` was returning ``[0]`` instead of ``[false]`` because Pydantic v2 picked ``int`` first (``bool`` is an ``int`` subclass), inconsistent with the ``group_by`` branch.
+- ``provider_read.id`` accepts ``int`` (YM track IDs are naturally numeric; was rejected by Pydantic strict). ``YandexAdapter.read("track_batch", …)`` accepts both canonical ``track_ids`` and legacy ``ids``; numeric IDs are stringified before the YM client.
+- ``BaseRepository.filter`` refuses to emit ``next_cursor`` when the first sort field is non-unique, and rejects an incoming ``cursor`` on a non-unique sort with a clear message — was silently dropping rows that shared the boundary value with the last seen row.
+- 5 handlers (``track_import``, ``track_features_{analyze,reanalyze}``, ``audio_file_download``, ``set_version_build``) switched from ``ctx.info()`` / ``ctx.report_progress()`` to the ``safe_*`` wrappers.
+- ``playlist_sync`` uses ``uow.playlists.get_track_ids()`` instead of accessing ``pl.items`` (lazy-load triggered ``greenlet_spawn has not been called`` in async sessions).
+- ``unlock_namespace`` accepts ``"ui:read"`` (was advertised in ``app/server/visibility.py`` but missing from the ``Literal``).
+- Removed 5 piecemeal per-entity FK branches from ``entity_create`` / ``entity_update`` (added across rounds 4–10 and now collapsed into ``_fk_gate``).
+
+### Fixed
+- **Silent typos / orphan args validation gates.** ``entity_get.include_relations`` rejects typos against ``config.relations.keys()`` (was silently dropped). ``local://tracks/{id}/suggest_next?energy_direction=…`` rejected against ``{up, down, flat, None}``. ``transition.scoring_profile`` (``entity_create``) validated against ``uow.scoring_profiles.get_by_name``. ``transition.fx_type`` (``entity_update``) validated against the seven ``NeuralMixTransition`` enum members. ``transition.persist=false`` now actually honored by the handler (was a dead parameter). ``sequence_optimize`` rejects ``pinned`` ids not in pool and ``excluded`` covering the entire pool. ``ui_score_pool_matrix`` rejects duplicate ids. ``ui_transition_score`` rejects ``from == to``. ``entity_update set`` enforces cross-row BPM-range invariant on partial updates (``min`` alone vs existing ``max`` and vice versa).
+- ``local://transition/{a}/{b}/score`` names the actually-missing id instead of the ambiguous ``"X or Y"``.
+- ``provider_write`` missing-param errors are typed ``ValidationError`` listing the missing keys (was a bare ``KeyError('title')`` → wire message ``"'title'"``).
+- ``set_version_build`` checks ``track_order`` FK references up-front in ``SetVersionRepository.create_items`` (FK gate before bulk insert).
+- ``app/audio/core/loader.py`` wraps the ``wave.Error`` fallback so non-WAV inputs without ``soundfile`` / ``librosa`` installed get a clear ``RuntimeError("audio decode failed: …")`` instead of ``wave.Error("file does not start with RIFF id")``.
+
+### Tests
+- 1262 → **1323 passed, 0 failed** (+~70 regression tests covering every closed bug class).
+- ``make check`` clean (ruff, mypy on changed files, import-linter 5 kept / 0 broken, pytest ``-n auto``).
+- Manual curl verification of all 28 bug classes end-to-end via REST API — **38/38 assertions pass**.
+
+### Notes
+- No MCP tool surface changes: 20 tools / 27 resources / 6 prompts / 11 registered entities unchanged from v1.3.6.
+- Tooling used: ``rg`` for cross-cutting FK inventory, ``sg`` (ast-grep) for AST-precise ``ForeignKey($STRING)`` enumeration across ``app/models/*``, ``jq`` / ``yq`` for metadata + config inspection.
+
 ## [1.3.6] - 2026-05-07
 
 **Silence basedpyright `reportMissingImports` on the optional `prefect` flow.** ``flows/dj_health_check.py`` is deployed via Prefect Cloud (``uvx prefect-cloud deploy …``); Prefect installs its own runtime remotely, so ``prefect`` is intentionally absent from the local ``pyproject.toml``. A one-line ``# pyright: ignore[reportMissingImports]`` keeps the basedpyright IDE noise away without dragging Prefect into the local virtualenv.
