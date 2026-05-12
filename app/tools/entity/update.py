@@ -23,6 +23,7 @@ from app.server.di import (
 from app.shared.errors import ValidationError
 from app.shared.types import JsonDict
 from app.tools.entity._dispatch import call_handler
+from app.tools.entity._fk_gate import validate_fk_constraints
 
 EntityName = Literal[
     "track",
@@ -131,19 +132,16 @@ async def entity_update(
                 details={"fx_type": fx_type_val},
             )
 
-    # Mirror the create-path FK gate for ``set.source_playlist_id``:
-    # SQLite would silently accept a bogus id, PostgreSQL would raise an
-    # opaque FK violation.
-    src_pl = (
-        data.get("source_playlist_id")
-        if entity == "set" and "source_playlist_id" in data
-        else None
-    )
-    if src_pl is not None and await uow.playlists.get(int(src_pl)) is None:
-        raise ValidationError(
-            f"source_playlist_id {src_pl} does not reference an existing playlist",
-            details={"source_playlist_id": src_pl},
-        )
+    # FK gates — generic, data-driven (see ``EntityConfig.fk_constraints``
+    # auto-derived from ORM in ``app.registry.defaults._wire_fk_constraints``).
+    # SQLite (default FK enforcement off — overridden in
+    # ``app/db/session.py`` via ``PRAGMA foreign_keys=ON``) would otherwise
+    # silently write orphan FK refs; PostgreSQL would raise an opaque
+    # FK violation. The app-level gate gives an informative typed error
+    # naming the bad id BEFORE the DB rejects it. ``partial_keys=data.keys()``
+    # ensures only FK fields actually present in the patch payload are
+    # checked (others stay at their existing row values).
+    await validate_fk_constraints(uow, config, validated, partial_keys=data.keys())
 
     # Cross-row BPM-range invariant for ``set``: ``SetUpdate`` schema
     # can only catch the case where BOTH sides come in the same payload

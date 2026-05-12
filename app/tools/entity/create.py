@@ -23,6 +23,7 @@ from app.server.di import (
 from app.shared.errors import ValidationError
 from app.shared.types import JsonDict
 from app.tools.entity._dispatch import call_handler
+from app.tools.entity._fk_gate import validate_fk_constraints
 
 EntityName = Literal[
     "track",
@@ -87,6 +88,17 @@ async def entity_create(
             details={"errors": exc.errors(include_url=False)},
         ) from exc
 
+    # Foreign-key gates (uniform, data-driven). Each entity declares its
+    # FK fields once in ``EntityConfig.fk_constraints`` (see
+    # ``app.registry.defaults``) and the helper validates each before
+    # the row is written. Mirrors what PostgreSQL would catch as a FK
+    # violation, but with a typed message that names the bad id —
+    # essential because SQLite (default FK enforcement off) silently
+    # writes orphan rows otherwise. The check runs BEFORE handler
+    # dispatch so single-FK paths (track_import.playlist_id,
+    # set_version_build.set_id, …) get the same uniform error shape.
+    await validate_fk_constraints(uow, config, validated)
+
     if config.create_handler is not None:
         # Dispatch inspects the handler's 4th parameter name and passes the
         # matching service (registry / pipeline / scorer). Previously we
@@ -119,63 +131,6 @@ async def entity_create(
                 f"unknown template_name {template_name_val!r}; "
                 f"valid templates: {sorted(list_template_names())}",
                 details={"template_name": template_name_val},
-            )
-
-    # ── Foreign-key gates ────────────────────────────────────────────
-    # SQLite (default FK enforcement off) lets bogus references through
-    # to the row; PostgreSQL rejects them as opaque
-    # ``ForeignKeyViolationError`` long after a clean message would have
-    # named the bad id. Validate per-entity up front.
-    if entity == "set":
-        src_pl = getattr(validated, "source_playlist_id", None)
-        if src_pl is not None and await uow.playlists.get(src_pl) is None:
-            raise ValidationError(
-                f"source_playlist_id {src_pl} does not reference an existing playlist",
-                details={"source_playlist_id": src_pl},
-            )
-    elif entity == "playlist":
-        parent_id = getattr(validated, "parent_id", None)
-        if parent_id is not None and await uow.playlists.get(parent_id) is None:
-            raise ValidationError(
-                f"parent_id {parent_id} does not reference an existing playlist",
-                details={"parent_id": parent_id},
-            )
-    elif entity == "track_feedback":
-        tid = getattr(validated, "track_id", None)
-        if tid is not None and await uow.tracks.get(tid) is None:
-            raise ValidationError(
-                f"track_id {tid} does not reference an existing track",
-                details={"track_id": tid},
-            )
-    elif entity == "track_affinity":
-        # Two FK references — validate both with a single round-trip.
-        a = getattr(validated, "track_a_id", None)
-        b = getattr(validated, "track_b_id", None)
-        missing: list[tuple[str, int]] = []
-        if a is not None and await uow.tracks.get(a) is None:
-            missing.append(("track_a_id", a))
-        if b is not None and await uow.tracks.get(b) is None:
-            missing.append(("track_b_id", b))
-        if missing:
-            details_msg = ", ".join(f"{name}={tid}" for name, tid in missing)
-            raise ValidationError(
-                f"track_affinity references missing track(s): {details_msg}",
-                details={"missing": [{"field": n, "id": t} for n, t in missing]},
-            )
-    elif entity == "transition_history":
-        # Same FK shape as track_affinity (two refs to tracks).
-        ft = getattr(validated, "from_track_id", None)
-        tt = getattr(validated, "to_track_id", None)
-        missing_th: list[tuple[str, int]] = []
-        if ft is not None and await uow.tracks.get(ft) is None:
-            missing_th.append(("from_track_id", ft))
-        if tt is not None and await uow.tracks.get(tt) is None:
-            missing_th.append(("to_track_id", tt))
-        if missing_th:
-            details_msg = ", ".join(f"{name}={tid}" for name, tid in missing_th)
-            raise ValidationError(
-                f"transition_history references missing track(s): {details_msg}",
-                details={"missing": [{"field": n, "id": t} for n, t in missing_th]},
             )
 
     repo = getattr(uow, config.repo_attr)

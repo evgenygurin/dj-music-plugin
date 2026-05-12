@@ -24,7 +24,7 @@ from app.models.track_features import TrackAudioFeaturesComputed
 from app.models.track_feedback import TrackFeedback
 from app.models.transition import Transition
 from app.models.transition_history import TransitionHistory
-from app.registry.entity import EntityConfig, EntityRegistry
+from app.registry.entity import EntityConfig, EntityRegistry, FkConstraint
 from app.schemas.audio_file import (
     AudioFileCreate,
     AudioFileFilter,
@@ -611,3 +611,90 @@ def register_default_entities() -> None:
             tags=frozenset({"namespace:scoring"}),
         )
     )
+
+    # ── Auto-derive FK constraints from ORM metadata ──────────────────
+    # Single source of truth for FK gates is the SQLAlchemy model. Every
+    # ``ForeignKey("target.col")`` declared on a column that ALSO appears
+    # in the entity's Create or Update schema becomes a typed
+    # ``FkConstraint`` automatically — no per-entity declaration needed
+    # in this file. Adding a new entity with FK columns therefore can't
+    # drift from the gate: the gate is derived from the model.
+    _wire_fk_constraints()
+
+
+# ── handler-only FK fields (not real columns on the entity's table) ───
+# Some Create schemas accept FK fields that the HANDLER consumes but
+# don't exist as columns on the entity's own table. Auto-derivation
+# only walks ORM column FKs, so these need an explicit declaration.
+#
+# Today: TrackCreate.playlist_id — the track_import handler appends
+# newly-imported tracks to ``playlist_id`` via ``uow.playlists.append_tracks``,
+# but ``tracks`` itself has no ``playlist_id`` column.
+_HANDLER_ONLY_FKS: dict[str, tuple[FkConstraint, ...]] = {
+    "track": (
+        FkConstraint(field="playlist_id", target_repo="playlists", target_singular="playlist"),
+    ),
+}
+
+
+def _wire_fk_constraints() -> None:
+    """Replace each registered ``EntityConfig`` with one that has its
+    ``fk_constraints`` derived from the model + Create/Update schemas.
+
+    Walks the SQLAlchemy ``__table__.foreign_keys`` and produces one
+    ``FkConstraint`` per FK column that also appears as a field in
+    either the Create or Update schema. Targets are mapped from
+    ``target_table_name`` → ``(repo_attr, entity_name)`` via the
+    registry. FKs to non-registered entities (e.g. ``genres``,
+    ``artists``) are skipped — those entities aren't reachable via
+    ``entity_create``/``entity_update`` and have no UoW repo.
+
+    Handler-only fields not present as model columns are injected
+    from ``_HANDLER_ONLY_FKS``.
+    """
+    from dataclasses import replace
+
+    # target_table → (repo_attr, entity_name)
+    table_to_entity: dict[str, tuple[str, str]] = {}
+    for name in EntityRegistry.names():
+        cfg = EntityRegistry.get(name)
+        table_to_entity[cfg.model.__tablename__] = (cfg.repo_attr, cfg.name)
+
+    for name in list(EntityRegistry.names()):
+        cfg = EntityRegistry.get(name)
+
+        # 1. Auto-derive from ORM FK columns ∩ Create/Update schema fields.
+        schema_fields: set[str] = set()
+        if cfg.create_schema is not None:
+            schema_fields.update(cfg.create_schema.model_fields.keys())
+        if cfg.update_schema is not None:
+            schema_fields.update(cfg.update_schema.model_fields.keys())
+
+        derived: list[FkConstraint] = []
+        seen_fields: set[str] = set()
+        for col in cfg.model.__table__.columns:
+            if col.name not in schema_fields or col.name in seen_fields:
+                continue
+            for fk in col.foreign_keys:
+                target = table_to_entity.get(fk.column.table.name)
+                if target is None:
+                    continue
+                repo_attr, target_name = target
+                derived.append(
+                    FkConstraint(
+                        field=col.name,
+                        target_repo=repo_attr,
+                        target_singular=target_name,
+                    )
+                )
+                seen_fields.add(col.name)
+                break
+
+        # 2. Inject handler-only overrides (e.g. ``track.playlist_id``).
+        for override in _HANDLER_ONLY_FKS.get(name, ()):
+            if override.field not in seen_fields:
+                derived.append(override)
+                seen_fields.add(override.field)
+
+        if derived:
+            EntityRegistry._registry[name] = replace(cfg, fk_constraints=tuple(derived))

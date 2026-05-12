@@ -45,6 +45,29 @@ _FieldPreset = Sequence[str] | Literal["*"]
 
 
 @dataclass(frozen=True, slots=True)
+class FkConstraint:
+    """Declarative foreign-key constraint for the create/update dispatchers.
+
+    Each ``FkConstraint`` declares that one Create/Update schema field on
+    this entity references a row in another entity. The dispatcher
+    iterates ``EntityConfig.fk_constraints`` and verifies the referenced
+    row exists before the INSERT / UPDATE — converting what would
+    otherwise be an opaque PostgreSQL ``ForeignKeyViolationError`` (or,
+    on SQLite with FK enforcement off, a silently-written orphan row)
+    into a typed ``ValidationError`` naming the bad id.
+    """
+
+    field: str
+    """Column on the Create/Update payload (e.g. ``source_playlist_id``)."""
+
+    target_repo: str
+    """UnitOfWork attribute exposing the target repository (e.g. ``playlists``)."""
+
+    target_singular: str
+    """Human-readable target name for the error message (e.g. ``playlist``)."""
+
+
+@dataclass(frozen=True, slots=True)
 class EntityConfig:
     """Declarative entity configuration. All fields required except handlers."""
 
@@ -72,6 +95,10 @@ class EntityConfig:
     # derived View fields (item_count, version_count, …). See
     # ``ViewEnricher`` typedef above.
     view_enricher: ViewEnricher | None = None
+
+    # FK constraints declared once per entity, validated by the
+    # generic create/update dispatchers. See ``FkConstraint`` docstring.
+    fk_constraints: tuple[FkConstraint, ...] = ()
 
 
 class EntityRegistry:
