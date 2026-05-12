@@ -15,7 +15,7 @@ from typing import Any
 
 from fastmcp.server.context import Context
 
-from app.handlers._context_log import safe_info
+from app.handlers._context_log import safe_info, safe_report_progress
 from app.registry.provider import ProviderRegistry
 from app.repositories.unit_of_work import UnitOfWork
 
@@ -63,13 +63,13 @@ async def audio_file_download_handler(
         track = await uow.tracks.get(tid)
         if track is None:
             errors.append({"track_id": tid, "error": "track not found"})
-            await ctx.report_progress(progress=i + 1, total=total)
+            await safe_report_progress(ctx, progress=i + 1, total=total)
             continue
 
         existing = await uow.audio_files.get_for_track(tid)
         if existing is not None and skip_existing:
             skipped.append({"track_id": tid, "library_item_id": existing.id})
-            await ctx.report_progress(progress=i + 1, total=total)
+            await safe_report_progress(ctx, progress=i + 1, total=total)
             continue
 
         # External IDs are written under two platform labels historically —
@@ -89,7 +89,7 @@ async def audio_file_download_handler(
 
         if ext_id is None:
             errors.append({"track_id": tid, "error": f"no {source} external_id"})
-            await ctx.report_progress(progress=i + 1, total=total)
+            await safe_report_progress(ctx, progress=i + 1, total=total)
             continue
 
         title = _safe(track.title or f"track_{tid}")
@@ -103,7 +103,7 @@ async def audio_file_download_handler(
             path = await provider.download_audio(ext_id, dest=dest)
         except Exception as exc:
             errors.append({"track_id": tid, "error": str(exc)})
-            await ctx.report_progress(progress=i + 1, total=total)
+            await safe_report_progress(ctx, progress=i + 1, total=total)
             continue
 
         size = path.stat().st_size
@@ -117,7 +117,7 @@ async def audio_file_download_handler(
             source_app=source,
         )
         downloaded.append({"track_id": tid, "library_item_id": item.id, "path": str(path)})
-        await ctx.report_progress(progress=i + 1, total=total)
+        await safe_report_progress(ctx, progress=i + 1, total=total)
 
     await safe_info(
         ctx,

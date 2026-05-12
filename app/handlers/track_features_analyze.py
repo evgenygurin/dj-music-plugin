@@ -11,7 +11,7 @@ from typing import Any, Protocol
 
 from fastmcp.server.context import Context
 
-from app.handlers._context_log import safe_info
+from app.handlers._context_log import safe_info, safe_report_progress
 from app.repositories.unit_of_work import UnitOfWork
 
 
@@ -44,7 +44,7 @@ async def track_features_analyze_handler(
         track = await uow.tracks.get(tid)
         if track is None:
             errors.append({"track_id": tid, "error": "track not found"})
-            await ctx.report_progress(progress=i + 1, total=total)
+            await safe_report_progress(ctx, progress=i + 1, total=total)
             continue
 
         existing = await uow.track_features.get_by_track_id(tid)
@@ -52,20 +52,20 @@ async def track_features_analyze_handler(
             current_level = int(getattr(existing, "analysis_level", 0) or 0)
             if current_level >= level:
                 skipped.append({"track_id": tid, "current_level": current_level, "target": level})
-                await ctx.report_progress(progress=i + 1, total=total)
+                await safe_report_progress(ctx, progress=i + 1, total=total)
                 continue
 
         lib = await uow.audio_files.get_by_track_id(tid)
         if lib is None:
             errors.append({"track_id": tid, "error": "no audio file registered"})
-            await ctx.report_progress(progress=i + 1, total=total)
+            await safe_report_progress(ctx, progress=i + 1, total=total)
             continue
 
         try:
             result = await pipeline.analyze(lib.file_path)
         except Exception as exc:
             errors.append({"track_id": tid, "error": str(exc)})
-            await ctx.report_progress(progress=i + 1, total=total)
+            await safe_report_progress(ctx, progress=i + 1, total=total)
             continue
 
         # The repository's upsert strips columns unknown to the ORM, so
@@ -86,7 +86,7 @@ async def track_features_analyze_handler(
                 "errors": len(getattr(result, "errors", []) or []),
             }
         )
-        await ctx.report_progress(progress=i + 1, total=total)
+        await safe_report_progress(ctx, progress=i + 1, total=total)
 
     await safe_info(
         ctx,
