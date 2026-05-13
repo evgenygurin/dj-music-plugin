@@ -209,6 +209,53 @@ Transition math is only useful if it is wired into set runtime paths. Current ru
 
 This keeps MCP response shapes backward compatible while enabling section-aware scoring whenever context exists.
 
+## Known Limitations
+
+### Vocal detection without stem separation
+
+Real-time stem separation (`StemSeparator` via demucs/htdemucs) is marked
+NOT YET IMPLEMENTED in [`audio-pipeline.md`](audio-pipeline.md). Until it
+ships, `_vocal_active(track)` in [`picker.py`](../app/domain/transition/picker.py)
+relies on **three spectral proxies** rather than direct voice detection:
+
+1. `pitch_salience_mean > 0.55` — sustained pitched content
+2. `spectral_centroid_hz > 2200 Hz` — content in/above the vocal range
+3. `(energy_bands[lowmid] + energy_bands[mid]) / sum(energy_bands) > 0.40` —
+   energy concentrated in the 300-3000 Hz formant band (when band data
+   is available; otherwise falls back to signals 1+2 only)
+
+**Signal #3 is essential.** Without it, acid/melodic techno with TB-303-style
+resonant leads (pitch_salience ≈ 0.7-0.9, centroid ≈ 2500-4000 Hz, but
+energy concentrated in highmid 3-7 kHz, not lowmid+mid) was mis-classified
+as vocal-active, routing the entire picker into rule 3 (VOCAL_CUT /
+VOCAL_SUSTAIN) for sets without any actual vocals.
+
+**Even with signal #3 the heuristic is a proxy, not real voice detection.** It
+cannot distinguish:
+
+- Lead vocals from sustained synth pads in the same band
+- Vocal samples / one-shots from looped synth motifs
+- Formant-shifted vocoded synth from clean vocals
+
+When real stem separation lands (Phase 3, see
+[`research/2026-05-13-neural-mix-transitions-deep-dive.md`](research/2026-05-13-neural-mix-transitions-deep-dive.md)
+§ 7.3.F), the picker will read `vocal_stem_energy` directly instead of these
+proxies, and rules 3+4 will become reliable on any genre.
+
+### Other limitations
+
+- **No `FILTER_SWEEP` preset.** Filter-out / filter-in is the signature
+  hypnotic-techno move (Kraviz / Klock / Marcel Fengler). Picker currently
+  cannot select it; tracked for Phase 2 (`enable_filter_sweep_style`
+  config flag).
+- **No `LOOP_ROLL` / `STUTTER_FX` / explicit `HARD_CUT`.** All three are
+  approximated by `DRUM_CUT` with `bars=1`-like envelopes. Not a fidelity
+  issue today, but a taxonomy gap — see Phase 3 plan.
+- **Camelot weights are static.** `S_harmonic` weights Camelot at 40%
+  regardless of subgenre, but research (ISMIR-aligned) shows key
+  compatibility is overweighted for percussive techno where bass tonality
+  is ambiguous. Tracked for Phase 2 (per-subgenre scoring profiles).
+
 ## Camelot Wheel
 
 24 keys arranged in a circle. Adjacent keys are harmonically compatible.

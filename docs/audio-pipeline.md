@@ -260,6 +260,16 @@ Key discriminating features:
 - `loudness_range`: dub_techno(wide) vs industrial(narrow)
 - `spectral_flux_std`: hypnotic(low, repetitive) vs breakbeat(high, varied)
 
+## Gotchas
+
+- **`pitch_salience_mean` is a proxy, not vocal detection.** Computed by
+  essentia `PitchYin` + harmonic-peak ratio per frame, then averaged. High
+  values (0.7-0.9) mean "sustained pitched content" — vocals, melodic
+  leads, pads, **and acid TB-303 resonance** all score high. To distinguish
+  vocal from synth lead, `picker.py:_vocal_active()` combines pitch_salience
+  with `spectral_centroid_hz` AND `energy_bands` distribution — see
+  [transition-scoring.md § Known Limitations](transition-scoring.md#known-limitations).
+
 ## Dependencies
 
 | Extra | Packages | Enables |
