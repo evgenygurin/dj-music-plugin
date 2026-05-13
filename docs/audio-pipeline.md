@@ -262,6 +262,9 @@ Key discriminating features:
 
 ## Gotchas
 
+Behavioural quirks of the analyzer pipeline worth knowing about. Append
+new bullets here as you encounter edge cases that don't fit elsewhere.
+
 - **`pitch_salience_mean` is a proxy, not vocal detection.** Computed by
   essentia `PitchYin` + harmonic-peak ratio per frame, then averaged. High
   values (0.7-0.9) mean "sustained pitched content" — vocals, melodic

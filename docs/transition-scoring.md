@@ -221,12 +221,14 @@ relies on **three spectral proxies** rather than direct voice detection:
 1. `pitch_salience_mean > 0.55` — sustained pitched content
 2. `spectral_centroid_hz > 2200 Hz` — content in/above the vocal range
 3. `(energy_bands[lowmid] + energy_bands[mid]) / sum(energy_bands) > 0.40` —
-   energy concentrated in the 300-3000 Hz formant band (when band data
-   is available; otherwise falls back to signals 1+2 only)
+   energy concentrated in the 250-2000 Hz band (overlaps most vocal
+   formant range F1≈300-800 Hz + F2≈1000-2500 Hz; when band data is
+   available, otherwise falls back to signals 1+2 only)
 
 **Signal #3 is essential.** Without it, acid/melodic techno with TB-303-style
 resonant leads (pitch_salience ≈ 0.7-0.9, centroid ≈ 2500-4000 Hz, but
-energy concentrated in highmid 3-7 kHz, not lowmid+mid) was mis-classified
+energy concentrated in highmid 2-4 kHz, not lowmid+mid 250-2000 Hz) was
+mis-classified
 as vocal-active, routing the entire picker into rule 3 (VOCAL_CUT /
 VOCAL_SUSTAIN) for sets without any actual vocals.
 
