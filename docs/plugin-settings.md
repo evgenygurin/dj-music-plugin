@@ -1,6 +1,6 @@
 # Plugin Settings (`.claude/dj-music.local.md`)
 
-Per-project override file for DJ Music Plugin runtime configuration. Follows the Claude Code plugin-settings convention: YAML frontmatter + markdown body, gitignored, read by slash commands and hooks.
+Per-project override file for DJ Music Plugin runtime configuration. Follows the Claude Code plugin-settings convention: YAML frontmatter + markdown body, gitignored, read by slash commands and skills.
 
 ## Location
 
@@ -8,18 +8,13 @@ Per-project override file for DJ Music Plugin runtime configuration. Follows the
 <repo-root>/.claude/dj-music.local.md
 ```
 
-Gitignored. Never commit. Template: [`.claude/dj-music.local.md.example`](../.claude/dj-music.local.md.example) at the repo root.
+Gitignored. Never commit. Create it manually when you need to override defaults — there is no canonical template.
 
 ## Schema
 
 ```yaml
 ---
-# Panel dev overrides (consumed by /panel-setup → writes panel/.env.local)
-supabase_url: https://your-project.supabase.co
-supabase_anon_key: eyJhbGciOi...
-mcp_http_url: http://localhost:8000/mcp
-
-# Feature flags (consumed by panel actions + audio-player dispatcher)
+# Feature flags (consumed by build-set / deliver-set skills)
 enable_echo_out_style: true
 enable_filter_sweep_style: true
 
@@ -40,13 +35,10 @@ for scheduled jobs.
 
 | Field | Default | Consumer |
 |---|---|---|
-| `supabase_url` | `NEXT_PUBLIC_SUPABASE_URL` env | `/panel-setup` → `panel/.env.local` |
-| `supabase_anon_key` | `NEXT_PUBLIC_SUPABASE_ANON_KEY` env | `/panel-setup` → `panel/.env.local` |
-| `mcp_http_url` | `http://localhost:8000/mcp` | `/panel-setup` → `panel/.env.local` |
-| `enable_echo_out_style` | `true` | Audio player dispatcher (future: hide chip if false) |
-| `enable_filter_sweep_style` | `true` | Audio player dispatcher (future: hide chip if false) |
+| `enable_echo_out_style` | `true` | `/build-set` / `/deliver-set` skills (future: prune from picker if false) |
+| `enable_filter_sweep_style` | `true` | `/build-set` / `/deliver-set` skills (future: prune from picker if false) |
 | `default_template` | `peak_hour_60` | `/build-set` skill |
-| `default_crossfade_bars` | `32` | Audio player initial state |
+| `default_crossfade_bars` | `32` | `/deliver-set` skill |
 | `default_analysis_level` | `3` | `/build-set`, `/deliver-set` skills |
 
 ## Usage
@@ -54,15 +46,12 @@ for scheduled jobs.
 ### Bootstrap
 
 ```bash
-cp .claude/dj-music.local.md.example .claude/dj-music.local.md
 $EDITOR .claude/dj-music.local.md
 ```
 
-Then run `/panel-setup` to materialize `panel/.env.local` from the file.
-
 ### Hot reload
 
-Settings changes are read on every slash-command invocation — no Claude Code restart needed for command-based consumers. Hooks cache settings per session; edit `.claude/dj-music.local.md` and restart Claude Code if you rely on a hook consumer (currently none).
+Settings changes are read on every slash-command invocation — no Claude Code restart needed.
 
 ### Parsing reference
 
@@ -70,7 +59,5 @@ All consumers use the standard frontmatter extraction:
 
 ```bash
 FRONTMATTER=$(sed -n '/^---$/,/^---$/{ /^---$/d; p; }' .claude/dj-music.local.md)
-MCP_URL=$(echo "$FRONTMATTER" | grep '^mcp_http_url:' | sed 's/mcp_http_url: *//' | sed 's/^"\(.*\)"$/\1/')
+TEMPLATE=$(echo "$FRONTMATTER" | grep '^default_template:' | sed 's/default_template: *//' | sed 's/^"\(.*\)"$/\1/')
 ```
-
-See `commands/panel-setup.md` for the canonical parser.

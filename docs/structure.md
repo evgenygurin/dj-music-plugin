@@ -14,7 +14,7 @@ dj-music-plugin/
 ├── Dockerfile
 ├── alembic.ini                     # Alembic config
 ├── pyproject.toml
-├── start.sh                        # Backend + Panel dev runner
+├── start.sh                        # Dev environment setup (uv sync)
 │
 ├── .claude/
 │   ├── settings.json
@@ -35,7 +35,6 @@ dj-music-plugin/
 │   ├── audio-pipeline.md
 │   ├── ym-api-guide.md
 │   ├── transition-scoring.md
-│   ├── panel-guide.md
 │   ├── structure.md                # ← этот файл
 │   ├── reports/
 │   └── superpowers/specs/
@@ -58,7 +57,7 @@ dj-music-plugin/
 │   │   └── reference/              # camelot, subgenres, templates, audit_rules
 │   │
 │   ├── handlers/                   # 6 entity-scoped side-effect handlers
-│   │   ├── _context_log.py         # v1.3.7: safe_info / safe_report_progress wrappers (ctx may be None in REST/tests)
+│   │   ├── _context_log.py         # v1.3.7: safe_info / safe_report_progress wrappers (ctx may be None in headless/tests)
 │   │   └── track_import.py, track_features_{analyze,reanalyze}.py, audio_file_download.py, set_version_build.py, transition_persist.py
 │   │
 │   ├── prompts/                    # @prompt — 6 workflow recipes
@@ -132,13 +131,6 @@ dj-music-plugin/
 │   │   ├── session_store.py
 │   │   └── prefetch.py
 │   │
-│   ├── rest/                       # FastAPI wrapper over MCP (Panel)
-│   │   ├── app.py                  # REST entry
-│   │   ├── lifespan.py
-│   │   ├── state.py
-│   │   ├── schemas.py
-│   │   └── routes/
-│   │
 │   ├── shared/                     # Leaf module
 │   │   ├── errors.py               # NotFoundError, ValidationError, …
 │   │   ├── constants.py
@@ -159,7 +151,6 @@ dj-music-plugin/
 │
 ├── tests/                          # pytest + in-memory SQLite
 ├── scripts/                        # Dev / ops scripts (smoke_test_all_tools, verify_audio_pipeline, prefab_previews, …)
-├── panel/                          # Next.js dashboard (Bun, shadcn, Supabase)
 └── hooks/                          # git pre-push
 ```
 

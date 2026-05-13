@@ -12,7 +12,7 @@ Two failure modes the original implementation had:
   ``MCPSettings.sampling_buckets_max`` via an in-process LRU
   (``OrderedDict``) — oldest entries are evicted when the cap is hit.
 * All stateless callers bucketed under ``"__global__"``, so the
-  per-session cap was applied to every REST/in-process caller in
+  per-session cap was applied to every in-process caller in
   aggregate — once exhausted, every stateless call failed forever.
   A SEPARATE ``MCPSettings.sampling_global_cap`` now governs the
   stateless bucket; it is intentionally larger than the per-session
@@ -108,7 +108,7 @@ class SamplingBudgetMiddleware(Middleware):
         call_next: Callable[[MiddlewareContext], Awaitable[Any]],
     ) -> Any:
         if context.fastmcp_context is not None:
-            # Stateless context (REST/in-process): set_state raises
+            # Stateless context (in-process callers): set_state raises
             # ``RuntimeError`` because there is no MCP session to scope the
             # key to. Cap-enforcement is best-effort observability — pass
             # through.

@@ -31,7 +31,7 @@ class MCPSettings(BaseSettings):
     retry_base_delay_s: float = Field(default=0.5, ge=0.0, le=10.0)
     sampling_budget_per_session: int = Field(default=10, ge=0, le=100)
     sampling_max_per_session: int = Field(default=10, ge=0, le=100)
-    # Stateless callers (REST/in-process, no session_id) all bucket together
+    # Stateless callers (in-process, no session_id) all bucket together
     # — without a separate cap, one heavy caller would exhaust the per-session
     # bucket and lock out everyone else. Keep this distinct (and larger).
     sampling_global_cap: int = Field(default=50, ge=0, le=10_000)
@@ -51,7 +51,3 @@ class MCPSettings(BaseSettings):
     log_payloads: bool = Field(
         default=False, description="Full request/response payloads in logs."
     )
-    # ``DJ_MCP_CORS_ALLOW_ORIGINS`` is read directly by ``app/rest/app.py``
-    # (not routed through ``Settings``) to keep module-level REST import cheap
-    # — a full Settings load would eagerly parse database / yandex / audio
-    # sub-settings and abort import on any unrelated env error.

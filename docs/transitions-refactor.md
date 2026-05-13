@@ -86,7 +86,7 @@ v1.3.x закрыло:
 Перед тем как принимать решение — что **обязательно** в дизайне:
 
 1. **MCP-first.** Любой score должен быть промптируемым: LLM должна уметь спросить "почему именно этот score?" — поэтому компоненты остаются inspectable, не одно ML-число.
-2. **Backwards compat в API.** `TransitionScore` shape — публичный (panel, REST, persisted DB). Добавлять поля можно, переименовывать — нет. Public field names `drums/bass/harmonics/vocals` остаются ([score.py:43-56](../app/domain/transition/score.py#L43)).
+2. **Backwards compat в API.** `TransitionScore` shape — публичный (MCP responses, persisted DB). Добавлять поля можно, переименовывать — нет. Public field names `drums/bass/harmonics/vocals` остаются ([score.py:43-56](../app/domain/transition/score.py#L43)).
 3. **DB-friendly.** `transitions.transition_recipe_json` — JSON, расширяется. `transitions.*_score` колонки — добавлять можно через migration, ронять — нельзя (для legacy rows).
 4. **Bulk parity.** Любая фича в scalar `TransitionScorer` должна иметь vector equivalent в `BulkTransitionScorer` под parity test ([test_bulk_scorer_parity.py](../tests/domain/transition/test_bulk_scorer_parity.py)).
 5. **Deterministic.** Никакого ML-inference внутри scoring loop — GA вызывает scorer 100K+ раз на сет. Все ML — precompute → feature column.
@@ -415,9 +415,10 @@ v2:
 3. Crest penalty — **continuous** аналогично
 4. Slope bonus — **gradient**: `bonus = min(1.0, |slope_a| · |slope_b| / 0.5²) · sign_match`
 5. **Short-term LUFS** на mix region (NEW) — `short_term_lufs_mean` уже есть в БД ([audio-schema.md:75](audio-schema.md#L75)), но не используется. Добавляем доп. член:
-   ```
+   ```text
    short_term_score = exp(-(short_term_b - short_term_a - PREFERRED_RISE)² / 2σ²)
    ```
+
    и взвешиваем `0.6 · integrated_score + 0.4 · short_term_score`. Mix region matters больше чем track-mean.
 
 ### 5.9 Sequence cost (NEW, в optimization, не в scorer)
@@ -481,7 +482,7 @@ PICKER_RULES: list[PickerRule] = [
 ]
 ```
 
-Преимущества: testable, introspectable, addable без касания decision-функции, легко рендерить в panel (`local://transition/.../picker_trace`).
+Преимущества: testable, introspectable, addable без касания decision-функции, доступно через MCP resource (`local://transition/.../picker_trace`).
 
 > **FILTER_SWEEP preset** — отдельный enum value добавляется в `NeuralMixTransition` + builder в [builders.py](../app/domain/transition/builders.py). Это **8-й preset** к существующим 7. Соответствует "Filter" preset'у djay Pro 5 ([Algoriddim Automix settings](https://help.algoriddim.com/user-manual/djay-pro-windows/settings/automix)).
 
@@ -810,7 +811,7 @@ Bulk path: те же добавления векторизуются — overhea
 
 2. **Section overlay multipliers ×1.30, ×0.70 etc. — откуда числа?** Сейчас они educated guess из DJ practice papers. Реально надо bench-fitting на ground truth (см. #1).
 
-3. **`bass_clash_warning` — surface в panel UI?** Сейчас оно живёт как поле в `TransitionScore.bass_clash_warning: str | None`. Panel может рендерить как чип "⚠ bass clash risk". Решение об UX откладывается.
+3. **`bass_clash_warning` — surface в UI?** Сейчас оно живёт как поле в `TransitionScore.bass_clash_warning: str | None`. Решение об UX откладывается.
 
 4. **`CONTRAST` intent stateful через `last_intent` — это правильный design?** Альтернатива — stateless `S_variety` компонент. State делает scorer less pure. Можно вместо этого сделать sequence-level fitness penalty (как в §5.9). **Предлагаю:** убрать stateful CONTRAST из scorer, оставить как fitness-level concept.
 

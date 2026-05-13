@@ -70,7 +70,7 @@ async def get_uow(ctx: Any = None) -> UnitOfWork:
         uow_value: UnitOfWork = await _read_slot(ctx, "uow", "UnitOfWork")
         return uow_value
     except RuntimeError:
-        # Stateless ContextVar fallback (REST/in-process — no MCP session).
+        # Stateless ContextVar fallback (in-process callers — no MCP session).
         from app.server.middleware.db_session import read_stateless_uow
 
         uow = read_stateless_uow()
@@ -109,8 +109,8 @@ def _read_lifespan(ctx: Any, key: str, what: str) -> Any:
     lc = getattr(rc, "lifespan_context", None) if rc is not None else None
     value = lc.get(key) if isinstance(lc, dict) else None
     if value is None:
-        # REST/in-process fallback — REST lifespan populates this store
-        # because it does not enter MCP's own lifespan.
+        # In-process fallback — headless callers (tests, scripts) populate
+        # this store because they do not enter MCP's own lifespan.
         from app.server._stateless_state import get_state
 
         value = get_state(key)

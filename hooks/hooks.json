@@ -1,19 +1,6 @@
 {
-  "description": "Starts REST API + Next.js panel on session start; reloads MCP on plugin edits.",
+  "description": "Reloads MCP on plugin edits (kills fastmcp stdio so Claude Code respawns with fresh code).",
   "hooks": {
-    "SessionStart": [
-      {
-        "matcher": "startup|resume",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/scripts/start-services.sh\"",
-            "timeout": 30,
-            "statusMessage": "Starting DJ Music backend + panel..."
-          }
-        ]
-      }
-    ],
     "PostToolUse": [
       {
         "matcher": "Edit|Write|MultiEdit",

@@ -26,7 +26,7 @@ log = logging.getLogger(__name__)
 
 
 # Stateless-context fallback for DI — set when fctx.set_state cannot be used
-# (REST/in-process where there is no MCP session). DI reads it as last resort.
+# (in-process callers where there is no MCP session). DI reads it as last resort.
 # ContextVar is async-task-local, so concurrent tool calls do not collide.
 _stateless_uow: ContextVar[UnitOfWork | None] = ContextVar("_stateless_uow", default=None)
 
@@ -52,9 +52,9 @@ class DbSessionMiddleware(Middleware):
             lc = getattr(rc, "lifespan_context", None) or {}
             factory = lc.get("db_session_factory") if isinstance(lc, dict) else None
         if factory is None:
-            # REST/in-process callers do not enter the MCP lifespan, so the
+            # In-process callers do not enter the MCP lifespan, so the
             # factory is missing. Bootstrap directly from the process-wide
-            # singleton — avoids requiring REST to wrap MCP's lifespan.
+            # singleton — avoids requiring callers to wrap MCP's lifespan.
             try:
                 from app.db.session import get_session_factory
 
@@ -83,9 +83,10 @@ class DbSessionMiddleware(Middleware):
         try:
             await fctx.set_state("uow", uow, serializable=False)
         except RuntimeError:
-            # Stateless context (REST/in-process): no MCP session id available,
-            # so set_state cannot scope a key. Stash on a ContextVar that DI
-            # reads as a third fallback after get_state and state.get.
+            # Stateless context (in-process callers): no MCP session id
+            # available, so set_state cannot scope a key. Stash on a
+            # ContextVar that DI reads as a third fallback after get_state
+            # and state.get.
             token = _stateless_uow.set(uow)
         try:
             result = await call_next(context)

@@ -1,13 +1,14 @@
 """Process-wide fallback storage for lifespan-yielded MCP state.
 
-When REST/in-process callers invoke ``mcp.call_tool()`` directly, FastMCP
-does not enter its own lifespan, so ``ctx.request_context.lifespan_context``
-is empty and DI factories raise "X not initialized — check ... composition".
+When in-process callers (unit tests, ad-hoc scripts) invoke
+``mcp.call_tool()`` directly, FastMCP does not enter its own lifespan, so
+``ctx.request_context.lifespan_context`` is empty and DI factories raise
+"X not initialized — check ... composition".
 
 This module is the fallback that ``_read_lifespan`` in ``app/server/di.py``
-consults when the typed lifespan_context lookup returns None. ``app/rest/
-lifespan.py`` populates the dict at REST startup by entering the composed
-MCP lifespan and copying its yielded keys here.
+consults when the typed lifespan_context lookup returns None. Test
+fixtures populate the dict by entering the composed MCP lifespan and
+copying its yielded keys here.
 
 Stateful by design — process-scoped singleton state. Tests should call
 ``clear()`` between cases that mutate it.
