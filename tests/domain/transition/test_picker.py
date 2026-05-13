@@ -97,6 +97,45 @@ def test_vocal_active_a_missing_b_data_picks_echo_out() -> None:
     assert decision.warnings
 
 
+# ── Rule 3 regression: acid-lead false-positive ────────────────────
+
+
+def test_acid_lead_not_classified_vocal_active() -> None:
+    """Acid techno (TB-303-style lead) must NOT trigger vocal-active heuristic.
+
+    Such tracks have high pitch_salience (0.7-0.9) and high spectral_centroid
+    (2500-4000 Hz) from the resonant filter peak, but their energy concentrates
+    in highmid (3-7 kHz), not lowmid+mid (300-3000 Hz) where vocal formants live.
+
+    Without the midband-ratio filter, picker would route acid → acid pairs to
+    VOCAL_CUT instead of the appropriate ECHO_OUT/FADE — see
+    docs/research/2026-05-13-neural-mix-transitions-deep-dive.md § 5.3.
+    """
+    acid_a = _track(
+        pitch_salience_mean=0.85,
+        spectral_centroid_hz=3200.0,
+        # energy_bands order: [sub, low, lowmid, mid, highmid, high]
+        # Energy concentrated in highmid (index 4): acid resonance peak.
+        energy_bands=[0.05, 0.10, 0.08, 0.07, 0.45, 0.25],
+    )
+    acid_b = _track(
+        pitch_salience_mean=0.78,
+        spectral_centroid_hz=2900.0,
+        energy_bands=[0.05, 0.10, 0.10, 0.08, 0.42, 0.25],
+    )
+    score = _ok_score()
+
+    decision = pick_neural_mix(score, acid_a, acid_b)
+
+    assert decision.transition is not NeuralMixTransition.VOCAL_CUT, (
+        f"acid pair routed to VOCAL_CUT (false positive). "
+        f"Decision: {decision.transition.value}, reason: {decision.reason}"
+    )
+    assert decision.transition is not NeuralMixTransition.VOCAL_SUSTAIN, (
+        "acid pair must not route to VOCAL_SUSTAIN either"
+    )
+
+
 # ── Rule 4: harmonic motif on A ─────────────────────────────────────
 
 
