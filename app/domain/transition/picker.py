@@ -43,9 +43,10 @@ from app.shared.features import TrackFeatures
 
 # ── Picker decision thresholds ──────────────────────────────────────
 
-_VOCAL_PRESENCE_PITCH_SALIENCE = 0.4
+_VOCAL_PRESENCE_PITCH_SALIENCE = 0.55
 _VOCAL_PRESENCE_CENTROID_HZ = 2200.0
 _VOCAL_LOW_PITCH_SALIENCE = 0.3
+_VOCAL_PRESENCE_MIDBAND_RATIO = 0.40
 
 _HARMONIC_MOTIF_MAX_PITCH_SALIENCE = 0.35
 _HARMONIC_MOTIF_MIN_CENTROID_HZ = 800.0
@@ -73,12 +74,41 @@ class PickerDecision:
 
 
 def _vocal_active(t: TrackFeatures) -> bool:
-    return (
-        t.pitch_salience_mean is not None
-        and t.spectral_centroid_hz is not None
-        and t.pitch_salience_mean > _VOCAL_PRESENCE_PITCH_SALIENCE
-        and t.spectral_centroid_hz > _VOCAL_PRESENCE_CENTROID_HZ
-    )
+    """Heuristic detection of vocal presence using up to 3 spectral proxies.
+
+    A track is treated as "vocal-active" only when:
+
+    1. ``pitch_salience_mean`` indicates sustained pitched content
+       (threshold ``_VOCAL_PRESENCE_PITCH_SALIENCE``).
+    2. ``spectral_centroid_hz`` lies in/above the vocal range
+       (threshold ``_VOCAL_PRESENCE_CENTROID_HZ``).
+    3. *If* per-band energies are available (``energy_bands`` populated with
+       6 values), energy in the vocal frequency band
+       (lowmid + mid = 300-3000 Hz, indices 2-3) accounts for at least
+       ``_VOCAL_PRESENCE_MIDBAND_RATIO`` of total spectral energy.
+
+    The third filter rejects acid-lead false-positives: TB-303-style
+    resonant leads share signals (1)+(2) with vocals but concentrate
+    their energy in highmid (3-7 kHz), not the formant band. When
+    ``energy_bands`` is missing (legacy rows), we fall back to the
+    2-signal check to avoid regressing older library entries.
+    """
+    if t.pitch_salience_mean is None or t.spectral_centroid_hz is None:
+        return False
+    if t.pitch_salience_mean <= _VOCAL_PRESENCE_PITCH_SALIENCE:
+        return False
+    if t.spectral_centroid_hz <= _VOCAL_PRESENCE_CENTROID_HZ:
+        return False
+
+    # Optional midband-ratio filter — only enforced when band data exists.
+    if t.energy_bands is not None and len(t.energy_bands) >= 6:
+        total = sum(t.energy_bands)
+        if total > 1e-6:
+            midband = t.energy_bands[2] + t.energy_bands[3]
+            if midband / total < _VOCAL_PRESENCE_MIDBAND_RATIO:
+                return False
+
+    return True
 
 
 def _vocal_low(t: TrackFeatures) -> bool:
