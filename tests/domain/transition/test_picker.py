@@ -136,6 +136,117 @@ def test_acid_lead_not_classified_vocal_active() -> None:
     )
 
 
+def test_real_vocal_track_classified_vocal_active() -> None:
+    """Positive case: vocal track with concentrated midband energy passes the heuristic.
+
+    Lead vocal has pitch_salience > 0.55, centroid in vocal range (2-3 kHz),
+    AND energy concentrated in lowmid+mid = 300-3000 Hz (formant band).
+    """
+    vocal_a = _track(
+        pitch_salience_mean=0.70,
+        spectral_centroid_hz=2500.0,
+        # Energy concentrated in lowmid+mid: typical vocal formant distribution.
+        energy_bands=[0.05, 0.10, 0.25, 0.30, 0.20, 0.10],
+    )
+    vocal_b = _track(
+        pitch_salience_mean=0.65,
+        spectral_centroid_hz=2400.0,
+        energy_bands=[0.05, 0.10, 0.28, 0.27, 0.20, 0.10],
+    )
+    score = _ok_score()
+
+    decision = pick_neural_mix(score, vocal_a, vocal_b)
+
+    assert decision.transition is NeuralMixTransition.VOCAL_CUT, (
+        f"two vocal-active tracks should still route to VOCAL_CUT "
+        f"(rule 3). Got: {decision.transition.value}"
+    )
+
+
+def test_vocal_active_pitch_salience_below_new_threshold() -> None:
+    """Track with pitch_salience = 0.54 (just below 0.55 threshold) is NOT vocal-active.
+
+    Guards against regression if the threshold is loosened back toward 0.4.
+    """
+    boundary = _track(
+        pitch_salience_mean=0.54,
+        spectral_centroid_hz=3000.0,
+        energy_bands=[0.05, 0.10, 0.25, 0.25, 0.25, 0.10],  # vocal-like distribution
+    )
+    other = _track(
+        pitch_salience_mean=0.20,
+        spectral_centroid_hz=1800.0,
+        energy_bands=[0.10, 0.20, 0.25, 0.25, 0.15, 0.05],
+    )
+    score = _ok_score()
+
+    decision = pick_neural_mix(score, boundary, other)
+
+    # Rule 3 should NOT fire (pitch_salience below new threshold).
+    # Decision falls through to rule 4/6/7 — exact result depends on other
+    # signals; we only assert rule 3 didn't trigger.
+    assert decision.transition not in {
+        NeuralMixTransition.VOCAL_CUT,
+        NeuralMixTransition.VOCAL_SUSTAIN,
+    }, (
+        f"pitch_salience 0.54 (below 0.55 threshold) must not trigger rule 3. "
+        f"Got: {decision.transition.value}, reason: {decision.reason}"
+    )
+
+
+def test_vocal_active_fallback_without_energy_bands() -> None:
+    """Legacy rows without energy_bands must still work via 2-signal fallback.
+
+    Older L1/L2 features may have pitch_salience + centroid but missing
+    energy_bands (the column was added later in the pipeline). The midband
+    gate must degrade gracefully and not reject these rows.
+    """
+    legacy_vocal = _track(
+        pitch_salience_mean=0.65,
+        spectral_centroid_hz=2400.0,
+        energy_bands=None,  # legacy: no band breakdown
+    )
+    other_vocal = _track(
+        pitch_salience_mean=0.60,
+        spectral_centroid_hz=2500.0,
+        energy_bands=None,
+    )
+    score = _ok_score()
+
+    decision = pick_neural_mix(score, legacy_vocal, other_vocal)
+
+    # Both pass 2-signal check → rule 3 fires → VOCAL_CUT (both vocal-active).
+    assert decision.transition is NeuralMixTransition.VOCAL_CUT, (
+        f"legacy 2-signal vocal pair must still route to VOCAL_CUT. "
+        f"Got: {decision.transition.value}"
+    )
+
+
+def test_vocal_active_handles_short_energy_bands() -> None:
+    """Malformed energy_bands (fewer than 6 elements) falls back to 2-signal check.
+
+    Defensive: if a future pipeline change produces incomplete bands,
+    picker must not crash with IndexError.
+    """
+    weird = _track(
+        pitch_salience_mean=0.70,
+        spectral_centroid_hz=2600.0,
+        energy_bands=[0.5, 0.5],  # only 2 bands instead of 6
+    )
+    other = _track(
+        pitch_salience_mean=0.65,
+        spectral_centroid_hz=2400.0,
+        energy_bands=None,
+    )
+    score = _ok_score()
+
+    # Must not raise.
+    decision = pick_neural_mix(score, weird, other)
+
+    # Both treated as vocal-active via 2-signal fallback (len check guards midband).
+    assert decision.transition is NeuralMixTransition.VOCAL_CUT
+
+
 # ── Rule 4: harmonic motif on A ─────────────────────────────────────
 
 
