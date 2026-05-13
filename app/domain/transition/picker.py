@@ -13,8 +13,10 @@ Decision tree (first match wins):
    ``score.drums > 0.85`` → DRUM_SWAP (groove-transfer);
    ``> 0.65`` → DRUM_CUT (drumless reset);
    else → FADE.
-3. Vocal-active outro on A (proxy: ``pitch_salience_mean > 0.4`` AND
-   ``spectral_centroid_hz > 2200 Hz``):
+3. Vocal-active outro on A (3-signal proxy: ``pitch_salience_mean >
+   0.55`` AND ``spectral_centroid_hz > 2200`` AND, when ``energy_bands``
+   is available, ``(lowmid+mid) / total > 0.40``). See ``_vocal_active``
+   for the full rationale.
    * Low-vocal B intro (``pitch_salience_mean < 0.3``) → VOCAL_SUSTAIN
    * High-vocal B intro → VOCAL_CUT
    * Missing B vocal data → ECHO_OUT (safe default).
