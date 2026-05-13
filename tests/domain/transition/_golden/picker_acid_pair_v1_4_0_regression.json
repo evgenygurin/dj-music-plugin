@@ -1,0 +1,7 @@
+{
+  "confidence": 0.6,
+  "reason": "no specific pattern matched — echo-tail safe default",
+  "rescue": "echo_out",
+  "transition": "echo_out",
+  "warnings": []
+}

@@ -211,3 +211,65 @@ def test_score_pairs_overall_parity(
         dtype=np.float64,
     )
     np.testing.assert_allclose(bulk, scalar, atol=_PARITY_TOL)
+
+
+# ---------------------------------------------------------------------------
+# Phase-0 baseline guard (v1.5.0 refactor): bulk path does NOT yet apply the
+# section_context overlay. Scalar path DOES (since PR #219). Until Phase 3
+# wires bulk into the same overlay chain via CompositeScorer, this test
+# documents the asymmetry: bulk overall == scalar overall WITHOUT context,
+# regardless of what context the caller passes. Phase 3 will strengthen
+# this to "bulk overall == scalar overall WITH ctx".
+# ---------------------------------------------------------------------------
+
+from app.domain.transition.section_context import SectionContext
+from app.shared.constants import SectionType
+
+_SECTION_CONTEXTS = [
+    None,
+    SectionContext(from_section=SectionType.OUTRO, to_section=SectionType.INTRO),  # drum_only
+    SectionContext(from_section=SectionType.DROP, to_section=SectionType.DROP),  # drop_to_drop
+    SectionContext(
+        from_section=SectionType.BREAKDOWN, to_section=SectionType.INTRO
+    ),  # breakdown_out
+    SectionContext(from_section=SectionType.BUILD, to_section=SectionType.DROP),  # buildup_in
+]
+
+
+def _ctx_id(ctx: SectionContext | None) -> str:
+    return "none" if ctx is None else ctx.section_pair_class.value
+
+
+@pytest.mark.parametrize("intent", list(TransitionIntent))
+@pytest.mark.parametrize("ctx", _SECTION_CONTEXTS, ids=_ctx_id)
+def test_score_pairs_overall_baseline_under_section_context(
+    pool,  # type: ignore[no-untyped-def]
+    fa,
+    pair_arrays,
+    intent: TransitionIntent,
+    ctx: SectionContext | None,
+) -> None:
+    """Document v1.4.0 asymmetry: bulk has no overlay; must match no-ctx scalar.
+
+    After Phase 3 (bulk wired to CompositeScorer), this test becomes
+    "bulk matches scalar WITH ctx" — kept as-is to surface the change
+    as a deliberate snapshot regen.
+    """
+    pairs, _ia, _ib = pair_arrays
+    scorer = TransitionScorer()
+
+    bulk_dict = score_pairs_bulk(fa, pairs, [intent])
+    bulk = np.array([bulk_dict[(a, b, intent.value)] for a, b in pairs], dtype=np.float64)
+
+    scalar_no_ctx = np.array(
+        [
+            (lambda s: 0.0 if s.hard_reject else s.overall)(
+                scorer.score(pool[a], pool[b], intent=intent)
+            )
+            for a, b in pairs
+        ],
+        dtype=np.float64,
+    )
+    # ctx is held for documentation purposes; bulk currently ignores it.
+    _ = ctx
+    np.testing.assert_allclose(bulk, scalar_no_ctx, atol=_PARITY_TOL)

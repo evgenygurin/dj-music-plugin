@@ -1,0 +1,7 @@
+{
+  "confidence": 0.88,
+  "reason": "A vocal-active, B vocal-light — sustain A vocal over B inst",
+  "rescue": "echo_out",
+  "transition": "vocal_sustain",
+  "warnings": []
+}

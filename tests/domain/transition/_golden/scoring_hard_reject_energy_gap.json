@@ -1,0 +1,13 @@
+{
+  "bass": 0.0,
+  "best_transition": null,
+  "bpm": 0.0,
+  "drums": 0.0,
+  "energy": 0.0,
+  "hard_reject": true,
+  "harmonics": 0.0,
+  "overall": 0.0,
+  "reject_reason": "Energy gap 8.0 LUFS > 6.0",
+  "section_pair_class": null,
+  "vocals": 0.0
+}

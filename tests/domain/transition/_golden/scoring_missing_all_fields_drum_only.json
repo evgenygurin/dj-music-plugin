@@ -1,0 +1,13 @@
+{
+  "bass": 0.5,
+  "best_transition": "fade",
+  "bpm": 0.5,
+  "drums": 0.5,
+  "energy": 0.5,
+  "hard_reject": false,
+  "harmonics": 0.5,
+  "overall": 0.5,
+  "reject_reason": null,
+  "section_pair_class": "drum_only",
+  "vocals": 0.5
+}

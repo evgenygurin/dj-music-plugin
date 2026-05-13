@@ -1,0 +1,109 @@
+{
+  "bars": 64,
+  "confidence": 0.85,
+  "explanation": "golden",
+  "fx_events": [],
+  "keyframes": [
+    {
+      "bar": 0.0,
+      "deck": "A",
+      "level_db": 0.0,
+      "stem": "drums"
+    },
+    {
+      "bar": 64.0,
+      "deck": "A",
+      "level_db": -120.0,
+      "stem": "drums"
+    },
+    {
+      "bar": 0.0,
+      "deck": "A",
+      "level_db": 0.0,
+      "stem": "bass"
+    },
+    {
+      "bar": 64.0,
+      "deck": "A",
+      "level_db": -120.0,
+      "stem": "bass"
+    },
+    {
+      "bar": 0.0,
+      "deck": "A",
+      "level_db": 0.0,
+      "stem": "harmonics"
+    },
+    {
+      "bar": 64.0,
+      "deck": "A",
+      "level_db": -120.0,
+      "stem": "harmonics"
+    },
+    {
+      "bar": 0.0,
+      "deck": "A",
+      "level_db": 0.0,
+      "stem": "vocals"
+    },
+    {
+      "bar": 64.0,
+      "deck": "A",
+      "level_db": -120.0,
+      "stem": "vocals"
+    },
+    {
+      "bar": 0.0,
+      "deck": "B",
+      "level_db": -120.0,
+      "stem": "drums"
+    },
+    {
+      "bar": 64.0,
+      "deck": "B",
+      "level_db": 0.0,
+      "stem": "drums"
+    },
+    {
+      "bar": 0.0,
+      "deck": "B",
+      "level_db": -120.0,
+      "stem": "bass"
+    },
+    {
+      "bar": 64.0,
+      "deck": "B",
+      "level_db": 0.0,
+      "stem": "bass"
+    },
+    {
+      "bar": 0.0,
+      "deck": "B",
+      "level_db": -120.0,
+      "stem": "harmonics"
+    },
+    {
+      "bar": 64.0,
+      "deck": "B",
+      "level_db": 0.0,
+      "stem": "harmonics"
+    },
+    {
+      "bar": 0.0,
+      "deck": "B",
+      "level_db": -120.0,
+      "stem": "vocals"
+    },
+    {
+      "bar": 64.0,
+      "deck": "B",
+      "level_db": 0.0,
+      "stem": "vocals"
+    }
+  ],
+  "mix_in_section": "intro",
+  "mix_out_section": "outro",
+  "rescue": "echo_out",
+  "transition": "fade",
+  "warnings": []
+}

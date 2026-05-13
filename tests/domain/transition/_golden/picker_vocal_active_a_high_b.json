@@ -1,0 +1,9 @@
+{
+  "confidence": 0.82,
+  "reason": "A and B both vocal-active — cut A vocal to avoid clash",
+  "rescue": "echo_out",
+  "transition": "vocal_cut",
+  "warnings": [
+    "two vocal lines — cut prevents stacking but timing must land"
+  ]
+}

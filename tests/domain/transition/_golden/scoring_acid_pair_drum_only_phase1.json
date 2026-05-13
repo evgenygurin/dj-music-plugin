@@ -1,0 +1,13 @@
+{
+  "bass": 0.9979310675115874,
+  "best_transition": "drum_swap",
+  "bpm": 0.9288382262598603,
+  "drums": 0.9480307537303655,
+  "energy": 1.0,
+  "hard_reject": false,
+  "harmonics": 0.6349390515405988,
+  "overall": 0.937051080410487,
+  "reject_reason": null,
+  "section_pair_class": "drum_only",
+  "vocals": 0.9751891891891892
+}

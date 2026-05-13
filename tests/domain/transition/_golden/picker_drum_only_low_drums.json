@@ -1,0 +1,7 @@
+{
+  "confidence": 0.7,
+  "reason": "drum-only sections, drums=0.50 too low — linear fade",
+  "rescue": "echo_out",
+  "transition": "fade",
+  "warnings": []
+}

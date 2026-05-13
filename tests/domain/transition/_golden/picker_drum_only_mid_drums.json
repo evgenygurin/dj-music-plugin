@@ -1,0 +1,7 @@
+{
+  "confidence": 0.85,
+  "reason": "drum-only sections, drums=0.75 — drumless reset",
+  "rescue": "echo_out",
+  "transition": "drum_cut",
+  "warnings": []
+}
