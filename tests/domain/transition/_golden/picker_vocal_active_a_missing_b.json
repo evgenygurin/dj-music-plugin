@@ -1,0 +1,9 @@
+{
+  "confidence": 0.65,
+  "reason": "A vocal-active, B vocal data missing — echo-tail safe default",
+  "rescue": "echo_out",
+  "transition": "echo_out",
+  "warnings": [
+    "incoming track missing vocal-presence proxy features"
+  ]
+}

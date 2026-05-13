@@ -1,0 +1,7 @@
+{
+  "confidence": 0.92,
+  "reason": "drum-only sections, drums=0.92 — swap drum bed",
+  "rescue": "echo_out",
+  "transition": "drum_swap",
+  "warnings": []
+}

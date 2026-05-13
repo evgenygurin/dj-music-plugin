@@ -1,0 +1,9 @@
+{
+  "confidence": 0.55,
+  "reason": "hard reject (BPM diff 15 > 10) — echo-tail rescue",
+  "rescue": "echo_out",
+  "transition": "echo_out",
+  "warnings": [
+    "hard reject — recipe is best-effort"
+  ]
+}

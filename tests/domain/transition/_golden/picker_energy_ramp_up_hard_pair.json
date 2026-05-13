@@ -1,0 +1,7 @@
+{
+  "confidence": 0.86,
+  "reason": "energy delta +4.0 LUFS into ramp-up — breakdown + slam",
+  "rescue": "echo_out",
+  "transition": "drum_cut",
+  "warnings": []
+}
