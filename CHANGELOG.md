@@ -6,6 +6,64 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.4.0] - 2026-05-13
+
+**Transition scoring v2 — Phase 0 + Phase 1.** First two phases of the [v2 refactor roadmap](docs/transitions-refactor.md): fixes the acid-techno false-positive in the vocal-detection heuristic (Phase 0, PR #218) and wires `section_context` end-to-end through schema → handler → scorer → picker, applying a multiplicative weight overlay for DRUM_ONLY (outro↔intro) pairs (Phase 1, PR #219). Together: picker now produces **real preset variety** (drum_swap / drum_cut / fade) for techno sets that previously collapsed to monotone `vocal_cut` (acid mis-classification) or monotone `echo_out` (no section context).
+
+### Added — Phase 0 (PR #218)
+
+- `app/domain/transition/picker.py` — new gate `_VOCAL_PRESENCE_MIDBAND_RATIO = 0.40` on `energy_bands` distribution. Vocal detection now requires **three** spectral proxies: `pitch_salience_mean > 0.55` AND `spectral_centroid_hz > 2200 Hz` AND `(energy_bands[lowmid] + energy_bands[mid]) / sum(bands) > 0.40` (when band data available). Acid TB-303-style leads (high pitch_salience + high centroid but energy concentrated in highmid) no longer trip vocal-active rule.
+- 5 regression tests in `tests/domain/transition/test_picker.py` covering acid false-positive, real vocal positive case, pitch_salience boundary (0.54 below 0.55 threshold), legacy `energy_bands=None` 2-signal fallback, and defensive `len < 6` malformed-bands guard.
+- `docs/transition-scoring.md` § Known Limitations — 3-signal heuristic explained, what the proxy cannot distinguish, forward reference to Phase 3 demucs path.
+- `docs/audio-pipeline.md` § Gotchas — `pitch_salience_mean` semantics clarified as proxy for "harmonic presence", not vocal-specific.
+
+### Changed — Phase 0
+
+- `_VOCAL_PRESENCE_PITCH_SALIENCE` raised from `0.4` → `0.55`. Combined with the new midband gate, eliminates the most common acid false-positive without rejecting real vocal tracks.
+- `picker.py` module docstring updated to describe the 3-signal vocal heuristic.
+
+### Added — Phase 1 (PR #219)
+
+- `SectionPairClass` StrEnum in `app/domain/transition/section_context.py` with 5 buckets: `DRUM_ONLY`, `DROP_TO_DROP`, `BREAKDOWN_OUT`, `BUILDUP_IN`, `GENERIC`.
+- `SectionContext.section_pair_class` cached property classifying an (out, in) section pair into one of the 5 buckets.
+- `TransitionScore.section_pair_class: str | None` field — surfaces the resolved pair class when scoring with a `SectionContext`.
+- `SECTION_PAIR_OVERLAY` table in `app/domain/transition/weights.py` — multiplicative modifiers per pair class. Phase 1 ships DRUM_ONLY active (`drums×1.30`, `bass×0.70`, `harmonics×0.40`, `vocals×0.30`, `bpm×1.10`, `energy×0.95`); the four other classes carry identity overlays for now (Phase 3 calibrates).
+- `SectionContextDTO` Pydantic schema in `app/schemas/transition.py`. `TransitionCreate.section_context: SectionContextDTO | None` accepts `{from_section, to_section}` where each is a `SectionType` enum name (`"OUTRO"`), integer value (`7`), or null.
+- `transition_persist_handler` resolves the DTO into a `SectionContext` via new `_resolve_section_context()` helper and passes it to both `scorer.score()` and `_build_recipe_or_none()`. Handler response surfaces `section_pair_class` so callers can see which overlay applied.
+- 6 new tests in `tests/domain/transition/test_scorer.py` (no-context regression, drum_only overlay raises overall, pair class field population, renormalisation invariant, …) + 19 tests in `tests/domain/transition/test_section_context.py` covering all 5 pair classes + None handling + cached_property identity.
+- `docs/transitions-refactor.md` — full v2 ADR + design spec + 7-phase migration plan + risks + 12 sources (Algoriddim, Mosaikbox ISMIR 2024, Hybrid Demucs, EDMFormer, Rekordbox 7, Serato Stems Pro 3.0, Mixxx 2.5.4 ONNX).
+- `docs/research/2026-05-13-neural-mix-transitions-deep-dive.md` — research note that produced the ADR.
+
+### Changed — Phase 1
+
+- `TransitionScorer.score()` removes the `del section_context` stub and actually consumes the context: per-intent base weights are multiplied component-wise by the appropriate `SECTION_PAIR_OVERLAY` row and renormalised to sum to 1.0. Same applies to `score_all_intents()` and `score_with_candidates()`.
+- Legacy callers (no `section_context` kwarg) get byte-identical behaviour to v1.3 — regression test `test_scorer_without_section_context_unchanged` is the primary guard.
+- `is_drum_only_pair` kept as legacy property on `SectionContext` — wraps the new `section_pair_class == DRUM_ONLY` so `picker.py` callers continue to work without modification.
+
+### Tests
+
+- `make check`: **1359 passed**, 3 skipped, 44 xfailed, 20 xpassed.
+- `tests/domain/transition/test_picker.py`: 24/24 green (existing + 5 Phase 0 new).
+- `tests/domain/transition/test_scorer.py`: 6/6 green (Phase 1 new).
+- `tests/domain/transition/test_section_context.py`: 25/25 green (6 pre-existing + 19 Phase 1 new).
+- Bulk scorer parity preserved (`test_bulk_scorer_parity.py` stays green — bulk path runs no-overlay until Phase 3 wires `section_contexts` kwarg).
+
+### Smoke verification
+
+- Real acid pair 173→177 (Byakuya→Transmission, Nina Kraviz set):
+  - no context → `echo_out` ✅ (Phase 0: acid no longer routes to vocal_cut)
+  - DRUM_ONLY (OUTRO→INTRO) → **`drum_swap`** ✅ (Phase 1: drums-priority routing), overall 0.8959 → 0.9026
+  - DROP_TO_DROP → identity overlay (Phase 3 calibrates), but class surfaced as `"drop_to_drop"`
+- Full re-score of 43-track Nina Kraviz set with DRUM_ONLY context: **6 drum_swap / 35 drum_cut / 1 fade**, mean 0.78 (vs prior monotone collapse).
+- 27-track Trip-Style Acid Roller v2 (Camelot diamond 7A/7B/8A/9A): **17 drum_swap / 9 drum_cut / 0 fade**, mean **0.83**, bass scores 0.87-1.00 (zero clash physically possible at dist ≤ 2).
+
+### Notes
+
+- **Out of scope for v1.4.0** (deferred to Phase 2-7 in the [ADR](docs/transitions-refactor.md)): `S_phrase` + `S_structure` scoring components, full 5-class overlay calibration, Tonnetz-primary harmonic refactor, explicit bass clash gate in `hard_constraints.py`, declarative picker rule table, `FILTER_SWEEP` 8th preset, demucs L4 stem precompute, taxonomy unification of `STEM_SUSTAIN`/`STEM_CUT`.
+- MCP tool surface unchanged: 20 tools / 27 resources / 6 prompts / 11 registered entities.
+- `TransitionCreate` schema gained an optional `section_context` field — backwards compat (default `None`). Legacy callers see no behaviour change.
+- For GitHub-marketplace users: `claude plugin marketplace update dj-music-plugin && claude plugin update dj-music@dj-music-plugin` picks it up.
+
 ## [1.3.8] - 2026-05-13
 
 **Docs-only release.** Brings GitHub-marketplace consumers up to the documentation surface produced in #215 (CHANGELOG backfill) and #216 (full v1.3.7 md sweep). No code, no MCP surface, no behaviour changes vs. v1.3.7 — installing from `@v1.3.7` would have given users an MCP-runtime equivalent to 1.3.7 but with stale docs claiming "13 dispatchers", missing v1.3.7 specifics (FK gate, validation gates, `safe_info` wrappers, SQLite PRAGMA, AggregateResult bool fix), and missing the v1.3.7 CHANGELOG entry. This tag fixes that drift.
