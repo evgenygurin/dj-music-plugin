@@ -1,4 +1,4 @@
-.PHONY: install test lint typecheck arch check migrate dev clean panel api upgrade
+.PHONY: install test lint typecheck arch check migrate dev clean upgrade
 
 install:
 	uv sync --all-extras
@@ -37,15 +37,8 @@ dev:
 run:
 	uv run fastmcp run app/server/__init__.py
 
-api:
-	uv run --extra http uvicorn app.rest.app:api --host 0.0.0.0 --port 8000 --reload
-
-panel:
-	cd panel && bun dev
-
 upgrade:
 	uv lock --upgrade && uv sync --all-extras
-	cd panel && bun update
 
 setup-hooks:
 	ln -sf ../../hooks/pre-push .git/hooks/pre-push

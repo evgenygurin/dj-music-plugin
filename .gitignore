@@ -41,7 +41,7 @@ CLAUDE.local.md
 .claude/settings.local.json
 .claude/scheduled_tasks.lock
 .claude/scheduled_tasks.json
-# DJ Music Plugin per-project settings (template committed as *.example)
+# DJ Music Plugin per-project settings
 .claude/dj-music.local.md
 
 # Override global .gitignore: track .claude/rules/, settings.json, and .mcp.json
@@ -67,11 +67,6 @@ in-memoria-vectors.db
 
 # uv
 uv.lock
-
-# Panel (Next.js)
-panel/.next/
-panel/node_modules/
-panel/out/
 
 # OS
 .DS_Store

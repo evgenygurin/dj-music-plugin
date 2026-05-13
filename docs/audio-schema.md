@@ -32,11 +32,11 @@
 - **Cue-aware mix points** — `dj_cue_points` пустой (drop-pending). Mix-in/out берутся только из section boundaries, не из manually-set hot-cue'ов.
 - **Multi-file tracks** — `dj_library_items` 97/23929 (файлы качаются под set delivery, не всплошную).
 
-### BPM distribution — см. panel dashboard (`/`)
+### BPM distribution
 
-Актуальное распределение — в `panel/` дашборде (BpmDistribution chart,
-`lib/queries/dashboard.ts → getBpmHistogram()`). Снапшот на 2026-04-18:
-ядро коллекции — 120-129 BPM (classic peak-time / driving techno).
+Снапшот на 2026-04-18: ядро коллекции — 120-129 BPM (classic peak-time /
+driving techno). Запрос: `entity_aggregate(entity="track_features",
+operation="histogram", field="bpm")`.
 
 ---
 

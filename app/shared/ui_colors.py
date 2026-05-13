@@ -1,18 +1,13 @@
 """Shared color palette for Prefab UI tools.
 
-Mirrors ``panel/lib/constants.ts`` so the Next.js Panel and the Prefab UI
-rendered inside MCP clients (Claude Desktop / Claude Code) stay visually
-consistent for the same DJ concepts (subgenres, Camelot wheel, energy levels).
-
-Key sets (subgenres, labels) are the parity contract — a unit test in
-``tests/shared/test_ui_colors_parity.py`` asserts the TypeScript file still
-declares the same keys. Hex colors may drift if the Panel retheme happens.
+Single source of truth for subgenre, Camelot wheel, and energy-level
+colors used by the Prefab UI tools rendered inside MCP clients
+(Claude Desktop / Claude Code).
 """
 
 from __future__ import annotations
 
 # ── Subgenre palette (15 techno subgenres, ordered by energy) ──────────
-# Must match panel/lib/constants.ts:SUBGENRE_COLORS.
 SUBGENRE_COLORS: dict[str, str] = {
     "ambient_dub": "#6366f1",
     "dub_techno": "#818cf8",
@@ -31,7 +26,6 @@ SUBGENRE_COLORS: dict[str, str] = {
     "hard_techno": "#991b1b",
 }
 
-# Must match panel/lib/constants.ts:SUBGENRE_LABELS.
 SUBGENRE_LABELS: dict[str, str] = {
     "ambient_dub": "Ambient Dub",
     "dub_techno": "Dub Techno",

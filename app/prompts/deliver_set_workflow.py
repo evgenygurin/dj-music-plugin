@@ -32,8 +32,8 @@ def _build_body(set_id: int, sync_to_ym: bool) -> str:
    - If abort -> stop; if continue -> proceed.
 
 5. Capture deliverables (server-side delivery handler is not yet wired
-   on the v1 surface — see CLAUDE.md "Panel state" §4 — so the LLM
-   assembles the artefacts itself from existing resources):
+   on the v1 surface — the LLM assembles the artefacts itself from
+   existing resources):
    - local://sets/{set_id}/full — JSON guide (set_summary + tracks +
      transitions, ready to drop into a `.json` artefact next to the MP3s).
    - local://sets/{set_id}/cheatsheet — DJ-booth cheat sheet (BPM/key/

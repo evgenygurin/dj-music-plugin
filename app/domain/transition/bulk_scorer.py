@@ -1,8 +1,8 @@
 """Vectorised transition scoring for the GA's eager-populate stage.
 
 The scalar code path in ``scorer.py`` / ``neural_mix.py`` / ``components/``
-is the public API and the source of truth — it is how the LLM, REST,
-and panel layers read a single (a, b) pair. ``BulkTransitionScorer``
+is the public API and the source of truth — it is how MCP consumers
+read a single (a, b) pair. ``BulkTransitionScorer``
 shares the **same** algorithm but runs it batched over (idx_a, idx_b)
 arrays via numpy. The scalar path stays the parity oracle: every
 function here has a corresponding parity test in

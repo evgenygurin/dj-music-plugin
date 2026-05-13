@@ -89,10 +89,9 @@ main session (user) ← финальный summary
 ```text
 Task(subagent_type="bg-jobs-watcher",
      description="Status check on local services",
-     prompt="Покажи статус uvicorn (REST API на :8000) и bun dev
-             (panel на :3000): ps aux + lsof + последние 20 строк
-             /tmp/dj-rest-api.log. Если что-то лежит — перезапусти
-             через start.sh и покажи smoke check.")
+     prompt="Покажи статус fastmcp процессов: ps aux + последние
+             20 строк stdout. Если что-то лежит — покажи smoke check
+             через mcp__plugin_dj-music_mcp__entity_aggregate.")
 ```
 
 ### Что ты НЕ делаешь

@@ -67,8 +67,8 @@ globs:
   supported end-to-end (adapter → `client.set_playlist_description`).
 - Download salt / MD5 signing lives only in
   `YandexClient._build_signed_mp3_url` — don't duplicate.
-- `ym_*` tools referenced in legacy panel actions no longer exist;
-  v1 surface is `provider_read` / `provider_write` / `provider_search`.
+- Legacy `ym_*` tools no longer exist; v1 surface is `provider_read` /
+  `provider_write` / `provider_search`.
 - **`track_batch` legacy `ids` alias (v1.3.7).**
   `YandexAdapter.read("track_batch", params={...})` accepts both
   canonical `track_ids` and legacy `ids` — old call sites that pass

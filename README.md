@@ -1,8 +1,8 @@
 # DJ Music Plugin
 
-**v1.3.8** · MIT · MCP-сервер для управления личной DJ techno библиотекой, построения оптимизированных DJ сетов и интеграции с Яндекс Музыкой.
+**v1.4.0** · MIT · MCP-сервер для управления личной DJ techno библиотекой, построения оптимизированных DJ сетов и интеграции с Яндекс Музыкой.
 
-Три surface'а на одном backend'е: **MCP** (Claude Desktop / Cursor / любой MCP-client), **REST API** (FastAPI обёртка для скриптов), **Web Panel** (Next.js dashboard).
+Surface: **MCP** (Claude Desktop / Cursor / любой MCP-client) — 20 tools, 27 resources, 6 workflow prompts.
 
 ## Возможности
 
@@ -15,8 +15,6 @@
 - **Yandex Music интеграция** — `provider_search` / `provider_read` / `provider_write` (playlist add/remove/create/rename/delete/set_description, likes add/remove)
 - **Экспорт** — M3U8, Rekordbox XML, JSON guide, cheat sheet (через `local://sets/{id}/cheatsheet` + `deliver_set_workflow` prompt)
 - **Mood classification** — 15 techno subgenres, запускается внутри `track_features_analyze` handler
-- **REST API** (`app/rest/`) — thin FastAPI wrapper поверх MCP для Panel и скриптов
-- **Web Panel** (`panel/`) — Next.js 16 + shadcn/ui дашборд: library, playlists, sets, discover, аналитика. Подробности в [docs/panel-guide.md](docs/panel-guide.md)
 
 ## Быстрый старт
 
@@ -54,7 +52,7 @@ claude plugin install dj-music@dj-music-plugin
 Альтернативный синтаксис через git URL (любая ветка/тег/SHA):
 
 ```bash
-claude plugin marketplace add https://github.com/evgenygurin/dj-music-plugin.git#v1.3.8
+claude plugin marketplace add https://github.com/evgenygurin/dj-music-plugin.git#v1.4.0
 ```
 
 **Session-only тест без install** (не пишет в `~/.claude/settings.json`):
@@ -116,21 +114,6 @@ make check                                 # Всё вместе (lint + typeche
 uv run python scripts/verify_audio_pipeline.py [path/to/track.mp3]
 ```
 
-### Panel (Next.js)
-
-```bash
-cd panel
-cp .env.example .env.local                 # Заполни SUPABASE_URL / ANON_KEY / MCP_HTTP_URL
-bun install
-bun dev                                    # http://localhost:3000
-
-# Проверка перед PR
-bunx tsc --noEmit                          # Типизация
-bun run build                              # Production build
-```
-
-Backend на `:8000` запускается параллельно через [start.sh](start.sh) или вручную: `uv run --extra http uvicorn app.rest.app:api --port 8000`.
-
 ## Архитектура
 
 FastMCP v3 + FileSystemProvider (standalone `@tool` / `@resource` / `@prompt`, auto-discovery):
@@ -148,7 +131,6 @@ domain/      # Pure compute: transition / optimization / camelot / template / au
 audio/       # 18 analyzers + tiered pipeline + 15-subgenre classifier
 providers/   # External platforms (yandex/ …)
 server/      # FastMCP composition: app.py, lifespan, 16 middleware, transforms, visibility
-rest/        # Thin FastAPI wrapper over MCP (for Panel)
 shared/      # errors, constants, filters, ids, pagination, time (leaf)
 config/      # 9 per-domain Settings modules
 db/          # session, seed, Alembic migrations
@@ -160,7 +142,6 @@ db/          # session, seed, Alembic migrations
 - **Anchor на DB entities.** Один aggregate root = один model + один repo + семья Pydantic schemas.
 - **Unit of Work.** Одна `UnitOfWork` на tool call, commit/rollback через `DbSessionMiddleware`.
 - **Pure domain.** `app/domain/` не знает о DB / HTTP / FastMCP (enforced by import-linter).
-- **Panel direct reads** из Supabase; мутации — через MCP (REST-обёртка).
 
 ### Audio module (`app/audio/`)
 
@@ -235,7 +216,6 @@ entity_create("track",...)  → entity_create("audio_file",...)  → entity_crea
 - Python 3.12+
 - uv (менеджер пакетов)
 - Supabase PostgreSQL 16+ (prod), SQLite in-memory (tests only)
-- Bun (для Panel, опционально)
 - Опционально: librosa (audio analysis), demucs (stem separation), fastmcp[tasks] (background tasks)
 
 ## Документация
@@ -249,7 +229,6 @@ entity_create("track",...)  → entity_create("audio_file",...)  → entity_crea
 | Transition scoring (6-component formula) | [docs/transition-scoring.md](docs/transition-scoring.md) |
 | Yandex Music API quirks | [docs/ym-api-guide.md](docs/ym-api-guide.md) |
 | DJ-терминология (BPM, Camelot, LUFS, subgenres) | [docs/domain-glossary.md](docs/domain-glossary.md) |
-| Panel — пути данных, components, env | [docs/panel-guide.md](docs/panel-guide.md) |
 
 ## Лицензия
 

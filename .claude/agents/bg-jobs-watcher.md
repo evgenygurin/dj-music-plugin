@@ -20,11 +20,9 @@ tools: ["Read", "Grep", "Glob", "Bash", "mcp__plugin_dj-music_mcp__*"]
 
 | Процесс | log | Что делает |
 |---|---|---|
-| `app.rest.app:api` (uvicorn) | `/tmp/dj-rest-api.log` | REST wrapper для панели, порт 8000 |
-| `bun dev` (Next.js panel) | stdout | Панель на порту 3000 |
 | FastMCP stdio (Claude Code) | per-client | MCP сервер для DJ tools — управляется plugin-host'ом |
 
-Как искать: `ps aux | grep -E "uvicorn|bun dev|fastmcp"` + `lsof -i :8000 -i :3000`.
+Как искать: `ps aux | grep fastmcp`.
 
 > **Замечание:** continuous batch-loop скрипты (`ym_bfs_expand.py`,
 > `vm_analyze.py`, `vm_import_and_analyze.py`) удалены в Phase 7
@@ -53,7 +51,7 @@ entity_aggregate(entity="track_features", operation="histogram", field="bpm", bi
 
 ## Стандартный workflow статус-проверки
 
-1. **Что запущено** — `ps aux | grep -E "(ym_bfs|vm_import|uvicorn|bun)"` + `lsof -i :8000 -i :3000`.
+1. **Что запущено** — `ps aux | grep -E "(ym_bfs|vm_import|fastmcp)"`.
 2. **Хвосты логов** — последние 20 строк каждого активного лога.
 3. **Прогресс** — last chunk, last loop totals, текущий темп (tr/min).
 4. **Здоровье БД** — количество треков на каждом analysis_level, recent failures (`feature_extraction_runs` status='failed' за последний час).
