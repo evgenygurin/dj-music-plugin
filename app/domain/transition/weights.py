@@ -58,3 +58,39 @@ LRA_DIFF_PENALTY: float = 0.10
 CREST_DIFF_PENALTY_THRESHOLD: float = 4.0
 CREST_DIFF_PENALTY: float = 0.10
 ENERGY_SLOPE_BONUS: float = 0.05
+
+# ── Section-pair weight overlay (Phase 1 v2 refactor) ───────────────
+#
+# Multiplicative modifiers applied on top of intent-derived base weights
+# before renormalisation. Phase 1 scope: only DRUM_ONLY is active; the
+# other four classes get identity overlays (x1.0) and will be filled in
+# Phase 3 once phrase + structure components exist.
+#
+# Rationale (DRUM_ONLY): both mix-out and mix-in windows are percussion-only
+# (INTRO / OUTRO / SUSTAIN / AMBIENT). Harmonic clash is minimal —
+# down-weight harmonics + vocals; rely on drums/bass tightness instead.
+# Source: docs/transitions-refactor.md § 5.3, § A.2.
+
+_IDENTITY_OVERLAY: dict[str, float] = {
+    "bpm": 1.0,
+    "energy": 1.0,
+    "drums": 1.0,
+    "bass": 1.0,
+    "harmonics": 1.0,
+    "vocals": 1.0,
+}
+
+SECTION_PAIR_OVERLAY: dict[str, dict[str, float]] = {
+    "drum_only": {
+        "bpm": 1.10,
+        "energy": 0.95,
+        "drums": 1.30,
+        "bass": 0.70,
+        "harmonics": 0.40,
+        "vocals": 0.30,
+    },
+    "drop_to_drop": dict(_IDENTITY_OVERLAY),
+    "breakdown_out": dict(_IDENTITY_OVERLAY),
+    "buildup_in": dict(_IDENTITY_OVERLAY),
+    "generic": dict(_IDENTITY_OVERLAY),
+}

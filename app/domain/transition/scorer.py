@@ -21,7 +21,7 @@ from app.domain.transition.neural_mix import (
 )
 from app.domain.transition.score import TransitionScore
 from app.domain.transition.section_context import SectionContext
-from app.domain.transition.weights import DEFAULT_WEIGHTS
+from app.domain.transition.weights import DEFAULT_WEIGHTS, SECTION_PAIR_OVERLAY
 from app.shared.features import TrackFeatures
 
 # Default intents the bulk-scoring path materialises. Mirrors the set
@@ -68,24 +68,33 @@ class TransitionScorer:
     ) -> TransitionScore:
         """Compute the full six-component score.
 
-        ``section_context`` is currently accepted but unused — the picker
-        (``app.domain.transition.picker``) consumes it to pick the right
-        Neural Mix preset; the scorer itself stays context-free in v1.3.
+        When ``section_context`` is provided, the per-intent base weights
+        are multiplied component-wise by the appropriate
+        ``SECTION_PAIR_OVERLAY`` row and renormalised so the resulting
+        weights still sum to 1.0. Phase 1 (v2 refactor) ships only the
+        DRUM_ONLY overlay; other ``SectionPairClass`` buckets currently
+        carry identity multipliers and will be calibrated in Phase 3.
         """
-        del section_context  # reserved for future per-section weight overrides
-
         rejection = check_hard_constraints(from_t, to_t)
         if rejection is not None:
             return rejection
 
-        weights = INTENT_WEIGHT_MODIFIERS[intent] if intent is not None else self.weights
-        return self._compute_score(from_t, to_t, weights=weights)
+        base_weights = INTENT_WEIGHT_MODIFIERS[intent] if intent is not None else self.weights
+        weights, pair_class_value = _apply_section_overlay(base_weights, section_context)
+        return self._compute_score(
+            from_t,
+            to_t,
+            weights=weights,
+            section_pair_class_value=pair_class_value,
+        )
 
     def score_all_intents(
         self,
         from_t: TrackFeatures,
         to_t: TrackFeatures,
         intents: Iterable[TransitionIntent] | None = None,
+        *,
+        section_context: SectionContext | None = None,
     ) -> dict[TransitionIntent, TransitionScore]:
         """Score one (a, b) pair for every requested intent in a single compute pass.
 
@@ -96,6 +105,13 @@ class TransitionScorer:
         ``best_transition`` argmax. Only the weighted ``overall`` field
         differs per intent. This bulk-scoring path computes the shared
         parts once and fans out the weighted sum across intents.
+
+        ``section_context`` (if provided) applies the matching
+        ``SECTION_PAIR_OVERLAY`` to each per-intent weight dict and
+        renormalises; the overlay does not depend on intent so it can be
+        resolved once outside the loop. Section pair class is the same
+        for every yielded ``TransitionScore`` — it is a property of the
+        pair, not of the intent.
 
         Used by ``GeneticAlgorithm._eager_populate_cache`` to seed the
         score cache for every (idx_a, idx_b, intent) triple at ~1/4 the
@@ -120,7 +136,8 @@ class TransitionScorer:
 
         out: dict[TransitionIntent, TransitionScore] = {}
         for intent in targets:
-            weights = INTENT_WEIGHT_MODIFIERS[intent]
+            base_weights = INTENT_WEIGHT_MODIFIERS[intent]
+            weights, pair_class_value = _apply_section_overlay(base_weights, section_context)
             overall = (
                 weights.get("bpm", 0.0) * bpm
                 + weights.get("energy", 0.0) * energy
@@ -138,6 +155,7 @@ class TransitionScorer:
                 vocals=vocals,
                 overall=overall,
                 best_transition=best,
+                section_pair_class=pair_class_value,
             )
         return out
 
@@ -148,8 +166,15 @@ class TransitionScorer:
         candidate_bpm_distance: float | None = None,
         candidate_key_distance: int | None = None,
         candidate_energy_delta: float | None = None,
+        *,
+        section_context: SectionContext | None = None,
     ) -> TransitionScore:
-        """Score reusing pre-computed candidate distances for hard checks."""
+        """Score reusing pre-computed candidate distances for hard checks.
+
+        ``section_context`` is forwarded to ``_compute_score`` via the
+        standard overlay+renormalise path (see ``score``). Phase 1 v2
+        refactor — same semantics as ``score`` for any non-None context.
+        """
         rejection = check_hard_constraints(
             from_t,
             to_t,
@@ -160,7 +185,13 @@ class TransitionScorer:
         if rejection is not None:
             return rejection
 
-        return self._compute_score(from_t, to_t, weights=self.weights)
+        weights, pair_class_value = _apply_section_overlay(self.weights, section_context)
+        return self._compute_score(
+            from_t,
+            to_t,
+            weights=weights,
+            section_pair_class_value=pair_class_value,
+        )
 
     # ── Shared internals ───────────────────────────
 
@@ -170,6 +201,7 @@ class TransitionScorer:
         to_t: TrackFeatures,
         *,
         weights: dict[str, float],
+        section_pair_class_value: str | None = None,
     ) -> TransitionScore:
         """Compose BPM + energy + four stem compats into a TransitionScore."""
         nm = self._neural.score(from_t, to_t)
@@ -203,4 +235,42 @@ class TransitionScorer:
             vocals=vocals,
             overall=overall,
             best_transition=best,
+            section_pair_class=section_pair_class_value,
         )
+
+
+def _apply_section_overlay(
+    base_weights: dict[str, float],
+    section_context: SectionContext | None,
+) -> tuple[dict[str, float], str | None]:
+    """Multiply ``base_weights`` by the overlay for ``section_context``.
+
+    Returns ``(weights, pair_class_value)`` where ``weights`` has been
+    renormalised to sum to 1.0 across the six scoring components and
+    ``pair_class_value`` is the string value of the resolved
+    ``SectionPairClass`` (or ``None`` when no context was provided).
+
+    With no context, returns the base weights unchanged and ``None``
+    so that legacy callers see byte-identical behaviour.
+    """
+    if section_context is None:
+        return base_weights, None
+
+    pair_class = section_context.section_pair_class
+    overlay = SECTION_PAIR_OVERLAY.get(pair_class.value)
+    if overlay is None:
+        # Defensive: unknown class string falls back to identity.
+        return base_weights, pair_class.value
+
+    # Multiply component-wise across the six known scoring components.
+    raw: dict[str, float] = {}
+    for key in ("bpm", "energy", "drums", "bass", "harmonics", "vocals"):
+        raw[key] = base_weights.get(key, 0.0) * overlay.get(key, 1.0)
+
+    total = sum(raw.values())
+    if total <= 0.0:
+        # Pathological: all weights collapsed to zero. Fall back to base.
+        return base_weights, pair_class.value
+
+    normalised = {key: value / total for key, value in raw.items()}
+    return normalised, pair_class.value

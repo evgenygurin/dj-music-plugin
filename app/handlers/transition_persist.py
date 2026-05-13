@@ -18,14 +18,15 @@ from typing import TYPE_CHECKING, Any, Protocol
 
 from fastmcp.server.context import Context
 
+from app.domain.transition.section_context import SectionContext
 from app.repositories.unit_of_work import UnitOfWork
+from app.shared.constants import SectionType
 from app.shared.errors import NotFoundError, ValidationError
 
 if TYPE_CHECKING:
     from app.domain.transition.intent import TransitionIntent
     from app.domain.transition.recipe import NeuralMixRecipe
     from app.domain.transition.score import TransitionScore
-    from app.domain.transition.section_context import SectionContext
     from app.domain.transition.subgenre_rules import SubgenrePairType
     from app.shared.features import TrackFeatures
 
@@ -81,6 +82,48 @@ async def persist_transition_score(
         to_track_id=to_track_id,
         **fields,
     )
+
+
+def _resolve_section_context(payload: object) -> SectionContext | None:
+    """Convert a ``section_context`` dict from ``TransitionCreate`` into
+    a ``SectionContext`` instance, or return ``None`` if absent.
+
+    Accepts ``SectionType`` values as either enum name (``"OUTRO"``)
+    or integer value (``7``). Empty dict, missing keys, and unknown
+    string aliases are treated as ``None`` for that side — the scorer
+    then falls back to ``SectionPairClass.GENERIC`` (no overlay).
+    """
+    if payload is None:
+        return None
+    if not isinstance(payload, dict):
+        return None
+
+    def _coerce(val: object) -> SectionType | None:
+        if val is None:
+            return None
+        if isinstance(val, SectionType):
+            return val
+        if isinstance(val, int):
+            try:
+                return SectionType(val)
+            except ValueError:
+                return None
+        if isinstance(val, str):
+            try:
+                return SectionType[val.upper()]
+            except KeyError:
+                # Fall back to numeric string ("7" → SectionType(7))
+                try:
+                    return SectionType(int(val))
+                except (ValueError, KeyError):
+                    return None
+        return None
+
+    from_sec = _coerce(payload.get("from_section"))
+    to_sec = _coerce(payload.get("to_section"))
+    if from_sec is None and to_sec is None:
+        return None
+    return SectionContext(from_section=from_sec, to_section=to_sec)
 
 
 def _build_recipe_or_none(
@@ -145,8 +188,14 @@ async def transition_persist_handler(
 
     feat_a = features[a_id]
     feat_b = features[b_id]
-    score = scorer.score(feat_a, feat_b)
-    recipe = _build_recipe_or_none(score, feat_a, feat_b)
+
+    # Phase 1 Task D: wire section_context from TransitionCreate through
+    # to the scorer (applies the per-pair-class overlay) and to the
+    # recipe builder (picker uses it to bias preset selection).
+    section_context = _resolve_section_context(data.get("section_context"))
+
+    score = scorer.score(feat_a, feat_b, section_context=section_context)
+    recipe = _build_recipe_or_none(score, feat_a, feat_b, section_context=section_context)
 
     # Honour ``persist=False`` from ``TransitionCreate`` — the schema's
     # default is ``True`` but a caller asking ``persist=False`` wants the
@@ -180,6 +229,7 @@ async def transition_persist_handler(
         "bass": float(score.bass),
         "harmonics": float(score.harmonics),
         "vocals": float(score.vocals),
+        "section_pair_class": score.section_pair_class,
         "hard_reject": bool(score.hard_reject),
         "reject_reason": score.reject_reason,
         "transition": str(recipe.transition) if recipe is not None else None,

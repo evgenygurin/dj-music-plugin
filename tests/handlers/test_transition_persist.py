@@ -160,6 +160,179 @@ async def real_session(real_engine: AsyncEngine) -> AsyncIterator[AsyncSession]:
             await s.rollback()
 
 
+# ── Phase 1 Task D: section_context wiring through schema → handler → scorer. ──
+
+
+@pytest.mark.asyncio
+async def test_section_context_outro_intro_resolved_to_drum_only(
+    ctx: MagicMock, uow: MagicMock, scorer: MagicMock
+) -> None:
+    """``TransitionCreate.section_context={from=OUTRO,to=INTRO}`` must be
+    parsed into a ``SectionContext`` and passed to ``scorer.score`` as
+    a kwarg. The handler also surfaces ``score.section_pair_class`` in
+    the response dict so callers see which overlay applied.
+    """
+    from app.domain.transition.section_context import SectionContext, SectionPairClass
+    from app.shared.constants import SectionType
+
+    # Make the mock scorer echo whatever section_context the handler
+    # passed it — so we can both assert the handler resolved the DTO
+    # correctly AND let the response surface ``section_pair_class``.
+    def _score(a, b, *, section_context=None, intent=None):
+        score = MagicMock()
+        score.overall = 0.82
+        score.bpm = 0.9
+        score.harmonics = 0.8
+        score.energy = 0.75
+        score.bass = 0.85
+        score.drums = 0.78
+        score.vocals = 0.82
+        score.hard_reject = False
+        score.reject_reason = None
+        score.section_pair_class = (
+            section_context.section_pair_class.value if section_context is not None else None
+        )
+        return score
+
+    scorer.score.side_effect = _score
+
+    data = {
+        "from_track_id": 1,
+        "to_track_id": 2,
+        "section_context": {"from_section": "OUTRO", "to_section": "INTRO"},
+    }
+    result = await transition_persist_handler(ctx, uow, data, scorer)
+
+    # Verify the scorer was called with a real SectionContext, not a dict
+    call = scorer.score.call_args
+    section_context = call.kwargs["section_context"]
+    assert isinstance(section_context, SectionContext)
+    assert section_context.from_section == SectionType.OUTRO
+    assert section_context.to_section == SectionType.INTRO
+    assert section_context.section_pair_class == SectionPairClass.DRUM_ONLY
+
+    # Verify the response surfaces section_pair_class
+    assert result["section_pair_class"] == "drum_only"
+
+
+@pytest.mark.asyncio
+async def test_section_context_accepts_integer_section_values(
+    ctx: MagicMock, uow: MagicMock, scorer: MagicMock
+) -> None:
+    """Integer SectionType values (7=OUTRO, 0=INTRO) are also accepted."""
+    from app.domain.transition.section_context import SectionContext
+    from app.shared.constants import SectionType
+
+    captured: dict[str, object] = {}
+
+    def _score(a, b, *, section_context=None, intent=None):
+        captured["section_context"] = section_context
+        score = MagicMock()
+        score.overall = 0.82
+        score.bpm = 0.9
+        score.harmonics = 0.8
+        score.energy = 0.75
+        score.bass = 0.85
+        score.drums = 0.78
+        score.vocals = 0.82
+        score.hard_reject = False
+        score.reject_reason = None
+        score.section_pair_class = (
+            section_context.section_pair_class.value if section_context is not None else None
+        )
+        return score
+
+    scorer.score.side_effect = _score
+
+    data = {
+        "from_track_id": 1,
+        "to_track_id": 2,
+        "section_context": {"from_section": 7, "to_section": 0},  # OUTRO → INTRO
+    }
+    result = await transition_persist_handler(ctx, uow, data, scorer)
+
+    section_context = captured["section_context"]
+    assert isinstance(section_context, SectionContext)
+    assert section_context.from_section == SectionType.OUTRO
+    assert section_context.to_section == SectionType.INTRO
+    assert result["section_pair_class"] == "drum_only"
+
+
+@pytest.mark.asyncio
+async def test_section_context_omitted_yields_none(
+    ctx: MagicMock, uow: MagicMock, scorer: MagicMock
+) -> None:
+    """Omitting ``section_context`` → handler passes ``None`` to the
+    scorer and the response surfaces ``section_pair_class=None``.
+    Backwards-compat path for the common case where the caller has
+    no section data.
+    """
+
+    def _score(a, b, *, section_context=None, intent=None):
+        score = MagicMock()
+        score.overall = 0.82
+        score.bpm = 0.9
+        score.harmonics = 0.8
+        score.energy = 0.75
+        score.bass = 0.85
+        score.drums = 0.78
+        score.vocals = 0.82
+        score.hard_reject = False
+        score.reject_reason = None
+        score.section_pair_class = None
+        return score
+
+    scorer.score.side_effect = _score
+
+    data = {"from_track_id": 1, "to_track_id": 2}
+    result = await transition_persist_handler(ctx, uow, data, scorer)
+
+    # Scorer received section_context=None
+    call = scorer.score.call_args
+    assert call.kwargs["section_context"] is None
+    assert result["section_pair_class"] is None
+
+
+@pytest.mark.asyncio
+async def test_section_context_unknown_string_falls_back_to_none(
+    ctx: MagicMock, uow: MagicMock, scorer: MagicMock
+) -> None:
+    """An unknown section alias on both sides → ``_resolve_section_context``
+    returns ``None`` (no SectionContext built) and the scorer sees
+    ``section_context=None``. Defensive against typos in caller payloads.
+    """
+
+    def _score(a, b, *, section_context=None, intent=None):
+        score = MagicMock()
+        score.overall = 0.82
+        score.bpm = 0.9
+        score.harmonics = 0.8
+        score.energy = 0.75
+        score.bass = 0.85
+        score.drums = 0.78
+        score.vocals = 0.82
+        score.hard_reject = False
+        score.reject_reason = None
+        score.section_pair_class = None
+        return score
+
+    scorer.score.side_effect = _score
+
+    data = {
+        "from_track_id": 1,
+        "to_track_id": 2,
+        "section_context": {"from_section": "BOGUS", "to_section": "ALSO_BOGUS"},
+    }
+    result = await transition_persist_handler(ctx, uow, data, scorer)
+
+    call = scorer.score.call_args
+    assert call.kwargs["section_context"] is None
+    assert result["section_pair_class"] is None
+
+
+# ── Real-DB regression for BUG: TransitionRepository.upsert must exist. ──
+
+
 @pytest.mark.asyncio
 async def test_transition_repository_upsert_creates_then_updates(
     real_session: AsyncSession,
