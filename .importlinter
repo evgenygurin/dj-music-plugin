@@ -75,24 +75,3 @@ ignore_imports =
     app.handlers.transition_persist -> app.domain.transition.score
     app.handlers.transition_persist -> app.domain.transition.section_context
     app.handlers.transition_persist -> app.domain.transition.subgenre_rules
-
-# ── Contract: v2 REST wrapper must be a thin proxy ──────────────────
-# Only DIRECT imports are forbidden — transitive imports via app.server
-# are allowed (the server is the REST wrapper's sole composition handle).
-[importlinter:contract:v2-rest-no-business]
-name = app.rest may only directly import app.server and app.shared
-type = forbidden
-source_modules =
-    app.rest
-forbidden_modules =
-    app.domain
-    app.handlers
-    app.tools
-    app.resources
-    app.prompts
-    app.repositories
-    app.models
-    app.db
-    app.providers
-    app.audio
-allow_indirect_imports = True

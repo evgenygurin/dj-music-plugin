@@ -38,7 +38,7 @@ class SentryContextMiddleware(Middleware):
                         value = getattr(fctx, attr, None)
                     except (RuntimeError, AttributeError):
                         # FastMCP v3 raises RuntimeError when these properties
-                        # are accessed outside an active session (e.g. via REST).
+                        # are accessed outside an active session.
                         value = None
                     scope.set_tag(f"mcp.{attr}", value)
             return await call_next(context)

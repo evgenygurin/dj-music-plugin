@@ -37,7 +37,7 @@ globs: tests/**/*.py
   - `app/repositories/track.py` → `tests/repositories/test_track_repo.py`
   - Top-level test dirs: `audio/`, `config/`, `db/`, `domain/`,
     `handlers/`, `migrations/`, `models/`, `prompts/`, `providers/`,
-    `registry/`, `repositories/`, `resources/`, `rest/`, `schemas/`,
+    `registry/`, `repositories/`, `resources/`, `schemas/`,
     `server/`, `shared/`, `tools/`.
 
 ## Gotchas
@@ -62,5 +62,5 @@ globs: tests/**/*.py
   Handlers must use the wrappers from `app/handlers/_context_log.py`
   instead of `ctx.info()` / `ctx.report_progress()` directly — the
   wrappers fall back to stdlib logger when no active MCP session
-  exists (REST proxy, headless scripts, unit tests). Test handlers
-  in isolation by passing `ctx=None` — wrappers handle it.
+  exists (headless scripts, unit tests). Test handlers in isolation
+  by passing `ctx=None` — wrappers handle it.

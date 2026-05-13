@@ -99,38 +99,8 @@ Parallel layers (called from handlers, never from tools directly):
 | **Audio** | `app/audio/` | Tiered pipeline + analyzers + mood classification |
 | **Providers** | `app/providers/` | External platform clients (yandex/…) |
 | **Server** | `app/server/` | FastMCP composition: lifespan, middleware, transforms, visibility, observability, DI |
-| **REST** | `app/rest/` | FastAPI wrapper over MCP (for Panel) |
 | **Shared** | `app/shared/` | Errors, constants, filters, ids, pagination, time (leaf module) |
 | **Config** | `app/config/` | Settings split by concern (audio, yandex, database, mcp, …) |
-
-## Panel & REST API Layer
-
-```text
-┌──────────────────────────────────────────┐
-│  Panel (Next.js 16, Bun)                 │
-│  http://localhost:3000                   │
-│  ┌──────────┐  ┌───────────────────────┐ │
-│  │ Pages    │  │ Server Actions        │ │
-│  │ (SSR)    │  │ → call MCP tools via  │ │
-│  │          │  │  REST wrapper         │ │
-│  └────┬─────┘  └──────────┬────────────┘ │
-│       │ reads              │ mutations   │
-└───────┼────────────────────┼─────────────┘
-        │                    │
-        ▼                    ▼
-┌───────────────┐  ┌─────────────────────────┐
-│ Supabase      │  │ REST API (FastAPI)      │
-│ PostgreSQL    │  │ app/rest/app.py         │
-│ (direct SQL)  │  │ http://localhost:8000   │
-└───────────────┘  │  routes/, state.py,     │
-                   │  lifespan.py            │
-                   └──────────┬──────────────┘
-                              │ mcp.call_tool()
-                   ┌──────────▼──────────────┐
-                   │ FastMCP Server          │
-                   │ app/server/app.py       │
-                   └─────────────────────────┘
-```
 
 ## Data Flow: Tool Call Lifecycle
 
@@ -167,14 +137,9 @@ Parallel layers (called from handlers, never from tools directly):
 ## Startup Flow
 
 ```text
-./start.sh
-├── Backend: uv run uvicorn app.rest.app:api --port 8000
-│   ├── FastAPI lifespan (app/rest/lifespan.py):
-│   │   tool registry warm, MCP mount readiness
-│   └── MCP lifespan (app/server/lifespan.py):
-│       composes DB + providers + audio pipeline + caches
-└── Panel: cd panel && bun dev --port 3000
-    └── Connects to Supabase + MCP_HTTP_URL
+uv run fastmcp run server.py
+└── MCP lifespan (app/server/lifespan.py):
+    composes DB + providers + audio pipeline + caches
 ```
 
 **DB session setup (v1.3.7).** `app/db/session.py` registers a SQLAlchemy
@@ -188,9 +153,8 @@ unaffected.
 `safe_info(ctx, ...)` / `safe_report_progress(ctx, ...)` from
 `app/handlers/_context_log.py` instead of calling `ctx.info()` /
 `ctx.report_progress()` directly. The wrappers fall back to stdlib
-logger when no active MCP session exists (REST proxy, headless scripts,
-unit tests) — successful builds are no longer misreported as failures
-behind the REST API.
+logger when no active MCP session exists (headless scripts, unit
+tests) — successful builds are no longer misreported as failures.
 
 ## EntityRegistry
 
@@ -242,7 +206,5 @@ ProviderRegistry
 | Unit of Work | Explicit transaction boundary; middleware commits/rollbacks; repos only flush |
 | Pydantic v2 for tool returns | Structured content, self-documenting, type-safe |
 | Domain pure | No IO in `app/domain/` — testable, composable, fast |
-| Panel reads Supabase directly | Avoids MCP overhead for read-only dashboards |
-| REST wraps MCP | Panel needs HTTP; Swagger for debugging; no duplicate business logic |
 | Tool Search (BM25) + Namespace Activation | ~10 tools always visible; others discoverable per session — context stays lean |
 | Supabase PostgreSQL (prod) + SQLite (tests) | Production-grade + RLS-capable; tests stay fast without external DB |

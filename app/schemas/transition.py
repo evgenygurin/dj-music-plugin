@@ -33,8 +33,8 @@ class TransitionView(BaseModel):
     # Compound / derived scores persisted by ``transition_persist`` handler.
     # Audit iter 38: missing from the View → ``entity_get`` / list could not
     # surface the harmonic-distance-weighted score nor the low-band conflict
-    # score, both of which the scorer writes back and consumers (panel,
-    # set-review tools) want to read directly.
+    # score, both of which the scorer writes back and set-review consumers
+    # want to read directly.
     key_distance_weighted: float | None = None
     low_conflict_score: float | None = None
     hard_reject: bool | None = None

@@ -91,9 +91,8 @@ async def entity_list(
   them behind a BM25 search query.
 - Reuse existing handlers / repositories / domain via `Depends()`.
   Never duplicate business logic in a UI tool.
-- Palette constants live in `app/shared/ui_colors.py`; keep them in
-  sync with `panel/lib/constants.ts` (parity tested in
-  `tests/shared/test_ui_colors_parity.py`).
+- Palette constants live in `app/shared/ui_colors.py` — single
+  source of truth for UI tool colors.
 
 ## FK gates + validation envelopes (v1.3.7)
 

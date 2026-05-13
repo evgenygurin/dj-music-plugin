@@ -107,7 +107,7 @@ log = logging.getLogger("loop")  # короткий name → "loop:" в стро
 
 ## Handlers — `safe_info` / `safe_report_progress` (v1.3.7)
 
-Handlers (`app/handlers/*.py`) больше **не** зовут `ctx.info()` / `ctx.report_progress()` напрямую. Эти методы требуют активной MCP-сессии, которой нет за REST proxy (`app/rest/app.py`), в headless-скриптах и unit-тестах — прямой вызов падает с `RuntimeError`.
+Handlers (`app/handlers/*.py`) больше **не** зовут `ctx.info()` / `ctx.report_progress()` напрямую. Эти методы требуют активной MCP-сессии, которой нет в headless-скриптах и unit-тестах — прямой вызов падает с `RuntimeError`.
 
 Канонический паттерн:
 
