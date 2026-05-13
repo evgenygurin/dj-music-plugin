@@ -29,6 +29,10 @@ DB column, and weights-dict labels in sync with the stem they hold.
 * ``reject_reason`` — human-readable rejection cause.
 * ``best_transition`` — the Neural Mix preset the scorer believes fits
   best (argmax over the seven per-transition stem-weighted scores).
+* ``section_pair_class`` — populated when scoring with a
+  ``SectionContext``; one of ``SectionPairClass`` enum string values
+  ("drum_only" / "drop_to_drop" / "breakdown_out" / "buildup_in" /
+  "generic"), or ``None`` when no section context was provided.
 """
 
 from __future__ import annotations
@@ -54,3 +58,4 @@ class TransitionScore:
     hard_reject: bool = False
     reject_reason: str | None = None
     best_transition: NeuralMixTransition | None = None
+    section_pair_class: str | None = None
