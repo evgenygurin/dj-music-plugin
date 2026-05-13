@@ -68,10 +68,12 @@ in-memoria-vectors.db
 # uv
 uv.lock
 
-# Panel (Next.js)
-panel/.next/
-panel/node_modules/
-panel/out/
+# Removed in PR #221 — physical leftovers in the working tree are not
+# tracked. Once you wipe them locally (rm -rf panel/ app/rest/ tests/rest/)
+# these entries can go too.
+panel/
+app/rest/
+tests/rest/
 
 # OS
 .DS_Store
