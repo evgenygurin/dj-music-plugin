@@ -6,6 +6,30 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.4.1] - 2026-05-13
+
+**Phase 0 golden baseline for the v1.5.0 transition architecture refactor.** Tests-only, docs-only patch release: zero production code touched. Establishes the behavioural contract that every Phase 1-7 PR (Strategy / Composite / CoR / Template Method / Registry decomposition under `app/domain/transition/`) must satisfy. See [design spec](docs/superpowers/specs/2026-05-13-transition-architecture-refactor-design.md) (1 068 lines, 14 sections) and [implementation plan](docs/superpowers/plans/2026-05-13-transition-architecture-refactor.md) (3 146 lines, 8 phases, ~70 tasks).
+
+### Added — Phase 0 (PR #224)
+
+- `docs/superpowers/specs/2026-05-13-transition-architecture-refactor-design.md` — design spec for the v1.5.0 architecture refactor. 21 names of `app.domain.transition.__all__` frozen; 5 GoF patterns (Strategy / Composite / Chain of Responsibility / Template Method / Registry); scalar + bulk scoring co-located per component.
+- `docs/superpowers/plans/2026-05-13-transition-architecture-refactor.md` — TDD-ready implementation plan with memory anchors and phase gates.
+- `tests/domain/transition/_golden_harness.py` — tolerance-aware JSON snapshot helpers (1e-9 for component fields, 1e-7 for `overall`; exact for booleans / strings / enums).
+- `tests/domain/transition/test_golden_scoring.py` — **Level 1** scoring math snapshots, 20 scenarios covering all four `TransitionIntent` values, all five `SectionPairClass` overlays, three hard-reject types, missing-field defensive paths, two asymmetric pairs, and the v1.4.0 acid-pair Phase-0 regression case.
+- `tests/domain/transition/test_golden_recipes.py` — **Level 2** recipe envelopes, 21 scenarios (7 `NeuralMixTransition` presets × bars ∈ {16, 32, 64}). Per-keyframe + per-fx-event snapshots.
+- `tests/domain/transition/test_golden_picker.py` — **Level 3** picker decisions, 14 scenarios covering all 7 rule branches (`hard_reject_rescue` / `drum_only_section` × 3 / `vocal_active` × 3 / `harmonic_sustain` / `energy_drop_to_slam` × 2 / `ambient_or_cooldown` / `cool_down_intent` / `default_safe` + acid pair).
+- `tests/domain/transition/test_public_api_freeze.py` — assertion that `app.domain.transition.__all__` remains a superset of the v1.4.0 frozen set (21 names). Removals are breaking; additions allowed.
+- `tests/domain/transition/_golden/*.json` — 55 frozen snapshot fixtures.
+
+### Changed — Phase 0
+
+- `tests/domain/transition/test_bulk_scorer_parity.py` — extended with 20 cases (4 intents × 5 SectionPairClass values) documenting the current v1.4.0 asymmetry: the bulk path in `bulk_scorer.score_pairs_bulk` does NOT yet apply the section_context overlay (added scalar-side in PR #219), so bulk overall always matches scalar overall WITHOUT context regardless of the ctx parameter. Phase 3 will wire bulk into `CompositeScorer` and strengthen this guard.
+
+### Test totals
+
+- Baseline: 240 passed + 1 xfailed in `tests/domain/transition/`.
+- After Phase 0: 318 passed + 1 xfailed (+78: 20 scoring + 21 recipe + 14 picker + 20 bulk-context + 3 API-freeze).
+
 ## [1.4.0] - 2026-05-13
 
 **Transition scoring v2 — Phase 0 + Phase 1.** First two phases of the [v2 refactor roadmap](docs/transitions-refactor.md): fixes the acid-techno false-positive in the vocal-detection heuristic (Phase 0, PR #218) and wires `section_context` end-to-end through schema → handler → scorer → picker, applying a multiplicative weight overlay for DRUM_ONLY (outro↔intro) pairs (Phase 1, PR #219). Together: picker now produces **real preset variety** (drum_swap / drum_cut / fade) for techno sets that previously collapsed to monotone `vocal_cut` (acid mis-classification) or monotone `echo_out` (no section context).
