@@ -116,6 +116,21 @@ class TransitionFilter(BaseModel):
     overlap_ms__lte: int | None = None
 
 
+class SectionContextDTO(BaseModel):
+    """Section types at the mix-out and mix-in windows of a transition.
+
+    Both fields accept either the ``SectionType`` enum name (e.g.
+    ``"OUTRO"``) or its integer value (``7``). Either side may be
+    ``None`` when section data is unavailable for that track — in
+    that case the scorer falls back to the base-weight formula
+    (``SectionPairClass.GENERIC``).
+    """
+
+    model_config = ConfigDict(extra="forbid")
+    from_section: str | int | None = None
+    to_section: str | int | None = None
+
+
 class TransitionCreate(BaseModel):
     """Create triggers compute-score-then-persist via custom handler."""
 
@@ -124,6 +139,7 @@ class TransitionCreate(BaseModel):
     to_track_id: int
     persist: bool = True
     scoring_profile: str | None = None
+    section_context: SectionContextDTO | None = None
 
     @model_validator(mode="after")
     def _validate_distinct_endpoints(self) -> Self:
