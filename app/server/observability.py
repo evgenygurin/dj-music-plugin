@@ -14,7 +14,7 @@ from threading import Lock
 try:  # pragma: no cover - optional extra
     import sentry_sdk
 except ImportError:  # pragma: no cover
-    sentry_sdk = None  # type: ignore[assignment]
+    sentry_sdk = None
 
 log = logging.getLogger(__name__)
 
