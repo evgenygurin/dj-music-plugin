@@ -159,3 +159,76 @@ claude plugin update dj-music@dj-music-plugin       # apply (требует rest
 - **Windows native без WSL / Git-Bash не запустит наши хуки.** `PostToolUse` (`hooks/reload-mcp.sh`) и `FileChanged` (`hooks/dev-filewatch-reload.sh`) требуют bash. На Windows используй WSL2 или Git-Bash; альтернативно — перепиши hooks на sh-совместимый shell.
 - **`$schema` поле в `plugin.json` / `marketplace.json`** отвергается validator'ом Claude Code 2.1.114+ с ошибкой `Unrecognized key`. Не добавляй для IDE-completion — оно сломает install.
 - **`claude plugin marketplace remove dj-music-plugin`** автоматически удалит установленный плагин из всех scopes (user/project/local). Осторожно при чистке dev-окружений.
+
+## Доступ к БД по окружениям (cloud / local / teleport)
+
+У плагина два MCP-сервера (см. `.claude-plugin/plugin.json`): сам плагин
+(`mcp` — `entity_*` и пр., транспорт **SQLAlchemy + asyncpg** на порт **6543**)
+и `db` (`@supabase/mcp-server-supabase`, **Supabase Management API по HTTPS**
+на :443). Где какой работает — зависит от окружения.
+
+| Окружение | asyncpg `entity_*` (:6543) | `db` MCP / REST (:443) | Канон |
+|---|---|---|---|
+| **Локально** (терминал, Cursor) | ✅ открыт | ✅ | asyncpg напрямую |
+| **`claude --teleport`** (web→локаль) | ✅ открыт | ✅ | asyncpg напрямую |
+| **Облачная песочница** (claude.ai/code) | ❌ заблокирован | ✅ | `db` MCP **или** teleport |
+
+### Почему в облаке :6543 заблокирован
+
+Облачная песочница Claude Code гоняет весь исходящий трафик через
+**HTTP/HTTPS egress-прокси** с фильтрацией по **домену**, не по порту
+([официальная дока](https://code.claude.com/docs/en/claude-code-on-the-web)
+§ «Network access»):
+
+> *«Environments run behind an HTTP/HTTPS network proxy… All outbound
+> internet traffic passes through this proxy»* + *«Content filtering for
+> enhanced security»*.
+
+Уровни доступа (None / Trusted / Full / Custom) управляют **списком доменов**,
+а не портами: даже `Full` = *«Any domain»* по HTTP/HTTPS. Произвольный TCP
+(Postgres wire protocol на :6543) не предусмотрен архитектурой и **не
+открывается из контейнера** — это не конфиг, а свойство прокси.
+
+### Почему `db` MCP всё-таки работает в облаке
+
+MCP-коннекторы не идут через egress-прокси песочницы:
+
+> *«MCP connector traffic is routed through Anthropic's servers, so the
+> connectors you enable… work without adding their hosts to Allowed
+> domains»* ([там же](https://code.claude.com/docs/en/claude-code-on-the-web)).
+
+Поэтому `db` MCP (Supabase Management API по HTTPS) читает живую БД в облаке:
+`mcp__*__execute_sql`, `mcp__*__list_tables` (project_id `bowosphlnghhgaulcyfm`).
+Это **read-only через Management API** — не полноценный ORM-слой `entity_*`.
+
+### Канон для полноценных `entity_*` в облаке — `--teleport`
+
+Официальная дока прямо отправляет всё, что облако не покрывает, на своё
+железо:
+
+> *«For workloads beyond these limits, use Remote Control to run Claude Code
+> on your own hardware»* (`--remote` / `--teleport`,
+> [docs](https://code.claude.com/docs/en/claude-code-on-the-web) § «Move tasks
+> between web and terminal»).
+
+`claude --teleport` переносит активную web-сессию на локальную машину, где
+egress-прокси нет и asyncpg :6543 открыт → `entity_*` работают напрямую.
+
+### Туннель Postgres через :443 — отклонён
+
+Идея пробросить Postgres через :443 (cloudflared `access tcp` WSS / ngrok TCP)
+**отклонена**: она опирается на недокументированное поведение
+content-filtering прокси (пройдёт ли WSS-upgrade / HTTP CONNECT — в доке нет),
+а ngrok TCP вообще отдаёт случайный порт ≠ 443, который allowlist по домену не
+пропустит. Канон `db` MCP + teleport покрывает обе потребности (чтение в
+облаке, полный ORM локально) без хрупкой инфраструктуры.
+
+### Диагностика
+
+```bash
+bash scripts/check_db_egress.sh
+# Грузит .env, пробит :443 / :6543 / :5432 через python socket,
+# делает живой asyncpg-коннект и печатает контекстный вывод.
+# Локально/teleport: все OPEN + "entity_* работают напрямую".
+# В облаке: :6543 BLOCKED — это норма, скрипт подскажет db MCP / teleport.
+```
