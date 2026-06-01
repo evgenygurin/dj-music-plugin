@@ -75,8 +75,12 @@ warn_return_any = true
 warn_unused_configs = true
 
 [[tool.mypy.overrides]]
-module = ["librosa.*", "soundfile.*", "demucs.*", "essentia.*", "key_value.*", "sentry_sdk.*", "anthropic.*", "scipy.*"]
+module = ["librosa.*", "soundfile.*", "demucs.*", "essentia.*", "key_value.*", "sentry_sdk.*", "anthropic.*", "scipy.*", "opentelemetry.*"]
 ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["app.server.observability", "app.server.middleware.sentry_context"]
+warn_unused_ignores = false
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
