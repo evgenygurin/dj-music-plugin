@@ -40,9 +40,17 @@ all shipped via PRs straight from `release/*` into `main`).
 
 ## Pre-push Hook
 
-`hooks/pre-push` prevents direct pushes to `main` when the current
-branch is `main`. Installed via:
-`ln -sf ../../hooks/pre-push .git/hooks/pre-push`.
+`hooks/pre-push` does two things on every push:
+
+1. Prevents direct pushes to `main` when the current branch is `main`.
+2. Runs `make check` (lint + typecheck + arch + test) locally before
+   the push completes — the same gate as CI, run for FREE on the dev
+   machine so development never depends on GitHub Actions being
+   available (Actions on a public repo are free, but an account-level
+   billing lock can still disable them). Skipped on branch deletes.
+   Emergency bypass: `DJ_SKIP_CHECK=1 git push ...`.
+
+Installed via: `ln -sf ../../hooks/pre-push .git/hooks/pre-push`.
 
 ## PR Conventions
 
