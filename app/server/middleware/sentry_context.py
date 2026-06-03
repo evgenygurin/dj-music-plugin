@@ -14,7 +14,7 @@ from fastmcp.server.middleware import Middleware, MiddlewareContext
 try:  # pragma: no cover - optional dependency
     import sentry_sdk as _sentry_default
 except ImportError:  # pragma: no cover
-    _sentry_default = None  # type: ignore[assignment]
+    _sentry_default = None
 
 
 class SentryContextMiddleware(Middleware):

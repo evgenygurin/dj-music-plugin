@@ -17,7 +17,6 @@ async def test_tool_registered_readonly(mcp_server: FastMCP) -> None:
     assert "namespace:compute" in tool.tags
 
 
-@pytest.mark.xfail(reason="Phase 3 tool impl bug (out of Phase 5 scope)", strict=False)
 @pytest.mark.asyncio
 async def test_empty_pool_returns_empty(mcp_client: Client, mock_uow: MagicMock) -> None:
     mock_uow.track_features.get_scoring_features_batch = AsyncMock(return_value={})
@@ -26,7 +25,6 @@ async def test_empty_pool_returns_empty(mcp_client: Client, mock_uow: MagicMock)
     assert data["pairs"] == []
 
 
-@pytest.mark.xfail(reason="Phase 3 tool impl bug (out of Phase 5 scope)", strict=False)
 @pytest.mark.asyncio
 async def test_scores_all_pairs_excluding_self(mcp_client: Client, mock_uow: MagicMock) -> None:
     features = {1: MagicMock(), 2: MagicMock(), 3: MagicMock()}
@@ -39,7 +37,6 @@ async def test_scores_all_pairs_excluding_self(mcp_client: Client, mock_uow: Mag
         assert pair["a"] != pair["b"]
 
 
-@pytest.mark.xfail(reason="Phase 3 tool impl bug (out of Phase 5 scope)", strict=False)
 @pytest.mark.asyncio
 async def test_reports_progress(mcp_client: Client, mock_uow: MagicMock) -> None:
     features = {i: MagicMock() for i in range(1, 5)}

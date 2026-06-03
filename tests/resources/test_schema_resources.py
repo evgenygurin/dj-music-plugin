@@ -12,13 +12,10 @@ import pytest
 
 pytestmark = [
     pytest.mark.asyncio,
-    pytest.mark.xfail(
-        reason="Phase 5 server wiring: registries populated by lifespan",
-        strict=False,
-    ),
 ]
 
 
+@pytest.mark.xfail(reason="Phase 5 server wiring: registries populated by lifespan", strict=False)
 async def test_schema_entities_index(client: object) -> None:
     result = await client.read_resource("schema://entities")  # type: ignore[attr-defined]
     payload = json.loads(result[0].text)
@@ -27,6 +24,7 @@ async def test_schema_entities_index(client: object) -> None:
     assert "playlist" in payload["entities"]
 
 
+@pytest.mark.xfail(reason="Phase 5 server wiring: registries populated by lifespan", strict=False)
 async def test_schema_entities_track(client: object) -> None:
     result = await client.read_resource("schema://entities/track")  # type: ignore[attr-defined]
     payload = json.loads(result[0].text)
@@ -42,6 +40,7 @@ async def test_schema_entities_unknown_raises(client: object) -> None:
         await client.read_resource("schema://entities/nonsense_entity")  # type: ignore[attr-defined]
 
 
+@pytest.mark.xfail(reason="Phase 5 server wiring: registries populated by lifespan", strict=False)
 async def test_schema_providers_index(client: object) -> None:
     result = await client.read_resource("schema://providers")  # type: ignore[attr-defined]
     payload = json.loads(result[0].text)
@@ -49,6 +48,7 @@ async def test_schema_providers_index(client: object) -> None:
     assert "yandex" in payload["providers"]
 
 
+@pytest.mark.xfail(reason="Phase 5 server wiring: registries populated by lifespan", strict=False)
 async def test_schema_provider_yandex(client: object) -> None:
     result = await client.read_resource("schema://providers/yandex")  # type: ignore[attr-defined]
     payload = json.loads(result[0].text)

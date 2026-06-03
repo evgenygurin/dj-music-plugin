@@ -1,10 +1,22 @@
 #!/bin/sh
-# Prevent direct pushes to main. All changes must go through a PR.
+# Pre-push gate. Two responsibilities:
+#   1. Prevent direct pushes to main — all changes go through a PR.
+#   2. Run `make check` locally (lint + typecheck + arch + test) so the
+#      same quality gate as CI runs for FREE on the developer machine,
+#      without depending on GitHub Actions (which may be unavailable,
+#      e.g. when the account is billing-locked — Actions on a public
+#      repo are otherwise free).
+#
 # Install: ln -sf ../../hooks/pre-push .git/hooks/pre-push
+#
+# Escape hatch (emergencies only): DJ_SKIP_CHECK=1 git push ...
 
 remote="$1"
 
+has_real_push=0
+
 while read -r local_ref local_sha remote_ref remote_sha; do
+    # Block direct pushes to main.
     if echo "$remote_ref" | grep -qE "refs/heads/main$"; then
         current_branch=$(git symbolic-ref --short HEAD 2>/dev/null)
         if [ "$current_branch" = "main" ]; then
@@ -24,6 +36,30 @@ while read -r local_ref local_sha remote_ref remote_sha; do
             exit 1
         fi
     fi
+
+    # Track whether this push creates/updates a ref (not a delete).
+    # A delete has an all-zero local_sha.
+    if [ -n "$local_sha" ] && ! echo "$local_sha" | grep -qE "^0+$"; then
+        has_real_push=1
+    fi
 done
+
+# Run the local quality gate once, if we are actually pushing commits.
+if [ "$has_real_push" = "1" ]; then
+    if [ "${DJ_SKIP_CHECK:-0}" = "1" ]; then
+        echo "⚠️  DJ_SKIP_CHECK=1 — skipping local 'make check' before push."
+    else
+        echo "🔍 Running 'make check' before push (lint + typecheck + arch + test)..."
+        echo "   Skip in emergencies with: DJ_SKIP_CHECK=1 git push ..."
+        if ! make check; then
+            echo ""
+            echo "⛔ 'make check' failed — push aborted."
+            echo "   Fix the issues above, or bypass with DJ_SKIP_CHECK=1 (not recommended)."
+            echo ""
+            exit 1
+        fi
+        echo "✅ 'make check' passed — proceeding with push."
+    fi
+fi
 
 exit 0

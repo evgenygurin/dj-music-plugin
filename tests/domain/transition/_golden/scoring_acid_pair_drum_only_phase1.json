@@ -1,6 +1,6 @@
 {
   "bass": 0.9979310675115874,
-  "best_transition": "drum_swap",
+  "best_transition": "filter_sweep",
   "bpm": 0.9288382262598603,
   "drums": 0.9480307537303655,
   "energy": 1.0,

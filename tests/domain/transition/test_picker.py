@@ -385,3 +385,68 @@ def test_build_recipe_for_pair_records_section_labels() -> None:
     recipe = build_recipe_for_pair(_ok_score(drums=0.40), a, b, section_context=ctx)
     assert recipe.mix_out_section == "outro"
     assert recipe.mix_in_section == "intro"
+
+
+# ── Rule 5b: FILTER_SWEEP ───────────────────────────────────────────
+
+
+def test_hypnotic_pair_routes_to_filter_sweep(monkeypatch: object) -> None:
+    """HYPNOTIC_PAIR picks FILTER_SWEEP when the flag is enabled."""
+    import app.domain.transition.picker as _picker
+
+    monkeypatch.setattr(_picker, "_SETTINGS_CACHE", None)
+
+    class _FakeTransition:
+        enable_filter_sweep_style = True
+
+    class _FakeSettings:
+        transition = _FakeTransition()
+
+    monkeypatch.setattr(_picker, "_SETTINGS_CACHE", _FakeSettings())
+    score = _ok_score()
+    decision = pick_neural_mix(
+        score, _track(), _track(), subgenre_pair=SubgenrePairType.HYPNOTIC_PAIR
+    )
+    assert decision.transition is NeuralMixTransition.FILTER_SWEEP
+    assert decision.confidence >= 0.80
+    assert "hypnotic" in decision.reason.lower()
+
+
+def test_hypnotic_pair_falls_through_when_flag_disabled(monkeypatch: object) -> None:
+    """When enable_filter_sweep_style=False, HYPNOTIC_PAIR falls through to default."""
+    import app.domain.transition.picker as _picker
+
+    class _FakeTransition:
+        enable_filter_sweep_style = False
+
+    class _FakeSettings:
+        transition = _FakeTransition()
+
+    monkeypatch.setattr(_picker, "_SETTINGS_CACHE", _FakeSettings())
+    score = _ok_score()
+    decision = pick_neural_mix(
+        score, _track(), _track(), subgenre_pair=SubgenrePairType.HYPNOTIC_PAIR
+    )
+    # Falls through to default (ECHO_OUT) since no other rule matches.
+    assert decision.transition is NeuralMixTransition.ECHO_OUT
+
+
+def test_filter_sweep_recipe_has_correct_preset() -> None:
+    """build_recipe_for_pair on HYPNOTIC_PAIR returns FILTER_SWEEP recipe."""
+    import app.domain.transition.picker as _picker
+
+    class _FakeTransition:
+        enable_filter_sweep_style = True
+
+    class _FakeSettings:
+        transition = _FakeTransition()
+
+    _picker._SETTINGS_CACHE = _FakeSettings()  # type: ignore[assignment]
+    recipe = build_recipe_for_pair(
+        _ok_score(),
+        _track(),
+        _track(),
+        subgenre_pair=SubgenrePairType.HYPNOTIC_PAIR,
+    )
+    assert recipe.transition is NeuralMixTransition.FILTER_SWEEP
+    _picker._SETTINGS_CACHE = None  # reset

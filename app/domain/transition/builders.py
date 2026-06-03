@@ -312,6 +312,53 @@ def build_drum_cut(bars: int = DEFAULT_TRANSITION_BARS) -> KeyframeBundle:
     return _cut(bars, NeuralMixStem.DRUMS, slam_back=True)
 
 
+def build_filter_sweep(bars: int = DEFAULT_TRANSITION_BARS) -> KeyframeBundle:
+    """Bass-forward crossfade modelling a high-pass filter sweep.
+
+    Characteristic hypnotic / minimal techno move: A's bass disappears
+    first (high-pass filter sweeps up), leaving drums + harmonic
+    texture. B's bass arrives last, low-pass filter opens from the
+    top. Other stems blend linearly in the middle window.
+
+    Timeline (all fractions of ``bars``):
+    - A.bass:  0 dB → 0, ramp to SILENT by ¼.
+    - A.{drums,harmonic,vocals}: 0 dB → ¼, ramp to SILENT by ¾.
+    - B.bass:  SILENT until ¾, ramp to 0 dB by end.
+    - B.{drums,harmonic,vocals}: SILENT until ¼, ramp to 0 dB by ¾.
+    """
+    b = float(bars)
+    quarter = b * 0.25
+    three_q = b * 0.75
+    kfs: list[StemKeyframe] = []
+
+    # A.bass exits first — filter sweep up.
+    kfs += [
+        _hold("A", NeuralMixStem.BASS, LEVEL_UNITY, 0.0),
+        _hold("A", NeuralMixStem.BASS, LEVEL_SILENT, quarter),
+    ]
+    # A.{drums,harmonic,vocals}: hold until ¼, fade out by ¾.
+    for stem in (NeuralMixStem.DRUMS, NeuralMixStem.HARMONICS, NeuralMixStem.VOCALS):
+        kfs += [
+            _hold("A", stem, LEVEL_UNITY, 0.0),
+            _hold("A", stem, LEVEL_UNITY, quarter),
+            _hold("A", stem, LEVEL_SILENT, three_q),
+        ]
+    # B.{drums,harmonic,vocals}: silent until ¼, fade in by ¾.
+    for stem in (NeuralMixStem.DRUMS, NeuralMixStem.HARMONICS, NeuralMixStem.VOCALS):
+        kfs += [
+            _hold("B", stem, LEVEL_SILENT, 0.0),
+            _hold("B", stem, LEVEL_SILENT, quarter),
+            _hold("B", stem, LEVEL_UNITY, three_q),
+        ]
+    # B.bass enters last — filter sweep opens from below.
+    kfs += [
+        _hold("B", NeuralMixStem.BASS, LEVEL_SILENT, 0.0),
+        _hold("B", NeuralMixStem.BASS, LEVEL_SILENT, three_q),
+        _hold("B", NeuralMixStem.BASS, LEVEL_UNITY, b),
+    ]
+    return tuple(kfs), ()
+
+
 # ── Public dispatcher ──────────────────────────────────────────────
 
 
@@ -323,6 +370,7 @@ _BUILDERS: dict[NeuralMixTransition, _Builder] = {
     NeuralMixTransition.DRUM_SWAP: build_drum_swap,
     NeuralMixTransition.VOCAL_CUT: build_vocal_cut,
     NeuralMixTransition.DRUM_CUT: build_drum_cut,
+    NeuralMixTransition.FILTER_SWEEP: build_filter_sweep,
 }
 
 
@@ -367,6 +415,7 @@ __all__ = [
     "build_drum_swap",
     "build_echo_out",
     "build_fade",
+    "build_filter_sweep",
     "build_harmonic_sustain",
     "build_recipe",
     "build_vocal_cut",

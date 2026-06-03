@@ -37,7 +37,6 @@ def test_explicit_direction() -> None:
 
 
 @pytest.mark.asyncio
-@pytest.mark.xfail(reason="Phase 5 server wiring", strict=False)
 async def test_prompt_registered(client: object) -> None:
     prompts = await client.list_prompts()  # type: ignore[attr-defined]
     assert any(p.name == "quick_mix_check" for p in prompts)
