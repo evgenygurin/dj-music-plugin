@@ -42,3 +42,8 @@ class TransitionSettings(BaseSettings):
     scoring_crest_diff_penalty_threshold: float = Field(default=10.0, ge=0.0, le=50.0)
     scoring_crest_diff_penalty: float = Field(default=0.10, ge=0.0, le=1.0)
     scoring_energy_slope_bonus: float = Field(default=0.05, ge=0.0, le=1.0)
+
+    # ── Phase 2 feature flags ──
+    # Enable the FILTER_SWEEP preset in the Neural Mix picker.
+    # When False, HYPNOTIC_PAIR routes to the default ECHO_OUT instead.
+    enable_filter_sweep_style: bool = Field(default=True)

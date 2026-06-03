@@ -37,10 +37,12 @@ class NeuralMixStem(StrEnum):
 
 
 class NeuralMixTransition(StrEnum):
-    """The seven djay Pro 5 Neural Mix Automix transitions.
+    """Neural Mix Automix transitions (7 djay Pro 5 presets + FILTER_SWEEP extension).
 
     Ordered roughly from gentlest (linear stem crossfade) to most
-    dramatic (drumless drop into B's slam).
+    dramatic (drumless drop into B's slam). FILTER_SWEEP is a project
+    extension modelling the high-pass filter-sweep technique used in
+    hypnotic / minimal techno — not a djay Pro 5 built-in preset.
     """
 
     FADE = "fade"
@@ -50,6 +52,7 @@ class NeuralMixTransition(StrEnum):
     DRUM_SWAP = "drum_swap"
     VOCAL_CUT = "vocal_cut"
     DRUM_CUT = "drum_cut"
+    FILTER_SWEEP = "filter_sweep"
 
 
 NEURAL_MIX_STEMS: tuple[NeuralMixStem, ...] = tuple(NeuralMixStem)
@@ -112,6 +115,15 @@ TRANSITION_STEM_WEIGHTS: dict[NeuralMixTransition, dict[NeuralMixStem, float]] =
         NeuralMixStem.HARMONICS: 0.30,
         NeuralMixStem.VOCALS: 0.25,
     },
+    # FILTER_SWEEP: bass-forward crossfade — bass exits/enters first,
+    # modelling the high-pass filter-sweep typical of hypnotic techno.
+    # Bass compat dominates; drum groove secondary.
+    NeuralMixTransition.FILTER_SWEEP: {
+        NeuralMixStem.DRUMS: 0.25,
+        NeuralMixStem.BASS: 0.40,
+        NeuralMixStem.HARMONICS: 0.20,
+        NeuralMixStem.VOCALS: 0.15,
+    },
 }
 
 
@@ -128,6 +140,7 @@ TRANSITION_ENERGY_BIAS: dict[NeuralMixTransition, float] = {
     NeuralMixTransition.DRUM_SWAP: 0.0,  # groove change without energy change
     NeuralMixTransition.VOCAL_CUT: 0.1,  # decisive cut feels slightly aspirational
     NeuralMixTransition.DRUM_CUT: 0.5,  # drop-style breakdown into slam = ramp-up
+    NeuralMixTransition.FILTER_SWEEP: -0.1,  # slight cool-down bias; filter sweeps sustain energy
 }
 
 

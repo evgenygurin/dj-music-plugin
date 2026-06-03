@@ -19,13 +19,12 @@ import pytest
 
 pytestmark = [
     pytest.mark.asyncio,
-    pytest.mark.xfail(
-        reason="Phase 5 server wiring: FastMCP app composition + repo surface",
-        strict=False,
-    ),
 ]
 
 
+@pytest.mark.xfail(
+    reason="Phase 5 server wiring: FastMCP app composition + repo surface", strict=False
+)
 async def test_read_track_by_id(client: object, seeded_db: object) -> None:
     result = await client.read_resource("local://tracks/1")  # type: ignore[attr-defined]
     assert len(result) == 1

@@ -25,6 +25,9 @@ Decision tree (first match wins):
 5. High B-over-A energy delta (>2 LUFS) AND (intent=RAMP_UP OR
    subgenre_pair=HARD_PAIR) → DRUM_CUT (drop-style breakdown into
    slam).
+5b. HYPNOTIC_PAIR AND ``enable_filter_sweep_style=True`` →
+   FILTER_SWEEP (bass-forward high-pass filter sweep, signature
+   hypnotic / minimal techno move).
 6. Ambient pair OR intent=COOL_DOWN → FADE (gentle linear blend).
 7. Default → ECHO_OUT (universally safe).
 """
@@ -42,6 +45,21 @@ from app.domain.transition.score import TransitionScore
 from app.domain.transition.section_context import SectionContext
 from app.domain.transition.subgenre_rules import SubgenrePairType, clamp_bars
 from app.shared.features import TrackFeatures
+
+# Lazy import to avoid circular deps at module level; resolved once on first call.
+_SETTINGS_CACHE: object = None
+
+
+def _filter_sweep_enabled() -> bool:
+    global _SETTINGS_CACHE
+    if _SETTINGS_CACHE is None:
+        from app.config import get_settings
+
+        _SETTINGS_CACHE = get_settings()
+    return bool(
+        getattr(getattr(_SETTINGS_CACHE, "transition", None), "enable_filter_sweep_style", True)
+    )
+
 
 # ── Picker decision thresholds ──────────────────────────────────────
 
@@ -236,6 +254,14 @@ def pick_neural_mix(
             transition=NeuralMixTransition.DRUM_CUT,
             confidence=0.86,
             reason=f"energy delta +{delta:.1f} LUFS into ramp-up — breakdown + slam",
+        )
+
+    # 5b. Hypnotic pair + filter sweep enabled — signature filter sweep.
+    if subgenre_pair is SubgenrePairType.HYPNOTIC_PAIR and _filter_sweep_enabled():
+        return PickerDecision(
+            transition=NeuralMixTransition.FILTER_SWEEP,
+            confidence=0.84,
+            reason="hypnotic/minimal pair — bass-forward filter sweep",
         )
 
     # 6. Ambient pair OR cool-down intent → linear fade.

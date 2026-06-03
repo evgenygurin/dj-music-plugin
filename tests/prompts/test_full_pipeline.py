@@ -31,7 +31,6 @@ def test_description_mentions_pipeline() -> None:
 
 
 @pytest.mark.asyncio
-@pytest.mark.xfail(reason="Phase 5 server wiring", strict=False)
 async def test_prompt_registered(client: object) -> None:
     prompts = await client.list_prompts()  # type: ignore[attr-defined]
     assert any(p.name == "full_pipeline" for p in prompts)

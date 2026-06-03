@@ -76,7 +76,6 @@ def test_all_prompts_return_prompt_result() -> None:
 
 
 @pytest.mark.asyncio
-@pytest.mark.xfail(reason="Phase 5 server wiring", strict=False)
 async def test_all_expected_prompts_registered(client: object) -> None:
     prompts = await client.list_prompts()  # type: ignore[attr-defined]
     names = {p.name for p in prompts}
@@ -95,7 +94,6 @@ async def test_all_prompts_have_tags(client: object) -> None:
 
 
 @pytest.mark.asyncio
-@pytest.mark.xfail(reason="Phase 5 server wiring", strict=False)
 async def test_all_prompts_have_description(client: object) -> None:
     prompts = await client.list_prompts()  # type: ignore[attr-defined]
     for p in prompts:
@@ -105,7 +103,6 @@ async def test_all_prompts_have_description(client: object) -> None:
 
 
 @pytest.mark.asyncio
-@pytest.mark.xfail(reason="Phase 5 server wiring", strict=False)
 async def test_all_prompts_carry_meta_version(client: object) -> None:
     prompts = await client.list_prompts()  # type: ignore[attr-defined]
     for p in prompts:

@@ -40,14 +40,12 @@ def test_default_template_used() -> None:
 
 
 @pytest.mark.asyncio
-@pytest.mark.xfail(reason="Phase 5 server wiring", strict=False)
 async def test_prompt_registered(client: object) -> None:
     prompts = await client.list_prompts()  # type: ignore[attr-defined]
     assert any(p.name == "build_set_workflow" for p in prompts)
 
 
 @pytest.mark.asyncio
-@pytest.mark.xfail(reason="Phase 5 server wiring", strict=False)
 async def test_prompt_invocable_via_client(client: object) -> None:
     rendered = await client.get_prompt(  # type: ignore[attr-defined]
         "build_set_workflow", arguments={"playlist_id": 10, "template": "peak_hour_60"}

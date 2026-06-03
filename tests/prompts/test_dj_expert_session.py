@@ -33,10 +33,6 @@ def test_content_mentions_camelot_and_subgenres() -> None:
 
 
 @pytest.mark.asyncio
-@pytest.mark.xfail(
-    reason="Phase 5 server wiring: build_mcp_app_for_tests not yet implemented",
-    strict=False,
-)
 async def test_prompt_reachable_via_client(client: object) -> None:
     prompts = await client.list_prompts()  # type: ignore[attr-defined]
     assert any(p.name == "dj_expert_session" for p in prompts)

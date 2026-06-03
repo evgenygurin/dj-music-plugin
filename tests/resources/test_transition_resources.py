@@ -11,13 +11,13 @@ import pytest
 
 pytestmark = [
     pytest.mark.asyncio,
-    pytest.mark.xfail(
-        reason="Phase 5 server wiring: FastMCP app composition + repo surface",
-        strict=False,
-    ),
 ]
 
 
+@pytest.mark.xfail(
+    reason="Phase 5 server wiring: FastMCP app composition + repo surface",
+    strict=False,
+)
 async def test_transition_score_persisted(client: object, seeded_db: object) -> None:
     result = await client.read_resource("local://transition/1/2/score")  # type: ignore[attr-defined]
     payload = json.loads(result[0].text)
@@ -33,6 +33,10 @@ async def test_transition_score_missing_features_raises(client: object) -> None:
         await client.read_resource("local://transition/999/888/score")  # type: ignore[attr-defined]
 
 
+@pytest.mark.xfail(
+    reason="Phase 5 server wiring: FastMCP app composition + repo surface",
+    strict=False,
+)
 async def test_transition_explain(client: object, seeded_db: object) -> None:
     result = await client.read_resource("local://transition/1/2/explain")  # type: ignore[attr-defined]
     payload = json.loads(result[0].text)

@@ -13,13 +13,13 @@ import pytest
 
 pytestmark = [
     pytest.mark.asyncio,
-    pytest.mark.xfail(
-        reason="Phase 5 server wiring: FastMCP app composition + repo surface",
-        strict=False,
-    ),
 ]
 
 
+@pytest.mark.xfail(
+    reason="Phase 5 server wiring: FastMCP app composition + repo surface",
+    strict=False,
+)
 async def test_read_playlist_summary(client: object, seeded_db: object) -> None:
     result = await client.read_resource("local://playlists/10")  # type: ignore[attr-defined]
     payload = json.loads(result[0].text)
@@ -28,6 +28,10 @@ async def test_read_playlist_summary(client: object, seeded_db: object) -> None:
     assert "tracks" not in payload
 
 
+@pytest.mark.xfail(
+    reason="Phase 5 server wiring: FastMCP app composition + repo surface",
+    strict=False,
+)
 async def test_read_playlist_with_tracks(client: object, seeded_db: object) -> None:
     result = await client.read_resource(  # type: ignore[attr-defined]
         "local://playlists/10?include_tracks=true"
@@ -44,6 +48,10 @@ async def test_read_playlist_missing_raises(client: object) -> None:
         await client.read_resource("local://playlists/99999")  # type: ignore[attr-defined]
 
 
+@pytest.mark.xfail(
+    reason="Phase 5 server wiring: FastMCP app composition + repo surface",
+    strict=False,
+)
 async def test_playlist_audit(client: object, seeded_db: object) -> None:
     result = await client.read_resource("local://playlists/10/audit")  # type: ignore[attr-defined]
     payload = json.loads(result[0].text)
