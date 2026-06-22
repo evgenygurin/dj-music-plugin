@@ -11,12 +11,30 @@ from app.prompts._shared import PROMPT_META
 
 EXPECTED_PROMPTS: frozenset[str] = frozenset(
     {
+        # core (6)
         "dj_expert_session",
         "build_set_workflow",
         "deliver_set_workflow",
         "expand_playlist_workflow",
         "full_pipeline",
         "quick_mix_check",
+        # library & analysis (2)
+        "library_health_workflow",
+        "analyze_library_workflow",
+        # set design (5)
+        "harmonic_journey_workflow",
+        "subgenre_journey_workflow",
+        "scenario_set_workflow",
+        "b2b_planning_workflow",
+        "extend_set_workflow",
+        # set repair (3)
+        "set_review_workflow",
+        "fix_transition_workflow",
+        "replace_track_workflow",
+        # discovery & ops (3)
+        "crate_digging_workflow",
+        "taste_profile_workflow",
+        "playlist_sync_workflow",
     }
 )
 
@@ -42,8 +60,8 @@ def _import_all_prompt_modules() -> list[str]:
 def test_all_prompt_modules_importable() -> None:
     """Every prompt module imports cleanly (decorators execute)."""
     imported = _import_all_prompt_modules()
-    # Sanity: at least 6 prompt files
-    assert len(imported) >= 6
+    # Sanity: at least 19 prompt files
+    assert len(imported) >= 19
     for name in EXPECTED_PROMPTS:
         assert any(m.endswith(f".{name}") for m in imported), (
             f"Prompt module for '{name}' not found in {imported}"
@@ -54,12 +72,25 @@ def test_all_prompts_return_prompt_result() -> None:
     """Calling each prompt function (with minimal args) yields PromptResult."""
     from fastmcp.prompts import PromptResult
 
+    from app.prompts.analyze_library_workflow import analyze_library_workflow
+    from app.prompts.b2b_planning_workflow import b2b_planning_workflow
     from app.prompts.build_set_workflow import build_set_workflow
+    from app.prompts.crate_digging_workflow import crate_digging_workflow
     from app.prompts.deliver_set_workflow import deliver_set_workflow
     from app.prompts.dj_expert_session import dj_expert_session
     from app.prompts.expand_playlist_workflow import expand_playlist_workflow
+    from app.prompts.extend_set_workflow import extend_set_workflow
+    from app.prompts.fix_transition_workflow import fix_transition_workflow
     from app.prompts.full_pipeline import full_pipeline
+    from app.prompts.harmonic_journey_workflow import harmonic_journey_workflow
+    from app.prompts.library_health_workflow import library_health_workflow
+    from app.prompts.playlist_sync_workflow import playlist_sync_workflow
     from app.prompts.quick_mix_check import quick_mix_check
+    from app.prompts.replace_track_workflow import replace_track_workflow
+    from app.prompts.scenario_set_workflow import scenario_set_workflow
+    from app.prompts.set_review_workflow import set_review_workflow
+    from app.prompts.subgenre_journey_workflow import subgenre_journey_workflow
+    from app.prompts.taste_profile_workflow import taste_profile_workflow
 
     results = [
         dj_expert_session(),
@@ -68,6 +99,21 @@ def test_all_prompts_return_prompt_result() -> None:
         expand_playlist_workflow(playlist_id=1),
         full_pipeline(playlist_id=1),
         quick_mix_check(from_track_id=1, to_track_id=2),
+        library_health_workflow(),
+        library_health_workflow(playlist_id=1),
+        analyze_library_workflow(),
+        analyze_library_workflow(playlist_id=1, level=3),
+        harmonic_journey_workflow(playlist_id=1),
+        subgenre_journey_workflow(playlist_id=1, arc="build"),
+        scenario_set_workflow(playlist_id=1, scenario="warmup"),
+        b2b_planning_workflow(playlist_a=1, playlist_b=2),
+        extend_set_workflow(set_id=1),
+        set_review_workflow(set_id=1),
+        fix_transition_workflow(from_track_id=1, to_track_id=2),
+        replace_track_workflow(set_id=1, position=3),
+        crate_digging_workflow(seed="Amelie Lens"),
+        taste_profile_workflow(),
+        playlist_sync_workflow(playlist_id=1, direction="diff"),
     ]
     for r in results:
         assert isinstance(r, PromptResult)

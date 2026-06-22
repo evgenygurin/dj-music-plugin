@@ -25,12 +25,25 @@ from collections.abc import Callable
 
 import pytest
 
+from app.prompts.analyze_library_workflow import analyze_library_workflow
+from app.prompts.b2b_planning_workflow import b2b_planning_workflow
 from app.prompts.build_set_workflow import build_set_workflow
+from app.prompts.crate_digging_workflow import crate_digging_workflow
 from app.prompts.deliver_set_workflow import deliver_set_workflow
 from app.prompts.dj_expert_session import dj_expert_session
 from app.prompts.expand_playlist_workflow import expand_playlist_workflow
+from app.prompts.extend_set_workflow import extend_set_workflow
+from app.prompts.fix_transition_workflow import fix_transition_workflow
 from app.prompts.full_pipeline import full_pipeline
+from app.prompts.harmonic_journey_workflow import harmonic_journey_workflow
+from app.prompts.library_health_workflow import library_health_workflow
+from app.prompts.playlist_sync_workflow import playlist_sync_workflow
 from app.prompts.quick_mix_check import quick_mix_check
+from app.prompts.replace_track_workflow import replace_track_workflow
+from app.prompts.scenario_set_workflow import scenario_set_workflow
+from app.prompts.set_review_workflow import set_review_workflow
+from app.prompts.subgenre_journey_workflow import subgenre_journey_workflow
+from app.prompts.taste_profile_workflow import taste_profile_workflow
 from app.providers.yandex.adapter import YandexAdapter
 from app.registry.defaults import register_default_entities
 from app.registry.entity import EntityRegistry
@@ -59,6 +72,30 @@ def _render(p: Callable[..., object]) -> str:
         result = p(from_track_id=1, to_track_id=2)
     elif name == "dj_expert_session":
         result = p()
+    elif name == "library_health_workflow":
+        result = p(playlist_id=1)
+    elif name == "analyze_library_workflow":
+        result = p(playlist_id=1, level=3)
+    elif name == "harmonic_journey_workflow":
+        result = p(playlist_id=1)
+    elif name == "subgenre_journey_workflow":
+        result = p(playlist_id=1, arc="build")
+    elif name == "scenario_set_workflow":
+        result = p(playlist_id=1, scenario="warmup")
+    elif name == "b2b_planning_workflow":
+        result = p(playlist_a=1, playlist_b=2)
+    elif name == "extend_set_workflow" or name == "set_review_workflow":
+        result = p(set_id=1)
+    elif name == "fix_transition_workflow":
+        result = p(from_track_id=1, to_track_id=2)
+    elif name == "replace_track_workflow":
+        result = p(set_id=1, position=3)
+    elif name == "crate_digging_workflow":
+        result = p(seed="Amelie Lens", target_count=10, playlist_id=1)
+    elif name == "taste_profile_workflow":
+        result = p()
+    elif name == "playlist_sync_workflow":
+        result = p(playlist_id=1, direction="diff")
     else:
         raise AssertionError(f"unknown prompt: {name}")
     parts: list[str] = []
@@ -85,6 +122,19 @@ PROMPTS = (
     expand_playlist_workflow,
     full_pipeline,
     quick_mix_check,
+    library_health_workflow,
+    analyze_library_workflow,
+    harmonic_journey_workflow,
+    subgenre_journey_workflow,
+    scenario_set_workflow,
+    b2b_planning_workflow,
+    extend_set_workflow,
+    set_review_workflow,
+    fix_transition_workflow,
+    replace_track_workflow,
+    crate_digging_workflow,
+    taste_profile_workflow,
+    playlist_sync_workflow,
 )
 
 

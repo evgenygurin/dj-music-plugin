@@ -1,6 +1,6 @@
 # MCP Tool Catalog
 
-Quick reference — **20 tools total** (13 core dispatchers + 6 UI/Prefab + `tool_invoke`) + **27 resources** + **6 prompts** + **6 handlers** + **11 registered entities**.
+Quick reference — **20 tools total** (13 core dispatchers + 6 UI/Prefab + `tool_invoke`) + **27 resources** + **19 prompts** + **6 handlers** + **11 registered entities**.
 
 The 88-tool catalog of v0.8 was collapsed via polymorphism: generic CRUD
 (`entity_*`) dispatches via `EntityRegistry`, generic provider access
@@ -147,7 +147,14 @@ All read-only, MIME `application/json`, auto-discovered from `app/resources/`.
 | `reference://templates` | 8 set templates (warm_up_30, classic_60, …) |
 | `reference://audit_rules` | Techno audit thresholds |
 
-## Prompts (6, namespace `workflow`)
+## Prompts (19, namespace `workflow`)
+
+Design rationale + techno-domain research:
+[docs/research/2026-06-22-techno-set-construction-and-mcp-prompts.md](research/2026-06-22-techno-set-construction-and-mcp-prompts.md).
+Every entity / provider / field-preset name in a prompt body is pinned by
+`tests/prompts/test_prompt_content_correctness.py`.
+
+**Core (6)**
 
 | Prompt | Purpose |
 |---|---|
@@ -157,6 +164,39 @@ All read-only, MIME `application/json`, auto-discovered from `app/resources/`.
 | `expand_playlist_workflow` | Provider discovery + import + analyze to grow a playlist |
 | `full_pipeline` | Chain expand → build → deliver |
 | `quick_mix_check` | Single pairwise mix compatibility (a→b) |
+
+**Library & analysis (2)**
+
+| Prompt | Purpose |
+|---|---|
+| `library_health_workflow` | Coverage + BPM/key/mood distribution + audit fails (`playlist_id?`) |
+| `analyze_library_workflow` | Batch-analyze unanalyzed tracks / upgrade tier (`playlist_id?, level=3, batch_size=20`) |
+
+**Set design (5)**
+
+| Prompt | Purpose |
+|---|---|
+| `harmonic_journey_workflow` | Camelot-wheel key journey (`playlist_id, length=12, start_camelot?`) |
+| `subgenre_journey_workflow` | Energy-axis subgenre journey (`playlist_id, arc=build`) |
+| `scenario_set_workflow` | Scenario preset: warmup/peak/closing/roller/wave/progressive (`playlist_id, scenario=peak`) |
+| `b2b_planning_workflow` | Back-to-back across two crates (`playlist_a, playlist_b, template=classic_60`) |
+| `extend_set_workflow` | Lengthen a set, keep the arc (`set_id, add_tracks=5, where=end`) |
+
+**Set repair (3)**
+
+| Prompt | Purpose |
+|---|---|
+| `set_review_workflow` | Critique an existing set + propose fixes (`set_id`) |
+| `fix_transition_workflow` | Diagnose/repair one weak/hard transition: technique → bridge → replace (`from_track_id, to_track_id`) |
+| `replace_track_workflow` | Swap a weak slot for a better candidate (`set_id, position`) |
+
+**Discovery & ops (3)**
+
+| Prompt | Purpose |
+|---|---|
+| `crate_digging_workflow` | Discovery-first digging + curation (`seed, target_count=20, playlist_id?`) |
+| `taste_profile_workflow` | Curate feedback + affinity (like/ban/rate) to steer scoring |
+| `playlist_sync_workflow` | Pull/push/diff a playlist against YM with a conflict gate (`playlist_id, direction=diff`) |
 
 ## Visibility
 
@@ -198,3 +238,4 @@ never hides them behind a search query.
 | v1.0.3 | 19 | 27 | +6 Prefab UI tools (`ui_*`, namespace `ui:read`) — additive; core dispatchers unchanged |
 | v1.0.4 | 20 | 27 | +`tool_invoke` proxy (admin namespace) for clients that cache the tool list across `unlock_namespace` transitions |
 | v1.3.7 | 20 | 27 | Manual MCP hardening (no surface change). FK gate auto-derived from `cls.__table__.foreign_keys` (`app/tools/entity/_fk_gate.py`); `DomainErrorMiddleware` wraps resource + prompt envelopes too; Pydantic `ValidationError` → typed `app.shared.errors.ValidationError`; `AggregateResult.value` union has `bool` BEFORE `int` (`distinct(variable_tempo)` → `[false, true]`); validation gates added on `entity_get.include_relations`, `suggest_next.energy_direction`, `transition.{scoring_profile,fx_type,persist}`, `sequence_optimize.{pinned,excluded}`, `ui_score_pool_matrix` duplicate ids, `ui_transition_score` `from==to`, `entity_update set` BPM partial-update invariant; `unlock_namespace` accepts `ui:read`; `provider_read.id` accepts `int \| str`; `YandexAdapter.read("track_batch")` accepts legacy `ids` key; `app/audio/core/loader.py` wraps `wave.Error` → typed `RuntimeError`; SQLite `PRAGMA foreign_keys=ON` via `connect` event listener. |
+| (prompts) | 20 | 27 | Prompt catalog grew 6 → **18** (additive, no tool/resource surface change): +`library_health_workflow`, `analyze_library_workflow`, `harmonic_journey_workflow`, `subgenre_journey_workflow`, `scenario_set_workflow`, `b2b_planning_workflow`, `extend_set_workflow`, `set_review_workflow`, `fix_transition_workflow`, `replace_track_workflow`, `crate_digging_workflow`, `taste_profile_workflow`, `playlist_sync_workflow`. Research-backed (`docs/research/2026-06-22-…`); content pinned by `test_prompt_content_correctness.py`. |

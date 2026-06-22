@@ -6,6 +6,32 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added — workflow prompt catalog (6 → 19)
+
+- **13 new FastMCP workflow prompts** under `app/prompts/` (additive — no
+  tool / resource surface change). Each is a pure text-builder returning
+  `fastmcp.prompts.PromptResult`, chaining the existing tool surface:
+  - Library & analysis: `library_health_workflow`, `analyze_library_workflow`.
+  - Set design: `harmonic_journey_workflow`, `subgenre_journey_workflow`,
+    `scenario_set_workflow` (warmup/peak/closing/roller/wave/progressive),
+    `b2b_planning_workflow`, `extend_set_workflow`.
+  - Set repair: `set_review_workflow`, `fix_transition_workflow`,
+    `replace_track_workflow`.
+  - Discovery & ops: `crate_digging_workflow`, `taste_profile_workflow`,
+    `playlist_sync_workflow`.
+- `docs/research/2026-06-22-techno-set-construction-and-mcp-prompts.md` —
+  deep research on techno subgenres, set-construction canon, DJ-school
+  techniques, DB→domain mapping, FastMCP v3 prompt best practices, and the
+  prompt-catalog design rationale.
+- `tests/prompts/test_prompt_content_correctness.py` +
+  `test_prompt_registration.py` extended to pin all 19 prompts (entity /
+  provider / field-preset names validated against the live runtime).
+
+### Changed
+
+- Docs prompt counts updated 6 → 19 (`CLAUDE.md`, `docs/tool-catalog.md`,
+  `docs/architecture.md`, `docs/structure.md`).
+
 ## [1.4.1] - 2026-05-13
 
 **Phase 0 golden baseline for the v1.5.0 transition architecture refactor.** Tests-only, docs-only patch release: zero production code touched. Establishes the behavioural contract that every Phase 1-7 PR (Strategy / Composite / CoR / Template Method / Registry decomposition under `app/domain/transition/`) must satisfy. See [design spec](docs/superpowers/specs/2026-05-13-transition-architecture-refactor-design.md) (1 068 lines, 14 sections) and [implementation plan](docs/superpowers/plans/2026-05-13-transition-architecture-refactor.md) (3 146 lines, 8 phases, ~70 tasks).

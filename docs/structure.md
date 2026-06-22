@@ -31,7 +31,7 @@ dj-music-plugin/
 ├── docs/                           # Архитектурная документация
 │   ├── architecture.md             # Bounded contexts, data flow
 │   ├── domain-glossary.md
-│   ├── tool-catalog.md             # 20 tools + 27 resources + 6 prompts
+│   ├── tool-catalog.md             # 20 tools + 27 resources + 19 prompts
 │   ├── audio-pipeline.md
 │   ├── ym-api-guide.md
 │   ├── transition-scoring.md
@@ -60,13 +60,26 @@ dj-music-plugin/
 │   │   ├── _context_log.py         # v1.3.7: safe_info / safe_report_progress wrappers (ctx may be None in headless/tests)
 │   │   └── track_import.py, track_features_{analyze,reanalyze}.py, audio_file_download.py, set_version_build.py, transition_persist.py
 │   │
-│   ├── prompts/                    # @prompt — 6 workflow recipes
-│   │   ├── dj_expert_session.py
+│   ├── prompts/                    # @prompt — 19 workflow recipes
+│   │   ├── dj_expert_session.py            # core (6)
 │   │   ├── build_set_workflow.py
 │   │   ├── deliver_set_workflow.py
 │   │   ├── expand_playlist_workflow.py
 │   │   ├── full_pipeline.py
-│   │   └── quick_mix_check.py
+│   │   ├── quick_mix_check.py
+│   │   ├── library_health_workflow.py      # library & analysis (2)
+│   │   ├── analyze_library_workflow.py
+│   │   ├── harmonic_journey_workflow.py     # set design (5)
+│   │   ├── subgenre_journey_workflow.py
+│   │   ├── scenario_set_workflow.py
+│   │   ├── b2b_planning_workflow.py
+│   │   ├── extend_set_workflow.py
+│   │   ├── set_review_workflow.py           # set repair (3)
+│   │   ├── fix_transition_workflow.py
+│   │   ├── replace_track_workflow.py
+│   │   ├── crate_digging_workflow.py        # discovery & ops (3)
+│   │   ├── taste_profile_workflow.py
+│   │   └── playlist_sync_workflow.py
 │   │
 │   ├── handlers/                   # entity-specific side-effects
 │   │   ├── track_import.py

@@ -20,7 +20,7 @@ uv run fastmcp run server.py --reload      # MCP dev server
 Загружай соответствующий doc при работе с областью:
 
 - @docs/architecture.md — bounded-contexts, data flow, dependency rules
-- @docs/tool-catalog.md — 20 dispatchers + 27 resources + 6 prompts
+- @docs/tool-catalog.md — 20 dispatchers + 27 resources + 19 prompts
 - @docs/domain-glossary.md — DJ терминология (BPM, Camelot, LUFS, subgenres)
 - @docs/audio-pipeline.md — 18 анализаторов, tiered L1–L4, mood classifier
 - @docs/audio-schema.md — `track_audio_features_computed` (47 features)
@@ -47,7 +47,7 @@ uv run fastmcp run server.py --reload      # MCP dev server
 app/
 ├── tools/          # 20 @tool — entity/provider/compute/sync/admin/ui
 ├── resources/      # 27 @resource — local://, schema://, session://, reference://
-├── prompts/        # 6 workflow recipes
+├── prompts/        # 19 workflow recipes
 ├── handlers/       # 6 side-effect handlers (track_import, audio_file_download, ...)
 ├── registry/       # EntityRegistry (11 entities) + ProviderRegistry
 ├── repositories/   # BaseRepository[M] + UnitOfWork
