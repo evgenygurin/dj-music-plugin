@@ -25,15 +25,29 @@ from collections.abc import Callable
 
 import pytest
 
+from app.prompts.analyze_library_workflow import analyze_library_workflow
+from app.prompts.b2b_planning_workflow import b2b_planning_workflow
 from app.prompts.build_set_workflow import build_set_workflow
+from app.prompts.crate_digging_workflow import crate_digging_workflow
 from app.prompts.deliver_set_workflow import deliver_set_workflow
 from app.prompts.dj_expert_session import dj_expert_session
 from app.prompts.expand_playlist_workflow import expand_playlist_workflow
+from app.prompts.extend_set_workflow import extend_set_workflow
+from app.prompts.fix_transition_workflow import fix_transition_workflow
 from app.prompts.full_pipeline import full_pipeline
+from app.prompts.harmonic_journey_workflow import harmonic_journey_workflow
+from app.prompts.library_health_workflow import library_health_workflow
+from app.prompts.playlist_sync_workflow import playlist_sync_workflow
 from app.prompts.quick_mix_check import quick_mix_check
+from app.prompts.replace_track_workflow import replace_track_workflow
+from app.prompts.scenario_set_workflow import scenario_set_workflow
+from app.prompts.set_review_workflow import set_review_workflow
+from app.prompts.subgenre_journey_workflow import subgenre_journey_workflow
+from app.prompts.taste_profile_workflow import taste_profile_workflow
 from app.providers.yandex.adapter import YandexAdapter
 from app.registry.defaults import register_default_entities
 from app.registry.entity import EntityRegistry
+from app.shared.filters import normalize_bare_fields
 
 
 @pytest.fixture(autouse=True)
@@ -59,6 +73,30 @@ def _render(p: Callable[..., object]) -> str:
         result = p(from_track_id=1, to_track_id=2)
     elif name == "dj_expert_session":
         result = p()
+    elif name == "library_health_workflow":
+        result = p(playlist_id=1)
+    elif name == "analyze_library_workflow":
+        result = p(playlist_id=1, level=3)
+    elif name == "harmonic_journey_workflow":
+        result = p(playlist_id=1)
+    elif name == "subgenre_journey_workflow":
+        result = p(playlist_id=1, arc="build")
+    elif name == "scenario_set_workflow":
+        result = p(playlist_id=1, scenario="warmup")
+    elif name == "b2b_planning_workflow":
+        result = p(playlist_a=1, playlist_b=2)
+    elif name == "extend_set_workflow" or name == "set_review_workflow":
+        result = p(set_id=1)
+    elif name == "fix_transition_workflow":
+        result = p(from_track_id=1, to_track_id=2)
+    elif name == "replace_track_workflow":
+        result = p(set_id=1, position=3)
+    elif name == "crate_digging_workflow":
+        result = p(seed="Amelie Lens", target_count=10, playlist_id=1)
+    elif name == "taste_profile_workflow":
+        result = p()
+    elif name == "playlist_sync_workflow":
+        result = p(playlist_id=1, direction="diff")
     else:
         raise AssertionError(f"unknown prompt: {name}")
     parts: list[str] = []
@@ -77,6 +115,27 @@ _FIELDS_PRESET_RE = re.compile(
     r"""\bentity\s*=\s*['"]([a-z_]+)['"][^)]*?\bfields\s*=\s*['"]([a-z_]+)['"]""",
     re.DOTALL,
 )
+# Pair each ``filters={...}`` / ``data={...}`` blob with its owning
+# ``entity="X"`` — the gap may not cross another ``entity=`` (so adjacent
+# calls don't get mis-paired). Quote-agnostic; blob has no nested braces.
+_Q = r"""['"]"""
+_FILTERS_RE = re.compile(
+    r"entity_(?:list|aggregate)\(\s*entity="
+    + _Q
+    + r"(\w+)"
+    + _Q
+    + r"((?:(?!entity=).)*?)filters=\{([^{}]*)\}",
+    re.DOTALL,
+)
+_DATA_RE = re.compile(
+    r"entity_(create|update)\(\s*entity="
+    + _Q
+    + r"(\w+)"
+    + _Q
+    + r"((?:(?!entity=).)*?)data=\{([^{}]*)\}",
+    re.DOTALL,
+)
+_KEY_RE = re.compile(_Q + r"([a-z_]+)" + _Q + r"\s*:")
 
 PROMPTS = (
     build_set_workflow,
@@ -85,6 +144,19 @@ PROMPTS = (
     expand_playlist_workflow,
     full_pipeline,
     quick_mix_check,
+    library_health_workflow,
+    analyze_library_workflow,
+    harmonic_journey_workflow,
+    subgenre_journey_workflow,
+    scenario_set_workflow,
+    b2b_planning_workflow,
+    extend_set_workflow,
+    set_review_workflow,
+    fix_transition_workflow,
+    replace_track_workflow,
+    crate_digging_workflow,
+    taste_profile_workflow,
+    playlist_sync_workflow,
 )
 
 
@@ -136,4 +208,95 @@ def test_field_presets_exist_on_entity(prompt: Callable[..., object]) -> None:
     assert not bad, (
         f"{prompt.__name__} references undeclared field presets: {bad}. "
         "Each ``fields=<name>`` must exist in that entity's field_presets."
+    )
+
+
+@pytest.mark.parametrize("prompt", PROMPTS, ids=lambda p: p.__name__)
+def test_filter_keys_valid_against_schema(prompt: Callable[..., object]) -> None:
+    """Every ``filters={...}`` key must exist on the entity's Pydantic Filter.
+
+    Filter schemas declare ``extra="forbid"``, so an unknown key (e.g.
+    ``playlist_id`` on ``track_features`` — no such column — or
+    ``net_sentiment__lt`` where only ``__lte`` exists) is a HARD
+    ``ValidationError`` at runtime, not a silent no-op. Bare keys are
+    normalized to ``__eq`` exactly as ``entity_list`` does before validating.
+    """
+    body = _render(prompt)
+    bad: list[tuple[str, str]] = []
+    for entity, _gap, blob in _FILTERS_RE.findall(body):
+        if entity not in EntityRegistry.names():
+            continue
+        schema = EntityRegistry.get(entity).filter_schema
+        if schema is None:
+            continue
+        raw = {k: 1 for k in _KEY_RE.findall(blob)}
+        for key in normalize_bare_fields(raw):
+            if key not in schema.model_fields:
+                bad.append((entity, key))
+    assert not bad, (
+        f"{prompt.__name__} uses filter keys absent from the entity Filter "
+        f"schema (extra='forbid' → ValidationError): {sorted(set(bad))}"
+    )
+
+
+@pytest.mark.parametrize("prompt", PROMPTS, ids=lambda p: p.__name__)
+def test_create_update_data_keys_valid_against_schema(
+    prompt: Callable[..., object],
+) -> None:
+    """Every ``entity_create``/``entity_update`` ``data={...}`` key must exist
+    on the Create / Update schema (these declare ``extra="forbid"`` too — e.g.
+    ``track_affinity`` create accepts only track_a_id/track_b_id/avg_score, so
+    a ``ban_count`` on create is a ValidationError)."""
+    body = _render(prompt)
+    bad: list[tuple[str, str, str]] = []
+    for op, entity, _gap, blob in _DATA_RE.findall(body):
+        if entity not in EntityRegistry.names():
+            continue
+        cfg = EntityRegistry.get(entity)
+        schema = cfg.create_schema if op == "create" else cfg.update_schema
+        if schema is None:
+            continue
+        for key in _KEY_RE.findall(blob):
+            if key not in schema.model_fields:
+                bad.append((op, entity, key))
+    assert not bad, (
+        f"{prompt.__name__} uses data keys absent from the {op!r} schema "
+        f"(extra='forbid' → ValidationError): {sorted(set(bad))}"
+    )
+
+
+# Each provider_write(...) call: pull entity= and operation= from the call
+# window (order-agnostic, window bounded by the next provider_write).
+_PWRITE_RE = re.compile(
+    r"provider_write\(((?:(?!provider_write).)*?)\)",
+    re.DOTALL,
+)
+_PW_ENTITY_RE = re.compile(r"entity=['\"](\w+)['\"]")
+_PW_OP_RE = re.compile(r"operation=['\"](\w+)['\"]")
+
+
+@pytest.mark.parametrize("prompt", PROMPTS, ids=lambda p: p.__name__)
+def test_provider_write_operations_match_adapter(
+    prompt: Callable[..., object],
+) -> None:
+    """Every ``provider_write(entity=X, operation=Y)`` must use an operation the
+    adapter actually handles. ``deliver_set_workflow`` once told the LLM to call
+    ``operation='create_from_set'`` — the adapter raises ``ValueError('unknown
+    playlist operation: create_from_set')`` at runtime. Pinned against
+    ``YandexAdapter.operations_supported`` (mirrors the ``match`` arms)."""
+    body = _render(prompt)
+    supported = YandexAdapter.operations_supported
+    bad: list[tuple[str, str]] = []
+    for blob in _PWRITE_RE.findall(body):
+        ent_m = _PW_ENTITY_RE.search(blob)
+        op_m = _PW_OP_RE.search(blob)
+        if not ent_m or not op_m:
+            continue
+        ent, op = ent_m.group(1), op_m.group(1)
+        if ent in supported and op not in supported[ent]:
+            bad.append((ent, op))
+    assert not bad, (
+        f"{prompt.__name__} uses provider_write operations the adapter does not "
+        f"handle: {sorted(set(bad))}. Supported: "
+        + ", ".join(f"{e}: {ops}" for e, ops in supported.items())
     )

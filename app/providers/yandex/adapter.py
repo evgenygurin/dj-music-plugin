@@ -46,6 +46,22 @@ class YandexAdapter:
         "dislikes",
     )
 
+    # Source of truth for the ``provider_write`` operation matrix — must mirror
+    # the ``match operation`` arms in ``_write_playlist`` / ``_write_likes``.
+    # Any prompt or caller using an operation absent here raises ValueError at
+    # runtime ("unknown <entity> operation: ...").
+    operations_supported: ClassVar[dict[str, tuple[str, ...]]] = {
+        "playlist": (
+            "create",
+            "rename",
+            "set_description",
+            "delete",
+            "add_tracks",
+            "remove_tracks",
+        ),
+        "likes": ("add", "remove"),
+    }
+
     def __init__(
         self,
         *,

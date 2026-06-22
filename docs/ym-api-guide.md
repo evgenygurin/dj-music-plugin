@@ -60,6 +60,23 @@ YM API rate-limits aggressively (HTTP 429 on both reads and writes):
 
 ## Known API Quirks
 
+### Provider Write Operation Matrix
+
+`provider_write` operations are declared on
+`YandexAdapter.operations_supported` (ClassVar — source of truth that
+mirrors the `_write_playlist` / `_write_likes` `match` arms):
+
+- `playlist` × `create | rename | set_description | delete | add_tracks | remove_tracks`
+- `likes` × `add | remove`
+
+Any other operation raises `ValueError("unknown <entity> operation: ...")`.
+There is **no** `create_from_set` — to push a local set to YM as a new
+playlist, call `create` (params `{"title": ...}`) then `add_tracks`
+(params `{"playlist_id": <new id>, "track_ids": [<yandex ids>]}`), or use
+the `playlist_sync` tool with `direction="push"`. Prompt bodies that use
+`provider_write` are pinned against this matrix by
+`tests/prompts/test_prompt_content_correctness.py`.
+
 ### Playlist Modifications Use JSON Diff Format
 
 YM expects playlist changes as a diff array, NOT a simple track list.

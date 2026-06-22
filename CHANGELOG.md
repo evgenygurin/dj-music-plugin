@@ -6,6 +6,84 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed — prompt filter/data contract bugs (manual verification pass)
+
+- Live-server verification of the prompt catalog surfaced filter/data keys
+  that would raise a hard `ValidationError` (Filter/Create schemas declare
+  `extra="forbid"`):
+  - `playlist_id` used as a filter on `track` / `track_features` (no such
+    column) in `library_health`, `analyze_library`, `harmonic_journey`,
+    `subgenre_journey`, `scenario_set`, `b2b_planning` — rewritten to the
+    canonical "resolve playlist track ids via
+    `local://playlists/{id}?include_tracks=true`, then `track_id__in` /
+    `id__in`" pattern.
+  - `net_sentiment__lt` (only `__lte` exists) on `track_affinity` in
+    `taste_profile`, `crate_digging` → `net_sentiment__lte`.
+  - `track_affinity` create with `ban_count` (create accepts only
+    track_a_id/track_b_id/avg_score) in `taste_profile` → create minimal,
+    then `entity_update` the count column.
+  - Pre-existing: `expand_playlist_workflow` filtered `track_feedback` by
+    `{'banned': True}` (no such field) → `{"status": "banned"}`.
+- New guard tests pin the contract going forward:
+  `test_filter_keys_valid_against_schema` and
+  `test_create_update_data_keys_valid_against_schema` validate every
+  `filters={...}` / `data={...}` key in every prompt against the live
+  Pydantic Filter/Create/Update schemas (29 filter + 52 create + 4 update
+  keys across 19 prompts).
+- Pre-existing: `deliver_set_workflow` told the LLM to call
+  `provider_write(entity='playlist', operation='create_from_set')` — the
+  adapter raises `ValueError('unknown playlist operation: create_from_set')`.
+  Rewritten to the real two-step `create` → `add_tracks` sequence.
+  `YandexAdapter.operations_supported` (new ClassVar, mirrors the `match`
+  arms) is now the source of truth, pinned by a new
+  `test_provider_write_operations_match_adapter` guard.
+- Deeper live-server verification (non-vacuous) also confirmed valid:
+  every `entity_aggregate` field is a real model column (8 refs),
+  every cross-prompt reference resolves (14 refs / 9 prompts),
+  `provider_search` types, `sequence_optimize` algorithm/template, and
+  `suggest_next` energy_direction values.
+
+### Added — workflow prompt catalog (6 → 19)
+
+- **13 new FastMCP workflow prompts** under `app/prompts/` (additive — no
+  tool / resource surface change). Each is a pure text-builder returning
+  `fastmcp.prompts.PromptResult`, chaining the existing tool surface:
+  - Library & analysis: `library_health_workflow`, `analyze_library_workflow`.
+  - Set design: `harmonic_journey_workflow`, `subgenre_journey_workflow`,
+    `scenario_set_workflow` (warmup/peak/closing/roller/wave/progressive),
+    `b2b_planning_workflow`, `extend_set_workflow`.
+  - Set repair: `set_review_workflow`, `fix_transition_workflow`,
+    `replace_track_workflow`.
+  - Discovery & ops: `crate_digging_workflow`, `taste_profile_workflow`,
+    `playlist_sync_workflow`.
+- `docs/research/2026-06-22-techno-set-construction-and-mcp-prompts.md` —
+  deep research on techno subgenres, set-construction canon, DJ-school
+  techniques, DB→domain mapping, FastMCP v3 prompt best practices, and the
+  prompt-catalog design rationale.
+- `tests/prompts/test_prompt_content_correctness.py` +
+  `test_prompt_registration.py` extended to pin all 19 prompts (entity /
+  provider / field-preset names validated against the live runtime).
+
+### Changed
+
+- Docs prompt counts updated 6 → 19 (`CLAUDE.md`, `docs/tool-catalog.md`,
+  `docs/architecture.md`, `docs/structure.md`, `README.md`).
+- New `.claude/rules/prompts.md` — canonical prompt-authoring rules + the
+  full content-correctness contract (entity / provider / field-preset /
+  filter-key / data-key / provider_write-op validation). Referenced from
+  CLAUDE.md "FastMCP v3 правила".
+- `docs/ym-api-guide.md` + `.claude/rules/ym.md` document the
+  `YandexAdapter.operations_supported` provider-write matrix (no
+  `create_from_set`).
+
+### Removed
+
+- `.github/workflows/ci.yml` — GitHub Actions are disabled for this repo at
+  the account level (billing lock): every run failed in 2-8s without a
+  runner, producing a false red status on every PR. Quality is gated locally
+  by `make check` + the `hooks/pre-push` hook. CLAUDE.md now forbids
+  recreating any CI workflow ("⛔ НЕ создавать CI").
+
 ## [1.4.1] - 2026-05-13
 
 **Phase 0 golden baseline for the v1.5.0 transition architecture refactor.** Tests-only, docs-only patch release: zero production code touched. Establishes the behavioural contract that every Phase 1-7 PR (Strategy / Composite / CoR / Template Method / Registry decomposition under `app/domain/transition/`) must satisfy. See [design spec](docs/superpowers/specs/2026-05-13-transition-architecture-refactor-design.md) (1 068 lines, 14 sections) and [implementation plan](docs/superpowers/plans/2026-05-13-transition-architecture-refactor.md) (3 146 lines, 8 phases, ~70 tasks).

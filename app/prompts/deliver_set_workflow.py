@@ -9,9 +9,18 @@ from app.prompts._shared import PROMPT_META
 
 def _build_body(set_id: int, sync_to_ym: bool) -> str:
     sync_clause = (
-        "7. Sync the set to the platform as a new playlist:\n"
-        "   provider_write(entity='playlist', operation='create_from_set', "
-        f"params={{'set_id': {set_id}}})\n"
+        "7. Sync the set to the platform as a new playlist (there is no\n"
+        "   single 'create from set' operation — do it in two real steps):\n"
+        "   a. Create the empty playlist:\n"
+        "      provider_write(entity='playlist', operation='create',\n"
+        "                    params={'title': '<set name>'})  -> new playlist id.\n"
+        "   b. Resolve each set track's Yandex id (yandex_track_id via\n"
+        "      entity_get(entity='track', id=<tid>) / its external ids), then:\n"
+        "      provider_write(entity='playlist', operation='add_tracks',\n"
+        "                    params={'playlist_id': <new id>,\n"
+        "                            'track_ids': [<yandex ids in set order>]})\n"
+        "   (Alternatively run the playlist_sync_workflow prompt with\n"
+        "    direction='push' once the local playlist mirrors the set.)\n"
         if sync_to_ym
         else "7. Skip platform sync (sync_to_ym=false).\n"
     )
