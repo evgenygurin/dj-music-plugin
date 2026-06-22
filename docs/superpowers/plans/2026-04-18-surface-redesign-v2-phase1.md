@@ -1434,7 +1434,7 @@ async def mcp_app(monkeypatch):
     return app
 ```
 
-2. Alternative: set `DJ_DB_URL=sqlite+aiosqlite:///:memory:` for tests and seed a tiny dataset. Heavier; skip unless (1) proves insufficient.
+2. Alternative: set `DJ_DATABASE_URL=sqlite+aiosqlite:///:memory:` for tests and seed a tiny dataset. Heavier; skip unless (1) proves insufficient.
 
 Go with (1). Document mock behavior in the fixture docstring.
 

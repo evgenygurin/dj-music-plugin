@@ -6,6 +6,21 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.5.1] - 2026-06-22
+
+**Fix: MCP server startup env var mismatch.** `fastmcp.json`
+`deployment.env` interpolated the connection string under `DJ_DB_URL`,
+but `app/config/database.py` reads `DJ_DATABASE_URL` (`env_prefix="DJ_"`
++ field `database_url`). The mismatch silently dropped the configured
+Supabase URL, falling back to the default in-memory SQLite — the MCP
+server appeared to start but had no live data.
+
+### Fixed
+- `fastmcp.json` `deployment.env`: `DJ_DB_URL` → `DJ_DATABASE_URL` so the
+  interpolated value reaches the name `DatabaseSettings` actually reads.
+- Corrected stale `DJ_DB_URL` references in `CHANGELOG.md` (1.4.x Added
+  note) and `docs/superpowers/plans/2026-04-18-surface-redesign-v2-phase1.md`.
+
 ## [1.5.0] - 2026-06-22
 
 **Workflow prompt catalog 6 → 19 + deep techno research.** Additive
@@ -1585,7 +1600,7 @@ Without this fix, fresh installs of the plugin (any user without `DJ_SENTRY_DSN`
 
 ### Added
 - `fastmcp.json` `environment` section (uv / python ≥ 3.12 / project root) for declarative env management.
-- `fastmcp.json` `deployment.env` with `${VAR}` interpolation for string-valued DJ_* secrets (`DJ_DB_URL`, `DJ_YM_TOKEN`, `DJ_YM_LIBRARY_PATH`, `DJ_SENTRY_DSN`, `DJ_MCP_CODE_MODE` with default `0`).
+- `fastmcp.json` `deployment.env` with `${VAR}` interpolation for string-valued DJ_* secrets (`DJ_DATABASE_URL`, `DJ_YM_TOKEN`, `DJ_YM_LIBRARY_PATH`, `DJ_SENTRY_DSN`, `DJ_MCP_CODE_MODE` with default `0`).
 
 ### Removed
 - `OTELTracingMiddleware` — FastMCP v3 ships native OpenTelemetry instrumentation with MCP semantic conventions (`tools/call {name}`, `gen_ai.tool.name`).

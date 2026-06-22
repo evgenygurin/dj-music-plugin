@@ -14,7 +14,7 @@
     "transport": "stdio",
     "log_level": "INFO",
     "env": {
-      "DJ_DB_URL": "${DJ_DB_URL}",
+      "DJ_DATABASE_URL": "${DJ_DATABASE_URL}",
       "DJ_YM_TOKEN": "${DJ_YM_TOKEN}",
       "DJ_YM_LIBRARY_PATH": "${DJ_YM_LIBRARY_PATH}",
       "DJ_SENTRY_DSN": "${DJ_SENTRY_DSN}",
