@@ -31,19 +31,30 @@ from app.prompts.build_set_workflow import build_set_workflow
 from app.prompts.crate_digging_workflow import crate_digging_workflow
 from app.prompts.deliver_set_workflow import deliver_set_workflow
 from app.prompts.dj_expert_session import dj_expert_session
+from app.prompts.dj_persona_workflow import dj_persona_workflow
 from app.prompts.expand_playlist_workflow import expand_playlist_workflow
 from app.prompts.extend_set_workflow import extend_set_workflow
 from app.prompts.fix_transition_workflow import fix_transition_workflow
 from app.prompts.full_pipeline import full_pipeline
 from app.prompts.harmonic_journey_workflow import harmonic_journey_workflow
+from app.prompts.library_cleanup_workflow import library_cleanup_workflow
 from app.prompts.library_health_workflow import library_health_workflow
+from app.prompts.lineup_handoff_workflow import lineup_handoff_workflow
+from app.prompts.live_next_track_workflow import live_next_track_workflow
+from app.prompts.mix_cluster_workflow import mix_cluster_workflow
 from app.prompts.playlist_sync_workflow import playlist_sync_workflow
 from app.prompts.quick_mix_check import quick_mix_check
 from app.prompts.replace_track_workflow import replace_track_workflow
+from app.prompts.rescue_set_workflow import rescue_set_workflow
 from app.prompts.scenario_set_workflow import scenario_set_workflow
+from app.prompts.set_cheatsheet_workflow import set_cheatsheet_workflow
+from app.prompts.set_duration_fit_workflow import set_duration_fit_workflow
 from app.prompts.set_review_workflow import set_review_workflow
+from app.prompts.style_lock_set_workflow import style_lock_set_workflow
 from app.prompts.subgenre_journey_workflow import subgenre_journey_workflow
 from app.prompts.taste_profile_workflow import taste_profile_workflow
+from app.prompts.tempo_journey_workflow import tempo_journey_workflow
+from app.prompts.track_prep_workflow import track_prep_workflow
 from app.providers.yandex.adapter import YandexAdapter
 from app.registry.defaults import register_default_entities
 from app.registry.entity import EntityRegistry
@@ -77,15 +88,35 @@ def _render(p: Callable[..., object]) -> str:
         result = p(playlist_id=1)
     elif name == "analyze_library_workflow":
         result = p(playlist_id=1, level=3)
+    elif name == "track_prep_workflow":
+        result = p(track_id=1)
     elif name == "harmonic_journey_workflow":
         result = p(playlist_id=1)
     elif name == "subgenre_journey_workflow":
         result = p(playlist_id=1, arc="build")
+    elif name == "tempo_journey_workflow":
+        result = p(playlist_id=1)
     elif name == "scenario_set_workflow":
         result = p(playlist_id=1, scenario="warmup")
+    elif name == "dj_persona_workflow":
+        result = p(playlist_id=1, persona="klock")
+    elif name == "style_lock_set_workflow":
+        result = p(playlist_id=1, style="hypnotic")
+    elif name == "mix_cluster_workflow":
+        result = p(playlist_id=1)
+    elif name == "lineup_handoff_workflow":
+        result = p(playlist_id=1, role="warmup")
     elif name == "b2b_planning_workflow":
         result = p(playlist_a=1, playlist_b=2)
-    elif name == "extend_set_workflow" or name == "set_review_workflow":
+    elif name == "live_next_track_workflow":
+        result = p(last_track_id=1)
+    elif name in (
+        "extend_set_workflow",
+        "set_review_workflow",
+        "rescue_set_workflow",
+        "set_cheatsheet_workflow",
+        "set_duration_fit_workflow",
+    ):
         result = p(set_id=1)
     elif name == "fix_transition_workflow":
         result = p(from_track_id=1, to_track_id=2)
@@ -97,6 +128,8 @@ def _render(p: Callable[..., object]) -> str:
         result = p()
     elif name == "playlist_sync_workflow":
         result = p(playlist_id=1, direction="diff")
+    elif name == "library_cleanup_workflow":
+        result = p(playlist_id=1)
     else:
         raise AssertionError(f"unknown prompt: {name}")
     parts: list[str] = []
@@ -146,17 +179,28 @@ PROMPTS = (
     quick_mix_check,
     library_health_workflow,
     analyze_library_workflow,
+    track_prep_workflow,
     harmonic_journey_workflow,
     subgenre_journey_workflow,
+    tempo_journey_workflow,
     scenario_set_workflow,
+    dj_persona_workflow,
+    style_lock_set_workflow,
+    mix_cluster_workflow,
+    lineup_handoff_workflow,
     b2b_planning_workflow,
     extend_set_workflow,
     set_review_workflow,
+    rescue_set_workflow,
     fix_transition_workflow,
     replace_track_workflow,
+    set_cheatsheet_workflow,
+    set_duration_fit_workflow,
+    live_next_track_workflow,
     crate_digging_workflow,
     taste_profile_workflow,
     playlist_sync_workflow,
+    library_cleanup_workflow,
 )
 
 
