@@ -10,11 +10,15 @@ from __future__ import annotations
 import logging
 import os
 from threading import Lock
+from typing import TYPE_CHECKING
 
-try:  # pragma: no cover - optional extra
+if TYPE_CHECKING:
     import sentry_sdk
-except ImportError:  # pragma: no cover
-    sentry_sdk = None
+else:
+    try:  # pragma: no cover - optional extra
+        import sentry_sdk
+    except ImportError:  # pragma: no cover
+        sentry_sdk = None
 
 log = logging.getLogger(__name__)
 

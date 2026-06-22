@@ -6,6 +6,33 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.5.2] - 2026-06-22
+
+**Fix: green `make check` on a fresh resolve.** A fresh dependency
+resolution pulled the newest upstreams, two of which broke the build/test
+gate. No runtime surface change.
+
+### Fixed
+- **fastmcp pinned `<3.4`.** The 3.4.x `_run_middleware` refactor renamed
+  the chain wrapper's first parameter to `ctx`, but the built-in
+  `ResponseCachingMiddleware` still calls `call_next(context=...)` by
+  keyword — every client tool/prompt call through the middleware chain
+  raised `TypeError` (5 client/e2e tests failed). 3.3.x uses the
+  `partial(mw, call_next=chain)` runner that accepts the keyword. Pin
+  capped at `>=3.2.4,<3.4` until upstream fixes the regression.
+- **essentia pinned to `==2.1b6.dev1389`.** The latest dev build (dev1438)
+  dropped cp310–313 wheels and ships cp314 only, so `>=dev1389` resolved to
+  a build with no CPython 3.12 wheel and `uv sync --all-extras` failed.
+  dev1389 has manylinux + macOS cp312 wheels.
+- **Deterministic mypy on optional imports.** `observability.py` and
+  `sentry_context.py` guarded their optional `sentry_sdk` import under
+  `if TYPE_CHECKING:` so mypy no longer flips between "Success" (extra
+  absent) and an `Incompatible types in assignment` error (extra present
+  via `--all-extras`).
+- Removed the stale `demucs.*` entry from the mypy `ignore_missing_imports`
+  override (StemSeparator is unimplemented / never imported) — silences the
+  `unused section(s)` mypy note.
+
 ## [1.5.1] - 2026-06-22
 
 **Fix: MCP server startup env var mismatch.** `fastmcp.json`

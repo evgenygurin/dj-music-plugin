@@ -7,14 +7,17 @@ observability is optional.
 from __future__ import annotations
 
 from collections.abc import Awaitable, Callable
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from fastmcp.server.middleware import Middleware, MiddlewareContext
 
-try:  # pragma: no cover - optional dependency
+if TYPE_CHECKING:
     import sentry_sdk as _sentry_default
-except ImportError:  # pragma: no cover
-    _sentry_default = None
+else:
+    try:  # pragma: no cover - optional dependency
+        import sentry_sdk as _sentry_default
+    except ImportError:  # pragma: no cover
+        _sentry_default = None
 
 
 class SentryContextMiddleware(Middleware):
