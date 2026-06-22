@@ -9,6 +9,8 @@ PROJECT_DIR="${CLAUDE_PROJECT_DIR:-/home/user/dj-music-plugin}"
 cd "$PROJECT_DIR"
 
 # ── Install Python dependencies ──
-uv sync --extra dev
+# `dev` is a dependency-group (synced by default), NOT an extra —
+# `uv sync --extra dev` errors with "Extra `dev` is not defined".
+uv sync
 
 echo "Dependencies installed"

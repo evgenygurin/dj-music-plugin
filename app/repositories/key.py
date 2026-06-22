@@ -21,5 +21,5 @@ class KeyEdgeRepository(BaseRepository[KeyEdge]):
     model = KeyEdge
 
     async def edges_from(self, from_key: int) -> list[KeyEdge]:
-        stmt = select(KeyEdge).where(KeyEdge.from_key == from_key).order_by(KeyEdge.distance)
+        stmt = select(KeyEdge).where(KeyEdge.from_key_code == from_key).order_by(KeyEdge.distance)
         return list((await self.session.execute(stmt)).scalars())

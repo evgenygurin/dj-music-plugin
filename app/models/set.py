@@ -36,6 +36,10 @@ class DjSet(Base, TimestampMixin):
     source_playlist_id: Mapped[int | None] = mapped_column(
         ForeignKey("dj_playlists.id", ondelete="SET NULL"), nullable=True, index=True
     )
+    # Prod has this column for sets that were originally pushed to YM.
+    # Prior ORM omitted it; reads worked but writes never preserved the
+    # link. Currently 0 rows populate it, but the column is live.
+    ym_playlist_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
 
     versions: Mapped[list[DjSetVersion]] = relationship(
         back_populates="dj_set", cascade="all, delete-orphan"
@@ -53,7 +57,8 @@ class DjSetVersion(Base, TimestampMixin):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     set_id: Mapped[int] = mapped_column(ForeignKey("dj_sets.id", ondelete="CASCADE"), index=True)
-    label: Mapped[str] = mapped_column(String(100))
+    # Prod: label is nullable.
+    label: Mapped[str | None] = mapped_column(String(100), nullable=True)
     generator_run_meta: Mapped[str | None] = mapped_column(Text, nullable=True)
     quality_score: Mapped[float | None] = mapped_column(nullable=True)
 
@@ -63,7 +68,7 @@ class DjSetVersion(Base, TimestampMixin):
     )
 
 
-class DjSetItem(Base):
+class DjSetItem(Base, TimestampMixin):
     __tablename__ = "dj_set_items"
 
     id: Mapped[int] = mapped_column(primary_key=True)

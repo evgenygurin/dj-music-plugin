@@ -15,9 +15,9 @@ from app.repositories.base import BaseRepository
 class ProviderMetadataRepository(BaseRepository[Provider]):
     model = Provider
 
-    async def get_by_code(self, code: str) -> Provider | None:
+    async def get_by_name(self, name: str) -> Provider | None:
         return await self.session.scalar(  # type: ignore[no-any-return]
-            select(Provider).where(Provider.code == code).limit(1)
+            select(Provider).where(Provider.name == name).limit(1)
         )
 
 
@@ -25,7 +25,9 @@ class YandexMetadataRepository(BaseRepository[YandexMetadata]):
     model = YandexMetadata
 
     async def get_for_track(self, track_id: int) -> YandexMetadata | None:
-        return await self.session.get(YandexMetadata, track_id)
+        return await self.session.scalar(  # type: ignore[no-any-return]
+            select(YandexMetadata).where(YandexMetadata.track_id == track_id).limit(1)
+        )
 
     async def upsert(
         self,
@@ -42,7 +44,9 @@ class YandexMetadataRepository(BaseRepository[YandexMetadata]):
         explicit: bool | None = None,
     ) -> YandexMetadata:
         """Insert or update YandexMetadata row keyed by ``track_id``."""
-        existing = await self.session.get(YandexMetadata, track_id)
+        existing = await self.session.scalar(
+            select(YandexMetadata).where(YandexMetadata.track_id == track_id).limit(1)
+        )
         fields = {
             "yandex_track_id": yandex_track_id,
             "album_id": album_id,
