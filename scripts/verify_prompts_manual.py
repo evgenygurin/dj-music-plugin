@@ -89,10 +89,13 @@ TEMPLATES = {
 }
 AGG_OPS = {"count", "distinct", "histogram", "min_max", "sum", "avg"}
 ENERGY_DIRS = {"up", "down", "flat"}
-# real model columns across every registered entity — derived, not hardcoded
-AGG_FIELDS: set[str] = set()
-for _e in ENTITIES:
-    AGG_FIELDS |= set(EntityRegistry.get(_e).model.__table__.columns.keys())
+VIEWS = {"summary", "tracks", "transitions", "full"}  # local://sets/{id}/{view}
+# real model columns PER entity — so a field valid on one entity is not
+# accepted on another (e.g. bpm is on track_features, NOT on track).
+ENTITY_COLUMNS: dict[str, set[str]] = {
+    e: set(EntityRegistry.get(e).model.__table__.columns.keys()) for e in ENTITIES
+}
+AGG_FIELDS: set[str] = set().union(*ENTITY_COLUMNS.values())  # fallback (entity unknown)
 
 
 # ── helpers ──────────────────────────────────────────────────────────────────
@@ -133,6 +136,9 @@ def _template_qkeys(tmpl: str) -> set[str]:
 
 
 def uri_matches(cand: str, tmpl: str) -> bool:
+    # scheme must match (local:// vs session:// vs reference:// vs schema://)
+    if cand.split("://", 1)[0] != tmpl.split("://", 1)[0]:
+        return False
     cs, _ = _split(cand)
     ts, _ = _split(tmpl)
     if len(cs) != len(ts):
@@ -151,12 +157,16 @@ def uri_matches(cand: str, tmpl: str) -> bool:
 def validate_uri(cand: str) -> str | None:
     for t in RESOURCE_TEMPLATES:
         if uri_matches(cand, t):
-            # best-effort query-key check
+            # enum-segment check: the {view} param accepts a fixed set only
+            if t == "local://sets/{id}/{view}":
+                view_seg = _split(cand)[0][-1]
+                if not _is_placeholder(view_seg) and view_seg not in VIEWS:
+                    return f"set view '{view_seg}' not in {sorted(VIEWS)}"
+            # query-key check: any query key must be declared on the template
             _, cq = _split(cand)
-            tq = _template_qkeys(t)
-            bad_q = cq - tq
-            if bad_q and tq:
-                return f"query keys {sorted(bad_q)} not in {t} ({sorted(tq)})"
+            bad_q = cq - _template_qkeys(t)
+            if bad_q:
+                return f"query keys {sorted(bad_q)} not in {t}"
             return None
     return f"no resource template matches '{cand}'"
 
@@ -224,8 +234,15 @@ _TOOL_RE = re.compile(
 _XPROMPT_RE = re.compile(r"\b([a-z_]+_workflow|dj_expert_session|quick_mix_check|full_pipeline)\b")
 _SEQ_TMPL_RE = re.compile(r"sequence_optimize\([^)]*template=[\"']([a-z_0-9]+)[\"']", re.DOTALL)
 _AGG_OP_RE = re.compile(r"entity_aggregate\([^)]*operation=[\"']([a-z_]+)[\"']", re.DOTALL)
-_AGG_FIELD_RE = re.compile(r"entity_aggregate\([^)]*field=[\"']([a-z_]+)[\"']", re.DOTALL)
-_ENERGY_RE = re.compile(r"energy_direction\s*[=:]\s*[\"']([a-z]+)[\"']")
+# whole entity_aggregate(...) call window, so field= can be cross-checked
+# against the call's own entity= (a field valid on another entity must fail).
+_AGG_CALL_RE = re.compile(r"entity_aggregate\(([^)]*)\)", re.DOTALL)
+_ENT_IN_CALL = re.compile(r"entity=[\"'](\w+)[\"']")
+_FIELD_IN_CALL = re.compile(r"field=[\"'](\w+)[\"']")
+# energy_direction in BOTH the quoted form ('up') and the URL-query form
+# (&energy_direction=up); a leading '<' (the <up|down|flat> doc placeholder)
+# is intentionally not matched.
+_ENERGY_RE = re.compile(r"energy_direction\s*[=:]\s*[\"']?([a-z]+)")
 
 ALL_PROMPTS = None  # filled after render
 
@@ -255,9 +272,18 @@ def check(name: str, body: str) -> list[str]:
         if op not in AGG_OPS:
             issues.append(f"AGG_OP: '{op}' not a valid aggregate operation")
 
-    for f in _AGG_FIELD_RE.findall(body):
-        if f not in AGG_FIELDS:
-            issues.append(f"AGG_FIELD: '{f}' not a known model column")
+    for blob in _AGG_CALL_RE.findall(body):
+        fm = _FIELD_IN_CALL.search(blob)
+        if not fm:
+            continue
+        field = fm.group(1)
+        em = _ENT_IN_CALL.search(blob)
+        ent = em.group(1) if em else None
+        if ent and ent in ENTITY_COLUMNS:
+            if field not in ENTITY_COLUMNS[ent]:
+                issues.append(f"AGG_FIELD: '{field}' is not a column on entity '{ent}'")
+        elif field not in AGG_FIELDS:
+            issues.append(f"AGG_FIELD: '{field}' not a known model column")
 
     for ed in _ENERGY_RE.findall(body):
         if ed not in ENERGY_DIRS:

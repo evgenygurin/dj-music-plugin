@@ -73,8 +73,8 @@ def _import_all_prompt_modules() -> list[str]:
 def test_all_prompt_modules_importable() -> None:
     """Every prompt module imports cleanly (decorators execute)."""
     imported = _import_all_prompt_modules()
-    # Sanity: at least 19 prompt files
-    assert len(imported) >= 19
+    # Sanity: at least 30 prompt files (the live catalog)
+    assert len(imported) >= 30
     for name in EXPECTED_PROMPTS:
         assert any(m.endswith(f".{name}") for m in imported), (
             f"Prompt module for '{name}' not found in {imported}"

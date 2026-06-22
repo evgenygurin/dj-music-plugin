@@ -25,10 +25,11 @@ persisted set + transitions into a single per-track crib sheet.
 2. Pull the persisted transitions for the per-pair technique:
    entity_list(entity="transition",
               filters={{"from_track_id__in": [<set track ids>]}},
-              fields="summary")
+              fields="full")
    — each row carries fx_type (the chosen Neural Mix preset: FADE / ECHO_OUT /
      DRUM_SWAP / DRUM_CUT / VOCAL_SUSTAIN / VOCAL_CUT / HARMONIC_SUSTAIN),
-     overall_quality, and transition_bars (blend length).
+     overall_quality, and transition_bars (blend length). The "summary" preset
+     omits transition_bars/overlap_ms, so use "full" here.
    For any pair you want to double-check, read
    local://transition/{{a}}/{{b}}/explain for the component breakdown.
 

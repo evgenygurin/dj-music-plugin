@@ -24,7 +24,8 @@ advisory per-slot targets only), so this is a deliberate trim/extend pass.
    — compare the sum to the target {target_ms} ms. Account for blend overlap:
      each transition's transition_bars trims a few seconds of real wall-clock
      (read entity_list(entity="transition", filters={{"from_track_id__in":
-     [...]}}, fields="summary") if you need the exact overlap_ms per pair).
+     [...]}}, fields="full") if you need the exact overlap_ms per pair — the
+     "summary" preset omits overlap_ms/transition_bars).
 
 2. If the set is TOO LONG (sum > target by more than ~one track):
    - Identify the weakest / most droppable slots: read
