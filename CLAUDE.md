@@ -112,6 +112,25 @@ Dev-режим целиком (4 слоя hot-reload + `/reload-plugins`) — @d
 - @.claude/rules/prompts.md — 30 workflow prompts + content-correctness контракт (filter/data/op-имена пинятся тестами)
 - FastMCP docs: <https://gofastmcp.com/llms.txt>
 
+## Взаимодействие с БД — через Supabase MCP
+
+**Любое прямое чтение/запись live-БД делай через Supabase MCP**
+(`mcp__Supabase__execute_sql`, `mcp__Supabase__list_tables`,
+`mcp__Supabase__apply_migration`, ... — project_id
+`bowosphlnghhgaulcyfm`). Он ходит в Supabase Management API по HTTPS
+(:443) и работает во всех окружениях, включая облачную песочницу
+claude.ai/code, где сырой Postgres (asyncpg :6543/:5432) заблокирован
+egress-прокси.
+
+- **Не** полагайся на asyncpg `entity_*` для ad-hoc запросов к проду из
+  песочницы — порты 5432/6543 закрыты (timeout). Это свойство
+  egress-прокси, не чинится конфигом (детали — @docs/dev-mode.md
+  «Доступ к БД по окружениям»).
+- `entity_*` (ORM-слой через asyncpg) работают напрямую только
+  **локально** и под `claude --teleport`.
+- Канон по окружениям: **облако → Supabase MCP** (live read/write по
+  HTTPS) или teleport; **локаль/teleport → asyncpg `entity_*`** напрямую.
+
 ## DB состояние (drift)
 
 Alembic-миграция `p2_drop_dead_tables` **не применена** к Supabase. 17 dead-таблиц (`spotify_*`, `beatport_metadata`, `soundcloud_metadata`, `embeddings`, `transition_candidates`, `dj_saved_loops`, `dj_cue_points`, `dj_beatgrid_change_points`, `dj_set_constraints`, `dj_set_feedback`, `labels`, `track_labels`, `app_exports`) живут в схеме с 0 rows. Всего **47 live tables**, после drop будет 31.
