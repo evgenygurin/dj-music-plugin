@@ -49,7 +49,11 @@
     "network": {
       "allowedDomains": [
         "aws-1-eu-central-1.pooler.supabase.com",
-        "bowosphlnghhgaulcyfm.supabase.co"
+        "bowosphlnghhgaulcyfm.supabase.co",
+        "api.music.yandex.net",
+        "oauth.yandex.ru",
+        "music.yandex.ru",
+        "storage.mds.yandex.net"
       ]
     }
   }
