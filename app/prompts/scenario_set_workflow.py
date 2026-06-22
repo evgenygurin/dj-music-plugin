@@ -65,8 +65,11 @@ using template '{template}'.
    reference://templates — read the '{template}' slots (position, mood,
    target_lufs, bpm range). This is the energy contract the set must honour.
 
-3. Pull and ready the pool (ensure level >= 3):
-   entity_list(entity="track_features", filters={{"playlist_id": {playlist_id}}},
+3. Pull and ready the pool (ensure level >= 3). track_features has no
+   playlist_id column, so resolve the playlist's track ids first, then
+   filter features by track_id__in:
+   local://playlists/{playlist_id}?include_tracks=true -> pool_ids = [...]
+   entity_list(entity="track_features", filters={{"track_id__in": pool_ids}},
               fields="scoring")
    — for any track below level 3, run the analyze_library_workflow prompt
      first (sequence_optimize auto-upgrades, but pre-analysis is faster).

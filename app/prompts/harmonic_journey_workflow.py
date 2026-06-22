@@ -24,14 +24,18 @@ Harmonic-mixing rules (Camelot wheel — read reference://camelot first):
 - +2 clockwise = "energy boost": more distance, do it FAST, as a nagging
   lift. Our scorer caps safe Camelot distance at 4 (>=5 hard-rejects).
 
+0. Resolve the playlist's track ids (track_features has no playlist_id
+   column — always scope it via track_id__in):
+   local://playlists/{playlist_id}?include_tracks=true -> pool_ids = [...].
+
 1. Load candidate keys:
-   entity_list(entity="track_features", filters={{"playlist_id": {playlist_id}}},
+   entity_list(entity="track_features", filters={{"track_id__in": pool_ids}},
               fields="scoring")
    — group track_ids by key_code; map key_code -> Camelot via reference://camelot.
 
 2. Survey supply:
    entity_aggregate(entity="track_features", operation="histogram",
-                    field="key_code", filters={{"playlist_id": {playlist_id}}})
+                    field="key_code", filters={{"track_id__in": pool_ids}})
    — thin keys are dead-ends; route around them.
 
 3. {start_clause}

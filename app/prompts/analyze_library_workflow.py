@@ -9,7 +9,10 @@ from app.prompts._shared import PROMPT_META
 
 def _body(playlist_id: int | None, level: int, batch_size: int) -> str:
     pool = (
-        f'entity_list(entity="track", filters={{"playlist_id": {playlist_id}, '
+        "First resolve the playlist's track ids — track has no playlist_id\n"
+        f"   column — via local://playlists/{playlist_id}?include_tracks=true,\n"
+        "   then:\n"
+        '   entity_list(entity="track", filters={"id__in": [...playlist ids...], '
         '"has_features": false}, limit=500)'
         if playlist_id is not None
         else 'entity_list(entity="track", filters={"has_features": false}, limit=500)'

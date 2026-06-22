@@ -47,6 +47,7 @@ from app.prompts.taste_profile_workflow import taste_profile_workflow
 from app.providers.yandex.adapter import YandexAdapter
 from app.registry.defaults import register_default_entities
 from app.registry.entity import EntityRegistry
+from app.shared.filters import normalize_bare_fields
 
 
 @pytest.fixture(autouse=True)
@@ -114,6 +115,27 @@ _FIELDS_PRESET_RE = re.compile(
     r"""\bentity\s*=\s*['"]([a-z_]+)['"][^)]*?\bfields\s*=\s*['"]([a-z_]+)['"]""",
     re.DOTALL,
 )
+# Pair each ``filters={...}`` / ``data={...}`` blob with its owning
+# ``entity="X"`` — the gap may not cross another ``entity=`` (so adjacent
+# calls don't get mis-paired). Quote-agnostic; blob has no nested braces.
+_Q = r"""['"]"""
+_FILTERS_RE = re.compile(
+    r"entity_(?:list|aggregate)\(\s*entity="
+    + _Q
+    + r"(\w+)"
+    + _Q
+    + r"((?:(?!entity=).)*?)filters=\{([^{}]*)\}",
+    re.DOTALL,
+)
+_DATA_RE = re.compile(
+    r"entity_(create|update)\(\s*entity="
+    + _Q
+    + r"(\w+)"
+    + _Q
+    + r"((?:(?!entity=).)*?)data=\{([^{}]*)\}",
+    re.DOTALL,
+)
+_KEY_RE = re.compile(_Q + r"([a-z_]+)" + _Q + r"\s*:")
 
 PROMPTS = (
     build_set_workflow,
@@ -186,4 +208,58 @@ def test_field_presets_exist_on_entity(prompt: Callable[..., object]) -> None:
     assert not bad, (
         f"{prompt.__name__} references undeclared field presets: {bad}. "
         "Each ``fields=<name>`` must exist in that entity's field_presets."
+    )
+
+
+@pytest.mark.parametrize("prompt", PROMPTS, ids=lambda p: p.__name__)
+def test_filter_keys_valid_against_schema(prompt: Callable[..., object]) -> None:
+    """Every ``filters={...}`` key must exist on the entity's Pydantic Filter.
+
+    Filter schemas declare ``extra="forbid"``, so an unknown key (e.g.
+    ``playlist_id`` on ``track_features`` — no such column — or
+    ``net_sentiment__lt`` where only ``__lte`` exists) is a HARD
+    ``ValidationError`` at runtime, not a silent no-op. Bare keys are
+    normalized to ``__eq`` exactly as ``entity_list`` does before validating.
+    """
+    body = _render(prompt)
+    bad: list[tuple[str, str]] = []
+    for entity, _gap, blob in _FILTERS_RE.findall(body):
+        if entity not in EntityRegistry.names():
+            continue
+        schema = EntityRegistry.get(entity).filter_schema
+        if schema is None:
+            continue
+        raw = {k: 1 for k in _KEY_RE.findall(blob)}
+        for key in normalize_bare_fields(raw):
+            if key not in schema.model_fields:
+                bad.append((entity, key))
+    assert not bad, (
+        f"{prompt.__name__} uses filter keys absent from the entity Filter "
+        f"schema (extra='forbid' → ValidationError): {sorted(set(bad))}"
+    )
+
+
+@pytest.mark.parametrize("prompt", PROMPTS, ids=lambda p: p.__name__)
+def test_create_update_data_keys_valid_against_schema(
+    prompt: Callable[..., object],
+) -> None:
+    """Every ``entity_create``/``entity_update`` ``data={...}`` key must exist
+    on the Create / Update schema (these declare ``extra="forbid"`` too — e.g.
+    ``track_affinity`` create accepts only track_a_id/track_b_id/avg_score, so
+    a ``ban_count`` on create is a ValidationError)."""
+    body = _render(prompt)
+    bad: list[tuple[str, str, str]] = []
+    for op, entity, _gap, blob in _DATA_RE.findall(body):
+        if entity not in EntityRegistry.names():
+            continue
+        cfg = EntityRegistry.get(entity)
+        schema = cfg.create_schema if op == "create" else cfg.update_schema
+        if schema is None:
+            continue
+        for key in _KEY_RE.findall(blob):
+            if key not in schema.model_fields:
+                bad.append((op, entity, key))
+    assert not bad, (
+        f"{prompt.__name__} uses data keys absent from the {op!r} schema "
+        f"(extra='forbid' → ValidationError): {sorted(set(bad))}"
     )

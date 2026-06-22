@@ -24,7 +24,7 @@ def _body(playlist_id: int, target_count: int) -> str:
    provider_read(entity='track_similar', id=<provider_track_id>, params={{'limit': 20}})
 
 5. Filter candidates against feedback memory (if available):
-   - Skip tracks already on entity_list(entity='track_feedback', filters={{'banned': True}})
+   - Skip banned tracks: entity_list(entity='track_feedback', filters={{"status": "banned"}})
 
 6. Import new provider tracks that aren't in the library yet:
    entity_create(entity='track', data={{'source': 'yandex', 'external_ids': [...]}})

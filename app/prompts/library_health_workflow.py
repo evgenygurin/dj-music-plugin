@@ -9,9 +9,11 @@ from app.prompts._shared import PROMPT_META
 
 def _body(playlist_id: int | None) -> str:
     scope = (
-        f"scoped to playlist {playlist_id} "
-        f'(filter every entity_list with {{"playlist_id": {playlist_id}}} '
-        "where supported)"
+        f"scoped to playlist {playlist_id} (track / track_features have no "
+        "playlist_id column: first resolve the playlist's track ids via "
+        f"local://playlists/{playlist_id}?include_tracks=true, then scope every "
+        'aggregate below with filters={"track_id__in": pool_ids} on '
+        'track_features and filters={"id__in": pool_ids} on track)'
         if playlist_id is not None
         else "across the whole library"
     )

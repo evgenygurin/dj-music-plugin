@@ -6,6 +6,31 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed — prompt filter/data contract bugs (manual verification pass)
+
+- Live-server verification of the prompt catalog surfaced filter/data keys
+  that would raise a hard `ValidationError` (Filter/Create schemas declare
+  `extra="forbid"`):
+  - `playlist_id` used as a filter on `track` / `track_features` (no such
+    column) in `library_health`, `analyze_library`, `harmonic_journey`,
+    `subgenre_journey`, `scenario_set`, `b2b_planning` — rewritten to the
+    canonical "resolve playlist track ids via
+    `local://playlists/{id}?include_tracks=true`, then `track_id__in` /
+    `id__in`" pattern.
+  - `net_sentiment__lt` (only `__lte` exists) on `track_affinity` in
+    `taste_profile`, `crate_digging` → `net_sentiment__lte`.
+  - `track_affinity` create with `ban_count` (create accepts only
+    track_a_id/track_b_id/avg_score) in `taste_profile` → create minimal,
+    then `entity_update` the count column.
+  - Pre-existing: `expand_playlist_workflow` filtered `track_feedback` by
+    `{'banned': True}` (no such field) → `{"status": "banned"}`.
+- New guard tests pin the contract going forward:
+  `test_filter_keys_valid_against_schema` and
+  `test_create_update_data_keys_valid_against_schema` validate every
+  `filters={...}` / `data={...}` key in every prompt against the live
+  Pydantic Filter/Create/Update schemas (29 filter + 52 create + 4 update
+  keys across 19 prompts).
+
 ### Added — workflow prompt catalog (6 → 19)
 
 - **13 new FastMCP workflow prompts** under `app/prompts/` (additive — no

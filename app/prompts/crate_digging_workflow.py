@@ -34,7 +34,7 @@ Digging is selection, not collection — favour character over quantity.
    - skip ids already present: entity_list(entity="track", filters={{...}}).
    - skip banned: entity_list(entity="track_feedback", filters={{"status": "banned"}}).
    - consult prior chemistry: entity_list(entity="track_affinity",
-     filters={{"net_sentiment__lt": 0}}) to avoid known-bad pairings later.
+     filters={{"net_sentiment__lte": -1}}) to avoid known-bad pairings later.
 
 4. Import the survivors (idempotent by source+external_id):
    entity_create(entity="track", data={{"source": "yandex",

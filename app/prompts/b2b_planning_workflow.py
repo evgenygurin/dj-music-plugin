@@ -16,10 +16,14 @@ alternate, who owns which FX. Read the energy TOGETHER — going big too early
 is doubly costly in a B2B because the partner must either match or visibly
 bring it down. The better warm-up DJ opens; the stronger closer lands it.
 
-1. Tag both crates so fast swapping is possible:
-   entity_list(entity="track_features", filters={{"playlist_id": {playlist_a}}},
+1. Tag both crates so fast swapping is possible. track_features has no
+   playlist_id column, so first resolve each crate's track ids, then filter
+   features by track_id__in:
+   local://playlists/{playlist_a}?include_tracks=true -> ids_a = [...]
+   local://playlists/{playlist_b}?include_tracks=true -> ids_b = [...]
+   entity_list(entity="track_features", filters={{"track_id__in": ids_a}},
               fields="scoring")
-   entity_list(entity="track_features", filters={{"playlist_id": {playlist_b}}},
+   entity_list(entity="track_features", filters={{"track_id__in": ids_b}},
               fields="scoring")
    — both crates must be at level >= 3; analyze gaps first.
 

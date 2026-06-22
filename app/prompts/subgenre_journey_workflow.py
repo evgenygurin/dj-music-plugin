@@ -25,19 +25,23 @@ Requested arc '{arc}':
 - "wave"    -> oscillate up and down in 2-3 energy waves.
 - "plateau" -> hold one neighbourhood (e.g. hypnotic/driving roller).
 
+0. Resolve the playlist's track ids (track_features has no playlist_id
+   column — always scope it via track_id__in):
+   local://playlists/{playlist_id}?include_tracks=true -> pool_ids = [...].
+
 1. Inventory subgenres present:
    entity_aggregate(entity="track_features", operation="distinct", field="mood",
-                    filters={{"playlist_id": {playlist_id}}})
+                    filters={{"track_id__in": pool_ids}})
    then counts per mood:
    entity_aggregate(entity="track_features", operation="count",
-                    filters={{"playlist_id": {playlist_id}, "mood": <m>}})
+                    filters={{"track_id__in": pool_ids, "mood": <m>}})
 
 2. Draft the mood sequence honouring the arc and the axis-distance rule.
    Skip empty subgenres; bridge gaps with the nearest populated neighbour.
 
 3. Pull candidate ids per mood bucket:
    entity_list(entity="track_features",
-              filters={{"playlist_id": {playlist_id}, "mood__in": [...]}},
+              filters={{"track_id__in": pool_ids, "mood__in": [...]}},
               fields="scoring")
    — prefer high mood_confidence tracks as the spine; low-confidence ones
      are flexible swing tracks.
