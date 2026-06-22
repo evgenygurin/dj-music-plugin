@@ -3,11 +3,16 @@
 Order is outermost→innermost; the first added wraps all others at call time.
 Do not reorder without updating blueprint §11 and ``tests/server/test_ordering.py``.
 
-Five middleware classes below are imported from ``fastmcp.server.middleware.*``:
+Four middleware classes below are imported from ``fastmcp.server.middleware.*``:
 ``DetailedTimingMiddleware``, ``RetryMiddleware``, ``ResponseLimitingMiddleware``,
-``ResponseCachingMiddleware``, ``StructuredLoggingMiddleware``. FastMCP v3 ships
-these with the same semantics our hand-rolled versions had; the core test suite
-covers their behaviour.
+``StructuredLoggingMiddleware``. FastMCP v3 ships these with the same semantics
+our hand-rolled versions had; the core test suite covers their behaviour.
+
+``ResponseCachingMiddleware`` is a thin compat subclass of FastMCP's built-in
+(``app/server/middleware/_caching_compat.py``) — the 3.4.2 built-in calls
+``call_next(context=context)`` by keyword while the server's chain link only
+accepts the context positionally; the subclass bridges that mismatch. Drop it
+when the upstream keyword/positional mismatch is fixed.
 
 ``DomainErrorMiddleware`` (formerly ``ErrorHandlingMiddleware``) is ours — it
 maps domain exceptions to ``ToolError`` and is distinct from FastMCP's built-in
@@ -37,7 +42,6 @@ from fastmcp.server.middleware.caching import (
     ListResourcesSettings,
     ListToolsSettings,
     ReadResourceSettings,
-    ResponseCachingMiddleware,
 )
 from fastmcp.server.middleware.error_handling import RetryMiddleware
 from fastmcp.server.middleware.logging import StructuredLoggingMiddleware
@@ -45,6 +49,10 @@ from fastmcp.server.middleware.response_limiting import ResponseLimitingMiddlewa
 from fastmcp.server.middleware.timing import DetailedTimingMiddleware
 from key_value.aio.stores.memory import MemoryStore
 
+# Compat-shimmed ResponseCachingMiddleware (FastMCP 3.4.2 keyword/positional
+# call_next mismatch — see app/server/middleware/_caching_compat.py). Named
+# ``ResponseCachingMiddleware`` so ALL_MIDDLEWARE / ordering tests are unchanged.
+from app.server.middleware._caching_compat import ResponseCachingMiddleware
 from app.server.middleware.audit_log import AuditLogMiddleware
 from app.server.middleware.cost_tracking import CostTrackingMiddleware
 from app.server.middleware.db_session import DbSessionMiddleware
