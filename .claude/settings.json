@@ -20,29 +20,40 @@
     "dj-music@dj-music-plugin": true
   },
   "extraKnownMarketplaces": {
+    "dj-music-plugin": {
+      "source": {
+        "source": "github",
+        "repo": "evgenygurin/dj-music-plugin"
+      },
+      "autoUpdate": true
+    },
     "fastmcp-builder-skill": {
       "source": {
         "source": "github",
         "repo": "husniadil/fastmcp-builder"
-      }
+      },
+      "autoUpdate": true
     },
     "awesome-claude-code-plugins": {
       "source": {
         "source": "github",
         "repo": "ccplugins/awesome-claude-code-plugins"
-      }
+      },
+      "autoUpdate": true
     },
     "claude-skills-marketplace": {
       "source": {
         "source": "github",
         "repo": "mhattingpete/claude-skills-marketplace"
-      }
+      },
+      "autoUpdate": true
     },
     "python-backend-plugins": {
       "source": {
         "source": "github",
         "repo": "ruslan-korneev/python-backend-claude-plugins"
-      }
+      },
+      "autoUpdate": true
     }
   },
   "sandbox": {
