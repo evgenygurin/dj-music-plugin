@@ -1,6 +1,6 @@
 # MCP Tool Catalog
 
-Quick reference — **20 tools total** (13 core dispatchers + 6 UI/Prefab + `tool_invoke`) + **27 resources** + **26 prompts** + **6 handlers** + **11 registered entities**.
+Quick reference — **20 tools total** (13 core dispatchers + 6 UI/Prefab + `tool_invoke`) + **27 resources** + **30 prompts** + **6 handlers** + **11 registered entities**.
 
 The 88-tool catalog of v0.8 was collapsed via polymorphism: generic CRUD
 (`entity_*`) dispatches via `EntityRegistry`, generic provider access
@@ -147,7 +147,7 @@ All read-only, MIME `application/json`, auto-discovered from `app/resources/`.
 | `reference://templates` | 8 set templates (warm_up_30, classic_60, …) |
 | `reference://audit_rules` | Techno audit thresholds |
 
-## Prompts (26, namespace `workflow`)
+## Prompts (30, namespace `workflow`)
 
 Design rationale + techno-domain research:
 [docs/research/2026-06-22-techno-set-construction-and-mcp-prompts.md](research/2026-06-22-techno-set-construction-and-mcp-prompts.md)
@@ -172,14 +172,15 @@ resolve is a runtime hard error, not a no-op).
 | `full_pipeline` | Chain expand → build → deliver |
 | `quick_mix_check` | Single pairwise mix compatibility (a→b) |
 
-**Library & analysis (2)**
+**Library & analysis (3)**
 
 | Prompt | Purpose |
 |---|---|
 | `library_health_workflow` | Coverage + BPM/key/mood distribution + audit fails (`playlist_id?`) |
 | `analyze_library_workflow` | Batch-analyze unanalyzed tracks / upgrade tier (`playlist_id?, level=3, batch_size=20`) |
+| `track_prep_workflow` | Single-track mixing prep: analyze→L3, audit, numbers, neighbours (`track_id`) |
 
-**Set design (9)**
+**Set design (10)**
 
 | Prompt | Purpose |
 |---|---|
@@ -190,6 +191,7 @@ resolve is a runtime hard error, not a no-op).
 | `dj_persona_workflow` | Build in a DJ school's style: klock/dettmann/lens/dewitte/mills/hawtin/kraviz (`playlist_id, persona=klock, length=12`) |
 | `style_lock_set_workflow` | Mono-genre set locked to one subgenre band (`playlist_id, style=hypnotic, length=12`) |
 | `mix_cluster_workflow` | Find mutually-mixable clusters/chains, seed a set bottom-up (`playlist_id, limit=30`) |
+| `lineup_handoff_workflow` | Build a lineup slot whose tail hands off at a target BPM (`playlist_id, role=warmup, handoff_bpm=128`) |
 | `b2b_planning_workflow` | Back-to-back across two crates (`playlist_a, playlist_b, template=classic_60`) |
 | `extend_set_workflow` | Lengthen a set, keep the arc (`set_id, add_tracks=5, where=end`) |
 
@@ -202,11 +204,13 @@ resolve is a runtime hard error, not a no-op).
 | `fix_transition_workflow` | Diagnose/repair one weak/hard transition: technique → bridge → replace (`from_track_id, to_track_id`) |
 | `replace_track_workflow` | Swap a weak slot for a better candidate (`set_id, position`) |
 
-**Delivery & performance (1)**
+**Delivery & performance (3)**
 
 | Prompt | Purpose |
 |---|---|
 | `set_cheatsheet_workflow` | Assemble a performance-ready DJ cue sheet (BPM/key/energy/technique) (`set_id, version_id?`) |
+| `set_duration_fit_workflow` | Trim/extend a set to fit an exact time slot, keep the arc (`set_id, target_minutes=60`) |
+| `live_next_track_workflow` | Live mid-set: pick the next track from the current one + room energy (`last_track_id, energy_direction=flat`) |
 
 **Discovery & ops (3)**
 
@@ -264,3 +268,4 @@ never hides them behind a search query.
 | v1.3.7 | 20 | 27 | Manual MCP hardening (no surface change). FK gate auto-derived from `cls.__table__.foreign_keys` (`app/tools/entity/_fk_gate.py`); `DomainErrorMiddleware` wraps resource + prompt envelopes too; Pydantic `ValidationError` → typed `app.shared.errors.ValidationError`; `AggregateResult.value` union has `bool` BEFORE `int` (`distinct(variable_tempo)` → `[false, true]`); validation gates added on `entity_get.include_relations`, `suggest_next.energy_direction`, `transition.{scoring_profile,fx_type,persist}`, `sequence_optimize.{pinned,excluded}`, `ui_score_pool_matrix` duplicate ids, `ui_transition_score` `from==to`, `entity_update set` BPM partial-update invariant; `unlock_namespace` accepts `ui:read`; `provider_read.id` accepts `int \| str`; `YandexAdapter.read("track_batch")` accepts legacy `ids` key; `app/audio/core/loader.py` wraps `wave.Error` → typed `RuntimeError`; SQLite `PRAGMA foreign_keys=ON` via `connect` event listener. |
 | (prompts) | 20 | 27 | Prompt catalog grew 6 → **18** (additive, no tool/resource surface change): +`library_health_workflow`, `analyze_library_workflow`, `harmonic_journey_workflow`, `subgenre_journey_workflow`, `scenario_set_workflow`, `b2b_planning_workflow`, `extend_set_workflow`, `set_review_workflow`, `fix_transition_workflow`, `replace_track_workflow`, `crate_digging_workflow`, `taste_profile_workflow`, `playlist_sync_workflow`. Research-backed (`docs/research/2026-06-22-…`); content pinned by `test_prompt_content_correctness.py`. |
 | (prompts v2) | 20 | 27 | Prompt catalog grew 19 → **26** (additive): +`tempo_journey_workflow` (BPM axis), +`dj_persona_workflow` (Klock/Dettmann/Lens/de Witte/Mills/Hawtin/Kraviz schools), +`style_lock_set_workflow` (mono-genre), +`mix_cluster_workflow` (bottom-up cluster discovery), +`rescue_set_workflow` (heavy hard-reject repair), +`set_cheatsheet_workflow` (performance cue sheet), +`library_cleanup_workflow` (actionable hygiene). Deep-dive research (`docs/research/2026-06-22-techno-deep-dive-and-prompt-expansion.md`); content pinned by `test_prompt_content_correctness.py`. |
+| (prompts v3) | 20 | 27 | Prompt catalog grew 26 → **30** (additive, live/performance batch): +`live_next_track_workflow` (mid-set live pick via `session://*` + `suggest_next`), +`set_duration_fit_workflow` (fit a set to an exact time slot), +`track_prep_workflow` (single-track end-to-end readiness), +`lineup_handoff_workflow` (slot whose tail hands off at a target BPM). Content pinned by `test_prompt_content_correctness.py`. |

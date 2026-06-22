@@ -1,6 +1,6 @@
 # MCP Prompts (v1)
 
-26 workflow prompts under `app/prompts/` — pure text-builders that chain
+30 workflow prompts under `app/prompts/` — pure text-builders that chain
 the tool surface into reproducible DJ recipes. Catalog + techno-domain
 research: `docs/research/2026-06-22-techno-set-construction-and-mcp-prompts.md`
 + deep-dive / persona & axis expansion (v2):
@@ -24,21 +24,23 @@ research: `docs/research/2026-06-22-techno-set-construction-and-mcp-prompts.md`
   required, with defaults optional. Keep types simple (`int`, `str`,
   `bool`, `int | None`).
 
-## Catalog (26)
+## Catalog (30)
 
 - Core (6): `dj_expert_session`, `build_set_workflow`,
   `deliver_set_workflow`, `expand_playlist_workflow`, `full_pipeline`,
   `quick_mix_check`.
-- Library/analysis (2): `library_health_workflow`,
-  `analyze_library_workflow`.
-- Set design (9): `harmonic_journey_workflow`,
+- Library/analysis (3): `library_health_workflow`,
+  `analyze_library_workflow`, `track_prep_workflow`.
+- Set design (10): `harmonic_journey_workflow`,
   `subgenre_journey_workflow`, `tempo_journey_workflow`,
   `scenario_set_workflow`, `dj_persona_workflow`,
   `style_lock_set_workflow`, `mix_cluster_workflow`,
-  `b2b_planning_workflow`, `extend_set_workflow`.
+  `lineup_handoff_workflow`, `b2b_planning_workflow`,
+  `extend_set_workflow`.
 - Set repair (4): `set_review_workflow`, `rescue_set_workflow`,
   `fix_transition_workflow`, `replace_track_workflow`.
-- Delivery/performance (1): `set_cheatsheet_workflow`.
+- Delivery/performance (3): `set_cheatsheet_workflow`,
+  `set_duration_fit_workflow`, `live_next_track_workflow`.
 - Discovery/ops (3): `crate_digging_workflow`, `taste_profile_workflow`,
   `playlist_sync_workflow`.
 - Library maintenance (1): `library_cleanup_workflow`.
