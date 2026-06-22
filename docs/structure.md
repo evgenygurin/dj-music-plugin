@@ -31,7 +31,7 @@ dj-music-plugin/
 ├── docs/                           # Архитектурная документация
 │   ├── architecture.md             # Bounded contexts, data flow
 │   ├── domain-glossary.md
-│   ├── tool-catalog.md             # 20 tools + 27 resources + 19 prompts
+│   ├── tool-catalog.md             # 20 tools + 27 resources + 26 prompts
 │   ├── audio-pipeline.md
 │   ├── ym-api-guide.md
 │   ├── transition-scoring.md
@@ -60,7 +60,7 @@ dj-music-plugin/
 │   │   ├── _context_log.py         # v1.3.7: safe_info / safe_report_progress wrappers (ctx may be None in headless/tests)
 │   │   └── track_import.py, track_features_{analyze,reanalyze}.py, audio_file_download.py, set_version_build.py, transition_persist.py
 │   │
-│   ├── prompts/                    # @prompt — 19 workflow recipes
+│   ├── prompts/                    # @prompt — 26 workflow recipes
 │   │   ├── dj_expert_session.py            # core (6)
 │   │   ├── build_set_workflow.py
 │   │   ├── deliver_set_workflow.py

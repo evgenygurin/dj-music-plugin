@@ -38,7 +38,7 @@ uv run fastmcp run server.py --reload      # MCP dev server
 Загружай соответствующий doc при работе с областью:
 
 - @docs/architecture.md — bounded-contexts, data flow, dependency rules
-- @docs/tool-catalog.md — 20 dispatchers + 27 resources + 19 prompts
+- @docs/tool-catalog.md — 20 dispatchers + 27 resources + 26 prompts
 - @docs/domain-glossary.md — DJ терминология (BPM, Camelot, LUFS, subgenres)
 - @docs/audio-pipeline.md — 18 анализаторов, tiered L1–L4, mood classifier
 - @docs/audio-schema.md — `track_audio_features_computed` (47 features)
@@ -65,7 +65,7 @@ uv run fastmcp run server.py --reload      # MCP dev server
 app/
 ├── tools/          # 20 @tool — entity/provider/compute/sync/admin/ui
 ├── resources/      # 27 @resource — local://, schema://, session://, reference://
-├── prompts/        # 19 workflow recipes
+├── prompts/        # 26 workflow recipes
 ├── handlers/       # 6 side-effect handlers (track_import, audio_file_download, ...)
 ├── registry/       # EntityRegistry (11 entities) + ProviderRegistry
 ├── repositories/   # BaseRepository[M] + UnitOfWork
@@ -109,7 +109,7 @@ Dev-режим целиком (4 слоя hot-reload + `/reload-plugins`) — @d
 Перед любой работой с tools / resources / prompts / lifespan / visibility:
 - @.claude/rules/tools.md — `@tool` шаблон, namespaces, annotations
 - @.claude/rules/resources.md — URI schemes, return types
-- @.claude/rules/prompts.md — 19 workflow prompts + content-correctness контракт (filter/data/op-имена пинятся тестами)
+- @.claude/rules/prompts.md — 26 workflow prompts + content-correctness контракт (filter/data/op-имена пинятся тестами)
 - FastMCP docs: <https://gofastmcp.com/llms.txt>
 
 ## DB состояние (drift)

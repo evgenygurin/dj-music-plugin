@@ -23,7 +23,7 @@
 │  ┌──────▼──────────────────────────────────────────────────┐│
 │  │           FileSystemProvider (auto-discover)             ││
 │  │  ┌──────────┐  ┌────────────┐  ┌──────────────────────┐ ││
-│  │  │ 20 Tools │  │27 Resources│  │ 19 Workflow Prompts  │ ││
+│  │  │ 20 Tools │  │27 Resources│  │ 26 Workflow Prompts  │ ││
 │  │  └────┬─────┘  └──────┬─────┘  └──────────────────────┘ ││
 │  └───────┼───────────────┼─────────────────────────────────┘│
 └──────────┼───────────────┼──────────────────────────────────┘
@@ -89,7 +89,7 @@ Parallel layers (called from handlers, never from tools directly):
 | **Tools** | `app/tools/` | 14 `@tool` dispatchers (6 entity + 3 provider + 2 compute + 1 sync + `unlock_namespace` + `tool_invoke`) — no business logic, only dispatch |
 | **UI Tools** | `app/tools/ui/` | 6 Prefab Apps renderers (`meta={"ui": True}`) — return `prefab_ui.components.Column` trees; JSON fallback via `ctx.client_supports_extension("io.modelcontextprotocol/ui")` |
 | **Resources** | `app/resources/` | 27 `@resource` URIs — read-only views (16 local://, 4 schema://, 3 session://, 4 reference://) |
-| **Prompts** | `app/prompts/` | 19 workflow recipes (LLM-visible) |
+| **Prompts** | `app/prompts/` | 26 workflow recipes (LLM-visible) |
 | **Handlers** | `app/handlers/` | Entity-specific side-effect logic (registered in EntityRegistry) |
 | **Registry** | `app/registry/` | `EntityRegistry` (entity→repo+handler) + `ProviderRegistry` (name→client) |
 | **Repositories** | `app/repositories/` | `BaseRepository[M]` + `UnitOfWork`. Flush-only, never commit |
