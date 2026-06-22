@@ -2,13 +2,13 @@
 
 **v1.4.0** · MIT · MCP-сервер для управления личной DJ techno библиотекой, построения оптимизированных DJ сетов и интеграции с Яндекс Музыкой.
 
-Surface: **MCP** (Claude Desktop / Cursor / любой MCP-client) — 20 tools, 27 resources, 6 workflow prompts.
+Surface: **MCP** (Claude Desktop / Cursor / любой MCP-client) — 20 tools, 27 resources, 19 workflow prompts.
 
 ## Возможности
 
 - **20 MCP tools** — 14 generic dispatchers (v1 polymorphism: `entity_{list,get,create,update,delete,aggregate}` × 11 entities, `provider_{read,write,search}` × Yandex, `transition_score_pool`, `sequence_optimize`, `playlist_sync`, `unlock_namespace`, `tool_invoke`) + 6 UI Prefab dashboards (camelot wheel, library audit/dashboard, set view, transition score, score-pool matrix)
 - **27 MCP resources** — per-entity views (`local://`), session state (`session://`), schema introspection (`schema://`), static reference blobs (`reference://`)
-- **6 workflow prompts** — `dj_expert_session`, `build_set_workflow`, `deliver_set_workflow`, `expand_playlist_workflow`, `full_pipeline`, `quick_mix_check`
+- **19 workflow prompts** — core (`dj_expert_session`, `build_set_workflow`, `deliver_set_workflow`, `expand_playlist_workflow`, `full_pipeline`, `quick_mix_check`) + library/analysis, set design (harmonic/subgenre journey, scenario, b2b, extend), set repair (review/fix/replace) и discovery/ops (digging, taste, sync) — см. [research](docs/research/2026-06-22-techno-set-construction-and-mcp-prompts.md)
 - **Audio analysis pipeline** — 18 анализаторов (L1→L4 tiered), SharedMemory transport + per-worker AnalysisContext cache
 - **DJ set generation** — генетический алгоритм + greedy builder с transition scoring и section-aware весами
 - **Transition scoring** — 6-компонентная оценка (BPM, гармония, энергия, спектр, грув, тембр) + hard constraints + recipe engine (12 mix-типов) + intent/style/template awareness
@@ -76,7 +76,7 @@ claude plugin validate /path/to/dj-music-plugin
 
 | Сервер | Назначение |
 |--------|------------|
-| `mcp` | 20 DJ tools + 27 resources + 6 prompts — построение сетов, аудиоанализ, YM, экспорт (FastMCP v3) |
+| `mcp` | 20 DJ tools + 27 resources + 19 prompts — построение сетов, аудиоанализ, YM, экспорт (FastMCP v3) |
 | `db` | Read-only инспекция БД: схема, SQL, миграции, логи |
 
 Сервер `db` принудительно изолирован (security hardening по [официальным рекомендациям Supabase MCP](https://github.com/supabase-community/supabase-mcp#security-risks)):
@@ -121,7 +121,7 @@ FastMCP v3 + FileSystemProvider (standalone `@tool` / `@resource` / `@prompt`, a
 ```text
 tools/       # 14 @tool dispatchers (entity/provider/compute/sync/admin) + 6 UI Prefab
 resources/   # 27 @resource URIs
-prompts/     # 6 @prompt workflow recipes
+prompts/     # 19 @prompt workflow recipes
 handlers/    # 6 entity-scoped side-effect handlers
 registry/    # EntityRegistry + ProviderRegistry + defaults
 repositories/# BaseRepository[M] + UnitOfWork aggregator
@@ -224,7 +224,7 @@ entity_create("track",...)  → entity_create("audio_file",...)  → entity_crea
 |---|---|
 | Архитектурный блюпринт v1 | [docs/superpowers/specs/2026-04-17-architecture-blueprint-design.md](docs/superpowers/specs/2026-04-17-architecture-blueprint-design.md) |
 | Bounded contexts + data flow | [docs/architecture.md](docs/architecture.md) |
-| MCP tool catalog (20 tools, 27 resources, 6 prompts) | [docs/tool-catalog.md](docs/tool-catalog.md) |
+| MCP tool catalog (20 tools, 27 resources, 19 prompts) | [docs/tool-catalog.md](docs/tool-catalog.md) |
 | Audio analysis pipeline L1→L4 | [docs/audio-pipeline.md](docs/audio-pipeline.md) |
 | Transition scoring (6-component formula) | [docs/transition-scoring.md](docs/transition-scoring.md) |
 | Yandex Music API quirks | [docs/ym-api-guide.md](docs/ym-api-guide.md) |

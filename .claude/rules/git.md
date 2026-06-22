@@ -44,11 +44,13 @@ all shipped via PRs straight from `release/*` into `main`).
 
 1. Prevents direct pushes to `main` when the current branch is `main`.
 2. Runs `make check` (lint + typecheck + arch + test) locally before
-   the push completes — the same gate as CI, run for FREE on the dev
-   machine so development never depends on GitHub Actions being
-   available (Actions on a public repo are free, but an account-level
-   billing lock can still disable them). Skipped on branch deletes.
-   Emergency bypass: `DJ_SKIP_CHECK=1 git push ...`.
+   the push completes. This is the **only** quality gate — there is no
+   GitHub Actions CI. Actions are disabled for this repo at the account
+   level (billing lock): every run failed in 2-8s without a runner,
+   producing a false red status on every PR, so `.github/workflows/ci.yml`
+   was removed. **Do not recreate any CI workflow** (see CLAUDE.md
+   "⛔ НЕ создавать CI"). Skipped on branch deletes. Emergency bypass:
+   `DJ_SKIP_CHECK=1 git push ...`.
 
 Installed via: `ln -sf ../../hooks/pre-push .git/hooks/pre-push`.
 

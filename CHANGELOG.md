@@ -30,7 +30,15 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 ### Changed
 
 - Docs prompt counts updated 6 → 19 (`CLAUDE.md`, `docs/tool-catalog.md`,
-  `docs/architecture.md`, `docs/structure.md`).
+  `docs/architecture.md`, `docs/structure.md`, `README.md`).
+
+### Removed
+
+- `.github/workflows/ci.yml` — GitHub Actions are disabled for this repo at
+  the account level (billing lock): every run failed in 2-8s without a
+  runner, producing a false red status on every PR. Quality is gated locally
+  by `make check` + the `hooks/pre-push` hook. CLAUDE.md now forbids
+  recreating any CI workflow ("⛔ НЕ создавать CI").
 
 ## [1.4.1] - 2026-05-13
 
