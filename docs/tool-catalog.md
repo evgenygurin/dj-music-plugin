@@ -151,8 +151,13 @@ All read-only, MIME `application/json`, auto-discovered from `app/resources/`.
 
 Design rationale + techno-domain research:
 [docs/research/2026-06-22-techno-set-construction-and-mcp-prompts.md](research/2026-06-22-techno-set-construction-and-mcp-prompts.md).
-Every entity / provider / field-preset name in a prompt body is pinned by
-`tests/prompts/test_prompt_content_correctness.py`.
+Authoring rules + content-correctness contract:
+[.claude/rules/prompts.md](../.claude/rules/prompts.md). Every
+entity / provider / field-preset **and** every `filters={...}` key,
+`data={...}` key, and `provider_write` operation in a prompt body is
+validated against the live runtime schemas/adapter by
+`tests/prompts/test_prompt_content_correctness.py` (a name that doesn't
+resolve is a runtime hard error, not a no-op).
 
 **Core (6)**
 

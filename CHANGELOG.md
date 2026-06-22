@@ -68,6 +68,13 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 - Docs prompt counts updated 6 → 19 (`CLAUDE.md`, `docs/tool-catalog.md`,
   `docs/architecture.md`, `docs/structure.md`, `README.md`).
+- New `.claude/rules/prompts.md` — canonical prompt-authoring rules + the
+  full content-correctness contract (entity / provider / field-preset /
+  filter-key / data-key / provider_write-op validation). Referenced from
+  CLAUDE.md "FastMCP v3 правила".
+- `docs/ym-api-guide.md` + `.claude/rules/ym.md` document the
+  `YandexAdapter.operations_supported` provider-write matrix (no
+  `create_from_set`).
 
 ### Removed
 

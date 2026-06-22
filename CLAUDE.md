@@ -109,6 +109,7 @@ Dev-режим целиком (4 слоя hot-reload + `/reload-plugins`) — @d
 Перед любой работой с tools / resources / prompts / lifespan / visibility:
 - @.claude/rules/tools.md — `@tool` шаблон, namespaces, annotations
 - @.claude/rules/resources.md — URI schemes, return types
+- @.claude/rules/prompts.md — 19 workflow prompts + content-correctness контракт (filter/data/op-имена пинятся тестами)
 - FastMCP docs: <https://gofastmcp.com/llms.txt>
 
 ## DB состояние (drift)

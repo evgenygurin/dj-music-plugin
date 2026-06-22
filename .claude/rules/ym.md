@@ -39,9 +39,13 @@ globs:
 - `read(entity, id, params)` — entities: `track`, `track_batch`,
   `track_similar`, `album`, `artist_tracks`, `playlist`,
   `playlist_list`, `likes`, `dislikes`.
-- `write(entity, operation, params)`:
+- `write(entity, operation, params)` — operation matrix is declared on
+  `YandexAdapter.operations_supported` (ClassVar, source of truth that
+  mirrors the `_write_playlist` / `_write_likes` `match` arms; any other
+  operation raises `ValueError("unknown <entity> operation: ...")`):
   - `entity="playlist"` × `create | rename | set_description | delete
-    | add_tracks | remove_tracks`
+    | add_tracks | remove_tracks` — there is **no** `create_from_set`;
+    push a set as `create` then `add_tracks`.
   - `entity="likes"` × `add | remove`
 - `search(query, type, limit)` — plural aliases accepted; client
   rewrites to singular via `_SEARCH_TYPE_ALIASES`.
