@@ -263,3 +263,40 @@ def test_create_update_data_keys_valid_against_schema(
         f"{prompt.__name__} uses data keys absent from the {op!r} schema "
         f"(extra='forbid' → ValidationError): {sorted(set(bad))}"
     )
+
+
+# Each provider_write(...) call: pull entity= and operation= from the call
+# window (order-agnostic, window bounded by the next provider_write).
+_PWRITE_RE = re.compile(
+    r"provider_write\(((?:(?!provider_write).)*?)\)",
+    re.DOTALL,
+)
+_PW_ENTITY_RE = re.compile(r"entity=['\"](\w+)['\"]")
+_PW_OP_RE = re.compile(r"operation=['\"](\w+)['\"]")
+
+
+@pytest.mark.parametrize("prompt", PROMPTS, ids=lambda p: p.__name__)
+def test_provider_write_operations_match_adapter(
+    prompt: Callable[..., object],
+) -> None:
+    """Every ``provider_write(entity=X, operation=Y)`` must use an operation the
+    adapter actually handles. ``deliver_set_workflow`` once told the LLM to call
+    ``operation='create_from_set'`` — the adapter raises ``ValueError('unknown
+    playlist operation: create_from_set')`` at runtime. Pinned against
+    ``YandexAdapter.operations_supported`` (mirrors the ``match`` arms)."""
+    body = _render(prompt)
+    supported = YandexAdapter.operations_supported
+    bad: list[tuple[str, str]] = []
+    for blob in _PWRITE_RE.findall(body):
+        ent_m = _PW_ENTITY_RE.search(blob)
+        op_m = _PW_OP_RE.search(blob)
+        if not ent_m or not op_m:
+            continue
+        ent, op = ent_m.group(1), op_m.group(1)
+        if ent in supported and op not in supported[ent]:
+            bad.append((ent, op))
+    assert not bad, (
+        f"{prompt.__name__} uses provider_write operations the adapter does not "
+        f"handle: {sorted(set(bad))}. Supported: "
+        + ", ".join(f"{e}: {ops}" for e, ops in supported.items())
+    )

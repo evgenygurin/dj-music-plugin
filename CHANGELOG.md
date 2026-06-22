@@ -30,6 +30,18 @@ Versioning follows [Semantic Versioning](https://semver.org/).
   `filters={...}` / `data={...}` key in every prompt against the live
   Pydantic Filter/Create/Update schemas (29 filter + 52 create + 4 update
   keys across 19 prompts).
+- Pre-existing: `deliver_set_workflow` told the LLM to call
+  `provider_write(entity='playlist', operation='create_from_set')` — the
+  adapter raises `ValueError('unknown playlist operation: create_from_set')`.
+  Rewritten to the real two-step `create` → `add_tracks` sequence.
+  `YandexAdapter.operations_supported` (new ClassVar, mirrors the `match`
+  arms) is now the source of truth, pinned by a new
+  `test_provider_write_operations_match_adapter` guard.
+- Deeper live-server verification (non-vacuous) also confirmed valid:
+  every `entity_aggregate` field is a real model column (8 refs),
+  every cross-prompt reference resolves (14 refs / 9 prompts),
+  `provider_search` types, `sequence_optimize` algorithm/template, and
+  `suggest_next` energy_direction values.
 
 ### Added — workflow prompt catalog (6 → 19)
 
