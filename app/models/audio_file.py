@@ -19,9 +19,12 @@ class DjLibraryItem(Base, TimestampMixin):
     track_id: Mapped[int] = mapped_column(ForeignKey("tracks.id", ondelete="CASCADE"), index=True)
     file_path: Mapped[str] = mapped_column(String(1000))
     file_uri: Mapped[str | None] = mapped_column(String(1000), nullable=True)
-    file_hash: Mapped[str | None] = mapped_column(String(128), nullable=True, index=True)
+    # Prod: file_hash NOT NULL, mime_type nullable. Prior ORM had them
+    # swapped — would have allowed NULL hashes through and rejected NULL
+    # mime_types Supabase happily accepts.
+    file_hash: Mapped[str] = mapped_column(String(128), index=True)
     file_size: Mapped[int] = mapped_column()
-    mime_type: Mapped[str] = mapped_column(String(50))
+    mime_type: Mapped[str | None] = mapped_column(String(50), nullable=True)
     bitrate: Mapped[int | None] = mapped_column(nullable=True)
     sample_rate: Mapped[int | None] = mapped_column(nullable=True)
     channels: Mapped[int | None] = mapped_column(nullable=True)
@@ -47,11 +50,12 @@ class DjBeatgrid(Base, TimestampMixin):
         ForeignKey("dj_library_items.id", ondelete="CASCADE"), index=True
     )
     bpm: Mapped[float] = mapped_column()
-    first_downbeat_ms: Mapped[float] = mapped_column()
+    # Prod: first_downbeat_ms is nullable. Prior ORM made it NOT NULL,
+    # source_app didn't exist in prod schema at all.
+    first_downbeat_ms: Mapped[float | None] = mapped_column(nullable=True)
     grid_offset_ms: Mapped[float | None] = mapped_column(nullable=True)
     confidence: Mapped[float | None] = mapped_column(nullable=True)
     variable_tempo: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0")
     canonical: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0")
-    source_app: Mapped[str | None] = mapped_column(String(100), nullable=True)
 
     library_item: Mapped[DjLibraryItem] = relationship(back_populates="beatgrids")

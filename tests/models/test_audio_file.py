@@ -20,6 +20,7 @@ async def test_create_library_item(engine: AsyncEngine, session: AsyncSession) -
     li = DjLibraryItem(
         track_id=t.id,
         file_path="/vault/track.mp3",
+        file_hash="sha256-of-vault-track",
         file_size=4_000_000,
         mime_type="audio/mpeg",
         bitrate=320,
@@ -38,7 +39,13 @@ async def test_beatgrid_bpm_range(engine: AsyncEngine, session: AsyncSession) ->
     t = Track(title="x")
     session.add(t)
     await session.flush()
-    li = DjLibraryItem(track_id=t.id, file_path="/x.mp3", file_size=1, mime_type="audio/mpeg")
+    li = DjLibraryItem(
+        track_id=t.id,
+        file_path="/x.mp3",
+        file_hash="sha256-of-x-mp3",
+        file_size=1,
+        mime_type="audio/mpeg",
+    )
     session.add(li)
     await session.flush()
     bg = DjBeatgrid(

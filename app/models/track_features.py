@@ -155,19 +155,30 @@ class TrackSection(Base, TimestampMixin):
     section_type: Mapped[int] = mapped_column()
     start_ms: Mapped[int] = mapped_column()
     end_ms: Mapped[int] = mapped_column()
-    energy: Mapped[float] = mapped_column()
+    # Prod is nullable (no NULLs today, but the constraint isn't enforced).
+    energy: Mapped[float | None] = mapped_column(nullable=True)
     confidence: Mapped[float | None] = mapped_column(nullable=True)
 
 
 class TimeseriesReference(Base, TimestampMixin):
+    """Per-track on-disk timeseries pointers (energy / chroma / spectral / beats).
+
+    Synced with prod 2026-05-07. Prod columns are ``feature_set_name`` and
+    ``data_type``; the prior ORM exposed ``feature_set`` and ``dtype`` so
+    every SELECT through SQLAlchemy would have failed against Supabase
+    (in-memory SQLite tests passed because they create the schema from
+    the ORM). The audio module (``app/audio/timeseries.py``) already
+    emits dicts with the prod column names.
+    """
+
     __tablename__ = "timeseries_references"
 
     id: Mapped[int] = mapped_column(primary_key=True)
     track_id: Mapped[int] = mapped_column(ForeignKey("tracks.id", ondelete="CASCADE"), index=True)
-    feature_set: Mapped[str] = mapped_column(String(50))
+    feature_set_name: Mapped[str] = mapped_column(String(50))
     storage_uri: Mapped[str] = mapped_column(String(500))
     frame_count: Mapped[int] = mapped_column()
     hop_length: Mapped[int] = mapped_column()
     sample_rate: Mapped[int] = mapped_column()
-    dtype: Mapped[str] = mapped_column(String(20))
+    data_type: Mapped[str] = mapped_column(String(20))
     shape: Mapped[str] = mapped_column(String(100))

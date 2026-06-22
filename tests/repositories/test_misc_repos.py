@@ -62,7 +62,13 @@ async def test_audio_file_and_beatgrid(setup: None, session: AsyncSession) -> No
     session.add(t)
     await session.flush()
     repo = AudioFileRepository(session)
-    f = await repo.create(track_id=t.id, file_path="/a.mp3", file_size=1, mime_type="audio/mpeg")
+    f = await repo.create(
+        track_id=t.id,
+        file_path="/a.mp3",
+        file_hash="sha256-of-a-mp3",
+        file_size=1,
+        mime_type="audio/mpeg",
+    )
     bg = await repo.register_beatgrid(f.id, bpm=128.0, first_downbeat_ms=320.0, canonical=True)
     assert bg.id is not None
 
@@ -131,8 +137,8 @@ async def test_scoring_profile_by_name(setup: None, session: AsyncSession) -> No
 @pytest.mark.asyncio
 async def test_provider_metadata_lookup(setup: None, session: AsyncSession) -> None:
     repo = ProviderMetadataRepository(session)
-    await repo.create(code="yandex_music", display_name="Yandex Music")
-    p = await repo.get_by_code("yandex_music")
+    await repo.create(name="yandex_music")
+    p = await repo.get_by_name("yandex_music")
     assert p is not None
 
 

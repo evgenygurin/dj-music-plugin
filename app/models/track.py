@@ -62,6 +62,12 @@ class Release(Base, TimestampMixin):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     title: Mapped[str] = mapped_column(String(500))
+    # Prod has this column (nullable). The ``labels`` table itself is
+    # drop-pending per blueprint §13.2, so we keep ``label_id`` as a
+    # bare nullable integer rather than a real foreign key — that way
+    # the ORM stays in sync with prod without depending on a table
+    # that's about to disappear.
+    label_id: Mapped[int | None] = mapped_column(nullable=True)
     release_type: Mapped[str | None] = mapped_column(String(50), nullable=True)
     release_date: Mapped[date | None] = mapped_column(nullable=True)
 

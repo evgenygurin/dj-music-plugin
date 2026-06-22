@@ -95,12 +95,12 @@ async def test_timeseries_reference(engine: AsyncEngine, session: AsyncSession) 
     await session.flush()
     ts = TimeseriesReference(
         track_id=t.id,
-        feature_set="energy",
+        feature_set_name="energy",
         storage_uri="cache/timeseries/1/energy.npz",
         frame_count=1200,
         hop_length=512,
         sample_rate=22050,
-        dtype="float32",
+        data_type="float32",
         shape="[1200]",
     )
     session.add(ts)
