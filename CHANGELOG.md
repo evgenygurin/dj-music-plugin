@@ -6,6 +6,15 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.5.0] - 2026-06-22
+
+**Workflow prompt catalog 6 → 19 + deep techno research.** Additive
+release — no tool / resource surface change. 13 new research-backed
+FastMCP prompts cover the full DJ lifecycle; a live-server verification
+pass found and fixed 7 classes of prompt content-contract bugs and pinned
+them with new guard tests. The broken GitHub Actions CI workflow was
+removed (Actions disabled at the account level).
+
 ### Fixed — prompt filter/data contract bugs (manual verification pass)
 
 - Live-server verification of the prompt catalog surfaced filter/data keys
@@ -75,6 +84,8 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 - `docs/ym-api-guide.md` + `.claude/rules/ym.md` document the
   `YandexAdapter.operations_supported` provider-write matrix (no
   `create_from_set`).
+- `app/__init__.__version__` synced `0.8.0` → `1.5.0` (was stale) so the
+  `version` stamp in `PROMPT_META` / `RESOURCE_META` matches the release.
 
 ### Removed
 

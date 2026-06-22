@@ -1,3 +1,3 @@
 """DJ Music Plugin — techno library management and MCP server."""
 
-__version__ = "0.8.0"
+__version__ = "1.5.0"
