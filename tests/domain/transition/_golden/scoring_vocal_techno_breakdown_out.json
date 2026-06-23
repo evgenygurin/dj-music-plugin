@@ -6,8 +6,8 @@
   "energy": 1.0,
   "hard_reject": false,
   "harmonics": 0.8140640911076624,
-  "overall": 0.9320150637936477,
+  "overall": 0.9305150637936477,
   "reject_reason": null,
   "section_pair_class": "breakdown_out",
-  "vocals": 0.9704999999999999
+  "vocals": 0.9605
 }
