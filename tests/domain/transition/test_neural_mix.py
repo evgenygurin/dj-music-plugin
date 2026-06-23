@@ -37,7 +37,7 @@ def _make_track(**kwargs: object) -> TrackFeatures:
         "onset_rate": 4.0,
         "kick_prominence": 0.5,
         "hnr_db": 5.0,
-        "chroma_entropy": 2.5,
+        "chroma_entropy": 0.95,
         "mfcc_vector": [0.1] * 13,
         "energy_bands": [0.20, 0.20, 0.15, 0.15, 0.15, 0.15],
     }

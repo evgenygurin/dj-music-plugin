@@ -323,7 +323,10 @@ def score_vocal_compat(from_t: TrackFeatures, to_t: TrackFeatures) -> float:
 
     if from_t.chroma_entropy is not None and to_t.chroma_entropy is not None:
         diff = abs(from_t.chroma_entropy - to_t.chroma_entropy)
-        components.append(max(0.0, 1.0 - diff / 3.0))
+        # chroma_entropy is [0,1]-normalized (key.py divides raw bits by
+        # log2(12)); use the full-range divisor 1.0 so the proximity can span
+        # [0,1]. (Was /3.0 — the old raw-bits scale — which capped it ≥0.667.)
+        components.append(max(0.0, 1.0 - diff))
         weights.append(0.30)
 
     if from_t.pitch_salience_mean is not None and to_t.pitch_salience_mean is not None:

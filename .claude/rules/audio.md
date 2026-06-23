@@ -99,3 +99,43 @@ librosa.feature.spectral_centroid(y=y, sr=sr)
 Должно быть реализовано в любом long-running batch CLI до запуска `AnalysisPipeline`. Тест-сервер MCP (`fastmcp dev`) обычно не нуждается — анализирует треки последовательно. Long-running batch jobs — обязательно.
 
 `AnalysisPipeline._warmup_librosa()` делает только pre-import submodules (избегает scipy/PytestTester race на lazy loader), но **не** прогревает JIT. Это два разных warmup'а — нужны оба.
+
+## Сигнальное качество фич на ЭТОЙ библиотеке (curation rule)
+
+Полный per-feature разбор + DJ-применение + измеренные распределения —
+@docs/research/2026-06-23-track-feature-reference-and-set-construction.md.
+Библиотека акустически однородна (acid/industrial/detroit/dub @122–130), у
+многих «теоретически сильных» фич **крошечный реальный разброс** → они не
+разводят треки здесь. Это корень вырожденности mood-классификатора.
+
+- **Курируй по фичам с реальным разбросом:** `integrated_lufs`,
+  `spectral_centroid_hz` (лучший спектральный дискриминатор, p10/p90
+  1533/2853), `energy_mean`, `bpm`, `key_code`, `hp_ratio`, `energy_low`.
+- **НЕ фильтруй и НЕ ранжируй по near-constant фичам:** `dissonance_mean`
+  (≈0.50), `spectral_contrast` (~3.6 dB), `spectral_flux_mean/std`,
+  `bpm_stability` (0.92–0.96), `onset_rate` (1.75–2.18), `energy_std`,
+  `chroma_entropy` (0.96–0.99). Они не отделят один трек от другого.
+- **`mood` — слабый сигнал** (median confidence ≈0.05): только грубый хинт,
+  не ground truth. Curate FEATURE-FIRST.
+- **NULL на L2 — не фильтруй `__gte/__lte`:** `bpm_confidence`,
+  `true_peak_db`, `danceability`, `dynamic_complexity`, `pitch_salience_mean`,
+  `mfcc_vector`, `tonnetz_vector`, `spectral_complexity_mean` (essentia/L3+).
+  NULL проваливает `>=`/`<=` → тихо опустошает выборку. Проверяй их только на
+  L5'нутых треках сета.
+- **`energy_mean` ≠ громкость** (нормирован per-track к max=1.0): ранжируй им
+  интенсивность ВНУТРИ слота, но шаг громкости между треками меряй
+  `integrated_lufs` (engine: hard-reject >6 LUFS, предпочтительный рост +0.5).
+
+## Гармония/тональность: что скорер реально НЕ использует
+
+- **`key_confidence` и `atonality` загружаются в `TrackFeatures`, но не
+  читаются ни одной scoring-функцией.** Camelot-дистанция ≥5 = **безусловный
+  hard-reject** (слеп к confidence/atonality/HNR). На нашей библиотеке
+  **98.7% треков атональны** → риск **ложных hard-reject** между двумя
+  перкуссивными/атональными треками, у которых «клэш» ключей неслышим.
+  Единственный живой механизм смягчения ключа — `hnr_db`-множитель на *мягкий*
+  `S_harmonic` (никогда на hard-reject). Атональные/перкуссивные пары лучше
+  роутить по groove (`S_groove`/`S_bpm`), picker выберет DRUM_SWAP/DRUM_CUT/FADE.
+- Детальные «known code quirks» (chroma `/3.0` шкала, мёртвые константы
+  `weights.py`/`config/transition.py`, intent-веса) — в
+  @docs/transition-scoring.md и в справочнике выше.

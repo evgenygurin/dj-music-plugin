@@ -524,9 +524,7 @@ def score_vocals_bulk(fa: FeatureArrays, ia: IntArr, ib: IntArr) -> FloatArr:
     chroma_a = fa.chroma_entropy[ia]
     chroma_b = fa.chroma_entropy[ib]
     chroma_present = ~(np.isnan(chroma_a) | np.isnan(chroma_b))
-    chroma_term = np.where(
-        chroma_present, np.maximum(0.0, 1.0 - np.abs(chroma_a - chroma_b) / 3.0), 0.0
-    )
+    chroma_term = np.where(chroma_present, np.maximum(0.0, 1.0 - np.abs(chroma_a - chroma_b)), 0.0)
     weight_chroma = np.where(chroma_present, 0.30, 0.0)
 
     pitch_a = fa.pitch_salience_mean[ia]

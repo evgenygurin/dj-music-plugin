@@ -16,6 +16,14 @@ class TransitionSettings(BaseSettings):
         case_sensitive=False,
     )
 
+    # ⚠️ REFERENCE-ONLY — these weight_* fields are NOT consumed by the
+    # scorer. Live weights live in app/domain/transition/weights.py
+    # (DEFAULT_WEIGHTS, no-intent path) and intent.py (INTENT_WEIGHT_MODIFIERS,
+    # the set-build path). These values also DIVERGE from the live ones
+    # (here harmonic .12 / energy .18 / spectral .20 / groove .15 vs live
+    # harmonics .15 / energy .15 / bass .15 / drums .20). Tuning them changes
+    # nothing. Kept because tests/config/test_settings_facade.py pins weight_bpm.
+    # See docs/research/2026-06-23-track-feature-reference-and-set-construction.md.
     weight_bpm: float = Field(default=0.20, ge=0.0, le=1.0)
     weight_harmonic: float = Field(default=0.12, ge=0.0, le=1.0)
     weight_energy: float = Field(default=0.18, ge=0.0, le=1.0)
