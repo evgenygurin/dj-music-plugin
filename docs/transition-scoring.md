@@ -290,11 +290,16 @@ proxies, and rules 3+4 will become reliable on any genre.
   low/NULL `key_confidence`, so an unconditional gate false-rejected
   percussive/atonal pairs whose key "clash" is inaudible. Unknown (None)
   atonality/confidence is treated as reliable (legacy behaviour preserved).
-  Implemented on BOTH the scalar gate (`hard_constraints._key_reliable`) and
-  the vectorised `bulk_scorer.hard_reject_mask_bulk` (parity-tested). Still
-  open (Phase 2): per-subgenre Camelot **soft**-weight downweight (the soft
-  `S_harmonic` still weights Camelot at 40% regardless of subgenre; only
-  `hnr_db` down-weights it).
+  Implemented on BOTH the scalar gate (`hard_constraints.key_reliable`) and
+  the vectorised `bulk_scorer.hard_reject_mask_bulk` (parity-tested).
+- **Soft Camelot is now key-reliability-neutralized too (fixed 2026-06-23).**
+  The Camelot term in `S_bass` (0.65) and `S_harmonic` (0.40) falls back to the
+  neutral 0.5 (same as missing-key) when either track is atonal / low-confidence
+  — a key "clash" between atonal/percussive tracks is inaudible, so it no longer
+  drags those stems. Reliability is shared via `key_reliable` (scalar) /
+  `_key_reliable_mask` (bulk); zero impact on the golden fixtures (None-atonality
+  → reliable). Remaining (lower-priority): a *continuous* per-subgenre Camelot
+  weight rather than the binary reliable/neutral gate.
 - **`beat_loudness_band_ratio` now populates at L5 (fixed 2026-06-23).** The
   `beats_loudness` analyzer inherited the full-track clip while `beat`
   produces beat_times on the 60s stitched clip → essentia got mismatched beat

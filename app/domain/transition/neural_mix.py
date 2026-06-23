@@ -20,8 +20,9 @@ import math
 from dataclasses import dataclass, field
 from enum import StrEnum
 
+from app.config import get_settings
 from app.domain.camelot.wheel import camelot_distance
-from app.domain.transition.hard_constraints import check_hard_constraints
+from app.domain.transition.hard_constraints import check_hard_constraints, key_reliable
 from app.domain.transition.math_helpers import bpm_distance, cosine_similarity
 from app.domain.transition.score import TransitionScore
 from app.domain.transition.weights import CAMELOT_BASS_BASE, CAMELOT_HARMONIC_BASE
@@ -234,11 +235,20 @@ def score_bass_compat(from_t: TrackFeatures, to_t: TrackFeatures) -> float:
     components: list[float] = []
     weights: list[float] = []
 
-    if from_t.key_code is not None and to_t.key_code is not None:
+    floor = get_settings().transition.hard_reject_key_confidence_floor
+    if (
+        from_t.key_code is not None
+        and to_t.key_code is not None
+        and key_reliable(from_t, floor)
+        and key_reliable(to_t, floor)
+    ):
         dist = camelot_distance(from_t.key_code, to_t.key_code)
         components.append(CAMELOT_BASS_BASE.get(dist, 0.0))
         weights.append(0.65)
     else:
+        # No reliable key (missing, atonal, or low-confidence) → neutral:
+        # a Camelot "clash" between atonal/percussive tracks is inaudible,
+        # so don't let it move S_bass. Bass-band energy still flags clashes.
         components.append(0.5)
         weights.append(0.65)
 
@@ -263,7 +273,13 @@ def score_harmonic_compat(from_t: TrackFeatures, to_t: TrackFeatures) -> float:
     components: list[float] = []
     weights: list[float] = []
 
-    if from_t.key_code is not None and to_t.key_code is not None:
+    floor = get_settings().transition.hard_reject_key_confidence_floor
+    if (
+        from_t.key_code is not None
+        and to_t.key_code is not None
+        and key_reliable(from_t, floor)
+        and key_reliable(to_t, floor)
+    ):
         dist = camelot_distance(from_t.key_code, to_t.key_code)
         base = CAMELOT_HARMONIC_BASE.get(dist, 0.0)
         if from_t.hnr_db is not None and to_t.hnr_db is not None:
@@ -273,6 +289,8 @@ def score_harmonic_compat(from_t: TrackFeatures, to_t: TrackFeatures) -> float:
         components.append(base)
         weights.append(0.40)
     else:
+        # No reliable key → neutral (see score_bass_compat); route atonal
+        # pairs on tonnetz/MFCC/groove rather than a meaningless key distance.
         components.append(0.5)
         weights.append(0.40)
 

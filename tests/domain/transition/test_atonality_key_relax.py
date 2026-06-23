@@ -10,10 +10,17 @@ agree (parity).
 from __future__ import annotations
 
 import numpy as np
+import pytest
 
 from app.domain.camelot.wheel import camelot_distance
-from app.domain.transition.bulk_scorer import extract_feature_arrays, hard_reject_mask_bulk
+from app.domain.transition.bulk_scorer import (
+    extract_feature_arrays,
+    hard_reject_mask_bulk,
+    score_bass_bulk,
+    score_harmonics_bulk,
+)
 from app.domain.transition.hard_constraints import check_hard_constraints
+from app.domain.transition.neural_mix import score_bass_compat, score_harmonic_compat
 from app.shared.features import TrackFeatures
 
 # key_code 0 (1A) and 10 (6A) sit Camelot distance 5 apart → would hard-reject.
@@ -84,3 +91,48 @@ def test_bulk_matches_scalar_on_atonal_relax() -> None:
     # Scalar agrees pair-for-pair.
     assert (check_hard_constraints(tracks[0], tracks[1]) is None) is True
     assert (check_hard_constraints(tracks[2], tracks[3]) is not None) is True
+
+
+# ── Soft-score key neutralization (the Camelot term, not just the gate) ──
+
+
+def test_atonal_key_neutralized_in_soft_bass() -> None:
+    # For atonal pairs the key term is neutral → bass score is independent of
+    # the Camelot distance (same-key and far-key score identically).
+    near = score_bass_compat(_tf(key_code=0, atonality=True), _tf(key_code=0, atonality=True))
+    far = score_bass_compat(
+        _tf(key_code=FAR_A, atonality=True), _tf(key_code=FAR_B, atonality=True)
+    )
+    assert near == far
+
+
+def test_tonal_key_still_matters_in_soft_bass() -> None:
+    near = score_bass_compat(
+        _tf(key_code=0, atonality=False, key_confidence=0.9),
+        _tf(key_code=0, atonality=False, key_confidence=0.9),
+    )
+    far = score_bass_compat(
+        _tf(key_code=FAR_A, atonality=False, key_confidence=0.9),
+        _tf(key_code=FAR_B, atonality=False, key_confidence=0.9),
+    )
+    assert near > far
+
+
+def test_atonal_key_neutralized_in_soft_harmonic() -> None:
+    near = score_harmonic_compat(_tf(key_code=0, atonality=True), _tf(key_code=0, atonality=True))
+    far = score_harmonic_compat(
+        _tf(key_code=FAR_A, atonality=True), _tf(key_code=FAR_B, atonality=True)
+    )
+    assert near == far
+
+
+def test_soft_bulk_matches_scalar_on_atonal() -> None:
+    tracks = [_tf(key_code=0, atonality=True), _tf(key_code=FAR_B, atonality=True)]
+    fa = extract_feature_arrays(tracks)
+    ia, ib = np.array([0]), np.array([1])
+    assert score_bass_bulk(fa, ia, ib)[0] == pytest.approx(
+        score_bass_compat(tracks[0], tracks[1]), abs=1e-9
+    )
+    assert score_harmonics_bulk(fa, ia, ib)[0] == pytest.approx(
+        score_harmonic_compat(tracks[0], tracks[1]), abs=1e-9
+    )

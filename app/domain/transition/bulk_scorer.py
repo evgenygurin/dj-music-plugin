@@ -223,6 +223,17 @@ _BASS_BASE_LOOKUP: FloatArr = _base_lookup(CAMELOT_BASS_BASE)
 _HARMONIC_BASE_LOOKUP: FloatArr = _base_lookup(CAMELOT_HARMONIC_BASE)
 
 
+def _key_reliable_mask(fa: FeatureArrays, idx: IntArr) -> BoolArr:
+    """Vectorised mirror of ``hard_constraints.key_reliable`` for ``idx``.
+
+    A track's key is reliable when it is not atonal AND key_confidence >= floor.
+    Atonal/None → not-atonal; NaN/None confidence → treated as confident.
+    """
+    floor = get_settings().transition.hard_reject_key_confidence_floor
+    conf = fa.key_confidence[idx]
+    return ~fa.atonality[idx] & (np.isnan(conf) | (conf >= floor))
+
+
 # ── Pair-array helpers ────────────────────────────────────────────
 
 
@@ -278,16 +289,9 @@ def hard_reject_mask_bulk(fa: FeatureArrays, ia: IntArr, ib: IntArr) -> BoolArr:
     safe_key_a = np.where(key_present, key_a, 0)
     safe_key_b = np.where(key_present, key_b, 0)
     key_dist = _CAMELOT_DISTANCE[safe_key_a, safe_key_b]
-    # Mirror _key_reliable: only reject when BOTH sides are tonal + confident
-    # (atonal/None → not-atonal; NaN/None confidence → treated as confident).
-    floor = settings.hard_reject_key_confidence_floor
-    conf_a = fa.key_confidence[ia]
-    conf_b = fa.key_confidence[ib]
-    reliable_a = ~fa.atonality[ia] & (np.isnan(conf_a) | (conf_a >= floor))
-    reliable_b = ~fa.atonality[ib] & (np.isnan(conf_b) | (conf_b >= floor))
-    key_violates = (
-        key_present & reliable_a & reliable_b & (key_dist >= settings.hard_reject_camelot_dist)
-    )
+    # Only reject when BOTH sides are tonal + confident (key clash is real).
+    reliable = _key_reliable_mask(fa, ia) & _key_reliable_mask(fa, ib)
+    key_violates = key_present & reliable & (key_dist >= settings.hard_reject_camelot_dist)
 
     lufs_a = fa.integrated_lufs[ia]
     lufs_b = fa.integrated_lufs[ib]
@@ -449,7 +453,9 @@ def score_bass_bulk(fa: FeatureArrays, ia: IntArr, ib: IntArr) -> FloatArr:
     safe_b = np.where(key_present, key_b, 0)
     key_dist = _CAMELOT_DISTANCE[safe_a, safe_b]
     cam_score = _BASS_BASE_LOOKUP[np.clip(key_dist, 0, 7)]
-    cam_term = np.where(key_present, cam_score, 0.5)
+    # Neutral key (0.5) when missing OR not reliably tonal (atonal/low-conf).
+    reliable = _key_reliable_mask(fa, ia) & _key_reliable_mask(fa, ib)
+    cam_term = np.where(key_present & reliable, cam_score, 0.5)
     weight_cam = np.full_like(cam_term, 0.65)
 
     # Bass-band — energy_bands[0] + energy_bands[1] (sub + low)
@@ -494,7 +500,9 @@ def score_harmonics_bulk(fa: FeatureArrays, ia: IntArr, ib: IntArr) -> FloatArr:
     hnr_factor = np.where(
         hnr_present, np.maximum(0.5, np.minimum(1.0, (avg_hnr + 30.0) / 30.0)), 1.0
     )
-    cam_term = np.where(key_present, base_cam * hnr_factor, 0.5)
+    # Neutral key (0.5) when missing OR not reliably tonal (atonal/low-conf).
+    reliable = _key_reliable_mask(fa, ia) & _key_reliable_mask(fa, ib)
+    cam_term = np.where(key_present & reliable, base_cam * hnr_factor, 0.5)
     weight_cam = np.full_like(cam_term, 0.40)
 
     tonnetz_present = fa.tonnetz_present[ia] & fa.tonnetz_present[ib]

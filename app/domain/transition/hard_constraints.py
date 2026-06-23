@@ -18,7 +18,7 @@ from app.domain.transition.score import TransitionScore
 from app.shared.features import TrackFeatures
 
 
-def _key_reliable(t: TrackFeatures, confidence_floor: float) -> bool:
+def key_reliable(t: TrackFeatures, confidence_floor: float) -> bool:
     """Does this track have reliable tonal content for a key clash to matter?
 
     A track's key is only a valid hard-reject basis when it is NOT atonal and
@@ -71,8 +71,8 @@ def check_hard_constraints(
     if (
         key_dist is not None
         and key_dist >= settings.hard_reject_camelot_dist
-        and _key_reliable(from_t, key_floor)
-        and _key_reliable(to_t, key_floor)
+        and key_reliable(from_t, key_floor)
+        and key_reliable(to_t, key_floor)
     ):
         return TransitionScore(
             hard_reject=True,

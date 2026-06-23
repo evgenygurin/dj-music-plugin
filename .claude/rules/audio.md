@@ -134,10 +134,13 @@ librosa.feature.spectral_centroid(y=y, sr=sr)
   дефолт 0.5). На нашей библиотеке **98.7% атональны** → безусловный gate ложно
   реджектил перкуссивные пары, у которых «клэш» неслышим. Unknown (None) →
   считается надёжным (легаси-поведение сохранено). Реализовано на обоих путях
-  (`hard_constraints._key_reliable` + `bulk_scorer.hard_reject_mask_bulk`, parity).
-- **Мягкий** `S_harmonic` всё ещё взвешивает Camelot 40% независимо от поджанра;
-  единственное живое смягчение мягкого скора — `hnr_db`-множитель (per-subgenre
-  downweight — открытый Phase-2). Атональные/перкуссивные пары всё равно лучше
-  роутить по groove (`S_groove`/`S_bpm`) — picker выберет DRUM_SWAP/DRUM_CUT/FADE.
+  (`hard_constraints.key_reliable` + `bulk_scorer.hard_reject_mask_bulk`, parity).
+- **Мягкий Camelot тоже нейтрализуется** (фикс 2026-06-23): терм Camelot в
+  `S_bass` (0.65) и `S_harmonic` (0.40) падает в нейтраль 0.5 (как при
+  отсутствии ключа), если любой из треков атонален/неуверен — бессмысленная
+  ключевая дистанция больше не тащит эти стемы. Остаток (низкий приоритет) —
+  *непрерывный* per-subgenre вес вместо бинарного reliable/neutral gate.
+  Атональные/перкуссивные пары всё равно лучше роутить по groove
+  (`S_groove`/`S_bpm`) — picker выберет DRUM_SWAP/DRUM_CUT/FADE.
 - Детальные «known code quirks» (chroma-шкала, единый источник Camelot-таблиц,
   beats_loudness clip, intent-веса) — в @docs/transition-scoring.md и справочнике.
