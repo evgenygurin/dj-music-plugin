@@ -28,6 +28,13 @@ class BeatsLoudnessAnalyzer(BaseAnalyzer):
     capabilities: ClassVar[frozenset[str]] = frozenset({"rhythm", "spectral"})
     required_packages: ClassVar[list[str]] = ["essentia"]
     depends_on: ClassVar[frozenset[str]] = frozenset({"beat"})
+    # MUST match the ``beat`` analyzer's clip: beat_times are timestamps within
+    # the 60s stitched clip, so BeatsLoudness has to run on those same samples.
+    # Without this it inherited the full-track context (clip_duration_s=None) and
+    # essentia got beat positions that don't correspond to its samples → the
+    # feature came back NULL for the whole library. See
+    # docs/research/2026-06-23-track-feature-reference-and-set-construction.md.
+    clip_duration_s: ClassVar[float | None] = 60.0
 
     def _extract(
         self, ctx: AnalysisContext, *, prior_results: dict[str, Any] | None = None
