@@ -185,6 +185,9 @@ class BeatportClient:
             resp = await self._http.get(
                 url, params=params or {}, headers=headers, follow_redirects=True
             )
+            if resp.status_code == 401:
+                # Still rejected after a fresh token → genuine auth failure.
+                raise AuthFailedError("auth failed after refresh — check DJ_BEATPORT_* creds")
         if resp.status_code == 403:
             detail = ""
             try:

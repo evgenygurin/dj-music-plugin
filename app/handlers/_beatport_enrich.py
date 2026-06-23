@@ -63,18 +63,22 @@ async def enrich_beatport_genre(
 
     try:
         match = await adapter.read("track_match", None, params)
+        if not match.get("matched"):
+            return None
+        # SAVEPOINT around the enrich write so a failure here (DB missing the
+        # beatport_* columns, or any flush error) rolls back ONLY this write —
+        # never the audio features the analyze handler already flushed into the
+        # same UoW. Without it a failed upsert poisons the session and the
+        # outer commit discards the whole analysis.
+        async with uow.session.begin_nested():
+            await uow.track_features.upsert(
+                track_id=track_id,
+                beatport_genre=match.get("genre"),
+                beatport_sub_genre=match.get("sub_genre"),
+                beatport_track_id=match.get("beatport_id"),
+                beatport_confidence=match.get("confidence"),
+            )
+        return match
     except Exception as exc:
         log.info("beatport enrich skipped for track %s: %s", track_id, exc)
         return None
-
-    if not match.get("matched"):
-        return None
-
-    await uow.track_features.upsert(
-        track_id=track_id,
-        beatport_genre=match.get("genre"),
-        beatport_sub_genre=match.get("sub_genre"),
-        beatport_track_id=match.get("beatport_id"),
-        beatport_confidence=match.get("confidence"),
-    )
-    return match

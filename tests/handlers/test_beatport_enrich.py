@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from contextlib import asynccontextmanager
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock
 
@@ -9,6 +10,13 @@ import pytest
 
 from app.handlers._beatport_enrich import enrich_beatport_genre
 from app.shared.errors import NotFoundError
+
+
+@asynccontextmanager
+async def _savepoint():
+    """Stand-in for ``session.begin_nested()`` — yields, never suppresses."""
+    yield
+
 
 _MATCH = {
     "matched": True,
@@ -23,6 +31,7 @@ def _uow(primary_artist: str | None = None) -> MagicMock:
     uow = MagicMock()
     uow.tracks.get_primary_artist_name = AsyncMock(return_value=primary_artist)
     uow.track_features.upsert = AsyncMock()
+    uow.session.begin_nested = lambda: _savepoint()
     return uow
 
 
@@ -101,6 +110,24 @@ async def test_enrich_noop_when_unmatched() -> None:
     )
     assert out is None
     uow.track_features.upsert.assert_not_called()
+
+
+async def test_enrich_swallows_upsert_error() -> None:
+    # A failing enrich upsert (e.g. DB missing beatport_* columns) must NOT
+    # propagate — the savepoint rolls it back and analysis is preserved.
+    adapter = MagicMock()
+    adapter.read = AsyncMock(return_value=_MATCH)
+    uow = _uow()
+    uow.track_features.upsert = AsyncMock(side_effect=RuntimeError("column does not exist"))
+    out = await enrich_beatport_genre(
+        None,
+        uow,
+        _registry(adapter),
+        track_id=1,
+        track=SimpleNamespace(title="Foo - Bar", duration_ms=1),
+        features={"bpm": 120},
+    )
+    assert out is None  # error must not propagate
 
 
 async def test_enrich_swallows_provider_error() -> None:
