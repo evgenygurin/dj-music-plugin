@@ -18,13 +18,36 @@ def _build_body(set_id: int, sync_to_ym: bool) -> str:
         "      entity_get(entity='track', id=<tid>) / its external ids), then:\n"
         "      provider_write(entity='playlist', operation='add_tracks',\n"
         "                    params={'playlist_id': <new id>,\n"
-        "                            'track_ids': [<yandex ids in set order>]})\n"
+        "                            'track_ids': [<yandex ids in set order>],\n"
+        "                            'at': 0})\n"
+        "   ('at' = current trackCount: 0 for a fresh playlist; for an\n"
+        "    APPEND pass the existing trackCount, else YM PREPENDS to 0.\n"
+        "    The track_ids ARE the per-track yandex external ids — the\n"
+        "    same ids the audio_file download resolved; the `track` view\n"
+        "    does not expose yandex_track_id directly. Verify final order\n"
+        "    with provider_read(entity='playlist', id=<new id>).)\n"
         "   (Alternatively run the playlist_sync_workflow prompt with\n"
         "    direction='push' once the local playlist mirrors the set.)\n"
         if sync_to_ym
         else "7. Skip platform sync (sync_to_ym=false).\n"
     )
     return f"""To deliver set {set_id}:
+
+0. Finalize audio quality FIRST (L5-before-delivery): bring every set
+   track to analysis_level=5 so the picker routes Neural-Mix presets on
+   accurate spectral / pitch features (303 vs vocal, DRUM_SWAP vs
+   ECHO_OUT). Skip tracks already at L5.
+   a. Download MP3s — entity_create(entity='audio_file',
+      data={{'track_ids': [<set track ids>]}}). Batch 3-5 ids per call:
+      a larger batch can exceed the 120s tool timeout and roll back the
+      DB registration (files land on disk but no library_item row). L5
+      reanalyze NEEDS that row.
+   b. L5 each track — entity_update(entity='track_features',
+      id=<track_id>, data={{'level': 5}}) (fast, ~5-10s; requires the
+      audio_file from step a, else 'audio_file not found').
+   c. Re-build so transitions re-score on L5 features —
+      entity_create(entity='set_version', data={{'set_id': {set_id},
+      'label': 'L5 final', 'track_order': [<same order>]}}).
 
 1. Read the latest version summary:
    local://sets/{set_id}/summary — note version_id and quality_score.

@@ -34,6 +34,45 @@ globs: app/audio/**/*.py
 - **PLP confidence**: `librosa.beat.plp(...).max()` ≈ 1.0 на любом ритмичном сигнале — НЕ используй для confidence. Используй `np.mean(plp)` (BPMDetector это делает)
 - **`variable_tempo` / `bpm_stability`**: вычисляются через `compute_tempo_stability(beat_times)` в `app/audio/analyzers/bpm.py`. Stitched-clip pipeline НЕ сохраняет beat-фазу на seam'ах → 2-4 spurious IBI (≈0 или ≈2x median) per track. Без outlier filter cv взлетает, 63% треков ложно-помечаются variable. Фильтр: оставляем IBI в `[0.5, 1.5] x median` перед расчётом CV. Реальный tempo drift (> 15% CV) остаётся detected. См. regression `tests/audio/analyzers/test_bpm_stability.py`.
 
+## L5-финализация сета (download → reanalyze)
+
+Канон для «довести треки сета до L5 перед доставкой» (см. также
+@docs/audio-schema.md «Покрытие данными» — почти вся библиотека на L2,
+физических MP3 ~десятки из ~24k).
+
+- **L5-reanalyze требует зарегистрированный `audio_file`.**
+  `entity_update(entity="track_features", id=<track_id>, data={"level": 5})`
+  падает с `"audio_file not found: <id>"` / `"no audio file registered"`,
+  если на трек нет строки в `dj_library_items`. Reanalyze читает
+  `audio_file.file_path` — он НЕ качает сам. Сначала download, потом L5.
+- **Download:** `entity_create(entity="audio_file", data={"track_ids": [...]})`
+  (ключ — `track_ids`, не `track_id`). Handler `audio_file_download`
+  резолвит yandex external_id, тянет MP3 в `/tmp/dj_audio/`, пишет
+  `DjLibraryItem`. `skip_existing` проверяет **строку в БД**, НЕ файл на
+  диске — повторный вызов на уже скачанный (но не закоммиченный) файл
+  перекачивает заново.
+- **120s MCP-таймаут vs download.** Каждый трек ≈20–40s (YM rate-limit
+  1.5s × 3 HTTP-хопа + стрим MP3). Батч из 4–5+ часто >120s → MCP-клиент
+  таймаутит → UoW **откатывается**: файлы остаются на диске, но строк в
+  `dj_library_items` нет (и L5 их не увидит). Качай **батчами по 3–5**
+  под лимит; на быстрой сети 5 проходит, на слабой — по 2–3. После
+  таймаута проверь, что реально зарегистрировано:
+  `entity_list(entity="audio_file", filters={"track_id__in": [...]})`,
+  а не `ls` по диску.
+- **L5-reanalyze (после download) быстрый и параллелится** — ~5–10s/трек
+  (librosa на локальном файле, без сети). Можно слать по 4–5
+  `entity_update(track_features, ..., {"level": 5})` параллельно. Результат —
+  `feature_count: 62`, `analysis_level: 5`.
+- **L5 переопределяет `key_code` (и пр.) относительно L2.** Acid/industrial
+  треки после L5 могут схлопнуться в иные (часто более тесные) тональности
+  — отбор по L2-`key_code` и финальная Camelot-картина после L5 различаются.
+  Поэтому: пересобери `set_version` после L5 (re-score на точных фичах) и
+  перечитай `local://sets/{id}/transitions` — picker на L5 надёжнее (не
+  путает 303-резонанс с вокалом, корректнее роутит DRUM_SWAP vs ECHO_OUT).
+- **Тяжёлые/массовые L5-прогоны — на VM** (см. @docs/dev-mode.md,
+  feedback по heavy jobs). Таргетные 15–20 треков одного сета — окей
+  локально батчами; полно-библиотечный sweep — нет.
+
 ## Numba/librosa version pinning
 
 - **Минимум**: `numba>=0.65`, `llvmlite>=0.47`, `numpy>=2.4.4`. Закреплено в `pyproject.toml [audio]`.
