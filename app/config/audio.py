@@ -29,7 +29,17 @@ class AudioSettings(BaseSettings):
     # Cache directory root — used by timeseries storage (legacy default preserved).
     cache_dir: str = Field(default="cache/")
 
-    # Mood classifier catch-all subgenre penalty (legacy default preserved).
-    # Applied to driving + hypnotic to prevent them from dominating the
-    # distribution (they accept a broad feature range).
-    mood_catch_all_penalty: float = Field(default=0.85, ge=0.0, le=1.0)
+    # Mood classifier catch-all subgenre penalty. Multiplies the score of the
+    # catch-all subgenres (driving + hypnotic) so a clear specific-subgenre
+    # match wins ties — they accept a broad feature range and should be a
+    # fallback, not a default.
+    #
+    # Was 0.85: in the classifier's low-margin regime (median winner-vs-runner
+    # margin ~5%) a 15% haircut acted as an ABSOLUTE filter, zeroing `driving`
+    # across the whole 24k library (diag: scripts/diag_mood_classifier.py).
+    # 0.97 keeps the fallback bias while letting `driving` win on merit
+    # (~1.7% of the library) instead of never. NOTE: this does not make
+    # `hypnotic` appear — its profile loses on the current (L2) feature set
+    # regardless of the penalty; that needs the classifier redesign, not a
+    # constant.
+    mood_catch_all_penalty: float = Field(default=0.97, ge=0.0, le=1.0)
