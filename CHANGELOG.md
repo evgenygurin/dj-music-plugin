@@ -6,6 +6,43 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.6.0] - 2026-06-23
+
+**Transition-scoring correctness + audio-feature research.** A deep audit of
+every `track_audio_features_computed` column against the live library's real
+distributions, turned into scoring fixes, a per-feature reference, and
+prompt/rule improvements. No MCP tool/resource surface change.
+
+### Added
+- `docs/research/2026-06-23-track-feature-reference-and-set-construction.md` —
+  per-feature DJ reference (with measured signal-quality grades) + advanced
+  set-construction playbook v2.
+- `hard_reject_key_confidence_floor` setting (default 0.5) — the Camelot reject
+  now requires reliable tonal content on both sides.
+- Diagnostic tooling: `scripts/diag_mood_classifier.py`,
+  `scripts/reclassify_moods.py`.
+
+### Changed
+- **Camelot is now key-reliability-aware — both the hard reject AND the soft
+  `S_bass`/`S_harmonic` term.** Atonal / low-confidence keys (98.7% of this
+  library is atonal) no longer false-reject or carry a meaningless key penalty;
+  they fall back to neutral. Implemented on the scalar and vectorised paths
+  (parity-tested).
+- Unified the live Camelot base tables into `weights.py`
+  (`CAMELOT_HARMONIC_BASE` / `CAMELOT_BASS_BASE`) as the single source for both
+  scorers; annotated dead/reference-only constants in `weights.py` and
+  `config/transition.py`.
+- Mood catch-all penalty `0.85` → `0.97` so `driving` is reachable again
+  (the old value zeroed it across the library in the classifier's low-margin
+  regime). The `dj_expert_session` prompt now primes feature-first curation.
+
+### Fixed
+- `chroma_entropy` proximity scale (`/3.0` → `/1.0`) in the vocals-stem compat —
+  the [0,1]-normalized feature was divided by the old raw-bits scale.
+- `beat_loudness_band_ratio` now populates at L5 — the analyzer inherited the
+  full-track clip while `beat` produced beat_times on the 60s stitched clip;
+  pinned `clip_duration_s=60.0`.
+
 ## [1.5.2] - 2026-06-22
 
 **Fix: green `make check` on a fresh resolve.** A fresh dependency
