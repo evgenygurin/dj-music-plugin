@@ -121,3 +121,44 @@ async def entity_list(
   `quality_score?`, `generator_run_meta?` are accepted. `algorithm` /
   `template` / `pinned` / `excluded` belong to `sequence_optimize`,
   not the `set_version_build` handler.
+
+### Set-build flow (curate → optimize → version → review)
+
+- **`sequence_optimize` orders the WHOLE pool you pass — it does not
+  subset.** Pass exactly the final track list you want in the set (e.g.
+  18 ids), not a 100-track candidate pool expecting it to pick ~18. To
+  go from a wide pool to an N-track set, curate down to N first (filters
+  + manual selection), then optimize ordering.
+- **Two different quality numbers.** `sequence_optimize` returns a
+  *pre-section* fitness score; `entity_create(entity="set_version")`
+  (the `set_version_build` handler) recomputes a **section-aware** score
+  that is usually **higher** (it resolves `SectionContext` + builds
+  Neural-Mix recipes). Compare versions by the `set_version`
+  `quality_score`, not the raw optimizer score.
+- **GA maximises pairwise transition quality, NOT the macro energy
+  arc.** Left to itself it scatters energy and can park the loudest /
+  fastest tracks at the end. The two-thirds rule (global energy peak at
+  ~0.6–0.7, local teases at 0.3/0.5, dissolve at the end — see
+  `docs/research/2026-06-23-techno-deep-research-and-set-construction.md`
+  §3) must be imposed by **hand-ordering / curation** or via a
+  `template`; then `set_version_build` re-scores.
+  A clean-arc order may score a few points below the GA-optimal order on
+  pairwise quality — that gap is the intentional energy contrast the arc
+  needs (research rewards sawtooth energy, penalises near-zero variance).
+- **`template`-aware fitness fights mood mismatch.** Template slots
+  target moods like `driving` / `hypnotic` / `peak_time`, which the
+  classifier (catch-all-penalised) rarely assigns to a real
+  `acid` / `industrial` / `detroit` crate. Passing `template=roller_90`
+  on such a pool *lowers* the score vs no template. For acid/industrial
+  rollers, optimize without a template and shape the arc by curation.
+- **L2 feature columns that are mostly NULL — don't filter on them.**
+  On an L2 library `bpm_confidence` and `true_peak_db` are largely NULL,
+  so `bpm_confidence__gte` / `true_peak_db__lte` silently collapse the
+  result set (NULL fails `>=`/`<=`). Filter on the L2-populated columns
+  instead: `mood`, `bpm`, `key_code`, `energy_mean`, `key_confidence`,
+  `variable_tempo`. Verify clipping/peak later, on the L5'd set tracks.
+- **`local://sets/{id}/transitions`** carries `overall` + `hard_reject`
+  only; for the per-pair Neural-Mix preset + component scores use
+  `entity_list(entity="transition", filters={"from_track_id__in": [...],
+  "to_track_id__in": [...]})` — there is **no** `set_version_id` filter
+  (transitions are keyed by track pair, not by version).
