@@ -126,16 +126,18 @@ librosa.feature.spectral_centroid(y=y, sr=sr)
   интенсивность ВНУТРИ слота, но шаг громкости между треками меряй
   `integrated_lufs` (engine: hard-reject >6 LUFS, предпочтительный рост +0.5).
 
-## Гармония/тональность: что скорер реально НЕ использует
+## Гармония/тональность: ключ — мягкое предпочтение
 
-- **`key_confidence` и `atonality` загружаются в `TrackFeatures`, но не
-  читаются ни одной scoring-функцией.** Camelot-дистанция ≥5 = **безусловный
-  hard-reject** (слеп к confidence/atonality/HNR). На нашей библиотеке
-  **98.7% треков атональны** → риск **ложных hard-reject** между двумя
-  перкуссивными/атональными треками, у которых «клэш» ключей неслышим.
-  Единственный живой механизм смягчения ключа — `hnr_db`-множитель на *мягкий*
-  `S_harmonic` (никогда на hard-reject). Атональные/перкуссивные пары лучше
-  роутить по groove (`S_groove`/`S_bpm`), picker выберет DRUM_SWAP/DRUM_CUT/FADE.
-- Детальные «known code quirks» (chroma `/3.0` шкала, мёртвые константы
-  `weights.py`/`config/transition.py`, intent-веса) — в
-  @docs/transition-scoring.md и в справочнике выше.
+- **Camelot hard-reject теперь key-reliability-aware** (фикс 2026-06-23):
+  дистанция ≥5 реджектит только если ОБА трека тональны (`not atonality`) и
+  уверены (`key_confidence >= settings.transition.hard_reject_key_confidence_floor`,
+  дефолт 0.5). На нашей библиотеке **98.7% атональны** → безусловный gate ложно
+  реджектил перкуссивные пары, у которых «клэш» неслышим. Unknown (None) →
+  считается надёжным (легаси-поведение сохранено). Реализовано на обоих путях
+  (`hard_constraints._key_reliable` + `bulk_scorer.hard_reject_mask_bulk`, parity).
+- **Мягкий** `S_harmonic` всё ещё взвешивает Camelot 40% независимо от поджанра;
+  единственное живое смягчение мягкого скора — `hnr_db`-множитель (per-subgenre
+  downweight — открытый Phase-2). Атональные/перкуссивные пары всё равно лучше
+  роутить по groove (`S_groove`/`S_bpm`) — picker выберет DRUM_SWAP/DRUM_CUT/FADE.
+- Детальные «known code quirks» (chroma-шкала, единый источник Camelot-таблиц,
+  beats_loudness clip, intent-веса) — в @docs/transition-scoring.md и справочнике.
