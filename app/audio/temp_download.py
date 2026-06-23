@@ -31,7 +31,9 @@ async def temp_download_track(
     tmp_dir = tempfile.mkdtemp(prefix="dj_analysis_")
     tmp_path = Path(tmp_dir) / f"{ym_track_id}.mp3"
     try:
-        await client.download_track(ym_track_id, str(tmp_path), prefer_bitrate)
+        # download_track always picks the highest available bitrate; the
+        # prefer_bitrate arg is kept for API compatibility but not forwarded.
+        await client.download_track(ym_track_id, tmp_path)
         yield tmp_path
     finally:
         if tmp_path.exists():
