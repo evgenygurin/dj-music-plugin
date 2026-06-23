@@ -111,6 +111,12 @@ class TrackFeaturesView(BaseModel):
     mood: str | None = None
     mood_confidence: float | None = None
 
+    # Beatport ground-truth genre (matched + BPM/duration-verified)
+    beatport_genre: str | None = None
+    beatport_sub_genre: str | None = None
+    beatport_track_id: int | None = None
+    beatport_confidence: str | None = None
+
 
 class TrackFeaturesFilter(BaseModel):
     model_config = ConfigDict(extra="forbid")
@@ -136,6 +142,12 @@ class TrackFeaturesFilter(BaseModel):
     mood__eq: str | None = None
     mood__in: list[str] | None = None
     mood__isnull: bool | None = None
+    # Beatport ground-truth genre — the authoritative subgenre filter.
+    beatport_genre__eq: str | None = None
+    beatport_genre__in: list[str] | None = None
+    beatport_genre__icontains: str | None = None
+    beatport_genre__isnull: bool | None = None
+    beatport_confidence__eq: str | None = None
     # Confidence + scalar feature lookups (audit iter 25). The most
     # common analytics query is "filter by mood_confidence >= 0.1
     # to exclude low-quality classifications".

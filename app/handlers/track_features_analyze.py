@@ -11,7 +11,9 @@ from typing import Any, Protocol
 
 from fastmcp.server.context import Context
 
+from app.handlers._beatport_enrich import enrich_beatport_genre
 from app.handlers._context_log import safe_info, safe_report_progress
+from app.registry.provider import ProviderRegistry
 from app.repositories.unit_of_work import UnitOfWork
 
 
@@ -30,6 +32,7 @@ async def track_features_analyze_handler(
     uow: UnitOfWork,
     data: dict[str, Any],
     pipeline: AnalysisPipeline,
+    registry: ProviderRegistry | None = None,
 ) -> dict[str, Any]:
     track_ids: list[int] = [int(x) for x in data["track_ids"]]
     level: int = int(data.get("level", 3))
@@ -78,12 +81,17 @@ async def track_features_analyze_handler(
             analysis_level=level,
             **result.features,
         )
+        # Best-effort Beatport ground-truth genre (never fails analysis).
+        beatport = await enrich_beatport_genre(
+            ctx, uow, registry, track_id=tid, track=track, features=result.features
+        )
         analyzed.append(
             {
                 "track_id": tid,
                 "level": level,
                 "feature_count": len(result.features),
                 "errors": len(getattr(result, "errors", []) or []),
+                "beatport_genre": (beatport or {}).get("genre"),
             }
         )
         await safe_report_progress(ctx, progress=i + 1, total=total)

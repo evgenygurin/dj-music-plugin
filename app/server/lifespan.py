@@ -24,6 +24,9 @@ from app.config import get_settings
 from app.db.session import get_engine, get_session_factory
 from app.domain.optimization import GeneticAlgorithm, GreedyChainBuilder
 from app.domain.transition.scorer import TransitionScorer
+from app.providers.beatport.adapter import BeatportAdapter
+from app.providers.beatport.client import BeatportClient
+from app.providers.beatport.rate_limiter import TokenBucketRateLimiter as BeatportRateLimiter
 from app.providers.yandex.adapter import YandexAdapter
 from app.providers.yandex.client import YandexClient
 from app.providers.yandex.rate_limiter import TokenBucketRateLimiter
@@ -57,6 +60,33 @@ def build_yandex_adapter() -> YandexAdapter:
     )
     download_dir = Path(settings.yandex.library_path) if settings.yandex.library_path else None
     return YandexAdapter(client=client, download_dir=download_dir)
+
+
+def build_beatport_adapter() -> BeatportAdapter | None:
+    """Build the Beatport metadata adapter, or None if no credentials.
+
+    Tests patch this symbol. Returns None when ``DJ_BEATPORT_USERNAME`` /
+    ``DJ_BEATPORT_PASSWORD`` are unset so the registry simply omits the
+    provider instead of registering a broken one.
+    """
+    bp = get_settings().beatport
+    if not bp.enabled:
+        return None
+    client = BeatportClient(
+        username=bp.username,
+        password=bp.password,
+        client_id=bp.client_id,
+        redirect_uri=bp.redirect_uri,
+        base_url=bp.base_url,
+        rate_limiter=BeatportRateLimiter(delay_s=bp.rate_limit_delay_s),
+        retry_attempts=bp.retry_attempts,
+        timeout_s=bp.timeout_s,
+    )
+    return BeatportAdapter(
+        client=client,
+        bpm_tolerance=bp.match_bpm_tolerance,
+        duration_tolerance_ms=bp.match_duration_tolerance_ms,
+    )
 
 
 class TransitionCache:
@@ -94,6 +124,9 @@ async def provider_lifespan(app: Any) -> AsyncIterator[dict[str, Any]]:
     registry = ProviderRegistry()
     adapter = build_yandex_adapter()
     registry.register(adapter, default=True)
+    beatport = build_beatport_adapter()
+    if beatport is not None:
+        registry.register(beatport)
     try:
         yield {"provider_registry": registry}
     finally:

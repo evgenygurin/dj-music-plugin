@@ -11,8 +11,10 @@ from typing import Any
 
 from fastmcp.server.context import Context
 
+from app.handlers._beatport_enrich import enrich_beatport_genre
 from app.handlers._context_log import safe_info
 from app.handlers.track_features_analyze import AnalysisPipeline
+from app.registry.provider import ProviderRegistry
 from app.repositories.unit_of_work import UnitOfWork
 from app.shared.errors import NotFoundError
 
@@ -22,6 +24,7 @@ async def track_features_reanalyze_handler(
     uow: UnitOfWork,
     data: dict[str, Any],
     pipeline: AnalysisPipeline,
+    registry: ProviderRegistry | None = None,
 ) -> dict[str, Any]:
     # entity_update wraps the primary key under "id"; the primary key of
     # TrackAudioFeaturesComputed is track_id, so either form is accepted.
@@ -45,10 +48,14 @@ async def track_features_reanalyze_handler(
         analysis_level=level,
         **result.features,
     )
+    beatport = await enrich_beatport_genre(
+        ctx, uow, registry, track_id=track_id, track=track, features=result.features
+    )
     await safe_info(ctx, f"reanalyzed track {track_id} at L{level}")
 
     return {
         "track_id": track_id,
         "level": level,
         "feature_count": len(result.features),
+        "beatport_genre": (beatport or {}).get("genre"),
     }

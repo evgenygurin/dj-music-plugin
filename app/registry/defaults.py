@@ -349,6 +349,8 @@ def register_default_entities() -> None:
                 "integrated_lufs": ("gte", "lte", "range"),
                 "mood": ("eq", "in", "isnull"),
                 "mood_confidence": ("gte", "lte"),
+                "beatport_genre": ("eq", "in", "icontains", "isnull"),
+                "beatport_confidence": ("eq",),
                 "energy_mean": ("gte", "lte"),
                 "spectral_centroid_hz": ("gte", "lte"),
                 "hp_ratio": ("gte", "lte"),

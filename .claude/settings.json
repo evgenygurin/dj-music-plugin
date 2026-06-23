@@ -64,7 +64,10 @@
         "api.music.yandex.net",
         "oauth.yandex.ru",
         "music.yandex.ru",
-        "storage.mds.yandex.net"
+        "storage.mds.yandex.net",
+        "essentia.upf.edu",
+        "pooler.supabase.com",
+        "api.beatport.com"
       ]
     }
   }

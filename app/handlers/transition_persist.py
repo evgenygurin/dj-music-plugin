@@ -140,6 +140,18 @@ def _build_recipe_or_none(
         # Lazy import — keeps app.server transitively clean of app.domain
         # per the v2-server-no-domain import-linter contract.
         from app.domain.transition.picker import build_recipe_for_pair
+        from app.domain.transition.subgenre_rules import classify_pair
+
+        # Derive the subgenre pair from the tracks' moods when the caller
+        # didn't supply one. Without this the picker's HARD/HYPNOTIC/ACID
+        # branches (and the per-pair bar clamps) are dead on the set-build
+        # path — which is why every persisted transition used to default
+        # to ECHO_OUT. moods are L2 features, so this works on any analyzed
+        # pair; classify_pair returns MIXED_PAIR for missing/unknown moods.
+        if subgenre_pair is None:
+            subgenre_pair = classify_pair(
+                getattr(feat_a, "mood", None), getattr(feat_b, "mood", None)
+            )
 
         return build_recipe_for_pair(
             score,

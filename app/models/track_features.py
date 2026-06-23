@@ -133,6 +133,15 @@ class TrackAudioFeaturesComputed(Base, TimestampMixin):
     mood: Mapped[str | None] = mapped_column(String(30), nullable=True, index=True)
     mood_confidence: Mapped[float | None] = mapped_column(nullable=True)
 
+    # Beatport ground-truth genre — human-curated label matched + verified
+    # against our own BPM/duration (see app/providers/beatport). Authoritative
+    # subgenre source; ``mood`` (rule classifier) is a fallback when unmatched.
+    beatport_genre: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
+    beatport_sub_genre: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    beatport_track_id: Mapped[int | None] = mapped_column(nullable=True)
+    # Match confidence tier: "high" | "medium" (only matched rows persisted).
+    beatport_confidence: Mapped[str | None] = mapped_column(String(8), nullable=True)
+
     pipeline_run: Mapped[FeatureExtractionRun | None] = relationship(
         back_populates="computed_features"
     )
