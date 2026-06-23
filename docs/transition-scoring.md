@@ -282,16 +282,31 @@ proxies, and rules 3+4 will become reliable on any genre.
 - **No `LOOP_ROLL` / `STUTTER_FX` / explicit `HARD_CUT`.** All three are
   approximated by `DRUM_CUT` with `bars=1`-like envelopes. Not a fidelity
   issue today, but a taxonomy gap — see Phase 3 plan.
-- **Camelot weights are static + the hard reject is unconditional.**
-  `S_harmonic` weights Camelot at 40% regardless of subgenre, and the
-  **Camelot distance ≥5 hard reject fires blind to `key_confidence`,
-  `atonality`, and `hnr_db`**. Measured: **98.7% of the library is `atonality=True`**
-  and `key_confidence` is mostly low/NULL — so the hard reject can FALSE-reject
-  two percussive/atonal tracks whose key "clash" is inaudible. `key_confidence`
-  and `atonality` are loaded into `TrackFeatures` but **referenced by zero
-  scoring functions**; only `hnr_db` relaxes the *soft* harmonic score (never
-  the hard reject). Phase 2: skip/relax the Camelot hard reject when both
-  tracks are atonal or low-confidence, and per-subgenre Camelot downweight.
+- **Camelot hard reject is now key-reliability-aware (fixed 2026-06-23).**
+  The Camelot distance ≥5 hard reject only fires when **BOTH** tracks have
+  reliable tonal content — `not atonality` **and** `key_confidence >=`
+  `settings.transition.hard_reject_key_confidence_floor` (default 0.5).
+  Rationale: **98.7% of the library is `atonality=True`** with mostly
+  low/NULL `key_confidence`, so an unconditional gate false-rejected
+  percussive/atonal pairs whose key "clash" is inaudible. Unknown (None)
+  atonality/confidence is treated as reliable (legacy behaviour preserved).
+  Implemented on BOTH the scalar gate (`hard_constraints.key_reliable`) and
+  the vectorised `bulk_scorer.hard_reject_mask_bulk` (parity-tested).
+- **Soft Camelot is now key-reliability-neutralized too (fixed 2026-06-23).**
+  The Camelot term in `S_bass` (0.65) and `S_harmonic` (0.40) falls back to the
+  neutral 0.5 (same as missing-key) when either track is atonal / low-confidence
+  — a key "clash" between atonal/percussive tracks is inaudible, so it no longer
+  drags those stems. Reliability is shared via `key_reliable` (scalar) /
+  `_key_reliable_mask` (bulk); zero impact on the golden fixtures (None-atonality
+  → reliable). Remaining (lower-priority): a *continuous* per-subgenre Camelot
+  weight rather than the binary reliable/neutral gate.
+- **`beat_loudness_band_ratio` now populates at L5 (fixed 2026-06-23).** The
+  `beats_loudness` analyzer inherited the full-track clip while `beat`
+  produces beat_times on the 60s stitched clip → essentia got mismatched beat
+  positions → the feature was NULL library-wide (the 10% beat-loudness term of
+  the drums stem never contributed). Pinned `clip_duration_s=60.0` so it shares
+  the `beat` clip. NOTE: only NEW L5 analyses populate it; existing L5 rows need
+  a re-L5 backfill (the scorer renormalises gracefully when it is NULL).
 - **`chroma_entropy` proximity scale (fixed 2026-06-23).** `chroma_entropy` is
   normalized to [0,1] but `score_vocal_compat` divided `|Δ|/3.0` (the old
   raw-bits scale) → the term could never drop below 0.667. Corrected to `/1.0`

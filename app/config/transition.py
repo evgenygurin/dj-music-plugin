@@ -35,6 +35,14 @@ class TransitionSettings(BaseSettings):
     hard_reject_camelot_dist: int = Field(default=5, ge=0, le=12)
     hard_reject_energy_gap_lufs: float = Field(default=6.0, ge=0.0, le=30.0)
 
+    # The Camelot hard reject only fires when BOTH tracks have reliable tonal
+    # content to actually clash. A track's key is "reliable" when it is not
+    # atonal AND key_confidence >= this floor. On a percussive/atonal library
+    # (measured: 98.7% atonal) an unconditional key>=N reject false-rejects
+    # pairs whose key "clash" is inaudible — see
+    # docs/research/2026-06-23-track-feature-reference-and-set-construction.md.
+    hard_reject_key_confidence_floor: float = Field(default=0.5, ge=0.0, le=1.0)
+
     cache_ttl_s: int = Field(default=3600, ge=0)
     cache_max_size: int = Field(default=10_000, ge=100)
 
