@@ -65,6 +65,34 @@ Default weights (`app/domain/transition/weights.py:DEFAULT_WEIGHTS`):
 
 Total = 1.00. Rebalance rationale: Kim et al. ISMIR 2020 found stem-level features to be the strongest empirical predictors of real DJ-set transitions; Algoriddim's djay Pro 5 reorganised its Automix UI around four-stem routing (Drums / Bass / Harmonic / Vocals). The slight uplift on `groove` reflects techno DJ practice — kick / onset alignment is the load-bearing scoring axis at peak time.
 
+### Effective runtime weights (READ THIS) — intent overrides DEFAULT_WEIGHTS
+
+`DEFAULT_WEIGHTS` above is the **no-intent** path only. **The set-build path
+always sets an intent** (via `infer_intent`), so the live score uses
+`app/domain/transition/intent.py:INTENT_WEIGHT_MODIFIERS`, which differ
+sharply — during a build the kick lock is nearly zeroed and loudness-flow +
+harmonics dominate:
+
+| Intent | bpm | energy | drums | bass | harmonics | vocals |
+|---|---|---|---|---|---|---|
+| MAINTAIN | 0.28 | 0.15 | 0.14 | 0.15 | 0.18 | 0.10 |
+| RAMP_UP | 0.20 | 0.30 | **0.05** | 0.10 | 0.25 | 0.10 |
+| COOL_DOWN | 0.20 | 0.25 | 0.05 | 0.15 | 0.20 | 0.15 |
+| CONTRAST | 0.15 | 0.18 | 0.15 | 0.20 | 0.12 | 0.20 |
+
+Implication for set-building: order **build-phase** pairs for clean LUFS rises
+and harmonic continuity — groove-tightness will NOT carry a RAMP_UP pair.
+
+⚠️ **Two stale weight sources** (do not tune them — they change nothing):
+`config/transition.py` `weight_bpm/harmonic/energy/spectral/groove/timbral`
+are **not consumed** by any scorer and diverge from the live values; the
+`CAMELOT_BASE_SCORES` / `CREST_DIFF_PENALTY_THRESHOLD=4.0` /
+`LRA_DIFF_PENALTY_THRESHOLD=5.0` constants in `weights.py` are **reference-only**
+— the live scorer hard-codes its own Camelot tables in `neural_mix.py` and
+reads `settings.transition.scoring_{crest,lra}_diff_penalty_threshold`
+(10.0 / 8.0) for the energy penalties. Full audit:
+[docs/research/2026-06-23-track-feature-reference-and-set-construction.md](research/2026-06-23-track-feature-reference-and-set-construction.md).
+
 ## Hard Constraints
 
 If ANY violated → `TransitionScore(hard_reject=True, overall=0.0, reject_reason=...)`. The gate is `app/domain/transition/hard_constraints.py:check_hard_constraints` (standalone function).
@@ -246,17 +274,32 @@ proxies, and rules 3+4 will become reliable on any genre.
 
 ### Other limitations
 
-- **No `FILTER_SWEEP` preset.** Filter-out / filter-in is the signature
-  hypnotic-techno move (Kraviz / Klock / Marcel Fengler). Picker currently
-  cannot select it; tracked for Phase 2 (`enable_filter_sweep_style`
-  config flag).
+- **`FILTER_SWEEP` IS implemented** (correction — earlier docs said it wasn't).
+  `NeuralMixTransition.FILTER_SWEEP` exists and `picker.py` rule 5b selects it
+  for `HYPNOTIC_PAIR` when `enable_filter_sweep_style` (default `True`). NOTE:
+  it is a **plugin-only** preset, NOT a djay Pro 5 built-in — cheatsheets must
+  remap it to `DRUM_SWAP` + an optional manual filter-knob move (see user memory).
 - **No `LOOP_ROLL` / `STUTTER_FX` / explicit `HARD_CUT`.** All three are
   approximated by `DRUM_CUT` with `bars=1`-like envelopes. Not a fidelity
   issue today, but a taxonomy gap — see Phase 3 plan.
-- **Camelot weights are static.** `S_harmonic` weights Camelot at 40%
-  regardless of subgenre, but research (ISMIR-aligned) shows key
-  compatibility is overweighted for percussive techno where bass tonality
-  is ambiguous. Tracked for Phase 2 (per-subgenre scoring profiles).
+- **Camelot weights are static + the hard reject is unconditional.**
+  `S_harmonic` weights Camelot at 40% regardless of subgenre, and the
+  **Camelot distance ≥5 hard reject fires blind to `key_confidence`,
+  `atonality`, and `hnr_db`**. Measured: **98.7% of the library is `atonality=True`**
+  and `key_confidence` is mostly low/NULL — so the hard reject can FALSE-reject
+  two percussive/atonal tracks whose key "clash" is inaudible. `key_confidence`
+  and `atonality` are loaded into `TrackFeatures` but **referenced by zero
+  scoring functions**; only `hnr_db` relaxes the *soft* harmonic score (never
+  the hard reject). Phase 2: skip/relax the Camelot hard reject when both
+  tracks are atonal or low-confidence, and per-subgenre Camelot downweight.
+- **`chroma_entropy` proximity scale (fixed 2026-06-23).** `chroma_entropy` is
+  normalized to [0,1] but `score_vocal_compat` divided `|Δ|/3.0` (the old
+  raw-bits scale) → the term could never drop below 0.667. Corrected to `/1.0`
+  (golden snapshots regenerated). Near-zero practical effect on this library
+  (`chroma_entropy` is near-constant 0.96–0.99) but correct in general.
+- **`dissonance_mean` penalty rarely discriminates here.** The `−0.15` when
+  both sides `>0.4` fires near-uniformly because the library sits at ≈0.50 —
+  effectively a constant offset, not a discriminator (low practical impact).
 
 ## Camelot Wheel
 
