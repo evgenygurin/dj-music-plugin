@@ -37,26 +37,28 @@ BPM_GAUSS_SIGMA: float = 10.0
 BPM_STABILITY_FLOOR: float = 0.7  # max 30% penalty for unstable tempo
 BPM_CONFIDENCE_PENALTY_FLOOR: float = 0.7  # symmetric with stability
 
-# ── Harmonic scoring (REFERENCE-ONLY — see warning) ──────────────
-# ⚠️ These are NOT the live values. The active scorer
-# (``neural_mix.score_harmonic_compat`` / ``score_bass_compat``) hard-codes
-# its own Camelot tables (harmonic {0:1.0, 1:0.9, 2:0.6, 3:0.3, 4:0.1};
-# bass {0:1.0, 1:0.85, 2:0.55, 3:0.25, 4:0.05}) and HNR factor
-# (``(avg_hnr+30)/30`` floored at 0.5) inline — they differ from the
-# constants below. ``CAMELOT_BASE_SCORES`` is kept because tests pin it as
-# the reference spec (``tests/domain/transition/test_weights.py``); the rest
-# are aspirational/unused. ``ATONAL_RELAX_FLOOR``,
-# ``KEY_CONFIDENCE_BLEND_THRESHOLD``, ``TONNETZ_BLEND`` are DEAD — no
-# key-confidence/atonality relaxation is wired into the live scorer (the
-# Camelot distance ≥5 hard reject is unconditional). See
-# docs/research/2026-06-23-track-feature-reference-and-set-construction.md.
+# ── Harmonic scoring ─────────────────────────────────────────────
+# LIVE single-source Camelot base tables, indexed by Camelot distance
+# (0..4; ≥5 → 0.0). Imported by both the scalar scorer
+# (``neural_mix.score_{harmonic,bass}_compat``) and the vectorised
+# ``bulk_scorer`` so the two paths can never drift. The bass table is
+# tighter (bass-fundamental clash is less forgiving than pads/leads).
+CAMELOT_HARMONIC_BASE: dict[int, float] = {0: 1.0, 1: 0.9, 2: 0.6, 3: 0.3, 4: 0.1}
+CAMELOT_BASS_BASE: dict[int, float] = {0: 1.0, 1: 0.85, 2: 0.55, 3: 0.25, 4: 0.05}
+
+# REFERENCE-ONLY (NOT used by the scorer): kept because
+# ``tests/domain/transition/test_weights.py`` pins it as a reference spec.
+# The live tables are CAMELOT_HARMONIC_BASE / CAMELOT_BASS_BASE above.
 CAMELOT_BASE_SCORES: dict[int, float] = {0: 1.0, 1: 0.95, 2: 0.85, 3: 0.6, 4: 0.3}
-ATONAL_RELAX_FLOOR: float = 0.8  # DEAD — atonality is not read by the scorer
 HNR_NORM_LOW_DB: float = -30.0
 HNR_NORM_HIGH_DB: float = 0.0
 HNR_NORM_FLOOR: float = 0.5
+# DEAD constants — the live key-reliability relaxation of the Camelot HARD
+# reject now lives in settings.transition.hard_reject_key_confidence_floor
+# (+ the atonality flag), not these. Tonnetz cosine is weighted inline (0.20).
+ATONAL_RELAX_FLOOR: float = 0.8  # DEAD — superseded by hard_reject_key_confidence_floor
 TONNETZ_BLEND: float = 0.30  # DEAD — tonnetz cosine is weighted inline (0.20)
-KEY_CONFIDENCE_BLEND_THRESHOLD: float = 0.5  # DEAD — key_confidence unused
+KEY_CONFIDENCE_BLEND_THRESHOLD: float = 0.5  # DEAD — see hard_reject_key_confidence_floor
 
 # ── Energy scoring ───────────────────────────────────────
 # Gauss around a preferred rise (~0.5 LUFS, under the 2 LUFS perceptual

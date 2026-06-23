@@ -18,6 +18,18 @@ from app.domain.transition.score import TransitionScore
 from app.shared.features import TrackFeatures
 
 
+def _key_reliable(t: TrackFeatures, confidence_floor: float) -> bool:
+    """Does this track have reliable tonal content for a key clash to matter?
+
+    A track's key is only a valid hard-reject basis when it is NOT atonal and
+    its key detection is confident. Unknown (None) atonality/confidence is
+    treated as reliable, preserving the legacy gate when the fields are absent.
+    """
+    if t.atonality is True:
+        return False
+    return not (t.key_confidence is not None and t.key_confidence < confidence_floor)
+
+
 def check_hard_constraints(
     from_t: TrackFeatures,
     to_t: TrackFeatures,
@@ -53,7 +65,15 @@ def check_hard_constraints(
     else:
         key_dist = None
 
-    if key_dist is not None and key_dist >= settings.hard_reject_camelot_dist:
+    # Only reject on key when BOTH tracks have reliable tonal content — an
+    # atonal / low-confidence "clash" is inaudible (percussive techno).
+    key_floor = settings.hard_reject_key_confidence_floor
+    if (
+        key_dist is not None
+        and key_dist >= settings.hard_reject_camelot_dist
+        and _key_reliable(from_t, key_floor)
+        and _key_reliable(to_t, key_floor)
+    ):
         return TransitionScore(
             hard_reject=True,
             reject_reason=(f"Camelot distance {key_dist} >= {settings.hard_reject_camelot_dist}"),

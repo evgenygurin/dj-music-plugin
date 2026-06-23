@@ -24,6 +24,7 @@ from app.domain.camelot.wheel import camelot_distance
 from app.domain.transition.hard_constraints import check_hard_constraints
 from app.domain.transition.math_helpers import bpm_distance, cosine_similarity
 from app.domain.transition.score import TransitionScore
+from app.domain.transition.weights import CAMELOT_BASS_BASE, CAMELOT_HARMONIC_BASE
 from app.shared.features import TrackFeatures
 
 
@@ -235,8 +236,7 @@ def score_bass_compat(from_t: TrackFeatures, to_t: TrackFeatures) -> float:
 
     if from_t.key_code is not None and to_t.key_code is not None:
         dist = camelot_distance(from_t.key_code, to_t.key_code)
-        base_scores = {0: 1.0, 1: 0.85, 2: 0.55, 3: 0.25, 4: 0.05}
-        components.append(base_scores.get(dist, 0.0))
+        components.append(CAMELOT_BASS_BASE.get(dist, 0.0))
         weights.append(0.65)
     else:
         components.append(0.5)
@@ -265,8 +265,7 @@ def score_harmonic_compat(from_t: TrackFeatures, to_t: TrackFeatures) -> float:
 
     if from_t.key_code is not None and to_t.key_code is not None:
         dist = camelot_distance(from_t.key_code, to_t.key_code)
-        base_scores = {0: 1.0, 1: 0.9, 2: 0.6, 3: 0.3, 4: 0.1}
-        base = base_scores.get(dist, 0.0)
+        base = CAMELOT_HARMONIC_BASE.get(dist, 0.0)
         if from_t.hnr_db is not None and to_t.hnr_db is not None:
             avg_hnr = (from_t.hnr_db + to_t.hnr_db) / 2
             hnr_factor = max(0.5, min(1.0, (avg_hnr + 30) / 30))
