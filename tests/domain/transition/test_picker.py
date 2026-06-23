@@ -300,11 +300,16 @@ def test_high_energy_delta_with_hard_pair_picks_drum_cut() -> None:
     assert decision.transition is NeuralMixTransition.DRUM_CUT
 
 
-def test_high_energy_delta_without_intent_or_hard_pair_does_not_pick_drum_cut() -> None:
+def test_high_energy_delta_in_default_picks_drum_cut() -> None:
+    """Energy lift (>2 LUFS) with locked drums → DRUM_CUT even without an
+    explicit RAMP_UP intent: the drum-driven default reads energy direction.
+
+    (Pre-fix this fell through to ECHO_OUT.)
+    """
     a = _track(integrated_lufs=-12.0, pitch_salience_mean=0.2, spectral_centroid_hz=1500.0)
     b = _track(integrated_lufs=-8.0, pitch_salience_mean=0.2, spectral_centroid_hz=1500.0)
     decision = pick_neural_mix(_ok_score(), a, b)
-    assert decision.transition is not NeuralMixTransition.DRUM_CUT
+    assert decision.transition is NeuralMixTransition.DRUM_CUT
 
 
 # ── Rule 6: ambient pair / cool-down ────────────────────────────────
@@ -329,14 +334,39 @@ def test_cool_down_intent_picks_fade() -> None:
     assert decision.transition is NeuralMixTransition.FADE
 
 
-# ── Rule 7: default ─────────────────────────────────────────────────
+# ── Rule 7: drum-driven default ─────────────────────────────────────
 
 
-def test_default_picks_echo_out() -> None:
+def test_default_drum_driven_picks_drum_swap() -> None:
+    """Instrumental techno, locked drums, no energy lift → DRUM_SWAP
+    (canonical long EQ-swap blend), NOT echo_out. This is the core fix:
+    techno is mixed on the drums, so the blanket ECHO_OUT default was wrong.
+    """
     a = _track(pitch_salience_mean=0.2, spectral_centroid_hz=1500.0)
     b = _track(pitch_salience_mean=0.2, spectral_centroid_hz=1500.0)
     decision = pick_neural_mix(_ok_score(), a, b)
+    assert decision.transition is NeuralMixTransition.DRUM_SWAP
+
+
+def test_mid_drums_picks_drum_cut() -> None:
+    """Partial groove lock (0.45 <= drums < 0.62) → DRUM_CUT — a clean quick
+    swap beats a muddy blend."""
+    a = _track(pitch_salience_mean=0.2, spectral_centroid_hz=1500.0)
+    b = _track(pitch_salience_mean=0.2, spectral_centroid_hz=1500.0)
+    decision = pick_neural_mix(_ok_score(drums=0.50), a, b)
+    assert decision.transition is NeuralMixTransition.DRUM_CUT
+
+
+def test_low_drums_picks_echo_out_rescue() -> None:
+    """Groove mismatch (drums < 0.45) → ECHO_OUT echo-tail rescue.
+
+    ECHO_OUT survives ONLY as a rescue now, not the blanket default.
+    """
+    a = _track(pitch_salience_mean=0.2, spectral_centroid_hz=1500.0)
+    b = _track(pitch_salience_mean=0.2, spectral_centroid_hz=1500.0)
+    decision = pick_neural_mix(_ok_score(drums=0.30), a, b)
     assert decision.transition is NeuralMixTransition.ECHO_OUT
+    assert "rescue" in decision.reason.lower()
 
 
 # ── Decision shape ──────────────────────────────────────────────────
@@ -427,8 +457,9 @@ def test_hypnotic_pair_falls_through_when_flag_disabled(monkeypatch: object) -> 
     decision = pick_neural_mix(
         score, _track(), _track(), subgenre_pair=SubgenrePairType.HYPNOTIC_PAIR
     )
-    # Falls through to default (ECHO_OUT) since no other rule matches.
-    assert decision.transition is NeuralMixTransition.ECHO_OUT
+    # Filter sweep disabled → falls through to the drum-driven default.
+    # Default drums (0.75) lock → DRUM_SWAP (not ECHO_OUT anymore).
+    assert decision.transition is NeuralMixTransition.DRUM_SWAP
 
 
 def test_filter_sweep_recipe_has_correct_preset() -> None:

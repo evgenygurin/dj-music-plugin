@@ -1,7 +1,7 @@
 {
-  "confidence": 0.6,
-  "reason": "no specific pattern matched — echo-tail safe default",
+  "confidence": 0.82,
+  "reason": "drum-driven techno, drums=0.84 — long EQ-swap blend",
   "rescue": "echo_out",
-  "transition": "echo_out",
+  "transition": "drum_swap",
   "warnings": []
 }

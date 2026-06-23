@@ -29,7 +29,22 @@ Decision tree (first match wins):
    FILTER_SWEEP (bass-forward high-pass filter sweep, signature
    hypnotic / minimal techno move).
 6. Ambient pair OR intent=COOL_DOWN → FADE (gentle linear blend).
-7. Default → ECHO_OUT (universally safe).
+7. Default — **techno mixes on the drums**. This is the common case for
+   instrumental 4/4 techno (no vocals, no melodic motif, no section
+   context), and the right move is NOT an echo-tail. Route by drum-stem
+   compatibility + energy direction:
+   * ``score.drums >= 0.62`` and energy lifts (>+1.5 LUFS) → DRUM_CUT
+     (drums lock, lift the energy with a quick swap / drop).
+   * ``score.drums >= 0.62`` otherwise → DRUM_SWAP (the canonical techno
+     move: long EQ-swap blend that trades A's drum bed for B's while
+     bass / harmonic continuity carries the mix).
+   * ``score.drums >= 0.45`` → DRUM_CUT (grooves only loosely lock — a
+     cleaner quick swap beats a muddy blend).
+   * else → ECHO_OUT (grooves don't lock at all — echo-tail rescue).
+
+ECHO_OUT is therefore a **rescue**, not the blanket default. Before this
+change every instrumental-techno pair without section/subgenre/intent
+context fell through to ECHO_OUT, so whole sets came out 100 % echo_out.
 """
 
 from __future__ import annotations
@@ -77,6 +92,14 @@ _ENERGY_DELTA_RAMP_UP_LUFS = 2.0
 
 _DRUM_ONLY_DRUMS_HIGH = 0.85
 _DRUM_ONLY_DRUMS_MID = 0.65
+
+# Default drum-driven routing (rule 7). Techno is mixed on the drums, so
+# DRUM_SWAP — not ECHO_OUT — is the canonical default when the drum stems
+# lock. DRUM_CUT covers energy lifts and partial groove lock; ECHO_OUT is
+# demoted to a groove-mismatch rescue only.
+_DRUM_SWAP_FLOOR = 0.62
+_DRUM_CUT_FLOOR = 0.45
+_DRUM_CUT_ENERGY_LIFT_LUFS = 2.0
 
 
 @dataclass(frozen=True)
@@ -276,11 +299,34 @@ def pick_neural_mix(
             ),
         )
 
-    # 7. Default safe.
+    # 7. Default — techno mixes on the drums. DRUM_SWAP is the canonical
+    # move; DRUM_CUT for energy lifts / partial groove lock; ECHO_OUT only
+    # when the grooves don't lock at all.
+    if score.drums >= _DRUM_SWAP_FLOOR:
+        if delta is not None and delta > _DRUM_CUT_ENERGY_LIFT_LUFS:
+            return PickerDecision(
+                transition=NeuralMixTransition.DRUM_CUT,
+                confidence=0.80,
+                reason=(
+                    f"drums lock ({score.drums:.2f}), energy +{delta:.1f} LUFS — "
+                    f"quick drum cut to lift"
+                ),
+            )
+        return PickerDecision(
+            transition=NeuralMixTransition.DRUM_SWAP,
+            confidence=0.82,
+            reason=f"drum-driven techno, drums={score.drums:.2f} — long EQ-swap blend",
+        )
+    if score.drums >= _DRUM_CUT_FLOOR:
+        return PickerDecision(
+            transition=NeuralMixTransition.DRUM_CUT,
+            confidence=0.72,
+            reason=f"grooves loosely lock (drums={score.drums:.2f}) — quick drum cut",
+        )
     return PickerDecision(
         transition=NeuralMixTransition.ECHO_OUT,
         confidence=0.60,
-        reason="no specific pattern matched — echo-tail safe default",
+        reason=f"groove mismatch (drums={score.drums:.2f}) — echo-tail rescue",
     )
 
 

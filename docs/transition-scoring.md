@@ -361,8 +361,24 @@ Decision tree (first match wins):
    - Missing B vocal data → **ECHO_OUT** (safe default)
 4. Harmonic motif on A (low pitch salience, mid centroid, tonnetz present) + Camelot distance ≤ 1 + low-vocal B → **HARMONIC_SUSTAIN**.
 5. High B-over-A energy delta (>2 LUFS) AND (`intent=RAMP_UP` OR `subgenre_pair=HARD_PAIR`) → **DRUM_CUT** (drop-style breakdown into slam).
+5b. `subgenre_pair=HYPNOTIC_PAIR` AND `enable_filter_sweep_style` → **FILTER_SWEEP**.
 6. `subgenre_pair=AMBIENT_PAIR` OR `intent=COOL_DOWN` → **FADE**.
-7. Default → **ECHO_OUT** (universally safe).
+7. **Default — techno mixes on the drums** (`score.drums`-routed):
+   - `drums ≥ 0.62` AND energy lift > +2 LUFS → **DRUM_CUT** (lock + lift)
+   - `drums ≥ 0.62` → **DRUM_SWAP** (canonical long EQ-swap blend)
+   - `drums ≥ 0.45` → **DRUM_CUT** (loose lock — clean quick swap)
+   - else → **ECHO_OUT** (groove mismatch — echo-tail rescue)
+
+   ⚠️ **Fixed 2026-06-23.** The default was previously a blanket
+   **ECHO_OUT**. Instrumental 4/4 techno never matches the vocal /
+   harmonic / section / subgenre branches, so the set-build path
+   (`set_version_build` calls the picker with no section/intent and the
+   handler now derives `subgenre_pair` from mood) routed **every**
+   transition to `echo_out` — whole sets came out 100 % echo. ECHO_OUT is
+   now a rescue only; drum-driven pairs default to **DRUM_SWAP** /
+   **DRUM_CUT**. `transition_persist._build_recipe_or_none` derives
+   `subgenre_pair` via `classify_pair(mood_a, mood_b)` so HARD/HYPNOTIC/
+   ACID branches + per-pair bar clamps actually fire on set builds.
 
 ## Neural Mix Recipe (v1.3.0)
 
