@@ -50,15 +50,23 @@ async def call_handler(
     if len(params) < 4:
         return await handler(ctx, uow, data)
 
+    service_map: dict[str, Any] = {
+        "registry": registry,
+        "_registry": registry,
+        "provider_registry": registry,
+        "pipeline": pipeline,
+        "scorer": scorer,
+    }
+
     name = params[3]
-    if name in _SERVICE_PARAMS:
-        service_map: dict[str, Any] = {
-            "registry": registry,
-            "_registry": registry,
-            "pipeline": pipeline,
-            "scorer": scorer,
-        }
-        return await handler(ctx, uow, data, service_map[name])
+    if name in service_map:
+        # Forward the primary 4th-positional service, plus any FURTHER service
+        # params the handler declares (5th+, by name) as keyword args. This
+        # lets a handler ask for two services — e.g. ``track_features_analyze``
+        # takes ``pipeline`` AND an optional ``registry`` for Beatport
+        # enrichment — without breaking single-service handlers.
+        extra = {p: service_map[p] for p in params[4:] if p in service_map}
+        return await handler(ctx, uow, data, service_map[name], **extra)
 
     # Unknown name — legacy fallback to registry keeps existing handlers alive.
     return await handler(ctx, uow, data, registry)
