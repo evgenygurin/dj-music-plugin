@@ -29,8 +29,14 @@ class SetView(BaseModel):
     name: str
     description: str | None = None
     target_duration_ms: int | None = None
-    target_bpm_min: int | None = None
-    target_bpm_max: int | None = None
+    # Audit: ``dj_sets.target_bpm_{min,max}`` are stored as FLOAT in the
+    # DB (e.g. a template-derived 124.8). The read-only view must reflect
+    # what is persisted — a strict ``int`` annotation made ``entity_list
+    # /get(set)`` and ``ui_set_view`` raise ``int_from_float`` on any set
+    # carrying a fractional target BPM. ``SetCreate``/``SetUpdate`` keep
+    # the ``int`` input contract; only the projection is widened.
+    target_bpm_min: float | None = None
+    target_bpm_max: float | None = None
     template_name: str | None = None
     source_playlist_id: int | None = None
     version_count: int | None = None
