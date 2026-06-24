@@ -1,0 +1,42 @@
+{
+  "name": "dj-music",
+  "version": "1.6.0",
+  "description": "Manage a DJ techno library, build optimized sets, analyze transitions, and integrate with Yandex Music.",
+  "author": {
+    "name": "Evgeny Gurin",
+    "url": "https://github.com/evgenygurin"
+  },
+  "homepage": "https://github.com/evgenygurin/dj-music-plugin",
+  "repository": "https://github.com/evgenygurin/dj-music-plugin",
+  "license": "MIT",
+  "keywords": [
+    "dj",
+    "techno",
+    "music",
+    "mcp",
+    "yandex-music",
+    "set-building",
+    "audio-analysis"
+  ],
+  "skills": "./skills/",
+  "mcpServers": "./.mcp.json",
+  "interface": {
+    "displayName": "DJ Music",
+    "shortDescription": "Build and manage techno DJ sets",
+    "longDescription": "Manage a techno library, analyze audio and transitions, build optimized DJ sets, and sync playlists with Yandex Music.",
+    "developerName": "Evgeny Gurin",
+    "category": "Productivity",
+    "capabilities": [
+      "Read",
+      "Write",
+      "Interactive"
+    ],
+    "websiteURL": "https://github.com/evgenygurin/dj-music-plugin",
+    "defaultPrompt": [
+      "Build a demo techno set from my library.",
+      "Audit my DJ library and identify quality gaps.",
+      "Review weak transitions in my latest set."
+    ],
+    "brandColor": "#E5484D"
+  }
+}
