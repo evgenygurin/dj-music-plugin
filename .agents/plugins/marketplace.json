@@ -1,0 +1,21 @@
+{
+  "name": "dj-music-plugin",
+  "interface": {
+    "displayName": "DJ Music Plugin"
+  },
+  "plugins": [
+    {
+      "name": "dj-music",
+      "source": {
+        "source": "url",
+        "url": "https://github.com/evgenygurin/dj-music-plugin.git",
+        "ref": "main"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_USE"
+      },
+      "category": "Productivity"
+    }
+  ]
+}

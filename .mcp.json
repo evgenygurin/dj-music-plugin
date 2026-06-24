@@ -4,14 +4,7 @@
       "command": "bash",
       "args": [
         "-lc",
-        "root=\"${PLUGIN_ROOT:-${CLAUDE_PLUGIN_ROOT:-$PWD}}\"; cd \"$root\" || exit 1; env_args=(); if [ -f .env ]; then env_args=(--env-file .env); fi; exec uv run \"${env_args[@]}\" -- fastmcp run fastmcp.json --no-banner"
-      ]
-    },
-    "db": {
-      "command": "bash",
-      "args": [
-        "-lc",
-        "root=\"${PLUGIN_ROOT:-${CLAUDE_PLUGIN_ROOT:-$PWD}}\"; cd \"$root\" || exit 1; env_args=(); if [ -f .env ]; then env_args=(--env-file .env); fi; exec uv run \"${env_args[@]}\" -- bash -lc 'SUPABASE_ACCESS_TOKEN=\"${DJ_DB_ACCESS_TOKEN:?DJ_DB_ACCESS_TOKEN not set}\" exec npx -y @supabase/mcp-server-supabase@0.7.0 --read-only --project-ref=\"${DJ_DB_PROJECT_REF:?DJ_DB_PROJECT_REF not set}\" --features=database,docs,debug'"
+        "project_root=\"$PWD\"; plugin_root=\"${PLUGIN_ROOT:-$PWD}\"; cd \"$plugin_root\" || exit 1; env_args=(); if [ -f \"$project_root/.env\" ]; then env_args=(--env-file \"$project_root/.env\"); elif [ -f .env ]; then env_args=(--env-file .env); fi; exec uv run \"${env_args[@]}\" -- fastmcp run fastmcp.json --no-banner"
       ]
     }
   }
