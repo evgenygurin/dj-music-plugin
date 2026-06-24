@@ -1,14 +1,14 @@
 # DJ Music Plugin
 
-**v1.6.0** · MIT · MCP-сервер для управления личной DJ techno библиотекой, построения оптимизированных DJ сетов и интеграции с Яндекс Музыкой.
+**v1.4.0** · MIT · MCP-сервер для управления личной DJ techno библиотекой, построения оптимизированных DJ сетов и интеграции с Яндекс Музыкой.
 
-Surface: **MCP** (Codex / Claude Desktop / Cursor / любой MCP-client) — 20 tools, 27 resources, 30 workflow prompts.
+Surface: **MCP** (Claude Desktop / Cursor / любой MCP-client) — 20 tools, 27 resources, 19 workflow prompts.
 
 ## Возможности
 
 - **20 MCP tools** — 14 generic dispatchers (v1 polymorphism: `entity_{list,get,create,update,delete,aggregate}` × 11 entities, `provider_{read,write,search}` × Yandex, `transition_score_pool`, `sequence_optimize`, `playlist_sync`, `unlock_namespace`, `tool_invoke`) + 6 UI Prefab dashboards (camelot wheel, library audit/dashboard, set view, transition score, score-pool matrix)
 - **27 MCP resources** — per-entity views (`local://`), session state (`session://`), schema introspection (`schema://`), static reference blobs (`reference://`)
-- **30 workflow prompts** — core (`dj_expert_session`, `build_set_workflow`, `deliver_set_workflow`, `expand_playlist_workflow`, `full_pipeline`, `quick_mix_check`) + library/analysis, set design (harmonic/subgenre journey, scenario, b2b, extend), set repair (review/fix/replace) и discovery/ops (digging, taste, sync) — см. [research](docs/research/2026-06-22-techno-set-construction-and-mcp-prompts.md)
+- **19 workflow prompts** — core (`dj_expert_session`, `build_set_workflow`, `deliver_set_workflow`, `expand_playlist_workflow`, `full_pipeline`, `quick_mix_check`) + library/analysis, set design (harmonic/subgenre journey, scenario, b2b, extend), set repair (review/fix/replace) и discovery/ops (digging, taste, sync) — см. [research](docs/research/2026-06-22-techno-set-construction-and-mcp-prompts.md)
 - **Audio analysis pipeline** — 18 анализаторов (L1→L4 tiered), SharedMemory transport + per-worker AnalysisContext cache
 - **DJ set generation** — генетический алгоритм + greedy builder с transition scoring и section-aware весами
 - **Transition scoring** — 6-компонентная оценка (BPM, гармония, энергия, спектр, грув, тембр) + hard constraints + recipe engine (12 mix-типов) + intent/style/template awareness
@@ -31,28 +31,6 @@ cp .env.example .env
 
 # Запуск
 uv run fastmcp run server.py
-```
-
-### Установка как Codex plugin
-
-```bash
-codex plugin marketplace add evgenygurin/dj-music-plugin
-```
-
-Перезапусти Codex, открой `/plugins`, выбери marketplace **DJ Music Plugin** и установи `dj-music`.
-
-Codex package metadata:
-
-- `.codex-plugin/plugin.json` — manifest и install-surface metadata;
-- `.mcp.json` — основной FastMCP server и read-only Supabase DB server;
-- `.claude-plugin/marketplace.json` — legacy-compatible marketplace, который также читает Codex;
-- `hooks/hooks.json` — reload hook, требующий trust review через `/hooks`.
-
-Проверка перед PR:
-
-```bash
-python3 ~/.codex/skills/.system/plugin-creator/scripts/validate_plugin.py .
-codex plugin marketplace list
 ```
 
 ### Установка как Claude Code плагин
@@ -98,7 +76,7 @@ claude plugin validate /path/to/dj-music-plugin
 
 | Сервер | Назначение |
 |--------|------------|
-| `mcp` | 20 DJ tools + 27 resources + 30 prompts — построение сетов, аудиоанализ, YM, экспорт (FastMCP v3) |
+| `mcp` | 20 DJ tools + 27 resources + 19 prompts — построение сетов, аудиоанализ, YM, экспорт (FastMCP v3) |
 | `db` | Read-only инспекция БД: схема, SQL, миграции, логи |
 
 Сервер `db` принудительно изолирован (security hardening по [официальным рекомендациям Supabase MCP](https://github.com/supabase-community/supabase-mcp#security-risks)):

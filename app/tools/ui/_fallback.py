@@ -10,7 +10,7 @@ rename in FastMCP 3.3+ only needs one edit.
 
 from __future__ import annotations
 
-from typing import Any, TypeVar
+from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -145,10 +145,7 @@ class CamelotWheelFallback(BaseModel):
     slots: list[CamelotWheelSlot] = Field(default_factory=list)
 
 
-FallbackModel = TypeVar("FallbackModel", bound=BaseModel)
-
-
-def fallback_or(cls: type[FallbackModel], data: Any) -> FallbackModel:  # noqa: UP047
+def fallback_or[T: BaseModel](cls: type[T], data: Any) -> T:
     """Validate a dict/mapping into a fallback Pydantic model.
 
     Keeps call sites one-liners:

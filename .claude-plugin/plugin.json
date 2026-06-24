@@ -1,7 +1,7 @@
 {
   "name": "dj-music",
   "version": "1.6.0",
-  "description": "DJ techno music library management — 20 MCP dispatchers (6 entity CRUD + 3 provider + 2 compute + sync + 2 admin + 6 UI Prefab Apps) + 27 resources + 30 prompts + 6 handlers. FastMCP v3 bounded-contexts architecture.",
+  "description": "DJ techno music library management — 20 MCP dispatchers (6 entity CRUD + 3 provider + 2 compute + sync + 2 admin + 6 UI Prefab Apps) + 27 resources + 6 prompts + 6 handlers. FastMCP v3 bounded-contexts architecture.",
   "author": {
     "name": "Evgeny Gurin",
     "url": "https://github.com/evgenygurin"
@@ -14,14 +14,14 @@
       "command": "bash",
       "args": [
         "-c",
-        "cd \"${DJ_PLUGIN_DEV_PATH:-${CLAUDE_PLUGIN_ROOT}}\" || exit 1; env_args=(); if [ -f .env ]; then env_args=(--env-file .env); fi; exec uv run \"${env_args[@]}\" -- fastmcp run fastmcp.json --no-banner"
+        "cd \"${DJ_PLUGIN_DEV_PATH:-${CLAUDE_PLUGIN_ROOT}}\" && set -a && if [ -f .env ]; then source .env; fi && set +a && exec uv run fastmcp run fastmcp.json --no-banner"
       ]
     },
     "db": {
       "command": "bash",
       "args": [
         "-c",
-        "cd \"${DJ_PLUGIN_DEV_PATH:-${CLAUDE_PLUGIN_ROOT}}\" || exit 1; env_args=(); if [ -f .env ]; then env_args=(--env-file .env); fi; exec uv run \"${env_args[@]}\" -- bash -lc 'SUPABASE_ACCESS_TOKEN=\"${DJ_DB_ACCESS_TOKEN:?DJ_DB_ACCESS_TOKEN not set}\" exec npx -y @supabase/mcp-server-supabase@0.7.0 --read-only --project-ref=\"${DJ_DB_PROJECT_REF:?DJ_DB_PROJECT_REF not set}\" --features=database,docs,debug'"
+        "cd \"${DJ_PLUGIN_DEV_PATH:-${CLAUDE_PLUGIN_ROOT}}\" && set -a && source .env 2>/dev/null && set +a && SUPABASE_ACCESS_TOKEN=\"${DJ_DB_ACCESS_TOKEN:?DJ_DB_ACCESS_TOKEN not set in .env}\" exec npx -y @supabase/mcp-server-supabase@0.7.0 --read-only --project-ref=\"${DJ_DB_PROJECT_REF:?DJ_DB_PROJECT_REF not set in .env}\" --features=database,docs,debug"
       ]
     }
   }
