@@ -6,20 +6,6 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
-### Added
-- Native Codex plugin packaging via `.codex-plugin/plugin.json` and `.mcp.json`.
-
-### Changed
-- Plugin reload hooks now support Codex (`PLUGIN_ROOT`, `apply_patch`,
-  `~/.codex/plugins/cache`) while preserving Claude Code compatibility.
-- Install metadata now reflects v1.6.0 and the 30-prompt catalog.
-
-### Fixed
-- UI fallback generic syntax now imports under Python 3.11-compatible
-  plugin discovery runtimes while preserving strict typing on Python 3.12.
-- MCP launch commands load `.env` with `uv --env-file` instead of shell
-  `source`, so credentials containing shell metacharacters remain valid.
-
 ## [1.6.0] - 2026-06-23
 
 **Transition-scoring correctness + audio-feature research.** A deep audit of

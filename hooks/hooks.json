@@ -1,14 +1,14 @@
 {
+  "description": "Reloads MCP on plugin edits (kills fastmcp stdio so Claude Code respawns with fresh code).",
   "hooks": {
     "PostToolUse": [
       {
-        "matcher": "Edit|Write|MultiEdit|apply_patch",
+        "matcher": "Edit|Write|MultiEdit",
         "hooks": [
           {
             "type": "command",
-            "command": "bash \"${PLUGIN_ROOT:-${CLAUDE_PLUGIN_ROOT}}/hooks/reload-mcp.sh\"",
-            "timeout": 10,
-            "statusMessage": "Reloading DJ Music plugin"
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/reload-mcp.sh\"",
+            "timeout": 10
           }
         ]
       }
