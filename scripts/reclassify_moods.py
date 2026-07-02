@@ -18,15 +18,14 @@ import asyncio
 import sys
 from collections import Counter
 
-from sqlalchemy import select, update
+from sqlalchemy import select
 
 from app.audio.classification.classifier import MoodClassifier
 from app.config import get_settings
 from app.db.session import dispose, get_session_factory
-from app.models.track_features import TrackAudioFeaturesComputed as TF
+from app.models.track_features import TrackAudioFeaturesComputed as TF  # noqa: N814
 
 COLS = [c.name for c in TF.__table__.columns]
-BATCH = 2000
 clf = MoodClassifier()
 
 
@@ -43,7 +42,6 @@ async def main(apply: bool) -> None:
         old_dist: Counter = Counter()
         new_dist: Counter = Counter()
         changed = 0
-        updates: list[dict] = []
         for r in rows:
             feats = {c: getattr(r, c) for c in COLS}
             res = clf.classify(feats)
@@ -52,13 +50,14 @@ async def main(apply: bool) -> None:
             new_dist[new_mood] += 1
             if new_mood != r.mood:
                 changed += 1
-            updates.append(
-                {
-                    "track_id": r.track_id,
-                    "mood": new_mood,
-                    "mood_confidence": round(float(res.confidence), 4),
-                }
-            )
+            confidence = round(float(res.confidence), 4)
+            if apply:
+                r.audio_mood = new_mood
+                r.audio_mood_confidence = confidence
+                if r.mood_source != "beatport":
+                    r.mood = new_mood
+                    r.mood_confidence = confidence
+                    r.mood_source = "audio"
 
         def fmt(d: Counter) -> str:
             return "  ".join(f"{k}:{v}" for k, v in d.most_common())
@@ -76,11 +75,8 @@ async def main(apply: bool) -> None:
             await dispose()
             return
 
-        print(f"\napplying {len(updates)} updates in batches of {BATCH} ...")
-        for i in range(0, len(updates), BATCH):
-            await s.execute(update(TF), updates[i : i + BATCH])
-            await s.flush()
-            print(f"  wrote {min(i + BATCH, len(updates))}/{len(updates)}")
+        print(f"\napplying {len(rows)} source-aware updates ...")
+        await s.flush()
         await s.commit()
         print("committed.")
 

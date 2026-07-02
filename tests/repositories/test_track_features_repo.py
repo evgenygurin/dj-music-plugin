@@ -8,11 +8,12 @@ import pytest
 import pytest_asyncio
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
-from app.models import Base, Track, TrackAudioFeaturesComputed
+from app.models import Base, Track, TrackAudioFeaturesComputed, TrackSection
 from app.repositories.track_features import (
     TrackFeaturesRepository,
     _serialize_vectors,
 )
+from app.shared.constants import SectionType
 
 
 @pytest_asyncio.fixture
@@ -42,6 +43,58 @@ async def test_get_scoring_features_batch(
 
 
 @pytest.mark.asyncio
+async def test_get_scoring_features_batch_adds_structural_mix_anchors(
+    repo: TrackFeaturesRepository, session: AsyncSession
+) -> None:
+    track = Track(title="structured")
+    session.add(track)
+    await session.flush()
+    session.add(
+        TrackAudioFeaturesComputed(
+            track_id=track.id,
+            bpm=128.0,
+            phrase_boundaries_ms=json.dumps([0, 32_000, 64_000, 224_000, 256_000]),
+            dominant_phrase_bars=16,
+        )
+    )
+    intro = TrackSection(
+        track_id=track.id,
+        section_type=int(SectionType.INTRO),
+        start_ms=0,
+        end_ms=64_000,
+        confidence=0.9,
+    )
+    drop = TrackSection(
+        track_id=track.id,
+        section_type=int(SectionType.DROP),
+        start_ms=64_000,
+        end_ms=224_000,
+        confidence=0.9,
+    )
+    outro = TrackSection(
+        track_id=track.id,
+        section_type=int(SectionType.OUTRO),
+        start_ms=224_000,
+        end_ms=288_000,
+        confidence=0.9,
+    )
+    session.add_all([intro, drop, outro])
+    await session.flush()
+
+    result = await repo.get_scoring_features_batch([track.id])
+    features = result[track.id]
+
+    assert features.mix_in_section_id == intro.id
+    assert features.mix_in_section_type == int(SectionType.INTRO)
+    assert features.mix_in_point_ms == 0
+    assert features.mix_out_section_id == outro.id
+    assert features.mix_out_section_type == int(SectionType.OUTRO)
+    assert features.mix_out_point_ms == 224_000
+    assert features.phrase_boundaries_ms == [0, 32_000, 64_000, 224_000, 256_000]
+    assert features.dominant_phrase_bars == 16
+
+
+@pytest.mark.asyncio
 async def test_set_mood(repo: TrackFeaturesRepository, session: AsyncSession) -> None:
     t = Track(title="a")
     session.add(t)
@@ -53,6 +106,85 @@ async def test_set_mood(repo: TrackFeaturesRepository, session: AsyncSession) ->
     assert row is not None
     assert row.mood == "peak_time"
     assert row.mood_confidence == 0.82
+    assert row.audio_mood == "peak_time"
+    assert row.audio_mood_confidence == 0.82
+    assert row.mood_source == "audio"
+
+
+@pytest.mark.asyncio
+async def test_set_mood_does_not_replace_beatport_mood(
+    repo: TrackFeaturesRepository, session: AsyncSession
+) -> None:
+    track = Track(title="beatport-mood")
+    session.add(track)
+    await session.flush()
+    session.add(
+        TrackAudioFeaturesComputed(
+            track_id=track.id,
+            mood="peak_time",
+            mood_confidence=1.0,
+            mood_source="beatport",
+        )
+    )
+    await session.flush()
+
+    await repo.set_mood(track.id, mood="acid", confidence=0.2)
+    row = await session.get(TrackAudioFeaturesComputed, track.id)
+    assert row is not None
+    assert row.mood == "peak_time"
+    assert row.mood_confidence == 1.0
+    assert row.mood_source == "beatport"
+    assert row.audio_mood == "acid"
+    assert row.audio_mood_confidence == 0.2
+
+
+@pytest.mark.asyncio
+async def test_upsert_analysis_preserves_beatport_canonical_values(
+    repo: TrackFeaturesRepository, session: AsyncSession
+) -> None:
+    track = Track(title="canonical")
+    session.add(track)
+    await session.flush()
+    session.add(
+        TrackAudioFeaturesComputed(
+            track_id=track.id,
+            bpm=136.0,
+            bpm_confidence=1.0,
+            key_code=8,
+            key_confidence=1.0,
+            mood="peak_time",
+            mood_confidence=1.0,
+            bpm_source="beatport",
+            key_source="beatport",
+            mood_source="beatport",
+        )
+    )
+    await session.flush()
+
+    await repo.upsert_analysis(
+        track_id=track.id,
+        bpm=128.0,
+        bpm_confidence=0.65,
+        key_code=14,
+        key_confidence=0.55,
+        mood="acid",
+        mood_confidence=0.35,
+    )
+
+    row = await session.get(TrackAudioFeaturesComputed, track.id)
+    assert row is not None
+    assert row.bpm == 136.0
+    assert row.bpm_confidence == 1.0
+    assert row.key_code == 8
+    assert row.key_confidence == 1.0
+    assert row.mood == "peak_time"
+    assert row.mood_confidence == 1.0
+    assert row.audio_bpm == 128.0
+    assert row.audio_bpm_confidence == 0.65
+    assert row.audio_key_code == 14
+    assert row.audio_key_confidence == 0.55
+    assert row.audio_mood == "acid"
+    assert row.audio_mood_confidence == 0.35
 
 
 def test_serialize_vectors_encodes_lists_to_json_strings() -> None:

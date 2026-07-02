@@ -37,6 +37,7 @@ from app.audio.temp_download import temp_download_track
 from app.config import get_settings
 from app.db.session import dispose, get_session_factory
 from app.models.track_features import TrackAudioFeaturesComputed as TF  # noqa: N814
+from app.providers.beatport.canonical import stored_genre_updates
 from app.providers.yandex.client import YandexClient
 from app.providers.yandex.rate_limiter import TokenBucketRateLimiter
 from app.repositories.unit_of_work import UnitOfWork
@@ -117,9 +118,17 @@ async def _process_one(
                 async with temp_download_track(client, str(ext_id)) as path:
                     result = await pipeline.analyze(str(path), analyzers=L5_ANALYZERS)
                 feats = TF.filter_features(result.features)
-                await uow.track_features.upsert(
+                await uow.track_features.upsert_analysis(
                     track_id=track_id, analysis_level=int(AnalysisLevel.ADVANCED), **feats
                 )
+                # Old Beatport rows already contain a verified genre even when
+                # the complete metadata refresh has not run yet. Promote it in
+                # the same transaction so L5 can never leave a stale audio mood
+                # as the canonical value.
+                current = await uow.track_features.get_by_track_id(track_id)
+                genre_updates = stored_genre_updates(current)
+                if genre_updates:
+                    await uow.track_features.upsert(track_id=track_id, **genre_updates)
                 await session.commit()
                 ok = True
                 note = f"{len(feats)} feats"

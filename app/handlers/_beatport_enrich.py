@@ -13,6 +13,7 @@ import logging
 from typing import Any
 
 from app.config import get_settings
+from app.providers.beatport.canonical import canonical_updates
 from app.registry.provider import ProviderRegistry
 from app.repositories.unit_of_work import UnitOfWork
 from app.shared.errors import NotFoundError
@@ -71,13 +72,14 @@ async def enrich_beatport_genre(
         # same UoW. Without it a failed upsert poisons the session and the
         # outer commit discards the whole analysis.
         async with uow.session.begin_nested():
+            current = await uow.track_features.get_by_track_id(track_id)
             await uow.track_features.upsert(
                 track_id=track_id,
-                beatport_genre=match.get("genre"),
-                beatport_sub_genre=match.get("sub_genre"),
-                beatport_track_id=match.get("beatport_id"),
-                beatport_confidence=match.get("confidence"),
+                **canonical_updates(match, current=current, analysis_features=features),
             )
+            duration_ms = match.get("length_ms")
+            if match.get("confidence") == "high" and duration_ms is not None:
+                track.duration_ms = int(duration_ms)
         return match
     except Exception as exc:
         log.info("beatport enrich skipped for track %s: %s", track_id, exc)

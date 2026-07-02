@@ -110,12 +110,30 @@ class TrackFeaturesView(BaseModel):
     # Mood classification
     mood: str | None = None
     mood_confidence: float | None = None
+    mood_source: str | None = None
 
-    # Beatport ground-truth genre (matched + BPM/duration-verified)
+    # Original audio-analysis values retained after provider canonicalization.
+    audio_bpm: float | None = None
+    audio_bpm_confidence: float | None = None
+    audio_key_code: int | None = None
+    audio_key_confidence: float | None = None
+    audio_mood: str | None = None
+    audio_mood_confidence: float | None = None
+    bpm_source: str | None = None
+    key_source: str | None = None
+
+    # Beatport ground-truth metadata (matched + BPM/duration-verified)
     beatport_genre: str | None = None
     beatport_sub_genre: str | None = None
     beatport_track_id: int | None = None
     beatport_confidence: str | None = None
+    beatport_bpm: float | None = None
+    beatport_key: str | None = None
+    beatport_camelot: str | None = None
+    beatport_duration_ms: int | None = None
+    beatport_isrc: str | None = None
+    beatport_release: str | None = None
+    beatport_label: str | None = None
 
 
 class TrackFeaturesFilter(BaseModel):
@@ -148,6 +166,9 @@ class TrackFeaturesFilter(BaseModel):
     beatport_genre__icontains: str | None = None
     beatport_genre__isnull: bool | None = None
     beatport_confidence__eq: str | None = None
+    bpm_source__eq: str | None = None
+    key_source__eq: str | None = None
+    mood_source__eq: str | None = None
     # Confidence + scalar feature lookups (audit iter 25). The most
     # common analytics query is "filter by mood_confidence >= 0.1
     # to exclude low-quality classifications".

@@ -1,4 +1,4 @@
-"""Tests for Neural Mix preset builders (7 djay Pro 5 + FILTER_SWEEP extension)."""
+"""Tests for Neural Mix preset builders (7 djay Pro 5 presets)."""
 
 from __future__ import annotations
 
@@ -11,7 +11,6 @@ from app.domain.transition.builders import (
     build_drum_swap,
     build_echo_out,
     build_fade,
-    build_filter_sweep,
     build_harmonic_sustain,
     build_recipe,
     build_vocal_cut,
@@ -35,7 +34,6 @@ ALL_BUILDERS = (
     (NeuralMixTransition.DRUM_SWAP, build_drum_swap),
     (NeuralMixTransition.VOCAL_CUT, build_vocal_cut),
     (NeuralMixTransition.DRUM_CUT, build_drum_cut),
-    (NeuralMixTransition.FILTER_SWEEP, build_filter_sweep),
 )
 
 
@@ -254,44 +252,3 @@ def test_build_recipe_round_trips_through_json() -> None:
     )
     parsed = NeuralMixRecipe.from_json(recipe.to_json())
     assert parsed == recipe
-
-
-# ── FILTER_SWEEP specific ───────────────────────────────────────────
-
-
-def test_filter_sweep_a_bass_exits_first() -> None:
-    """A.bass must be silent by bar 8 (¼ of 32) — earlier than other A stems."""
-    keyframes, _fx = build_filter_sweep()
-    a_bass = _channel(keyframes, "A", NeuralMixStem.BASS)
-    silent_kfs = [kf for kf in a_bass if kf.level_db == LEVEL_SILENT]
-    assert silent_kfs, "A.bass must reach LEVEL_SILENT"
-    assert silent_kfs[0].bar <= 8.0, "A.bass should be silent by ¼ of 32 bars"
-
-
-def test_filter_sweep_b_bass_enters_last() -> None:
-    """B.bass must be at 0 dB only at the end — entering after other B stems."""
-    keyframes, _fx = build_filter_sweep()
-    b_bass = _channel(keyframes, "B", NeuralMixStem.BASS)
-    # Must be silent for most of the transition.
-    silent_kfs = [kf for kf in b_bass if kf.level_db == LEVEL_SILENT]
-    assert silent_kfs and max(kf.bar for kf in silent_kfs) >= 20.0
-    # Must reach 0 dB by the end.
-    assert b_bass[-1].level_db == LEVEL_UNITY
-    assert b_bass[-1].bar == float(DEFAULT_TRANSITION_BARS)
-
-
-def test_filter_sweep_no_fx_events() -> None:
-    """FILTER_SWEEP is a smooth blend — no abrupt echo-tail triggers."""
-    _keyframes, fx = build_filter_sweep()
-    assert fx == (), "FILTER_SWEEP should produce no MuteFX events"
-
-
-def test_filter_sweep_b_drums_enter_before_b_bass() -> None:
-    """B.drums arrive before B.bass — drums/harmonic bed established first."""
-    keyframes, _fx = build_filter_sweep()
-    b_bass = _channel(keyframes, "B", NeuralMixStem.BASS)
-    b_drums = _channel(keyframes, "B", NeuralMixStem.DRUMS)
-    # B.drums must reach 0 dB before B.bass does.
-    b_drums_unity_bar = next(kf.bar for kf in b_drums if kf.level_db == LEVEL_UNITY)
-    b_bass_unity_bar = next(kf.bar for kf in b_bass if kf.level_db == LEVEL_UNITY)
-    assert b_drums_unity_bar < b_bass_unity_bar

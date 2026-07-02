@@ -91,7 +91,7 @@ real template names; `suggest_next` `energy_direction` ∈ `{up,down,flat}`.
 ## Honesty about engine limits
 
 Don't promise what the engine can't do: no real stem separation (vocal
-detection is spectral proxies), no `FILTER_SWEEP`/`LOOP_ROLL` presets,
+detection is spectral proxies), no `LOOP_ROLL` presets,
 downbeat/cue/loop tables are empty, MP3s download only under
 `deliver_set_workflow`. See `docs/transition-scoring.md` § Known
 Limitations + `docs/audio-schema.md`.

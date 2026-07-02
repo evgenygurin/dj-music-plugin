@@ -59,8 +59,8 @@ class TestEnumsAndWeights:
         }
         assert len(NEURAL_MIX_STEMS) == 4
 
-    def test_eight_transition_types_exact(self) -> None:
-        assert len(NeuralMixTransition) == 8
+    def test_seven_transition_types_exact(self) -> None:
+        assert len(NeuralMixTransition) == 7
         assert set(NeuralMixTransition) == {
             NeuralMixTransition.FADE,
             NeuralMixTransition.ECHO_OUT,
@@ -69,9 +69,8 @@ class TestEnumsAndWeights:
             NeuralMixTransition.DRUM_SWAP,
             NeuralMixTransition.VOCAL_CUT,
             NeuralMixTransition.DRUM_CUT,
-            NeuralMixTransition.FILTER_SWEEP,
         }
-        assert len(TRANSITION_TYPES) == 8
+        assert len(TRANSITION_TYPES) == 7
 
     def test_every_transition_has_stem_weights_summing_to_one(self) -> None:
         for transition, weights in TRANSITION_STEM_WEIGHTS.items():
@@ -188,9 +187,9 @@ class TestStemScores:
 
 
 class TestTransitionScores:
-    def test_all_eight_transition_scores_populated(self, scorer: NeuralMixScorer) -> None:
+    def test_all_seven_transition_scores_populated(self, scorer: NeuralMixScorer) -> None:
         result = scorer.score(_make_track(), _make_track())
-        assert len(result.transition_scores) == 8
+        assert len(result.transition_scores) == 7
         for transition in NeuralMixTransition:
             assert transition in result.transition_scores
             assert 0.0 <= result.transition_scores[transition] <= 1.0

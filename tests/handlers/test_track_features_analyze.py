@@ -25,7 +25,7 @@ def uow() -> MagicMock:
     u.tracks.get = AsyncMock()
     u.track_features = MagicMock()
     u.track_features.get_by_track_id = AsyncMock(return_value=None)
-    u.track_features.upsert = AsyncMock()
+    u.track_features.upsert_analysis = AsyncMock()
     u.audio_files = MagicMock()
     u.audio_files.get_by_track_id = AsyncMock(return_value=MagicMock(file_path="/tmp/x.mp3"))
     return u

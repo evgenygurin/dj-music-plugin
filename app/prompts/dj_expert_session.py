@@ -62,10 +62,14 @@ SET-BUILD SCORING REALITY:
 
 WORKFLOW:
 - Inspect with entity_list / entity_get; score candidate pairs with
-  transition_score_pool; CURATE DOWN to exactly the N tracks you want
-  (sequence_optimize orders the WHOLE pool you pass — it does not subset);
-  impose the energy arc by hand-ordering/template (the GA maximises pairwise
-  quality and scatters energy if left alone); then persist via
+  transition_score_pool; if you already have the exact final pool, use
+  `sequence_optimize(..., algorithm="ga"|"greedy")` to reorder it.
+- If you have a broader crate and need the engine to CHOOSE which tracks
+  belong in each template slot, use
+  `sequence_optimize(..., algorithm="constructive", template="...")`.
+  That mode may return only the subset that best fits the arc.
+- Do not hand-wave the pool size: broad crate -> constructive selection;
+  trusted final pool -> GA/greedy reorder. Then persist via
   entity_create(entity='set_version').
 - Before finalizing/delivering, bring the set's tracks to L5: download
   (entity_create entity='audio_file') then re-analyze

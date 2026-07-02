@@ -2,10 +2,15 @@
 
 from __future__ import annotations
 
+from unittest.mock import MagicMock
+
 import pytest
 
-from app.domain.optimization.fitness import compute_fitness
+from app.domain.optimization.fitness import compute_fitness, transition_quality
+from app.domain.transition.intent import TransitionIntent
 from app.domain.transition.scorer import TransitionScorer
+from app.domain.transition.section_context import SectionPairClass
+from app.shared.constants import SectionType
 from app.shared.features import TrackFeatures
 
 
@@ -46,3 +51,25 @@ def test_fitness_deterministic() -> None:
     a = compute_fitness(TransitionScorer(), tracks, ids, idx_map)
     b = compute_fitness(TransitionScorer(), tracks, ids, idx_map)
     assert a == pytest.approx(b)
+
+
+def test_transition_quality_passes_shared_pair_context_to_scorer() -> None:
+    scorer = MagicMock()
+    scorer.score.return_value = MagicMock(overall=0.75, hard_reject=False)
+    tracks = [
+        TrackFeatures(
+            integrated_lufs=-12.0,
+            mix_out_section_type=int(SectionType.OUTRO),
+        ),
+        TrackFeatures(
+            integrated_lufs=-10.5,
+            mix_in_section_type=int(SectionType.INTRO),
+        ),
+    ]
+
+    result = transition_quality(scorer, tracks, [1, 2], {1: 0, 2: 1})
+
+    assert result == pytest.approx(0.75)
+    call = scorer.score.call_args
+    assert call.kwargs["intent"] == TransitionIntent.RAMP_UP
+    assert call.kwargs["section_context"].section_pair_class == SectionPairClass.DRUM_ONLY

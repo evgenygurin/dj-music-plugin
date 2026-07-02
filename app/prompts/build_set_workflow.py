@@ -25,13 +25,17 @@ def _build_body(playlist_id: int, template: str) -> str:
 5. Compute pairwise scores across the candidate pool:
    transition_score_pool(track_ids=[...])
 
-6. Optimize ordering under the template arc:
+6. Optimize under the template arc:
    sequence_optimize(
        track_ids=[...],
-       algorithm="ga",
+       algorithm="constructive",
        template="{template}",
-       pair_scores=...
    )
+   - Use "constructive" when the playlist is a broad candidate crate and
+     you want the engine to choose the exact slot occupants under the
+     template.
+   - Use "ga" / "greedy" only when you already trust the pool and only
+     want re-ordering.
 
 7. Persist the ordered set as a new version:
    entity_create(entity="set_version", data={{
@@ -45,8 +49,8 @@ def _build_body(playlist_id: int, template: str) -> str:
    - Read local://sets/{{set_id}}/cheatsheet
    - Read local://sets/{{set_id}}/review  (watch for weak transitions / hard conflicts)
 
-If any transition is flagged hard_reject, either pin surrounding tracks
-and re-optimize, or inject a bridge track from the candidate pool.
+If any transition is flagged hard_reject, either pin the must-keep anchors
+and re-run constructive selection, or inject a bridge track and rebuild.
 
 Return: {{"set_id": ..., "version_id": ..., "quality_score": ...}}
 """

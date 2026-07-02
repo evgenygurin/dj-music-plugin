@@ -16,7 +16,6 @@ Gitignored. Never commit. Create it manually when you need to override defaults 
 ---
 # Feature flags (consumed by build-set / deliver-set skills)
 enable_echo_out_style: true
-enable_filter_sweep_style: true
 
 # Default set-building behaviour (consumed by build-set / deliver-set skills)
 default_template: peak_hour_60
@@ -36,7 +35,6 @@ for scheduled jobs.
 | Field | Default | Consumer |
 |---|---|---|
 | `enable_echo_out_style` | `true` | `/build-set` / `/deliver-set` skills (future: prune from picker if false) |
-| `enable_filter_sweep_style` | `true` | `/build-set` / `/deliver-set` skills (future: prune from picker if false) |
 | `default_template` | `peak_hour_60` | `/build-set` skill |
 | `default_crossfade_bars` | `32` | `/deliver-set` skill |
 | `default_analysis_level` | `3` | `/build-set`, `/deliver-set` skills |

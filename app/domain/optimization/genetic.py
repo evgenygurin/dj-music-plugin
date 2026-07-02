@@ -12,7 +12,9 @@ from app.domain.template.models import SetTemplateDefinition
 from app.domain.transition.bulk_scorer import extract_feature_arrays, score_pairs_bulk
 from app.domain.transition.hard_constraints import check_hard_constraints
 from app.domain.transition.intent import TransitionIntent
+from app.domain.transition.pair_context import build_pair_context
 from app.domain.transition.scorer import TransitionScorer
+from app.domain.transition.section_context import SectionContext
 from app.shared.features import TrackFeatures
 
 # Pool prefilter: drop tracks with fewer than this many viable
@@ -155,7 +157,7 @@ class GeneticAlgorithm:
         # in single-digit seconds. Saving: removes the 5-10 generation
         # warm-up tax the GA used to pay before its cache stabilised,
         # and lets the inner loops stay pure Python lookups.
-        score_cache: dict[tuple[int, int, str], float] = {}
+        score_cache: dict[tuple[int, int, str, str | None], float] = {}
         self._eager_populate_cache(tracks, active_ids, idx_map, reject_mask, score_cache)
 
         population = self._init_population(active_ids, pinned)
@@ -183,7 +185,10 @@ class GeneticAlgorithm:
                 stagnant += 1
 
             if on_progress is not None:
-                on_progress(gen, best_fitness)
+                on_progress(
+                    int(((gen + 1) / max(1, self.max_generations)) * 100),
+                    best_fitness,
+                )
 
             if stagnant >= self.convergence_threshold:
                 break
@@ -213,6 +218,8 @@ class GeneticAlgorithm:
         best_fitness = self._fitness(
             tracks, best_individual, idx_map, template, moods, score_cache, reject_mask
         )
+        if on_progress is not None:
+            on_progress(100, best_fitness)
 
         return OptimizationResult(
             track_order=best_individual,
@@ -241,7 +248,7 @@ class GeneticAlgorithm:
         idx_map: dict[int, int],
         template: SetTemplateDefinition | None,
         moods: dict[int, str | None] | None,
-        score_cache: dict[tuple[int, int, str], float] | None = None,
+        score_cache: dict[tuple[int, int, str, str | None], float] | None = None,
         reject_mask: set[tuple[int, int]] | None = None,
     ) -> float:
         return compute_fitness(
@@ -333,7 +340,7 @@ class GeneticAlgorithm:
         active_ids: list[int],
         idx_map: dict[int, int],
         reject_mask: set[tuple[int, int]],
-        score_cache: dict[tuple[int, int, str], float],
+        score_cache: dict[tuple[int, int, str, str | None], float],
     ) -> None:
         """Pre-fill ``score_cache`` for every surviving (a, b, intent) triple.
 
@@ -359,21 +366,46 @@ class GeneticAlgorithm:
         scalar Python loop on dense (low-reject-rate) workloads.
         """
         indices = [idx_map[tid] for tid in active_ids]
-        pairs: list[tuple[int, int]] = []
+        generic_pairs: list[tuple[int, int]] = []
+        contextual_pairs: list[tuple[int, int, SectionContext]] = []
         for idx_a in indices:
             for idx_b in indices:
                 if idx_a == idx_b:
                     continue
                 if (idx_a, idx_b) in reject_mask:
                     continue
-                pairs.append((idx_a, idx_b))
+                context = build_pair_context(
+                    tracks[idx_a],
+                    tracks[idx_b],
+                    position=0.5,
+                ).section_context
+                if context is None:
+                    generic_pairs.append((idx_a, idx_b))
+                else:
+                    contextual_pairs.append((idx_a, idx_b, context))
 
-        if not pairs:
-            return
+        if generic_pairs:
+            fa = extract_feature_arrays(tracks)
+            bulk = score_pairs_bulk(fa, generic_pairs, _PRECOMPUTE_INTENTS)
+            score_cache.update(
+                {
+                    (idx_a, idx_b, intent, None): value
+                    for (idx_a, idx_b, intent), value in bulk.items()
+                }
+            )
 
-        fa = extract_feature_arrays(tracks)
-        bulk = score_pairs_bulk(fa, pairs, _PRECOMPUTE_INTENTS)
-        score_cache.update(bulk)
+        for idx_a, idx_b, section_context in contextual_pairs:
+            scores = self.scorer.score_all_intents(
+                tracks[idx_a],
+                tracks[idx_b],
+                _PRECOMPUTE_INTENTS,
+                section_context=section_context,
+            )
+            pair_class = section_context.section_pair_class.value
+            for intent, score in scores.items():
+                score_cache[(idx_a, idx_b, intent.value, pair_class)] = (
+                    0.0 if score.hard_reject else score.overall
+                )
 
     # ── Selection ───────────────────────────────────────
 
@@ -452,7 +484,7 @@ class GeneticAlgorithm:
         template: SetTemplateDefinition | None,
         moods: dict[int, str | None] | None,
         pinned: set[int],
-        score_cache: dict[tuple[int, int, str], float] | None = None,
+        score_cache: dict[tuple[int, int, str, str | None], float] | None = None,
         reject_mask: set[tuple[int, int]] | None = None,
     ) -> list[int]:
         """2-opt improvement with adaptive window expansion.
