@@ -66,11 +66,18 @@ async def audio_file_download_handler(
             await safe_report_progress(ctx, progress=i + 1, total=total)
             continue
 
+        # A DB row alone is not enough to skip: files under /tmp are wiped by
+        # the OS while dj_library_items rows survive, and a stale row makes
+        # L5 reanalyze fail with "audio file not found". Skip only when the
+        # file is really on disk; otherwise re-download and refresh the row.
+        stale_item = None
         existing = await uow.audio_files.get_for_track(tid)
         if existing is not None and skip_existing:
-            skipped.append({"track_id": tid, "library_item_id": existing.id})
-            await safe_report_progress(ctx, progress=i + 1, total=total)
-            continue
+            if Path(existing.file_path).exists():
+                skipped.append({"track_id": tid, "library_item_id": existing.id})
+                await safe_report_progress(ctx, progress=i + 1, total=total)
+                continue
+            stale_item = existing
 
         # External IDs are written under two platform labels historically —
         # the adapter name ("yandex") and the colloquial "yandex_music".
@@ -108,15 +115,26 @@ async def audio_file_download_handler(
 
         size = path.stat().st_size
         file_hash = _hash_head(path)
-        item = await uow.audio_files.create(
-            track_id=tid,
-            file_path=str(path),
-            file_hash=file_hash,
-            file_size=size,
-            mime_type="audio/mpeg",
-            source_app=source,
-        )
-        downloaded.append({"track_id": tid, "library_item_id": item.id, "path": str(path)})
+        if stale_item is not None:
+            item = await uow.audio_files.update(
+                stale_item.id,
+                file_path=str(path),
+                file_hash=file_hash,
+                file_size=size,
+            )
+        else:
+            item = await uow.audio_files.create(
+                track_id=tid,
+                file_path=str(path),
+                file_hash=file_hash,
+                file_size=size,
+                mime_type="audio/mpeg",
+                source_app=source,
+            )
+        entry: dict[str, Any] = {"track_id": tid, "library_item_id": item.id, "path": str(path)}
+        if stale_item is not None:
+            entry["refreshed_stale_row"] = True
+        downloaded.append(entry)
         await safe_report_progress(ctx, progress=i + 1, total=total)
 
     await safe_info(

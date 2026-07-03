@@ -7,6 +7,13 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Fixed
+- **`audio_file_download` no longer trusts stale `dj_library_items` rows.**
+  `/tmp` cleanup deletes MP3s while DB rows survive; `skip_existing` used to
+  skip on the row alone, so the file was never re-fetched and L5 reanalyze
+  failed with "audio file not found". The handler now verifies the file is on
+  disk before skipping; a stale row triggers a re-download and an in-place row
+  update (`refreshed_stale_row: true` in the response) instead of a duplicate
+  insert. Pinned by `test_stale_row_with_missing_file_is_redownloaded`.
 - `SetVersionView.label` widened to `str | None` — the prod column is
   nullable and a legacy/raw NULL label crashed the view and the
   set-versions relation loader (v1.6.1 review, low). Registry

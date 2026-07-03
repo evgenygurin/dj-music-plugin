@@ -100,14 +100,42 @@ async def test_handler_passes_dest_kwarg_to_provider(
 async def test_skips_existing_library_item(
     ctx: MagicMock, uow: MagicMock, registry: MagicMock, tmp_path: Path
 ) -> None:
+    on_disk = tmp_path / "existing.mp3"
+    on_disk.write_bytes(b"\x00" * 1024)
     uow.tracks.get.return_value = MagicMock(id=1, title="X")
-    uow.audio_files.get_for_track.return_value = MagicMock(id=99)
+    uow.audio_files.get_for_track.return_value = MagicMock(id=99, file_path=str(on_disk))
     data = {"track_ids": [1], "source": "yandex", "skip_existing": True}
     result = await audio_file_download_handler(ctx, uow, data, registry)
 
     assert result["downloaded"] == []
     assert len(result["skipped"]) == 1
     registry.get.return_value.download_audio.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_stale_row_with_missing_file_is_redownloaded(
+    ctx: MagicMock, uow: MagicMock, registry: MagicMock, tmp_path: Path
+) -> None:
+    """Regression: /tmp cleanup deletes MP3s while dj_library_items rows
+    survive. ``skip_existing`` used to trust the row alone and skip, leaving
+    L5 reanalyze to fail with "audio file not found". A row whose file is
+    gone must be re-downloaded and updated in place (no duplicate row).
+    """
+    uow.tracks.get.return_value = MagicMock(id=1, title="X")
+    uow.audio_files.get_for_track.return_value = MagicMock(
+        id=99, file_path=str(tmp_path / "vanished.mp3")
+    )
+    uow.audio_files.update = AsyncMock(return_value=MagicMock(id=99))
+    data = {"track_ids": [1], "source": "yandex", "skip_existing": True}
+    result = await audio_file_download_handler(ctx, uow, data, registry)
+
+    assert result["skipped"] == []
+    assert len(result["downloaded"]) == 1
+    assert result["downloaded"][0]["library_item_id"] == 99
+    assert result["downloaded"][0]["refreshed_stale_row"] is True
+    registry.get.return_value.download_audio.assert_awaited_once()
+    uow.audio_files.update.assert_awaited_once()
+    uow.audio_files.create.assert_not_awaited()
 
 
 @pytest.mark.asyncio
