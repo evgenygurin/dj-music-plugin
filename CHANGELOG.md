@@ -6,6 +6,13 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.6.1] - 2026-07-03
+
+**MCP `entity_*` hardening.** A systematic probe of the six entity
+dispatchers plus the transition resources surfaced several
+false-advertised contracts and a masked DB error; all fixed and pinned
+by tests. No tool/resource surface change.
+
 ### Fixed
 - **`entity_get.include_relations` actually loads relations.** The parameter
   was validated against `EntityConfig.relations` but never used — the response
