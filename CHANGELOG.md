@@ -6,6 +6,40 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed
+- **`local://transition/{a}/{b}/score` and `/explain` double-converted features.**
+  `get_scoring_features_batch` already returns `TrackFeatures`, but the resource
+  ran `TrackFeatures.from_db()` on them a second time, silently dropping
+  `energy_bands` (rebuilt from `energy_sub`/… columns absent on the dataclass)
+  and zeroing the bass-band term of `S_bass`. The same pair scored 0.784 via
+  `transition_score_pool` but 0.7725 via the resource; both paths now agree.
+- **`entity_aggregate` sum/avg/min_max leaked a masked DB error on boolean
+  columns.** `bool` subclasses `int` in Python, so a Boolean column passed the
+  numeric gate and died in Postgres (`sum(boolean) does not exist`); `min_max`
+  had no gate at all. All three now raise a typed `ValidationError`; min/max
+  over strings/dates stays allowed.
+- **`entity_list(search=…)` was a silent no-op on non-searchable entities.**
+  `track_features`, `transition`, `transition_history`, `track_feedback`,
+  `track_affinity` declare no searchable fields and ignored the term, returning
+  the full unfiltered list. Now raises a typed `ValidationError`.
+- **`track_affinity` self-pairs forbidden at the DB level.** The pydantic gate
+  rejected `track_a_id == track_b_id`, but a raw insert bypassed it and one
+  degenerate row survived in prod. Added `ck_affinity_distinct_pair` + a SQL
+  migration (`migrations/2026-07-03_affinity_distinct_pair.sql`) that deletes
+  survivors before applying the CHECK. **Apply to Supabase manually** — not yet
+  run against prod.
+- MCP launcher (`.mcp.json`) now sources the project `.env` with `set -a`
+  instead of `uv run --env-file`, which does not override variables already
+  present in the environment — a stale `DJ_DATABASE_URL` inherited from the
+  client process silently beat the fresh `.env`.
+
+### Added
+- **`__isnull` lookups for NULL-heavy `track_features` columns** (`key_code`,
+  `bpm_confidence`, `true_peak_db`, `danceability`, `dynamic_complexity`,
+  `spectral_complexity_mean`, `pitch_salience_mean`) — the only way to find
+  not-yet-analyzed tracks (`__gte`/`__lte` silently drop NULL rows). The
+  documented `key_code__isnull` example previously raised `ValidationError`.
+
 ## [1.6.0] - 2026-06-23
 
 **Transition-scoring correctness + audio-feature research.** A deep audit of
