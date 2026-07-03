@@ -30,6 +30,15 @@ track_affinity, track_feedback, scoring_profile.
 **not** registered as `EntityRegistry` entities — `key` is exposed via
 `reference://camelot`, provider responses via the `provider_*` tools.
 
+`entity_get.include_relations` eager-loads declared relations into the
+response `data` under the relation name (attached after `fields`
+projection, so `fields="summary"` doesn't strip them). Supported:
+track × `artists|features`, playlist × `items`, set × `versions`,
+set_version × `items`, audio_file × `beatgrids`. Unknown names raise a
+typed `ValidationError`. To-one relations (`track.features`) return a
+view-dict or `null`; to-many return a list of view-dicts. Loaders live
+in `app/registry/defaults.py` (`EntityConfig.relation_loaders`).
+
 Handlers wire side-effects on create/update/delete:
 
 | Entity | create handler | update handler |

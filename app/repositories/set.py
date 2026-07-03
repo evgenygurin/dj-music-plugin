@@ -30,6 +30,13 @@ class SetRepository(BaseRepository[DjSet]):
 class SetVersionRepository(BaseRepository[DjSetVersion]):
     model = DjSetVersion
 
+    async def list_for_set(self, set_id: int) -> list[DjSetVersion]:
+        """All versions of a set, oldest first (no pagination cap — a set
+        has a handful of versions). Backs
+        ``entity_get(set, id, include_relations=["versions"])``."""
+        stmt = select(DjSetVersion).where(DjSetVersion.set_id == set_id).order_by(DjSetVersion.id)
+        return list((await self.session.execute(stmt)).scalars())
+
     async def get_items(self, version_id: int) -> list[DjSetItem]:
         stmt = (
             select(DjSetItem)

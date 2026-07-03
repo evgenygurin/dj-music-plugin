@@ -130,6 +130,25 @@ class SetVersionView(BaseModel):
     generator_run_meta: JsonDictOrNone = None
 
 
+class SetItemView(BaseModel):
+    """One set slot — payload of
+    ``entity_get(set_version, id, include_relations=["items"])``."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    track_id: int
+    sort_index: int
+    transition_id: int | None = None
+    out_section_id: int | None = None
+    in_section_id: int | None = None
+    mix_in_point_ms: int | None = None
+    mix_out_point_ms: int | None = None
+    planned_eq: str | None = None
+    notes: str | None = None
+    pinned: bool = False
+
+
 class SetVersionFilter(BaseModel):
     """Filter schema for the ``set_version`` entity.
 

@@ -86,4 +86,16 @@ async def entity_get(
     projection = resolve_field_projection(fields, config)
     if projection is not None:
         data = {k: v for k, v in data.items() if k in projection}
+    # Relations attach AFTER projection so ``fields="summary"`` doesn't
+    # strip what the caller explicitly asked to include. Prior to v1.6.1
+    # the parameter was validated but never loaded — a silent no-op.
+    if include_relations:
+        for rel in include_relations:
+            loader = config.relation_loaders.get(rel)
+            if loader is None:
+                raise ValidationError(
+                    f"relation {rel!r} is declared on entity {entity!r} but has "
+                    "no registered loader — registry drift, report a bug"
+                )
+            data[rel] = await loader(uow, row)
     return EntityGetResult(entity=entity, id=id, data=data)

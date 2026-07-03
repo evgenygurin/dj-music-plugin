@@ -18,6 +18,16 @@ class AudioFileRepository(BaseRepository[DjLibraryItem]):
     # Name used by handlers; alias kept for resource/handler compatibility.
     get_by_track_id = get_for_track
 
+    async def get_beatgrids(self, library_item_id: int) -> list[DjBeatgrid]:
+        """All beatgrids for one library item, canonical grid first. Backs
+        ``entity_get(audio_file, id, include_relations=["beatgrids"])``."""
+        stmt = (
+            select(DjBeatgrid)
+            .where(DjBeatgrid.library_item_id == library_item_id)
+            .order_by(DjBeatgrid.canonical.desc(), DjBeatgrid.id)
+        )
+        return list((await self.session.execute(stmt)).scalars())
+
     async def register_beatgrid(
         self,
         library_item_id: int,

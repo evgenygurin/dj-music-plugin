@@ -12,7 +12,7 @@ Per blueprint §5. An EntityConfig maps an entity name (e.g. "track") to:
 from __future__ import annotations
 
 from collections.abc import Awaitable, Callable, Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, ClassVar, Literal
 
 from pydantic import BaseModel
@@ -39,6 +39,16 @@ HandlerCallable = Callable[
 # ``entity_get`` per row and by ``entity_list`` once per row in the
 # page.
 ViewEnricher = Callable[..., Awaitable[dict[str, Any]]]
+
+# Relation loader: async ``(uow, row) -> payload`` where payload is a
+# view-dict for a to-one relation (or ``None`` when absent) and a list of
+# view-dicts for a to-many relation. Keyed by relation name in
+# ``EntityConfig.relation_loaders``; ``entity_get`` awaits one per name in
+# ``include_relations`` and attaches the payload under that name in the
+# response ``data``. Keys MUST mirror ``EntityConfig.relations`` — the
+# declared relation map is the advertised contract, the loader map is its
+# implementation (pinned by tests/tools/entity/test_get_include_relations.py).
+RelationLoader = Callable[..., Awaitable[Any]]
 
 Operation = Literal["list", "get", "create", "update", "delete", "aggregate"]
 _FieldPreset = Sequence[str] | Literal["*"]
@@ -99,6 +109,11 @@ class EntityConfig:
     # FK constraints declared once per entity, validated by the
     # generic create/update dispatchers. See ``FkConstraint`` docstring.
     fk_constraints: tuple[FkConstraint, ...] = ()
+
+    # Loaders backing ``include_relations`` — one per key in ``relations``.
+    # Empty map + non-empty ``relations`` means the relation is advertised
+    # but not loadable, which ``entity_get`` reports as a typed error.
+    relation_loaders: Mapping[str, RelationLoader] = field(default_factory=dict)
 
 
 class EntityRegistry:

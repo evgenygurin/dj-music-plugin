@@ -11,7 +11,8 @@ def _build_body(playlist_id: int, template: str) -> str:
     return f"""To build a set from playlist {playlist_id} with template '{template}':
 
 1. Load playlist items and their track IDs:
-   entity_list(entity="playlist", filters={{"id": {playlist_id}}}, include_relations=["tracks"])
+   entity_get(entity="playlist", id={playlist_id}, include_relations=["items"])
+   (each item carries track_id + sort_index)
 
 2. For every track lacking analysis level >= 3, schedule analysis:
    entity_create(entity="track_features", data={{"track_ids": [...], "level": 3}})

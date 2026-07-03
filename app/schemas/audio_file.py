@@ -27,6 +27,22 @@ class AudioFileView(BaseModel):
     source_app: str | None = None
 
 
+class BeatgridView(BaseModel):
+    """One beatgrid row — payload of
+    ``entity_get(audio_file, id, include_relations=["beatgrids"])``."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    library_item_id: int
+    bpm: float
+    first_downbeat_ms: float | None = None
+    grid_offset_ms: float | None = None
+    confidence: float | None = None
+    variable_tempo: bool = False
+    canonical: bool = False
+
+
 class AudioFileFilter(BaseModel):
     model_config = ConfigDict(extra="forbid")
     id__eq: int | None = None
