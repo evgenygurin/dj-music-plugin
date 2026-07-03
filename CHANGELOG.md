@@ -6,6 +6,20 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed
+- **`entity_get.include_relations` actually loads relations.** The parameter
+  was validated against `EntityConfig.relations` but never used — the response
+  `data` silently omitted the relation payload (false-advertised contract).
+  Each declared relation now has a loader (`EntityConfig.relation_loaders`,
+  wired in `app/registry/defaults.py`) and the payload is attached under the
+  relation name after `fields` projection. Supported: track ×
+  `artists|features`, playlist × `items`, set × `versions`, set_version ×
+  `items`, audio_file × `beatgrids`.
+- `build_set_workflow` prompt step 1 recommended
+  `entity_list(..., include_relations=["tracks"])` — a parameter `entity_list`
+  doesn't have and a relation `playlist` doesn't declare. Now
+  `entity_get(entity="playlist", id=..., include_relations=["items"])`.
+
 ## [1.6.0] - 2026-06-23
 
 **Transition-scoring correctness + audio-feature research.** A deep audit of
