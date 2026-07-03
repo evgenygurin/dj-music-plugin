@@ -6,6 +6,12 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed
+- `SetVersionView.label` widened to `str | None` — the prod column is
+  nullable and a legacy/raw NULL label crashed the view and the
+  set-versions relation loader (v1.6.1 review, low). Registry
+  consistency test now clears the global `EntityRegistry` after itself.
+
 ## [1.6.1] - 2026-07-03
 
 **MCP `entity_*` hardening.** A systematic probe of the six entity
