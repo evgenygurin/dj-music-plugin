@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 Format based on [Keep a Changelog](https://keepachangelog.com/).
 Versioning follows [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [1.6.2] - 2026-07-03
 
 ### Fixed
 - **`audio_file_download` no longer trusts stale `dj_library_items` rows.**
