@@ -175,6 +175,27 @@ class TrackRepository(BaseRepository[Track]):
         fallback = await self.session.scalar(any_role)
         return str(fallback) if fallback is not None else None
 
+    async def get_artists(self, track_id: int) -> list[Any]:
+        """All artist credits for ``track_id`` as (artist_id, name, role) rows.
+
+        Primary role sorts first, then lowest ``artist_id`` — mirrors the
+        resolution order of ``get_primary_artist_name``. Backs
+        ``entity_get(track, id, include_relations=["artists"])``.
+        """
+        from app.models.track import Artist, TrackArtist
+
+        stmt = (
+            select(
+                Artist.id.label("artist_id"),
+                Artist.name,
+                TrackArtist.role,
+            )
+            .join(TrackArtist, TrackArtist.artist_id == Artist.id)
+            .where(TrackArtist.track_id == track_id)
+            .order_by((TrackArtist.role != "primary").asc(), TrackArtist.artist_id)
+        )
+        return list((await self.session.execute(stmt)).all())
+
     async def get_many(self, track_ids: list[int]) -> dict[int, Track]:
         """Batch-fetch tracks by primary keys. Returns ``{id: Track}``.
 

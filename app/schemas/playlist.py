@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import datetime
+
 from pydantic import BaseModel, ConfigDict, Field
 
 
@@ -19,6 +21,18 @@ class PlaylistView(BaseModel):
     # of provider playlist IDs needed for ``playlist_sync``.
     source_app: str | None = None
     platform_ids: str | None = None
+
+
+class PlaylistItemView(BaseModel):
+    """One playlist row — payload of
+    ``entity_get(playlist, id, include_relations=["items"])``."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    track_id: int
+    sort_index: int
+    added_at: datetime.datetime | None = None
 
 
 class PlaylistFilter(BaseModel):

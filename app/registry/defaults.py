@@ -30,10 +30,12 @@ from app.schemas.audio_file import (
     AudioFileFilter,
     AudioFileUpdate,
     AudioFileView,
+    BeatgridView,
 )
 from app.schemas.playlist import (
     PlaylistCreate,
     PlaylistFilter,
+    PlaylistItemView,
     PlaylistUpdate,
     PlaylistView,
 )
@@ -46,13 +48,20 @@ from app.schemas.scoring_profile import (
 from app.schemas.set import (
     SetCreate,
     SetFilter,
+    SetItemView,
     SetUpdate,
     SetVersionCreate,
     SetVersionFilter,
     SetVersionView,
     SetView,
 )
-from app.schemas.track import TrackCreate, TrackFilter, TrackUpdate, TrackView
+from app.schemas.track import (
+    TrackArtistView,
+    TrackCreate,
+    TrackFilter,
+    TrackUpdate,
+    TrackView,
+)
 from app.schemas.track_affinity import (
     TrackAffinityCreate,
     TrackAffinityFilter,
@@ -120,6 +129,46 @@ async def _enrich_set_view(uow: object, row: object, view: dict) -> dict:  # typ
     return view
 
 
+# ── relation loaders (entity_get include_relations) ───────────────────
+# One async loader per declared relation. Prior to v1.6.1 the
+# ``relations`` maps below were advertised via ``schema://entities`` and
+# validated by ``entity_get``, but never loaded — the parameter was a
+# silent no-op. Each loader receives ``(uow, row)`` and returns a
+# view-dict (to-one, None when absent) or a list of view-dicts (to-many).
+
+
+async def _load_track_features(uow: object, row: object) -> dict | None:  # type: ignore[type-arg]
+    feats = await uow.track_features.get(row.id)  # type: ignore[attr-defined]
+    if feats is None:
+        return None
+    return TrackFeaturesView.model_validate(feats).model_dump()
+
+
+async def _load_track_artists(uow: object, row: object) -> list[dict]:  # type: ignore[type-arg]
+    rows = await uow.tracks.get_artists(row.id)  # type: ignore[attr-defined]
+    return [TrackArtistView.model_validate(r).model_dump() for r in rows]
+
+
+async def _load_playlist_items(uow: object, row: object) -> list[dict]:  # type: ignore[type-arg]
+    items = await uow.playlists.get_items(row.id)  # type: ignore[attr-defined]
+    return [PlaylistItemView.model_validate(i).model_dump() for i in items]
+
+
+async def _load_set_versions(uow: object, row: object) -> list[dict]:  # type: ignore[type-arg]
+    versions = await uow.set_versions.list_for_set(row.id)  # type: ignore[attr-defined]
+    return [SetVersionView.model_validate(v).model_dump() for v in versions]
+
+
+async def _load_set_version_items(uow: object, row: object) -> list[dict]:  # type: ignore[type-arg]
+    items = await uow.set_versions.get_items(row.id)  # type: ignore[attr-defined]
+    return [SetItemView.model_validate(i).model_dump() for i in items]
+
+
+async def _load_audio_file_beatgrids(uow: object, row: object) -> list[dict]:  # type: ignore[type-arg]
+    grids = await uow.audio_files.get_beatgrids(row.id)  # type: ignore[attr-defined]
+    return [BeatgridView.model_validate(g).model_dump() for g in grids]
+
+
 def register_default_entities() -> None:
     EntityRegistry.register(
         EntityConfig(
@@ -160,6 +209,10 @@ def register_default_entities() -> None:
             tags=frozenset({"namespace:library"}),
             create_handler=track_import_handler,
             view_enricher=_enrich_track_view,
+            relation_loaders={
+                "artists": _load_track_artists,
+                "features": _load_track_features,
+            },
         )
     )
 
@@ -203,6 +256,7 @@ def register_default_entities() -> None:
             relations={"items": "dj_playlist_items"},
             tags=frozenset({"namespace:library"}),
             view_enricher=_enrich_playlist_view,
+            relation_loaders={"items": _load_playlist_items},
         )
     )
 
@@ -244,6 +298,7 @@ def register_default_entities() -> None:
             relations={"versions": "dj_set_versions"},
             tags=frozenset({"namespace:sets"}),
             view_enricher=_enrich_set_view,
+            relation_loaders={"versions": _load_set_versions},
         )
     )
 
@@ -274,6 +329,7 @@ def register_default_entities() -> None:
             relations={"items": "dj_set_items"},
             tags=frozenset({"namespace:sets"}),
             create_handler=set_version_build_handler,
+            relation_loaders={"items": _load_set_version_items},
         )
     )
 
@@ -311,6 +367,7 @@ def register_default_entities() -> None:
             relations={"beatgrids": "dj_beatgrids"},
             tags=frozenset({"namespace:library"}),
             create_handler=audio_file_download_handler,
+            relation_loaders={"beatgrids": _load_audio_file_beatgrids},
         )
     )
 

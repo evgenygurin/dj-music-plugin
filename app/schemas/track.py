@@ -18,6 +18,17 @@ class TrackView(BaseModel):
     primary_artist_name: str | None = None
 
 
+class TrackArtistView(BaseModel):
+    """One artist credit on a track — payload of
+    ``entity_get(track, id, include_relations=["artists"])``."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    artist_id: int
+    name: str
+    role: str
+
+
 class TrackFilter(BaseModel):
     """Django-lookup filter schema for the ``track`` entity.
 
