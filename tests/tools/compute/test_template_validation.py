@@ -110,3 +110,92 @@ async def test_no_template_passes_none_through() -> None:
         optimizer_builder=fake_optimizer_builder,
     )
     assert captured.get("template") is None
+
+
+@pytest.mark.asyncio
+async def test_canonical_moods_pass_through_to_optimizer() -> None:
+    from app.shared.features import TrackFeatures
+
+    track_ids = [146, 147, 148]
+    features = {
+        146: TrackFeatures(bpm=128.0, mood="detroit"),
+        147: TrackFeatures(bpm=129.0, mood="hypnotic"),
+        148: TrackFeatures(bpm=130.0, mood="peak_time"),
+    }
+    uow = MagicMock()
+    uow.track_features = MagicMock()
+    uow.track_features.get_scoring_features_batch = AsyncMock(return_value=features)
+    captured: dict[str, object] = {}
+
+    def fake_optimizer_builder(*, algorithm: str, scorer: object) -> object:
+        result = MagicMock(
+            track_order=track_ids,
+            quality_score=0.5,
+            generations=0,
+        )
+
+        def _optimize(**kwargs: object) -> object:
+            captured.update(kwargs)
+            return result
+
+        return MagicMock(optimize=_optimize)
+
+    await sequence_optimize(
+        track_ids=track_ids,
+        algorithm="greedy",
+        uow=uow,
+        scorer=MagicMock(),
+        optimizer_builder=fake_optimizer_builder,
+    )
+
+    assert captured["moods"] == {
+        146: "detroit",
+        147: "hypnotic",
+        148: "peak_time",
+    }
+
+
+@pytest.mark.asyncio
+async def test_progress_callback_is_forwarded_to_mcp_context() -> None:
+    from app.shared.features import TrackFeatures
+
+    track_ids = [146, 147]
+    features = {
+        146: TrackFeatures(bpm=128.0),
+        147: TrackFeatures(bpm=129.0),
+    }
+    uow = MagicMock()
+    uow.track_features = MagicMock()
+    uow.track_features.get_scoring_features_batch = AsyncMock(return_value=features)
+    ctx = MagicMock()
+    ctx.report_progress = AsyncMock()
+
+    def fake_optimizer_builder(*, algorithm: str, scorer: object) -> object:
+        result = MagicMock(
+            track_order=track_ids,
+            quality_score=0.5,
+            generations=3,
+        )
+
+        def _optimize(**kwargs: object) -> object:
+            on_progress = kwargs["on_progress"]
+            assert callable(on_progress)
+            on_progress(7, 0.8125)
+            return result
+
+        return MagicMock(optimize=_optimize)
+
+    await sequence_optimize(
+        track_ids=track_ids,
+        algorithm="greedy",
+        uow=uow,
+        scorer=MagicMock(),
+        optimizer_builder=fake_optimizer_builder,
+        ctx=ctx,
+    )
+
+    ctx.report_progress.assert_awaited_once()
+    _, kwargs = ctx.report_progress.await_args
+    assert kwargs["progress"] == 7
+    assert kwargs["total"] == 100
+    assert kwargs["message"] == "best=0.812"

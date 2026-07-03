@@ -9,6 +9,7 @@ from fastmcp.server.context import Context
 from fastmcp.tools import tool
 from pydantic import Field
 
+from app.handlers._context_log import safe_report_progress
 from app.repositories.unit_of_work import UnitOfWork
 from app.schemas.tool_responses import ScorePoolResult
 from app.server.di import get_transition_scorer, get_uow
@@ -119,7 +120,7 @@ async def transition_score_pool(
             )
             done += 1
             if done % 50 == 0 or done == total_pairs:
-                await ctx.report_progress(progress=done, total=total_pairs)
+                await safe_report_progress(ctx, progress=done, total=total_pairs)
 
     return ScorePoolResult(
         track_ids=track_ids,

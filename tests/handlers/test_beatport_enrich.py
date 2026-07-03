@@ -24,6 +24,13 @@ _MATCH = {
     "genre": "Techno (Peak Time / Driving)",
     "sub_genre": None,
     "beatport_id": 3116788,
+    "bpm": 126,
+    "key": "C Minor",
+    "camelot": "5A",
+    "length_ms": 508066,
+    "isrc": "GBYNV1100245",
+    "release": "15 Years Of Drumcode",
+    "label": "Drumcode",
 }
 
 
@@ -31,6 +38,23 @@ def _uow(primary_artist: str | None = None) -> MagicMock:
     uow = MagicMock()
     uow.tracks.get_primary_artist_name = AsyncMock(return_value=primary_artist)
     uow.track_features.upsert = AsyncMock()
+    uow.track_features.get_by_track_id = AsyncMock(
+        return_value=SimpleNamespace(
+            bpm=125.8,
+            bpm_confidence=0.7,
+            key_code=14,
+            key_confidence=0.6,
+            mood="driving",
+            mood_confidence=0.4,
+            audio_bpm=None,
+            audio_bpm_confidence=None,
+            audio_key_code=None,
+            audio_key_confidence=None,
+            audio_mood=None,
+            audio_mood_confidence=None,
+            energy_mean=0.6,
+        )
+    )
     uow.session.begin_nested = lambda: _savepoint()
     return uow
 
@@ -76,6 +100,13 @@ async def test_enrich_persists_genre_on_match() -> None:
     assert kw["beatport_genre"] == "Techno (Peak Time / Driving)"
     assert kw["beatport_track_id"] == 3116788
     assert kw["beatport_confidence"] == "high"
+    assert kw["beatport_bpm"] == 126
+    assert kw["beatport_camelot"] == "5A"
+    assert kw["bpm"] == 126
+    assert kw["key_code"] == 8
+    assert kw["mood"] == "driving"
+    assert kw["mood_source"] == "beatport"
+    assert track.duration_ms == 508066
 
 
 async def test_enrich_noop_when_no_registry() -> None:

@@ -85,3 +85,27 @@ async def test_intent_none_passes_none() -> None:
     await transition_score_pool(track_ids=[146, 147], uow=uow, scorer=scorer, ctx=ctx)
     for call in captured:
         assert call["kwargs"].get("intent") is None
+
+
+@pytest.mark.asyncio
+async def test_progress_reporting_is_headless_safe() -> None:
+    scorer = MagicMock()
+    scorer.score = MagicMock(return_value=_mock_score())
+
+    feats = {tid: MagicMock(bpm=128.0) for tid in range(1, 12)}
+    uow = MagicMock()
+    uow.track_features = MagicMock()
+    uow.track_features.get_scoring_features_batch = AsyncMock(return_value=feats)
+
+    ctx = MagicMock()
+    ctx.report_progress = AsyncMock(side_effect=RuntimeError("session is not available"))
+
+    result = await transition_score_pool(
+        track_ids=list(feats),
+        uow=uow,
+        scorer=scorer,
+        ctx=ctx,
+    )
+
+    assert result.track_ids == list(feats)
+    assert len(result.pairs) == len(feats) * (len(feats) - 1)

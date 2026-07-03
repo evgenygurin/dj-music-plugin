@@ -86,6 +86,29 @@ class TrackFeatures:
     # Mood classification (used by reasoning / filtering, not by TransitionScorer)
     mood: str | None = None
     mood_confidence: float | None = None
+    mood_source: str | None = None
+    beatport_genre: str | None = None
+    beatport_sub_genre: str | None = None
+    beatport_confidence: str | None = None
+    beatport_bpm: float | None = None
+    beatport_key: str | None = None
+    beatport_camelot: str | None = None
+    audio_bpm: float | None = None
+    audio_bpm_confidence: float | None = None
+    audio_key_code: int | None = None
+    audio_key_confidence: float | None = None
+    bpm_source: str | None = None
+    key_source: str | None = None
+
+    # Preferred structural anchors selected by the repository.
+    phrase_boundaries_ms: list[int] | None = None
+    dominant_phrase_bars: int | None = None
+    mix_in_section_id: int | None = None
+    mix_in_section_type: int | None = None
+    mix_in_point_ms: int | None = None
+    mix_out_section_id: int | None = None
+    mix_out_section_type: int | None = None
+    mix_out_point_ms: int | None = None
 
     # Pipeline tier this row was computed at (0=none, 2=L1+L2, 3=L3, 4=L4, 5=L5).
     # Surfaced via ``local://tracks/{id}/features`` so callers can tell whether
@@ -141,6 +164,15 @@ class TrackFeatures:
                 json.loads(raw_tempogram) if isinstance(raw_tempogram, str) else raw_tempogram
             )
 
+        phrase_boundaries = None
+        raw_phrase_boundaries = getattr(row, "phrase_boundaries_ms", None)
+        if raw_phrase_boundaries:
+            phrase_boundaries = (
+                json.loads(raw_phrase_boundaries)
+                if isinstance(raw_phrase_boundaries, str)
+                else raw_phrase_boundaries
+            )
+
         return cls(
             bpm=row.bpm,
             key_code=row.key_code,
@@ -190,6 +222,21 @@ class TrackFeatures:
             # Mood classification (optional)
             mood=getattr(row, "mood", None),
             mood_confidence=getattr(row, "mood_confidence", None),
+            mood_source=getattr(row, "mood_source", None),
+            beatport_genre=getattr(row, "beatport_genre", None),
+            beatport_sub_genre=getattr(row, "beatport_sub_genre", None),
+            beatport_confidence=getattr(row, "beatport_confidence", None),
+            beatport_bpm=getattr(row, "beatport_bpm", None),
+            beatport_key=getattr(row, "beatport_key", None),
+            beatport_camelot=getattr(row, "beatport_camelot", None),
+            audio_bpm=getattr(row, "audio_bpm", None),
+            audio_bpm_confidence=getattr(row, "audio_bpm_confidence", None),
+            audio_key_code=getattr(row, "audio_key_code", None),
+            audio_key_confidence=getattr(row, "audio_key_confidence", None),
+            bpm_source=getattr(row, "bpm_source", None),
+            key_source=getattr(row, "key_source", None),
+            phrase_boundaries_ms=phrase_boundaries,
+            dominant_phrase_bars=getattr(row, "dominant_phrase_bars", None),
             # Pipeline tier (T-34: was missing → resource showed analysis_level=null
             # for analyzed tracks, hiding which P3 fields are populated).
             analysis_level=getattr(row, "analysis_level", None),

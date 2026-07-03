@@ -112,6 +112,61 @@ Dev-режим целиком (4 слоя hot-reload + `/reload-plugins`) — @d
 - @.claude/rules/prompts.md — 30 workflow prompts + content-correctness контракт (filter/data/op-имена пинятся тестами)
 - FastMCP docs: <https://gofastmcp.com/llms.txt>
 
+## Когда использовать MCP prompts
+
+Prompts — основной способ запускать DJ workflow. Если пользователь просит
+не просто прочитать одну сущность, а выполнить музыкальную задачу из
+нескольких шагов (анализ → отбор → оптимизация → ревью → экспорт), сначала
+подбери prompt из `app/prompts/` / `docs/tool-catalog.md`, а не собирай
+цепочку `entity_*` / `provider_*` / `compute_*` вручную.
+
+Перед использованием или редактированием prompt обязательно загрузи
+@.claude/rules/prompts.md. В prompt body нельзя придумывать entity names,
+filter keys, field presets, provider operations, template names или cross-prompt
+references: все имена должны соответствовать runtime surface и тестам
+`tests/prompts/test_prompt_content_correctness.py`.
+
+Практическая маршрутизация:
+
+| Пользовательское намерение | Prompt |
+|---|---|
+| Нужен общий DJ-контекст перед сложной сессией | `dj_expert_session` |
+| Построить сет из плейлиста | `build_set_workflow` |
+| Расширить плейлист через discovery/import/analyze | `expand_playlist_workflow` |
+| Сделать полный проход expand → build → deliver | `full_pipeline` |
+| Экспортировать сет, подготовить deliverables или синкнуть в YM | `deliver_set_workflow` |
+| Быстро проверить переход A → B | `quick_mix_check` |
+| Проверить здоровье библиотеки или плейлиста | `library_health_workflow` |
+| Дозаполнить/поднять уровень audio analysis | `analyze_library_workflow` |
+| Подготовить один трек к миксу | `track_prep_workflow` |
+| Спроектировать сет по тональности Camelot | `harmonic_journey_workflow` |
+| Спроектировать energy/subgenre arc | `subgenre_journey_workflow` |
+| Спроектировать BPM ramp | `tempo_journey_workflow` |
+| Собрать warmup/peak/closing/roller/wave/progressive сценарий | `scenario_set_workflow` |
+| Собрать сет в стиле DJ/persona | `dj_persona_workflow` |
+| Собрать mono-style / subgenre-locked сет | `style_lock_set_workflow` |
+| Найти плотный кластер совместимых треков | `mix_cluster_workflow` |
+| Подготовить слот лайнапа с handoff BPM | `lineup_handoff_workflow` |
+| Спланировать B2B из двух crates | `b2b_planning_workflow` |
+| Удлинить существующий сет | `extend_set_workflow` |
+| Отревьюить существующий сет | `set_review_workflow` |
+| Спасти сет с множеством hard/weak transitions | `rescue_set_workflow` |
+| Починить один слабый переход | `fix_transition_workflow` |
+| Заменить слабый слот в сете | `replace_track_workflow` |
+| Сделать performance cue sheet | `set_cheatsheet_workflow` |
+| Подогнать сет под точный таймслот | `set_duration_fit_workflow` |
+| Выбрать следующий трек в live-ситуации | `live_next_track_workflow` |
+| Digging по seed/артисту/треку и импорт находок | `crate_digging_workflow` |
+| Зафиксировать вкус: likes/bans/ratings/affinity | `taste_profile_workflow` |
+| Pull/push/diff локального плейлиста с Yandex Music | `playlist_sync_workflow` |
+| Найти hygiene-проблемы и план чистки библиотеки | `library_cleanup_workflow` |
+
+Ручные tools/resources используй напрямую, когда запрос точечный:
+прочитать конкретный объект, показать UI view, выполнить один CRUD/action,
+проверить одну пару или сделать ad-hoc диагностику. Для пользовательских
+workflow с музыкальным результатом предпочитай prompt, затем выполняй его
+инструкции через реальные MCP tools/resources.
+
 ## Взаимодействие с БД — через Supabase MCP
 
 **Любое прямое чтение/запись live-БД делай через Supabase MCP**

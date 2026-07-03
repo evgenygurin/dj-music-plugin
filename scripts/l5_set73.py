@@ -10,14 +10,13 @@ Run: env -u DJ_DATABASE_URL PYTHONUNBUFFERED=1 uv run python -u scripts/l5_set73
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
 import sys
 import time
 
-try:
+with contextlib.suppress(Exception):
     sys.stdout.reconfigure(line_buffering=True)  # type: ignore[attr-defined]
-except Exception:
-    pass
 
 logging.basicConfig(
     level=logging.INFO,
@@ -28,16 +27,16 @@ for noisy in ("httpx", "httpcore", "urllib3"):
     logging.getLogger(noisy).setLevel(logging.WARNING)
 log = logging.getLogger("l5")
 
-from sqlalchemy import select  # noqa: E402
+from sqlalchemy import select
 
-from app.audio.analyzers.base import AnalyzerRegistry  # noqa: E402
-from app.audio.level_config import AnalysisLevel, get_analyzers_for_level  # noqa: E402
-from app.audio.pipeline import AnalysisPipeline  # noqa: E402
-from app.audio.temp_download import temp_download_track  # noqa: E402
-from app.db.session import get_session_factory  # noqa: E402
-from app.models.provider_metadata import YandexMetadata  # noqa: E402
-from app.repositories.track_features import TrackFeaturesRepository  # noqa: E402
-from app.server.lifespan import build_yandex_adapter  # noqa: E402
+from app.audio.analyzers.base import AnalyzerRegistry
+from app.audio.level_config import AnalysisLevel, get_analyzers_for_level
+from app.audio.pipeline import AnalysisPipeline
+from app.audio.temp_download import temp_download_track
+from app.db.session import get_session_factory
+from app.models.provider_metadata import YandexMetadata
+from app.repositories.track_features import TrackFeaturesRepository
+from app.server.lifespan import build_yandex_adapter
 
 TRACK_IDS = [16760, 13066, 24325, 18843, 17687, 11873, 18628, 4051, 21971, 10011, 4558, 4520]
 LEVEL = AnalysisLevel.ADVANCED  # 5
@@ -49,7 +48,7 @@ def _warmup_numba() -> None:
     import numpy as np
 
     sr = 22050
-    y = (np.random.RandomState(42).randn(sr * 5).astype(np.float32) * 0.1)
+    y = np.random.RandomState(42).randn(sr * 5).astype(np.float32) * 0.1
     librosa.onset.onset_strength(y=y, sr=sr)
     librosa.beat.beat_track(y=y, sr=sr)
     librosa.feature.chroma_cqt(y=y, sr=sr)
@@ -95,8 +94,14 @@ async def main() -> None:
         if ym_id is None:
             counters["done"] += 1
             counters["fail"] += 1
-            log.error("    [%d/%d] track=%s FAIL no ym_id (ok=%d fail=%d)",
-                      counters["done"], total, tid, counters["ok"], counters["fail"])
+            log.error(
+                "    [%d/%d] track=%s FAIL no ym_id (ok=%d fail=%d)",
+                counters["done"],
+                total,
+                tid,
+                counters["ok"],
+                counters["fail"],
+            )
             log.error("STOP: missing ym_id — investigate before continuing")
             return
         try:
@@ -105,20 +110,39 @@ async def main() -> None:
             sf2 = get_session_factory()
             async with sf2() as session:
                 repo = TrackFeaturesRepository(session)
-                await repo.upsert(track_id=tid, analysis_level=int(LEVEL), **result.features)
+                await repo.upsert_analysis(
+                    track_id=tid, analysis_level=int(LEVEL), **result.features
+                )
                 await session.commit()
             counters["done"] += 1
             counters["ok"] += 1
             n_err = len(getattr(result, "errors", []) or [])
-            log.info("    [%d/%d] track=%s ym=%s OK in %.1fs feats=%d analyzer_errs=%d (ok=%d fail=%d)",
-                     counters["done"], total, tid, ym_id, time.time() - t_start,
-                     len(result.features), n_err, counters["ok"], counters["fail"])
+            log.info(
+                "    [%d/%d] track=%s ym=%s OK in %.1fs feats=%d analyzer_errs=%d (ok=%d fail=%d)",
+                counters["done"],
+                total,
+                tid,
+                ym_id,
+                time.time() - t_start,
+                len(result.features),
+                n_err,
+                counters["ok"],
+                counters["fail"],
+            )
         except Exception as exc:
             counters["done"] += 1
             counters["fail"] += 1
-            log.error("    [%d/%d] track=%s ym=%s FAIL in %.1fs: %r (ok=%d fail=%d)",
-                      counters["done"], total, tid, ym_id, time.time() - t_start,
-                      exc, counters["ok"], counters["fail"])
+            log.error(
+                "    [%d/%d] track=%s ym=%s FAIL in %.1fs: %r (ok=%d fail=%d)",
+                counters["done"],
+                total,
+                tid,
+                ym_id,
+                time.time() - t_start,
+                exc,
+                counters["ok"],
+                counters["fail"],
+            )
             if counters["ok"] == 0:
                 log.error("STOP: first track failed — not burning the rest blindly")
                 return

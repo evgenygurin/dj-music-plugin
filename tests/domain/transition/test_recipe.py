@@ -18,8 +18,8 @@ from app.domain.transition.recipe import (
 # ── Public surface guards ───────────────────────────────────────────
 
 
-def test_eight_neural_mix_transitions_exact() -> None:
-    assert len(NeuralMixTransition) == 8
+def test_seven_neural_mix_transitions_exact() -> None:
+    assert len(NeuralMixTransition) == 7
     assert {t.value for t in NeuralMixTransition} == {
         "fade",
         "echo_out",
@@ -28,7 +28,6 @@ def test_eight_neural_mix_transitions_exact() -> None:
         "drum_swap",
         "vocal_cut",
         "drum_cut",
-        "filter_sweep",
     }
 
 

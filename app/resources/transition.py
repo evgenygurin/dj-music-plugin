@@ -22,7 +22,9 @@ from app.shared.errors import NotFoundError
 from app.shared.features import TrackFeatures
 
 
-async def _load_features_pair(uow: UnitOfWork, from_id: int, to_id: int) -> tuple[object, object]:
+async def _load_features_pair(
+    uow: UnitOfWork, from_id: int, to_id: int
+) -> tuple[TrackFeatures, TrackFeatures]:
     # Audit iter 57 (T-55): same-track requests on the score / explain
     # resources used to return a synthetic 0.93 self-similarity row,
     # mirroring the now-fixed entity_create(transition) hole (T-52).
@@ -46,6 +48,7 @@ async def _load_features_pair(uow: UnitOfWork, from_id: int, to_id: int) -> tupl
             "track_features",
             missing[0] if len(missing) == 1 else f"both {missing[0]} and {missing[1]}",
         )
+    assert feat_a is not None and feat_b is not None  # narrowed by the missing-check above
     return feat_a, feat_b
 
 
@@ -76,7 +79,11 @@ async def transition_score(
     set composition history.
     """
     feat_a, feat_b = await _load_features_pair(uow, from_id, to_id)
-    score = TransitionScorer().score(TrackFeatures.from_db(feat_a), TrackFeatures.from_db(feat_b))
+    # feat_a / feat_b are already TrackFeatures (built by
+    # get_scoring_features_batch); a second from_db() pass would drop
+    # energy_bands (rebuilt from energy_sub/... DB columns absent on the
+    # dataclass) and the batch-computed mix points.
+    score = TransitionScorer().score(feat_a, feat_b)
     return TransitionScoreView(
         from_track_id=from_id,
         to_track_id=to_id,
@@ -108,7 +115,7 @@ async def transition_explain(
 ) -> str:
     """Narrative explanation of a pairwise transition."""
     feat_a, feat_b = await _load_features_pair(uow, from_id, to_id)
-    score = TransitionScorer().score(TrackFeatures.from_db(feat_a), TrackFeatures.from_db(feat_b))
+    score = TransitionScorer().score(feat_a, feat_b)
     bpm_a = getattr(feat_a, "bpm", None)
     bpm_b = getattr(feat_b, "bpm", None)
     parts: list[str] = [

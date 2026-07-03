@@ -97,7 +97,7 @@ class SetTemplate(StrEnum):
 
 # NB. The pre-Neural-Mix refactor exposed a `TransitionStyle` enum
 # (CUT / BASS_SWAP_SHORT / BASS_SWAP_LONG / LONG_BLEND / ECHO_OUT /
-# FILTER_SWEEP) plus a TRANSITION_STYLE_PROFILES table. Those were
+# manual filter-sweep heuristics) plus a TRANSITION_STYLE_PROFILES table. Those were
 # replaced by ``app.domain.transition.NeuralMixTransition`` (seven
 # djay Pro 5 presets) and per-preset stem-keyframe builders.
 

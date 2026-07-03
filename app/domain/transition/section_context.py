@@ -20,7 +20,10 @@ from dataclasses import dataclass
 from enum import StrEnum
 from functools import cached_property
 
-from app.shared.constants import SectionType
+from app.domain.template.models import SetTemplateDefinition
+from app.domain.transition.intent import TransitionIntent, infer_intent
+from app.shared.constants import SectionType, SetTemplate
+from app.shared.features import TrackFeatures
 
 
 class SectionPairClass(StrEnum):
@@ -116,3 +119,64 @@ class SectionContext:
         access the full 5-class typology.
         """
         return self.section_pair_class == SectionPairClass.DRUM_ONLY
+
+
+@dataclass(frozen=True)
+class TransitionPairContext:
+    """Effective scoring and execution context for an ordered pair."""
+
+    intent: TransitionIntent
+    section_context: SectionContext | None
+    from_section_id: int | None
+    to_section_id: int | None
+    mix_out_point_ms: int | None
+    mix_in_point_ms: int | None
+
+
+def _section_type(value: int | None) -> SectionType | None:
+    if value is None:
+        return None
+    try:
+        return SectionType(value)
+    except ValueError:
+        return None
+
+
+def _template_enum(
+    template: SetTemplateDefinition | str | None,
+) -> SetTemplate | None:
+    if template is None:
+        return None
+    name = template if isinstance(template, str) else template.name
+    try:
+        return SetTemplate(name)
+    except ValueError:
+        return None
+
+
+def build_pair_context(
+    outgoing: TrackFeatures,
+    incoming: TrackFeatures,
+    *,
+    position: float,
+    template: SetTemplateDefinition | str | None = None,
+) -> TransitionPairContext:
+    """Build the shared runtime context for optimizer and persistence."""
+    energy_delta = (incoming.integrated_lufs or -8.0) - (outgoing.integrated_lufs or -8.0)
+    intent = infer_intent(position, energy_delta, template=_template_enum(template))
+
+    from_section = _section_type(outgoing.mix_out_section_type)
+    to_section = _section_type(incoming.mix_in_section_type)
+    section_context = (
+        SectionContext(from_section=from_section, to_section=to_section)
+        if from_section is not None or to_section is not None
+        else None
+    )
+    return TransitionPairContext(
+        intent=intent,
+        section_context=section_context,
+        from_section_id=outgoing.mix_out_section_id,
+        to_section_id=incoming.mix_in_section_id,
+        mix_out_point_ms=outgoing.mix_out_point_ms,
+        mix_in_point_ms=incoming.mix_in_point_ms,
+    )

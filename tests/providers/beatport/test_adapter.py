@@ -77,6 +77,12 @@ async def test_track_match_high_confidence(mock_client: AsyncMock) -> None:
     assert out["confidence"] == "high"
     assert out["genre"].startswith("Techno")
     assert out["beatport_id"] == 3116788
+    assert out["bpm"] == 126
+    assert out["camelot"] == "5A"
+    assert out["length_ms"] == 508066
+    assert out["isrc"] == "GBYNV1100245"
+    assert out["release"] == "15 Years Of Drumcode"
+    assert out["label"] == "Drumcode"
 
 
 async def test_track_match_requires_title(mock_client: AsyncMock) -> None:

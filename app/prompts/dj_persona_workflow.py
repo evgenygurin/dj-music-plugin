@@ -77,7 +77,7 @@ style of the '{persona}' DJ persona, using template '{template}'.
 
 Honesty: this maps a school's AESTHETIC onto our engine (template + subgenre
 band + transition character). The engine has no real stem separation and no
-FILTER_SWEEP/LOOP_ROLL presets — approximate filter/loop moves with the
+LOOP_ROLL presets — approximate filter/loop moves with the
 available picker presets and longer blends. Do not promise live FX the engine
 cannot render.
 

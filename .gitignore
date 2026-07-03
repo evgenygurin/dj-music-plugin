@@ -72,3 +72,6 @@ uv.lock
 .DS_Store
 Thumbs.db
 .superpowers/
+
+# Codex CLI local config
+.codex/

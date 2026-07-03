@@ -52,9 +52,12 @@ def _build_body(set_id: int, sync_to_ym: bool) -> str:
 1. Read the latest version summary:
    local://sets/{set_id}/summary — note version_id and quality_score.
 
-2. Score every transition (fresh, not cached):
+2. Score every transition fresh (read-only, not cached):
    transition_score_pool(track_ids=<ordered track list>)
-   — writes fresh rows into the transitions table.
+   — returns a live NxN score matrix for inspection / QA only; it does
+     NOT write to the ``transitions`` table.
+   Persisted transition rows are refreshed by step 0c when you rebuild
+   the set_version on top of L5 features.
 
 3. Review for hard conflicts:
    local://sets/{set_id}/review — inspect 'hard_conflicts'.

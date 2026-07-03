@@ -15,7 +15,8 @@ if TYPE_CHECKING:
 class OptimizerStrategy(Protocol):
     """Strategy interface for set optimization algorithms.
 
-    Both GreedyChainBuilder and GeneticAlgorithm implement this protocol.
+    GreedyChainBuilder, GeneticAlgorithm and ConstructiveSlotBuilder
+    implement this protocol.
     """
 
     def optimize(

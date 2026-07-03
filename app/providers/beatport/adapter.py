@@ -123,6 +123,10 @@ class BeatportAdapter:
             "bpm": (result.track or {}).get("bpm") if result.track else None,
             "camelot": (result.track or {}).get("camelot") if result.track else None,
             "key": (result.track or {}).get("key") if result.track else None,
+            "length_ms": (result.track or {}).get("length_ms") if result.track else None,
+            "isrc": (result.track or {}).get("isrc") if result.track else None,
+            "release": (result.track or {}).get("release") if result.track else None,
+            "label": (result.track or {}).get("label") if result.track else None,
             "track": result.track,
             "candidates_considered": len(candidates),
         }

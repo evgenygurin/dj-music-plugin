@@ -224,6 +224,10 @@ def _track_features_payload(track_id: int, feat: object) -> dict[str, Any]:
         "analysis_level": getattr(feat, "analysis_level", None),
         "mood": getattr(feat, "mood", None),
         "mood_confidence": getattr(feat, "mood_confidence", None),
+        "mood_source": getattr(feat, "mood_source", None),
+        "beatport_genre": getattr(feat, "beatport_genre", None),
+        "beatport_sub_genre": getattr(feat, "beatport_sub_genre", None),
+        "beatport_confidence": getattr(feat, "beatport_confidence", None),
     }
 
 

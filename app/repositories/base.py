@@ -402,11 +402,20 @@ class BaseRepository(Generic[M]):
         # exist`` to MCP clients. Validate the column's Python type up
         # front and raise a typed ValidationError instead of letting
         # SQL fail.
-        if op in {"sum", "avg"} and field_col is not None:
+        if op in {"sum", "avg", "min_max"} and field_col is not None:
             try:
                 py_type = field_col.type.python_type
             except (AttributeError, NotImplementedError):
                 py_type = None
+            # ``bool`` subclasses ``int`` in Python, but Postgres has no
+            # sum/avg/min/max over boolean — without the explicit check a
+            # Boolean column passed the numeric gate and died in SQL as a
+            # masked "database programming error" (probe 2026-07-03).
+            if py_type is bool:
+                raise ValidationError(
+                    f"operation {op!r} is not defined for boolean field {field!r}; "
+                    "use operation 'distinct' or a filtered 'count' instead"
+                )
             numeric_types = (int, float)
             try:
                 from decimal import Decimal
@@ -414,7 +423,11 @@ class BaseRepository(Generic[M]):
                 numeric_types = (int, float, Decimal)  # type: ignore[assignment]
             except ImportError:
                 pass
-            if py_type is None or not issubclass(py_type, numeric_types):
+            # min/max are valid SQL over strings and dates — only sum/avg
+            # require a numeric column.
+            if op in {"sum", "avg"} and (
+                py_type is None or not issubclass(py_type, numeric_types)
+            ):
                 raise ValidationError(
                     f"operation {op!r} requires a numeric field; "
                     f"{field!r} has type {py_type.__name__ if py_type else 'unknown'}"

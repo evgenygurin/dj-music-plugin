@@ -5,10 +5,11 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from sqlalchemy import select, update
+from sqlalchemy import select
 
-from app.models.track_features import TrackAudioFeaturesComputed
+from app.models.track_features import TrackAudioFeaturesComputed, TrackSection
 from app.repositories.base import BaseRepository
+from app.shared.constants import SectionType
 from app.shared.errors import NotFoundError
 from app.shared.features import TrackFeatures
 
@@ -25,6 +26,21 @@ _JSON_ENCODED_VECTOR_COLUMNS = frozenset(
         "beat_loudness_band_ratio",
         "phrase_boundaries_ms",
     }
+)
+
+_MIX_IN_SECTION_PRIORITY = (
+    SectionType.INTRO,
+    SectionType.ATTACK,
+    SectionType.SUSTAIN,
+    SectionType.AMBIENT,
+    SectionType.RISE,
+)
+_MIX_OUT_SECTION_PRIORITY = (
+    SectionType.OUTRO,
+    SectionType.SUSTAIN,
+    SectionType.AMBIENT,
+    SectionType.BREAKDOWN,
+    SectionType.VALLEY,
 )
 
 
@@ -51,6 +67,30 @@ def _serialize_vectors(values: dict[str, Any]) -> dict[str, Any]:
             value = list(value)
         out[col] = json.dumps(value)
     return out
+
+
+def _preferred_section(
+    sections: list[TrackSection],
+    priority: tuple[SectionType, ...],
+    *,
+    fallback_last: bool,
+) -> TrackSection | None:
+    if not sections:
+        return None
+    by_type: dict[int, list[TrackSection]] = {}
+    for section in sections:
+        by_type.setdefault(section.section_type, []).append(section)
+    for section_type in priority:
+        candidates = by_type.get(int(section_type))
+        if candidates:
+            return min(candidates, key=lambda section: section.start_ms)
+    return sections[-1] if fallback_last else sections[0]
+
+
+def _phrase_anchor(features: TrackFeatures, section: TrackSection) -> int:
+    boundaries = features.phrase_boundaries_ms or []
+    inside = [boundary for boundary in boundaries if section.start_ms <= boundary < section.end_ms]
+    return inside[0] if inside else section.start_ms
 
 
 class TrackFeaturesRepository(BaseRepository[TrackAudioFeaturesComputed]):
@@ -87,6 +127,34 @@ class TrackFeaturesRepository(BaseRepository[TrackAudioFeaturesComputed]):
         await self.session.flush()
         return row
 
+    async def upsert_analysis(self, *, track_id: int, **values: Any) -> TrackAudioFeaturesComputed:
+        """Persist audio analysis without clobbering canonical provider data."""
+        existing = await self.get_by_track_id(track_id)
+        clean = dict(values)
+
+        source_fields = (
+            ("bpm", "audio_bpm", "bpm_source"),
+            ("bpm_confidence", "audio_bpm_confidence", "bpm_source"),
+            ("key_code", "audio_key_code", "key_source"),
+            ("key_confidence", "audio_key_confidence", "key_source"),
+            ("mood", "audio_mood", "mood_source"),
+        )
+        for canonical, audio, source in source_fields:
+            if canonical not in clean:
+                continue
+            clean[audio] = clean[canonical]
+            if existing is not None and getattr(existing, source, None) == "beatport":
+                clean.pop(canonical)
+            else:
+                clean[source] = "audio"
+
+        if "mood_confidence" in clean:
+            clean["audio_mood_confidence"] = clean["mood_confidence"]
+            if existing is not None and getattr(existing, "mood_source", None) == "beatport":
+                clean.pop("mood_confidence")
+
+        return await self.upsert(track_id=track_id, **clean)
+
     async def get_scoring_features_batch(self, track_ids: list[int]) -> dict[int, TrackFeatures]:
         """Batch load scoring features as TrackFeatures dataclasses (JSON vectors parsed)."""
         if not track_ids:
@@ -95,18 +163,51 @@ class TrackFeaturesRepository(BaseRepository[TrackAudioFeaturesComputed]):
             TrackAudioFeaturesComputed.track_id.in_(track_ids)
         )
         rows = (await self.session.execute(stmt)).scalars().all()
-        return {r.track_id: TrackFeatures.from_db(r) for r in rows}
+        result = {r.track_id: TrackFeatures.from_db(r) for r in rows}
+
+        section_stmt = (
+            select(TrackSection)
+            .where(TrackSection.track_id.in_(result))
+            .order_by(TrackSection.track_id, TrackSection.start_ms)
+        )
+        section_rows = (await self.session.execute(section_stmt)).scalars().all()
+        sections_by_track: dict[int, list[TrackSection]] = {}
+        for section in section_rows:
+            sections_by_track.setdefault(section.track_id, []).append(section)
+
+        for track_id, features in result.items():
+            sections = sections_by_track.get(track_id, [])
+            mix_in = _preferred_section(
+                sections,
+                _MIX_IN_SECTION_PRIORITY,
+                fallback_last=False,
+            )
+            mix_out = _preferred_section(
+                sections,
+                _MIX_OUT_SECTION_PRIORITY,
+                fallback_last=True,
+            )
+            if mix_in is not None:
+                features.mix_in_section_id = mix_in.id
+                features.mix_in_section_type = mix_in.section_type
+                features.mix_in_point_ms = _phrase_anchor(features, mix_in)
+            if mix_out is not None:
+                features.mix_out_section_id = mix_out.id
+                features.mix_out_section_type = mix_out.section_type
+                features.mix_out_point_ms = _phrase_anchor(features, mix_out)
+        return result
 
     async def set_mood(self, track_id: int, *, mood: str, confidence: float) -> None:
-        """Update mood + confidence on an existing features row."""
-        stmt = (
-            update(TrackAudioFeaturesComputed)
-            .where(TrackAudioFeaturesComputed.track_id == track_id)
-            .values(mood=mood, mood_confidence=confidence)
-        )
-        result = await self.session.execute(stmt)
-        if result.rowcount == 0:  # type: ignore[attr-defined]
+        """Store audio mood while preserving a verified Beatport canonical mood."""
+        row = await self.get_by_track_id(track_id)
+        if row is None:
             raise NotFoundError("track_features", track_id)
+        row.audio_mood = mood
+        row.audio_mood_confidence = confidence
+        if row.mood_source != "beatport":
+            row.mood = mood
+            row.mood_confidence = confidence
+            row.mood_source = "audio"
         await self.session.flush()
 
     async def get_analysis_level(self, track_id: int) -> int:
