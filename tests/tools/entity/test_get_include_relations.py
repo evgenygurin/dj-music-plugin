@@ -198,13 +198,17 @@ def test_every_declared_relation_has_a_loader() -> None:
 
     EntityRegistry.clear()
     register_default_entities()
-
-    for name in EntityRegistry.names():
-        cfg = EntityRegistry.get(name)
-        assert set(cfg.relations.keys()) == set(cfg.relation_loaders.keys()), (
-            f"entity {name!r}: relations {sorted(cfg.relations)} != "
-            f"loaders {sorted(cfg.relation_loaders)}"
-        )
+    try:
+        for name in EntityRegistry.names():
+            cfg = EntityRegistry.get(name)
+            assert set(cfg.relations.keys()) == set(cfg.relation_loaders.keys()), (
+                f"entity {name!r}: relations {sorted(cfg.relations)} != "
+                f"loaders {sorted(cfg.relation_loaders)}"
+            )
+    finally:
+        # Mirror tests/registry/test_filterable_fields_sync.py — leave no
+        # side state in the process-global registry for later tests.
+        EntityRegistry.clear()
 
 
 # ── dispatcher wiring (tool layer, mocked UoW) ──────────────────────────

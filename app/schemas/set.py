@@ -122,7 +122,10 @@ class SetVersionView(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: int
     set_id: int
-    label: str
+    # Prod column is nullable; a NULL label must not blow up the view
+    # (review 2026-07-03, low). The build handler always writes one, but
+    # legacy/raw rows may not.
+    label: str | None = None
     quality_score: float | None = None
     # generator_run_meta is stored as ``Text`` in the ORM (JSON-encoded). The
     # coercing type transparently parses the string back into a dict so this
