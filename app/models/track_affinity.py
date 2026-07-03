@@ -26,6 +26,11 @@ class TrackAffinity(Base, TimestampMixin):
             name="ck_affinity_score_range",
         ),
         CheckConstraint("play_count >= 0", name="ck_affinity_play_count_nonneg"),
+        # A track's affinity with itself is degenerate — there is no
+        # "pair history" to record. Mirrors the pydantic gate on
+        # TrackAffinityCreate (audit iter 54); this is the DB-level
+        # backstop so a self-pair cannot exist even via a raw insert.
+        CheckConstraint("track_a_id <> track_b_id", name="ck_affinity_distinct_pair"),
         Index("idx_track_affinity_a", "track_a_id"),
         Index("idx_track_affinity_b", "track_b_id"),
         Index("idx_track_affinity_sentiment", "net_sentiment"),
