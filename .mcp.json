@@ -4,7 +4,7 @@
       "command": "bash",
       "args": [
         "-lc",
-        "project_root=\"$PWD\"; plugin_root=\"${PLUGIN_ROOT:-$PWD}\"; cd \"$plugin_root\" || exit 1; env_args=(); if [ -f \"$project_root/.env\" ]; then env_args=(--env-file \"$project_root/.env\"); elif [ -f .env ]; then env_args=(--env-file .env); fi; exec uv run \"${env_args[@]}\" -- fastmcp run fastmcp.json --no-banner"
+        "project_root=\"$PWD\"; plugin_root=\"${PLUGIN_ROOT:-$PWD}\"; cd \"$plugin_root\" || exit 1; set -a; if [ -f \"$project_root/.env\" ]; then . \"$project_root/.env\"; elif [ -f .env ]; then . .env; fi; set +a; exec uv run -- fastmcp run fastmcp.json --no-banner"
       ]
     }
   }
