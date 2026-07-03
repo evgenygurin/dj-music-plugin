@@ -153,6 +153,7 @@ class TrackFeaturesFilter(BaseModel):
     key_code__eq: int | None = None
     key_code__in: list[int] | None = None
     key_code__range: list[int] | None = None
+    key_code__isnull: bool | None = None
     # integrated_lufs: range/gte/lte for loudness-bucket queries.
     integrated_lufs__gte: float | None = None
     integrated_lufs__lte: float | None = None
@@ -187,24 +188,34 @@ class TrackFeaturesFilter(BaseModel):
     # ("find tracks above 0 dBTP"); ``key_confidence`` filters out
     # tracks with an unreliable detected key; ``atonality`` and
     # ``variable_tempo`` are the boolean discriminators.
+    # ``__isnull`` on the NULL-heavy essentia / L3+ columns is THE
+    # "which tracks still need analysis" lookup — ``__gte``/``__lte``
+    # silently drop NULL rows (probe 2026-07-03; see rules/tools.md
+    # "L2 feature columns that are mostly NULL").
     true_peak_db__gte: float | None = None
     true_peak_db__lte: float | None = None
+    true_peak_db__isnull: bool | None = None
     key_confidence__gte: float | None = None
     key_confidence__lte: float | None = None
     atonality__eq: bool | None = None
     variable_tempo__eq: bool | None = None
     danceability__gte: float | None = None
     danceability__lte: float | None = None
+    danceability__isnull: bool | None = None
     dissonance_mean__gte: float | None = None
     dissonance_mean__lte: float | None = None
     bpm_confidence__gte: float | None = None
     bpm_confidence__lte: float | None = None
+    bpm_confidence__isnull: bool | None = None
     bpm_stability__gte: float | None = None
     bpm_stability__lte: float | None = None
     onset_rate__gte: float | None = None
     onset_rate__lte: float | None = None
     pulse_clarity__gte: float | None = None
     pulse_clarity__lte: float | None = None
+    dynamic_complexity__isnull: bool | None = None
+    spectral_complexity_mean__isnull: bool | None = None
+    pitch_salience_mean__isnull: bool | None = None
 
 
 class TrackFeaturesCreate(BaseModel):
