@@ -22,7 +22,7 @@ from app.audio.analyzers import AnalyzerRegistry
 from app.audio.pipeline import AnalysisPipeline
 from app.config import get_settings
 from app.db.session import get_engine, get_session_factory
-from app.domain.optimization import GeneticAlgorithm, GreedyChainBuilder
+from app.domain.optimization import ConstructiveSlotBuilder, GeneticAlgorithm, GreedyChainBuilder
 from app.domain.transition.scorer import TransitionScorer
 from app.providers.beatport.adapter import BeatportAdapter
 from app.providers.beatport.client import BeatportClient
@@ -180,6 +180,8 @@ async def scoring_lifespan(app: Any) -> AsyncIterator[dict[str, Any]]:
     scorer = TransitionScorer()
 
     def optimizer_builder(*, algorithm: str, scorer: TransitionScorer) -> Any:
+        if algorithm == "constructive":
+            return ConstructiveSlotBuilder(scorer=scorer)
         if algorithm == "greedy":
             return GreedyChainBuilder(scorer=scorer)
         return GeneticAlgorithm(scorer=scorer)

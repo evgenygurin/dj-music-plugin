@@ -43,7 +43,7 @@ async def track_features_reanalyze_handler(
         raise NotFoundError("audio_file", track_id)
 
     result = await pipeline.analyze(lib.file_path)
-    await uow.track_features.upsert(
+    await uow.track_features.upsert_analysis(
         track_id=track_id,
         analysis_level=level,
         **result.features,

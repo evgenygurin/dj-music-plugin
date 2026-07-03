@@ -53,6 +53,7 @@ from typing import Any
 import numpy as np
 
 from app.audio.analyzers.base import AnalyzerRegistry, BaseAnalyzer
+from app.audio.classification import MoodClassifier
 from app.audio.core.context import AnalysisContext
 from app.audio.core.loader import AudioLoader
 from app.audio.core.types import AnalyzerResult, AudioSignal, FrameParams
@@ -63,6 +64,16 @@ from app.config import get_settings
 # 3/6, 5/6 of duration. Skips intro/outro, captures section variation.
 _DEFAULT_N_WINDOWS = 3
 _FADE_MS = 20.0
+_MOOD_REQUIRED_FEATURES = frozenset(
+    {
+        "bpm",
+        "integrated_lufs",
+        "energy_mean",
+        "spectral_centroid_hz",
+        "hp_ratio",
+        "kick_prominence",
+    }
+)
 
 _LIBROSA_WARMED_UP = False
 
@@ -287,6 +298,7 @@ class AnalysisPipeline:
         self._use_processes = use_processes
         self._max_workers = max_workers or max(1, (os.cpu_count() or 4))
         self._pool: ProcessPoolExecutor | None = None
+        self._mood_classifier = MoodClassifier()
 
         # Self-tuning per-analyzer cost estimates (seconds), populated
         # from real ``AnalyzerResult.elapsed_s`` values after each call.
@@ -416,9 +428,15 @@ class AnalysisPipeline:
             if r.success and r.elapsed_s > 0:
                 self._observed_costs[r.analyzer_name] = r.elapsed_s
 
+        features = self._merge_features(all_results)
+        if _MOOD_REQUIRED_FEATURES.issubset(features):
+            mood = self._mood_classifier.classify(features)
+            features["mood"] = mood.mood.value
+            features["mood_confidence"] = round(mood.confidence, 4)
+
         return PipelineResult(
             results=all_results,
-            features=self._merge_features(all_results),
+            features=features,
             context=return_ctx if return_context else None,
         )
 

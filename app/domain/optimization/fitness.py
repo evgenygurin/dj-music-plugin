@@ -8,9 +8,8 @@ from __future__ import annotations
 import math
 
 from app.domain.template.models import SetTemplateDefinition
-from app.domain.transition.intent import infer_intent
+from app.domain.transition.pair_context import build_pair_context
 from app.domain.transition.scorer import TransitionScorer
-from app.shared.constants import SetTemplate
 from app.shared.features import TrackFeatures
 
 _FITNESS_WEIGHTS = {
@@ -28,7 +27,7 @@ def transition_quality(
     order: list[int],
     idx_map: dict[int, int],
     template: SetTemplateDefinition | None = None,
-    score_cache: dict[tuple[int, int, str], float] | None = None,
+    score_cache: dict[tuple[int, int, str, str | None], float] | None = None,
     reject_mask: set[tuple[int, int]] | None = None,
 ) -> float:
     """Average transition score across consecutive pairs, using intent-aware weights.
@@ -49,13 +48,6 @@ def transition_quality(
     """
     if len(order) < 2:
         return 1.0
-    template_enum: SetTemplate | None = None
-    if template is not None:
-        try:
-            template_enum = SetTemplate(template.name)
-        except ValueError:
-            template_enum = None
-
     total = 0.0
     n = len(order)
     for i in range(n - 1):
@@ -71,20 +63,34 @@ def transition_quality(
         a = tracks[idx_a]
         b = tracks[idx_b]
         position = i / max(1, n - 2)
-        energy_delta = (b.integrated_lufs or -8.0) - (a.integrated_lufs or -8.0)
-        intent = infer_intent(position, energy_delta, template=template_enum)
+        context = build_pair_context(a, b, position=position, template=template)
+        pair_class = (
+            context.section_context.section_pair_class.value
+            if context.section_context is not None
+            else None
+        )
 
         # Stage 2: memoised scorer.score for surviving pairs.
         if score_cache is not None:
-            key = (idx_a, idx_b, intent.value)
+            key = (idx_a, idx_b, context.intent.value, pair_class)
             cached = score_cache.get(key)
             if cached is None:
-                score = scorer.score(a, b, intent=intent)
+                score = scorer.score(
+                    a,
+                    b,
+                    intent=context.intent,
+                    section_context=context.section_context,
+                )
                 cached = 0.0 if score.hard_reject else score.overall
                 score_cache[key] = cached
             total += cached
         else:
-            score = scorer.score(a, b, intent=intent)
+            score = scorer.score(
+                a,
+                b,
+                intent=context.intent,
+                section_context=context.section_context,
+            )
             total += 0.0 if score.hard_reject else score.overall
     return total / (n - 1)
 
@@ -208,7 +214,7 @@ def compute_fitness(
     idx_map: dict[int, int],
     template: SetTemplateDefinition | None = None,
     moods: dict[int, str | None] | None = None,
-    score_cache: dict[tuple[int, int, str], float] | None = None,
+    score_cache: dict[tuple[int, int, str, str | None], float] | None = None,
     reject_mask: set[tuple[int, int]] | None = None,
 ) -> float:
     """Weighted fitness for a track ordering. Returns 0-1.

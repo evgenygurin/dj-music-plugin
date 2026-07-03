@@ -76,7 +76,7 @@ async def track_features_analyze_handler(
         # to splat the whole feature dict here. ``analysis_level`` records
         # the caller-requested tier (L1..L5); the pipeline itself is
         # level-agnostic and runs whatever analyzers are enabled.
-        await uow.track_features.upsert(
+        await uow.track_features.upsert_analysis(
             track_id=tid,
             analysis_level=level,
             **result.features,

@@ -18,7 +18,7 @@ from typing import TYPE_CHECKING, Any, Protocol
 
 from fastmcp.server.context import Context
 
-from app.domain.transition.section_context import SectionContext
+from app.domain.transition.section_context import SectionContext, build_pair_context
 from app.repositories.unit_of_work import UnitOfWork
 from app.shared.constants import SectionType
 from app.shared.errors import NotFoundError, ValidationError
@@ -42,6 +42,22 @@ class TransitionScorerProtocol(Protocol):
     ) -> TransitionScore: ...
 
 
+def build_runtime_pair_context(
+    outgoing: TrackFeatures,
+    incoming: TrackFeatures,
+    *,
+    position: float,
+    template: Any | None = None,
+) -> Any:
+    """Build pair context behind the handler/domain dependency boundary."""
+    return build_pair_context(
+        outgoing,
+        incoming,
+        position=position,
+        template=template,
+    )
+
+
 async def persist_transition_score(
     uow: UnitOfWork,
     *,
@@ -49,6 +65,9 @@ async def persist_transition_score(
     to_track_id: int,
     score: TransitionScore,
     recipe: NeuralMixRecipe | None = None,
+    from_section_id: int | None = None,
+    to_section_id: int | None = None,
+    overlap_ms: int | None = None,
 ) -> Any:
     """Upsert a single ``TransitionScore`` (+ optional Neural Mix recipe).
 
@@ -77,6 +96,12 @@ async def persist_transition_score(
         fields["fx_type"] = str(recipe.transition)
         fields["transition_bars"] = int(recipe.bars)
         fields["transition_recipe_json"] = recipe.to_json()
+    if from_section_id is not None:
+        fields["from_section_id"] = from_section_id
+    if to_section_id is not None:
+        fields["to_section_id"] = to_section_id
+    if overlap_ms is not None:
+        fields["overlap_ms"] = overlap_ms
     return await uow.transitions.upsert(
         from_track_id=from_track_id,
         to_track_id=to_track_id,

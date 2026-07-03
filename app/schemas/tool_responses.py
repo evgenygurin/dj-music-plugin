@@ -81,7 +81,7 @@ class ScorePoolResult(BaseModel):
 class SequenceOptimizeResult(BaseModel):
     track_order: list[int]
     quality_score: float
-    algorithm: Literal["ga", "greedy"]
+    algorithm: Literal["ga", "greedy", "constructive"]
     generations: int = 0
 
 

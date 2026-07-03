@@ -110,12 +110,30 @@ class TrackFeaturesView(BaseModel):
     # Mood classification
     mood: str | None = None
     mood_confidence: float | None = None
+    mood_source: str | None = None
 
-    # Beatport ground-truth genre (matched + BPM/duration-verified)
+    # Original audio-analysis values retained after provider canonicalization.
+    audio_bpm: float | None = None
+    audio_bpm_confidence: float | None = None
+    audio_key_code: int | None = None
+    audio_key_confidence: float | None = None
+    audio_mood: str | None = None
+    audio_mood_confidence: float | None = None
+    bpm_source: str | None = None
+    key_source: str | None = None
+
+    # Beatport ground-truth metadata (matched + BPM/duration-verified)
     beatport_genre: str | None = None
     beatport_sub_genre: str | None = None
     beatport_track_id: int | None = None
     beatport_confidence: str | None = None
+    beatport_bpm: float | None = None
+    beatport_key: str | None = None
+    beatport_camelot: str | None = None
+    beatport_duration_ms: int | None = None
+    beatport_isrc: str | None = None
+    beatport_release: str | None = None
+    beatport_label: str | None = None
 
 
 class TrackFeaturesFilter(BaseModel):
@@ -135,6 +153,7 @@ class TrackFeaturesFilter(BaseModel):
     key_code__eq: int | None = None
     key_code__in: list[int] | None = None
     key_code__range: list[int] | None = None
+    key_code__isnull: bool | None = None
     # integrated_lufs: range/gte/lte for loudness-bucket queries.
     integrated_lufs__gte: float | None = None
     integrated_lufs__lte: float | None = None
@@ -148,6 +167,9 @@ class TrackFeaturesFilter(BaseModel):
     beatport_genre__icontains: str | None = None
     beatport_genre__isnull: bool | None = None
     beatport_confidence__eq: str | None = None
+    bpm_source__eq: str | None = None
+    key_source__eq: str | None = None
+    mood_source__eq: str | None = None
     # Confidence + scalar feature lookups (audit iter 25). The most
     # common analytics query is "filter by mood_confidence >= 0.1
     # to exclude low-quality classifications".
@@ -166,24 +188,34 @@ class TrackFeaturesFilter(BaseModel):
     # ("find tracks above 0 dBTP"); ``key_confidence`` filters out
     # tracks with an unreliable detected key; ``atonality`` and
     # ``variable_tempo`` are the boolean discriminators.
+    # ``__isnull`` on the NULL-heavy essentia / L3+ columns is THE
+    # "which tracks still need analysis" lookup — ``__gte``/``__lte``
+    # silently drop NULL rows (probe 2026-07-03; see rules/tools.md
+    # "L2 feature columns that are mostly NULL").
     true_peak_db__gte: float | None = None
     true_peak_db__lte: float | None = None
+    true_peak_db__isnull: bool | None = None
     key_confidence__gte: float | None = None
     key_confidence__lte: float | None = None
     atonality__eq: bool | None = None
     variable_tempo__eq: bool | None = None
     danceability__gte: float | None = None
     danceability__lte: float | None = None
+    danceability__isnull: bool | None = None
     dissonance_mean__gte: float | None = None
     dissonance_mean__lte: float | None = None
     bpm_confidence__gte: float | None = None
     bpm_confidence__lte: float | None = None
+    bpm_confidence__isnull: bool | None = None
     bpm_stability__gte: float | None = None
     bpm_stability__lte: float | None = None
     onset_rate__gte: float | None = None
     onset_rate__lte: float | None = None
     pulse_clarity__gte: float | None = None
     pulse_clarity__lte: float | None = None
+    dynamic_complexity__isnull: bool | None = None
+    spectral_complexity_mean__isnull: bool | None = None
+    pitch_salience_mean__isnull: bool | None = None
 
 
 class TrackFeaturesCreate(BaseModel):

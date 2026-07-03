@@ -132,15 +132,32 @@ class TrackAudioFeaturesComputed(Base, TimestampMixin):
     # Classification
     mood: Mapped[str | None] = mapped_column(String(30), nullable=True, index=True)
     mood_confidence: Mapped[float | None] = mapped_column(nullable=True)
+    mood_source: Mapped[str | None] = mapped_column(String(16), nullable=True, index=True)
 
-    # Beatport ground-truth genre — human-curated label matched + verified
-    # against our own BPM/duration (see app/providers/beatport). Authoritative
-    # subgenre source; ``mood`` (rule classifier) is a fallback when unmatched.
+    # Original audio-derived values are retained when verified provider
+    # metadata becomes canonical.
+    audio_bpm: Mapped[float | None] = mapped_column(nullable=True)
+    audio_bpm_confidence: Mapped[float | None] = mapped_column(nullable=True)
+    audio_key_code: Mapped[int | None] = mapped_column(nullable=True)
+    audio_key_confidence: Mapped[float | None] = mapped_column(nullable=True)
+    audio_mood: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    audio_mood_confidence: Mapped[float | None] = mapped_column(nullable=True)
+    bpm_source: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    key_source: Mapped[str | None] = mapped_column(String(16), nullable=True)
+
+    # Beatport ground-truth metadata. High-confidence matches replace canonical
+    # BPM/key/mood; medium matches remain source-specific reference metadata.
     beatport_genre: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
     beatport_sub_genre: Mapped[str | None] = mapped_column(String(64), nullable=True)
     beatport_track_id: Mapped[int | None] = mapped_column(nullable=True)
-    # Match confidence tier: "high" | "medium" (only matched rows persisted).
     beatport_confidence: Mapped[str | None] = mapped_column(String(8), nullable=True)
+    beatport_bpm: Mapped[float | None] = mapped_column(nullable=True)
+    beatport_key: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    beatport_camelot: Mapped[str | None] = mapped_column(String(3), nullable=True)
+    beatport_duration_ms: Mapped[int | None] = mapped_column(nullable=True)
+    beatport_isrc: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    beatport_release: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    beatport_label: Mapped[str | None] = mapped_column(String(300), nullable=True)
 
     pipeline_run: Mapped[FeatureExtractionRun | None] = relationship(
         back_populates="computed_features"

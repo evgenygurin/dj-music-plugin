@@ -1,7 +1,8 @@
-"""sequence_optimize — GA or greedy track-ordering optimizer."""
+"""sequence_optimize — GA, greedy or constructive track ordering."""
 
 from __future__ import annotations
 
+import asyncio
 from typing import Annotated, Any, Literal
 
 from fastmcp.dependencies import CurrentContext, Depends
@@ -9,6 +10,7 @@ from fastmcp.server.context import Context
 from fastmcp.tools import tool
 from pydantic import Field
 
+from app.handlers._context_log import safe_report_progress
 from app.repositories.unit_of_work import UnitOfWork
 from app.schemas.tool_responses import SequenceOptimizeResult
 from app.server.di import get_optimizer, get_transition_scorer, get_uow
@@ -44,12 +46,13 @@ async def sequence_optimize(
         JsonIntList, Field(min_length=2, max_length=500, description="Pool of track IDs")
     ],
     algorithm: Annotated[
-        Literal["auto", "ga", "greedy"],
+        Literal["auto", "ga", "greedy", "constructive"],
         Field(
             description=(
                 "``auto`` (default) picks greedy for pools >=200 tracks where "
                 "GA wall-clock dominates the request. ``ga`` and ``greedy`` "
-                "force the choice."
+                "reorder the whole pool. ``constructive`` selects tracks "
+                "slot-by-slot to fit the template and may return a subset."
             )
         ),
     ] = "auto",
@@ -83,6 +86,11 @@ async def sequence_optimize(
                 details={"template": template},
             )
         template_def = _get_template(template)
+    if algorithm == "constructive" and template_def is None:
+        raise ValidationError(
+            "algorithm='constructive' requires a valid template",
+            details={"algorithm": algorithm},
+        )
 
     # Audit iter 5 (T-2): reject pinned/excluded overlap up front. The
     # optimizer previously let pinned win silently, so a caller
@@ -184,7 +192,7 @@ async def sequence_optimize(
     # response carries the *resolved* algorithm name so callers can
     # observe what actually ran (also surfaced in OptimizationResult
     # via ``algorithm`` field on the optimizer's own return).
-    resolved_algorithm: Literal["ga", "greedy"]
+    resolved_algorithm: Literal["ga", "greedy", "constructive"]
     if algorithm == "auto":
         resolved_algorithm = "greedy" if len(track_ids) >= _AUTO_GREEDY_THRESHOLD else "ga"
     else:
@@ -192,18 +200,37 @@ async def sequence_optimize(
 
     optimizer = optimizer_builder(algorithm=resolved_algorithm, scorer=scorer)
 
-    async def _progress(gen: int, score: float) -> None:
-        await ctx.report_progress(progress=gen, total=100, message=f"best={score:.3f}")
+    progress_tasks: list[asyncio.Task[None]] = []
+    loop = asyncio.get_running_loop()
 
-    result = optimizer.optimize(
+    def _progress(gen: int, score: float) -> None:
+        def _schedule() -> None:
+            progress_tasks.append(
+                asyncio.create_task(
+                    safe_report_progress(
+                        ctx,
+                        progress=gen,
+                        total=100,
+                        message=f"best={score:.3f}",
+                    )
+                )
+            )
+
+        loop.call_soon_threadsafe(_schedule)
+
+    result = await asyncio.to_thread(
+        optimizer.optimize,
         tracks=features_list,
         track_ids=track_ids,
         pinned=set(pinned or []),
         excluded=set(excluded or []),
         template=template_def,
-        moods=None,
-        on_progress=lambda g, s: None,
+        moods={tid: features[tid].mood for tid in track_ids},
+        on_progress=_progress,
     )
+
+    if progress_tasks:
+        await asyncio.gather(*progress_tasks)
 
     return SequenceOptimizeResult(
         track_order=list(result.track_order),

@@ -76,7 +76,15 @@ async def entity_list(
         raise ValueError(f"list not allowed on entity {entity!r}")
 
     where = dict(filters or {})
-    if search and config.searchable_fields:
+    if search:
+        if not config.searchable_fields:
+            # Reject rather than silently ignore the term — the caller
+            # believes they filtered but would get the full list back
+            # (false contract, probe 2026-07-03).
+            raise ValidationError(
+                f"entity {entity!r} does not support free-text search "
+                f"(no searchable fields); use `filters=` with a lookup instead"
+            )
         # Simple search: icontains over the first searchable field.
         where[f"{config.searchable_fields[0]}__icontains"] = search
 

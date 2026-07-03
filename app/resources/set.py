@@ -208,17 +208,73 @@ async def set_cheatsheet(
         await _get_version_items(uow, ver.id),
         key=lambda i: getattr(i, "sort_index", 0),
     )
+    ordered_ids = [it.track_id for it in items]
+    features = await uow.track_features.get_scoring_features_batch(ordered_ids)
+    pairs = list(itertools.pairwise(ordered_ids))
+    batch_get = getattr(uow.transitions, "get_pairs_batch", None)
+    transitions = await batch_get(pairs) if batch_get is not None else {}
+
+    from app.domain.camelot.wheel import key_code_to_camelot
+
+    def _camelot(key_code: int | None) -> str | None:
+        if key_code is None:
+            return None
+        try:
+            return key_code_to_camelot(key_code)
+        except ValueError:
+            return None
+
     lines: list[dict[str, Any]] = []
-    for it in items:
+    for index, it in enumerate(items):
         track = await uow.tracks.get(it.track_id)
-        feat = await _get_features_for(uow, it.track_id)
+        feat = features.get(it.track_id)
+        canonical_key_code = getattr(feat, "key_code", None) if feat else None
+        audio_key_code = getattr(feat, "audio_key_code", None) if feat else None
+        next_transition = None
+        if index + 1 < len(items):
+            next_track_id = items[index + 1].track_id
+            transition = transitions.get((it.track_id, next_track_id))
+            if transition is not None:
+                next_transition = {
+                    "to_track_id": next_track_id,
+                    "overall": getattr(transition, "overall_quality", None),
+                    "fx_type": getattr(transition, "fx_type", None),
+                    "bars": getattr(transition, "transition_bars", None),
+                    "hard_reject": bool(getattr(transition, "hard_reject", False)),
+                }
         lines.append(
             {
                 "position": getattr(it, "sort_index", None),
+                "track_id": it.track_id,
                 "title": getattr(track, "title", None) if track else None,
                 "bpm": getattr(feat, "bpm", None) if feat else None,
-                "key": getattr(feat, "key_code", None) if feat else None,
+                "bpm_source": getattr(feat, "bpm_source", None) if feat else None,
+                "audio_bpm": getattr(feat, "audio_bpm", None) if feat else None,
+                "beatport_bpm": getattr(feat, "beatport_bpm", None) if feat else None,
+                "key": _camelot(canonical_key_code),
+                "key_code": canonical_key_code,
+                "key_source": getattr(feat, "key_source", None) if feat else None,
+                "audio_key": _camelot(audio_key_code),
+                "audio_key_code": audio_key_code,
+                "audio_key_confidence": (
+                    getattr(feat, "audio_key_confidence", None) if feat else None
+                ),
+                "beatport_key": getattr(feat, "beatport_key", None) if feat else None,
+                "beatport_camelot": (getattr(feat, "beatport_camelot", None) if feat else None),
+                "beatport_confidence": (
+                    getattr(feat, "beatport_confidence", None) if feat else None
+                ),
+                "key_agreement": (
+                    canonical_key_code == audio_key_code
+                    if canonical_key_code is not None and audio_key_code is not None
+                    else None
+                ),
                 "energy": getattr(feat, "integrated_lufs", None) if feat else None,
+                "in_section_id": getattr(it, "in_section_id", None),
+                "out_section_id": getattr(it, "out_section_id", None),
+                "mix_in_point_ms": getattr(it, "mix_in_point_ms", None),
+                "mix_out_point_ms": getattr(it, "mix_out_point_ms", None),
+                "next_transition": next_transition,
             }
         )
     return SetCheatsheetView(set_id=id, version_id=ver.id, lines=lines).model_dump_json()

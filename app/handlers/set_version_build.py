@@ -39,6 +39,14 @@ async def set_version_build_handler(
     if dj_set is None:
         raise NotFoundError("set", set_id)
 
+    template_name = gen_meta.get("template") or getattr(dj_set, "template_name", None)
+    gen_meta = {
+        **gen_meta,
+        "effective_template": str(template_name) if template_name else None,
+        "transition_context_policy": "intent+preferred_sections:v1",
+        "key_policy": "canonical_provider_then_audio:v1",
+    }
+
     version = await uow.set_versions.create(
         set_id=set_id,
         label=label,
@@ -64,28 +72,65 @@ async def set_version_build_handler(
         # Lazy import — same circular-import dance as the scorer itself.
         from app.handlers.transition_persist import (
             _build_recipe_or_none,
+            build_runtime_pair_context,
             persist_transition_score,
         )
 
         features = await uow.track_features.get_scoring_features_batch(track_order)
-        for a, b in itertools.pairwise(track_order):
+        items = sorted(
+            await uow.set_versions.get_items(version.id),
+            key=lambda item: getattr(item, "sort_index", 0),
+        )
+        items_by_track = {item.track_id: item for item in items}
+        n = len(track_order)
+        for position_index, (a, b) in enumerate(itertools.pairwise(track_order)):
             if a not in features or b not in features:
                 continue
             feat_a = features[a]
             feat_b = features[b]
-            score = scorer.score(feat_a, feat_b)
+            pair_context = build_runtime_pair_context(
+                feat_a,
+                feat_b,
+                position=position_index / max(1, n - 2),
+                template=template_name,
+            )
+            score = scorer.score(
+                feat_a,
+                feat_b,
+                intent=pair_context.intent,
+                section_context=pair_context.section_context,
+            )
             transition_scores.append(float(score.overall))
-            recipe = _build_recipe_or_none(score, feat_a, feat_b)
+            recipe = _build_recipe_or_none(
+                score,
+                feat_a,
+                feat_b,
+                section_context=pair_context.section_context,
+                intent=pair_context.intent,
+            )
+            overlap_ms = _estimate_overlap_ms(recipe, feat_a.bpm, feat_b.bpm)
             # All-or-nothing intentional: if any upsert raises (FK race,
             # constraint violation), the surrounding UoW rolls back the
             # version + its items, leaving the DB consistent.
-            await persist_transition_score(
+            transition = await persist_transition_score(
                 uow,
                 from_track_id=a,
                 to_track_id=b,
                 score=score,
                 recipe=recipe,
+                from_section_id=pair_context.from_section_id,
+                to_section_id=pair_context.to_section_id,
+                overlap_ms=overlap_ms,
             )
+            from_item = items_by_track.get(a)
+            to_item = items_by_track.get(b)
+            if from_item is not None:
+                from_item.transition_id = transition.id
+                from_item.out_section_id = pair_context.from_section_id
+                from_item.mix_out_point_ms = pair_context.mix_out_point_ms
+            if to_item is not None:
+                to_item.in_section_id = pair_context.to_section_id
+                to_item.mix_in_point_ms = pair_context.mix_in_point_ms
 
     quality = fmean(transition_scores) if transition_scores else 0.0
     if transition_scores:
@@ -104,3 +149,21 @@ async def set_version_build_handler(
         "transition_count": len(transition_scores),
         "quality_score": quality,
     }
+
+
+def _estimate_overlap_ms(recipe: Any, bpm_a: float | None, bpm_b: float | None) -> int | None:
+    """Convert recipe bars to an approximate 4/4 overlap duration."""
+    if recipe is None:
+        return None
+    bars = getattr(recipe, "bars", None)
+    if not isinstance(bars, int) or bars <= 0:
+        return None
+    bpms: list[float] = []
+    for bpm in (bpm_a, bpm_b):
+        if isinstance(bpm, bool) or not isinstance(bpm, (int, float)) or bpm <= 0:
+            continue
+        bpms.append(float(bpm))
+    if not bpms:
+        return None
+    average_bpm = sum(bpms) / len(bpms)
+    return round(bars * 4 * 60_000 / average_bpm)

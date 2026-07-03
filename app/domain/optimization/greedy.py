@@ -7,6 +7,7 @@ from collections.abc import Callable
 from app.domain.optimization.fitness import compute_fitness
 from app.domain.optimization.result import OptimizationResult
 from app.domain.template.models import SetTemplateDefinition
+from app.domain.transition.pair_context import build_pair_context
 from app.domain.transition.scorer import TransitionScorer
 from app.shared.features import TrackFeatures
 
@@ -52,14 +53,24 @@ class GreedyChainBuilder:
         current = min(remaining, key=_opener_score)
         order.append(current)
         remaining.remove(current)
+        if on_progress is not None:
+            on_progress(int((len(order) / len(active_ids)) * 100), 0.0)
 
         while remaining:
             best_tid = None
             best_score = -1.0
             for candidate in remaining:
+                context = build_pair_context(
+                    tracks[idx_map[current]],
+                    tracks[idx_map[candidate]],
+                    position=(len(order) - 1) / max(1, len(active_ids) - 2),
+                    template=template,
+                )
                 result = self.scorer.score(
                     tracks[idx_map[current]],
                     tracks[idx_map[candidate]],
+                    intent=context.intent,
+                    section_context=context.section_context,
                 )
                 score = 0.0 if result.hard_reject else result.overall
                 if score > best_score:
@@ -70,6 +81,8 @@ class GreedyChainBuilder:
             order.append(best_tid)
             remaining.remove(best_tid)
             current = best_tid
+            if on_progress is not None:
+                on_progress(int((len(order) / len(active_ids)) * 100), max(0.0, best_score))
 
         quality = compute_fitness(self.scorer, tracks, order, idx_map, template, moods)
         return OptimizationResult(
