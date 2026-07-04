@@ -14,6 +14,13 @@ globs: tests/**/*.py
 - Dev tooling lives in `[dependency-groups] dev` (uv-native):
   pytest, pytest-asyncio, pytest-xdist, ruff, mypy, alembic,
   import-linter, respx. NOT under `[project.optional-dependencies]`.
+- **`make test` / `make check` are hermetic** — live external-service
+  round-trips (`-m integration`, currently the YM tests in
+  `tests/providers/yandex/test_yandex_integration.py`) are excluded from
+  the default gate: they share the YM rate budget per token/IP, so a
+  running download job makes them flake with real 429s. Run explicitly
+  via `make test-integration` (needs `DJ_YM_TOKEN`, pause download jobs
+  first). New live tests MUST carry `pytest.mark.integration`.
 - **Never mock the database** — use in-memory SQLite
   (aiosqlite) via the shared `engine` / `session` fixtures in
   `tests/conftest.py`. SQLite is tests-only; production is
