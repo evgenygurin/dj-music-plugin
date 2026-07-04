@@ -52,9 +52,17 @@ TRACK_MATCH_SQL = text(
     """
     select t.id
     from tracks t
+    left join track_audio_features_computed f on f.track_id = t.id
     where regexp_replace(lower(t.title), '[^a-z0-9]+', '', 'g')
           = regexp_replace(lower(:candidate), '[^a-z0-9]+', '', 'g')
-    order by t.updated_at desc nulls last, t.id desc
+    -- Prefer an analyzed row: title-only matches (artist-less crate names
+    -- like "Demons") can collide with a featureless duplicate that happens
+    -- to be more recently updated. Rank analyzed rows first, then by
+    -- analysis_level, so enrichment (BPM/key/beatgrid) is not lost.
+    order by (f.track_id is not null) desc,
+             coalesce(f.analysis_level, 0) desc,
+             t.updated_at desc nulls last,
+             t.id desc
     limit 1
     """
 )
