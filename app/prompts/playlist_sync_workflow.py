@@ -6,8 +6,19 @@ from fastmcp.prompts import Message, PromptResult, prompt
 
 from app.prompts._shared import PROMPT_META
 
+_SYNC_DIRECTIONS = frozenset({"diff", "pull", "push"})
+
+
+def _normalize_direction(direction: str) -> str:
+    normalized = direction.strip().lower()
+    if normalized not in _SYNC_DIRECTIONS:
+        allowed = ", ".join(sorted(_SYNC_DIRECTIONS))
+        raise ValueError(f"direction must be one of: {allowed}")
+    return normalized
+
 
 def _body(playlist_id: int, direction: str) -> str:
+    direction = _normalize_direction(direction)
     return f"""Synchronise playlist {playlist_id} with Yandex Music
 (direction='{direction}').
 
@@ -58,6 +69,7 @@ Return: {{"playlist_id": {playlist_id}, "direction": "{direction}",
     meta=PROMPT_META,
 )
 def playlist_sync_workflow(playlist_id: int, direction: str = "diff") -> PromptResult:
+    direction = _normalize_direction(direction)
     return PromptResult(
         messages=[Message(_body(playlist_id, direction))],
         description=f"Sync playlist {playlist_id} with YM (direction={direction}).",
