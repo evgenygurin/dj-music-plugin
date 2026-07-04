@@ -116,8 +116,11 @@ def parse_stem(path: Path) -> tuple[str, str]:
     stem = path.stem
     parts = stem.split("_", 1)
     core = parts[1] if len(parts) == 2 and parts[0].isdigit() else stem
-    # Also strip "NN. " / "NN " numbering prefixes (generated-sets naming).
-    core = re.sub(r"^\d{1,3}[.\s]+", "", core)
+    # Strip numbering prefixes: "NN. " / "NN " (generated-sets), "RRRR "
+    # (USB crate rank), "NNW " (07_WEAPONS), then leading "[8A] [126.0]"
+    # Camelot/BPM tags (USB crate naming).
+    core = re.sub(r"^\d{1,4}W?[.\s]+", "", core)
+    core = re.sub(r"^(?:\[[^\]]*\]\s*)+", "", core)
     core = core.replace("_-_", " - ").replace("_", " ").strip()
     if " - " in core:
         artist, title = core.split(" - ", 1)
