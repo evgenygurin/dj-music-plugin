@@ -35,6 +35,7 @@ from fastmcp.exceptions import (
 )
 from fastmcp.server.middleware import Middleware, MiddlewareContext
 from mcp.shared.exceptions import McpError
+from sqlalchemy.exc import DBAPIError
 
 from app.shared.errors import (
     ConflictError,
@@ -93,6 +94,12 @@ class DomainErrorMiddleware(Middleware):
             # rewriting it as a generic envelope would drop both the timeout
             # signal and its diagnostic message.
             raise
+        except DBAPIError as exc:
+            log.exception("database error in %s", what)
+            orig = str(getattr(exc, "orig", "")).lower()
+            if getattr(exc, "connection_invalidated", False) or "connection" in orig:
+                raise envelope("database connection lost; retry the request") from exc
+            raise envelope("database error") from exc
         except Exception as exc:
             log.exception("unexpected error in %s", what)
             if self.mask_details:

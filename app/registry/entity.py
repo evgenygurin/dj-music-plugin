@@ -40,6 +40,12 @@ HandlerCallable = Callable[
 # page.
 ViewEnricher = Callable[..., Awaitable[dict[str, Any]]]
 
+# List-level variant for entities whose derived fields can be fetched
+# for the whole page at once. This avoids N+1 repository calls in
+# ``entity_list`` while keeping the single-row ``view_enricher`` contract
+# for ``entity_get``.
+ListViewEnricher = Callable[..., Awaitable[list[dict[str, Any]]]]
+
 # Relation loader: async ``(uow, row) -> payload`` where payload is a
 # view-dict for a to-one relation (or ``None`` when absent) and a list of
 # view-dicts for a to-many relation. Keyed by relation name in
@@ -105,6 +111,7 @@ class EntityConfig:
     # derived View fields (item_count, version_count, …). See
     # ``ViewEnricher`` typedef above.
     view_enricher: ViewEnricher | None = None
+    list_view_enricher: ListViewEnricher | None = None
 
     # FK constraints declared once per entity, validated by the
     # generic create/update dispatchers. See ``FkConstraint`` docstring.
