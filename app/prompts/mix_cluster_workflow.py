@@ -23,6 +23,12 @@ my crate goes together?" and for seeding a set core you then extend.
    — ensure level >= 3; analyze_library_workflow first for stragglers. Cap the
      pool at ~{limit} tracks (pairwise scoring is O(n^2)); if larger, pre-filter
      by BPM/mood band first to a coherent sub-pool.
+   Use staged narrowing for big crates: hard filters (BPM corridor, analysis
+   level, audio_file / physical MP3 when delivery is required) -> style/feature
+   filters -> diversity cap -> pair scoring. If any filter is uncertain, read
+   schema://entities/track_features before calling entity_list.
+   Treat mood is a hint, not ground truth; confirm clusters with BPM, LUFS,
+   energy_mean, spectral balance and Beatport genre metadata.
 
 2. Score every pair in the pool:
    transition_score_pool(track_ids=[...up to {limit}...])
@@ -37,6 +43,11 @@ my crate goes together?" and for seeding a set core you then extend.
    - A CHAIN  = an ordered path through high-scoring pairs with no hard_reject
      step. The longest clean chain is your set spine.
    - Isolated tracks (high score to nobody) are mix-orphans — park them.
+   - For raw/hypnotic or atonal chains, use groove-first interpretation:
+     stable BPM, low-end discipline, percussion density and LUFS continuity may
+     matter more than a neat Camelot path.
+   - If Beatport genre and classifier mood conflict, keep both labels in the
+     review notes instead of forcing the cluster into one genre.
 
 4. Cross-check against history + taste (optional but recommended):
    local://transition_history/best_pairs?limit=20 — pairs that mixed well

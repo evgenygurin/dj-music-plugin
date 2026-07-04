@@ -41,15 +41,24 @@ persisted set). Nothing is persisted here; it is an in-the-moment decision.
      entity_list(entity="track_features", filters={{"track_id__in": [...]}},
                 fields="scoring")  — bpm, key_code, integrated_lufs, mood.
    - prefer tracks you have NOT already played this session (session://set-draft).
+   - if any filter/payload is uncertain, read schema://entities/track_features.
+   - mood is a hint, not ground truth: confirm the live choice with BPM, LUFS,
+     energy_mean, spectral balance, hp_ratio and Beatport genre.
+   - if Beatport genre conflicts with classifier mood, mention the risk instead
+     of pretending the style label is certain.
 
 5. Vet the top 1-2 picks as a real transition before committing:
    local://transition/{last_track_id}/{{candidate_id}}/score — overall must clear
    hard_reject; read /explain if a component looks weak. (Or run the
    quick_mix_check prompt for a fuller a->b read.)
+   For raw/hypnotic or low key_confidence material, use groove-first judgment:
+   BPM, low-end, energy and percussion continuity can outweigh Camelot.
 
-6. Commit the human call: name ONE next track + the mix technique to use
-   (long blend / bass-swap / echo-out), and a backup pick. Honesty: mix points
-   come from track_sections (auto), not manual hot cues — phrase-align by ear.
+6. Commit the human call: give 2-3 options, then name ONE next track + the mix
+   technique to use (long blend / bass-swap / echo-out), and a backup pick.
+   Honesty: mix points come from track_sections (auto), not manual hot cues —
+   phrase-align by ear. Do not promise local delivery unless audio_file /
+   physical MP3 exists.
 
 Return: {{"now_playing": {last_track_id}, "energy_direction": "{energy_direction}",
          "next_track_id": ..., "technique": ..., "backup_track_id": ...,

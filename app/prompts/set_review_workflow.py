@@ -20,6 +20,10 @@ propose concrete fixes.
    release (or whatever the template promised)? Flag premature peaks, energy
    sag in the middle, or a flat line that never lifts.
    ui_set_view(set_id={set_id}) — eyeball the energy arc + per-slot table.
+   Treat mood is a hint, not ground truth: when the narrative claims a style,
+   cross-check BPM, LUFS, energy_mean, spectral balance, hp_ratio and Beatport
+   genre metadata. If Beatport genre conflicts with classifier mood, report the
+   conflict instead of declaring one label correct.
 
 3. Transition quality:
    local://sets/{set_id}/review — list weak transitions (overall < 0.5) and
@@ -32,6 +36,13 @@ propose concrete fixes.
      harmonic_journey_workflow).
    - Repeated bpm failures -> a tempo cliff; insert a reset or reorder.
    - Clustered hard_rejects -> a foreign-character track wandered in.
+   - Raw/hypnotic or low key_confidence material may need a groove-first read:
+     judge BPM, low-end, energy and percussion continuity before over-weighting
+     Camelot.
+   - Missing sections/beatgrid/downbeats means mix points are approximate.
+     Missing audio_file / physical MP3 means delivery readiness is not proven.
+     Use schema://entities/track_features or schema://entities/audio_file when
+     the data contract is unclear.
 
 5. Prescribe fixes, cheapest first:
    a. Reorder: sequence_optimize(track_ids=<current ids>, algorithm="ga",
@@ -39,6 +50,8 @@ propose concrete fixes.
    b. Replace a single offender: run the replace_track_workflow prompt for
       that position.
    c. Bridge a hard pair: run the fix_transition_workflow prompt.
+   d. If the set came from a broad crate, rebuild via staged narrowing:
+      hard filters -> style/feature filters -> diversity cap -> pair scoring.
 
 6. If you applied a fix, persist a new version and diff:
    entity_create(entity="set_version", data={{"set_id": {set_id},

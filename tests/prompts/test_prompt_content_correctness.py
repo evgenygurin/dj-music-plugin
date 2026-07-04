@@ -344,3 +344,34 @@ def test_provider_write_operations_match_adapter(
         f"handle: {sorted(set(bad))}. Supported: "
         + ", ".join(f"{e}: {ops}" for e, ops in supported.items())
     )
+
+
+def test_set_building_prompts_include_data_quality_guardrails() -> None:
+    """Core set-building prompts must carry the operational DJ rules.
+
+    These are not runtime API names, but they are user-facing workflow
+    contracts: big crates need staged narrowing before optimization, mood is a
+    hint rather than ground truth, and bad/missing data must be handled
+    honestly.
+    """
+    rendered = {
+        prompt.__name__: _render(prompt)
+        for prompt in (
+            build_set_workflow,
+            style_lock_set_workflow,
+            mix_cluster_workflow,
+            dj_persona_workflow,
+            set_review_workflow,
+            live_next_track_workflow,
+        )
+    }
+    all_text = "\n".join(rendered.values())
+
+    assert "staged narrowing" in all_text
+    assert "mood is a hint" in all_text
+    assert "Beatport genre" in all_text
+    assert "schema://entities" in all_text
+    assert "audio_file" in all_text
+    assert "physical MP3" in all_text
+    assert "groove-first" in all_text
+    assert "2-3" in rendered["live_next_track_workflow"]

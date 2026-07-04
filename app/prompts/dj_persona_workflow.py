@@ -93,6 +93,9 @@ cannot render.
    entity_list(entity="track_features", filters={{"track_id__in": pool_ids}},
               fields="scoring")
    — ensure level >= 3; analyze_library_workflow first for stragglers.
+   Read schema://entities/track_features if any field/filter name is uncertain.
+   For large crates, do staged narrowing before optimization: hard filters ->
+   persona style/feature filters -> diversity cap -> pair scoring.
 
 4. Select to character: keep tracks whose mood sits in the persona band
    ({moods}); drop clear outliers (e.g. melodic_deep in a Lens set, hard_techno
@@ -100,11 +103,18 @@ cannot render.
    entity_list(entity="track_features",
               filters={{"track_id__in": pool_ids,
                        "mood__in": [<persona moods>]}}, fields="scoring")
+   Data rule: mood is a hint, not ground truth. Confirm the persona fit with
+   BPM, LUFS, energy_mean, spectral balance, hp_ratio and Beatport genre.
+   If Beatport genre conflicts with classifier mood, call it out in the review
+   and only keep the track if it supports the persona by audio features.
 
 5. Order under the template arc with the persona's transition feel:
    sequence_optimize(track_ids=[...], algorithm="ga", template="{template}")
    — long blends / HARMONIC_SUSTAIN for Klock/Hawtin; tight bass-swaps and
      hands-up cuts for Lens/de Witte; quick dense blends for Mills.
+   For raw/hypnotic/industrial schools or low key_confidence material, use
+   groove-first judgment: BPM, low-end, energy and percussion continuity can
+   outrank Camelot neatness.
 
 6. Persist + critique against the persona:
    entity_create(entity="set_version", data={{"set_id": <id>,
@@ -115,6 +125,7 @@ cannot render.
 
 7. If the set drifts off-character, pin the most on-brand anchors and re-run
    sequence_optimize, or swap offenders via replace_track_workflow.
+   Do not promise local delivery until audio_file / physical MP3 exists.
 
 Return: {{"playlist_id": {playlist_id}, "persona": "{persona}",
          "template": "{template}", "set_id": ..., "version_id": ...,
