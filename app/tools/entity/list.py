@@ -130,18 +130,28 @@ async def entity_list(
     )
 
     projection = resolve_field_projection(fields, config)
+    rows = list(page.items)
     items: list[dict] = []  # type: ignore[type-arg]
-    for row in page.items:
+    for row in rows:
         view = config.view_schema.model_validate(row).model_dump()
-        # Audit iter 46 (T-44): per-row enrichment for derived View
-        # fields (item_count, version_count). N+1 query — acceptable
-        # for entities that already use it (Playlist, Set; both
-        # small populations). Future scale-up: gather IDs and bulk-
-        # enrich.
-        if config.view_enricher is not None:
-            view = await config.view_enricher(uow, row, view)
-        if projection is not None:
-            view = {k: v for k, v in view.items() if k in projection}
         items.append(view)
+    if config.list_view_enricher is not None:
+        items = await config.list_view_enricher(uow, rows, items, projection)
+    elif config.view_enricher is not None:
+        # Audit iter 46 (T-44): per-row enrichment for derived View
+        # fields (item_count, version_count). N+1 query is still acceptable
+        # for entities that already use it (Playlist, Set; both small
+        # populations). Larger entities should register a list-level
+        # enricher instead.
+        enriched: list[dict] = []  # type: ignore[type-arg]
+        for row, view in zip(rows, items, strict=True):
+            enriched.append(await config.view_enricher(uow, row, view))
+        items = enriched
+    if projection is not None:
+        projected: list[dict] = []  # type: ignore[type-arg]
+        for view in items:
+            view = {k: v for k, v in view.items() if k in projection}
+            projected.append(view)
+        items = projected
     total = page.total if with_total else None
     return EntityListResult(entity=entity, items=items, total=total, next_cursor=page.next_cursor)

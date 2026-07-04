@@ -120,6 +120,31 @@ async def _enrich_track_view(uow: object, row: object, view: dict) -> dict:  # t
     return view
 
 
+async def _enrich_track_views(
+    uow: object,
+    rows: list[object],
+    views: list[dict],  # type: ignore[type-arg]
+    projection: set[str] | None,
+) -> list[dict]:  # type: ignore[type-arg]
+    """Populate ``TrackView.primary_artist_name`` for a list response.
+
+    ``entity_list(track)`` can return hundreds of rows. Using the single-row
+    enricher there creates an N+1 artist lookup path, so the list dispatcher
+    calls this bulk variant instead.
+    """
+    if projection is not None and "primary_artist_name" not in projection:
+        return views
+    ids = [int(tid) for row in rows if (tid := getattr(row, "id", None)) is not None]
+    if not ids:
+        return views
+    names = await uow.tracks.get_primary_artist_names(ids)  # type: ignore[attr-defined]
+    for view in views:
+        tid = view.get("id")
+        if tid is not None:
+            view["primary_artist_name"] = names.get(int(tid))
+    return views
+
+
 async def _enrich_set_view(uow: object, row: object, view: dict) -> dict:  # type: ignore[type-arg]
     """Populate ``SetView.version_count`` (audit iter 46 / T-44)."""
     sid = getattr(row, "id", None)
@@ -209,6 +234,7 @@ def register_default_entities() -> None:
             tags=frozenset({"namespace:library"}),
             create_handler=track_import_handler,
             view_enricher=_enrich_track_view,
+            list_view_enricher=_enrich_track_views,
             relation_loaders={
                 "artists": _load_track_artists,
                 "features": _load_track_features,

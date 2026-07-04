@@ -14,6 +14,7 @@ from fastmcp.exceptions import (
 from fastmcp.server.middleware import MiddlewareContext
 from mcp.shared.exceptions import McpError
 from mcp.types import ErrorData
+from sqlalchemy.exc import DBAPIError
 
 from app.server.middleware.domain_error import DomainErrorMiddleware
 from app.shared.errors import (
@@ -77,6 +78,30 @@ async def test_surfaces_unknown_when_unmasked() -> None:
     with pytest.raises(ToolError) as info:
         await mw.on_call_tool(_ctx(), call_next)
     assert "boom" in str(info.value)
+
+
+@pytest.mark.asyncio
+async def test_dbapi_errors_are_sanitized_even_when_unmasked() -> None:
+    """Connection drops include raw SQL/params in ``str(DBAPIError)``.
+
+    The client should never see those internals, even in debug mode.
+    """
+    mw = DomainErrorMiddleware(mask_details=False)
+    raw = DBAPIError(
+        "SELECT artists.name FROM artists WHERE track_id = $1",
+        {"track_id": 5076},
+        Exception("connection was closed in the middle of operation"),
+    )
+    call_next = AsyncMock(side_effect=raw)
+
+    with pytest.raises(ToolError) as info:
+        await mw.on_call_tool(_ctx(), call_next)
+
+    message = str(info.value)
+    assert "database connection lost" in message
+    assert "SELECT" not in message
+    assert "artists" not in message
+    assert "5076" not in message
 
 
 @pytest.mark.asyncio

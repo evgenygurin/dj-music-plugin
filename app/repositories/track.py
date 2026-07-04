@@ -175,6 +175,34 @@ class TrackRepository(BaseRepository[Track]):
         fallback = await self.session.scalar(any_role)
         return str(fallback) if fallback is not None else None
 
+    async def get_primary_artist_names(self, track_ids: Sequence[int]) -> dict[int, str | None]:
+        """Return display artist names for many tracks in one query.
+
+        Mirrors ``get_primary_artist_name`` resolution order while avoiding
+        the N+1 query pattern in list responses.
+        """
+        ids = list(dict.fromkeys(int(tid) for tid in track_ids))
+        if not ids:
+            return {}
+
+        from app.models.track import Artist, TrackArtist
+
+        stmt = (
+            select(TrackArtist.track_id, Artist.name)
+            .join(Artist, TrackArtist.artist_id == Artist.id)
+            .where(TrackArtist.track_id.in_(ids))
+            .order_by(
+                TrackArtist.track_id,
+                (TrackArtist.role != "primary").asc(),
+                TrackArtist.artist_id,
+            )
+        )
+        names: dict[int, str | None] = {tid: None for tid in ids}
+        for track_id, name in (await self.session.execute(stmt)).all():
+            if names.get(int(track_id)) is None:
+                names[int(track_id)] = str(name)
+        return names
+
     async def get_artists(self, track_id: int) -> list[Any]:
         """All artist credits for ``track_id`` as (artist_id, name, role) rows.
 

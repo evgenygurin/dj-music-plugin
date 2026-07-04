@@ -71,3 +71,24 @@ async def test_primary_artist_falls_back_to_first_artist_when_no_primary_role(
     session.add(TrackArtist(track_id=track_solo.id, artist_id=artist.id, role="artist"))
     await session.flush()
     assert await repo.get_primary_artist_name(track_solo.id) == "The Solo Artist"
+
+
+@pytest.mark.asyncio
+async def test_bulk_primary_artist_names_match_single_lookup_semantics(
+    setup: tuple[TrackRepository, Track, Track],
+    session: AsyncSession,
+) -> None:
+    repo, track_with, track_solo = setup
+    fallback_artist = Artist(name="The Solo Artist")
+    session.add(fallback_artist)
+    await session.flush()
+    session.add(TrackArtist(track_id=track_solo.id, artist_id=fallback_artist.id, role="artist"))
+    await session.flush()
+
+    names = await repo.get_primary_artist_names([track_with.id, track_solo.id, 999999])
+
+    assert names == {
+        track_with.id: "Amelie Lens",
+        track_solo.id: "The Solo Artist",
+        999999: None,
+    }

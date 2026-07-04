@@ -20,6 +20,8 @@ SQLAlchemy fixtures.
 
 from __future__ import annotations
 
+from unittest.mock import AsyncMock, MagicMock
+
 import pytest
 import pytest_asyncio
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
@@ -151,3 +153,33 @@ async def test_entity_config_exposes_view_enricher_field() -> None:
     # Entities without derived view fields still have no enricher.
     feedback_cfg = EntityRegistry.get("track_feedback")
     assert feedback_cfg.view_enricher is None
+
+
+@pytest.mark.asyncio
+async def test_track_list_enricher_uses_bulk_artist_lookup() -> None:
+    """``entity_list(track, ...)`` must not issue one artist query per row.
+
+    The per-row path made user-visible list calls fragile: one stale asyncpg
+    connection during any individual artist lookup leaked a raw SQL traceback
+    and failed the whole response.
+    """
+    from app.registry.defaults import _enrich_track_views
+
+    uow = MagicMock()
+    uow.tracks.get_primary_artist_names = AsyncMock(return_value={1: "Dax J", 2: None})
+    uow.tracks.get_primary_artist_name = AsyncMock(
+        side_effect=AssertionError("entity_list(track) must use bulk artist lookup")
+    )
+    rows = [MagicMock(id=1), MagicMock(id=2)]
+    views = [
+        {"id": 1, "title": "Opressor", "primary_artist_name": None},
+        {"id": 2, "title": "Untitled", "primary_artist_name": None},
+    ]
+
+    enriched = await _enrich_track_views(
+        uow, rows, views, projection={"id", "title", "primary_artist_name"}
+    )
+
+    assert [v["primary_artist_name"] for v in enriched] == ["Dax J", None]
+    uow.tracks.get_primary_artist_names.assert_awaited_once_with([1, 2])
+    uow.tracks.get_primary_artist_name.assert_not_awaited()
