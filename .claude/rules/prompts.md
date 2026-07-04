@@ -5,6 +5,9 @@ the tool surface into reproducible DJ recipes. Catalog + techno-domain
 research: `docs/research/2026-06-22-techno-set-construction-and-mcp-prompts.md`
 + deep-dive / persona & axis expansion (v2):
 `docs/research/2026-06-22-techno-deep-dive-and-prompt-expansion.md`.
+Operational set-building rules for agents live in
+`.claude/rules/dj-set-building.md`; load them before editing any prompt that
+selects, orders, reviews, repairs, or delivers a set.
 
 ## Canonical structure
 
