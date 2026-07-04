@@ -1,68 +1,44 @@
 ---
 name: expand-playlist
-description: "This skill should be used when the user asks to expand a playlist, find similar tracks, add more tracks, discover new tracks, import from Yandex Music, or fill gaps in a playlist. Covers discovery, feedback gating, import, download and analysis."
-version: 1.0.1
+description: "This skill should be used when the user asks to expand a playlist, find similar tracks, add more tracks, discover new tracks, crate digging, import from Yandex Music, or fill gaps in a playlist. Covers seed-based discovery, import, download and analysis."
+version: 1.1.0
 ---
 
-# Expand Playlist Workflow
+# Expand Playlist / Crate Digging Workflow
 
-Guide the user through discovering and importing new tracks via the v1 polymorphic dispatchers. See @docs/tool-catalog.md (**20 tools** = 14 core dispatchers + 6 UI Prefab + 27 resources + 6 prompts).
+Дискавери и импорт через v1-диспетчеры. Жёсткий порядок хвоста пайплайна: **import → download → analyze** (анализ требует скачанный audio_file).
 
-## Quick Path (one-call)
+## Steps
 
-Use the `expand_playlist_workflow` prompt — it chains audit → discover → feedback gate → import → download → analyze → classify:
-```text
-expand_playlist_workflow(source_playlist_id=<id>, target_count=100, genre_filter=["techno"], dry_run=true)
-```
+1. **Seeds → similar (лучший канал дискавери)**
+   - Сиды = YM id ядровых треков стиля (из существующего сета/крейта; id видны в `[<ym_id>]` в именах скачанных файлов или через `track_external_ids`).
+   - `provider_read(provider="yandex", entity="track_similar", id=<ym_track_id>)` — один сильный сид даёт ~15–18 релевантных кандидатов (лейбл-соседи, ремиксы). Free-text добор: `provider_search(provider="yandex", query="...", type="tracks", limit=20)`.
 
-Run once with `dry_run=true` to preview, then again without it.
+2. **Filter candidates по метаданным ответа**
+   - Жанр альбома (`albums[0].genre`: techno/electronics — ок; ambient/dance — глазами), длительность (5–9 мин для DJ-tools), год, лейбл (Hypnus/Affin/PoleGroup-класс — сильный сигнал стиля.)
+   - `r128.i` в ответе YM ≈ integrated LUFS — грубый энергетический фильтр ещё до импорта.
 
-## Granular Path (step-by-step)
+3. **Import (idempotent, батчем)**
+   - `entity_create(entity="track", data={"external_ids": ["<ym_id>", ...], "source": "yandex", "playlist_id": <опц.>})`
+   - Ответ: `imported` (новые) / `skipped` (уже в базе — дедуп по (source, external_id)) / `id_mapping` (ym_id → local_id). Не удивляйся высокому skip-проценту: BFS-библиотека уже покрывает много окрестностей.
 
-1. **Audit current playlist**
-   - Read `local://playlists/{id}/audit` — full quality check, gap report, BPM/key/subgenre coverage
+4. **Download — ДО анализа**
+   - `entity_create(entity="audio_file", data={"track_ids": [<local ids>]})` батчами 8–10; на таймауте проверь `entity_list(entity="audio_file", filters={"track_id__in": [...]})` и перевыпусти недостающие. Ключа `persistent` не существует.
 
-2. **Find similar tracks (YM recommendations)** per seed:
-   - `provider_read(provider="yandex", entity="track_similar", id=<ym_track_id>, params={"limit": 20})`
-   - For free-text search: `provider_search(provider="yandex", query="Amelie Lens acid techno", type="tracks", limit=20)`
-   - LLM-driven discovery lives in the `expand_playlist_workflow` prompt (it asks Claude for search queries, then feeds them to `provider_search`) — see @.claude/rules/llm-sampling.md
+5. **Analyze**
+   - `entity_create(entity="track_features", data={"track_ids": [...], "level": 2|3})` — mood ляжет в features автоматически; L5 — только для треков, идущих в финальный сет (`entity_update(..., data={"level": 5})`).
 
-3. **Filter candidates by feedback** (dedupe / drop disliked / boost liked)
-   - Known tracks already in DB: `Track` has no `external_id` column directly — provider IDs live in `track_external_ids` (relation `external_ids`). Resolve by calling `provider_read(provider="yandex", entity="track_batch", params={"track_ids": [...]})` to fetch metadata, then dedupe via `entity_list(entity="track", filters={"id__in": [...]})` once you have local IDs. For YM specifically, the `YandexMetadata` join exposes `yandex_track_id` — query via the `yandex_metadata` relation if you've imported them.
-   - Feedback history: `entity_list(entity="track_feedback", filters={"track_id__in": [...]}, fields="full")` (after import) or via raw provider id through the feedback model's external link.
-   - Let Claude decide which to import, which to skip.
+6. **Verify coverage + добор до цели**
+   - `entity_list(entity="track_features", filters={"track_id__in": [...]}, fields=["track_id","analysis_level","bpm","mood","energy_mean","integrated_lufs","spectral_centroid_hz"])` — и кури новичков feature-first (skill `curate-library`; там же NULL-ловушка L2-колонок при фильтрах).
+   - Если `imported < цель` (высокий skip — норма) — вернись к шагу 1 со следующими сидами, пока не наберёшь N новых.
 
-4. **Review candidates**
-   - Present found tracks with BPM / key / energy if available
-   - For extra detail: `provider_read(provider="yandex", entity="track", id=<ym_id>)`
+## Prompts
 
-5. **Import selected tracks**
-   - `entity_create(entity="track", data={"ym_ids": ["12345", "67890"], "playlist_id": <pid>})`
-     (handler `track_import` fetches metadata from YM, creates `Track` + `YandexMetadata` + `RawProviderResponse`, links to playlist)
-
-6. **Download MP3s** (needed for DJ software / L4 delivery)
-   - `entity_create(entity="audio_file", data={"track_ids": [...], "persistent": true})`
-     (handler `audio_file_download` — writes to `DJ_YM_LIBRARY_PATH`, links `DjLibraryItem`, idempotent)
-
-7. **Analyze new tracks** (L1+L2 — mood classification lands in features)
-   - `entity_create(entity="track_features", data={"track_ids": [...], "level": 2})`
-   - For full scoring-ready L3: `level=3`; for L4 structure: `level=4`.
-   - Re-analyze at a higher level: `entity_update(entity="track_features", id=<fid>, data={"level": 3})`
-
-8. **Re-audit**
-   - Read `local://playlists/{id}/audit` again — compare coverage before / after
-
-## Full Expansion Pipeline
-
-End-to-end chain via prompt (audit → discover → import → download → analyze → classify → distribute):
-```text
-full_pipeline(source_playlist_id=<id>, target_per_subgenre=40)
-```
+Для интерактивного end-to-end пути — промпты `expand_playlist_workflow` / `crate_digging_workflow` / `full_pipeline` (аргументы смотри в самом промпте через list_prompts, не по памяти).
 
 ## Tips
 
-- `provider_search` and `provider_read` are in the `provider:read` namespace — visible by default; no unlock needed
-- `entity_create(entity="track", ...)` covers import; `entity_create(entity="audio_file", ...)` covers download; `entity_create(entity="track_features", ...)` covers analysis — three separate side-effect handlers, not one monolith
-- Always download before `deliver_set` — iCloud stubs (<90% size) cannot be copied
-- For scoring-heavy expansion (pick top-N by candidate compatibility), use `transition_score_pool(track_ids=[...])`
-- Tool reference: @docs/tool-catalog.md; @.claude/rules/llm-sampling.md for client-driven discovery
+- YM rate budget общий на токен/IP — не запускай дискавери-сессию параллельно с массовой качалкой (реальные 429).
+- `track_similar` может вернуть один и тот же трек в разных альбомах (сборники) — дедуп до импорта по `realId`.
+- Track-строки статусны: `status=1` (archived) не берём в работу.
+- Tool reference: @docs/tool-catalog.md; YM-квирки: @docs/ym-api-guide.md, @.claude/rules/ym.md.

@@ -1,88 +1,51 @@
 ---
 name: curate-library
-description: "This skill should be used when the user asks to classify tracks, audit playlist, get library stats, distribute to subgenres, run mood classification, or review library quality. Covers mood classification, audits, subgenre distribution and stats."
-version: 1.0.1
+description: "This skill should be used when the user asks to classify tracks, audit playlist, get library stats, distribute to subgenres, run mood classification, curate a crate, or review library quality. Covers feature-first curation, mood classification, audits, dedup and stats."
+version: 1.1.0
 ---
 
 # Curate DJ Library Workflow
 
-Guide the user through classifying, auditing, and organizing their techno library via the v1 polymorphic dispatchers (**20 tools** = 14 core dispatchers + 6 UI Prefab Apps — см. @docs/tool-catalog.md).
+Классификация, аудит и отбор через v1-диспетчеры (@docs/tool-catalog.md). Главный принцип: **curate FEATURE-FIRST** — `mood` это хинт, не ground truth.
+
+## Curation Rules (усвоено на этой библиотеке)
+
+- **`mood` — слабый сигнал** (median confidence ≈0.05; `driving`/`hypnotic` — catch-all с пенальти). `mood_source="beatport"` надёжнее audio-классификатора. Используй `mood__in` для сужения, решение принимай по фичам.
+- **Фичи с реальным разбросом** (по ним фильтруй/ранжируй): `integrated_lufs`, `spectral_centroid_hz` (лучший спектральный дискриминатор), `energy_mean`, `bpm`, `key_code`, `hp_ratio`, `energy_low`.
+- **Near-constant фичи** (НЕ разделяют треки здесь): `dissonance_mean`, `spectral_contrast`, `spectral_flux_*`, `bpm_stability`, `onset_rate`, `energy_std`, `chroma_entropy`.
+- **NULL-ловушка L2**: `bpm_confidence`, `true_peak_db`, `danceability`, `dynamic_complexity`, `pitch_salience_mean` в основном NULL до L3+/L5 — `__gte/__lte` по ним тихо опустошает выборку.
+- **Калибруй пороги по факту, не по табличке**: перед фильтрацией построй гистограммы — `entity_aggregate(entity="track_features", operation="histogram", field="bpm"|"integrated_lufs"|"spectral_centroid_hz", filters={...})` — и ставь границы по реальному распределению.
+- **Гигиена финального списка**: выкинь архивные (`entity_list(entity="track", filters={"id__in": [...]}, fields="summary")` → `status=1`), дубликаты (одинаковый нормализованный title при разных id — в BFS-библиотеке их десятки) и треки недавних сетов того же стиля (`local://sets/{id}/tracks` соседей — не рециклим).
+- **Проверка сводимости крейта**: `transition_score_pool(track_ids=[...], top_k=3, components=false)` — компактно даже на большом пуле; хабы hard rejects меняй до сдачи крейта.
 
 ## Actions
 
-### Classify Tracks by Mood
-
-Mood classification is a side-effect of the `track_features_analyze` handler — it runs at L1+L2 and writes `mood` / `mood_confidence` into `track_audio_features_computed`.
-
-- Single track / batch at level 2:
+### Classify (mood lands via analyze handler)
+- Анализ **требует скачанный audio_file** (строка в БД + файл на диске) — сначала `entity_create(entity="audio_file", data={"track_ids": [...]})` батчами 8–10 (на MCP-таймауте проверь `entity_list(entity="audio_file", filters={"track_id__in": [...]})` и дошли недостающие), потом:
   `entity_create(entity="track_features", data={"track_ids": [...], "level": 2})`
-- Whole playlist:
-  1. Get track IDs: `entity_get(entity="playlist", id=<id>, include_relations=["tracks"])`
-  2. `entity_create(entity="track_features", data={"track_ids": [...], "level": 2})`
-- Re-classify (override existing):
-  `entity_update(entity="track_features", id=<features_id>, data={"level": 2, "force": true})`
-  (handler `track_features_reanalyze`)
+- Более высокий уровень: `entity_update(entity="track_features", id=<track_id>, data={"level": 3|5})` (update-схема strict: только `level`).
+- 15 поджанров (low → high): ambient_dub → dub_techno → minimal → detroit → melodic_deep → progressive → hypnotic → driving → tribal → breakbeat → peak_time → acid → raw → industrial → hard_techno. Профили: `reference://subgenres`.
 
-**15 Techno Subgenres** (low → high energy):
-ambient_dub → dub_techno → minimal → detroit → melodic_deep → progressive → hypnotic → driving → tribal → breakbeat → peak_time → acid → raw → industrial → hard_techno
+### Audit
+- Плейлист: `local://playlists/{id}/audit`; правила: `reference://audit_rules`; сет: `local://sets/{id}/review?version=<v>`.
 
-Static reference: read `reference://subgenres`.
+### Stats
+- `entity_aggregate` — `operation ∈ count|distinct|histogram|min_max|sum|avg`, `group_by` — параметр: `entity_aggregate(entity="track_features", operation="count", group_by="mood")`.
+- Prefab UI: `ui_library_dashboard()`, `ui_library_audit(playlist_id?)`, `ui_camelot_wheel(playlist_id?)`.
 
-### Audit Playlist Quality
-
-- Read `local://playlists/{id}/audit` — BPM range, key distribution, energy coverage, missing features, gap report
-- Audit rules reference: read `reference://audit_rules`
-
-### Review Set Quality
-
-- Read `local://sets/{id}/review` — transition scores, energy arc compliance, subgenre variety, weakest transitions + suggested fixes
-
-### Library Statistics
-
-Aggregate directly with `entity_aggregate`. Valid `operation` values: `count | distinct | histogram | min_max | sum | avg`. `group_by` is a **parameter**, not an operation — combine it with `operation="count"` (or `distinct`/`sum`/`avg`/`min_max`) to bucket results.
-- Total tracks: `entity_aggregate(entity="track", operation="count")`
-- Feature coverage: `entity_aggregate(entity="track_features", operation="count")`
-- Subgenre distribution: `entity_aggregate(entity="track_features", operation="count", group_by="mood")`
-- BPM histogram: `entity_aggregate(entity="track_features", operation="histogram", field="bpm", bin_size=2.0)`
-- Key distribution: `entity_aggregate(entity="track_features", operation="count", group_by="key_code")`
-- Distinct boolean field: `entity_aggregate(entity="track_features", operation="distinct", field="variable_tempo")` → returns `[false, true]` (v1.3.7 bool-before-int union fix)
-
-**Visual dashboards (Prefab UI)**:
-- `ui_library_dashboard()` — global totals + BPM histogram + mood PieChart + Camelot BarChart
-- `ui_library_audit(playlist_id?)` — DataTable of pass/fail per track + subgenre PieChart
-- `ui_camelot_wheel(playlist_id?)` — RadialChart of tracks-per-key + DataTable
-
-### Distribute to Subgenre Playlists
-
-There's no single `distribute_to_subgenres` tool in v1 — compose from primitives:
-
-1. Ensure classification: `entity_create(entity="track_features", data={"track_ids": [...], "level": 2})`
-2. For each subgenre, select tracks:
-   `entity_list(entity="track", filters={"mood": "peak_time"}, fields="summary", limit=500)`
-3. Add to the matching local playlist:
-   `entity_update(entity="playlist", id=<pl_id>, data={"track_ids_append": [...]})`
-4. Push subgenre playlists to YM: `playlist_sync(playlist_id=<pl_id>, direction="push", source="yandex")`
-   (namespace `sync` is locked by default — unlock first via `unlock_namespace(namespace="sync", action="unlock")`)
-5. For an end-to-end recipe use the `expand_playlist_workflow` or `full_pipeline` prompts.
-
-## Techno Quality Criteria
-
-Tracks must meet these thresholds to be valid techno (see `reference://audit_rules`):
-
-| Parameter | Range |
-|-----------|-------|
-| BPM | 120–155 |
-| LUFS | -20 to -4 |
-| Energy mean | ≥ 0.05 |
-| Onset rate | ≥ 1.0 |
-| Kick prominence | ≥ 0.05 |
-| Spectral centroid | 300–10000 Hz |
+### Select a crate (пример feature-first отбора)
+```text
+entity_list(entity="track_features",
+  filters={"mood__in": ["hypnotic","driving"], "bpm__range": [126,133],
+           "energy_mean__gte": 0.4, "spectral_centroid_hz__lte": 2400,
+           "integrated_lufs__range": [-13,-9], "variable_tempo__eq": false},
+  fields="scoring", sort=["energy_mean__desc","track_id"], limit=150)
+```
+Ранжируй внутри выборки по `integrated_lufs`/`energy_mean`/`spectral_centroid_hz` под роль слота. `track` не имеет фичевых фильтров — BPM/mood/LUFS живут на `track_features`; плейлистного фильтра там нет — резолвь ids через `local://playlists/{id}?include_tracks=true` → `track_id__in`.
 
 ## Tips
 
-- L1+L2 analysis is triggered automatically by `entity_create(entity="track_features", ...)` — no need to download audio manually; temp download lives inside the handler
-- `driving` / `hypnotic` are catch-all subgenres — penalized via `settings.mood_catch_all_penalty`
-- Audit before building sets — ensures enough quality tracks are available
-- Use Django-style filters on `entity_list(entity="track", filters={...})`: `bpm__gte`, `mood__in`, `energy_mean__between`, `title__icontains`
-- Domain criteria & quality thresholds: see `reference://audit_rules` (live) and @docs/audio-pipeline.md
-- Tool reference: @docs/tool-catalog.md (20 tools = 14 core + 6 UI Prefab; 27 resources; 6 prompts)
+- `energy_mean` нормирован per-track — ранжируй им интенсивность, а шаг громкости меряй `integrated_lufs` (hard reject > 6 LUFS).
+- Filter DSL: `__gte/__lte/__range/__in/__eq/__isnull`; лукапа `__between` не существует.
+- Пуш крейта в YM — skill `ym-sync` (помни `at=<trackCount>` при add_tracks).
+- Tool reference: @docs/tool-catalog.md; фичевый справочник: @.claude/rules/audio.md § Сигнальное качество фич.

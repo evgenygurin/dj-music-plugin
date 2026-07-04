@@ -1,67 +1,49 @@
 ---
 name: deliver-set
-description: "This skill should be used when the user asks to deliver a set, export a set, finalize a set, do a rekordbox export, sync a set to YM, or generate a cheat sheet. Covers M3U8, Rekordbox XML, JSON guide, cheat sheet export and YM sync."
-version: 1.0.1
+description: "This skill should be used when the user asks to deliver a set, export a set, finalize a set, do a rekordbox export, sync a set to YM, or generate a cheat sheet. Covers the generated-sets bundle (MP3 + M3U8 + cheatsheet + rekordbox XML), YM playlist push and backup."
+version: 1.1.0
 ---
 
 # Deliver DJ Set Workflow
 
-Guide the user through exporting a completed DJ set via the v1 polymorphic dispatchers. See @docs/tool-catalog.md (**20 tools** = 14 core dispatchers + 6 UI Prefab + 27 resources + 6 prompts).
+Превратить готовую set_version в исполняемый пакет. Продукт доставки — папка `generated-sets/<Set-Name>/`: пронумерованные MP3 + `playlist.m3u8` + `CHEATSHEET.md` + `rekordbox.xml`, плюс YM-плейлист и бэкап.
 
 ## Steps
 
-1. **Review set quality first**
-   - Read `local://sets/{id}/review` — hard conflicts (score=0.0) surface here
-   - Optional visual preview: `ui_set_view(set_id=<id>)` — energy arc + transition badges + cheatsheet
-   - If conflicts exist, warn the user and suggest fixing (see skill `build-set` — replacement / new version) before delivery
+1. **Gate on review of the chosen version**
+   - Состав и порядок версии: `local://sets/{id}/tracks` (или `entity_get(entity="set_version", id=<v>, include_relations=["items"])`).
+   - `local://sets/{id}/review?version=<v>` — hard conflicts = стоп, чини через skill `build-set`.
+   - Треки сета должны быть на **L5**: проверь `entity_list(entity="track_features", filters={"track_id__in": [...], "analysis_level__lt": 5})` — непустой результат = сначала download (шаг 2) + `entity_update(track_features, id, {"level": 5})`, затем **пересобери set_version** (L5 меняет ключи и picker-решения — иначе доставишь устаревший cheatsheet).
 
-2. **Ensure audio files on disk (L4)**
-   - Deliver needs local MP3 files. Download and level-up to L4:
-     `entity_create(entity="audio_file", data={"track_ids": [...], "persistent": true})`
-     (handler `audio_file_download` fetches MP3 from provider + registers `DjLibraryItem` + bumps features to L4 / structure)
-   - Downloads are idempotent; existing files are skipped.
+2. **Ensure MP3s on disk (до любых YM-push'ей — budget общий)**
+   - `entity_create(entity="audio_file", data={"track_ids": [...]})` батчами 8–10; skip = строка есть И файл на диске (v1.6.2 перекачивает stale).
+   - На MCP-таймауте UoW откатывается (файлы на диске, строк нет): `entity_list(entity="audio_file", filters={"track_id__in": [...]}, fields=["id","track_id","file_path"])` → перевыпусти `entity_create` только на недостающие ids; повторяй до полного покрытия. Пути бери из этого же ответа — НЕ `ls` по диску.
 
-3. **Use the `deliver_set_workflow` prompt**
-   - This is the canonical recipe. It chains scoring → conflict gate (elicitation) → file write → optional YM sync:
-     `deliver_set_workflow(set_id=<id>, formats=["m3u8","json","cheatsheet"], sync_to_ym=false)`
-   - Prompts live in `app/prompts/`; list via `list_prompts` MCP method.
+3. **Assemble the bundle** (`generated-sets/<Set-Name>/`)
+   - Копируй MP3 в порядке сета с именами `NN. Artist - Title.mp3` (нумерация = позиция; этот формат обязателен для DB-матчинга rekordbox-экспортёра).
+   - `playlist.m3u8` — `#EXTINF:<sec>,Artist - Title` + имя файла, в порядке сета.
 
-4. **Inspect output resources**
-   - Cheat sheet: `local://sets/{id}/cheatsheet?version=<v>`
-   - Narrative: `local://sets/{id}/narrative`
-   - Full view: `local://sets/{id}/full`
-   - Files land in `generated-sets/{sanitized_set_name}/` — numbered MP3 copies + format artifacts.
+4. **CHEATSHEET.md — исполняемый план, не голая таблица**
+   - Источник: `local://sets/{id}/cheatsheet?version=<v>` (fx_type, bars, mix_in/out points, ключи с provenance, next_transition.overall).
+   - Обязательный состав: шапка (set/version id, quality, длительность, BPM-диапазон, hard rejects), описание арки, таблица треков (BPM / Camelot / LUFS / mix-in / mix-out), и **per-transition план в терминах djay Pro AI (Neural Mix)**: пресет + бары + техника исполнения + на что смотреть (pitch заранее, слабейший стык, пик).
+   - Пресеты движка = 7 djay Pro 5 built-ins (`NeuralMixTransition`): DRUM_SWAP / DRUM_CUT / FADE / ECHO_OUT / VOCAL_SUSTAIN / VOCAL_CUT / HARMONIC_SUSTAIN — переноси как есть. `FILTER_SWEEP` в рантайме НЕ существует; встретил его в legacy-cheatsheet старого сета — мапь в DRUM_SWAP, filter-knob подавай как опциональный ручной приём.
 
-5. **Optional: Sync to Yandex Music**
-   - Namespace `sync` is locked by default. Unlock once per session:
-     `unlock_namespace(namespace="sync", action="unlock")`
-   - Push the set's linked playlist: `playlist_sync(playlist_id=<set.linked_playlist_id>, direction="push", source="yandex", dry_run=false)`
-   - To create a fresh YM playlist first:
-     `provider_write(provider="yandex", entity="playlist", operation="create", params={"name": "..."})`
-     then add tracks: `provider_write(provider="yandex", entity="playlist", operation="add_tracks", params={"kind": <kind>, "track_ids": [...], "revision": <rev>})`
-     (`provider:write` also needs unlock)
+5. **Rekordbox XML — через боевой скрипт, не руками**
+   - `set -a && . ./.env && set +a && uv run python scripts/export_folder_to_rekordbox_xml.py "generated-sets/<Set-Name>" --playlist-name "<Name>"`
+   - Успех = `tracks_enriched == tracks_exported` (обогащение BPM/key/beatgrid/cues из БД матчится по имени файла `NN. Artist - Title.mp3`). Меньше — чини имена файлов, не игнорируй.
+   - Импорт: rekordbox → Preferences → Advanced → rekordbox xml → путь к файлу.
 
-6. **Verify output**
-   - Inspect `generated-sets/` directory
-   - Play M3U8 in the target DJ software
-   - For Rekordbox: import the XML via Rekordbox preferences
+6. **Push to Yandex Music (порядок — это продукт)**
+   - Create: `provider_write(provider="yandex", entity="playlist", operation="create", params={"title": "<Set Name>"})` → возьми `kind` из ответа.
+   - Add: `provider_write(..., operation="add_tracks", params={"playlist_id": "<kind>", "track_ids": [<ym ids в порядке сета>], "at": <текущий trackCount>})` — **без `at` YM вставляет в позицию 0 (prepend) и рушит порядок**; для свежего плейлиста `at=0`. YM id треков — из имён скачанных файлов (`[<ym_id>].mp3`); таблица `track_external_ids` не входит в EntityRegistry — читается только через Supabase MCP/SQL.
+   - Верифицируй ответ: `trackCount` == N, `durationMs` ≈ длительность сета.
 
-## Export Formats
-
-| Format | Content | Use Case |
-|--------|---------|----------|
-| **M3U8** | Standard + `#EXTDJ-*` tags (BPM, key, energy, cues, transitions) | DJ software, media players |
-| **Rekordbox XML** | Full Rekordbox-compatible XML with cues, loops, beatgrid | Rekordbox DJ import |
-| **JSON Guide** | Per-track / per-transition details + analytics | Programmatic access, tooling |
-| **Cheat Sheet** | Human-readable text: BPM, key, transition type, score, warnings | Print for live DJ performance |
-
-Valid values passed to the workflow prompt: `m3u8`, `rekordbox`, `json`, `cheatsheet`. Default if omitted: `["m3u8", "cheatsheet"]`.
+7. **Backup вне /tmp и вне репо**
+   - MP3 живут в `/tmp/dj_audio/` (macOS чистит /tmp), `generated-sets/` в .gitignore. Копируй бандл в `~/Music/DJ-Sets/` (и в `~/DJ_USB_BUILD/_SETS/`, если идёт USB-кампания). Восстановление без бэкапа = полная перекачка под YM rate-limit.
 
 ## Tips
 
-- `dry_run=true` on `playlist_sync` previews YM mutations without applying — use before push
-- Delivery auto-triggers L4 (structure + permanent MP3) via the `audio_file_download` handler — no need for a separate analyze call
-- iCloud stubs (file < 90% of expected size) are skipped during copy but still referenced in the M3U
-- Hard conflicts trigger an elicitation inside `deliver_set_workflow` — answer `continue` or `abort`
-- Tool reference: @docs/tool-catalog.md; @docs/reports/tiered-analysis-design-2026-03-27.md (tiered analysis)
-- After delivery, the set is ready for import into Traktor, Rekordbox, or djay
+- `AudioFileCreate` принимает `track_id` | `track_ids` (ровно один) + опциональный `source` (default `"yandex"`) — ключа `persistent` не существует.
+- Rekordbox-экспортёру нужен ffprobe (`/opt/homebrew/bin/ffprobe`) и локальный asyncpg-доступ (локаль/teleport; не облако).
+- `deliver_set_workflow` prompt — канонический рецепт с conflict-гейтом, когда нужен интерактивный путь; ручной путь выше — когда собираешь бандл сам.
+- YM rate budget общий на токен/IP: не гоняй доставку параллельно с массовой качалкой.
