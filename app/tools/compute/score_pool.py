@@ -23,7 +23,8 @@ from app.shared.types import JsonIntList
     annotations={"readOnlyHint": True, "idempotentHint": True},
     description=(
         "Compute pairwise transition scores for a pool of tracks (N*(N-1) directed "
-        "pairs). Used as input to sequence_optimize."
+        "pairs). Used as input to sequence_optimize. Use top_k/components to keep "
+        "large-pool responses within client limits."
     ),
     meta={"timeout_s": 300.0},
     timeout=300.0,
@@ -43,6 +44,29 @@ async def transition_score_pool(
             )
         ),
     ] = None,
+    top_k: Annotated[
+        int | None,
+        Field(
+            ge=1,
+            description=(
+                "Keep only the top_k best outgoing pairs (by overall) per "
+                "source track. Caps the response at N*top_k pairs instead of "
+                "N*(N-1) — an 18-track pool at top_k=3 returns 54 pairs, not "
+                "306. hard_rejects / total_scored_pairs still reflect the "
+                "full matrix."
+            ),
+        ),
+    ] = None,
+    components: Annotated[
+        bool,
+        Field(
+            description=(
+                "When false, each pair carries only {a, b, overall} — drops "
+                "the six per-stem component fields (~3x smaller response). "
+                "overall == 0.0 still marks a hard reject."
+            ),
+        ),
+    ] = True,
     uow: UnitOfWork = Depends(get_uow),
     scorer: Any = Depends(get_transition_scorer),
     ctx: Context = CurrentContext(),
@@ -105,26 +129,44 @@ async def transition_score_pool(
             score = scorer.score(features[a], features[b], intent=intent_enum)
             if score.hard_reject:
                 hard_rejects += 1
-            pairs.append(
-                {
-                    "a": a,
-                    "b": b,
-                    "overall": float(score.overall),
-                    "bpm": float(score.bpm),
-                    "harmonics": float(score.harmonics),
-                    "energy": float(score.energy),
-                    "bass": float(score.bass),
-                    "drums": float(score.drums),
-                    "vocals": float(score.vocals),
-                }
-            )
+            pair: dict[str, float | int] = {
+                "a": a,
+                "b": b,
+                "overall": float(score.overall),
+            }
+            if components:
+                pair.update(
+                    {
+                        "bpm": float(score.bpm),
+                        "harmonics": float(score.harmonics),
+                        "energy": float(score.energy),
+                        "bass": float(score.bass),
+                        "drums": float(score.drums),
+                        "vocals": float(score.vocals),
+                    }
+                )
+            pairs.append(pair)
             done += 1
             if done % 50 == 0 or done == total_pairs:
                 await safe_report_progress(ctx, progress=done, total=total_pairs)
+
+    total_scored_pairs = len(pairs)
+    if top_k is not None:
+        by_source: dict[int, list[dict[str, float | int]]] = {}
+        for pair in pairs:
+            by_source.setdefault(int(pair["a"]), []).append(pair)
+        pairs = [
+            pair
+            for a in track_ids
+            for pair in sorted(by_source.get(a, ()), key=lambda p: p["overall"], reverse=True)[
+                :top_k
+            ]
+        ]
 
     return ScorePoolResult(
         track_ids=track_ids,
         pairs=pairs,
         hard_rejects=hard_rejects,
         missing_track_ids=missing_track_ids,
+        total_scored_pairs=total_scored_pairs,
     )

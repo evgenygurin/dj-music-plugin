@@ -60,9 +60,24 @@ class AggregateResult(BaseModel):
 class ScorePoolResult(BaseModel):
     track_ids: list[int]
     pairs: list[dict[str, Any]] = Field(
-        description="[{a, b, overall, bpm, harmonic, energy, spectral, groove, timbral}]"
+        description=(
+            "[{a, b, overall, bpm, harmonics, energy, bass, drums, vocals}]; "
+            "component fields absent when components=false, list truncated "
+            "to N*top_k best outgoing pairs when top_k is set"
+        )
     )
     hard_rejects: int = 0
+    # Response-size controls (top_k / components) can shrink ``pairs`` far
+    # below the full matrix; keep the pre-truncation count visible so a
+    # capped response never silently reads as "scored everything".
+    total_scored_pairs: int = Field(
+        default=0,
+        description=(
+            "Directed pairs actually scored (full matrix minus missing-feature "
+            "ids) BEFORE top_k truncation. len(pairs) < total_scored_pairs "
+            "means the response was capped by top_k."
+        ),
+    )
     # Audit iter 44 (T-42): track which ids had no scoring features.
     # Without this field, calling ``transition_score_pool`` with stale
     # / non-existent ids returned ``pairs=[]`` silently — caller

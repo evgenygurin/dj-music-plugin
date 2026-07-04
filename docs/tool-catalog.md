@@ -68,7 +68,7 @@ Handlers wire side-effects on create/update/delete:
 
 | Tool | Params | RO |
 |------|--------|-----|
-| `transition_score_pool` | track_ids (0..500), intent? | yes |
+| `transition_score_pool` | track_ids (0..500), intent?, top_k?, components=true | yes |
 | `sequence_optimize` | track_ids (2..500), algorithm(ga\|greedy)=ga, template?, pinned?, excluded? | yes |
 
 ### Sync (1, namespace `sync`)
