@@ -82,6 +82,18 @@ async def test_set_review(client: object, seeded_db: object) -> None:
     assert "weak_transitions" in payload and "hard_conflicts" in payload
 
 
+async def test_set_review_with_version(client: object, seeded_db: object) -> None:
+    result = await client.read_resource("local://sets/100/review?version=1000")  # type: ignore[attr-defined]
+    payload = json.loads(result[0].text)
+    assert payload["version_id"] == 1000
+
+
+async def test_set_review_version_from_other_set_raises(client: object, seeded_db: object) -> None:
+    with pytest.raises(Exception):
+        # version 9999 does not belong to set 100
+        await client.read_resource("local://sets/100/review?version=9999")  # type: ignore[attr-defined]
+
+
 async def test_set_versions_compare(client: object, seeded_db: object) -> None:
     result = await client.read_resource(  # type: ignore[attr-defined]
         "local://sets/100/versions/compare/1000/1000"

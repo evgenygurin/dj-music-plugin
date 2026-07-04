@@ -320,7 +320,7 @@ async def set_narrative(
 
 
 @resource(
-    "local://sets/{id}/review",
+    "local://sets/{id}/review{?version}",
     mime_type="application/json",
     tags={"core", "namespace:library", "entity:set", "view:review"},
     annotations=ANNOTATIONS_READ_ONLY,
@@ -328,14 +328,24 @@ async def set_narrative(
 )
 async def set_review(
     id: int,
+    version: int | None = None,
     uow: UnitOfWork = Depends(get_uow),
 ) -> str:
-    """Aggregate transition issues: weak scores, hard conflicts, overall quality."""
+    """Aggregate transition issues: weak scores, hard conflicts, overall quality.
+
+    ``version`` pins a specific set_version; default is the latest one —
+    which is NOT necessarily the chosen/best version when several exist.
+    """
     if await uow.sets.get(id) is None:
         raise NotFoundError("set", id)
-    latest = await _get_latest_version(uow, id)
-    if latest is None:
-        raise NotFoundError("set_version", f"latest(set={id})")
+    if version is not None:
+        latest = await uow.set_versions.get(version)
+        if latest is None or getattr(latest, "set_id", None) != id:
+            raise NotFoundError("set_version", version)
+    else:
+        latest = await _get_latest_version(uow, id)
+        if latest is None:
+            raise NotFoundError("set_version", f"latest(set={id})")
     items = sorted(
         await _get_version_items(uow, latest.id),
         key=lambda i: getattr(i, "sort_index", 0),

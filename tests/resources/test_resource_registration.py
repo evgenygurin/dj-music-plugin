@@ -44,7 +44,7 @@ EXPECTED_TEMPLATE_URIS: frozenset[str] = frozenset(
         "local://sets/{id}/{view}",
         "local://sets/{id}/cheatsheet{?version}",
         "local://sets/{id}/narrative",
-        "local://sets/{id}/review",
+        "local://sets/{id}/review{?version}",
         "local://sets/{id}/versions/compare/{a}/{b}",
         "local://transition/{from_id}/{to_id}/score",
         "local://transition/{from_id}/{to_id}/explain",
