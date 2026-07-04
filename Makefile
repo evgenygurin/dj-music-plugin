@@ -1,13 +1,21 @@
-.PHONY: install test lint typecheck arch check migrate dev clean upgrade
+.PHONY: install test test-integration lint typecheck arch check migrate dev clean upgrade
 
 install:
 	uv sync --all-extras
 
+# Hermetic gate: live external-service round-trips (-m integration) are
+# excluded — they depend on DJ_YM_TOKEN, network, and the shared YM rate
+# budget (a running download job trips real 429s). Run them explicitly
+# via `make test-integration`.
 test:
-	uv run pytest -v
+	uv run pytest -v -m "not integration"
+
+test-integration:
+	@echo "Live provider round-trips: needs DJ_YM_TOKEN; pause download jobs or expect 429 flakes."
+	uv run pytest -v -m integration
 
 test-fast:
-	uv run pytest -x -q
+	uv run pytest -x -q -m "not integration"
 
 lint:
 	uv run ruff check app/ tests/

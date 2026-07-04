@@ -5,13 +5,13 @@ secrets, contributor laptops without YM accounts). Covers the surfaces
 where v1.0.10-v1.0.12 found output Union-narrowing bugs that the unit
 test suite missed because it never round-tripped against a real provider.
 
-Run live with::
+Excluded from the default ``make test`` / ``make check`` gate: the YM
+rate budget is shared per token/IP, so a concurrently running download
+job (e.g. ``scripts/usb_download.py``) makes these flake with real 429
+"rate limited, retry_after=..." responses. Run them explicitly::
 
-    DJ_YM_TOKEN=... uv run pytest tests/providers/yandex/test_yandex_integration.py -v -m integration
-
-Run skipped (default CI path)::
-
-    uv run pytest tests/providers/yandex/test_yandex_integration.py -v
+    make test-integration
+    # or: DJ_YM_TOKEN=... uv run pytest -v -m integration
 """
 
 from __future__ import annotations
