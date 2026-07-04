@@ -123,7 +123,7 @@ All read-only, MIME `application/json`, auto-discovered from `app/resources/`.
 | `local://sets/{id}/{view}` | set.py | view=summary\|tracks\|transitions\|full |
 | `local://sets/{id}/cheatsheet{?version}` | set.py | DJ cheat sheet text |
 | `local://sets/{id}/narrative` | set.py | Narrative analysis (arc, moods) |
-| `local://sets/{id}/review` | set.py | Set quality review |
+| `local://sets/{id}/review{?version}` | set.py | Set quality review (default: latest version) |
 | `local://sets/{id}/versions/compare/{a}/{b}` | set.py | Diff two set versions |
 | `local://transition/{from_id}/{to_id}/score` | transition.py | Pairwise transition score |
 | `local://transition/{from_id}/{to_id}/explain` | transition.py | Explain scored components |
