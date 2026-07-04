@@ -1,75 +1,55 @@
 ---
 name: build-set
-description: "This skill should be used when the user asks to build a DJ set, create a set from playlist, optimize track order, rebuild set, reorder tracks, or make a set. Covers playlist audit, GA/greedy optimization, review and iteration."
-version: 1.0.1
+description: "This skill should be used when the user asks to build a DJ set, create a set from playlist or library, optimize track order, rebuild set, reorder tracks, or make a set. Covers candidate curation, GA/greedy optimization, L5 finalization, review and iteration."
+version: 1.1.0
 ---
 
 # Build DJ Set Workflow
 
-Guide the user through building an optimized DJ set from a playlist using the v1 polymorphic dispatcher surface (**20 tools** = 14 core dispatchers + 6 UI Prefab Apps — см. @docs/tool-catalog.md).
+Build an optimized DJ set via the v1 polymorphic dispatchers (см. @docs/tool-catalog.md). Порядок фаз ниже — жёсткий: curate → download → optimize → L5 → re-optimize → version → review.
 
 ## Steps
 
-1. **Identify source playlist**
-   - List playlists: `entity_list(entity="playlist", fields="summary")`
-   - Resolve by name: `entity_list(entity="playlist", filters={"name__icontains": "..."})`
-   - Get detail: `entity_get(entity="playlist", id=<id>, include_relations=["tracks"])`
+1. **Curate the candidate pool FEATURE-FIRST (from the whole library, not just a playlist)**
+   - `mood` — слабый сигнал (median confidence ≈0.05); используй его как грубый хинт (`mood__in`), а отбор веди по фичам с реальным разбросом:
+     `entity_list(entity="track_features", filters={"bpm__range": [126, 133], "energy_mean__gte": 0.4, "spectral_centroid_hz__lte": 2400, "integrated_lufs__range": [-13, -9], "variable_tempo__eq": false}, fields="scoring", sort=["energy_mean__desc", "track_id"], limit=150)`
+   - Профиль стиля (ideal/tolerance по фичам) — из `reference://subgenres`.
+   - **НЕ фильтруй `__gte/__lte` по NULL-heavy L2-колонкам** (`bpm_confidence`, `true_peak_db`, `danceability`) — NULL проваливает сравнение и тихо опустошает выборку. У `pitch_salience_mean`/`dynamic_complexity`/`spectral_complexity_mean` числовых лукапов нет вовсе (только `__isnull`; чужой лукап = типизированный ValidationError).
+   - Держи BPM-коридор пула ≤ 8–10 (hard reject на Δ>10) и LUFS-разброс ≤ 5–6.
 
-2. **Choose template and parameters**
-   - 8 templates: `warm_up_30`, `classic_60`, `peak_hour_60`, `roller_90`,
-     `progressive_120`, `wave_120`, `closing_60`, `full_library`
-   - Static reference: read `reference://templates`
-   - Ask for BPM range / target duration if the template default doesn't fit
+2. **Exclude recycled and dead tracks**
+   - Треки недавних сетов того же стиля: прочитай `local://sets/{id}/tracks` соседей (найди их через `entity_list(entity="set", fields="summary")`) и выкини пересечения.
+   - Архивные: `entity_list(entity="track", filters={"id__in": [...]}, fields="summary")` → выкинь `status=1`. Заодно возьми `duration_ms` и уложи суммарный хронометраж в целевой слот ДО оптимизации (~6.5 мин/трек для техно).
 
-3. **Audit source playlist first**
-   - Read `local://playlists/{id}/audit` — coverage, BPM/key distribution, gaps
-   - If coverage < ~80% on features, pre-warm:
-     `entity_create(entity="track_features", data={"track_ids": [...], "level": 2})`
-     (handler `track_features_analyze` runs L1+L2 tiered pipeline → mood lands in features automatically)
+3. **Score the pool and cull conflict hubs**
+   - `transition_score_pool(track_ids=[...], top_k=3, components=false)` — компактный ответ (N·top_k пар вместо N·(N−1); полный матричный ответ на 18+ треках пробивает лимит MCP-клиента). `total_scored_pairs` показывает объём до усечения; `overall == 0.0` = hard reject.
+   - Треки, собирающие бо́льшую часть hard rejects (хабы), выкинь из пула; добери кандидатов и повтори. Куратор доводит пул ровно до N финальных треков — `sequence_optimize` с `ga`/`greedy` упорядочивает ВЕСЬ пул (сабсетит только `algorithm="constructive"` под template).
 
-4. **Build the set — two-step (optimize → persist)**
-   - Create a set container if missing:
-     `entity_create(entity="set", data={"name": "...", "template_name": "peak_hour_60"})`
-   - **Step A — optimize ordering** (pure compute, no persist):
-     `sequence_optimize(track_ids=[...], algorithm="ga", template="peak_hour_60", pinned=[...], excluded=[...])`
-     → returns `{track_order, quality_score, algorithm, generations}`.
-     - `algorithm`: `"auto"` (default — greedy for pools ≥200, GA otherwise), `"ga"` (~30s for 100 tracks), or `"greedy"` (fast).
-     - `pinned` / `excluded` reject ids not in the pool with a typed `ValidationError` (v1.3.7 gate).
-   - **Step B — persist as a SetVersion** (handler `set_version_build` writes items + scores transitions):
-     `entity_create(entity="set_version", data={"set_id": <id>, "label": "v1", "track_order": [<...from Step A>]})`
-     - Schema is strict (`extra="forbid"`): only `set_id`, `label`, `track_order`, `quality_score?`, `generator_run_meta?` are accepted.
-     - FK gate (v1.3.7) rejects unknown `track_id`s in `track_order` before insert with a typed error listing the missing ids.
+4. **Download audio BEFORE any (re)analysis**
+   - Анализ (даже L2/L3 reanalyze) требует зарегистрированный `audio_file` с файлом на диске: `entity_create(entity="audio_file", data={"track_ids": [...]})` батчами 8–10 (каждый трек 20–40 с; на MCP-таймауте UoW откатывается — проверь `entity_list(entity="audio_file", filters={"track_id__in": [...]})` и перевыпусти только недостающие).
+   - Stale-строки (файл стёрт из /tmp) с v1.6.2 перекачиваются автоматически (`refreshed_stale_row`).
 
-5. **Review the result**
-   - Read `local://sets/{id}/review` — quality overview (score, hard conflicts, weakest transitions, energy arc deviation)
-   - Read `local://sets/{id}/summary` or `local://sets/{id}/full`
-   - **Visual review (Prefab UI)**: `ui_set_view(set_id=<id>)` renders heading + energy LineChart + DataTable + transition badges + cheatsheet card; fallback is a structured JSON payload for non-Prefab clients
-   - **Pairwise heatmap**: `ui_score_pool_matrix(track_ids=[...])` for N×N visual mix-affinity
-   - Score a pool of candidates without persisting:
-     `transition_score_pool(track_ids=[...], intent=<optional>)` — rejects duplicate ids (v1.3.7 gate)
+5. **L5 (ADVANCED) before finalization**
+   - `entity_update(entity="track_features", id=<track_id>, data={"level": 5})` — по 4–5 параллельно, ~5–10 с/трек. Успех = `level: 5, feature_count: ~62–64` в ответе; сомневаешься — перепроверь `entity_list(entity="track_features", filters={"track_id__in": [...], "analysis_level__gte": 5})`.
+   - L5 переопределяет `key_code` и фичи относительно L2 → всё, что построено до L5, черновик. После L5 **перечитай фичи и пере-скорь пул** (`transition_score_pool` заново) — hard-reject картина на надёжных ключах меняется.
 
-6. **Iterate**
-   - Suggest next track: `local://tracks/{id}/suggest_next?limit=5&energy_direction=up`
-   - Replacement for a weak slot: `local://tracks/{track_id}/suggest_replacement/{set_id}/{position}`
-   - New version with pins/exclusions: repeat step 4 with different pinned/excluded — creates a new `set_version`, previous versions untouched
-   - Compare versions: read `local://sets/{id}/versions/compare/{a}/{b}`
+6. **Optimize on L5 features — two candidate orders**
+   - Контейнер: `entity_create(entity="set", data={"name": "...", "template_name": "roller_90", "target_duration_ms": ...})`.
+   - GA: `sequence_optimize(track_ids=[...], algorithm="ga", template=<из reference://templates>)`. Учти: GA максимизирует pairwise и **любит восходящую громкость** (energy-скорер предпочитает +0.5 LUFS) — для closing/descent-арок его порядок будет перевёрнут.
+   - Ручная арка: BPM-ramp + LUFS-пик на ~0.6–0.7 длины (two-thirds rule), для closing — монотонный спуск от handoff-BPM.
 
-7. **Finalize**
-   - Cheat sheet: read `local://sets/{id}/cheatsheet?version=<latest>`
-   - Narrative: read `local://sets/{id}/narrative`
-   - Suggest `/deliver-set` when happy
+7. **Persist BOTH as versions, compare section-aware scores**
+   - `entity_create(entity="set_version", data={"set_id": <id>, "label": "v1-ga", "track_order": [...]})` и `"v2-arc"` (schema strict: только `set_id`, `label`, `track_order`, `quality_score?`, `generator_run_meta?`).
+   - Сравнивай по `quality_score` версий (section-aware, обычно выше сырого GA-скора). Разрыв ≤ ~0.05 в пользу GA — бери арку: это цена намеренного энергетического контраста. Camelot-конфликты на L5-ключах бьют арку сильнее — смотри review.
 
-## Key Parameters
-
-- **algorithm**: `"auto"` (default), `"ga"`, or `"greedy"` — passed to `sequence_optimize`. Without features on candidate tracks, optimizer falls back to `playlist_order`.
-- **Pin / exclude**: `pinned` / `excluded` on `sequence_optimize` (NOT on `entity_create(set_version)` — that handler accepts only `track_order`). Each `entity_create(set_version)` produces a new immutable `SetVersion`.
-- **view**: resources `local://sets/{id}/{summary|tracks|transitions|full}`; UI: `ui_set_view(set_id=...)`.
-
-Auto-analysis: set build triggers L3 analysis for any candidate with `analysis_level < 3` — no manual reanalyze needed (see @docs/reports/tiered-analysis-design-2026-03-27.md).
+8. **Review the CHOSEN version, not the latest**
+   - `local://sets/{id}/review?version=<version_id>` — hard conflicts + weak transitions именно выбранной версии (без `?version` показывается последняя созданная).
+   - Слабый слот: `local://tracks/{track_id}/suggest_replacement/{set_id}/{position}` — кандидаты берутся по BPM-близости, стиль-лок проверяй руками по их фичам.
+   - Финал: `local://sets/{id}/cheatsheet?version=<v>` (несёт fx_type/bars/mix-points per transition) → дальше skill `deliver-set`.
 
 ## Tips
 
-- Audit before building — missing audio features force `playlist_order` fallback
-- GA with 100+ tracks can take 30–120 seconds (tool timeout: 120s)
-- Energy arc comes from the template — tracks are placed to match the target curve
-- Tool reference: @docs/tool-catalog.md (all 20 tools = 14 core dispatchers + 6 UI Prefab); resources catalog lists all 27 URIs
+- Дубликаты в библиотеке реальны (одинаковый нормализованный title, разные track_id) — прогони финальный список глазами.
+- GA 100+ треков — 30–120 с; `transition_score_pool` имеет собственный таймаут 300 с.
+- `local://sets/{id}/transitions` несёт только overall/hard_reject; per-pair пресеты — в cheatsheet-ресурсе или `entity_list(entity="transition", filters={"from_track_id__in": [...], "to_track_id__in": [...]})`.
+- Tool reference: @docs/tool-catalog.md; set-build правила: @.claude/rules/tools.md § Set-build flow.
