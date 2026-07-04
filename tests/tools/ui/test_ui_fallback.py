@@ -8,6 +8,7 @@ schema.
 
 from __future__ import annotations
 
+from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -107,6 +108,12 @@ def test_fallback_or_validates_models() -> None:
         CamelotWheelFallback,
         {"playlist_id": None, "total_tracks": 0, "slots": []},
     )
+
+
+def test_fallback_or_avoids_pep695_function_syntax_for_fastmcp_discovery() -> None:
+    """FastMCP filesystem discovery must parse UI modules without warnings."""
+    source = Path("app/tools/ui/_fallback.py").read_text()
+    assert "def fallback_or[" not in source
 
 
 @pytest.mark.asyncio
