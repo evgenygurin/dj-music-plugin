@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 Format based on [Keep a Changelog](https://keepachangelog.com/).
 Versioning follows [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [1.7.0] - 2026-07-04
 
 ### Added
 - **`transition_score_pool` response-size controls** (#260). An 18-track
