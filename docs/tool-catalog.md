@@ -162,6 +162,10 @@ Design rationale + techno-domain research:
 [docs/research/2026-06-22-techno-set-construction-and-mcp-prompts.md](research/2026-06-22-techno-set-construction-and-mcp-prompts.md)
 + deep dive / persona & axis expansion (v2):
 [docs/research/2026-06-22-techno-deep-dive-and-prompt-expansion.md](research/2026-06-22-techno-deep-dive-and-prompt-expansion.md).
+Agent-facing operating rules:
+[.claude/rules/dj-set-building.md](../.claude/rules/dj-set-building.md)
++ updated synthesis
+[docs/research/2026-07-05-techno-fastmcp-claude-rules.md](research/2026-07-05-techno-fastmcp-claude-rules.md).
 Authoring rules + content-correctness contract:
 [.claude/rules/prompts.md](../.claude/rules/prompts.md). Every
 entity / provider / field-preset **and** every `filters={...}` key,

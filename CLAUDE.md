@@ -47,6 +47,8 @@ uv run fastmcp run server.py --reload      # MCP dev server
 - @docs/dev-mode.md — hot-reload: DJ_PLUGIN_DEV_PATH + hooks + /reload-plugins
 - @docs/plugin-settings.md — per-project config (`.claude/dj-music.local.md`)
 - @docs/structure.md — файловая карта репозитория
+- @.claude/rules/dj-set-building.md — правила techno-сетов, prompt routing,
+  связь БД с DJ-решениями, FastMCP 3.x best practices
 
 ## Принципы v1
 
@@ -110,6 +112,9 @@ Dev-режим целиком (4 слоя hot-reload + `/reload-plugins`) — @d
 - @.claude/rules/tools.md — `@tool` шаблон, namespaces, annotations
 - @.claude/rules/resources.md — URI schemes, return types
 - @.claude/rules/prompts.md — 30 workflow prompts + content-correctness контракт (filter/data/op-имена пинятся тестами)
+- @.claude/rules/dj-set-building.md — как выбирать prompt/resource/tool для
+  techno-сетов и как переводить BPM/Camelot/LUFS/mood/Beatport данные в
+  решения по сету
 - FastMCP docs: <https://gofastmcp.com/llms.txt>
 
 ## Когда использовать MCP prompts
