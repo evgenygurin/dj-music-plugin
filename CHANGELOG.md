@@ -4,6 +4,20 @@ All notable changes to this project will be documented in this file.
 Format based on [Keep a Changelog](https://keepachangelog.com/).
 Versioning follows [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+- **`transition_score_pool` response-size controls** (#260). An 18-track
+  pool returns 306 directed pairs (~60KB) and overflows MCP client
+  response limits. New optional params: `top_k` keeps only the K best
+  outgoing pairs per source track (N*top_k instead of N*(N-1));
+  `components=false` strips the six per-stem fields down to
+  `{a, b, overall}` (~3x smaller). New response field
+  `total_scored_pairs` carries the pre-truncation count so a capped
+  response never silently reads as the full matrix. Defaults preserve
+  the previous behaviour; `ScorePoolResult.pairs` description updated to
+  the actual component names (`harmonics/bass/drums/vocals`).
+
 ## [1.6.2] - 2026-07-03
 
 ### Fixed
