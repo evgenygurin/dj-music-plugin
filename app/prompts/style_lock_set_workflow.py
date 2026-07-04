@@ -50,6 +50,10 @@ shifts. Template '{template}' supplies the energy contract.
    entity_list(entity="track_features", filters={{"track_id__in": pool_ids}},
               fields="scoring")
    — ensure level >= 3; analyze_library_workflow first for stragglers.
+   If any field/filter is uncertain, read schema://entities/track_features.
+   Treat mood is a hint: confirm the style lock with BPM, LUFS, energy_mean,
+   spectral balance, hp_ratio and Beatport genre metadata. If Beatport genre
+   disagrees with classifier mood, keep the candidate only after review.
 
 4. Lock the selection to the style band:
    entity_list(entity="track_features",
@@ -59,11 +63,17 @@ shifts. Template '{template}' supplies the energy contract.
                     filters={{"track_id__in": pool_ids, "mood": "{style}"}})
    — if pure '{style}' is too thin for {length} tracks, widen to the neighbour
      moods listed above (NOT beyond — a peak_time intruder breaks a dub set).
+   For a large source playlist, do staged narrowing before pair scoring:
+   hard filters -> style/feature filters -> diversity cap -> final subset.
+   Do not feed the whole crate to sequence_optimize.
 
 5. Order for sustained character under the template arc:
    sequence_optimize(track_ids=[...], algorithm="ga", template="{template}")
    — alternate texture (bright vs dark, busy vs sparse) so equal energy never
      reads as flat. Pin a strong opener and a strong closer in-style.
+   For raw/hypnotic or low key_confidence material, prefer groove-first
+   decisions: BPM, low-end, energy and percussion continuity can outweigh
+   Camelot neatness.
 
 6. Persist + verify it stays in character:
    entity_create(entity="set_version", data={{"set_id": <id>,
@@ -74,6 +84,7 @@ shifts. Template '{template}' supplies the energy contract.
 
 7. If the GA pulls in an off-style track to fix a transition, exclude it and
    re-run, or bridge via fix_transition_workflow.
+   Do not promise delivery readiness until audio_file / physical MP3 exists.
 
 Return: {{"playlist_id": {playlist_id}, "style": "{style}",
          "template": "{template}", "set_id": ..., "version_id": ...,

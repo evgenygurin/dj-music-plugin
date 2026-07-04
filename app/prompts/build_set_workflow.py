@@ -22,36 +22,50 @@ def _build_body(playlist_id: int, template: str) -> str:
 
 4. Build the candidate pool (features projection):
    entity_list(entity="track_features", filters={{"track_id__in": [...]}}, fields="scoring")
+   Data guardrails:
+   - Use schema://entities/track_features if any filter/payload name is uncertain.
+   - Treat mood is a hint, not ground truth; confirm style with BPM, LUFS,
+     energy_mean, spectral balance, hp_ratio and Beatport genre metadata.
+   - If Beatport genre conflicts with classifier mood, mark it for review
+     instead of silently trusting either label.
+   - Features do not prove audio delivery: verify audio_file / physical MP3
+     before promising L5 analysis, exact cue points or local export.
 
-5. Compute pairwise scores across the candidate pool:
+5. If the playlist is a broad crate, do staged narrowing before optimization:
+   hard filters (BPM corridor, analysis level, audio availability when needed)
+   -> style/feature filters -> diversity cap -> pair scoring -> final subset.
+   Never send the whole library to sequence_optimize; it reorders a curated
+   pool, it is not the crate-digging selector.
+
+6. Compute pairwise scores across the candidate pool:
    transition_score_pool(track_ids=[...])
 
-6. Optimize under the template arc:
+7. Optimize under the template arc:
    sequence_optimize(
        track_ids=[...],
-       algorithm="constructive",
+       algorithm="ga",
        template="{template}",
    )
-   - Use "constructive" when the playlist is a broad candidate crate and
-     you want the engine to choose the exact slot occupants under the
-     template.
-   - Use "ga" / "greedy" only when you already trust the pool and only
-     want re-ordering.
+   - Use "ga" for arc-aware ordering of a curated pool.
+   - Use "greedy" only when the pool is already tightly compatible and you
+     need a fast nearest-neighbour chain.
 
-7. Persist the ordered set as a new version:
+8. Persist the ordered set as a new version:
    entity_create(entity="set_version", data={{
        "set_id": ...,
        "track_order": [...],
        "label": "v1"
    }})
 
-8. Inspect the result:
+9. Inspect the result:
    - Read local://sets/{{set_id}}/summary
    - Read local://sets/{{set_id}}/cheatsheet
    - Read local://sets/{{set_id}}/review  (watch for weak transitions / hard conflicts)
 
 If any transition is flagged hard_reject, either pin the must-keep anchors
-and re-run constructive selection, or inject a bridge track and rebuild.
+and re-run with a tighter curated pool, or inject a bridge track and rebuild.
+For raw/hypnotic or low key_confidence material, use a groove-first reading:
+BPM, low-end, energy and percussion continuity can outrank Camelot.
 
 Return: {{"set_id": ..., "version_id": ..., "quality_score": ...}}
 """
