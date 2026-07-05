@@ -38,7 +38,7 @@ uv run fastmcp run server.py --reload      # MCP dev server
 Загружай соответствующий doc при работе с областью:
 
 - @docs/architecture.md — bounded-contexts, data flow, dependency rules
-- @docs/tool-catalog.md — 20 dispatchers + 27 resources + 30 prompts
+- @docs/tool-catalog.md — 20 dispatchers + 27 resources + 31 prompts
 - @docs/domain-glossary.md — DJ терминология (BPM, Camelot, LUFS, subgenres)
 - @docs/audio-pipeline.md — 18 анализаторов, tiered L1–L4, mood classifier
 - @docs/audio-schema.md — `track_audio_features_computed` (47 features)
@@ -165,12 +165,44 @@ references: все имена должны соответствовать runtim
 | Зафиксировать вкус: likes/bans/ratings/affinity | `taste_profile_workflow` |
 | Pull/push/diff локального плейлиста с Yandex Music | `playlist_sync_workflow` |
 | Найти hygiene-проблемы и план чистки библиотеки | `library_cleanup_workflow` |
+| Сгенерировать intro/bridge/outro/rescue assets через Suno | `suno_set_asset_workflow` |
 
 Ручные tools/resources используй напрямую, когда запрос точечный:
 прочитать конкретный объект, показать UI view, выполнить один CRUD/action,
 проверить одну пару или сделать ad-hoc диагностику. Для пользовательских
 workflow с музыкальным результатом предпочитай prompt, затем выполняй его
 инструкции через реальные MCP tools/resources.
+
+Suno используй как opt-in provider в режиме no-browser session auth:
+`DJ_SUNO_COOKIE_HEADER` или `DJ_SUNO_BEARER_TOKEN`/`DJ_SUNO_CLIENT_TOKEN`
+плюс `DJ_SUNO_DEVICE_ID`; также можно загрузить JSON из
+`DJ_SUNO_STORAGE_STATE_PATH`. Практичный browser export формат: Cookie header
+с `__session`, `__client` и `suno_device_id` или `ajs_anonymous_id`.
+Не запускай Playwright/browser-login из
+плагина: пользователь проходит Google/Suno OAuth в своем браузере, а provider
+использует готовые Suno/Clerk session credentials. Session путь использует
+Suno web API `https://studio-api-prod.suno.com` + `https://auth.suno.com` с
+Clerk Bearer token, `browser-token` и `device-id`; generic API оставляй
+только при явном `DJ_SUNO_PAYLOAD_MODE=generic`. Не пытайся обходить CAPTCHA/2FA: если
+Suno/Google требует ручное действие, остановись и попроси пользователя
+обновить session credentials после проверки в браузере. Генерируй DJ-utility material
+(intro/outro/bridges/rescue loops), скачивай через
+`provider_write(provider="suno", entity="generation", operation="download")`
+и держи эти файлы как export-side assets, пока нет отдельного local-file
+track import path.
+
+**Реальный Suno-контракт (verified live 2026-07-05, детали —
+[[project_suno_live_api_contract]] в памяти):** генерация — `POST
+/api/generate/v2-web/` с **плоским** payload (`prompt` обязателен и **непуст**;
+обёртка в `params` ломает), статус — `GET /api/feed/v2/?ids={clip_id}` (форма
+`{clips:[...]}`; опрашивать id **клипов** из `clip_ids`, а не id батча из
+create), модель `mv` по умолчанию `chirp-auk-turbo` (free; `chirp-fenix`/
+`chirp-crow` — pro → 403 на free; пустой `mv` тоже даёт 403). `provider_read(
+provider="suno", entity="account")` отдаёт живой баланс (`credits_left`,
+`subscription_type`, `usable_models`). **Bearer живёт ~час** и не обновляется по
+одному cookie (Suno = header-based Clerk без `__session`): освежай
+`DJ_SUNO_BEARER_TOKEN` через `uv run python scripts/suno_refresh_token.py`
+(нужен открытый залогиненный Chrome + «Allow JavaScript from Apple Events»).
 
 ## Взаимодействие с БД — через Supabase MCP
 

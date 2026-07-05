@@ -52,9 +52,11 @@ from app.prompts.set_duration_fit_workflow import set_duration_fit_workflow
 from app.prompts.set_review_workflow import set_review_workflow
 from app.prompts.style_lock_set_workflow import style_lock_set_workflow
 from app.prompts.subgenre_journey_workflow import subgenre_journey_workflow
+from app.prompts.suno_set_asset_workflow import suno_set_asset_workflow
 from app.prompts.taste_profile_workflow import taste_profile_workflow
 from app.prompts.tempo_journey_workflow import tempo_journey_workflow
 from app.prompts.track_prep_workflow import track_prep_workflow
+from app.providers.suno.adapter import SunoAdapter
 from app.providers.yandex.adapter import YandexAdapter
 from app.registry.defaults import register_default_entities
 from app.registry.entity import EntityRegistry
@@ -130,6 +132,8 @@ def _render(p: Callable[..., object]) -> str:
         result = p(playlist_id=1, direction="diff")
     elif name == "library_cleanup_workflow":
         result = p(playlist_id=1)
+    elif name == "suno_set_asset_workflow":
+        result = p(set_id=1)
     else:
         raise AssertionError(f"unknown prompt: {name}")
     parts: list[str] = []
@@ -140,10 +144,16 @@ def _render(p: Callable[..., object]) -> str:
 
 
 _ENTITY_RE = re.compile(r"""\bentity\s*=\s*['"]([a-z_]+)['"]""")
-_PROVIDER_READ_RE = re.compile(
-    r"""provider_read\s*\([^)]*?\bentity\s*=\s*['"]([a-z_]+)['"]""",
+_PROVIDER_CALL_RE = re.compile(
+    r"""provider_(?:read|write)\(((?:(?!provider_(?:read|write)).)*?)\)""",
     re.DOTALL,
 )
+_PROVIDER_READ_RE = re.compile(
+    r"""provider_read\s*\(((?:(?!provider_read).)*?)\)""",
+    re.DOTALL,
+)
+_PROVIDER_RE = re.compile(r"""\bprovider\s*=\s*['"]([a-z_]+)['"]""")
+_PROVIDER_ENTITY_RE = re.compile(r"""\bentity\s*=\s*['"]([a-z_]+)['"]""")
 _FIELDS_PRESET_RE = re.compile(
     r"""\bentity\s*=\s*['"]([a-z_]+)['"][^)]*?\bfields\s*=\s*['"]([a-z_]+)['"]""",
     re.DOTALL,
@@ -201,7 +211,22 @@ PROMPTS = (
     taste_profile_workflow,
     playlist_sync_workflow,
     library_cleanup_workflow,
+    suno_set_asset_workflow,
 )
+
+_PROVIDER_ENTITIES_SUPPORTED: dict[str, set[str]] = {
+    "yandex": set(YandexAdapter.entities_supported),
+    "suno": set(SunoAdapter.entities_supported),
+}
+_PROVIDER_OPERATIONS_SUPPORTED: dict[str, dict[str, tuple[str, ...]]] = {
+    "yandex": YandexAdapter.operations_supported,
+    "suno": SunoAdapter.operations_supported,
+}
+
+
+def _provider_from_call(blob: str) -> str:
+    match = _PROVIDER_RE.search(blob)
+    return match.group(1) if match else "yandex"
 
 
 @pytest.mark.parametrize("prompt", PROMPTS, ids=lambda p: p.__name__)
@@ -210,7 +235,11 @@ def test_entity_names_are_registered(prompt: Callable[..., object]) -> None:
     referenced = set(_ENTITY_RE.findall(body))
     registered = set(EntityRegistry.names())
     # Provider entities are validated separately; drop them from this check.
-    provider_entities = set(_PROVIDER_READ_RE.findall(body))
+    provider_entities = {
+        ent_m.group(1)
+        for blob in _PROVIDER_CALL_RE.findall(body)
+        if (ent_m := _PROVIDER_ENTITY_RE.search(blob))
+    }
     referenced -= provider_entities
     unknown = referenced - registered
     assert not unknown, (
@@ -224,12 +253,20 @@ def test_provider_entities_match_adapter_surface(
     prompt: Callable[..., object],
 ) -> None:
     body = _render(prompt)
-    referenced = set(_PROVIDER_READ_RE.findall(body))
-    supported = set(YandexAdapter.entities_supported)
-    unknown = referenced - supported
-    assert not unknown, (
-        f"{prompt.__name__} uses provider_read(entity={sorted(unknown)!r}) — "
-        f"YandexAdapter only handles {sorted(supported)}"
+    bad: list[tuple[str, str]] = []
+    for blob in _PROVIDER_READ_RE.findall(body):
+        ent_m = _PROVIDER_ENTITY_RE.search(blob)
+        if not ent_m:
+            continue
+        provider = _provider_from_call(blob)
+        entity = ent_m.group(1)
+        supported = _PROVIDER_ENTITIES_SUPPORTED.get(provider, set())
+        if entity not in supported:
+            bad.append((provider, entity))
+    assert not bad, (
+        f"{prompt.__name__} uses provider_read entities the provider does not "
+        f"handle: {sorted(set(bad))}. Supported: "
+        + ", ".join(f"{p}: {sorted(e)}" for p, e in _PROVIDER_ENTITIES_SUPPORTED.items())
     )
 
 
@@ -329,20 +366,25 @@ def test_provider_write_operations_match_adapter(
     playlist operation: create_from_set')`` at runtime. Pinned against
     ``YandexAdapter.operations_supported`` (mirrors the ``match`` arms)."""
     body = _render(prompt)
-    supported = YandexAdapter.operations_supported
     bad: list[tuple[str, str]] = []
     for blob in _PWRITE_RE.findall(body):
         ent_m = _PW_ENTITY_RE.search(blob)
         op_m = _PW_OP_RE.search(blob)
         if not ent_m or not op_m:
             continue
+        provider = _provider_from_call(blob)
+        supported = _PROVIDER_OPERATIONS_SUPPORTED.get(provider, {})
         ent, op = ent_m.group(1), op_m.group(1)
-        if ent in supported and op not in supported[ent]:
-            bad.append((ent, op))
+        if ent not in supported or op not in supported[ent]:
+            bad.append((provider, ent, op))
     assert not bad, (
         f"{prompt.__name__} uses provider_write operations the adapter does not "
         f"handle: {sorted(set(bad))}. Supported: "
-        + ", ".join(f"{e}: {ops}" for e, ops in supported.items())
+        + ", ".join(
+            f"{provider}.{entity}: {ops}"
+            for provider, operations in _PROVIDER_OPERATIONS_SUPPORTED.items()
+            for entity, ops in operations.items()
+        )
     )
 
 

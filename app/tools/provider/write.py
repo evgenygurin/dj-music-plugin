@@ -20,8 +20,8 @@ from app.shared.types import JsonDict
     tags={"namespace:provider:write", "write"},
     annotations={"readOnlyHint": False, "openWorldHint": True, "idempotentHint": False},
     description=(
-        "Mutate external platform. entity=playlist|likes. operation=add_tracks|"
-        "remove_tracks|create|rename|delete|add|remove."
+        "Mutate external platform. entity=playlist|likes|generation. operation=add_tracks|"
+        "remove_tracks|create|rename|delete|add|remove|cancel|download."
     ),
     meta={"timeout_s": 120.0},
     timeout=120.0,

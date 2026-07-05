@@ -48,6 +48,8 @@ EXPECTED_PROMPTS: frozenset[str] = frozenset(
         "playlist_sync_workflow",
         # library maintenance (1)
         "library_cleanup_workflow",
+        # generation (1)
+        "suno_set_asset_workflow",
     }
 )
 
@@ -112,6 +114,7 @@ def test_all_prompts_return_prompt_result() -> None:
     from app.prompts.set_review_workflow import set_review_workflow
     from app.prompts.style_lock_set_workflow import style_lock_set_workflow
     from app.prompts.subgenre_journey_workflow import subgenre_journey_workflow
+    from app.prompts.suno_set_asset_workflow import suno_set_asset_workflow
     from app.prompts.taste_profile_workflow import taste_profile_workflow
     from app.prompts.tempo_journey_workflow import tempo_journey_workflow
     from app.prompts.track_prep_workflow import track_prep_workflow
@@ -150,6 +153,7 @@ def test_all_prompts_return_prompt_result() -> None:
         playlist_sync_workflow(playlist_id=1, direction="diff"),
         library_cleanup_workflow(),
         library_cleanup_workflow(playlist_id=1),
+        suno_set_asset_workflow(set_id=1),
     ]
     for r in results:
         assert isinstance(r, PromptResult)

@@ -1,6 +1,6 @@
 # MCP Tool Catalog
 
-Quick reference — **20 tools total** (13 core dispatchers + 6 UI/Prefab + `tool_invoke`) + **27 resources** + **30 prompts** + **6 handlers** + **11 registered entities**.
+Quick reference — **20 tools total** (13 core dispatchers + 6 UI/Prefab + `tool_invoke`) + **27 resources** + **31 prompts** + **6 handlers** + **11 registered entities**.
 
 The 88-tool catalog of v0.8 was collapsed via polymorphism: generic CRUD
 (`entity_*`) dispatches via `EntityRegistry`, generic provider access
@@ -57,12 +57,31 @@ Handlers wire side-effects on create/update/delete:
 | `provider_search` | provider, query, type(tracks\|albums\|artists\|playlists\|all), limit=20 | yes | no |
 | `provider_write` | provider, entity, operation, params | no | `provider:write` |
 
-`provider_read.entity` values: `track`, `album`, `playlist`, `artist_tracks`,
-`track_similar`, `track_batch`, `likes`, `dislikes`, `playlist_list`.
+`provider_read.entity` values are provider-specific:
+- Yandex: `track`, `album`, `playlist`, `artist_tracks`, `track_similar`,
+  `track_batch`, `likes`, `dislikes`, `playlist_list`.
+- Beatport: `track`, `track_match`, `account`.
+- Suno web (opt-in no-browser session auth via `DJ_SUNO_COOKIE_HEADER` or
+  `DJ_SUNO_BEARER_TOKEN`/`DJ_SUNO_CLIENT_TOKEN` + `DJ_SUNO_DEVICE_ID`, or a
+  JSON `DJ_SUNO_STORAGE_STATE_PATH`; defaults to
+  `https://studio-api-prod.suno.com` + `https://auth.suno.com`, Clerk Bearer,
+  `browser-token`, `device-id`, and `DJ_SUNO_PAYLOAD_MODE=suno_web`; a browser
+  Cookie header with `__session`, `__client`, and `suno_device_id` or
+  `ajs_anonymous_id` is supported; generic API-key mode remains available via
+  `DJ_SUNO_AUTH_MODE=api_key` +
+  `DJ_SUNO_PAYLOAD_MODE=generic`):
+  `generation`, `account`. `entity="account"` returns live balance
+  (`credits_left`, `subscription_type`, `usable_models`) from
+  `/api/billing/info/` merged with capabilities. Verified-live contract
+  (2026-07-05): create `POST /api/generate/v2-web/` (flat payload, non-empty
+  `prompt`); poll clip ids via `GET /api/feed/v2/?ids={clip_id}` (create returns
+  a batch → use `clip_ids`); free model `chirp-auk-turbo`. Bearer ~1 h, refresh
+  via `scripts/suno_refresh_token.py`.
 
 `provider_write.entity/operation` matrix:
 - `playlist` × `add_tracks | remove_tracks | create | rename | delete`
 - `likes` × `add | remove`
+- `generation` × `create | cancel | download` (Suno-compatible provider)
 
 ### Compute (2, namespace `compute`)
 
