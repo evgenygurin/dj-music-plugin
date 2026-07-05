@@ -40,7 +40,9 @@ def test_adapter_satisfies_protocol(mock_client: AsyncMock) -> None:
     assert isinstance(adapter, Provider)
     assert adapter.name == "suno"
     assert "generation" in adapter.entities_supported
-    assert adapter.operations_supported["generation"] == ("create", "cancel", "download")
+    # default mode is suno_web -> full browser-web surface
+    gen_ops = adapter.operations_supported["generation"]
+    assert {"create", "cancel", "download", "extend", "concat"} <= set(gen_ops)
 
 
 async def test_create_generation_normalizes_id_and_request(mock_client: AsyncMock) -> None:
@@ -185,7 +187,7 @@ async def test_read_account_merges_capabilities_and_balance(mock_client: AsyncMo
     assert out["credits_left"] == 42
     assert out["subscription_type"] == "pro"
     assert out["usable_models"] == ["chirp-auk-turbo"]
-    assert out["operations_supported"]["generation"] == ["create", "cancel", "download"]
+    assert {"create", "cancel", "download"} <= set(out["operations_supported"]["generation"])
 
 
 async def test_read_account_degrades_when_billing_unavailable(mock_client: AsyncMock) -> None:

@@ -37,20 +37,21 @@ def test_sunoapi_mode_surface_is_expanded(adapter: SunoAdapter) -> None:
     )
 
 
-def test_session_mode_keeps_minimal_surface_and_blocks_sunoapi_ops(
-    mock_client: AsyncMock,
-) -> None:
-    session = SunoAdapter(client=mock_client, payload_mode="suno_web")
-    assert session.entities_supported == ("generation", "account")
-    assert session.operations_supported["generation"] == ("create", "cancel", "download")
-    # a sunoapi-only op is rejected with a clear hint, no network call
-    import asyncio
+async def test_sunoapi_mode_blocks_web_only_ops(mock_client: AsyncMock) -> None:
+    # in sunoapi mode, a browser-web-only op (edit.crop) is not in the sunoapi
+    # registry and is rejected without a network call.
+    api = SunoAdapter(client=mock_client, payload_mode="sunoapi")
+    with pytest.raises(ValidationError, match="unknown suno operation"):
+        await api.write("edit", "crop", {"clip_id": "x", "crop_start_s": 0, "crop_end_s": 10})
 
-    with pytest.raises(ValidationError, match="api_key/sunoapi mode"):
-        asyncio.run(
-            session.write("generation", "extend", {"audioId": "a", "defaultParamFlag": True})
-        )
-    mock_client.api_call.assert_not_called()
+
+async def test_suno_web_mode_blocks_sunoapi_only_ops(mock_client: AsyncMock) -> None:
+    # in suno_web mode, a sunoapi-only op (add_instrumental) is not in the web
+    # registry and is rejected.
+    web = SunoAdapter(client=mock_client, payload_mode="suno_web")
+    assert "edit" in web.entities_supported
+    with pytest.raises(ValidationError, match="unknown suno web operation"):
+        await web.write("generation", "add_instrumental", {"uploadUrl": "x"})
 
 
 async def test_extend_builds_body_and_targets_correct_path(

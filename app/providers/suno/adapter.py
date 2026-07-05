@@ -17,14 +17,36 @@ import re
 from pathlib import Path
 from typing import Any, ClassVar
 
-from app.providers.suno import endpoints
+from app.providers.suno import endpoints, endpoints_web
 from app.providers.suno.client import SunoClient
 from app.providers.suno.client_errors import AuthFailedError, SunoError
 from app.providers.suno.endpoints import Endpoint, pull_field
+from app.providers.suno.endpoints_web import WebWrite, build_web_body
 from app.shared.errors import ValidationError
 
 _SAFE_NAME_RE = re.compile(r'[\\/:*?"<>|\x00-\x1f]+')
 _SUNOAPI_MODELS = {"V4", "V4_5", "V4_5PLUS", "V4_5ALL", "V5", "V5_5"}
+
+
+def _merge_ops(*sources: dict[str, tuple[str, ...]]) -> dict[str, tuple[str, ...]]:
+    """Union of entity -> operations across surfaces (order-preserving)."""
+    merged: dict[str, list[str]] = {}
+    for src in sources:
+        for entity, ops in src.items():
+            bucket = merged.setdefault(entity, [])
+            for op in ops:
+                if op not in bucket:
+                    bucket.append(op)
+    return {k: tuple(v) for k, v in merged.items()}
+
+
+# Full advertised surface = union of the sunoapi.org + browser-web surfaces.
+_ALL_ENTITIES: tuple[str, ...] = tuple(
+    dict.fromkeys((*endpoints.sunoapi_entities(), *endpoints_web.suno_web_entities()))
+)
+_ALL_OPERATIONS: dict[str, tuple[str, ...]] = _merge_ops(
+    endpoints.sunoapi_operations(), endpoints_web.suno_web_operations()
+)
 
 
 def _require(params: dict[str, Any], *keys: str, op: str) -> tuple[Any, ...]:
@@ -44,12 +66,12 @@ def _safe_filename(name: str, max_len: int = 120) -> str:
 class SunoAdapter:
     name: str = "suno"
 
-    # Class-level defaults advertise the FULL sunoapi.org capability surface
-    # (used by schema introspection + prompt content-correctness tests). Each
-    # instance narrows these in __init__ to match its runtime payload_mode
-    # (session mode exposes only generation/account).
-    entities_supported: tuple[str, ...] = endpoints.sunoapi_entities()
-    operations_supported: dict[str, tuple[str, ...]] = endpoints.sunoapi_operations()
+    # Class-level defaults advertise the FULL capability surface (union of the
+    # sunoapi.org + browser-web surfaces) for schema introspection + prompt
+    # content-correctness tests. Each instance narrows these in __init__ to
+    # match its runtime payload_mode.
+    entities_supported: tuple[str, ...] = _ALL_ENTITIES
+    operations_supported: dict[str, tuple[str, ...]] = _ALL_OPERATIONS
 
     _ID_KEYS: ClassVar[tuple[str, ...]] = (
         "id",
@@ -79,6 +101,9 @@ class SunoAdapter:
         if payload_mode == "sunoapi":
             self.entities_supported = endpoints.sunoapi_entities()
             self.operations_supported = endpoints.sunoapi_operations()
+        elif payload_mode == "suno_web":
+            self.entities_supported = endpoints_web.suno_web_entities()
+            self.operations_supported = endpoints_web.suno_web_operations()
         else:
             self.entities_supported = ("generation", "account")
             self.operations_supported = {"generation": ("create", "cancel", "download")}
@@ -93,6 +118,9 @@ class SunoAdapter:
             return self._normalize_generation(raw)
         if entity == "account":
             return await self._read_account()
+
+        if self._payload_mode == "suno_web":
+            return await self._web_read(entity, id, params)
 
         self._require_sunoapi(f"read {entity!r}")
         rec: endpoints.TaskRead | None
@@ -121,6 +149,9 @@ class SunoAdapter:
                     return self._normalize_generation(raw)
                 case _:  # download
                     return await self._download_generation(params)
+
+        if self._payload_mode == "suno_web":
+            return await self._web_write(entity, operation, params)
 
         self._require_sunoapi(f"{entity}.{operation}")
         ep = endpoints.WRITE.get((entity, operation))
@@ -155,6 +186,103 @@ class SunoAdapter:
                 "DJ_SUNO_PAYLOAD_MODE defaults to sunoapi); "
                 f"current payload_mode={self._payload_mode!r}"
             )
+
+    # ── Suno web (browser-session) generic dispatch ──────────────────────────
+
+    async def _web_write(
+        self, entity: str, operation: str, params: dict[str, Any]
+    ) -> dict[str, Any]:
+        if entity == "generation" and operation == "extend":
+            return await self._web_extend(params)
+        ep = endpoints_web.WEB_WRITE.get((entity, operation))
+        if ep is None:
+            raise ValidationError(
+                f"unknown suno web operation {entity}.{operation}; supported: "
+                f"{self.operations_supported.get(entity, ())}"
+            )
+        path = ep.path
+        for pp in ep.path_params:
+            val = pull_field(params, pp)
+            if val in (None, ""):
+                raise ValidationError(f"suno {entity}.{operation} requires path param {pp!r}")
+            path = path.replace("{" + pp + "}", str(val))
+        body = build_web_body(params, ep)
+        raw = await self._client.api_call(ep.method, path, json=body)
+        return self._normalize_web(raw, entity, operation, ep)
+
+    async def _web_extend(self, params: dict[str, Any]) -> dict[str, Any]:
+        continue_clip_id, continue_at = _require(
+            params, "continue_clip_id", "continue_at", op="generation.extend"
+        )
+        instrumental = bool(params.get("instrumental", True))
+        payload: dict[str, Any] = {
+            "make_instrumental": instrumental,
+            "mv": str(params.get("model") or self._default_model or "chirp-auk-turbo"),
+            "prompt": str(params.get("lyrics") or ""),
+            "gpt_description_prompt": str(params.get("prompt") or params.get("description") or ""),
+            "tags": self._stringify_tags(params.get("tags") or params.get("style")),
+            "title": str(params.get("title") or ""),
+            "continue_clip_id": str(continue_clip_id),
+            "continue_at": continue_at,
+            "task": "extend",
+            "generation_type": "TEXT",
+            "metadata": {"create_mode": "SIMPLE", "lyrics_model": "default"},
+        }
+        if params.get("negative_tags"):
+            payload["negative_tags"] = self._stringify_tags(params["negative_tags"])
+        payload.update(params.get("extra") or {})
+        raw = await self._client.create_generation(payload)
+        return self._normalize_generation(raw)
+
+    async def _web_read(
+        self, entity: str, id: str | None, params: dict[str, Any]
+    ) -> dict[str, Any]:
+        if entity == "clip":
+            kind = str(params.get("kind") or "info")
+            rd = endpoints_web.CLIP_READ_KINDS.get(kind)
+            if rd is None:
+                raise ValidationError(
+                    f"unknown suno clip read kind {kind!r}; supported: "
+                    f"{sorted(endpoints_web.CLIP_READ_KINDS)}"
+                )
+            if id is None:
+                raise ValidationError("suno clip read requires id")
+            raw = await self._client.api_call("GET", rd.path.replace("{id}", str(id)))
+            return {"entity": "clip", "kind": kind, "clip_id": str(id), "data": raw, "raw": raw}
+        if entity == "persona" and id is None:
+            raw = await self._client.api_call("GET", "/api/persona/get-personas/")
+            return {"entity": "persona", "kind": "list", "data": raw, "raw": raw}
+        rd = endpoints_web.WEB_READ.get(entity)
+        if rd is None:
+            raise ValidationError(
+                f"unknown suno web read entity {entity!r}; supported: "
+                f"{sorted(('generation', 'account', 'clip', *endpoints_web.WEB_READ))}"
+            )
+        if id is None:
+            raise ValidationError(f"suno {entity!r} read requires id")
+        raw = await self._client.api_call("GET", rd.path.replace("{id}", str(id)))
+        return self._normalize_task(raw, entity, "read")
+
+    def _normalize_web(
+        self, raw: Any, entity: str, operation: str, ep: WebWrite
+    ) -> dict[str, Any]:
+        if ep.empty_ok and (not raw or raw == {}):
+            return {"entity": entity, "operation": operation, "status": "accepted"}
+        if not isinstance(raw, dict):
+            return {"entity": entity, "operation": operation, "data": raw, "raw": raw}
+        result: dict[str, Any] = {"entity": entity, "operation": operation, "raw": raw}
+        if ep.poll_key and raw.get(ep.poll_key):
+            result["generation_id"] = str(raw[ep.poll_key])
+            result[ep.poll_key] = raw[ep.poll_key]
+        else:
+            clip_ids = SunoAdapter._extract_clip_ids(raw)
+            gid = clip_ids[0] if clip_ids else SunoAdapter._extract_id(raw)
+            if gid:
+                result["generation_id"] = str(gid)
+            if clip_ids:
+                result["clip_ids"] = clip_ids
+        result["status"] = raw.get("status")
+        return result
 
     def _build_body(self, params: dict[str, Any], ep: Endpoint, *, op: str) -> dict[str, Any]:
         body: dict[str, Any] = dict(params.get("extra") or {})
