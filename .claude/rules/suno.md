@@ -172,12 +172,25 @@ ask the user to refresh credentials.
   returns 2 stem clips (Vocals + Instrumental) → poll their ids via
   `generation` read → download each `audio_url` (stems come at ~64 kbps).
   All verified live 2026-07-06.
-- **Web audio UPLOAD flow is NOT implemented (known gap).** suno.com uploads
-  external audio via an **Uppy S3 multipart presigned** sequence
-  (`/api/uploads/audio/` create → `prepareUploadParts`/`signPart` → S3
-  `PutObject`/`UploadPart` → `upload-finish` → `initialize-clip{downbeats}`),
-  not a simple POST. Reimplementing it reliably needs a live capture of the
-  Uppy request sequence (declined in favour of the community-repo path), so
-  `upload_cover`/`upload_extend`/stems-on-uploaded-audio are web-mode gaps.
-  The sunoapi.org mode (`endpoints.py`) DOES cover upload-cover/upload-extend
-  via a plain `uploadUrl` field when an api_key exists.
+- **Web audio UPLOAD flow — contract known, last step blocked (2026-07-06).**
+  Reverse-engineered + live-verified: it is a **standard AWS S3 presigned POST**
+  (NOT Uppy multipart — Uppy is only the large-file path). Sequence:
+  1. `POST /api/uploads/audio/` (empty body) -> `{id, url, fields}` where
+     `url` = `https://suno-uploads.s3.amazonaws.com/` and `fields` is the S3
+     presigned form (`key=raw_uploads/{id}.mp3`, `Content-Type`, AWS creds…).
+     **verified 200.**
+  2. `POST <url>` as multipart/form-data with all `fields` + `file=<bytes>`.
+     **verified 204** (real mp3 lands in S3).
+  3. `POST /api/uploads/audio/{id}/upload-finish/`
+     `{upload_type:"file_upload", upload_filename:"…"}`. **verified 200**;
+     `GET /api/uploads/audio/{id}/` status then advances
+     `processing -> passed_audio_processing`.
+  4. `POST /api/uploads/audio/{id}/initialize-clip/` `{downbeats:[…]}` ->
+     `{clip_id}`. **BLOCKER: returns 400 with `{downbeats:[]}` even after
+     audio processing passes.** The web client computes a real `downbeats`
+     array (client-side beat detection) and passes it here; an empty/absent
+     array is rejected. Finishing this needs the plugin to compute downbeats
+     (librosa can) in Suno's exact format — a real handler, not a contract fix.
+  Until step 4 is solved, `upload_cover`/`upload_extend`/stems-on-uploaded-audio
+  are web-mode gaps. The sunoapi.org mode (`endpoints.py`) DOES cover
+  upload-cover/upload-extend via a plain `uploadUrl` field when an api_key exists.
