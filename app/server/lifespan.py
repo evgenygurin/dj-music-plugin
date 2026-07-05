@@ -21,12 +21,16 @@ from fastmcp.server.lifespan import lifespan
 from app.audio.analyzers import AnalyzerRegistry
 from app.audio.pipeline import AnalysisPipeline
 from app.config import get_settings
+from app.config.suno import SunoSettings
 from app.db.session import get_engine, get_session_factory
 from app.domain.optimization import ConstructiveSlotBuilder, GeneticAlgorithm, GreedyChainBuilder
 from app.domain.transition.scorer import TransitionScorer
 from app.providers.beatport.adapter import BeatportAdapter
 from app.providers.beatport.client import BeatportClient
 from app.providers.beatport.rate_limiter import TokenBucketRateLimiter as BeatportRateLimiter
+from app.providers.suno.adapter import SunoAdapter
+from app.providers.suno.client import SunoClient
+from app.providers.suno.session_auth import SunoSessionCredentials
 from app.providers.yandex.adapter import YandexAdapter
 from app.providers.yandex.client import YandexClient
 from app.providers.yandex.rate_limiter import TokenBucketRateLimiter
@@ -89,6 +93,50 @@ def build_beatport_adapter() -> BeatportAdapter | None:
     )
 
 
+def build_suno_adapter() -> SunoAdapter | None:
+    """Build the Suno-compatible generation adapter, or None if disabled."""
+    suno = SunoSettings()
+    if not suno.enabled:
+        return None
+    session_auth = None
+    if suno.use_session_auth:
+        session_auth = SunoSessionCredentials(
+            cookie_header=suno.cookie_header,
+            client_token=suno.client_token,
+            device_id=suno.device_id,
+            bearer_token=suno.bearer_token,
+            storage_state_path=Path(suno.storage_state_path),
+        )
+    client = SunoClient(
+        api_key=suno.api_key,
+        base_url=suno.effective_base_url,
+        generate_path=suno.generate_path,
+        status_path=suno.status_path,
+        cancel_path=suno.cancel_path,
+        download_path=suno.download_path,
+        captcha_check_path=suno.captcha_check_path,
+        account_path=suno.account_path,
+        auth_header=suno.auth_header,
+        auth_scheme=suno.auth_scheme,
+        session_auth=session_auth,
+        clerk_url=suno.clerk_url,
+        clerk_api_version=suno.clerk_api_version,
+        clerk_js_version=suno.clerk_js_version,
+        rate_limiter=TokenBucketRateLimiter(
+            delay_s=suno.rate_limit_delay_s,
+            max_retries=suno.retry_attempts,
+        ),
+        timeout_s=suno.timeout_s,
+    )
+    download_dir = Path(suno.download_dir) if suno.download_dir else None
+    return SunoAdapter(
+        client=client,
+        default_model=suno.model,
+        payload_mode=suno.payload_mode,
+        download_dir=download_dir,
+    )
+
+
 class TransitionCache:
     """In-memory LRU-ish placeholder — Phase 5 will replace with real impl."""
 
@@ -127,6 +175,9 @@ async def provider_lifespan(app: Any) -> AsyncIterator[dict[str, Any]]:
     beatport = build_beatport_adapter()
     if beatport is not None:
         registry.register(beatport)
+    suno = build_suno_adapter()
+    if suno is not None:
+        registry.register(suno)
     try:
         yield {"provider_registry": registry}
     finally:

@@ -21,7 +21,7 @@ from app.shared.types import JsonDictOrNone
     annotations={"readOnlyHint": True, "openWorldHint": True, "idempotentHint": True},
     description=(
         "Read from external music platform. entity=track|album|playlist|artist_tracks|"
-        "track_similar|track_batch|likes|dislikes|playlist_list."
+        "track_similar|track_batch|likes|dislikes|playlist_list|generation|account."
     ),
     meta={"timeout_s": 30.0},
     timeout=30.0,

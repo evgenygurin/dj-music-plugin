@@ -31,7 +31,7 @@ dj-music-plugin/
 ├── docs/                           # Архитектурная документация
 │   ├── architecture.md             # Bounded contexts, data flow
 │   ├── domain-glossary.md
-│   ├── tool-catalog.md             # 20 tools + 27 resources + 30 prompts
+│   ├── tool-catalog.md             # 20 tools + 27 resources + 31 prompts
 │   ├── audio-pipeline.md
 │   ├── ym-api-guide.md
 │   ├── transition-scoring.md

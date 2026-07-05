@@ -49,6 +49,27 @@ async def test_provider_lifespan_registers_yandex() -> None:
 
 
 @pytest.mark.asyncio
+async def test_provider_lifespan_registers_suno_when_enabled() -> None:
+    fake_yandex = MagicMock()
+    fake_yandex.name = "yandex"
+    fake_yandex.close = AsyncMock()
+    fake_suno = MagicMock()
+    fake_suno.name = "suno"
+    fake_suno.close = AsyncMock()
+    with (
+        patch("app.server.lifespan.build_yandex_adapter", return_value=fake_yandex),
+        patch("app.server.lifespan.build_beatport_adapter", return_value=None),
+        patch("app.server.lifespan.build_suno_adapter", return_value=fake_suno),
+    ):
+        async with provider_lifespan(MagicMock()) as ctx:
+            registry = ctx["provider_registry"]
+            assert registry.default() is fake_yandex
+            assert registry.get("suno") is fake_suno
+        fake_yandex.close.assert_awaited_once()
+        fake_suno.close.assert_awaited_once()
+
+
+@pytest.mark.asyncio
 async def test_audio_lifespan_yields_registry_and_pipeline() -> None:
     async with audio_lifespan(MagicMock()) as ctx:
         assert "analyzer_registry" in ctx

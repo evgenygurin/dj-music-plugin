@@ -4,7 +4,7 @@ All prompts return ``fastmcp.prompts.PromptResult`` — the v3 type.
 Prompts must NOT import repositories, tools, or providers directly — they
 are pure text builders chaining the Phase 3 tool surface.
 
-Modules in this package (all discovered by FSP). 19 workflow prompts cover
+Modules in this package (all discovered by FSP). Workflow prompts cover
 the full DJ lifecycle — see
 ``docs/research/2026-06-22-techno-set-construction-and-mcp-prompts.md`` for
 the design rationale.
@@ -42,6 +42,10 @@ Discovery & ops (3):
 - ``crate_digging_workflow``   — discovery-first digging + curation
 - ``taste_profile_workflow``   — feedback/affinity taste memory
 - ``playlist_sync_workflow``   — pull/push/diff with YM (conflict gate)
+
+Generation (1):
+
+- ``suno_set_asset_workflow``  — generate intro/bridge/outro/rescue assets
 
 Prompts are pure text-builders — they MUST NOT import repositories, tools,
 or providers. Every entity / provider / field-preset name referenced in a
