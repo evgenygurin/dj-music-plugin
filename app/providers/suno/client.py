@@ -34,6 +34,10 @@ class SunoClient:
         "audioUrl",
         "download_url",
         "downloadUrl",
+        "streamAudioUrl",
+        "stream_audio_url",
+        "sourceAudioUrl",
+        "source_audio_url",
         "url",
     )
 
@@ -48,6 +52,7 @@ class SunoClient:
         download_path: str = "",
         captcha_check_path: str = "/api/c/check",
         account_path: str = "/api/billing/info/",
+        upload_base_url: str = "https://sunoapiorg.redpandaai.co",
         auth_header: str = "Authorization",
         auth_scheme: str = "Bearer",
         session_auth: SunoSessionCredentials | None = None,
@@ -65,6 +70,7 @@ class SunoClient:
         self._download_path = download_path
         self._captcha_check_path = captcha_check_path
         self._account_path = account_path
+        self._upload_base_url = upload_base_url.rstrip("/")
         self._auth_header = auth_header
         self._auth_scheme = auth_scheme
         self._session_auth = session_auth
@@ -225,6 +231,16 @@ class SunoClient:
         content_type = resp.headers.get("content-type", "")
         if "application/json" in content_type:
             payload = resp.json()
+            if isinstance(payload, dict) and "code" in payload:
+                code = payload.get("code")
+                if code not in (None, 200):
+                    message = str(payload.get("msg") or payload.get("message") or "")
+                    if code in (401, 403):
+                        raise AuthFailedError(f"auth failed: {code}: {message}")
+                    if code in (405, 429, 430):
+                        await self._rate_limiter.on_rate_limited()
+                        raise RateLimitedError(f"rate limited: {code}: {message}")
+                    raise APIError(f"Suno API error {code}: {message}")
             return payload.get("data", payload) if isinstance(payload, dict) else payload
         return resp
 
@@ -238,9 +254,8 @@ class SunoClient:
 
     async def get_generation(self, generation_id: str) -> dict[str, Any]:
         payload = await self._request("GET", self._path(self._status_path, generation_id))
-        # Suno's /api/feed/v2/ returns {"clips": [...]}; the older /api/feed/
-        # returned a bare list. Unwrap either to the single clip dict so the
-        # adapter sees status + audio_url directly.
+        # Suno web /api/feed/v2/ returns {"clips": [...]}; SunoAPI returns a
+        # task object with response.sunoData. Unwrap only the web feed shape.
         if isinstance(payload, dict) and isinstance(payload.get("clips"), list):
             clips = payload["clips"]
             return cast(dict[str, Any], clips[0] if clips else {})
@@ -278,6 +293,8 @@ class SunoClient:
             )
 
     async def cancel_generation(self, generation_id: str) -> dict[str, Any]:
+        if not self._cancel_path:
+            raise APIError("cancel endpoint is not configured for this Suno provider")
         return cast(
             dict[str, Any],
             await self._request("POST", self._path(self._cancel_path, generation_id)),
@@ -288,7 +305,50 @@ class SunoClient:
         if not self._account_path:
             return {}
         payload = await self._request("GET", self._path(self._account_path))
+        if isinstance(payload, int):
+            return {"credits_left": payload}
         return cast(dict[str, Any], payload if isinstance(payload, dict) else {})
+
+    async def api_call(
+        self,
+        method: str,
+        path: str,
+        *,
+        json: Any = None,
+        params: dict[str, Any] | None = None,
+        data: dict[str, Any] | None = None,
+        files: dict[str, Any] | None = None,
+        absolute: bool = False,
+    ) -> Any:
+        """Generic sunoapi.org REST call — reuses auth, rate limit, error mapping.
+
+        ``absolute=True`` passes ``path`` through untouched (used for the
+        file-upload host, which differs from ``base_url``). Otherwise the path
+        is normalized against the configured base URL.
+        """
+        url = path if absolute else self._path(path)
+        kwargs: dict[str, Any] = {}
+        if json is not None:
+            kwargs["json"] = json
+        if params is not None:
+            kwargs["params"] = params
+        if data is not None:
+            kwargs["data"] = data
+        if files is not None:
+            kwargs["files"] = files
+        return await self._request(method, url, **kwargs)
+
+    async def upload_file(
+        self,
+        path: str,
+        *,
+        json: dict[str, Any] | None = None,
+        data: dict[str, Any] | None = None,
+        files: dict[str, Any] | None = None,
+    ) -> Any:
+        """POST to the file-upload host (``upload_base_url``, off the API host)."""
+        url = f"{self._upload_base_url}/{path.lstrip('/')}"
+        return await self.api_call("POST", url, json=json, data=data, files=files, absolute=True)
 
     async def download_generation(
         self,
@@ -336,7 +396,16 @@ class SunoClient:
             if isinstance(value, str) and value:
                 return value
 
-        for container_key in ("data", "clips", "tracks", "generations", "items", "results"):
+        for container_key in (
+            "data",
+            "response",
+            "sunoData",
+            "clips",
+            "tracks",
+            "generations",
+            "items",
+            "results",
+        ):
             value = payload.get(container_key)
             if isinstance(value, list):
                 for item in value:

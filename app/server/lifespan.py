@@ -110,12 +110,13 @@ def build_suno_adapter() -> SunoAdapter | None:
     client = SunoClient(
         api_key=suno.api_key,
         base_url=suno.effective_base_url,
-        generate_path=suno.generate_path,
-        status_path=suno.status_path,
-        cancel_path=suno.cancel_path,
+        generate_path=suno.effective_generate_path,
+        status_path=suno.effective_status_path,
+        cancel_path=suno.effective_cancel_path,
         download_path=suno.download_path,
         captcha_check_path=suno.captcha_check_path,
-        account_path=suno.account_path,
+        account_path=suno.effective_account_path,
+        upload_base_url=suno.upload_base_url,
         auth_header=suno.auth_header,
         auth_scheme=suno.auth_scheme,
         session_auth=session_auth,
@@ -132,8 +133,9 @@ def build_suno_adapter() -> SunoAdapter | None:
     return SunoAdapter(
         client=client,
         default_model=suno.model,
-        payload_mode=suno.payload_mode,
+        payload_mode=suno.effective_payload_mode,
         download_dir=download_dir,
+        callback_url=suno.callback_url,
     )
 
 
