@@ -1,39 +1,92 @@
 # Suno Provider (opt-in)
 
 Generation provider for DJ-utility assets (intro/outro/bridge/rescue loops).
-Code under `app/providers/suno/` — `client.py` (httpx wrapper + Clerk bearer),
-`adapter.py` (Provider protocol), `session_auth.py` (no-browser credential
-loader), `client_errors.py`. Config: `app/config/suno.py` (`DJ_SUNO_*`). Wired
-in `app/server/lifespan.py:build_suno_adapter` (registered only when
-`SunoSettings.enabled`). Prompt: `suno_set_asset_workflow`.
+Code under `app/providers/suno/` — `client.py` (httpx wrapper + API/Clerk auth,
+generic `api_call` / `upload_file`), `adapter.py` (Provider protocol),
+`endpoints.py` (declarative sunoapi.org endpoint registry), `session_auth.py`
+(no-browser credential loader), `client_errors.py`. Config: `app/config/suno.py`
+(`DJ_SUNO_*`). Wired in `app/server/lifespan.py:build_suno_adapter` (registered
+only when `SunoSettings.enabled`). Prompt: `suno_set_asset_workflow`.
 
-## Adapter surface (`ProviderRegistry` name `suno`)
+## Two surfaces, one adapter (mode-gated)
 
-- `read(entity, id, params)` — entities: `generation` (poll a clip by id),
-  `account` (live balance + capabilities).
+The adapter surface is **mode-dependent** (`SunoAdapter.entities_supported` /
+`operations_supported` are set from `payload_mode` in `__init__`):
+
+- **session** (browser Suno web, `studio-api-prod.suno.com`) — **project
+  default**. Minimal surface: `generation` × `create|cancel|download` +
+  `account` read + `generation` read.
+- **sunoapi** (`api.sunoapi.org`, `api_key` mode) — **full sunoapi.org REST
+  surface** below. Endpoints declared in `endpoints.py` from the sunoapi.org
+  OpenAPI specs. These do NOT exist on the browser host — calling a
+  sunoapi-only op in session mode raises a typed `ValidationError`
+  ("requires api_key/sunoapi mode").
+
+Fields use the documented **camelCase** names; the adapter's `pull_field` also
+accepts snake_case (`audio_id`→`audioId`) + explicit aliases
+(`callback_url`→`callBackUrl`, `calBackUrl`). `callBackUrl` is injected from
+`DJ_SUNO_CALLBACK_URL` (default empty — the DJ flow polls, callbacks optional);
+`model` is injected/coerced to each endpoint's allowed enum.
+
+## Adapter surface — session mode (`ProviderRegistry` name `suno`)
+
+- `read(entity, id, params)` — entities: `generation` (poll a task/clip by id),
+  `account` (live balance + capabilities + `payload_mode`).
 - `write(entity="generation", operation, params)`:
   - `create` — params: `prompt` (REQUIRED, non-empty), `title?`, `tags?`
     (list|str), `instrumental?`, `model?`, `negative_tags?`, `lyrics?`,
-    `extra?`. Returns `generation_id` (first clip, pollable), `clip_ids`,
-    `batch_id`, `status`, `request` echo.
+    `extra?`. Returns `generation_id` (SunoAPI task id or first web clip),
+    `clip_ids`, `batch_id`, `status`, `request` echo.
   - `cancel` — params: `generation_id`.
   - `download` — params: `generation_id`, `target_dir?`, `title?`, `filename?`,
     `suffix?` (.mp3), `audio_url?`. Returns `file_path`, `file_size`.
 - `search` / catalog is unsupported (raises `ValidationError`).
 
-## Auth (no-browser session)
+## Adapter surface — sunoapi.org mode (adds, on top of the above)
 
-Suno uses **header-based Clerk with no persisted `__session` cookie**. Modes:
+Task creates return `{task_id, status, ready, audio_url, raw}` (poll the task
+via `read`). All `write` unless noted.
 
-- **session** (default): `DJ_SUNO_COOKIE_HEADER` and/or `DJ_SUNO_BEARER_TOKEN` /
+- `generation` × `extend | upload_cover | upload_extend | add_instrumental |
+  add_vocals | mashup | replace_section | sounds` — the documented generate
+  variants (`/api/v1/generate/*`). Poll via `read(entity="generation", id=taskId)`.
+- `lyrics` × `create` (`/api/v1/lyrics`) + `timestamped`
+  (`/api/v1/generate/get-timestamped-lyrics`); `read` → `/api/v1/lyrics/record-info`.
+- `wav` × `create` (`/api/v1/wav/generate`); `read` → `/api/v1/wav/record-info`.
+- `vocal_removal` (stem separation) × `create` (`type=separate_vocal|split_stem`);
+  `read` → `/api/v1/vocal-removal/record-info`.
+- `midi` × `create`; `read` → `/api/v1/midi/record-info`.
+- `video` (mp4) × `create`; `read` → `/api/v1/mp4/record-info`.
+- `cover` (album art) × `create` (`/api/v1/suno/cover/generate`); `read` →
+  `/api/v1/suno/cover/record-info`.
+- `persona` × `create` (`/api/v1/generate/generate-persona`, sync).
+- `style` × `boost` (`/api/v1/style/generate`, sync, `content` only).
+- `voice` (custom voice) × `validate | generate | regenerate | check`;
+  `read(entity="voice", id, params={"kind":"validate"|"record"})` →
+  `/api/v1/voice/validate-info` or `/api/v1/voice/record-info`.
+- `file` × `upload_base64 | upload_url | upload_stream` — targets the separate
+  file-upload host (`DJ_SUNO_UPLOAD_BASE_URL`, default
+  `https://sunoapiorg.redpandaai.co`). `upload_stream` reads `local_path` and
+  posts multipart. Returns `{upload_url, raw}`.
+
+## Auth modes
+
+- **session / Suno web** (project default): `DJ_SUNO_COOKIE_HEADER` and/or
+  `DJ_SUNO_BEARER_TOKEN` /
   `DJ_SUNO_CLIENT_TOKEN` + `DJ_SUNO_DEVICE_ID`, or a JSON
   `DJ_SUNO_STORAGE_STATE_PATH`. Client sends `Cookie`, `Origin/Referer`
   (`https://suno.com`), `browser-token`, `device-id`, and
-  `Authorization: Bearer <jwt>`.
-- **api_key** (`DJ_SUNO_AUTH_MODE=api_key` + `DJ_SUNO_PAYLOAD_MODE=generic`):
-  generic bearer/API path for Suno-compatible providers.
+  `Authorization: Bearer <jwt>`. Payload mode defaults to `suno_web`.
+- **api_key / SunoAPI** (opt-in only when a key exists): set
+  `DJ_SUNO_AUTH_MODE=api_key` + `DJ_SUNO_API_KEY`. `DJ_SUNO_BASE_URL` is
+  optional and defaults to `https://api.sunoapi.org`. Payload mode defaults to
+  `sunoapi`; generation uses `POST /api/v1/generate`, status uses
+  `GET /api/v1/generate/record-info?taskId=...`, and credits use
+  `GET /api/v1/generate/credit`.
+- **generic**: `DJ_SUNO_PAYLOAD_MODE=generic` remains available only for
+  non-SunoAPI-compatible providers with custom endpoint shapes.
 
-**Bearer lifetime ~1 h.** A cookie-only `.env` cannot mint a bearer
+For session mode, bearer lifetime is ~1 h. A cookie-only `.env` cannot mint a bearer
 server-side (`/v1/client` reports zero sessions for this account), so the live
 JWT comes from the browser. Refresh with
 `uv run python scripts/suno_refresh_token.py` (needs Chrome open + logged into
@@ -41,7 +94,26 @@ suno.com + View ▸ Developer ▸ "Allow JavaScript from Apple Events"). Never
 launch Playwright/OAuth from the plugin; never bypass CAPTCHA/2FA — pause and
 ask the user to refresh credentials.
 
-## Verified-live contract (2026-07-05) — see [[project_suno_live_api_contract]]
+## SunoAPI contract (`docs.sunoapi.org`, 2026-07-05)
+
+- **auth**: `Authorization: Bearer <DJ_SUNO_API_KEY>`.
+- **create**: `POST /api/v1/generate`. Required fields:
+  `customMode`, `instrumental`, `callBackUrl`, `model`. In custom mode, send
+  `style` and `title`; send `prompt` when vocals/lyrics are requested.
+- **status**: `GET /api/v1/generate/record-info?taskId={taskId}`. Response
+  status values include `PENDING`, `TEXT_SUCCESS`, `FIRST_SUCCESS`, `SUCCESS`,
+  and documented failure states. Audio variants live under
+  `response.sunoData[]` with `id`, `audioUrl`, `streamAudioUrl`, `title`,
+  `tags`, and `duration`.
+- **credits**: `GET /api/v1/generate/credit` returns the remaining credit count
+  as `data`.
+- **cancel**: not present in the public SunoAPI OpenAPI spec. The adapter keeps
+  `operation="cancel"` for legacy web/generic providers only; API-key mode has
+  no cancel endpoint unless `DJ_SUNO_CANCEL_PATH` is explicitly configured.
+- **models**: `V4`, `V4_5`, `V4_5PLUS`, `V4_5ALL`, `V5`, `V5_5`. If a legacy
+  `chirp-*` model leaks into `sunoapi` mode, the adapter falls back to `V4_5`.
+
+## Suno web session contract (2026-07-05) — see [[project_suno_live_api_contract]]
 
 - **create `POST /api/generate/v2-web/`, FLAT payload** (NOT wrapped in
   `params`). `prompt` must be non-empty (empty string reads as `missing`).

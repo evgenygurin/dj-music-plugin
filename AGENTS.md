@@ -45,19 +45,25 @@ This project is indexed by GitNexus as **dj-music-plugin** (9724 symbols, 16198 
 
 ## Project Routing
 
-- Suno используй как opt-in provider в режиме no-browser session auth:
+- Suno используй как opt-in provider в текущем проектном режиме no-browser
+  session auth:
   `DJ_SUNO_COOKIE_HEADER` или `DJ_SUNO_BEARER_TOKEN`/`DJ_SUNO_CLIENT_TOKEN`
-  плюс `DJ_SUNO_DEVICE_ID`; можно загрузить JSON из `DJ_SUNO_STORAGE_STATE_PATH`.
-  Практичный browser export формат: Cookie header с `__session`, `__client`
-  и `suno_device_id` или `ajs_anonymous_id`.
+  плюс `DJ_SUNO_DEVICE_ID`; можно загрузить JSON из
+  `DJ_SUNO_STORAGE_STATE_PATH`. Практичный browser export формат: Cookie header
+  с `__session`, `__client` и `suno_device_id` или `ajs_anonymous_id`.
 - Не запускай Playwright/browser-login из плагина. Пользователь проходит
   Google/Suno OAuth в своем браузере, а MCP provider использует уже готовые
   Suno/Clerk session credentials.
 - Session путь работает через Suno web API:
   `https://studio-api-prod.suno.com` + `https://auth.suno.com`, Clerk Bearer
-  token, `browser-token` и `device-id`. Не заменяй его generic
-  `/v1/generations`, если пользователь явно не включил
-  `DJ_SUNO_PAYLOAD_MODE=generic`.
+  token, `browser-token` и `device-id`. Не заменяй его старым generic
+  `/v1/generations`; generic mode оставлен только для явно заданных
+  Suno-compatible провайдеров с кастомным endpoint shape.
+- SunoAPI из `docs.sunoapi.org` поддержан только opt-in, когда реально есть
+  `DJ_SUNO_AUTH_MODE=api_key` + `DJ_SUNO_API_KEY`: default base
+  `https://api.sunoapi.org`, create `/api/v1/generate`, polling
+  `/api/v1/generate/record-info?taskId=...`, credits `/api/v1/generate/credit`,
+  payload mode `sunoapi`.
 - Не пытайся обходить CAPTCHA/2FA. Если Suno/Google просит ручное действие,
   остановись и попроси пользователя обновить session credentials после
   завершения проверки в браузере.
