@@ -116,6 +116,13 @@ end tell
     return None, f"unexpected result: {out[:120]}"
 
 
+def _env_quote(value: str) -> str:
+    """Single-quote a value so `set -a; source .env` (the plugin's MCP launch
+    command) doesn't choke on cookie/JWT specials (`;`, `&`, `(`, spaces).
+    pydantic-settings strips the surrounding quotes on read."""
+    return "'" + value.replace("'", "'\\''") + "'"
+
+
 def _write_env(env_path: Path, token: str) -> None:
     lines = env_path.read_text().splitlines() if env_path.exists() else []
     key = "DJ_SUNO_BEARER_TOKEN"
@@ -123,7 +130,7 @@ def _write_env(env_path: Path, token: str) -> None:
         (i for i, ln in enumerate(lines) if ln.split("=", 1)[0] == key and not ln.startswith("#")),
         None,
     )
-    newline = f"{key}={token}"
+    newline = f"{key}={_env_quote(token)}"
     if idx is not None:
         lines[idx] = newline
     else:
