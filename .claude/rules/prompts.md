@@ -98,3 +98,25 @@ detection is spectral proxies), no `LOOP_ROLL` presets,
 downbeat/cue/loop tables are empty, MP3s download only under
 `deliver_set_workflow`. See `docs/transition-scoring.md` § Known
 Limitations + `docs/audio-schema.md`.
+
+Techno-domain accuracy for set-building prompt bodies (BPM bands, scene
+overlays like schranz/psy-techno that are NOT `mood` enum values, key-shift
+boosts, cue contract, persona fallbacks): load
+`.claude/rules/dj-set-building.md` +
+`docs/research/2026-07-05-techno-2026-deltas-and-fastmcp-34.md` before editing
+any `*_set_workflow` / `dj_persona_workflow` / journey prompt. Reminder: only 7
+personas (`klock/dettmann/lens/dewitte/mills/hawtin/kraviz`) have a real preset;
+others fall back to `klock`.
+
+## FastMCP prompt-surface upgrade-watch
+
+Full delta: `docs/research/2026-07-05-techno-2026-deltas-and-fastmcp-34.md` §6.
+
+- Prompt bodies stay pure text builders; `PromptResult` gains a runtime `meta`
+  field usable for version stamping.
+- FileSystemProvider skips `_`-prefixed functions even when decorated — our
+  `_body()` helpers are safe by design; a broken file only warns (does not fail
+  startup), so `EXPECTED_PROMPTS` registration count stays a required gate.
+- **Testing:** docs recommend asserting `result.data` (hydrated typed object);
+  our `result.structured_content` canon stays valid but `result.data` gives a
+  typed check without manual parsing.

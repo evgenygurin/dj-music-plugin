@@ -163,3 +163,30 @@ async def entity_list(
   `entity_list(entity="transition", filters={"from_track_id__in": [...],
   "to_track_id__in": [...]})` — there is **no** `set_version_id` filter
   (transitions are keyed by track pair, not by version).
+
+## FastMCP upgrade-watch (pinned `>=3.2.4,<3.4`, current upstream 3.4.2)
+
+Full delta analysis:
+`docs/research/2026-07-05-techno-2026-deltas-and-fastmcp-34.md` §6. Load it
+before bumping the pin. Tool-surface highlights:
+
+- **`prefab-ui` must be pinned to an exact version** — official docs require it
+  (frequent breaking changes); the transitive `fastmcp[apps] → prefab_ui>=0.19`
+  violates that. Pin explicitly when upgrading.
+- **`ToolError` / `ResourceError` / `PromptError` pierce
+  `mask_error_details=True`** — user-facing errors must go through these (or
+  `DomainErrorMiddleware`), everything else is masked in prod.
+- **`ToolResult(is_error=True)` (3.4.0)** — soft errors returned (not raised)
+  that the LLM should see as a result; complements typed `ToolError`.
+- **`@tool(timeout=N)`** — standard slow-op guard; incompatible with
+  `run_in_thread=False`.
+- **Long ops (>120s, e.g. batch MP3 download) → candidate for `task=True`**
+  (SEP-1686) instead of UoW rollback on timeout; needs `fastmcp[tasks]` +
+  client support (Claude Code support **unconfirmed**). Until then batch under
+  the timeout (see `.claude/rules/audio.md` L5-finalization).
+- **Per-session visibility** `ctx.enable_components(tags=...)` sends
+  `list_changed`, but Claude Code caches the tool list — keep `tool_invoke` as
+  the escape hatch; do not rely on `unlock_namespace` mid-session.
+- **Component versioning** (`version=` + `VersionFilter`) + **tool
+  fingerprinting** (`sha256(tool.key + to_mcp_tool())` manifest) are the
+  canonical anti-drift paths for evolving tool contracts across plugin releases.
