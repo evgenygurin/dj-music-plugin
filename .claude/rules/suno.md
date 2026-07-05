@@ -185,21 +185,25 @@ ask the user to refresh credentials.
      `{upload_type:"file_upload", upload_filename:"…"}`. **verified 200**;
      `GET /api/uploads/audio/{id}/` status then advances
      `processing -> passed_audio_processing`.
-  4. `POST /api/uploads/audio/{id}/initialize-clip/` `{downbeats:[…]}` ->
-     `{clip_id}`. **BLOCKER: returns 400 (empty body) even after audio
-     processing passes AND even when replayed with a real 853-entry
-     `downbeats` array copied verbatim from a live Suno clip.** So `downbeats`
-     format is NOT the blocker — `initialize-clip` needs some other field /
-     project-context the minified bundle doesn't expose, and the empty 400
-     gives no signal to brute-force.
-  **Why it can't be finished with current tooling:** capturing the web app's
-  real `initialize-clip` request body is not possible from Control_Chrome —
-  the SPA bound `fetch` at load time, so a page-context `window.fetch`
-  override never sees its requests, and there is no CDP network-body access.
-  To finish: capture the real request via DevTools Network (filter
-  `initialize-clip`, do an upload, copy the Request Payload) or the
-  claude-in-chrome CDP extension, then match its body exactly.
-  Until step 4 is solved, `upload_cover`/`upload_extend`/stems-on-uploaded-audio
-  are web-mode gaps. The sunoapi.org mode (`endpoints.py`) DOES cover
-  upload-cover/upload-extend via a plain `uploadUrl` field when an api_key exists
-  — that is the working path for external-audio import.
+  4. `POST /api/uploads/audio/{id}/initialize-clip/` -> `{clip_id}`. Real body
+     (captured from a live 200 via DevTools): **`{"user_reviewed_tags":true}`**
+     (or `{}`) — NOT downbeats (the earlier bundle `{downbeats:d}` was a
+     different path). upload-finish body: `{"upload_type":"file_upload",
+     "upload_filename":"…"}`. The whole contract is confirmed against a real
+     browser 200.
+  **BLOCKER (final, 2026-07-06): `initialize-clip` is behind edge bot-detection
+  and cannot be called from automation.** An automated POST — with the exact
+  confirmed body, `upload-finish` body, `device-id`+`browser-token` headers,
+  `credentials:include`, real external 6-second audio that reaches
+  `passed_artist_moderation` — still returns **400 with `content-type:
+  text/html` and an EMPTY body**. That is not the Suno app (which answers
+  `application/json`); it is a Cloudflare/WAF reject before the app. The real
+  browser UI passes because it carries a full browser fingerprint
+  (`sec-ch-ua*`, `sec-fetch*`, `x-suno-client`, Datadog trace headers) and/or
+  a bot challenge. Matching that = **defeating bot-detection, which is
+  out-of-bounds** — so web-mode audio upload is intentionally NOT implemented.
+  Steps 1-3 (init -> S3 204 -> upload-finish -> `passed_artist_moderation`) are
+  all verified working from automation; only step 4 is bot-walled.
+  **Working path for external-audio import:** sunoapi.org mode
+  (`endpoints.py`) `upload_cover`/`upload_extend` take a plain public
+  `uploadUrl` and need only an api_key — no browser/bot-challenge.
