@@ -34,29 +34,45 @@ Inputs:
 - style_hint: {style_hint}
 - target_dir: {target_dir}
 
-1. Inspect the current set:
+1. Inspect the set and read the REAL per-track descriptors (never invent them):
    local://sets/{set_id}/full
    local://sets/{set_id}/review
    local://sets/{set_id}/cheatsheet
+   These carry each track's mood, BPM, key (Camelot / key_code) and LUFS.
+   Anchor every Suno prompt to these real numbers; {style_hint} is only a
+   fallback when a slot has no neighbouring track to match.
 
-2. Decide assets conservatively:
-   - intro: 30-90s, no lead hook that steals identity from track 1.
-   - bridge: 16-64 bars, match the surrounding BPM/key/energy and avoid
-     melodic claims that fight the next track.
-   - outro: 30-120s, de-escalates cleanly and leaves silence/room tone.
-   - rescue loop: only for weak/hard transitions that cannot be repaired by
-     replace_track_workflow or fix_transition_workflow.
+2. Derive a matched brief per asset from the NEIGHBOURING tracks (DB-driven):
+   - intro  -> match track 1's mood/BPM/key; start ~3-5 LUFS quieter so it
+              builds INTO track 1.
+   - bridge -> average the two tracks around the weak/hard transition: a BPM
+              between them, a key compatible with both (Camelot +/-1), energy
+              between their LUFS.
+   - outro  -> match the LAST track's mood/BPM, then de-escalate below it.
+   - rescue -> match the two tracks of the failing transition.
+   Map the project mood to Suno style tags + a library-measured BPM band:
+     dub_techno / ambient_dub ~123-125 (deep, spacious, dub chords, tape echo)
+     minimal ~126-128 (stripped, hypnotic, tight kick)
+     detroit ~127 (warm strings, machine soul)
+     melodic_deep / progressive ~124-126 (warm pads, emotive)
+     driving ~126 (rolling 909, propulsive)   hypnotic ~125 (repetitive, tunnel)
+     tribal ~129 (percussive)   peak_time ~132 (big, festival)
+     acid ~126 (303 resonance)   industrial ~125 (distorted, metallic)
+     raw ~139   hard_techno ~136 (fast, pounding)
+   Keep assets conservative: intro 30-90s (no lead hook that steals track 1's
+   identity), bridge 16-64 bars, outro 30-120s (dissolve to room tone), rescue
+   only where replace_track_workflow / fix_transition_workflow cannot repair.
 
-3. For each asset, create one generation:
+3. For each asset, create one generation with the DERIVED brief:
    provider_write(provider="suno", entity="generation", operation="create",
                   params={{
                     "title": "<set_id>-<slot>-<asset-kind>",
-                    "prompt": "<DJ utility prompt: style, BPM, energy, bars, no vocals>",
-                    "tags": ["{style_hint}", "dj-tool", "<asset-kind>"],
+                    "prompt": "<derived: mood + BPM + key + energy + bars, no vocals>",
+                    "tags": ["<derived mood/style tags>", "dj-tool", "<asset-kind>"],
                     "instrumental": true,
                     "duration_s": <seconds>,
-                    "bpm": <target bpm>,
-                    "key": "<camelot or musical key if useful>"
+                    "bpm": <derived target bpm>,
+                    "key": "<neighbour Camelot/key>"
                   }})
    Save the returned generation_id. In the default web-session mode,
    `generation_id` is the first pollable clip, `clip_ids` lists all variants,
