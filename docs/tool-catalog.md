@@ -87,6 +87,14 @@ Handlers wire side-effects on create/update/delete:
 - `playlist` × `add_tracks | remove_tracks | create | rename | delete`
 - `likes` × `add | remove`
 - `generation` × `create | cancel | download` (both Suno modes)
+- **Suno session/web mode** (`payload_mode=suno_web`, browser Suno; declared in
+  `app/providers/suno/endpoints_web.py`, reverse-engineered from the live
+  suno.com bundle + validated live): `generation` × `extend | concat`;
+  `stem` × `create | sample_pack`; `wav` × `create`; `edit` ×
+  `crop | fade | reverse`; `remaster` × `create`; `persona` × `create`;
+  `lyrics` × `create`; `playlist` × `create | add_tracks | remove_tracks`.
+  Reads add `clip` (`params.kind` ∈ info/stems/wav/downbeats/sections/waveform/
+  aligned_lyrics), `lyrics`, `persona`, `playlist`.
 - **SunoAPI mode only** (`DJ_SUNO_AUTH_MODE=api_key`):
   - `generation` × `extend | upload_cover | upload_extend | add_instrumental |
     add_vocals | mashup | replace_section | sounds`

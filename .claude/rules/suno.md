@@ -3,7 +3,8 @@
 Generation provider for DJ-utility assets (intro/outro/bridge/rescue loops).
 Code under `app/providers/suno/` — `client.py` (httpx wrapper + API/Clerk auth,
 generic `api_call` / `upload_file`), `adapter.py` (Provider protocol),
-`endpoints.py` (declarative sunoapi.org endpoint registry), `session_auth.py`
+`endpoints.py` (sunoapi.org registry), `endpoints_web.py` (browser-session Suno
+web registry), `session_auth.py`
 (no-browser credential loader), `client_errors.py`. Config: `app/config/suno.py`
 (`DJ_SUNO_*`). Wired in `app/server/lifespan.py:build_suno_adapter` (registered
 only when `SunoSettings.enabled`). Prompt: `suno_set_asset_workflow`.
@@ -28,19 +29,45 @@ accepts snake_case (`audio_id`→`audioId`) + explicit aliases
 `DJ_SUNO_CALLBACK_URL` (default empty — the DJ flow polls, callbacks optional);
 `model` is injected/coerced to each endpoint's allowed enum.
 
-## Adapter surface — session mode (`ProviderRegistry` name `suno`)
+## Adapter surface — session / suno_web mode (`ProviderRegistry` name `suno`)
 
-- `read(entity, id, params)` — entities: `generation` (poll a task/clip by id),
-  `account` (live balance + capabilities + `payload_mode`).
-- `write(entity="generation", operation, params)`:
-  - `create` — params: `prompt` (REQUIRED, non-empty), `title?`, `tags?`
-    (list|str), `instrumental?`, `model?`, `negative_tags?`, `lyrics?`,
-    `extra?`. Returns `generation_id` (SunoAPI task id or first web clip),
-    `clip_ids`, `batch_id`, `status`, `request` echo.
-  - `cancel` — params: `generation_id`.
-  - `download` — params: `generation_id`, `target_dir?`, `title?`, `filename?`,
-    `suffix?` (.mp3), `audio_url?`. Returns `file_path`, `file_size`.
-- `search` / catalog is unsupported (raises `ValidationError`).
+Full browser-session Suno web surface (`studio-api-prod.suno.com`), declared in
+`app/providers/suno/endpoints_web.py`, reverse-engineered from the live suno.com
+JS bundle + gcui-art/suno-api and **validated live** (2026-07-06). Available
+only in `payload_mode="suno_web"`; a web-only op in sunoapi mode raises a typed
+error (and vice versa). Wire keys are snake_case.
+
+**Generation** (`write`, entity `generation`):
+- `create` — `prompt` (REQUIRED, non-empty), `title?`, `tags?`, `instrumental?`,
+  `model?` (mv, default `chirp-auk-turbo`), `negative_tags?`, `lyrics?`, `extra?`.
+  → `generation_id` (first pollable clip), `clip_ids`, `batch_id`, `status`.
+- `extend` — `continue_clip_id`+`continue_at` (REQUIRED) + `prompt?`/`tags?`/
+  `title?`/`instrumental?`. Posts `/api/generate/v2-web/` with `task:"extend"`.
+- `concat` — `clip_id` (merge an extension chain into one full song).
+- `cancel`, `download` (as before).
+
+**Editing / creation** (`write`):
+- `stem` × `create` (`/api/edit/stems/{clip_id}/`, empty body → `{clips:[…]}`),
+  `sample_pack` (`generate_sample_pack`).
+- `wav` × `create` (`convert_wav`, 204 accepted → read via clip kind=wav).
+- `edit` × `crop` (`crop_start_s`,`crop_end_s`,`title?`), `fade` (`fade_in_time`,
+  `fade_out_time`,`title?`), `reverse` (`clip_id`,`title?`) — each returns a
+  pollable `action_clip_id`/`id` as `generation_id`.
+- `remaster` × `create` (upsample: `clip_id` + optional `model_name`,`tags`,
+  `freedom`,`tone`,`strength`,`stereo_width`,`clarity`,`variation_category`).
+- `persona` × `create` (`name`,`description`,`root_clip_id?`,…).
+- `lyrics` × `create` (`prompt`).
+- `playlist` × `create` (`name`), `add_tracks`/`remove_tracks`
+  (`playlist_id`,`clip_ids`).
+
+**Reads** (`read`):
+- `generation` (poll a clip by id), `account` (balance + `payload_mode`).
+- `clip` — `params={"kind": …}` multiplexes: `info`(default,`/api/clip/{id}`),
+  `stems`, `wav`, `downbeats`, `sections`, `waveform`, `aligned_lyrics`.
+  `downbeats`/`sections`/`waveform` feed the plugin's own beatgrid/section data.
+- `lyrics` (by id), `persona` (by id, or list when id omitted), `playlist` (by id).
+
+`search` / catalog is unsupported (raises `ValidationError`).
 
 ## Adapter surface — sunoapi.org mode (adds, on top of the above)
 
