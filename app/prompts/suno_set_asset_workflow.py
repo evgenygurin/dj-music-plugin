@@ -105,6 +105,30 @@ Inputs:
      assets through provider_write(provider="yandex", entity="playlist")
      unless the user explicitly asks and rights/account settings allow it.
 
+Web-mode polish (default browser session — all verified live). Refine a raw
+generated bed with the Suno web ops; each derived clip is downloaded the same
+way as step 5 (pass its `generation_id`/`audio_url`):
+- Longer bed: extend, then merge the chain into one clip:
+  provider_write(provider="suno", entity="generation", operation="extend",
+                 params={{"continue_clip_id": "<clip>", "continue_at": <sec>,
+                          "prompt": "<derived brief>"}})
+  provider_write(provider="suno", entity="generation", operation="concat",
+                 params={{"clip_id": "<extension clip>"}})
+- 4-deck layering tools: split a bed into stems (returns Vocals + Instrumental
+  clips; poll each with a generation read, then download):
+  provider_write(provider="suno", entity="stem", operation="create",
+                 params={{"clip_id": "<clip>"}})
+- USB WAV master: convert, then read the WAV url and download it:
+  provider_write(provider="suno", entity="wav", operation="create",
+                 params={{"clip_id": "<clip>"}})
+  provider_read(provider="suno", entity="clip", id="<clip>",
+                params={{"kind": "wav"}})
+- Trim to an exact slot length (each returns a pollable clip in `generation_id`):
+  provider_write(provider="suno", entity="edit", operation="crop",
+                 params={{"clip_id": "<clip>", "crop_start_s": <s>, "crop_end_s": <e>}})
+  provider_write(provider="suno", entity="edit", operation="fade",
+                 params={{"clip_id": "<clip>", "fade_in_time": <s>, "fade_out_time": <s>}})
+
 Advanced capabilities (SunoAPI mode only, when `DJ_SUNO_AUTH_MODE=api_key`):
 the full sunoapi.org REST surface is available and can refine a raw asset.
 Each is a task create (poll it with the matching read entity):
