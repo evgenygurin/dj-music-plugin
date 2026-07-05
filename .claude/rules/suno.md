@@ -165,3 +165,19 @@ ask the user to refresh credentials.
 - `chirp-fenix` in old configs is a PAID model — set `DJ_SUNO_MODEL` per plan.
 - Rate limiting mirrors yandex (`TokenBucketRateLimiter`, no in-`_request`
   retry loop; 429 raises `RateLimitedError`, backoff on next `acquire`).
+- **Multi-step web flows are composable, not auto-polled.** `extend` returns
+  extension clips → merge with `generation.concat` (`clip_id`). `edit`
+  crop/fade/reverse return an `action_clip_id` in `generation_id` → poll it.
+  `wav.create` returns 204 → poll `clip` read `kind=wav`. `stem.create`
+  returns 2 stem clips (Vocals + Instrumental) → poll their ids via
+  `generation` read → download each `audio_url` (stems come at ~64 kbps).
+  All verified live 2026-07-06.
+- **Web audio UPLOAD flow is NOT implemented (known gap).** suno.com uploads
+  external audio via an **Uppy S3 multipart presigned** sequence
+  (`/api/uploads/audio/` create → `prepareUploadParts`/`signPart` → S3
+  `PutObject`/`UploadPart` → `upload-finish` → `initialize-clip{downbeats}`),
+  not a simple POST. Reimplementing it reliably needs a live capture of the
+  Uppy request sequence (declined in favour of the community-repo path), so
+  `upload_cover`/`upload_extend`/stems-on-uploaded-audio are web-mode gaps.
+  The sunoapi.org mode (`endpoints.py`) DOES cover upload-cover/upload-extend
+  via a plain `uploadUrl` field when an api_key exists.
