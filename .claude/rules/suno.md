@@ -186,11 +186,20 @@ ask the user to refresh credentials.
      `GET /api/uploads/audio/{id}/` status then advances
      `processing -> passed_audio_processing`.
   4. `POST /api/uploads/audio/{id}/initialize-clip/` `{downbeats:[…]}` ->
-     `{clip_id}`. **BLOCKER: returns 400 with `{downbeats:[]}` even after
-     audio processing passes.** The web client computes a real `downbeats`
-     array (client-side beat detection) and passes it here; an empty/absent
-     array is rejected. Finishing this needs the plugin to compute downbeats
-     (librosa can) in Suno's exact format — a real handler, not a contract fix.
+     `{clip_id}`. **BLOCKER: returns 400 (empty body) even after audio
+     processing passes AND even when replayed with a real 853-entry
+     `downbeats` array copied verbatim from a live Suno clip.** So `downbeats`
+     format is NOT the blocker — `initialize-clip` needs some other field /
+     project-context the minified bundle doesn't expose, and the empty 400
+     gives no signal to brute-force.
+  **Why it can't be finished with current tooling:** capturing the web app's
+  real `initialize-clip` request body is not possible from Control_Chrome —
+  the SPA bound `fetch` at load time, so a page-context `window.fetch`
+  override never sees its requests, and there is no CDP network-body access.
+  To finish: capture the real request via DevTools Network (filter
+  `initialize-clip`, do an upload, copy the Request Payload) or the
+  claude-in-chrome CDP extension, then match its body exactly.
   Until step 4 is solved, `upload_cover`/`upload_extend`/stems-on-uploaded-audio
   are web-mode gaps. The sunoapi.org mode (`endpoints.py`) DOES cover
-  upload-cover/upload-extend via a plain `uploadUrl` field when an api_key exists.
+  upload-cover/upload-extend via a plain `uploadUrl` field when an api_key exists
+  — that is the working path for external-audio import.
