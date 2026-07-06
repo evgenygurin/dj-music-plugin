@@ -9,6 +9,7 @@ from fastmcp.server.context import Context
 from fastmcp.tools import tool
 from pydantic import Field
 
+from app.domain.transition.intent import TransitionIntent
 from app.handlers._context_log import safe_report_progress
 from app.repositories.unit_of_work import UnitOfWork
 from app.schemas.tool_responses import ScorePoolResult
@@ -107,8 +108,6 @@ async def transition_score_pool(
             f"missing_track_ids={track_ids}",
             details={"missing_track_ids": list(track_ids)},
         )
-
-    from app.domain.transition.intent import TransitionIntent
 
     intent_enum = TransitionIntent(intent) if intent is not None else None
     pairs: list[dict[str, float | int]] = []

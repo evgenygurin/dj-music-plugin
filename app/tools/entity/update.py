@@ -10,6 +10,8 @@ from fastmcp.tools import tool
 from pydantic import Field
 from pydantic import ValidationError as PydanticValidationError
 
+from app.domain.template.registry import list_template_names
+from app.domain.transition.neural_mix import NeuralMixTransition
 from app.registry.entity import EntityRegistry
 from app.registry.provider import ProviderRegistry
 from app.repositories.unit_of_work import UnitOfWork
@@ -104,15 +106,12 @@ async def entity_update(
     # ``entity_update(set, ...)`` can't write a template name that
     # ``sequence_optimize`` will later reject.
     template_name_val = getattr(validated, "template_name", None) if entity == "set" else None
-    if template_name_val is not None:
-        from app.domain.template.registry import list_template_names
-
-        if template_name_val not in list_template_names():
-            raise ValidationError(
-                f"unknown template_name {template_name_val!r}; "
-                f"valid templates: {sorted(list_template_names())}",
-                details={"template_name": template_name_val},
-            )
+    if template_name_val is not None and template_name_val not in list_template_names():
+        raise ValidationError(
+            f"unknown template_name {template_name_val!r}; "
+            f"valid templates: {sorted(list_template_names())}",
+            details={"template_name": template_name_val},
+        )
 
     # ``transition.fx_type`` is a free-form string on the schema (the
     # schema can't import ``app.domain``) but downstream Neural Mix
@@ -122,8 +121,6 @@ async def entity_update(
     # Validate against the same enum the picker / recipe builders use.
     fx_type_val = getattr(validated, "fx_type", None) if entity == "transition" else None
     if fx_type_val is not None:
-        from app.domain.transition.neural_mix import NeuralMixTransition
-
         allowed = [t.value for t in NeuralMixTransition]
         if fx_type_val not in allowed:
             raise ValidationError(
