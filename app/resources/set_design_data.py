@@ -16,6 +16,7 @@ from fastmcp.dependencies import Depends
 from fastmcp.resources import resource
 
 from app.repositories.unit_of_work import UnitOfWork
+from app.resources._feature_catalog import TRACK_FEATURE_CATALOG, describe_field
 from app.resources._shared import ANNOTATIONS_READ_ONLY, RESOURCE_META
 from app.server.di import get_uow
 from app.shared.errors import NotFoundError
@@ -34,6 +35,53 @@ _SET_FIELDS = (
     "ym_playlist_id",
 )
 _VERSION_FIELDS = ("id", "set_id", "label", "generator_run_meta", "quality_score")
+
+_ITEM_FIELDS = (
+    "transition_id",
+    "out_section_id",
+    "in_section_id",
+    "mix_in_point_ms",
+    "mix_out_point_ms",
+    "planned_eq",
+    "notes",
+    "pinned",
+)
+
+
+async def _build_tracks_block(uow: UnitOfWork, version_id: int) -> list[dict[str, Any]]:
+    items = await uow.set_versions.get_items(version_id)
+    if not items:
+        return []
+
+    track_ids = [item.track_id for item in items]
+    tracks_by_id = await uow.tracks.get_many(track_ids)
+    features_page = await uow.track_features.filter(
+        where={"track_id__in": track_ids}, limit=max(len(track_ids), 1)
+    )
+    features_by_track_id = {row.track_id: row for row in features_page.items}
+
+    rows: list[dict[str, Any]] = []
+    for item in sorted(items, key=lambda i: i.sort_index):
+        track = tracks_by_id.get(item.track_id)
+        feature_row = features_by_track_id.get(item.track_id)
+        features: dict[str, Any] = {}
+        if feature_row is not None:
+            for name in TRACK_FEATURE_CATALOG:
+                if not hasattr(feature_row, name):
+                    continue
+                features[name] = describe_field(
+                    TRACK_FEATURE_CATALOG, name, getattr(feature_row, name)
+                )
+        rows.append(
+            {
+                "position": item.sort_index,
+                "track_id": item.track_id,
+                "title": getattr(track, "title", None),
+                **{field: getattr(item, field) for field in _ITEM_FIELDS},
+                "features": features,
+            }
+        )
+    return rows
 
 
 @resource(
@@ -63,7 +111,7 @@ async def set_design_data(
     payload: dict[str, Any] = {
         "set": {field: getattr(dj_set, field) for field in _SET_FIELDS},
         "version": {field: getattr(ver, field) for field in _VERSION_FIELDS},
-        "tracks": [],
+        "tracks": await _build_tracks_block(uow, ver.id),
         "transitions": [],
         "render": await gather_render_studio(uow, version_id=ver.id, job_id=None),
     }
