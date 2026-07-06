@@ -1,6 +1,6 @@
 # MCP Tool Catalog
 
-Quick reference — **23 tools total** (13 core dispatchers + 3 render + 6 UI/Prefab + `tool_invoke`) + **32 resources** + **31 prompts** + **6 handlers** + **11 registered entities**.
+Quick reference — **24 model-visible tools** (13 core dispatchers + 3 render + 7 UI/Prefab + `tool_invoke`) + **32 resources** + **31 prompts** + **6 handlers** + **11 registered entities**. One extra tool — `render_studio_panel` — is registered but app-visibility only (`visibility=["app"]`), hidden from the model / BM25 so the `ui_render_studio` UI can `CallTool` it.
 
 The 88-tool catalog of v0.8 was collapsed via polymorphism: generic CRUD
 (`entity_*`) dispatches via `EntityRegistry`, generic provider access
@@ -154,7 +154,7 @@ mid-session, such clients do not see newly visible tools until a full
 re-sync. `tool_invoke` stays always visible and proxies calls to any
 backend tool by name. Self-dispatch is blocked.
 
-### UI / Prefab Apps (6, namespace `ui:read`)
+### UI / Prefab Apps (7, namespace `ui:read`)
 
 Visual renderers marked with `meta={"ui": True}` (standalone-decorator equivalent of `@mcp.tool(app=True)`). Prefab-aware clients (Claude Desktop v3.1+) render the returned `prefab_ui.components.Column` tree inline. Non-Prefab clients fall back to a Pydantic JSON payload via `ctx.client_supports_extension("io.modelcontextprotocol/ui")`. All read-only, always visible.
 
@@ -166,6 +166,9 @@ Visual renderers marked with `meta={"ui": True}` (standalone-decorator equivalen
 | `ui_score_pool_matrix` | track_ids (2..50) | Heading + Row[Metric×2] + DataTable (N×N heatmap) + Legend Card | `ScorePoolMatrixFallback` |
 | `ui_library_dashboard` | — | Heading + Row[Metric×3] + Card[BarChart BPM] + Row[Card[PieChart moods], Card[BarChart Camelot]] | `DashboardFallback` |
 | `ui_camelot_wheel` | playlist_id? | Heading + Row[Metric×2] + Card[RadialChart wheel] + DataTable (slots) | `CamelotWheelFallback` |
+| `ui_render_studio` | version_id | Heading + Row[Button] Analyze/QA·Render·Diagnose·Refresh (each `CallTool`s a real `render_*` tool) + Slot[status, beatgrid, timeline, diagnostics] | `RenderStudioFallback` |
+
+`ui_render_studio` is the interactive render-pipeline control panel: its buttons `CallTool` into `render_beatgrid` / `render_mixdown` / `render_diagnose` and refresh through the hidden `render_studio_panel` helper (`visibility=["app"]` — registered but not model-visible; re-reads `RENDER_JOBS` + workspace files so status flows through our own `CallTool` round-trip, not the host task protocol). See `docs/render-pipeline.md`.
 
 Enable with `uv sync --all-extras` (pulls `fastmcp[apps]` → `prefab_ui>=0.19`).
 
@@ -341,12 +344,14 @@ for clients that do honour the notification.
 | `sync` | playlist_sync | visible |
 | `render` | render_beatgrid, render_mixdown, render_diagnose | visible |
 | `admin` | unlock_namespace, tool_invoke | visible |
-| `ui:read` | ui_set_view, ui_transition_score, ui_library_audit, ui_score_pool_matrix, ui_library_dashboard, ui_camelot_wheel | visible |
+| `ui:read` | ui_set_view, ui_transition_score, ui_library_audit, ui_score_pool_matrix, ui_library_dashboard, ui_camelot_wheel, ui_render_studio | visible |
 | `workflow` | all prompts | visible |
 
 `ALWAYS_VISIBLE_TOOLS` in `app/server/transforms.py` whitelists every tool
-listed above (including `tool_invoke`, the 6 UI tools, and the 3 render tools)
-so `BM25SearchTransform` never hides them behind a search query.
+listed above (including `tool_invoke`, the 7 UI tools, and the 3 render tools)
+so `BM25SearchTransform` never hides them behind a search query. The
+`render_studio_panel` UI helper is `visibility=["app"]` — deliberately NOT
+whitelisted (hidden from the model / BM25; the UI reaches it via `CallTool`).
 
 ## Tool count history
 
@@ -362,3 +367,4 @@ so `BM25SearchTransform` never hides them behind a search query.
 | (prompts v2) | 20 | 27 | Prompt catalog grew 19 → **26** (additive): +`tempo_journey_workflow` (BPM axis), +`dj_persona_workflow` (Klock/Dettmann/Lens/de Witte/Mills/Hawtin/Kraviz schools), +`style_lock_set_workflow` (mono-genre), +`mix_cluster_workflow` (bottom-up cluster discovery), +`rescue_set_workflow` (heavy hard-reject repair), +`set_cheatsheet_workflow` (performance cue sheet), +`library_cleanup_workflow` (actionable hygiene). Deep-dive research (`docs/research/2026-06-22-techno-deep-dive-and-prompt-expansion.md`); content pinned by `test_prompt_content_correctness.py`. |
 | (prompts v3) | 20 | 27 | Prompt catalog grew 26 → **30** (additive, live/performance batch): +`live_next_track_workflow` (mid-set live pick via `session://*` + `suggest_next`), +`set_duration_fit_workflow` (fit a set to an exact time slot), +`track_prep_workflow` (single-track end-to-end readiness), +`lineup_handoff_workflow` (slot whose tail hands off at a target BPM). Content pinned by `test_prompt_content_correctness.py`. |
 | render | **23** | **32** | +3 render tools (`render_beatgrid`/`render_mixdown`/`render_diagnose`, namespace `render`, `task=True`, visible by default) + 5 render resources (`reference://render/defaults`, `local://render/jobs/{job_id}/status`, `.../diagnostics`, `local://render/{version_id}/beatgrid`, `.../timeline`) + `render_set_workflow` prompt (30 → **31**) + `emit_continuous_mix` delivery toggle. `FastMCP(tasks=True)` + `fastmcp[tasks]` extra. See `docs/render-pipeline.md`. |
+| render studio | **24** | **32** | +`ui_render_studio` interactive Prefab studio (namespace `ui:read`, always-visible; UI tools 6 → **7**) — buttons `CallTool` the 3 `render_*` tools, live status/beatgrid/timeline/diagnostics slots, `RenderStudioFallback` for non-Prefab clients. Plus a hidden `render_studio_panel` helper (`visibility=["app"]` — registered but not model-visible; the UI refreshes through it). See `docs/render-pipeline.md`. |

@@ -231,5 +231,14 @@ default `true`) makes `deliver_set_workflow` include the rendered
 `render/v{version_id}/MIX.mp3` in the deliverable bundle alongside the M3U8 /
 rekordbox XML / cheatsheet.
 
-Prefab render studio (`ui_render_studio`) — see Plan 3
-(`docs/superpowers/plans/2026-07-06-render-mcp-surface.md` § Next plan).
+### Interactive studio (`ui_render_studio`)
+
+`ui_render_studio(version_id)` is the interactive Prefab control panel for the
+whole pipeline (`app/tools/ui/render_studio.py`, namespace `ui:read`,
+always-visible). Its Analyze/QA · Render · Diagnose buttons `CallTool` the three
+`render_*` tools above; a Refresh button re-reads status through the hidden
+`render_studio_panel` helper (`visibility=["app"]` — registered but not
+model-visible). Status/beatgrid/timeline/diagnostics render into slots fed by
+`gather_render_studio`, which reads `RENDER_JOBS` + the workspace JSON — so job
+progress flows through our own `CallTool` round-trip, never the host task
+protocol. Non-Prefab clients get the `RenderStudioFallback` Pydantic payload.
