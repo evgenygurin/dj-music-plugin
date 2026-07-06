@@ -49,7 +49,6 @@ try:
         Heading,
         Muted,
         Row,
-        Slot,
     )
 except ImportError as _exc:  # pragma: no cover — fastmcp[apps] extra missing
     raise ImportError(
@@ -251,6 +250,12 @@ async def ui_render_studio(
 
     vid = version_id
 
+    # Re-invoke this same tool after any action — the documented Prefab model
+    # ("the server returns updated PrefabApp instances"). Each click runs the
+    # backend render step, then a full re-render reflects the new workspace
+    # state (fresh beatgrid.json / diagnostics.json / job status).
+    _refresh = CallTool("ui_render_studio", arguments={"version_id": vid})
+
     def _run_button(label: str, tool_name: str) -> None:
         Button(
             label=label,
@@ -258,7 +263,7 @@ async def ui_render_studio(
                 CallTool(
                     tool_name,
                     arguments={"version_id": vid},
-                    on_success=CallTool("render_studio_panel", arguments={"version_id": vid}),
+                    on_success=_refresh,
                     on_error=ShowToast(message="{{ $error }}", variant="error"),
                 ),
             ],
@@ -271,14 +276,12 @@ async def ui_render_studio(
             _run_button("Analyze + QA", "render_beatgrid")
             _run_button("Render", "render_mixdown")
             _run_button("Diagnose", "render_diagnose")
-            Button(
-                label="Refresh",
-                on_click=[
-                    CallTool("render_studio_panel", arguments={"version_id": vid}),
-                ],
-            )
-        Slot("status")
-        Slot("beatgrid")
-        Slot("timeline")
-        Slot("diagnostics")
+            Button(label="Refresh", on_click=[_refresh])
+        # Render the gathered data directly so the studio is populated on first
+        # open (Slots stay empty until a round-trip; that left the initial view
+        # blank). The same slot-builder helpers back the app-helper too.
+        _render_status_card(data)
+        _render_beatgrid_table(data)
+        _render_timeline_card(data)
+        _render_diagnostics_card(data)
     return PrefabApp(view=view, state=_panel_state(data))
