@@ -26,6 +26,7 @@ EXPECTED_STATIC_URIS: frozenset[str] = frozenset(
         "reference://subgenres",
         "reference://templates",
         "reference://audit_rules",
+        "reference://render/defaults",
     }
 )
 
@@ -50,6 +51,10 @@ EXPECTED_TEMPLATE_URIS: frozenset[str] = frozenset(
         "local://transition/{from_id}/{to_id}/explain",
         "local://transition_history/best_pairs{?track_id,limit}",
         "local://transition_history/history{?limit,track_id}",
+        "local://render/jobs/{job_id}/status",
+        "local://render/jobs/{job_id}/diagnostics",
+        "local://render/{version_id}/beatgrid",
+        "local://render/{version_id}/timeline",
     }
 )
 
