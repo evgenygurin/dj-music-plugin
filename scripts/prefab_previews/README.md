@@ -1,6 +1,6 @@
 # Prefab UI previews
 
-Standalone reproductions of the 6 Prefab UI tools (`app/tools/ui/`) with
+Standalone reproductions of the 7 Prefab UI tools (`app/tools/ui/`) with
 seeded fake data. Lets us:
 
 1. Render each tool to static HTML (`artifacts/previews/*.html`) via
@@ -21,7 +21,8 @@ uv sync --all-extras
 # 1. Build PrefabApp objects + export to HTML (~6.5 MB each, bundled)
 mkdir -p artifacts/previews artifacts/screenshots
 for app in set_view_app transition_score_app library_audit_app \
-           score_pool_matrix_app library_dashboard_app camelot_wheel_app; do
+           score_pool_matrix_app library_dashboard_app camelot_wheel_app \
+           render_studio_app; do
   uv run prefab export "scripts/prefab_previews/apps.py:${app}" \
     --bundled -o "artifacts/previews/${app%_app}.html"
 done
@@ -36,6 +37,6 @@ bundles are ignored — regenerate as needed.
 
 ## Files
 
-- `apps.py` — 6 `PrefabApp` module-level globals, one per UI tool
+- `apps.py` — 7 `PrefabApp` module-level globals, one per UI tool
 - `shoot.py` — Playwright runner, writes PNG per preview
 - `artifacts/screenshots/*.png` — tracked in git for docs/PR comments

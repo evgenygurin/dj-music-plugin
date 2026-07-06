@@ -314,6 +314,32 @@ def _build_camelot_wheel_app() -> PrefabApp:
     return PrefabApp(view=view, title="ui_camelot_wheel — demo library")
 
 
+def _build_render_studio_app() -> PrefabApp:
+    from app.domain.render.models import TrackInput
+    from app.tools.ui.render_studio import ui_render_studio
+
+    uow = _uow_for_set()
+    inputs = [
+        TrackInput(
+            track_id=t["id"],
+            yandex_id=t["id"],
+            title=t["title"],
+            bpm=t["bpm"],
+            key_code=t["key_code"],
+            mix_in_ms=0,
+            integrated_lufs=t["lufs"],
+            file_path=f"/tmp/dj_audio/{t['id']}.mp3",
+        )
+        for t in DEMO_TRACKS
+    ]
+    uow.set_versions.get_render_inputs = AsyncMock(return_value=inputs)
+    ctx = _ctx()
+    app = asyncio.run(ui_render_studio(version_id=42, uow=uow, ctx=ctx))
+    # ui_render_studio returns a PrefabApp directly (interactive path); the
+    # other builders wrap a Column view, so normalise the title here.
+    return PrefabApp(view=app.view, state=app.state, title="ui_render_studio — Peak Hour demo")
+
+
 # --- Export handles (one PrefabApp per module global) ------------------
 
 set_view_app = _build_set_view_app()
@@ -322,3 +348,4 @@ library_audit_app = _build_library_audit_app()
 score_pool_matrix_app = _build_score_pool_matrix_app()
 library_dashboard_app = _build_library_dashboard_app()
 camelot_wheel_app = _build_camelot_wheel_app()
+render_studio_app = _build_render_studio_app()

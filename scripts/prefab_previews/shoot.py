@@ -24,6 +24,7 @@ PAGES = [
     "score_pool_matrix",
     "library_dashboard",
     "camelot_wheel",
+    "render_studio",
 ]
 
 

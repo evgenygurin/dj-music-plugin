@@ -1,12 +1,15 @@
 """ui_render_studio — interactive Prefab control panel for the render pipeline.
 
 Entry tool (``meta={"ui": True}``) with Analyze+QA / Render / Diagnose buttons
-that ``CallTool`` into the real ``render_*`` tools; live job status + beatgrid
-QA table + timeline + diagnostics slots. The ``render_studio_panel`` helper
-(``visibility=["app"]``) re-reads the workspace / registry so status updates
-flow through OUR CallTool round-trip, not the host task protocol.
+that ``CallTool`` into the real ``render_*`` tools, then ``CallTool`` the
+``render_studio_panel`` helper (``visibility=["app"]``, hidden from the model)
+and write its result into the ``panel`` state key via ``SetState`` — the
+canonical Prefab round-trip: a ``Slot("panel")`` in the entry view re-renders
+only the panel fragment, without rebuilding the whole studio (heading/buttons
+stay put). The slot is pre-seeded with the initial panel content on first
+open, so the studio is never blank.
 
-Both the entry tool's fallback and the Prefab helper build from a single
+Both the entry tool and the panel helper build from a single
 ``gather_render_studio`` gatherer that reads the same sources as the
 ``local://render/*`` resources (RENDER_JOBS, workspace beatgrid.json /
 diagnostics.json, ``timeline_windows``) — no duplicated business logic.
@@ -33,7 +36,7 @@ from app.tools.ui._fallback import RenderStudioFallback, supports_ui
 
 try:
     from fastmcp.apps import AppConfig, app_config_to_meta_dict
-    from prefab_ui.actions import ShowToast
+    from prefab_ui.actions import SetState, ShowToast
     from prefab_ui.actions.mcp import CallTool
     from prefab_ui.app import PrefabApp
     from prefab_ui.components import (
@@ -51,6 +54,7 @@ try:
         Row,
         Slot,
     )
+    from prefab_ui.rx import RESULT
 except ImportError as _exc:  # pragma: no cover — fastmcp[apps] extra missing
     raise ImportError(
         "ui_render_studio requires prefab-ui. Install with: uv sync --all-extras "
@@ -109,14 +113,20 @@ async def gather_render_studio(
     }
 
 
-def _panel_state(data: dict[str, Any]) -> dict[str, Any]:
-    return {
-        "version_id": data["version_id"],
-        "beatgrid": data["beatgrid"],
-        "job": data["job"] or {},
-        "timeline": data["timeline"],
-        "diagnostics": data["diagnostics"],
-    }
+def _panel_fragment(data: dict[str, Any]) -> Any:
+    """The panel content as one component tree (a Slot fragment, not a PrefabApp).
+
+    Returned raw — the ``render_studio_panel`` tool's return value goes through
+    FastMCP's own tool-response serializer (same as every other ``ui_*`` tool
+    returning a bare ``Column``), which the Prefab client-side ``$result``
+    resolves correctly for ``SetState("panel", RESULT)``.
+    """
+    with Column(gap=3) as panel:
+        _render_status_card(data)
+        _render_beatgrid_table(data)
+        _render_timeline_card(data)
+        _render_diagnostics_card(data)
+    return panel
 
 
 # ── Slot builders (shared by the panel helper and the entry tool) ─────
@@ -201,7 +211,7 @@ def _render_diagnostics_card(data: dict[str, Any]) -> None:
     tags={"namespace:ui:read", "ui", "read"},
     annotations={"readOnlyHint": True, "idempotentHint": True},
     meta={"ui": True, "timeout_s": 30.0, **app_config_to_meta_dict(AppConfig(visibility=["app"]))},
-    description="UI helper: re-render the render studio slots. Called from the UI only.",
+    description="UI helper: re-render the render studio panel. Called from the UI only.",
     timeout=30.0,
 )
 async def render_studio_panel(
@@ -210,13 +220,13 @@ async def render_studio_panel(
     uow: UnitOfWork = Depends(get_uow),
     ctx: Context = CurrentContext(),
 ) -> Any:
+    """Return the panel fragment for ``Slot("panel")`` (not a full PrefabApp).
+
+    Its result is written into client state via ``SetState("panel", RESULT)``
+    from the entry tool's buttons — the canonical Prefab round-trip.
+    """
     data = await gather_render_studio(uow, version_id=version_id, job_id=job_id)
-    with Column(gap=3) as view:
-        _render_status_card(data)
-        _render_beatgrid_table(data)
-        _render_timeline_card(data)
-        _render_diagnostics_card(data)
-    return PrefabApp(view=view, state=_panel_state(data))
+    return _panel_fragment(data)
 
 
 @tool(
@@ -251,14 +261,28 @@ async def ui_render_studio(
 
     vid = version_id
 
-    def _run_button(label: str, tool_name: str) -> None:
+    # Canonical Prefab round-trip: CallTool the render_studio_panel helper and
+    # write its result into the "panel" state key; Slot("panel") re-renders
+    # ONLY that fragment (heading/buttons are untouched, no full-app rebuild).
+    _refresh_panel = CallTool(
+        "render_studio_panel",
+        arguments={"version_id": vid, "job_id": "{{ job_id }}"},
+        on_success=SetState("panel", RESULT),
+    )
+
+    def _run_button(label: str, tool_name: str, *, captures_job_id: bool = False) -> None:
+        on_success = (
+            [SetState("job_id", RESULT.job_id), _refresh_panel]
+            if captures_job_id
+            else [_refresh_panel]
+        )
         Button(
             label=label,
             on_click=[
                 CallTool(
                     tool_name,
                     arguments={"version_id": vid},
-                    on_success=CallTool("render_studio_panel", arguments={"version_id": vid}),
+                    on_success=on_success,
                     on_error=ShowToast(message="{{ $error }}", variant="error"),
                 ),
             ],
@@ -269,16 +293,19 @@ async def ui_render_studio(
         Muted(f"{data['n_tracks']} tracks · target {data['target_bpm']} BPM")
         with Row(gap=2):
             _run_button("Analyze + QA", "render_beatgrid")
-            _run_button("Render", "render_mixdown")
+            # render_mixdown's result carries the job_id for status polling.
+            _run_button("Render", "render_mixdown", captures_job_id=True)
             _run_button("Diagnose", "render_diagnose")
-            Button(
-                label="Refresh",
-                on_click=[
-                    CallTool("render_studio_panel", arguments={"version_id": vid}),
-                ],
-            )
-        Slot("status")
-        Slot("beatgrid")
-        Slot("timeline")
-        Slot("diagnostics")
-    return PrefabApp(view=view, state=_panel_state(data))
+            Button(label="Refresh", on_click=[_refresh_panel])
+        # Slot is pre-seeded with the initial panel fragment (below) so the
+        # studio is populated on first open — no round-trip needed to see it.
+        with Slot("panel"):
+            Muted("Loading…")
+    return PrefabApp(
+        view=view,
+        # PrefabApp.state is naively dumped by pydantic (unlike a tool's own
+        # return value, which FastMCP serializes through the Prefab-aware
+        # encoder) — pre-serialize the seed fragment via .to_json() so Slot
+        # sees the full component tree, not just base Component fields.
+        state={"version_id": vid, "job_id": "", "panel": _panel_fragment(data).to_json()},
+    )
