@@ -180,7 +180,7 @@ class ControlCenterFallback(BaseModel):
 T = TypeVar("T", bound=BaseModel)
 
 
-def fallback_or(cls: type[T], data: Any) -> T:
+def fallback_or(cls: type[T], data: Any) -> T:  # noqa: UP047
     """Validate a dict/mapping into a fallback Pydantic model.
 
     Keeps call sites one-liners:
