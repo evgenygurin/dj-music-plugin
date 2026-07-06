@@ -14,6 +14,13 @@
 
 **Reference doc:** `prefab.prefect.io/docs/running/fastmcp` — `@mcp.tool(app=True)` entry tools; `AppConfig(visibility=["app"])` helper tools; `PrefabApp(view, state)`; actions `CallTool`, `SetState`, `ShowToast`; `Slot` + `RESULT` callback ref.
 
+> **⚠️ API CORRECTION (verified live 2026-07-06 against installed fastmcp 3.2.4 + prefab_ui 0.19.1 — no upgrade needed; interactivity IS available on the pinned versions):**
+> - The standalone `@tool` decorator has **no `app=` param**. Use `meta={"ui": True}` (exactly like the 6 existing `ui_*` tools) — that IS the `app=True` equivalent for FileSystemProvider auto-discovery.
+> - `CallTool` lives in **`prefab_ui.actions.mcp`**, NOT `prefab_ui.actions`. Correct imports:
+>   `from prefab_ui.actions.mcp import CallTool` and `from prefab_ui.actions import SetState, ShowToast`.
+> - `AppConfig` is imported from **`fastmcp.apps`** (not `fastmcp.server.apps`, which is deprecated). For the hidden helper, pass app-visibility via meta: `meta={"ui": True, **app_config_to_meta_dict(AppConfig(visibility=["app"]))}` where `from fastmcp.apps import AppConfig, app_config_to_meta_dict` (→ merges `{"visibility": ["app"]}`).
+> - **Rendering of interactive actions CANNOT be verified headless** — tests cover construction (no error), the non-Prefab fallback branch, registration, and `make check`. Live button behavior needs a Prefab-aware client (Claude Desktop). If the hidden-helper `visibility` meta turns out not to hide the helper from the model in this version, fall back to: single self-refreshing entry tool (Refresh button re-`CallTool`s `ui_render_studio` itself with `job_id`), dropping the separate helper.
+
 ---
 
 ## File Structure
