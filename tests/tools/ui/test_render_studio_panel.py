@@ -112,3 +112,39 @@ async def test_gather_missing_workspace_and_job(tmp_path, monkeypatch):
     assert data["diagnostics"] == []
     assert data["job"] is None
     assert data["n_tracks"] == 1
+
+
+@pytest.mark.asyncio
+async def test_panel_tool_returns_a_component_fragment(tmp_path, monkeypatch):
+    """render_studio_panel is the CallTool target for SetState("panel", RESULT).
+
+    It must return a bare component (not a PrefabApp) so the Prefab client
+    writes the fragment straight into the Slot("panel") state key.
+    """
+    monkeypatch.setenv("DJ_DELIVERY_OUTPUT_DIR", str(tmp_path))
+    from app.config import reset_settings_cache
+
+    reset_settings_cache()
+
+    from app.tools.ui.render_studio import render_studio_panel
+
+    inputs = [
+        TrackInput(
+            track_id=1,
+            yandex_id=9,
+            title="t1",
+            bpm=130.0,
+            key_code=1,
+            mix_in_ms=0,
+            integrated_lufs=-12.0,
+            file_path="/a.mp3",
+        )
+    ]
+    fragment = await render_studio_panel(version_id=131, uow=_StubUow(inputs))
+    # Not a PrefabApp: it has no top-level `view`/`state` split, just a
+    # component with a `.to_json()` that serializes the visible card titles.
+    assert not hasattr(fragment, "view")
+    payload = json.dumps(fragment.to_json())
+    assert "Job status" in payload
+    assert "Timeline" in payload
+    assert "t1" in payload
