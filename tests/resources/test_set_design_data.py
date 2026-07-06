@@ -67,13 +67,6 @@ async def test_set_and_version_blocks_present(monkeypatch: pytest.MonkeyPatch) -
             id=1000, set_id=100, label="v149", generator_run_meta=None, quality_score=0.79
         )
     )
-    uow.set_versions.get_items = AsyncMock(return_value=[])
-    uow.tracks = MagicMock()
-    uow.tracks.get_many = AsyncMock(return_value={})
-    uow.track_features = MagicMock()
-    uow.track_features.filter = AsyncMock(return_value=MagicMock(items=[]))
-    uow.transitions = MagicMock()
-    uow.transitions.get_pairs_batch = AsyncMock(return_value={})
 
     monkeypatch.setattr(
         "app.resources.set_design_data.gather_render_studio",
