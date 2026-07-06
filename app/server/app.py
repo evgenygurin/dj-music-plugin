@@ -76,6 +76,7 @@ def build_mcp_server() -> FastMCP:
         transforms=build_pre_constructor_transforms(),
         lifespan=build_server_lifespan(),
         sampling_handler=build_sampling_handler(),
+        tasks=True,
     )
 
     # Post-constructor transforms scan already-registered tools/resources/prompts.
@@ -124,6 +125,7 @@ async def build_mcp_app_for_tests(
         transforms=build_pre_constructor_transforms() if with_transforms else [],
         lifespan=build_server_lifespan() if with_lifespan else None,
         sampling_handler=build_sampling_handler() if with_sampling else None,
+        tasks=True,
     )
 
     if with_transforms:
