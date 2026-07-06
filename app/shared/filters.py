@@ -67,20 +67,39 @@ def _not_in(col: Column[Any], val: Any) -> ColumnElement[bool]:
     return ~col.in_(list(val))
 
 
+_LIKE_ESCAPE_CHAR = "\\"
+
+
+def _escape_like(val: Any) -> str:
+    """Escape LIKE/ILIKE wildcards (``%``, ``_``) in a user-supplied value.
+
+    Without this, a filter value containing ``%`` or ``_`` is interpreted
+    as a SQL wildcard instead of a literal character — not an injection
+    (the value is still a bound parameter), but it silently changes match
+    semantics (e.g. ``icontains="100%"`` matching any string starting with
+    "100" instead of the literal substring "100%").
+    """
+    text = str(val)
+    text = text.replace(_LIKE_ESCAPE_CHAR, _LIKE_ESCAPE_CHAR * 2)
+    text = text.replace("%", f"{_LIKE_ESCAPE_CHAR}%")
+    text = text.replace("_", f"{_LIKE_ESCAPE_CHAR}_")
+    return text
+
+
 def _icontains(col: Column[Any], val: Any) -> ColumnElement[bool]:
-    return col.ilike(f"%{val}%")
+    return col.ilike(f"%{_escape_like(val)}%", escape=_LIKE_ESCAPE_CHAR)
 
 
 def _contains(col: Column[Any], val: Any) -> ColumnElement[bool]:
-    return col.like(f"%{val}%")
+    return col.like(f"%{_escape_like(val)}%", escape=_LIKE_ESCAPE_CHAR)
 
 
 def _startswith(col: Column[Any], val: Any) -> ColumnElement[bool]:
-    return col.like(f"{val}%")
+    return col.like(f"{_escape_like(val)}%", escape=_LIKE_ESCAPE_CHAR)
 
 
 def _endswith(col: Column[Any], val: Any) -> ColumnElement[bool]:
-    return col.like(f"%{val}")
+    return col.like(f"%{_escape_like(val)}", escape=_LIKE_ESCAPE_CHAR)
 
 
 def _isnull(col: Column[Any], val: Any) -> ColumnElement[bool]:
