@@ -1,0 +1,88 @@
+import pytest
+
+from app.domain.render.models import TrackInput
+from app.handlers.render_mixdown import render_mixdown_handler
+from app.shared.render_jobs import RENDER_JOBS
+
+
+class _StubUow:
+    def __init__(self, inputs):
+        class _SV:
+            async def get_render_inputs(self, vid):
+                return inputs
+
+        self.set_versions = _SV()
+
+
+@pytest.mark.asyncio
+async def test_mixdown_builds_plan_runs_and_registers(tmp_path, monkeypatch):
+    RENDER_JOBS.clear()
+    inputs = [
+        TrackInput(
+            track_id=i,
+            yandex_id=i,
+            title=f"t{i}",
+            bpm=130.0,
+            key_code=1,
+            mix_in_ms=0,
+            integrated_lufs=-12.0,
+            file_path=f"/x{i}.mp3",
+        )
+        for i in range(2)
+    ]
+    # pre-seed a beatgrid so no DSP runs
+    import json
+
+    (tmp_path / "beatgrid.json").write_text(
+        json.dumps(
+            [
+                {
+                    "track_id": 0,
+                    "trim_start_s": 0.4,
+                    "refined_trim_s": 0.4,
+                    "gain_db": 0.0,
+                    "phase_ms": 0.0,
+                },
+                {
+                    "track_id": 1,
+                    "trim_start_s": 0.4,
+                    "refined_trim_s": 0.4,
+                    "gain_db": 0.0,
+                    "phase_ms": 0.0,
+                },
+            ]
+        )
+    )
+
+    captured = {}
+
+    def _fake_run(plan, out_path):
+        captured["n"] = plan.n
+        captured["out"] = out_path
+        # simulate ffmpeg producing a file
+        from pathlib import Path
+
+        Path(out_path).write_bytes(b"ID3fake")
+
+    monkeypatch.setattr("app.handlers.render_mixdown.run_render", _fake_run)
+    monkeypatch.setattr(
+        "app.handlers.render_mixdown.scan_mix",
+        lambda p: type(
+            "S",
+            (),
+            {"duration_s": 100.0, "true_peak_db": -1.4, "level_jumps": [], "near_silent_s": []},
+        )(),
+    )
+
+    res = await render_mixdown_handler(
+        ctx=None,
+        uow=_StubUow(inputs),
+        version_id=131,
+        workspace=str(tmp_path),
+        out_name="MIX.mp3",
+        timestamp="20260706-000000",
+    )
+    assert captured["n"] == 2
+    assert res.out_path.endswith("MIX.mp3")
+    assert res.job_id == "v131-20260706-000000"
+    assert RENDER_JOBS.get(res.job_id).done is True
