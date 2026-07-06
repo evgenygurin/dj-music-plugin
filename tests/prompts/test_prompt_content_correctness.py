@@ -44,6 +44,7 @@ from app.prompts.live_next_track_workflow import live_next_track_workflow
 from app.prompts.mix_cluster_workflow import mix_cluster_workflow
 from app.prompts.playlist_sync_workflow import playlist_sync_workflow
 from app.prompts.quick_mix_check import quick_mix_check
+from app.prompts.render_set_workflow import render_set_workflow
 from app.prompts.replace_track_workflow import replace_track_workflow
 from app.prompts.rescue_set_workflow import rescue_set_workflow
 from app.prompts.scenario_set_workflow import scenario_set_workflow
@@ -134,6 +135,8 @@ def _render(p: Callable[..., object]) -> str:
         result = p(playlist_id=1)
     elif name == "suno_set_asset_workflow":
         result = p(set_id=1)
+    elif name == "render_set_workflow":
+        result = p(version_id=1)
     else:
         raise AssertionError(f"unknown prompt: {name}")
     parts: list[str] = []
@@ -212,6 +215,7 @@ PROMPTS = (
     playlist_sync_workflow,
     library_cleanup_workflow,
     suno_set_asset_workflow,
+    render_set_workflow,
 )
 
 _PROVIDER_ENTITIES_SUPPORTED: dict[str, set[str]] = {

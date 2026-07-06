@@ -1,4 +1,4 @@
-"""Metadata tests for the 6 Prefab UI tools.
+"""Metadata tests for the 7 Prefab UI tools.
 
 Each tool must:
 
@@ -22,6 +22,7 @@ UI_TOOL_NAMES: tuple[str, ...] = (
     "ui_score_pool_matrix",
     "ui_library_dashboard",
     "ui_camelot_wheel",
+    "ui_render_studio",
 )
 
 

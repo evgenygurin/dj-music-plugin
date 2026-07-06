@@ -22,6 +22,10 @@ class DeliverySettings(BaseSettings):
     emit_rekordbox_xml: bool = Field(default=False)
     emit_json_guide: bool = Field(default=True)
     emit_cheatsheet: bool = Field(default=True)
+    emit_continuous_mix: bool = Field(
+        default=True,
+        description="Include the rendered continuous beatmatched MIX.mp3 in the bundle.",
+    )
     icloud_min_download_ratio: float = Field(
         default=0.9,
         ge=0.0,

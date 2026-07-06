@@ -4,6 +4,33 @@ All notable changes to this project will be documented in this file.
 Format based on [Keep a Changelog](https://keepachangelog.com/).
 Versioning follows [Semantic Versioning](https://semver.org/).
 
+## [1.8.0] - 2026-07-06
+
+### Added
+- **Render pipeline MCP surface.** The continuous-mix render engine is now a
+  generic, `version_id`-keyed MCP surface over any persisted `set_version`
+  (engine split across `app/domain/render` pure + `app/audio/render`
+  side-effect + handlers, no new DB table):
+  - **`render` namespace** — 3 `task=True` tools (`render_beatgrid`,
+    `render_mixdown`, `render_diagnose`), visible by default and whitelisted in
+    `ALWAYS_VISIBLE_TOOLS`. `FastMCP(tasks=True)` + `fastmcp[tasks]` extra.
+  - **5 `local://render/*` resources** — `reference://render/defaults`,
+    `local://render/jobs/{job_id}/status`, `.../diagnostics`,
+    `local://render/{version_id}/beatgrid`, `.../timeline` (cheap reads;
+    no `app.handlers` import).
+  - **`render_set_workflow` prompt** — pure-text recipe (audio_file →
+    optional L5 → beatgrid → mixdown → diagnose → deliver).
+  - **`ui_render_studio` interactive Prefab studio** — Analyze/QA · Render ·
+    Diagnose · Refresh buttons that `CallTool` the `render_*` tools; live
+    status/beatgrid/timeline/diagnostics slots refreshed through the hidden
+    `render_studio_panel` helper (`visibility=["app"]` — status flows through
+    our own `CallTool` round-trip, not the host task protocol);
+    `RenderStudioFallback` for non-Prefab clients. UI tools 6 → 7,
+    model-visible tools 23 → 24.
+  - **`emit_continuous_mix` delivery toggle** (`DJ_DELIVERY_EMIT_CONTINUOUS_MIX`,
+    default `true`) — `deliver_set_workflow` includes the rendered `MIX.mp3`
+    in the bundle.
+
 ## [1.7.0] - 2026-07-04
 
 ### Added

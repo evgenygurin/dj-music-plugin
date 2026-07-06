@@ -31,6 +31,12 @@ def _build_body(set_id: int, sync_to_ym: bool) -> str:
         if sync_to_ym
         else "7. Skip platform sync (sync_to_ym=false).\n"
     )
+    continuous_clause = (
+        "   Also include the continuous beatmatched mix if one was rendered:\n"
+        "   render_set_workflow produces generated-sets/render/v<version_id>/MIX.mp3.\n"
+        "   Copy it into the deliverable bundle when DeliverySettings\n"
+        "   emit_continuous_mix is enabled (default).\n"
+    )
     return f"""To deliver set {set_id}:
 
 0. Finalize audio quality FIRST (L5-before-delivery): bring every set
@@ -81,7 +87,7 @@ def _build_body(set_id: int, sync_to_ym: bool) -> str:
    audio_file via entity_list(entity='audio_file', filters={{
    'track_id__in': [<set track ids>]}}, fields='full') to get
    `file_path`, then ``cp`` to the destination.
-
+{continuous_clause}
 {sync_clause}
 8. Final verification:
    - local://sets/{set_id}/summary (version count increased? quality_score stable?)

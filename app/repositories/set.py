@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from sqlalchemy import func, select
 
+from app.domain.render.models import TrackInput
 from app.models.set import DjSet, DjSetItem, DjSetVersion
 from app.models.track import Track
 from app.repositories.base import BaseRepository
@@ -84,6 +85,71 @@ class SetVersionRepository(BaseRepository[DjSetVersion]):
         """Return the number of versions for a set."""
         stmt = select(func.count()).select_from(DjSetVersion).where(DjSetVersion.set_id == set_id)
         return int(await self.session.scalar(stmt) or 0)
+
+    async def get_render_inputs(self, version_id: int) -> list[TrackInput]:
+        """Ordered render inputs for a version: title/bpm/key/mix-in/LUFS/file.
+
+        One batch query joining dj_set_items ⋈ tracks ⋈
+        track_audio_features_computed ⋈ dj_library_items. Raises
+        ValidationError when a track has no registered audio file (download
+        first — mirrors the L5 finalization contract).
+        """
+        import re
+
+        from app.models.audio_file import DjLibraryItem
+        from app.models.set import DjSetItem
+        from app.models.track import Track
+        from app.models.track_features import TrackAudioFeaturesComputed
+
+        stmt = (
+            select(
+                DjSetItem.track_id,
+                DjSetItem.sort_index,
+                DjSetItem.mix_in_point_ms,
+                Track.title,
+                TrackAudioFeaturesComputed.bpm,
+                TrackAudioFeaturesComputed.key_code,
+                TrackAudioFeaturesComputed.integrated_lufs,
+                DjLibraryItem.file_path,
+            )
+            .join(Track, Track.id == DjSetItem.track_id)
+            .join(
+                TrackAudioFeaturesComputed,
+                TrackAudioFeaturesComputed.track_id == DjSetItem.track_id,
+                isouter=True,
+            )
+            .join(DjLibraryItem, DjLibraryItem.track_id == DjSetItem.track_id, isouter=True)
+            .where(DjSetItem.version_id == version_id)
+            .order_by(DjSetItem.sort_index)
+        )
+        result = await self.session.execute(stmt)
+        out: list[TrackInput] = []
+        for row in result.all():
+            if row.file_path is None:
+                raise ValidationError(
+                    f"audio_file not found for track {row.track_id} in version "
+                    f"{version_id} — download first via "
+                    "entity_create(entity='audio_file', data={'track_ids': [...]})"
+                )
+            if row.bpm is None:
+                raise ValidationError(
+                    f"track {row.track_id} has no bpm feature — analyze first (level>=2)"
+                )
+            m = re.search(r"\[(\d+)\]", row.file_path)
+            yandex_id = int(m.group(1)) if m else None
+            out.append(
+                TrackInput(
+                    track_id=row.track_id,
+                    yandex_id=yandex_id,
+                    title=row.title,
+                    bpm=float(row.bpm),
+                    key_code=row.key_code,
+                    mix_in_ms=int(row.mix_in_point_ms or 0),
+                    integrated_lufs=row.integrated_lufs,
+                    file_path=row.file_path,
+                )
+            )
+        return out
 
     # Alias matching the older name used by some resources.
     latest_version = get_latest

@@ -145,6 +145,16 @@ class CamelotWheelFallback(BaseModel):
     slots: list[CamelotWheelSlot] = Field(default_factory=list)
 
 
+class RenderStudioFallback(BaseModel):
+    version_id: int
+    n_tracks: int = 0
+    target_bpm: float | None = None
+    beatgrid: list[dict[str, Any]] = Field(default_factory=list)
+    job: dict[str, Any] | None = None
+    timeline: list[dict[str, Any]] = Field(default_factory=list)
+    diagnostics: list[dict[str, Any]] = Field(default_factory=list)
+
+
 T = TypeVar("T", bound=BaseModel)
 
 

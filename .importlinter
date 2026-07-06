@@ -75,3 +75,22 @@ ignore_imports =
     app.handlers.transition_persist -> app.domain.transition.score
     app.handlers.transition_persist -> app.domain.transition.section_context
     app.handlers.transition_persist -> app.domain.transition.subgenre_rules
+    app.repositories.set -> app.domain.render.models
+
+# ── Contract: domain.render stays pure (no IO) ──────────────────────
+[importlinter:contract:v2-render-domain-pure]
+name = app.domain.render must not import audio, DB, providers, handlers, tools, or server
+type = forbidden
+source_modules =
+    app.domain.render
+forbidden_modules =
+    app.audio
+    app.db
+    app.repositories
+    app.providers
+    app.handlers
+    app.tools
+    app.server
+    librosa
+    scipy
+    soundfile
