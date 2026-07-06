@@ -10,6 +10,8 @@ from fastmcp.server.context import Context
 from fastmcp.tools import tool
 from pydantic import Field
 
+from app.domain.template.registry import get_template as _get_template
+from app.domain.template.registry import list_template_names as _list_template_names
 from app.handlers._context_log import safe_report_progress
 from app.repositories.unit_of_work import UnitOfWork
 from app.schemas.tool_responses import SequenceOptimizeResult
@@ -74,11 +76,6 @@ async def sequence_optimize(
     # ``SetTemplateDefinition`` that the optimizer can actually use.
     template_def = None
     if template is not None:
-        from app.domain.template.registry import get_template as _get_template
-        from app.domain.template.registry import (
-            list_template_names as _list_template_names,
-        )
-
         if template not in _list_template_names():
             raise ValidationError(
                 f"unknown template {template!r}; "

@@ -16,6 +16,7 @@ from pydantic import Field
 
 from app.repositories.unit_of_work import UnitOfWork
 from app.server.di import get_transition_scorer, get_uow
+from app.shared.errors import ValidationError
 from app.shared.types import JsonIntList
 from app.shared.ui_colors import FAIL_COLOR, PASS_COLOR, WARN_COLOR
 from app.tools.ui._fallback import (
@@ -72,8 +73,6 @@ async def _compute(uow: UnitOfWork, scorer: Any, track_ids: list[int]) -> dict[s
     # duplicates of {1,2} plus four of {2,1} — and a 4-column matrix
     # with two columns sharing the same id, which is meaningless.
     if len(set(track_ids)) != len(track_ids):
-        from app.shared.errors import ValidationError
-
         seen: set[int] = set()
         duplicates: list[int] = []
         for tid in track_ids:

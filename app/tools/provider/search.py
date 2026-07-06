@@ -12,6 +12,7 @@ from pydantic import Field
 from app.registry.provider import ProviderRegistry
 from app.schemas.provider_dto import ProviderSearchResult
 from app.server.di import get_provider_registry
+from app.shared.errors import ValidationError
 
 
 @tool(
@@ -36,8 +37,6 @@ async def provider_search(
     # Audit iter 5: empty query leaked the raw asyncpg/YM-client error
     # ``'str' object has no attribute 'get'`` from the adapter parsing
     # an empty response. Reject up front with a typed error.
-    from app.shared.errors import ValidationError
-
     if not query or not query.strip():
         raise ValidationError("query must not be empty or whitespace-only")
     adapter = registry.get(provider)

@@ -16,6 +16,7 @@ from fastmcp.tools import tool
 from pydantic import Field
 
 from app.domain.camelot.wheel import key_code_to_camelot
+from app.domain.transition.scorer import TransitionScorer
 from app.repositories.unit_of_work import UnitOfWork
 from app.server.di import get_uow
 from app.shared.errors import NotFoundError
@@ -123,8 +124,6 @@ async def _gather(uow: UnitOfWork, set_id: int, version_id: int | None) -> dict[
             feat_b = feat_map.get(b)
             if feat_a is not None and feat_b is not None:
                 if scorer is None:
-                    from app.domain.transition.scorer import TransitionScorer
-
                     scorer = TransitionScorer()
                 live = scorer.score(feat_a, feat_b)
                 overall = live.overall

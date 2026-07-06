@@ -10,6 +10,7 @@ from fastmcp.tools import tool
 from pydantic import Field
 from pydantic import ValidationError as PydanticValidationError
 
+from app.domain.template.registry import list_template_names
 from app.registry.entity import EntityRegistry
 from app.registry.provider import ProviderRegistry
 from app.repositories.unit_of_work import UnitOfWork
@@ -123,15 +124,12 @@ async def entity_create(
     # otherwise the optimizer rejects it later, and the set lingers
     # with a bogus name that nothing can use.
     template_name_val = getattr(validated, "template_name", None) if entity == "set" else None
-    if template_name_val is not None:
-        from app.domain.template.registry import list_template_names
-
-        if template_name_val not in list_template_names():
-            raise ValidationError(
-                f"unknown template_name {template_name_val!r}; "
-                f"valid templates: {sorted(list_template_names())}",
-                details={"template_name": template_name_val},
-            )
+    if template_name_val is not None and template_name_val not in list_template_names():
+        raise ValidationError(
+            f"unknown template_name {template_name_val!r}; "
+            f"valid templates: {sorted(list_template_names())}",
+            details={"template_name": template_name_val},
+        )
 
     repo = getattr(uow, config.repo_attr)
     row = await repo.create(**validated.model_dump())
