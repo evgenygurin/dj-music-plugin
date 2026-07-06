@@ -167,7 +167,6 @@ Visual renderers marked with `meta={"ui": True}` (standalone-decorator equivalen
 | `ui_library_dashboard` | — | Heading + Row[Metric×3] + Card[BarChart BPM] + Row[Card[PieChart moods], Card[BarChart Camelot]] | `DashboardFallback` |
 | `ui_camelot_wheel` | playlist_id? | Heading + Row[Metric×2] + Card[RadialChart wheel] + DataTable (slots) | `CamelotWheelFallback` |
 | `ui_render_studio` | version_id | Heading + Row[Button] Analyze/QA·Render·Diagnose·Refresh (each `CallTool`s a real `render_*` tool) + Slot[status, beatgrid, timeline, diagnostics] | `RenderStudioFallback` |
-
 | `ui_control_center` | version_id | Heading + Row[Metric×N] library/set/version overview + render pipeline buttons (Analyze+QA·Render·Diagnose) | `ControlCenterFallback` |
 
 `ui_render_studio` is the interactive render-pipeline control panel: its buttons `CallTool` into `render_beatgrid` / `render_mixdown` / `render_diagnose` and refresh through the hidden `render_studio_panel` helper (`visibility=["app"]` — registered but not model-visible; re-reads `RENDER_JOBS` + workspace files so status flows through our own `CallTool` round-trip, not the host task protocol). See `docs/render-pipeline.md`.
