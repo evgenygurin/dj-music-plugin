@@ -155,6 +155,28 @@ class RenderStudioFallback(BaseModel):
     diagnostics: list[dict[str, Any]] = Field(default_factory=list)
 
 
+class ControlCenterFallback(BaseModel):
+    version_id: int
+    set_id: int | None = None
+    set_name: str | None = None
+    quality_score: float | None = None
+    n_tracks: int = 0
+    # library overview
+    total_tracks: int = 0
+    analyzed_tracks: int = 0
+    coverage: float = 0.0
+    bpm_histogram: dict[str, int] = Field(default_factory=dict)
+    mood_distribution: dict[str, int] = Field(default_factory=dict)
+    # current set/version
+    tracks: list[dict[str, Any]] = Field(default_factory=list)
+    energy_arc: list[dict[str, Any]] = Field(default_factory=list)
+    # render sub-block
+    beatgrid: list[dict[str, Any]] = Field(default_factory=list)
+    job: dict[str, Any] | None = None
+    timeline: list[dict[str, Any]] = Field(default_factory=list)
+    diagnostics: list[dict[str, Any]] = Field(default_factory=list)
+
+
 T = TypeVar("T", bound=BaseModel)
 
 
