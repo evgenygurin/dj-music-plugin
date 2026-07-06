@@ -1,5 +1,6 @@
 """Pure render-plan compute (no IO). See docs/render-pipeline.md."""
 
+from app.domain.render.levels import gains_to_median
 from app.domain.render.models import (
     BeatgridEntry,
     RenderPlan,
@@ -21,5 +22,6 @@ __all__ = [
     "TrackSegment",
     "TransitionWindow",
     "build_render_plan",
+    "gains_to_median",
     "timeline_windows",
 ]
