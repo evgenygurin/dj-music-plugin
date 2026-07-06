@@ -14,7 +14,24 @@ from app.domain.render.timeline import build_render_plan
 from app.handlers._context_log import safe_info
 from app.handlers.render_beatgrid import render_beatgrid_handler
 from app.schemas.render import RenderMixdownResult
+from app.shared.errors import ValidationError
 from app.shared.render_jobs import RENDER_JOBS
+
+
+def _validate_out_name(out_name: str | None) -> None:
+    """Reject path separators / traversal so ``ws / out_name`` can't escape the workspace.
+
+    ``out_name`` reaches ``ffmpeg``'s output argv unsanitized; an absolute path or a
+    ``..``-relative one lets a caller overwrite an arbitrary file the server process can
+    write to (e.g. ``out_name="../../../etc/cron.d/x"``).
+    """
+    if not out_name:
+        return
+    if "/" in out_name or "\\" in out_name or out_name in {".", ".."}:
+        raise ValidationError(
+            f"out_name must be a bare filename, got {out_name!r}",
+            details={"out_name": out_name},
+        )
 
 
 async def render_mixdown_handler(
@@ -29,6 +46,7 @@ async def render_mixdown_handler(
     body_bars: int | None = None,
     refresh_grid: bool = False,
 ) -> RenderMixdownResult:
+    _validate_out_name(out_name)
     rs = get_settings().render
     ws = Path(workspace)
     ws.mkdir(parents=True, exist_ok=True)

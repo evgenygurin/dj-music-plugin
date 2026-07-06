@@ -2,6 +2,7 @@ import pytest
 
 from app.domain.render.models import TrackInput
 from app.handlers.render_mixdown import render_mixdown_handler
+from app.shared.errors import ValidationError
 from app.shared.render_jobs import RENDER_JOBS
 
 
@@ -86,3 +87,39 @@ async def test_mixdown_builds_plan_runs_and_registers(tmp_path, monkeypatch):
     assert res.out_path.endswith("MIX.mp3")
     assert res.job_id == "v131-20260706-000000"
     assert RENDER_JOBS.get(res.job_id).done is True
+
+
+@pytest.mark.parametrize(
+    "out_name",
+    [
+        "../../../etc/cron.d/evil",
+        "/etc/passwd",
+        "sub/dir/mix.mp3",
+        "..",
+        "a\\b.mp3",
+    ],
+)
+@pytest.mark.asyncio
+async def test_mixdown_rejects_out_name_path_traversal(tmp_path, out_name):
+    RENDER_JOBS.clear()
+    inputs = [
+        TrackInput(
+            track_id=0,
+            yandex_id=0,
+            title="t0",
+            bpm=130.0,
+            key_code=1,
+            mix_in_ms=0,
+            integrated_lufs=-12.0,
+            file_path="/x0.mp3",
+        )
+    ]
+    with pytest.raises(ValidationError):
+        await render_mixdown_handler(
+            ctx=None,
+            uow=_StubUow(inputs),
+            version_id=131,
+            workspace=str(tmp_path),
+            out_name=out_name,
+            timestamp="20260706-000000",
+        )
