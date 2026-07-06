@@ -6,10 +6,11 @@ import json
 from base64 import b64decode
 from unittest.mock import AsyncMock
 
+import httpx
 import pytest
 
 from app.providers.suno.client import SunoClient
-from app.providers.suno.client_errors import APIError, AuthFailedError
+from app.providers.suno.client_errors import APIError, AuthFailedError, RateLimitedError
 from app.providers.suno.session_auth import SunoSessionAuth
 
 
@@ -101,6 +102,25 @@ async def test_get_generation_unwraps_feed_v2_clips() -> None:
 
 
 @pytest.mark.asyncio
+async def test_get_generation_keeps_sunoapi_task_payload() -> None:
+    client = SunoClient(api_key="token", base_url="https://api.sunoapi.org")
+    task = {
+        "taskId": "task-1",
+        "status": "SUCCESS",
+        "response": {
+            "sunoData": [
+                {"id": "audio-1", "audioUrl": "https://cdn.example/audio-1.mp3"},
+            ],
+        },
+    }
+    client._request = AsyncMock(return_value=task)
+    try:
+        assert await client.get_generation("task-1") == task
+    finally:
+        await client.close()
+
+
+@pytest.mark.asyncio
 async def test_download_headers_omit_auth_for_offhost_cdn(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -125,12 +145,16 @@ async def test_download_headers_omit_auth_for_offhost_cdn(
 
 @pytest.mark.asyncio
 async def test_get_account_returns_billing_dict() -> None:
-    client = SunoClient(api_key="token", base_url="https://suno.example")
-    client._request = AsyncMock(return_value={"total_credits_left": 5, "is_active": True})
+    client = SunoClient(
+        api_key="token",
+        base_url="https://api.sunoapi.org",
+        account_path="/api/v1/generate/credit",
+    )
+    client._request = AsyncMock(return_value=5)
     try:
         acct = await client.get_account()
-        assert acct["total_credits_left"] == 5
-        assert client._request.await_args.args == ("GET", "/api/billing/info/")
+        assert acct["credits_left"] == 5
+        assert client._request.await_args.args == ("GET", "/api/v1/generate/credit")
     finally:
         await client.close()
 
@@ -159,6 +183,16 @@ async def test_check_captcha_raises_when_required() -> None:
 
 
 @pytest.mark.asyncio
+async def test_cancel_generation_requires_configured_endpoint() -> None:
+    client = SunoClient(api_key="token", base_url="https://api.sunoapi.org", cancel_path="")
+    try:
+        with pytest.raises(APIError, match="cancel endpoint"):
+            await client.cancel_generation("task-1")
+    finally:
+        await client.close()
+
+
+@pytest.mark.asyncio
 async def test_check_captcha_swallows_endpoint_drift() -> None:
     """A 405/422 from a drifted captcha endpoint must not block generation."""
     client = SunoClient(api_key="token", base_url="https://suno.example")
@@ -176,5 +210,75 @@ async def test_check_captcha_reraises_auth_failure() -> None:
     try:
         with pytest.raises(AuthFailedError):
             await client._check_captcha()
+    finally:
+        await client.close()
+
+
+@pytest.mark.asyncio
+async def test_api_call_normalizes_path_and_returns_data() -> None:
+    seen: dict[str, object] = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen["url"] = str(request.url)
+        seen["method"] = request.method
+        return httpx.Response(200, json={"code": 200, "msg": "ok", "data": {"taskId": "t"}})
+
+    client = SunoClient(api_key="token", base_url="https://api.sunoapi.org")
+    await client._http.aclose()
+    client._http = httpx.AsyncClient(
+        base_url="https://api.sunoapi.org", transport=httpx.MockTransport(handler)
+    )
+    try:
+        out = await client.api_call("GET", "api/v1/wav/record-info", params={"taskId": "t"})
+        assert out == {"taskId": "t"}
+        assert seen["method"] == "GET"
+        assert seen["url"] == "https://api.sunoapi.org/api/v1/wav/record-info?taskId=t"
+    finally:
+        await client.close()
+
+
+@pytest.mark.asyncio
+async def test_upload_file_targets_upload_host() -> None:
+    seen: dict[str, object] = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen["url"] = str(request.url)
+        return httpx.Response(200, json={"code": 200, "data": {"downloadUrl": "https://cdn/x"}})
+
+    client = SunoClient(
+        api_key="token",
+        base_url="https://api.sunoapi.org",
+        upload_base_url="https://sunoapiorg.redpandaai.co",
+    )
+    await client._http.aclose()
+    client._http = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    try:
+        out = await client.upload_file(
+            "/api/file-url-upload", json={"fileUrl": "http://x", "uploadPath": "dj"}
+        )
+        assert out == {"downloadUrl": "https://cdn/x"}
+        assert seen["url"] == "https://sunoapiorg.redpandaai.co/api/file-url-upload"
+    finally:
+        await client.close()
+
+
+@pytest.mark.asyncio
+async def test_request_raises_on_sunoapi_error_code() -> None:
+    transport = httpx.MockTransport(
+        lambda request: httpx.Response(
+            200,
+            json={"code": 429, "msg": "Insufficient credits"},
+            request=request,
+        )
+    )
+    client = SunoClient(api_key="token", base_url="https://api.sunoapi.org")
+    await client._http.aclose()
+    client._http = httpx.AsyncClient(
+        base_url="https://api.sunoapi.org",
+        transport=transport,
+    )
+    try:
+        with pytest.raises(RateLimitedError, match="429"):
+            await client.create_generation({"prompt": "x"})
     finally:
         await client.close()

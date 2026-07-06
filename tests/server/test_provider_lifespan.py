@@ -82,6 +82,23 @@ async def test_build_suno_adapter_from_env(
 
 
 @pytest.mark.asyncio
+async def test_build_suno_adapter_from_sunoapi_key_without_base_url(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("DJ_SUNO_AUTH_MODE", "api_key")
+    monkeypatch.setenv("DJ_SUNO_API_KEY", "token")
+    monkeypatch.delenv("DJ_SUNO_BASE_URL", raising=False)
+    monkeypatch.delenv("DJ_SUNO_PAYLOAD_MODE", raising=False)
+    adapter = build_suno_adapter()
+    assert adapter is not None
+    assert adapter.name == "suno"
+    assert adapter._payload_mode == "sunoapi"
+    await adapter.close()
+
+
+@pytest.mark.asyncio
 async def test_build_suno_adapter_from_session_env(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path,

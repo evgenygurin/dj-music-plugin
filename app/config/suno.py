@@ -28,17 +28,27 @@ class SunoSettings(BaseSettings):
     device_id: str = Field(default="", description="Suno device id.")
     bearer_token: str = Field(default="", description="Optional Clerk bearer JWT.")
     base_url: str = Field(default="", description="Authorized Suno-compatible REST base URL.")
+    api_base_url: str = Field(default="https://api.sunoapi.org")
     browser_base_url: str = Field(default="https://studio-api-prod.suno.com")
-    generate_path: str = Field(default="/api/generate/v2-web/")
-    status_path: str = Field(default="/api/feed/v2/?ids={id}")
-    cancel_path: str = Field(default="/api/generate/cancel/{id}")
+    upload_base_url: str = Field(
+        default="https://sunoapiorg.redpandaai.co",
+        description="File-upload host for sunoapi.org file-upload-api endpoints.",
+    )
+    callback_url: str = Field(
+        default="",
+        description="Default callBackUrl injected into async sunoapi.org task creates. "
+        "Empty is fine for the DJ poll-based flow (callbacks optional).",
+    )
+    generate_path: str = Field(default="")
+    status_path: str = Field(default="")
+    cancel_path: str = Field(default="")
     download_path: str = Field(
         default="",
         description="Optional endpoint path for audio bytes; supports {id}.",
     )
     captcha_check_path: str = Field(default="/api/c/check")
     account_path: str = Field(
-        default="/api/billing/info/",
+        default="",
         description="Account/billing endpoint for provider_read(entity='account'). "
         "Empty disables the live balance lookup.",
     )
@@ -48,14 +58,13 @@ class SunoSettings(BaseSettings):
     clerk_api_version: str = Field(default="2025-11-10")
     clerk_js_version: str = Field(default="5.117.0")
     payload_mode: str = Field(
-        default="suno_web",
-        description='Generation payload mode: "suno_web" or "generic".',
+        default="auto",
+        description='Generation payload mode: "auto", "suno_web", "sunoapi", or "generic".',
     )
     model: str = Field(
         default="chirp-auk-turbo",
-        description="Suno model key (mv). chirp-auk-turbo is the default free "
-        "model; set a paid key (chirp-fenix=v5.5, chirp-crow=v5) if subscribed. "
-        "An unset/empty value makes Suno default to a paid model → 403 on free.",
+        description="Suno model key. SunoAPI uses V4/V4_5/V4_5PLUS/V4_5ALL/V5/V5_5; "
+        "Suno web-session mode may use mv keys such as chirp-auk-turbo.",
     )
     timeout_s: float = Field(default=120.0, ge=1.0, le=600.0)
     rate_limit_delay_s: float = Field(default=0.5, ge=0.0, le=30.0)
@@ -73,7 +82,39 @@ class SunoSettings(BaseSettings):
     def effective_base_url(self) -> str:
         if self.use_session_auth:
             return self.base_url or self.browser_base_url
-        return self.base_url
+        return self.base_url or self.api_base_url
+
+    @property
+    def effective_generate_path(self) -> str:
+        if self.generate_path:
+            return self.generate_path
+        return "/api/generate/v2-web/" if self.use_session_auth else "/api/v1/generate"
+
+    @property
+    def effective_status_path(self) -> str:
+        if self.status_path:
+            return self.status_path
+        if self.use_session_auth:
+            return "/api/feed/v2/?ids={id}"
+        return "/api/v1/generate/record-info?taskId={id}"
+
+    @property
+    def effective_cancel_path(self) -> str:
+        if self.cancel_path:
+            return self.cancel_path
+        return "/api/generate/cancel/{id}" if self.use_session_auth else ""
+
+    @property
+    def effective_account_path(self) -> str:
+        if self.account_path:
+            return self.account_path
+        return "/api/billing/info/" if self.use_session_auth else "/api/v1/generate/credit"
+
+    @property
+    def effective_payload_mode(self) -> str:
+        if self.payload_mode != "auto":
+            return self.payload_mode
+        return "suno_web" if self.use_session_auth else "sunoapi"
 
     @property
     def enabled(self) -> bool:
@@ -83,4 +124,4 @@ class SunoSettings(BaseSettings):
             if (self.client_token or self.bearer_token) and self.device_id:
                 return True
             return Path(self.storage_state_path).expanduser().exists()
-        return bool(self.api_key and self.base_url)
+        return bool(self.api_key)

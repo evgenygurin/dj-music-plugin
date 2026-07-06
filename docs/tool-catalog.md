@@ -61,27 +61,50 @@ Handlers wire side-effects on create/update/delete:
 - Yandex: `track`, `album`, `playlist`, `artist_tracks`, `track_similar`,
   `track_batch`, `likes`, `dislikes`, `playlist_list`.
 - Beatport: `track`, `track_match`, `account`.
-- Suno web (opt-in no-browser session auth via `DJ_SUNO_COOKIE_HEADER` or
-  `DJ_SUNO_BEARER_TOKEN`/`DJ_SUNO_CLIENT_TOKEN` + `DJ_SUNO_DEVICE_ID`, or a
-  JSON `DJ_SUNO_STORAGE_STATE_PATH`; defaults to
-  `https://studio-api-prod.suno.com` + `https://auth.suno.com`, Clerk Bearer,
-  `browser-token`, `device-id`, and `DJ_SUNO_PAYLOAD_MODE=suno_web`; a browser
-  Cookie header with `__session`, `__client`, and `suno_device_id` or
-  `ajs_anonymous_id` is supported; generic API-key mode remains available via
-  `DJ_SUNO_AUTH_MODE=api_key` +
-  `DJ_SUNO_PAYLOAD_MODE=generic`):
-  `generation`, `account`. `entity="account"` returns live balance
-  (`credits_left`, `subscription_type`, `usable_models`) from
-  `/api/billing/info/` merged with capabilities. Verified-live contract
-  (2026-07-05): create `POST /api/generate/v2-web/` (flat payload, non-empty
-  `prompt`); poll clip ids via `GET /api/feed/v2/?ids={clip_id}` (create returns
-  a batch → use `clip_ids`); free model `chirp-auk-turbo`. Bearer ~1 h, refresh
-  via `scripts/suno_refresh_token.py`.
+- Suno (opt-in provider) — **mode-gated surface** (`app/providers/suno/`).
+  Project default is Suno web no-browser **session** auth via
+  `DJ_SUNO_COOKIE_HEADER` or `DJ_SUNO_BEARER_TOKEN` /
+  `DJ_SUNO_CLIENT_TOKEN` + `DJ_SUNO_DEVICE_ID`, or
+  `DJ_SUNO_STORAGE_STATE_PATH` (`https://studio-api-prod.suno.com` +
+  `https://auth.suno.com`, Clerk Bearer, payload mode `suno_web`, pollable clip
+  ids, model keys such as `chirp-auk-turbo`). In session mode `provider_read`
+  entities are `generation`, `account`. `entity="account"` returns live balance
+  (`credits_left`, `subscription_type`, `usable_models`, `payload_mode`) merged
+  with capabilities.
+  - **SunoAPI mode** (`https://docs.sunoapi.org`) is opt-in when an API key
+    exists: `DJ_SUNO_AUTH_MODE=api_key` + `DJ_SUNO_API_KEY`, default base
+    `https://api.sunoapi.org`, payload mode `sunoapi`, model enum
+    `V4|V4_5|V4_5PLUS|V4_5ALL|V5|V5_5`. It unlocks the **full sunoapi.org REST
+    surface** (declared in `app/providers/suno/endpoints.py`). `provider_read`
+    read entities: `generation` (`/api/v1/generate/record-info?taskId=`),
+    `lyrics`, `wav`, `vocal_removal`, `midi`, `video`, `cover`, `voice`
+    (`params={"kind":"validate"|"record"}`), `account`
+    (`/api/v1/generate/credit`). Calling a sunoapi-only op in session mode
+    raises a typed error. `operation="cancel"` is legacy/generic only unless a
+    custom `DJ_SUNO_CANCEL_PATH` is configured.
 
 `provider_write.entity/operation` matrix:
 - `playlist` × `add_tracks | remove_tracks | create | rename | delete`
 - `likes` × `add | remove`
-- `generation` × `create | cancel | download` (Suno-compatible provider)
+- `generation` × `create | cancel | download` (both Suno modes)
+- **Suno session/web mode** (`payload_mode=suno_web`, browser Suno; declared in
+  `app/providers/suno/endpoints_web.py`, reverse-engineered from the live
+  suno.com bundle + validated live): `generation` × `extend | concat`;
+  `stem` × `create | sample_pack`; `wav` × `create`; `edit` ×
+  `crop | fade | reverse`; `remaster` × `create`; `persona` × `create`;
+  `lyrics` × `create`; `playlist` × `create | add_tracks | remove_tracks`.
+  Reads add `clip` (`params.kind` ∈ info/stems/wav/downbeats/sections/waveform/
+  aligned_lyrics), `lyrics`, `persona`, `playlist`.
+- **SunoAPI mode only** (`DJ_SUNO_AUTH_MODE=api_key`):
+  - `generation` × `extend | upload_cover | upload_extend | add_instrumental |
+    add_vocals | mashup | replace_section | sounds`
+  - `lyrics` × `create | timestamped`
+  - `wav` × `create`; `vocal_removal` × `create`; `midi` × `create`;
+    `video` × `create`; `cover` × `create`; `persona` × `create`
+  - `style` × `boost`
+  - `voice` × `validate | generate | regenerate | check`
+  - `file` × `upload_base64 | upload_url | upload_stream` (posts to
+    `DJ_SUNO_UPLOAD_BASE_URL`, default `https://sunoapiorg.redpandaai.co`)
 
 ### Compute (2, namespace `compute`)
 

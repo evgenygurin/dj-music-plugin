@@ -40,7 +40,9 @@ def test_adapter_satisfies_protocol(mock_client: AsyncMock) -> None:
     assert isinstance(adapter, Provider)
     assert adapter.name == "suno"
     assert "generation" in adapter.entities_supported
-    assert adapter.operations_supported["generation"] == ("create", "cancel", "download")
+    # default mode is suno_web -> full browser-web surface
+    gen_ops = adapter.operations_supported["generation"]
+    assert {"create", "cancel", "download", "extend", "concat"} <= set(gen_ops)
 
 
 async def test_create_generation_normalizes_id_and_request(mock_client: AsyncMock) -> None:
@@ -85,6 +87,36 @@ async def test_create_generation_generic_payload_mode(mock_client: AsyncMock) ->
     assert payload["prompt"].startswith("hypnotic")
 
 
+async def test_create_generation_sunoapi_payload_mode(mock_client: AsyncMock) -> None:
+    adapter = SunoAdapter(
+        client=mock_client, default_model="chirp-auk-turbo", payload_mode="sunoapi"
+    )
+    await adapter.write(
+        "generation",
+        "create",
+        {
+            "prompt": "hypnotic techno intro bed, no vocals",
+            "title": "intro",
+            "tags": ["hypnotic techno", "dj-tool"],
+            "instrumental": True,
+            "negative_tags": ["vocals", "guitar"],
+            "style_weight": 0.7,
+            "weirdness": 0.2,
+        },
+    )
+    payload = mock_client.create_generation.await_args.args[0]
+    assert payload["customMode"] is True
+    assert payload["instrumental"] is True
+    assert payload["callBackUrl"] == ""
+    assert payload["model"] == "V4_5"
+    assert payload["style"] == "hypnotic techno, dj-tool"
+    assert payload["title"] == "intro"
+    assert payload["negativeTags"] == "vocals, guitar"
+    assert payload["styleWeight"] == 0.7
+    assert payload["weirdnessConstraint"] == 0.2
+    assert "prompt" not in payload
+
+
 async def test_create_generation_requires_prompt(mock_client: AsyncMock) -> None:
     adapter = SunoAdapter(client=mock_client)
     with pytest.raises(ValidationError, match="prompt"):
@@ -107,6 +139,26 @@ def test_extract_clip_ids_prefers_pollable_clip_ids() -> None:
     # generation_id must be pollable (first clip), NOT the batch id
     assert out["generation_id"] == "clip-a"
     assert out["status"] == "running"  # top-level status wins over clip status
+
+
+def test_normalize_sunoapi_task_response_keeps_task_id_and_audio_variants() -> None:
+    raw = {
+        "taskId": "task-123",
+        "status": "SUCCESS",
+        "response": {
+            "sunoData": [
+                {"id": "audio-a", "audioUrl": "https://cdn.example/a.mp3"},
+                {"id": "audio-b", "audioUrl": "https://cdn.example/b.mp3"},
+            ],
+        },
+    }
+    out = SunoAdapter._normalize_generation(raw)
+    assert out["generation_id"] == "task-123"
+    assert out["batch_id"] == "task-123"
+    assert out["clip_ids"] == ["audio-a", "audio-b"]
+    assert out["status"] == "SUCCESS"
+    assert out["ready"] is True
+    assert out["audio_url"] == "https://cdn.example/a.mp3"
 
 
 async def test_read_generation_normalizes_audio_url(mock_client: AsyncMock) -> None:
@@ -135,7 +187,7 @@ async def test_read_account_merges_capabilities_and_balance(mock_client: AsyncMo
     assert out["credits_left"] == 42
     assert out["subscription_type"] == "pro"
     assert out["usable_models"] == ["chirp-auk-turbo"]
-    assert out["operations_supported"]["generation"] == ["create", "cancel", "download"]
+    assert {"create", "cancel", "download"} <= set(out["operations_supported"]["generation"])
 
 
 async def test_read_account_degrades_when_billing_unavailable(mock_client: AsyncMock) -> None:

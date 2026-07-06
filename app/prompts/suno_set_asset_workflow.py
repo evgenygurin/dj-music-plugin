@@ -20,55 +20,72 @@ program. Use Suno for functional material only: intro beds, outro landings,
 short bridge tools, reset loops, spoken-free texture beds, or emergency
 rescue loops.
 
-Auth requirement: Suno provider must be registered with no-browser session
-auth (`DJ_SUNO_COOKIE_HEADER` or `DJ_SUNO_BEARER_TOKEN`/`DJ_SUNO_CLIENT_TOKEN`
-+ `DJ_SUNO_DEVICE_ID`, or a JSON `DJ_SUNO_STORAGE_STATE_PATH`). Do not launch
-Playwright/browser-login from this workflow. If Google/Suno requires CAPTCHA
-or 2FA, pause and ask the user to refresh session credentials after completing
-the check in their browser; do not attempt to bypass it. The provider handles
-Suno web auth headers (Cookie `__session`/`__client`, Clerk Bearer token,
-browser-token, device-id) internally; do not switch this workflow to a generic
-API-key path unless the user explicitly asks for that.
+Auth requirement: Suno provider must be registered. Use the project default
+no-browser session auth (`DJ_SUNO_COOKIE_HEADER` or `DJ_SUNO_BEARER_TOKEN` /
+`DJ_SUNO_CLIENT_TOKEN` + `DJ_SUNO_DEVICE_ID`, or a JSON
+`DJ_SUNO_STORAGE_STATE_PATH`). Do not launch Playwright/browser-login from this
+workflow. If Google/Suno requires CAPTCHA or 2FA in session mode, pause and ask
+the user to refresh session credentials after completing the check in their
+browser; do not attempt to bypass it. SunoAPI mode is supported only as opt-in
+when `DJ_SUNO_AUTH_MODE=api_key` + `DJ_SUNO_API_KEY` actually exist.
 
 Inputs:
 - asset_plan: {asset_plan}
 - style_hint: {style_hint}
 - target_dir: {target_dir}
 
-1. Inspect the current set:
+1. Inspect the set and read the REAL per-track descriptors (never invent them):
    local://sets/{set_id}/full
    local://sets/{set_id}/review
    local://sets/{set_id}/cheatsheet
+   These carry each track's mood, BPM, key (Camelot / key_code) and LUFS.
+   Anchor every Suno prompt to these real numbers; {style_hint} is only a
+   fallback when a slot has no neighbouring track to match.
 
-2. Decide assets conservatively:
-   - intro: 30-90s, no lead hook that steals identity from track 1.
-   - bridge: 16-64 bars, match the surrounding BPM/key/energy and avoid
-     melodic claims that fight the next track.
-   - outro: 30-120s, de-escalates cleanly and leaves silence/room tone.
-   - rescue loop: only for weak/hard transitions that cannot be repaired by
-     replace_track_workflow or fix_transition_workflow.
+2. Derive a matched brief per asset from the NEIGHBOURING tracks (DB-driven):
+   - intro  -> match track 1's mood/BPM/key; start ~3-5 LUFS quieter so it
+              builds INTO track 1.
+   - bridge -> average the two tracks around the weak/hard transition: a BPM
+              between them, a key compatible with both (Camelot +/-1), energy
+              between their LUFS.
+   - outro  -> match the LAST track's mood/BPM, then de-escalate below it.
+   - rescue -> match the two tracks of the failing transition.
+   Map the project mood to Suno style tags + a library-measured BPM band:
+     dub_techno / ambient_dub ~123-125 (deep, spacious, dub chords, tape echo)
+     minimal ~126-128 (stripped, hypnotic, tight kick)
+     detroit ~127 (warm strings, machine soul)
+     melodic_deep / progressive ~124-126 (warm pads, emotive)
+     driving ~126 (rolling 909, propulsive)   hypnotic ~125 (repetitive, tunnel)
+     tribal ~129 (percussive)   peak_time ~132 (big, festival)
+     acid ~126 (303 resonance)   industrial ~125 (distorted, metallic)
+     raw ~139   hard_techno ~136 (fast, pounding)
+   Keep assets conservative: intro 30-90s (no lead hook that steals track 1's
+   identity), bridge 16-64 bars, outro 30-120s (dissolve to room tone), rescue
+   only where replace_track_workflow / fix_transition_workflow cannot repair.
 
-3. For each asset, create one generation:
+3. For each asset, create one generation with the DERIVED brief:
    provider_write(provider="suno", entity="generation", operation="create",
                   params={{
                     "title": "<set_id>-<slot>-<asset-kind>",
-                    "prompt": "<DJ utility prompt: style, BPM, energy, bars, no vocals>",
-                    "tags": ["{style_hint}", "dj-tool", "<asset-kind>"],
+                    "prompt": "<derived: mood + BPM + key + energy + bars, no vocals>",
+                    "tags": ["<derived mood/style tags>", "dj-tool", "<asset-kind>"],
                     "instrumental": true,
                     "duration_s": <seconds>,
-                    "bpm": <target bpm>,
-                    "key": "<camelot or musical key if useful>"
+                    "bpm": <derived target bpm>,
+                    "key": "<neighbour Camelot/key>"
                   }})
-   Save the returned generation_id. Suno returns a batch of 2-4 variants:
-   `generation_id` is the first (already-pollable) clip; `clip_ids` lists all
-   variants and `batch_id` the batch. Free-plan default model is
-   `chirp-auk-turbo` (set DJ_SUNO_MODEL for a paid model like chirp-fenix).
+   Save the returned generation_id. In the default web-session mode,
+   `generation_id` is the first pollable clip, `clip_ids` lists all variants,
+   and `batch_id` is the batch. Web-session model defaults to
+   `chirp-auk-turbo`. In opt-in SunoAPI mode, `generation_id` is the taskId;
+   poll it until `response.sunoData[]` contains audio variants.
 
 4. Poll until ready:
    provider_read(provider="suno", entity="generation", id="<generation_id>")
-   Continue only when `ready=true` or an audio_url is present. Poll a clip id
-   (from `clip_ids`), not the batch id. If it fails, report the failed
-   generation_id and generate one alternate with a simpler prompt.
+   Continue only when `ready=true` or an audio_url is present. In web-session
+   mode, poll a clip id (from `clip_ids`), not the batch id. In opt-in SunoAPI
+   mode, poll the taskId. If it fails, report the failed generation_id and
+   generate one alternate with a simpler prompt.
 
 5. Download each ready asset locally:
    provider_write(provider="suno", entity="generation", operation="download",
@@ -87,6 +104,52 @@ Inputs:
    - If the set will be synced to Yandex Music, do not upload generated
      assets through provider_write(provider="yandex", entity="playlist")
      unless the user explicitly asks and rights/account settings allow it.
+
+Web-mode polish (default browser session — all verified live). Refine a raw
+generated bed with the Suno web ops; each derived clip is downloaded the same
+way as step 5 (pass its `generation_id`/`audio_url`):
+- Longer bed: extend, then merge the chain into one clip:
+  provider_write(provider="suno", entity="generation", operation="extend",
+                 params={{"continue_clip_id": "<clip>", "continue_at": <sec>,
+                          "prompt": "<derived brief>"}})
+  provider_write(provider="suno", entity="generation", operation="concat",
+                 params={{"clip_id": "<extension clip>"}})
+- 4-deck layering tools: split a bed into stems (returns Vocals + Instrumental
+  clips; poll each with a generation read, then download):
+  provider_write(provider="suno", entity="stem", operation="create",
+                 params={{"clip_id": "<clip>"}})
+- USB WAV master: convert, then read the WAV url and download it:
+  provider_write(provider="suno", entity="wav", operation="create",
+                 params={{"clip_id": "<clip>"}})
+  provider_read(provider="suno", entity="clip", id="<clip>",
+                params={{"kind": "wav"}})
+- Trim to an exact slot length (each returns a pollable clip in `generation_id`):
+  provider_write(provider="suno", entity="edit", operation="crop",
+                 params={{"clip_id": "<clip>", "crop_start_s": <s>, "crop_end_s": <e>}})
+  provider_write(provider="suno", entity="edit", operation="fade",
+                 params={{"clip_id": "<clip>", "fade_in_time": <s>, "fade_out_time": <s>}})
+
+Advanced capabilities (SunoAPI mode only, when `DJ_SUNO_AUTH_MODE=api_key`):
+the full sunoapi.org REST surface is available and can refine a raw asset.
+Each is a task create (poll it with the matching read entity):
+- Rework/lengthen a generated bed:
+  provider_write(provider="suno", entity="generation", operation="extend",
+                 params={{"audioId": "<clip>", "defaultParamFlag": true,
+                          "continueAt": <sec>}})
+- Cover/extend an uploaded stem or bed (host it first with
+  provider_write(provider="suno", entity="file", operation="upload_url",
+                 params={{"fileUrl": "<mp3 url>", "uploadPath": "dj/assets"}}),
+  then operation="upload_cover"/"upload_extend" with the returned uploadUrl).
+- Stem-split a bed for layering:
+  provider_write(provider="suno", entity="vocal_removal", operation="create",
+                 params={{"taskId": "<t>", "audioId": "<a>",
+                          "type": "split_stem"}})
+  then provider_read(provider="suno", entity="vocal_removal", id="<t>").
+- WAV master for the USB: entity="wav" operation="create" ->
+  provider_read(provider="suno", entity="wav", id="<t>").
+Other entities: lyrics, midi, video, cover, persona, style (boost), voice.
+Only reach for these when the user asks for more than a plain bed; the DJ
+default is instrumental generation + download above.
 
 Return: {{"set_id": {set_id}, "generated_assets": [...],
          "target_dir": "{target_dir}", "manual_cue_notes": [...]}}.
