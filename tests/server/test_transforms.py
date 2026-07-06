@@ -40,6 +40,7 @@ def test_always_visible_list_matches_blueprint() -> None:
         "ui_library_dashboard",
         "ui_camelot_wheel",
         "ui_render_studio",
+        "ui_control_center",
         "render_beatgrid",
         "render_mixdown",
         "render_diagnose",

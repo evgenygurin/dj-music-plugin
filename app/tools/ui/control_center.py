@@ -66,7 +66,7 @@ async def gather_control_center(
     ver = await uow.set_versions.get(version_id)
     if ver is None:
         raise NotFoundError("set_version", version_id)
-    set_id = getattr(ver, "set_id", None)
+    set_id = ver.set_id
 
     lib = await _gather_library(uow)
     setd = await _gather_set(uow, set_id, version_id)
