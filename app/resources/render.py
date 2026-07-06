@@ -76,7 +76,11 @@ async def render_job_diagnostics_resource(job_id: str) -> str:
     """Saved diagnostics report for a job's version workspace."""
     # job_id is v{version_id}-{ts} or v{version_id}; extract version
     vid = job_id.split("-")[0].lstrip("v")
-    path = _workspace(int(vid)) / "diagnostics.json"
+    try:
+        version_id = int(vid)
+    except ValueError as exc:
+        raise NotFoundError("render_diagnostics", job_id) from exc
+    path = _workspace(version_id) / "diagnostics.json"
     if not path.exists():
         raise NotFoundError("render_diagnostics", job_id)
     return path.read_text()
