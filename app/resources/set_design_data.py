@@ -25,7 +25,7 @@ from app.resources._feature_catalog import (
 from app.resources._shared import ANNOTATIONS_READ_ONLY, RESOURCE_META
 from app.server.di import get_uow
 from app.shared.errors import NotFoundError
-from app.tools.ui.render_studio import gather_render_studio
+from app.shared.render_studio_data import gather_render_studio
 
 _SET_FIELDS = (
     "id",
