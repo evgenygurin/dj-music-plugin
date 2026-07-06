@@ -24,6 +24,7 @@ from app.config.delivery import DeliverySettings
 from app.config.discovery import DiscoverySettings
 from app.config.mcp import MCPSettings
 from app.config.optimization import OptimizationSettings
+from app.config.render import RenderSettings
 from app.config.transition import TransitionSettings
 from app.config.yandex import YandexSettings
 
@@ -36,6 +37,7 @@ __all__ = [
     "DiscoverySettings",
     "MCPSettings",
     "OptimizationSettings",
+    "RenderSettings",
     "Settings",
     "TransitionSettings",
     "YandexSettings",
@@ -58,6 +60,7 @@ class Settings:
     discovery: DiscoverySettings
     delivery: DeliverySettings
     mcp: MCPSettings
+    render: RenderSettings
 
     def __init__(self) -> None:
         object.__setattr__(self, "database", DatabaseSettings())
@@ -70,6 +73,7 @@ class Settings:
         object.__setattr__(self, "discovery", DiscoverySettings())
         object.__setattr__(self, "delivery", DeliverySettings())
         object.__setattr__(self, "mcp", MCPSettings())
+        object.__setattr__(self, "render", RenderSettings())
 
 
 @lru_cache(maxsize=1)
