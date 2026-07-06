@@ -75,3 +75,10 @@ Thumbs.db
 
 # Codex CLI local config
 .codex/
+
+# GitNexus auto-generates these project skills on every `analyze` (duplicates the
+# gitnexus plugin skills); keep them out of git to avoid churn.
+.claude/skills/gitnexus/
+
+# Suno-generated audio assets (export-side artifacts, ~MB each) — never commit.
+suno_out/

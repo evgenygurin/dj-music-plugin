@@ -55,6 +55,14 @@ def test_parse_filter_icontains_wildcards() -> None:
     assert len(clauses) == 1
 
 
+def test_parse_filter_icontains_escapes_sql_wildcards() -> None:
+    """A literal '%' or '_' in the value must not act as a SQL wildcard."""
+    clauses = parse_filter(_DummyModel, {"title__icontains": "100%_off"})
+    compiled = str(clauses[0].compile(compile_kwargs={"literal_binds": True}))
+    assert "100\\%\\_off" in compiled
+    assert "ESCAPE '\\'" in compiled
+
+
 def test_parse_filter_isnull_true() -> None:
     clauses = parse_filter(_DummyModel, {"mood__isnull": True})
     assert len(clauses) == 1

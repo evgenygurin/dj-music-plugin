@@ -3,9 +3,17 @@
   "configurations": [
     {
       "name": "previews",
-      "runtimeExecutable": "python3",
-      "runtimeArgs": ["-m", "http.server", "8799", "--directory", "artifacts/previews"],
-      "port": 8799
+      "runtimeExecutable": "sh",
+      "runtimeArgs": ["-c", "python3 -m http.server \"${PORT:-8799}\" --directory artifacts/previews"],
+      "port": 8799,
+      "autoPort": true
+    },
+    {
+      "name": "control-center-live",
+      "runtimeExecutable": "sh",
+      "runtimeArgs": ["-c", "set -a; . ./.env 2>/dev/null; set +a; export DJ_PREVIEW_VERSION_ID=\"${DJ_PREVIEW_VERSION_ID:-149}\"; uv run python scripts/prefab_previews/serve_live.py"],
+      "port": 8300,
+      "autoPort": true
     }
   ]
 }

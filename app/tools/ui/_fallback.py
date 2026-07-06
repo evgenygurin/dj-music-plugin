@@ -158,6 +158,7 @@ class RenderStudioFallback(BaseModel):
 class ControlCenterFallback(BaseModel):
     version_id: int
     set_id: int | None = None
+    source_playlist_id: int | None = None
     set_name: str | None = None
     quality_score: float | None = None
     n_tracks: int = 0

@@ -9,13 +9,24 @@ class _Ver:
         self.set_id = set_id
 
 
+class _Set:
+    def __init__(self, source_playlist_id=None):
+        self.source_playlist_id = source_playlist_id
+        self.name = "s"
+
+
 class _StubUow:
-    def __init__(self, ver):
+    def __init__(self, ver, s=None):
         class _SV:
             async def get(self, vid):
                 return ver
 
+        class _S:
+            async def get(self, sid):
+                return s
+
         self.set_versions = _SV()
+        self.sets = _S()
 
 
 @pytest.mark.asyncio

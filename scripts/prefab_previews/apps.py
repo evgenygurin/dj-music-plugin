@@ -340,6 +340,82 @@ def _build_render_studio_app() -> PrefabApp:
     return PrefabApp(view=app.view, state=app.state, title="ui_render_studio — Peak Hour demo")
 
 
+
+def _build_control_center_app() -> PrefabApp:
+    import app.tools.ui.control_center as cc
+    from app.tools.ui._fallback import EnergyPoint, TrackRow
+
+    async def _fake_lib(uow):
+        return {
+            "total_tracks": 24005,
+            "analyzed_tracks": 23817,
+            "coverage": 0.992,
+            "bpm_histogram": {"120-124": 4200, "125-129": 12975, "130-134": 5100},
+            "mood_distribution": {"driving": 8333, "hypnotic": 4120, "acid": 2210},
+            "camelot_distribution": {"7B": 2513},
+        }
+
+    async def _fake_set(uow, set_id, version_id):
+        return {
+            "set_id": set_id,
+            "name": DEMO_SET_NAME,
+            "template_name": DEMO_TEMPLATE,
+            "version_id": version_id,
+            "quality_score": 0.81,
+            "tracks": [
+                TrackRow(
+                    position=i,
+                    track_id=t["id"],
+                    title=t["title"],
+                    bpm=t["bpm"],
+                    lufs=t["lufs"],
+                    mood=t["mood"],
+                )
+                for i, t in enumerate(DEMO_TRACKS)
+            ],
+            "energy_arc": [
+                EnergyPoint(position=i, lufs=t["lufs"]) for i, t in enumerate(DEMO_TRACKS)
+            ],
+            "transitions": [],
+        }
+
+    async def _fake_render(uow, *, version_id, job_id):
+        return {
+            "version_id": version_id,
+            "n_tracks": len(DEMO_TRACKS),
+            "target_bpm": 130.0,
+            "beatgrid": [
+                {"track_id": t["id"], "phase_ms": 10.0 + i, "gain_db": -1.5 + 0.2 * i}
+                for i, t in enumerate(DEMO_TRACKS)
+            ],
+            "job": None,
+            "timeline": [
+                {"index": i, "title": t["title"], "start_s": i * 240.0}
+                for i, t in enumerate(DEMO_TRACKS)
+            ],
+            "diagnostics": [],
+        }
+
+    cc_lib, cc_set, cc_render = cc._gather_library, cc._gather_set, cc.gather_render_studio
+    cc._gather_library, cc._gather_set, cc.gather_render_studio = (
+        _fake_lib,
+        _fake_set,
+        _fake_render,
+    )
+    try:
+        uow = _uow_for_set()
+        uow.sets.get = AsyncMock(return_value=MagicMock(source_playlist_id=7, name=DEMO_SET_NAME))
+        ver = MagicMock(set_id=1)
+        uow.set_versions.get = AsyncMock(return_value=ver)
+        ctx = _ctx()
+        app = asyncio.run(cc.ui_control_center(version_id=42, uow=uow, ctx=ctx))
+    finally:
+        cc._gather_library, cc._gather_set, cc.gather_render_studio = cc_lib, cc_set, cc_render
+    return PrefabApp(
+        view=app.view, state=app.state, title="ui_control_center — Peak Hour demo"
+    )
+
+
 # --- Export handles (one PrefabApp per module global) ------------------
 
 set_view_app = _build_set_view_app()
@@ -349,3 +425,4 @@ score_pool_matrix_app = _build_score_pool_matrix_app()
 library_dashboard_app = _build_library_dashboard_app()
 camelot_wheel_app = _build_camelot_wheel_app()
 render_studio_app = _build_render_studio_app()
+control_center_app = _build_control_center_app()

@@ -1,12 +1,14 @@
 """ui_control_center — one interactive Prefab panel to drive the set lifecycle.
 
 Entry tool (``meta={"ui": True}``) that shows library + current-set/version
-state and, in Phase 1, the render pipeline buttons (Analyze+QA / Render /
-Diagnose). It reuses the proven ``render_studio`` round-trip: buttons
-``CallTool`` the real ``render_*`` tools, then ``CallTool`` the existing hidden
-``render_studio_panel`` helper and ``SetState("panel", RESULT)`` so a
-``Slot("panel")`` re-renders only the render status/QA/timeline/diagnostics
-fragment.
+state plus the pipeline buttons: Analyze+QA / Render / Diagnose (Phase 1) and
+Build/Reorder / Analyze→L5 / conditional Sync-diff→YM (Phase 2). Buttons
+``CallTool`` the real tools (``render_*``, hidden ``act_build`` /
+``act_l5_set``, ``playlist_sync``), then ``CallTool`` the dedicated hidden
+``control_center_panel`` helper and ``SetState("panel", RESULT)`` so a
+``Slot("panel")`` re-renders only the status/QA/timeline/diagnostics fragment
+(the l5 job travels through the same RENDER_JOBS registry, so the one panel
+covers render and L5 jobs alike).
 
 Data is composed from three existing gatherers — ``library_dashboard._gather``
 (stats), ``set_view._gather`` (tracks + energy arc), and
@@ -32,6 +34,7 @@ from app.tools.ui.render_studio import _panel_fragment, gather_render_studio
 from app.tools.ui.set_view import _gather as _gather_set
 
 try:
+    from fastmcp.apps import AppConfig, app_config_to_meta_dict
     from prefab_ui.actions import SetState, ShowToast
     from prefab_ui.actions.mcp import CallTool
     from prefab_ui.app import PrefabApp
@@ -68,6 +71,9 @@ async def gather_control_center(
         raise NotFoundError("set_version", version_id)
     set_id = ver.set_id
 
+    s = await uow.sets.get(set_id)
+    source_playlist_id = getattr(s, "source_playlist_id", None) if s is not None else None
+
     lib = await _gather_library(uow)
     setd = await _gather_set(uow, set_id, version_id)
     render = await gather_render_studio(uow, version_id=version_id, job_id=job_id)
@@ -78,6 +84,7 @@ async def gather_control_center(
     return {
         "version_id": version_id,
         "set_id": set_id,
+        "source_playlist_id": source_playlist_id,
         "set_name": setd.get("name"),
         "quality_score": setd.get("quality_score"),
         "n_tracks": len(tracks),
@@ -100,6 +107,7 @@ def control_center_fallback(data: dict[str, Any]) -> ControlCenterFallback:
     return ControlCenterFallback(
         version_id=data["version_id"],
         set_id=data.get("set_id"),
+        source_playlist_id=data.get("source_playlist_id"),
         set_name=data.get("set_name"),
         quality_score=data.get("quality_score"),
         n_tracks=data.get("n_tracks", 0),
@@ -171,6 +179,29 @@ def _render_set_section(data: dict[str, Any]) -> None:
 
 
 @tool(
+    name="control_center_panel",
+    tags={"namespace:ui:read", "ui", "read"},
+    annotations={"readOnlyHint": True, "idempotentHint": True},
+    meta={
+        "ui": True,
+        "timeout_s": 30.0,
+        **app_config_to_meta_dict(AppConfig(visibility=["app"])),
+    },
+    description=("UI helper: re-render the control center status panel. Called from the UI only."),
+    timeout=30.0,
+)
+async def control_center_panel(
+    version_id: Annotated[int, Field(ge=1)],
+    job_id: Annotated[str | None, Field(description="Active job id (render or l5)")] = None,
+    uow: UnitOfWork = Depends(get_uow),
+    ctx: Context = CurrentContext(),
+) -> Any:
+    """Return the panel fragment for ``Slot("panel")`` (not a full PrefabApp)."""
+    data = await gather_control_center(uow, version_id=version_id, job_id=job_id)
+    return _panel_fragment(data)
+
+
+@tool(
     name="ui_control_center",
     tags={"namespace:ui:read", "ui", "read"},
     annotations={"readOnlyHint": True, "idempotentHint": True},
@@ -194,11 +225,8 @@ async def ui_control_center(
 
     vid = version_id
 
-    # Phase 1 reuses the existing hidden render_studio_panel helper as the
-    # refresh target — the render status/QA/timeline/diagnostics fragment is
-    # identical, so no new helper tool is introduced here.
     _refresh_panel = CallTool(
-        "render_studio_panel",
+        "control_center_panel",
         arguments={"version_id": vid, "job_id": "{{ job_id }}"},
         on_success=SetState("panel", RESULT),
     )
@@ -229,7 +257,44 @@ async def ui_control_center(
             _run_button("Analyze + QA", "render_beatgrid")
             _run_button("Render", "render_mixdown", captures_job_id=True)
             _run_button("Diagnose", "render_diagnose")
+            Button(
+                label="Build / Reorder",
+                on_click=[
+                    CallTool(
+                        "act_build",
+                        arguments={"version_id": vid},
+                        on_success=[
+                            ShowToast(
+                                message="New version created: {{ $result.new_version_id }}",
+                                variant="success",
+                            ),
+                            _refresh_panel,
+                        ],
+                        on_error=ShowToast(message="{{ $error }}", variant="error"),
+                    ),
+                ],
+            )
+            _run_button("Analyze → L5", "act_l5_set", captures_job_id=True)
             Button(label="Refresh", on_click=[_refresh_panel])
+        if data.get("source_playlist_id"):
+            with Row(gap=2):
+                Button(
+                    label="Sync diff → YM",
+                    on_click=[
+                        CallTool(
+                            "playlist_sync",
+                            arguments={
+                                "playlist_id": data["source_playlist_id"],
+                                "direction": "diff",
+                            },
+                            on_success=ShowToast(
+                                message="YM diff computed — see tool result",
+                                variant="success",
+                            ),
+                            on_error=ShowToast(message="{{ $error }}", variant="error"),
+                        ),
+                    ],
+                )
         with Slot("panel"):
             Muted("Run an action to see render status.")
 
