@@ -50,6 +50,8 @@ EXPECTED_PROMPTS: frozenset[str] = frozenset(
         "library_cleanup_workflow",
         # generation (1)
         "suno_set_asset_workflow",
+        # render (1)
+        "render_set_workflow",
     }
 )
 
