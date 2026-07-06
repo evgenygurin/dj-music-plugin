@@ -75,6 +75,7 @@ ignore_imports =
     app.handlers.transition_persist -> app.domain.transition.score
     app.handlers.transition_persist -> app.domain.transition.section_context
     app.handlers.transition_persist -> app.domain.transition.subgenre_rules
+    app.repositories.set -> app.domain.render.models
 
 # ── Contract: domain.render stays pure (no IO) ──────────────────────
 [importlinter:contract:v2-render-domain-pure]
