@@ -1396,15 +1396,20 @@ git commit -m "feat(render): scan + diagnose defect analysis"
 
 ## Task 11: RenderJobRegistry (in-process progress)
 
+Lives in `app/shared/` (leaf) — NOT `app/handlers/` — because the
+`local://render/jobs/{id}/status` resource (Plan 2) must read it, and the
+`.importlinter` `v2-resources-no-tools` contract forbids resources importing
+`app.handlers`. Handlers and resources both import from `app.shared` freely.
+
 **Files:**
-- Create: `app/handlers/_render_registry.py`
-- Test: `tests/handlers/test_render_registry.py`
+- Create: `app/shared/render_jobs.py`
+- Test: `tests/shared/test_render_jobs.py`
 
 - [ ] **Step 1: Write the failing test**
 
 ```python
-# tests/handlers/test_render_registry.py
-from app.handlers._render_registry import RENDER_JOBS, RenderJob
+# tests/shared/test_render_jobs.py
+from app.shared.render_jobs import RENDER_JOBS, RenderJob
 
 def test_register_update_read():
     RENDER_JOBS.clear()
@@ -1429,12 +1434,13 @@ Expected: FAIL (`ModuleNotFoundError`).
 - [ ] **Step 3: Write minimal implementation**
 
 ```python
-# app/handlers/_render_registry.py
-"""In-process render-job status registry.
+# app/shared/render_jobs.py
+"""In-process render-job status registry (leaf module).
 
 The Prefab studio (Plan 3) and the ``local://render/jobs/{id}/status``
 resource (Plan 2) read this so live status works independent of whether the
-host supports the MCP task protocol.
+host supports the MCP task protocol. Placed in app.shared so resources (which
+must not import app.handlers) can read it.
 """
 
 from __future__ import annotations
@@ -1492,8 +1498,8 @@ Expected: PASS (2 passed).
 - [ ] **Step 5: Commit**
 
 ```bash
-git add app/handlers/_render_registry.py tests/handlers/test_render_registry.py
-git commit -m "feat(render): in-process RenderJobRegistry"
+git add app/shared/render_jobs.py tests/shared/test_render_jobs.py
+git commit -m "feat(render): in-process RenderJobRegistry (shared leaf)"
 ```
 
 ---
@@ -1723,8 +1729,8 @@ Orchestrates: ensure beatgrid → build `RenderPlan` → run ffmpeg → scan →
 import pytest
 
 from app.domain.render.models import TrackInput
-from app.handlers._render_registry import RENDER_JOBS
 from app.handlers.render_mixdown import render_mixdown_handler
+from app.shared.render_jobs import RENDER_JOBS
 
 class _StubUow:
     def __init__(self, inputs):
@@ -1793,9 +1799,9 @@ from app.config import get_settings
 from app.domain.render.models import BeatgridEntry
 from app.domain.render.timeline import build_render_plan
 from app.handlers._context_log import safe_info
-from app.handlers._render_registry import RENDER_JOBS
 from app.handlers.render_beatgrid import render_beatgrid_handler
 from app.schemas.render import RenderMixdownResult
+from app.shared.render_jobs import RENDER_JOBS
 
 async def render_mixdown_handler(
     *, ctx: Any, uow: Any, version_id: int, workspace: str, timestamp: str,
