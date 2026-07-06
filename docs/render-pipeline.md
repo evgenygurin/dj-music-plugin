@@ -171,4 +171,65 @@ generated-sets/render/v{version_id}/
 └── diagnostics.json   per-window scan report
 ```
 
-MCP surface — see Plan 2 (`docs/superpowers/plans/2026-07-06-render-mcp-surface.md`); Prefab studio — see Plan 3.
+## MCP surface
+
+The engine is exposed as MCP through thin `@tool` dispatchers
+(`app/tools/render/`) that inject the clock + workspace path and delegate to
+the handlers above, five read-only resources (`app/resources/render.py`), and
+one workflow prompt. Everything is keyed by `version_id` — generic over any
+persisted `set_version`.
+
+### Tools (3, namespace `render`)
+
+All three are heavy DSP passes and are declared `task=True` — the host runs
+them as background tasks (requires `FastMCP(tasks=True)`, wired in
+`app/server/app.py`, plus the `fastmcp[tasks]` extra). They are visible by
+default (like `sync` / `compute`) and whitelisted in `ALWAYS_VISIBLE_TOOLS`
+(`app/server/transforms.py`) so `BM25SearchTransform` never hides them.
+
+| Tool | Params | Delegates to |
+|---|---|---|
+| `render_beatgrid` | `version_id`, `refresh=false` | `render_beatgrid_handler` → `beatgrid.json` |
+| `render_mixdown` | `version_id`, `out_name?`, `transition_bars?`, `body_bars?`, `refresh_grid=false` | `render_mixdown_handler` → `MIX.mp3` |
+| `render_diagnose` | `version_id`, `mix_path?` | `render_diagnose_handler` → `diagnostics.json` |
+
+`render_mixdown` auto-runs the beatgrid when missing (like `sequence_optimize`
+auto-scores). `render_diagnose` rejects a missing mix with a typed
+`ValidationError` ("run render_mixdown first").
+
+### Resources (5)
+
+Cheap reads only — the module imports only `app.shared` / `app.domain` /
+`app.config` / `app.repositories` (never `app.handlers`), so the heavy librosa
+sweep stays in the `render_diagnose` tool.
+
+| URI | Reads |
+|---|---|
+| `reference://render/defaults` | `RenderSettings` constants (target BPM, bars, XSPLIT, limiter) |
+| `local://render/jobs/{job_id}/status` | Live progress from the in-process `RENDER_JOBS` registry |
+| `local://render/jobs/{job_id}/diagnostics` | Saved `diagnostics.json` for the job's version workspace |
+| `local://render/{version_id}/beatgrid` | Saved `beatgrid.json` |
+| `local://render/{version_id}/timeline` | Segment + transition-window timeline (pure `timeline_windows` math) |
+
+The `jobs/{job_id}/*` resources parse `v{version_id}[-{ts}]` out of the job id;
+a malformed job id raises the typed `NotFoundError`, not a bare `ValueError`.
+
+### Prompt
+
+`render_set_workflow(version_id)` (namespace `workflow`, tag `delivery`) is the
+pure-text recipe: ensure every track has a registered `audio_file`
+(download first — the engine never downloads), optionally bring the set to
+`analysis_level=5`, `render_beatgrid` → inspect `local://render/{id}/beatgrid`,
+`render_mixdown`, `render_diagnose` → read `local://render/{id}/timeline` to
+tell a transition-window hole (a defect) from a track's own breakdown (music),
+then run `deliver_set_workflow`.
+
+### Delivery reuse
+
+`DeliverySettings.emit_continuous_mix` (env `DJ_DELIVERY_EMIT_CONTINUOUS_MIX`,
+default `true`) makes `deliver_set_workflow` include the rendered
+`render/v{version_id}/MIX.mp3` in the deliverable bundle alongside the M3U8 /
+rekordbox XML / cheatsheet.
+
+Prefab render studio (`ui_render_studio`) — see Plan 3
+(`docs/superpowers/plans/2026-07-06-render-mcp-surface.md` § Next plan).

@@ -1,6 +1,6 @@
 # MCP Tool Catalog
 
-Quick reference — **20 tools total** (13 core dispatchers + 6 UI/Prefab + `tool_invoke`) + **27 resources** + **31 prompts** + **6 handlers** + **11 registered entities**.
+Quick reference — **23 tools total** (13 core dispatchers + 3 render + 6 UI/Prefab + `tool_invoke`) + **32 resources** + **31 prompts** + **6 handlers** + **11 registered entities**.
 
 The 88-tool catalog of v0.8 was collapsed via polymorphism: generic CRUD
 (`entity_*`) dispatches via `EntityRegistry`, generic provider access
@@ -9,7 +9,7 @@ Everything else is exposed as **resources** (read-only views) or
 **prompts** (workflow recipes) — resources/prompts can be surfaced as
 tools via `app/server/transforms.py` for tool-only clients.
 
-## Tools (20)
+## Tools (23)
 
 ### Entity CRUD (6, namespace `crud:read` / `crud:write` / `crud:destructive`)
 
@@ -119,6 +119,28 @@ Handlers wire side-effects on create/update/delete:
 |------|--------|-----|--------|
 | `playlist_sync` | playlist_id, direction(pull\|push\|diff)=diff, source="yandex", dry_run=false | no | `sync` |
 
+### Render (3, namespace `render`)
+
+Continuous-mix render pipeline over a persisted `set_version`. Visible by
+default (like `sync` / `compute`). All three are heavy DSP passes
+(librosa / ffmpeg+rubberband) declared `task=True` — the host runs them as
+background tasks (`FastMCP(tasks=True)`, `fastmcp[tasks]` extra). Whitelisted
+in `ALWAYS_VISIBLE_TOOLS` so `BM25SearchTransform` never hides them.
+
+| Tool | Params | RO |
+|------|--------|-----|
+| `render_beatgrid` | version_id, refresh=false | no (idempotent) |
+| `render_mixdown` | version_id, out_name?, transition_bars?, body_bars?, refresh_grid=false | no |
+| `render_diagnose` | version_id, mix_path? | yes |
+
+- `render_beatgrid` — kick-phase detect + sub-beat phase refine + LUFS
+  level-match; writes `beatgrid.json`.
+- `render_mixdown` — beatmatch (rubberband→target BPM) + 32-bar EQ bass-swap
+  transitions + limiter → one continuous `MIX.mp3`. Auto-runs the beatgrid if
+  missing.
+- `render_diagnose` — scan + per-4s librosa defect sweep (level jumps,
+  dropouts, bass-thin) of a rendered mix; writes `diagnostics.json`.
+
 ### Admin (2, namespace `admin`)
 
 | Tool | Params | RO |
@@ -147,7 +169,7 @@ Visual renderers marked with `meta={"ui": True}` (standalone-decorator equivalen
 
 Enable with `uv sync --all-extras` (pulls `fastmcp[apps]` → `prefab_ui>=0.19`).
 
-## Resources (27)
+## Resources (32)
 
 All read-only, MIME `application/json`, auto-discovered from `app/resources/`.
 
@@ -189,7 +211,7 @@ All read-only, MIME `application/json`, auto-discovered from `app/resources/`.
 | `session://tool-history` | Last N tool calls in session |
 | `session://energy-trend{?limit}` | Adaptive arc — energy direction suggestion |
 
-### Reference — static knowledge (4)
+### Reference — static knowledge (5)
 
 | URI | Purpose |
 |---|---|
@@ -197,8 +219,21 @@ All read-only, MIME `application/json`, auto-discovered from `app/resources/`.
 | `reference://subgenres` | 15 techno subgenres + scoring weights |
 | `reference://templates` | 8 set templates (warm_up_30, classic_60, …) |
 | `reference://audit_rules` | Techno audit thresholds |
+| `reference://render/defaults` | RenderSettings constants (target BPM, bars, XSPLIT, limiter) |
 
-## Prompts (30, namespace `workflow`)
+### Render — continuous-mix pipeline (4)
+
+Cheap reads only (workspace files + in-process `RENDER_JOBS` + pure timeline
+math); the heavy defect sweep is the `render_diagnose` tool, not a resource.
+
+| URI | Purpose |
+|---|---|
+| `local://render/jobs/{job_id}/status` | Live render-job progress from the in-process registry |
+| `local://render/jobs/{job_id}/diagnostics` | Saved `diagnostics.json` for a job's version workspace |
+| `local://render/{version_id}/beatgrid` | Saved `beatgrid.json` (per-track trim / gain / phase) |
+| `local://render/{version_id}/timeline` | Segment + transition-window timeline (pure math) |
+
+## Prompts (31, namespace `workflow`)
 
 Design rationale + techno-domain research:
 [docs/research/2026-06-22-techno-set-construction-and-mcp-prompts.md](research/2026-06-22-techno-set-construction-and-mcp-prompts.md)
@@ -259,13 +294,14 @@ resolve is a runtime hard error, not a no-op).
 | `fix_transition_workflow` | Diagnose/repair one weak/hard transition: technique → bridge → replace (`from_track_id, to_track_id`) |
 | `replace_track_workflow` | Swap a weak slot for a better candidate (`set_id, position`) |
 
-**Delivery & performance (3)**
+**Delivery & performance (4)**
 
 | Prompt | Purpose |
 |---|---|
 | `set_cheatsheet_workflow` | Assemble a performance-ready DJ cue sheet (BPM/key/energy/technique) (`set_id, version_id?`) |
 | `set_duration_fit_workflow` | Trim/extend a set to fit an exact time slot, keep the arc (`set_id, target_minutes=60`) |
 | `live_next_track_workflow` | Live mid-set: pick the next track from the current one + room energy (`last_track_id, energy_direction=flat`) |
+| `render_set_workflow` | Render a set version into one continuous beatmatched MP3 (beatgrid → mixdown → diagnose → deliver) (`version_id`) |
 
 **Discovery & ops (3)**
 
@@ -303,13 +339,14 @@ for clients that do honour the notification.
 | `provider:write` | provider_write | visible |
 | `compute` | transition_score_pool, sequence_optimize | visible |
 | `sync` | playlist_sync | visible |
+| `render` | render_beatgrid, render_mixdown, render_diagnose | visible |
 | `admin` | unlock_namespace, tool_invoke | visible |
 | `ui:read` | ui_set_view, ui_transition_score, ui_library_audit, ui_score_pool_matrix, ui_library_dashboard, ui_camelot_wheel | visible |
 | `workflow` | all prompts | visible |
 
 `ALWAYS_VISIBLE_TOOLS` in `app/server/transforms.py` whitelists every tool
-listed above (including `tool_invoke` and the 6 UI tools) so `BM25SearchTransform`
-never hides them behind a search query.
+listed above (including `tool_invoke`, the 6 UI tools, and the 3 render tools)
+so `BM25SearchTransform` never hides them behind a search query.
 
 ## Tool count history
 
@@ -324,3 +361,4 @@ never hides them behind a search query.
 | (prompts) | 20 | 27 | Prompt catalog grew 6 → **19** (additive, no tool/resource surface change): +`library_health_workflow`, `analyze_library_workflow`, `harmonic_journey_workflow`, `subgenre_journey_workflow`, `scenario_set_workflow`, `b2b_planning_workflow`, `extend_set_workflow`, `set_review_workflow`, `fix_transition_workflow`, `replace_track_workflow`, `crate_digging_workflow`, `taste_profile_workflow`, `playlist_sync_workflow`. Research-backed (`docs/research/2026-06-22-…`); content pinned by `test_prompt_content_correctness.py`. |
 | (prompts v2) | 20 | 27 | Prompt catalog grew 19 → **26** (additive): +`tempo_journey_workflow` (BPM axis), +`dj_persona_workflow` (Klock/Dettmann/Lens/de Witte/Mills/Hawtin/Kraviz schools), +`style_lock_set_workflow` (mono-genre), +`mix_cluster_workflow` (bottom-up cluster discovery), +`rescue_set_workflow` (heavy hard-reject repair), +`set_cheatsheet_workflow` (performance cue sheet), +`library_cleanup_workflow` (actionable hygiene). Deep-dive research (`docs/research/2026-06-22-techno-deep-dive-and-prompt-expansion.md`); content pinned by `test_prompt_content_correctness.py`. |
 | (prompts v3) | 20 | 27 | Prompt catalog grew 26 → **30** (additive, live/performance batch): +`live_next_track_workflow` (mid-set live pick via `session://*` + `suggest_next`), +`set_duration_fit_workflow` (fit a set to an exact time slot), +`track_prep_workflow` (single-track end-to-end readiness), +`lineup_handoff_workflow` (slot whose tail hands off at a target BPM). Content pinned by `test_prompt_content_correctness.py`. |
+| render | **23** | **32** | +3 render tools (`render_beatgrid`/`render_mixdown`/`render_diagnose`, namespace `render`, `task=True`, visible by default) + 5 render resources (`reference://render/defaults`, `local://render/jobs/{job_id}/status`, `.../diagnostics`, `local://render/{version_id}/beatgrid`, `.../timeline`) + `render_set_workflow` prompt (30 → **31**) + `emit_continuous_mix` delivery toggle. `FastMCP(tasks=True)` + `fastmcp[tasks]` extra. See `docs/render-pipeline.md`. |
