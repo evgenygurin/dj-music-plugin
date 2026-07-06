@@ -33,6 +33,8 @@ from app.tools.ui._fallback import RenderStudioFallback, supports_ui
 
 try:
     from fastmcp.apps import AppConfig, app_config_to_meta_dict
+    from prefab_ui.actions import ShowToast
+    from prefab_ui.actions.mcp import CallTool
     from prefab_ui.app import PrefabApp
     from prefab_ui.components import (
         Badge,
@@ -214,4 +216,69 @@ async def render_studio_panel(
         _render_beatgrid_table(data)
         _render_timeline_card(data)
         _render_diagnostics_card(data)
+    return PrefabApp(view=view, state=_panel_state(data))
+
+
+@tool(
+    name="ui_render_studio",
+    tags={"namespace:ui:read", "ui", "read"},
+    annotations={"readOnlyHint": True, "idempotentHint": True},
+    meta={"ui": True, "timeout_s": 30.0},
+    description=(
+        "Interactive render studio for a set version: Analyze+QA, Render, "
+        "Diagnose buttons + live job status, beatgrid QA table, timeline "
+        "and diagnostics. Fallback: JSON payload."
+    ),
+    timeout=30.0,
+)
+async def ui_render_studio(
+    version_id: Annotated[int, Field(ge=1, description="Set version ID")],
+    uow: UnitOfWork = Depends(get_uow),
+    ctx: Context = CurrentContext(),
+) -> Any:
+    data = await gather_render_studio(uow, version_id=version_id, job_id=None)
+
+    if not supports_ui(ctx):
+        return RenderStudioFallback(
+            version_id=data["version_id"],
+            n_tracks=data["n_tracks"],
+            target_bpm=data["target_bpm"],
+            beatgrid=data["beatgrid"],
+            job=data["job"],
+            timeline=data["timeline"],
+            diagnostics=data["diagnostics"],
+        )
+
+    vid = version_id
+
+    def _run_button(label: str, tool_name: str) -> None:
+        Button(
+            label=label,
+            on_click=[
+                CallTool(
+                    tool_name,
+                    arguments={"version_id": vid},
+                    on_success=CallTool("render_studio_panel", arguments={"version_id": vid}),
+                    on_error=ShowToast(message="{{ $error }}", variant="error"),
+                ),
+            ],
+        )
+
+    with Column(gap=4) as view:
+        Heading(f"Render Studio — version {vid}")
+        Muted(f"{data['n_tracks']} tracks · target {data['target_bpm']} BPM")
+        with Row(gap=2):
+            _run_button("Analyze + QA", "render_beatgrid")
+            _run_button("Render", "render_mixdown")
+            _run_button("Diagnose", "render_diagnose")
+            Button(
+                label="Refresh",
+                on_click=[
+                    CallTool("render_studio_panel", arguments={"version_id": vid}),
+                ],
+            )
+        Slot("status")
+        Slot("beatgrid")
+        Slot("timeline")
+        Slot("diagnostics")
     return PrefabApp(view=view, state=_panel_state(data))
