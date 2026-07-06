@@ -288,7 +288,9 @@ async def test_transitions_block_has_labeled_scores(monkeypatch: pytest.MonkeyPa
 
 
 @pytest.mark.asyncio
-async def test_transitions_block_missing_pair_is_omitted(monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_transitions_block_missing_pair_has_null_scores(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     uow = MagicMock()
     uow.sets = MagicMock()
     uow.sets.get = AsyncMock(
@@ -364,4 +366,4 @@ async def test_transitions_block_missing_pair_is_omitted(monkeypatch: pytest.Mon
     )
 
     payload = json.loads(await set_design_data(id=100, uow=uow))
-    assert payload["transitions"] == []
+    assert payload["transitions"] == [{"from_track_id": 1, "to_track_id": 2, "scores": None}]

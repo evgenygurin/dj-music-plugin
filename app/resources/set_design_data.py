@@ -104,13 +104,19 @@ async def _build_transitions_block(
     edges: list[dict[str, Any]] = []
     for from_id, to_id in pairs:
         row = transitions_by_pair.get((from_id, to_id))
-        if row is None:
-            continue
-        scores = {
-            name: describe_field(TRANSITION_FEATURE_CATALOG, name, getattr(row, name))
-            for name in TRANSITION_FEATURE_CATALOG
-            if hasattr(row, name)
-        }
+        scores = (
+            {
+                name: describe_field(TRANSITION_FEATURE_CATALOG, name, getattr(row, name))
+                for name in TRANSITION_FEATURE_CATALOG
+                if hasattr(row, name)
+            }
+            if row is not None
+            else None
+        )
+        # Every adjacent pair is emitted, even when no transition has been
+        # persisted yet — ``scores: null`` tells the design agent the edge
+        # exists but is unscored, consistent with the render block's
+        # "show the shape even when empty" contract (see spec).
         edges.append({"from_track_id": from_id, "to_track_id": to_id, "scores": scores})
     return edges
 
