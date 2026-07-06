@@ -39,6 +39,9 @@ def test_always_visible_list_matches_blueprint() -> None:
         "ui_score_pool_matrix",
         "ui_library_dashboard",
         "ui_camelot_wheel",
+        "render_beatgrid",
+        "render_mixdown",
+        "render_diagnose",
     )
 
 
