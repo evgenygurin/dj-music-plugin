@@ -28,8 +28,8 @@ async def render_beatgrid_handler(
     gains = gains_to_median({ti.track_id: ti.integrated_lufs for ti in inputs})
 
     if grid_path.exists() and not refresh:
-        rows = json.loads(grid_path.read_text())
-        return RenderBeatgridResult(version_id=version_id, tracks=rows)
+        cached: list[dict[str, Any]] = json.loads(grid_path.read_text())
+        return RenderBeatgridResult(version_id=version_id, tracks=cached)
 
     if ctx is not None:
         await safe_info(ctx, f"render_beatgrid: {len(inputs)} tracks for version {version_id}")

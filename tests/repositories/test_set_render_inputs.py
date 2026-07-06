@@ -18,9 +18,12 @@ async def _create_tables(session):
 @pytest.mark.asyncio
 async def test_get_render_inputs_orders_and_joins(session):
     await _create_tables(session)
-    # seed parents first (FK on)
-    t = Track(id=5435, title="Edit Select - Vault 2015")
-    session.add(t)
+    # seed parents first (FK enforcement is on in the full suite — flush the
+    # Track + DjSet parents before their FK children so insert order is valid).
+    session.add(Track(id=5435, title="Edit Select - Vault 2015"))
+    session.add(DjSet(id=1, name="S"))
+    session.add(DjSetVersion(id=131, set_id=1, label="v131"))
+    await session.flush()
     session.add(
         TrackAudioFeaturesComputed(track_id=5435, bpm=130.0, key_code=13, integrated_lufs=-12.33)
     )
@@ -29,10 +32,6 @@ async def test_get_render_inputs_orders_and_joins(session):
             track_id=5435, file_path="/tmp/dj_audio/01 [49353955].mp3", file_hash="h", file_size=1
         )
     )
-    s = DjSet(id=1, name="S")
-    session.add(s)
-    v = DjSetVersion(id=131, set_id=1, label="v131")
-    session.add(v)
     session.add(DjSetItem(version_id=131, track_id=5435, sort_index=0, mix_in_point_ms=0))
     await session.flush()
 
