@@ -195,7 +195,7 @@ All read-only, MIME `application/json`, auto-discovered from `app/resources/`.
 | `local://sets/{id}/narrative` | set.py | Narrative analysis (arc, moods) |
 | `local://sets/{id}/review{?version}` | set.py | Set quality review (default: latest version) |
 | `local://sets/{id}/versions/compare/{a}/{b}` | set.py | Diff two set versions |
-| `local://sets/{id}/design_data{?version}` | set_design_data.py | Full labeled data-dump of one set/version (all track features + transition scores + render state) — design-agent handoff, throwaway pending dashboard redesign |
+| `local://sets/{id}/design/data{?version}` | set_design_data.py | Full labeled data-dump of one set/version (all track features + transition scores + render state) — design-agent handoff, throwaway pending dashboard redesign. Two-segment path (not `{id}/design_data`) deliberately avoids colliding with the `{id}/{view}` catch-all resource above |
 | `local://transition/{from_id}/{to_id}/score` | transition.py | Pairwise transition score |
 | `local://transition/{from_id}/{to_id}/explain` | transition.py | Explain scored components |
 | `local://transition_history/best_pairs{?track_id,limit}` | transition_history.py | Best historical pairs |
