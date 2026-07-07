@@ -18,8 +18,11 @@ from fastmcp.resources import resource
 
 from app.repositories.unit_of_work import UnitOfWork
 from app.resources._feature_catalog import (
+    ITEM_FIELD_CATALOG,
+    SET_FIELD_CATALOG,
     TRACK_FEATURE_CATALOG,
     TRANSITION_FEATURE_CATALOG,
+    VERSION_FIELD_CATALOG,
     describe_field,
 )
 from app.resources._shared import ANNOTATIONS_READ_ONLY, RESOURCE_META
@@ -72,20 +75,28 @@ async def _build_tracks_block(
     for item in sorted_items:
         track = tracks_by_id.get(item.track_id)
         feature_row = features_by_track_id.get(item.track_id)
-        features: dict[str, Any] = {}
-        if feature_row is not None:
-            for name in TRACK_FEATURE_CATALOG:
-                if not hasattr(feature_row, name):
-                    continue
-                features[name] = describe_field(
-                    TRACK_FEATURE_CATALOG, name, getattr(feature_row, name)
-                )
+        # Every track slot is emitted with the full labeled feature catalog,
+        # even when no feature row exists yet — ``value: null`` tells the
+        # design agent the metric exists but is unanalyzed, matching the
+        # transitions block's "show the shape even when empty" contract.
+        features = {
+            name: describe_field(
+                TRACK_FEATURE_CATALOG,
+                name,
+                getattr(feature_row, name) if feature_row is not None else None,
+            )
+            for name in TRACK_FEATURE_CATALOG
+            if feature_row is None or hasattr(feature_row, name)
+        }
         rows.append(
             {
                 "position": item.sort_index,
                 "track_id": item.track_id,
                 "title": getattr(track, "title", None),
-                **{field: getattr(item, field) for field in _ITEM_FIELDS},
+                **{
+                    field: describe_field(ITEM_FIELD_CATALOG, field, getattr(item, field))
+                    for field in _ITEM_FIELDS
+                },
                 "features": features,
             }
         )
@@ -147,8 +158,20 @@ async def set_design_data(
 
     tracks, sorted_track_ids = await _build_tracks_block(uow, ver.id)
     payload: dict[str, Any] = {
-        "set": {field: getattr(dj_set, field) for field in _SET_FIELDS},
-        "version": {field: getattr(ver, field) for field in _VERSION_FIELDS},
+        "_shape_note": (
+            "Fields inside 'features' (per track) and 'scores' (per transition) are "
+            "wrapped as {value, label, description, group} — every other field "
+            "('set', 'version', per-track slot fields, track_id/title/position, "
+            "'render') is a bare scalar/object."
+        ),
+        "set": {
+            field: describe_field(SET_FIELD_CATALOG, field, getattr(dj_set, field))
+            for field in _SET_FIELDS
+        },
+        "version": {
+            field: describe_field(VERSION_FIELD_CATALOG, field, getattr(ver, field))
+            for field in _VERSION_FIELDS
+        },
         "tracks": tracks,
         "transitions": await _build_transitions_block(uow, sorted_track_ids),
         "render": await gather_render_studio(uow, version_id=ver.id, job_id=None),

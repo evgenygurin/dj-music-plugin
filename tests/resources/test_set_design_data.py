@@ -87,11 +87,13 @@ async def test_set_and_version_blocks_present(monkeypatch: pytest.MonkeyPatch) -
 
     payload = json.loads(await set_design_data(id=100, uow=uow))
 
-    assert payload["set"]["id"] == 100
-    assert payload["set"]["name"] == "Hypnotic Warehouse 130"
-    assert payload["version"]["id"] == 1000
-    assert payload["version"]["label"] == "v149"
-    assert payload["version"]["quality_score"] == 0.79
+    assert "_shape_note" in payload
+    assert payload["set"]["id"]["value"] == 100
+    assert payload["set"]["name"]["value"] == "Hypnotic Warehouse 130"
+    assert payload["set"]["name"]["label"] == "Set name"
+    assert payload["version"]["id"]["value"] == 1000
+    assert payload["version"]["label"]["value"] == "v149"
+    assert payload["version"]["quality_score"]["value"] == 0.79
     assert payload["tracks"] == []
     assert payload["transitions"] == []
     assert payload["render"]["version_id"] == 1000
@@ -178,10 +180,83 @@ async def test_tracks_block_has_labeled_features(monkeypatch: pytest.MonkeyPatch
     track = tracks[0]
     assert track["position"] == 0
     assert track["title"] == "Deconstructive Society"
-    assert track["mix_out_point_ms"] == 224_000
+    assert track["mix_out_point_ms"]["value"] == 224_000
+    assert track["mix_out_point_ms"]["label"] == "Mix-out point (ms)"
     assert track["features"]["bpm"]["value"] == 130.0
     assert track["features"]["bpm"]["label"] == TRACK_FEATURE_CATALOG["bpm"]["label"]
     assert track["features"]["mood"]["value"] == "hypnotic"
+
+
+@pytest.mark.asyncio
+async def test_tracks_block_missing_feature_row_has_null_labeled_catalog(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    uow = MagicMock()
+    uow.sets = MagicMock()
+    uow.sets.get = AsyncMock(
+        return_value=MagicMock(
+            id=100,
+            name="X",
+            description=None,
+            target_duration_ms=None,
+            target_bpm_min=None,
+            target_bpm_max=None,
+            target_energy_arc=None,
+            template_name=None,
+            source_playlist_id=None,
+            ym_playlist_id=None,
+        )
+    )
+    uow.set_versions = MagicMock()
+    uow.set_versions.get_latest = AsyncMock(
+        return_value=MagicMock(
+            id=1000, set_id=100, label="v1", generator_run_meta=None, quality_score=0.5
+        )
+    )
+    uow.set_versions.get_items = AsyncMock(
+        return_value=[
+            MagicMock(
+                track_id=1,
+                sort_index=0,
+                transition_id=None,
+                out_section_id=None,
+                in_section_id=None,
+                mix_in_point_ms=0,
+                mix_out_point_ms=0,
+                planned_eq=None,
+                notes=None,
+                pinned=False,
+            )
+        ]
+    )
+    uow.tracks = MagicMock()
+    uow.tracks.get_many = AsyncMock(return_value={1: MagicMock(id=1, title="Unanalyzed Track")})
+    uow.track_features = MagicMock()
+    uow.track_features.filter = AsyncMock(return_value=MagicMock(items=[]))
+    uow.transitions = MagicMock()
+    uow.transitions.get_pairs_batch = AsyncMock(return_value={})
+
+    monkeypatch.setattr(
+        "app.resources.set_design_data.gather_render_studio",
+        AsyncMock(
+            return_value={
+                "version_id": 1000,
+                "n_tracks": 1,
+                "target_bpm": None,
+                "beatgrid": [],
+                "job": None,
+                "timeline": [],
+                "diagnostics": [],
+            }
+        ),
+    )
+
+    payload = json.loads(await set_design_data(id=100, uow=uow))
+    features = payload["tracks"][0]["features"]
+
+    assert set(features.keys()) == set(TRACK_FEATURE_CATALOG.keys())
+    assert features["bpm"]["value"] is None
+    assert features["bpm"]["label"] == TRACK_FEATURE_CATALOG["bpm"]["label"]
 
 
 @pytest.mark.asyncio

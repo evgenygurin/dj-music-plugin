@@ -4,10 +4,14 @@ from __future__ import annotations
 from app.models.track_features import TrackAudioFeaturesComputed
 from app.models.transition import Transition
 from app.resources._feature_catalog import (
+    ITEM_FIELD_CATALOG,
+    SET_FIELD_CATALOG,
     TRACK_FEATURE_CATALOG,
     TRANSITION_FEATURE_CATALOG,
+    VERSION_FIELD_CATALOG,
     describe_field,
 )
+from app.resources.set_design_data import _ITEM_FIELDS, _SET_FIELDS, _VERSION_FIELDS
 
 
 def test_track_feature_catalog_covers_every_model_column() -> None:
@@ -24,8 +28,20 @@ def test_transition_feature_catalog_covers_every_score_column() -> None:
     assert not missing, f"missing catalog entries for columns: {sorted(missing)}"
 
 
+def test_set_version_item_catalogs_cover_their_emitted_fields() -> None:
+    assert set(_SET_FIELDS) <= set(SET_FIELD_CATALOG.keys())
+    assert set(_VERSION_FIELDS) <= set(VERSION_FIELD_CATALOG.keys())
+    assert set(_ITEM_FIELDS) <= set(ITEM_FIELD_CATALOG.keys())
+
+
 def test_every_catalog_entry_has_group_label_description() -> None:
-    for catalog in (TRACK_FEATURE_CATALOG, TRANSITION_FEATURE_CATALOG):
+    for catalog in (
+        TRACK_FEATURE_CATALOG,
+        TRANSITION_FEATURE_CATALOG,
+        SET_FIELD_CATALOG,
+        VERSION_FIELD_CATALOG,
+        ITEM_FIELD_CATALOG,
+    ):
         for name, entry in catalog.items():
             assert entry["group"], f"{name} missing group"
             assert entry["label"], f"{name} missing label"
