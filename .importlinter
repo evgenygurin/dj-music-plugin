@@ -77,6 +77,33 @@ ignore_imports =
     app.handlers.transition_persist -> app.domain.transition.subgenre_rules
     app.repositories.set -> app.domain.render.models
 
+# ── Contract: shared is a leaf module ───────────────────────────────
+# docs/architecture.md / CLAUDE.md document "shared — leaf, нет обратных
+# импортов" as an invariant, but nothing enforced it. app.shared.render_studio_data
+# is a documented, sanctioned exception: it was extracted from
+# app/tools/ui/render_studio.py (2026-07-07) purely to satisfy the
+# v2-resources-no-tools contract for app.resources.set_design_data, and
+# it genuinely needs UoW/repository access (it queries persisted render
+# state) plus a pure domain helper — it is not a true leaf. Every other
+# module under app.shared must stay leaf; new IO-heavy helpers belong in
+# app.domain or a dedicated layer, not app.shared.
+[importlinter:contract:v2-shared-leaf]
+name = app.shared is a leaf module (sanctioned exception: render_studio_data)
+type = forbidden
+source_modules =
+    app.shared
+forbidden_modules =
+    app.repositories
+    app.domain
+    app.db
+    app.server
+    app.handlers
+    app.tools
+    app.providers
+ignore_imports =
+    app.shared.render_studio_data -> app.repositories.unit_of_work
+    app.shared.render_studio_data -> app.domain.render.timeline
+
 # ── Contract: domain.render stays pure (no IO) ──────────────────────
 [importlinter:contract:v2-render-domain-pure]
 name = app.domain.render must not import audio, DB, providers, handlers, tools, or server

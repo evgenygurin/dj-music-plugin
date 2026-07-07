@@ -484,6 +484,130 @@ TRACK_FEATURE_CATALOG: dict[str, CatalogEntry] = {
 }
 
 
+SET_FIELD_CATALOG: dict[str, CatalogEntry] = {
+    "id": {
+        "group": "identity",
+        "label": "Set ID",
+        "description": "Primary key of the dj_sets row.",
+    },
+    "name": {
+        "group": "identity",
+        "label": "Set name",
+        "description": "Human-assigned name for the set.",
+    },
+    "description": {
+        "group": "identity",
+        "label": "Set description",
+        "description": "Free-text notes about the set (arc summary, quality snapshot, etc.), if any.",
+    },
+    "target_duration_ms": {
+        "group": "target",
+        "label": "Target duration (ms)",
+        "description": "Desired total playtime for the set, if a fixed duration was requested.",
+    },
+    "target_bpm_min": {
+        "group": "target",
+        "label": "Target BPM (min)",
+        "description": "Lower bound of the BPM range tracks were selected from.",
+    },
+    "target_bpm_max": {
+        "group": "target",
+        "label": "Target BPM (max)",
+        "description": "Upper bound of the BPM range tracks were selected from.",
+    },
+    "target_energy_arc": {
+        "group": "target",
+        "label": "Target energy arc",
+        "description": "JSON-encoded target energy curve used to guide track/section selection, if the set was built against an explicit arc.",
+    },
+    "template_name": {
+        "group": "target",
+        "label": "Template name",
+        "description": "Set template used to build this set (e.g. roller_90, classic_60) — see reference://templates.",
+    },
+    "source_playlist_id": {
+        "group": "provenance",
+        "label": "Source playlist ID",
+        "description": "FK to the playlist this set's candidate pool was drawn from, if any.",
+    },
+    "ym_playlist_id": {
+        "group": "provenance",
+        "label": "Yandex Music playlist ID",
+        "description": "Linked YM playlist ID if this set has been pushed to or synced with Yandex Music.",
+    },
+}
+
+VERSION_FIELD_CATALOG: dict[str, CatalogEntry] = {
+    "id": {
+        "group": "identity",
+        "label": "Version ID",
+        "description": "Primary key of the dj_set_versions row.",
+    },
+    "set_id": {
+        "group": "identity",
+        "label": "Parent set ID",
+        "description": "FK back to the dj_sets row this version belongs to.",
+    },
+    "label": {
+        "group": "identity",
+        "label": "Version label",
+        "description": "Human- or generator-assigned label distinguishing this version from siblings (e.g. 'v149', 'ui-rebuild-ga').",
+    },
+    "generator_run_meta": {
+        "group": "provenance",
+        "label": "Generator run metadata",
+        "description": "JSON metadata describing how this version was produced — algorithm, effective template, transition/key policy.",
+    },
+    "quality_score": {
+        "group": "result",
+        "label": "Quality score",
+        "description": "0-1 section-aware quality score computed by set_version_build (resolves SectionContext + Neural Mix recipes) — higher is better. Distinct from and usually higher than the raw sequence_optimize fitness score.",
+    },
+}
+
+ITEM_FIELD_CATALOG: dict[str, CatalogEntry] = {
+    "transition_id": {
+        "group": "linkage",
+        "label": "Transition ID",
+        "description": "FK to the persisted Transition row scoring the move into the next track in the set, if one has been persisted.",
+    },
+    "out_section_id": {
+        "group": "linkage",
+        "label": "Mix-out section ID",
+        "description": "FK to the track_sections row used as this track's mix-out point.",
+    },
+    "in_section_id": {
+        "group": "linkage",
+        "label": "Mix-in section ID",
+        "description": "FK to the track_sections row used as this track's mix-in point.",
+    },
+    "mix_in_point_ms": {
+        "group": "timing",
+        "label": "Mix-in point (ms)",
+        "description": "Millisecond offset into this track where the incoming mix begins.",
+    },
+    "mix_out_point_ms": {
+        "group": "timing",
+        "label": "Mix-out point (ms)",
+        "description": "Millisecond offset into this track where the outgoing mix into the next track begins.",
+    },
+    "planned_eq": {
+        "group": "timing",
+        "label": "Planned EQ",
+        "description": "JSON-encoded planned EQ automation for this slot, if any.",
+    },
+    "notes": {
+        "group": "identity",
+        "label": "Slot notes",
+        "description": "Free-text DJ notes attached to this track's slot in the set.",
+    },
+    "pinned": {
+        "group": "identity",
+        "label": "Pinned flag",
+        "description": "True if this track is pinned in place — the optimizer must not move or remove it.",
+    },
+}
+
 TRANSITION_FEATURE_CATALOG: dict[str, CatalogEntry] = {
     "id": {
         "group": "metadata",
