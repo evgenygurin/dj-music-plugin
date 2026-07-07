@@ -1,6 +1,6 @@
 # MCP Tool Catalog
 
-Quick reference — **25 model-visible tools** (13 core dispatchers + 3 render + 8 UI/Prefab + `tool_invoke`) + **32 resources** + **31 prompts** + **6 handlers** + **11 registered entities**. One extra tool — `render_studio_panel` — is registered but app-visibility only (`visibility=["app"]`), hidden from the model / BM25 so the `ui_render_studio` UI can `CallTool` it.
+Quick reference — **25 model-visible tools** (13 core dispatchers + 3 render + 8 UI/Prefab + `tool_invoke`) + **33 resources** + **31 prompts** + **6 handlers** + **11 registered entities**. One extra tool — `render_studio_panel` — is registered but app-visibility only (`visibility=["app"]`), hidden from the model / BM25 so the `ui_render_studio` UI can `CallTool` it.
 
 The 88-tool catalog of v0.8 was collapsed via polymorphism: generic CRUD
 (`entity_*`) dispatches via `EntityRegistry`, generic provider access
@@ -175,11 +175,11 @@ Visual renderers marked with `meta={"ui": True}` (standalone-decorator equivalen
 
 Enable with `uv sync --all-extras` (pulls `fastmcp[apps]` → `prefab_ui>=0.19`).
 
-## Resources (32)
+## Resources (33)
 
 All read-only, MIME `application/json`, auto-discovered from `app/resources/`.
 
-### Local — entity views (16)
+### Local — entity views (17)
 
 | URI | File | Purpose |
 |---|---|---|
@@ -195,6 +195,7 @@ All read-only, MIME `application/json`, auto-discovered from `app/resources/`.
 | `local://sets/{id}/narrative` | set.py | Narrative analysis (arc, moods) |
 | `local://sets/{id}/review{?version}` | set.py | Set quality review (default: latest version) |
 | `local://sets/{id}/versions/compare/{a}/{b}` | set.py | Diff two set versions |
+| `local://sets/{id}/design_data{?version}` | set_design_data.py | Full labeled data-dump of one set/version (all track features + transition scores + render state) — design-agent handoff, throwaway pending dashboard redesign |
 | `local://transition/{from_id}/{to_id}/score` | transition.py | Pairwise transition score |
 | `local://transition/{from_id}/{to_id}/explain` | transition.py | Explain scored components |
 | `local://transition_history/best_pairs{?track_id,limit}` | transition_history.py | Best historical pairs |
