@@ -1,5 +1,5 @@
 """Static, human-readable metadata for audio-feature and transition-score
-columns, used by ``local://sets/{id}/design_data`` to label every value
+columns, used by ``local://sets/{id}/design/data`` to label every value
 instead of returning bare numbers.
 
 This is a hand-written lookup table, not generated at request time — one

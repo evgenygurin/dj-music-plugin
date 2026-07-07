@@ -122,7 +122,7 @@ async def _build_transitions_block(
 
 
 @resource(
-    "local://sets/{id}/design_data{?version}",
+    "local://sets/{id}/design/data{?version}",
     mime_type="application/json",
     tags={"core", "namespace:library", "entity:set", "view:design_data"},
     annotations=ANNOTATIONS_READ_ONLY,
