@@ -42,6 +42,7 @@ class TrackFeatures:
     # P2 features
     spectral_complexity_mean: float | None = None
     pitch_salience_mean: float | None = None
+    voicing_ratio: float | None = None
 
     # Existing but previously unused in scoring
     bpm_stability: float | None = None
@@ -192,6 +193,7 @@ class TrackFeatures:
             beat_loudness_band_ratio=beat_loud,
             spectral_complexity_mean=getattr(row, "spectral_complexity_mean", None),
             pitch_salience_mean=getattr(row, "pitch_salience_mean", None),
+            voicing_ratio=getattr(row, "voicing_ratio", None),
             bpm_stability=getattr(row, "bpm_stability", None),
             spectral_contrast=getattr(row, "spectral_contrast", None),
             # P3 enrichment: BPM

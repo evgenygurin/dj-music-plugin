@@ -101,9 +101,12 @@ class PickerDecision:
 
 
 def _vocal_active(t: TrackFeatures) -> bool:
-    """Heuristic detection of vocal presence using up to 3 spectral proxies.
+    """Detection of vocal presence: real voicing analysis or spectral proxy.
 
-    A track is treated as "vocal-active" only when:
+    When ``voicing_ratio`` is populated (VoicingAnalyzer in L5+ pipeline),
+    it overrides the spectral-proxy heuristic entirely.
+
+    Fallback (when ``voicing_ratio`` is None): three-signal spectral proxy:
 
     1. ``pitch_salience_mean`` indicates sustained pitched content
        (threshold ``_VOCAL_PRESENCE_PITCH_SALIENCE``).
@@ -120,6 +123,9 @@ def _vocal_active(t: TrackFeatures) -> bool:
     ``energy_bands`` is missing (legacy rows), we fall back to the
     2-signal check to avoid regressing older library entries.
     """
+    if t.voicing_ratio is not None:
+        return t.voicing_ratio > 0.3
+
     if t.pitch_salience_mean is None or t.spectral_centroid_hz is None:
         return False
     if t.pitch_salience_mean <= _VOCAL_PRESENCE_PITCH_SALIENCE:
@@ -127,7 +133,6 @@ def _vocal_active(t: TrackFeatures) -> bool:
     if t.spectral_centroid_hz <= _VOCAL_PRESENCE_CENTROID_HZ:
         return False
 
-    # Optional midband-ratio filter — only enforced when band data exists.
     if t.energy_bands is not None and len(t.energy_bands) >= 6:
         total = sum(t.energy_bands)
         if total > 1e-6:
