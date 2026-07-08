@@ -43,7 +43,7 @@ async def render_defaults_resource() -> str:
             "transition_bars": r.transition_bars,
             "body_bars": r.body_bars,
             "xsplit_hz": r.xsplit_hz,
-            "low_swap_bars": r.low_swap_bars,
+            "low_swap_beats": r.low_swap_beats,
             "outro_fade_bars": r.outro_fade_bars,
             "limiter_ceiling": r.limiter_ceiling,
         }

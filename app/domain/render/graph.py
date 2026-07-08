@@ -15,7 +15,8 @@ def build_filtergraph(plan: RenderPlan) -> list[str]:
     n = plan.n
     xsplit = plan.xsplit_hz
     bar_s = 4.0 * (60.0 / plan.target_bpm)
-    low_x = plan.low_swap_bars * bar_s
+    beat_s = 60.0 / plan.target_bpm
+    low_x = plan.low_swap_beats * beat_s
     parts: list[str] = []
     mixlabels: list[str] = []
     running_t = 0.0

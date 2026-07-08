@@ -62,7 +62,7 @@ class RenderPlan:
 
     target_bpm: float
     xsplit_hz: int
-    low_swap_bars: int
+    low_swap_beats: float
     outro_fade_bars: int
     limiter_ceiling: float
     segments: list[TrackSegment] = field(default_factory=list)

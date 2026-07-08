@@ -19,6 +19,7 @@ from app.domain.transition.subgenre_rules import (
 from app.handlers._context_log import safe_info
 from app.handlers.render_beatgrid import render_beatgrid_handler
 from app.schemas.render import RenderMixdownResult
+from app.shared.constants import TechnoSubgenre
 from app.shared.errors import ValidationError
 from app.shared.render_jobs import RENDER_JOBS
 
@@ -37,6 +38,20 @@ def _validate_out_name(out_name: str | None) -> None:
             f"out_name must be a bare filename, got {out_name!r}",
             details={"out_name": out_name},
         )
+
+
+def _config_bar_override(
+    subgenre: TechnoSubgenre | str | None, prefix: str, rs: Any
+) -> int | None:
+    if subgenre is None:
+        return None
+    if isinstance(subgenre, str):
+        try:
+            subgenre = TechnoSubgenre(subgenre)
+        except ValueError:
+            return None
+    field_name = f"{prefix}_{subgenre.value}"
+    return getattr(rs, field_name, None)
 
 
 async def render_mixdown_handler(
@@ -86,6 +101,15 @@ async def render_mixdown_handler(
             )
             per_transition.append(transition_bars_for_pair(pair_type))
         per_body.append(body_bars_for_pair(classify_pair(getattr(inputs[i], "mood", None), None)))
+    for i in range(len(inputs)):
+        mood = getattr(inputs[i], "mood", None)
+        if i < len(inputs) - 1:
+            tov = _config_bar_override(mood, "transition_bars", rs)
+            if tov is not None:
+                per_transition[i] = tov
+        bov = _config_bar_override(mood, "body_bars", rs)
+        if bov is not None:
+            per_body[i] = bov
 
     plan = build_render_plan(
         inputs,
@@ -94,7 +118,7 @@ async def render_mixdown_handler(
         body_bars=body_bars or rs.body_bars,
         transition_bars=transition_bars or rs.transition_bars,
         xsplit_hz=rs.xsplit_hz,
-        low_swap_bars=rs.low_swap_bars,
+        low_swap_beats=rs.low_swap_beats,
         outro_fade_bars=rs.outro_fade_bars,
         limiter_ceiling=rs.limiter_ceiling,
         per_transition_bars=per_transition,

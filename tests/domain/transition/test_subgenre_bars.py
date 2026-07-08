@@ -15,8 +15,13 @@ class TestTransitionBarsForPair:
     def test_mixed_gets_32_bars(self):
         assert transition_bars_for_pair(SubgenrePairType.MIXED_PAIR) == 32
 
-    def test_unknown_falls_back_to_default(self):
-        assert transition_bars_for_pair(SubgenrePairType.MIXED_PAIR) == 32
+    def test_unknown_falls_back_to_default(self, monkeypatch):
+        import app.domain.transition.subgenre_rules as _mod
+
+        monkeypatch.setattr(_mod, "_TRANSITION_BARS", {}, raising=True)
+        assert (
+            transition_bars_for_pair(SubgenrePairType.MIXED_PAIR) == _mod._DEFAULT_TRANSITION_BARS
+        )
 
 
 class TestBodyBarsForPair:

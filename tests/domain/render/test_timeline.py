@@ -39,7 +39,7 @@ def test_single_segment_no_transitions():
         body_bars=24,
         transition_bars=32,
         xsplit_hz=180,
-        low_swap_bars=2,
+        low_swap_beats=1.0,
         outro_fade_bars=12,
         limiter_ceiling=0.85,
     )
@@ -57,7 +57,7 @@ def test_two_segments_overlap():
         body_bars=24,
         transition_bars=32,
         xsplit_hz=180,
-        low_swap_bars=2,
+        low_swap_beats=1.0,
         outro_fade_bars=12,
         limiter_ceiling=0.85,
     )

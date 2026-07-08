@@ -24,7 +24,9 @@ class RenderSettings(BaseSettings):
     transition_bars: int = Field(default=32, gt=0, description="Overlap length between tracks.")
     body_bars: int = Field(default=24, gt=0, description="Solo time per track between blends.")
     xsplit_hz: int = Field(default=180, gt=0, description="Low/high crossover for the bass swap.")
-    low_swap_bars: int = Field(default=2, gt=0, description="Low-band crossfade window (bars).")
+    low_swap_beats: float = Field(
+        default=1.0, gt=0, description="Low-band crossfade window (beats)."
+    )
     transition_bars_hypnotic: int | None = Field(default=None, gt=0)
     transition_bars_minimal: int | None = Field(default=None, gt=0)
     transition_bars_melodic: int | None = Field(default=None, gt=0)
