@@ -57,7 +57,7 @@ class EchoOutRecipeBuilder(BaseRecipeBuilder):
             _hold("B", NeuralMixStem.VOCALS, LEVEL_UNITY, b),
         ]
 
-    def _build_fx_events(self, bars: int) -> tuple:
+    def _build_fx_events(self, bars: int) -> tuple[MuteFXEvent, ...]:
         b = float(bars)
         quarter = b * 0.25
         half = b * 0.50
@@ -77,7 +77,7 @@ class EchoOutRecipeBuilder(BaseRecipeBuilder):
             ),
         )
 
-    def build(self, bars: int) -> tuple[tuple[StemKeyframe, ...], tuple]:
+    def build(self, bars: int) -> tuple[tuple[StemKeyframe, ...], tuple[MuteFXEvent, ...]]:
         bars = bars or DEFAULT_TRANSITION_BARS
         a = self._build_a_envelope(bars)
         b = self._build_b_envelope(bars)

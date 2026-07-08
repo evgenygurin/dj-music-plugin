@@ -5,6 +5,7 @@ from app.domain.transition.recipe import (
     DEFAULT_TRANSITION_BARS,
     LEVEL_SILENT,
     LEVEL_UNITY,
+    MuteFXEvent,
     StemKeyframe,
 )
 
@@ -41,7 +42,7 @@ class FilterSweepRecipeBuilder(BaseRecipeBuilder):
             kfs.extend(_ramp("B", stem, 4, b, LEVEL_SILENT, LEVEL_UNITY))
         return kfs
 
-    def build(self, bars: int) -> tuple[tuple[StemKeyframe, ...], tuple]:
+    def build(self, bars: int) -> tuple[tuple[StemKeyframe, ...], tuple[MuteFXEvent, ...]]:
         bars = bars or DEFAULT_TRANSITION_BARS
         a = self._build_a_envelope(bars)
         b = self._build_b_envelope(bars)

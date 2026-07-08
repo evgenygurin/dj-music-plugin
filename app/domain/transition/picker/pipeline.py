@@ -42,7 +42,13 @@ class PickerPipeline:
 
 
 def pick_neural_mix(
-    score, from_t, to_t, *, section_context=None, subgenre_pair=None, intent=None
+    score: TransitionScore,
+    from_t: TrackFeatures,
+    to_t: TrackFeatures,
+    *,
+    section_context: SectionContext | None = None,
+    subgenre_pair: SubgenrePairType | None = None,
+    intent: TransitionIntent | None = None,
 ) -> PickerDecision:
     pipeline = PickerPipeline()
     return pipeline.pick(

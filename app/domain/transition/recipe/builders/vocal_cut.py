@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from app.domain.transition.neural_mix import NeuralMixStem, NeuralMixTransition
-from app.domain.transition.recipe import DEFAULT_TRANSITION_BARS, StemKeyframe
+from app.domain.transition.recipe import DEFAULT_TRANSITION_BARS, MuteFXEvent, StemKeyframe
 
 from ..envelopes.kill_with_echo import _cut
 from .base import BaseRecipeBuilder
@@ -17,6 +17,6 @@ class VocalCutRecipeBuilder(BaseRecipeBuilder):
     def _build_b_envelope(self, bars: int) -> list[StemKeyframe]:
         return []
 
-    def build(self, bars: int) -> tuple[tuple[StemKeyframe, ...], tuple]:
+    def build(self, bars: int) -> tuple[tuple[StemKeyframe, ...], tuple[MuteFXEvent, ...]]:
         bars = bars or DEFAULT_TRANSITION_BARS
         return _cut(bars, NeuralMixStem.VOCALS, slam_back=False)

@@ -1,11 +1,21 @@
 from __future__ import annotations
 
+from typing import Literal
+
 from app.domain.transition.neural_mix import NeuralMixStem
-from app.domain.transition.recipe import MuteFXEvent, MuteFXTrigger
+from app.domain.transition.recipe import (
+    LEVEL_SILENT,
+    LEVEL_UNITY,
+    MuteFXEvent,
+    MuteFXTrigger,
+    StemKeyframe,
+)
+
+from .linear_fade import _hold
 
 
 def _echo_trigger(
-    bar: float, deck: str, stem: NeuralMixStem, trigger: MuteFXTrigger
+    bar: float, deck: Literal["A", "B"], stem: NeuralMixStem, trigger: MuteFXTrigger
 ) -> MuteFXEvent:
     return MuteFXEvent(bar=bar, deck=deck, stem=stem, trigger=trigger)
 
@@ -15,15 +25,11 @@ def _cut(
     cut_stem: NeuralMixStem,
     *,
     slam_back: bool,
-) -> tuple[tuple[object, ...], tuple[MuteFXEvent, ...]]:
-    from app.domain.transition.recipe import LEVEL_SILENT, LEVEL_UNITY
-
-    from .linear_fade import _hold
-
+) -> tuple[tuple[StemKeyframe, ...], tuple[MuteFXEvent, ...]]:
     b = float(bars)
     eighth = b * 0.125
     seven_eighths = b * 0.875
-    kfs: list = []
+    kfs: list[StemKeyframe] = []
 
     kfs += [
         _hold("A", cut_stem, LEVEL_UNITY, 0.0),
