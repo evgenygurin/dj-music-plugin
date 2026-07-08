@@ -1,6 +1,6 @@
 {
   "name": "dj-music",
-  "version": "1.8.0",
+  "version": "1.9.0",
   "displayName": "DJ Music",
   "description": "DJ techno library management — MCP server with 20+ tools, audio analysis, set building, render pipeline",
   "author": {
@@ -10,7 +10,15 @@
   "homepage": "https://github.com/evgenygurin/dj-music-plugin",
   "repository": "https://github.com/evgenygurin/dj-music-plugin",
   "license": "MIT",
-  "keywords": ["dj", "techno", "music", "mcp", "set-building", "audio-analysis", "yandex-music"],
+  "keywords": [
+    "dj",
+    "techno",
+    "music",
+    "mcp",
+    "set-building",
+    "audio-analysis",
+    "yandex-music"
+  ],
   "skills": "./skills/",
   "hooks": "./hooks/hooks-cursor.json"
 }

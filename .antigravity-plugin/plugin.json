@@ -1,6 +1,6 @@
 {
   "name": "dj-music",
-  "version": "1.8.0",
+  "version": "1.9.0",
   "description": "DJ techno library management — MCP server: 20+ tools, audio analysis, set building, render pipeline",
   "author": "Evgeny Gurin",
   "homepage": "https://github.com/evgenygurin/dj-music-plugin",
@@ -9,7 +9,8 @@
   "mcpServers": {
     "dj": {
       "command": "bash",
-      "args": ["-lc",
+      "args": [
+        "-lc",
         "cd \"${AGY_PLUGIN_ROOT:-$PWD}\" && set -a && [ -f .env ] && . .env; set +a && exec uv run -- fastmcp run fastmcp.json --no-banner"
       ]
     }
