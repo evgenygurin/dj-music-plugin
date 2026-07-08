@@ -1,4 +1,4 @@
-"""Pure stem-keyframe builders for the seven Neural Mix transitions.
+"""Pure stem-keyframe builders for the eight Neural Mix transitions.
 
 Each ``build_<preset>(bars)`` returns a ``(keyframes, fx_events)`` tuple
 describing the per-deck per-stem level envelope and Mute FX echo-tail
@@ -10,7 +10,7 @@ snaps levels ≤ ``LEVEL_SILENT`` to mute.
 
 Per-preset matrices are derived from Algoriddim's published Neural Mix
 behaviour (see ``docs/transition-scoring.md`` and the audit notes in
-``docs/research/``). All seven default to bars=32 per the project
+``docs/research/``). All eight default to bars=32 per the project
 constraint that templates scale a uniform base length.
 """
 

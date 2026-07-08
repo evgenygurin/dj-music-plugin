@@ -1,9 +1,9 @@
 """Neural Mix stem-aware transition scoring (djay Pro 5 paradigm).
 
-djay Pro 5 ships exactly seven Neural Mix transitions in its Automix UI:
+djay Pro 5 ships exactly eight Neural Mix transitions in its Automix UI:
 ``Fade``, ``Echo Out``, ``Vocal Sustain``, ``Harmonic Sustain``,
 ``Drum Swap``, ``Vocal Cut``, ``Drum Cut``. Each is a stem-routing recipe
-between two decks; this module models the same seven presets as a
+between two decks; this module models the same eight presets as a
 scoring layer over four stems (drums / bass / harmonic / vocals) using
 existing ``TrackFeatures`` proxies — no real-time stem separation is
 required at scoring time.
@@ -148,7 +148,7 @@ class NeuralMixScore:
         stem_scores: Per-stem compatibility (drums/bass/harmonics/vocals),
             values in ``[0, 1]``.
         transition_scores: Per-transition-style compatibility, values in
-            ``[0, 1]`` for each of the seven Neural Mix transitions.
+            ``[0, 1]`` for each of the eight Neural Mix transitions.
         best_transition: The transition style with the highest score, or
             ``None`` on hard reject.
         overall: The score of ``best_transition``. What optimizers read.
@@ -349,7 +349,7 @@ def score_vocal_compat(from_t: TrackFeatures, to_t: TrackFeatures) -> float:
 
 
 class NeuralMixScorer:
-    """Stem-aware scorer for the seven djay Pro 5 Neural Mix transitions."""
+    """Stem-aware scorer for the eight djay Pro 5 Neural Mix transitions."""
 
     def score(
         self,
