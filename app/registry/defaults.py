@@ -137,7 +137,7 @@ async def _load_track_features_one(uow: object, track_id: int) -> object | None:
     loader = getattr(repo, "get_by_track_id", None)
     if loader is None or not inspect.iscoroutinefunction(loader):
         return None
-    return await loader(track_id)
+    return await loader(track_id)  # type: ignore[no-any-return]
 
 
 async def _enrich_playlist_view(uow: object, row: object, view: dict) -> dict:  # type: ignore[type-arg]
