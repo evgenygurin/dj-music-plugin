@@ -48,6 +48,7 @@ class NeuralMixTransition(StrEnum):
     DRUM_SWAP = "drum_swap"
     VOCAL_CUT = "vocal_cut"
     DRUM_CUT = "drum_cut"
+    FILTER_SWEEP = "filter_sweep"
 
 
 NEURAL_MIX_STEMS: tuple[NeuralMixStem, ...] = tuple(NeuralMixStem)
@@ -110,6 +111,12 @@ TRANSITION_STEM_WEIGHTS: dict[NeuralMixTransition, dict[NeuralMixStem, float]] =
         NeuralMixStem.HARMONICS: 0.30,
         NeuralMixStem.VOCALS: 0.25,
     },
+    NeuralMixTransition.FILTER_SWEEP: {
+        NeuralMixStem.DRUMS: 0.25,
+        NeuralMixStem.BASS: 0.25,
+        NeuralMixStem.HARMONICS: 0.25,
+        NeuralMixStem.VOCALS: 0.25,
+    },
 }
 
 
@@ -126,6 +133,7 @@ TRANSITION_ENERGY_BIAS: dict[NeuralMixTransition, float] = {
     NeuralMixTransition.DRUM_SWAP: 0.0,  # groove change without energy change
     NeuralMixTransition.VOCAL_CUT: 0.1,  # decisive cut feels slightly aspirational
     NeuralMixTransition.DRUM_CUT: 0.5,  # drop-style breakdown into slam = ramp-up
+    NeuralMixTransition.FILTER_SWEEP: 0.0,
 }
 
 

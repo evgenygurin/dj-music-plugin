@@ -312,6 +312,31 @@ def build_drum_cut(bars: int = DEFAULT_TRANSITION_BARS) -> KeyframeBundle:
     return _cut(bars, NeuralMixStem.DRUMS, slam_back=True)
 
 
+def build_filter_sweep(bars: int = DEFAULT_TRANSITION_BARS) -> KeyframeBundle:
+    """HPF ramp on outgoing (A), LPF ramp on incoming (B).
+
+    All stems on A gradually lose low end (→ HPF sweep).
+    All stems on B gradually gain full spectrum (→ LPF sweep).
+    No stem-selective envelopes — filter sweep is spectral, not stem-aware.
+    """
+    a_kfs: list[StemKeyframe] = []
+    b_kfs: list[StemKeyframe] = []
+
+    for stem in (
+        NeuralMixStem.DRUMS,
+        NeuralMixStem.BASS,
+        NeuralMixStem.HARMONICS,
+        NeuralMixStem.VOCALS,
+    ):
+        a_kfs.append(_hold("A", stem, LEVEL_UNITY, 0))
+        a_kfs.extend(_ramp("A", stem, 4, bars, LEVEL_UNITY, LEVEL_SILENT))
+
+        b_kfs.append(_hold("B", stem, LEVEL_SILENT, 0))
+        b_kfs.extend(_ramp("B", stem, 4, bars, LEVEL_SILENT, LEVEL_UNITY))
+
+    return tuple(a_kfs + b_kfs), ()
+
+
 # ── Public dispatcher ──────────────────────────────────────────────
 
 
@@ -323,6 +348,7 @@ _BUILDERS: dict[NeuralMixTransition, _Builder] = {
     NeuralMixTransition.DRUM_SWAP: build_drum_swap,
     NeuralMixTransition.VOCAL_CUT: build_vocal_cut,
     NeuralMixTransition.DRUM_CUT: build_drum_cut,
+    NeuralMixTransition.FILTER_SWEEP: build_filter_sweep,
 }
 
 
@@ -367,6 +393,7 @@ __all__ = [
     "build_drum_swap",
     "build_echo_out",
     "build_fade",
+    "build_filter_sweep",
     "build_harmonic_sustain",
     "build_recipe",
     "build_vocal_cut",

@@ -417,19 +417,19 @@ def test_build_recipe_for_pair_records_section_labels() -> None:
     assert recipe.mix_in_section == "intro"
 
 
-def test_hypnotic_pair_falls_through_to_default_drum_swap() -> None:
+def test_hypnotic_pair_selects_filter_sweep() -> None:
     score = _ok_score()
     decision = pick_neural_mix(
         score, _track(), _track(), subgenre_pair=SubgenrePairType.HYPNOTIC_PAIR
     )
-    assert decision.transition is NeuralMixTransition.DRUM_SWAP
+    assert decision.transition is NeuralMixTransition.FILTER_SWEEP
 
 
-def test_hypnotic_pair_recipe_uses_standard_preset() -> None:
+def test_hypnotic_pair_recipe_uses_filter_sweep() -> None:
     recipe = build_recipe_for_pair(
         _ok_score(),
         _track(),
         _track(),
         subgenre_pair=SubgenrePairType.HYPNOTIC_PAIR,
     )
-    assert recipe.transition is NeuralMixTransition.DRUM_SWAP
+    assert recipe.transition is NeuralMixTransition.FILTER_SWEEP

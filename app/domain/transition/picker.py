@@ -13,6 +13,8 @@ Decision tree (first match wins):
    ``score.drums > 0.85`` → DRUM_SWAP (groove-transfer);
    ``> 0.65`` → DRUM_CUT (drumless reset);
    else → FADE.
+2d. Acid/hypnotic subgenre pairs → FILTER_SWEEP (signature move)
+    when not in drum-only section context.
 3. Vocal-active outro on A (3-signal proxy: ``pitch_salience_mean >
    0.55`` AND ``spectral_centroid_hz > 2200`` AND, when ``energy_bands``
    is available, ``(lowmid+mid) / total > 0.40``). See ``_vocal_active``
@@ -216,6 +218,16 @@ def pick_neural_mix(
             transition=NeuralMixTransition.FADE,
             confidence=0.70,
             reason=f"drum-only sections, drums={score.drums:.2f} too low — linear fade",
+        )
+
+    # 2d. Acid/hypnotic pairs → FILTER_SWEEP (signature move)
+    if subgenre_pair in (SubgenrePairType.ACID_PAIR, SubgenrePairType.HYPNOTIC_PAIR) and (
+        section_context is None or not section_context.is_drum_only_pair
+    ):
+        return PickerDecision(
+            transition=NeuralMixTransition.FILTER_SWEEP,
+            confidence=0.85,
+            reason="acid/hypnotic pair — filter sweep signature transition",
         )
 
     # 3. Vocal-active A outro.
