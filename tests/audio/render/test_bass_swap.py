@@ -24,7 +24,10 @@ class TestBassSwapFiltergraph:
     def test_low_swap_is_beat_based(self):
         plan = RenderPlan(
             target_bpm=130.0,
-            xsplit_hz=250,
+            xsplit_low_hz=250,
+            xsplit_high_hz=4000,
+            eq_phase_1_ratio=0.40,
+            eq_phase_2_ratio=0.70,
             low_swap_beats=1.0,
             outro_fade_bars=12,
             limiter_ceiling=0.85,

@@ -31,7 +31,10 @@ def _plan(n):
         t += length - d_out
     return RenderPlan(
         target_bpm=130.0,
-        xsplit_hz=180,
+        xsplit_low_hz=250,
+        xsplit_high_hz=4000,
+        eq_phase_1_ratio=0.40,
+        eq_phase_2_ratio=0.70,
         low_swap_beats=1.0,
         outro_fade_bars=12,
         limiter_ceiling=0.85,
@@ -43,9 +46,9 @@ def test_filtergraph_single_track_shape():
     parts = build_filtergraph(_plan(1))
     joined = ";".join(parts)
     # per-segment stages present
-    assert "asplit=2[s0a][s0b]" in joined
-    assert "lowpass=f=180[lo0]" in joined
-    assert "highpass=f=180[hi0]" in joined
+    assert "asplit=3[s0a][s0b][s0c]" in joined
+    assert "lowpass=f=250[lo0]" in joined
+    assert "highpass=f=4000[hi0]" in joined
     # single track: no incoming/outgoing crossfade, but an outro fade of 12 bars
     assert "afade=t=out:curve=qsin" in joined
     # final limiter

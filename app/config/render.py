@@ -23,7 +23,14 @@ class RenderSettings(BaseSettings):
     target_bpm: float = Field(default=130.0, gt=0, description="All tracks stretched to this.")
     transition_bars: int = Field(default=32, gt=0, description="Overlap length between tracks.")
     body_bars: int = Field(default=24, gt=0, description="Solo time per track between blends.")
-    xsplit_hz: int = Field(default=180, gt=0, description="Low/high crossover for the bass swap.")
+    xsplit_low_hz: int = Field(default=250, gt=0, description="Low/mid crossover.")
+    xsplit_high_hz: int = Field(default=4000, gt=0, description="Mid/high crossover.")
+    eq_phase_1_ratio: float = Field(
+        default=0.40, gt=0, le=1.0, description="Fraction of transition for HIGH phase."
+    )
+    eq_phase_2_ratio: float = Field(
+        default=0.70, gt=0, le=1.0, description="Fraction of transition for MID phase."
+    )
     low_swap_beats: float = Field(
         default=1.0, gt=0, description="Low-band crossfade window (beats)."
     )

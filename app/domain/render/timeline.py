@@ -37,7 +37,10 @@ def build_render_plan(
     target_bpm: float,
     body_bars: int,
     transition_bars: int,
-    xsplit_hz: int,
+    xsplit_low_hz: int,
+    xsplit_high_hz: int,
+    eq_phase_1_ratio: float,
+    eq_phase_2_ratio: float,
     low_swap_beats: float,
     outro_fade_bars: int,
     limiter_ceiling: float,
@@ -81,7 +84,10 @@ def build_render_plan(
         running_t += length - d_out
     return RenderPlan(
         target_bpm=target_bpm,
-        xsplit_hz=xsplit_hz,
+        xsplit_low_hz=xsplit_low_hz,
+        xsplit_high_hz=xsplit_high_hz,
+        eq_phase_1_ratio=eq_phase_1_ratio,
+        eq_phase_2_ratio=eq_phase_2_ratio,
         low_swap_beats=low_swap_beats,
         outro_fade_bars=outro_fade_bars,
         limiter_ceiling=limiter_ceiling,

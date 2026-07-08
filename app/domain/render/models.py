@@ -61,7 +61,10 @@ class RenderPlan:
     """A fully-resolved render: ordered segments + DSP constants."""
 
     target_bpm: float
-    xsplit_hz: int
+    xsplit_low_hz: int
+    xsplit_high_hz: int
+    eq_phase_1_ratio: float
+    eq_phase_2_ratio: float
     low_swap_beats: float
     outro_fade_bars: int
     limiter_ceiling: float
