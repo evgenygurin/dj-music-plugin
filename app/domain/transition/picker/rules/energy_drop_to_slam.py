@@ -13,14 +13,17 @@ class EnergyDropToSlamRule(PickerRule):
     confidence = 0.86
 
     def evaluate(
-        self, score, from_t, to_t, *,
-        section_context=None, subgenre_pair=None, intent=None,
+        self,
+        score,
+        from_t,
+        to_t,
+        *,
+        section_context=None,
+        subgenre_pair=None,
+        intent=None,
     ) -> PickerDecision | None:
         delta = _energy_delta_lufs(from_t, to_t)
-        if (
-            delta is None
-            or delta <= _ENERGY_DELTA_RAMP_UP_LUFS
-        ):
+        if delta is None or delta <= _ENERGY_DELTA_RAMP_UP_LUFS:
             return None
         if not (intent is TransitionIntent.RAMP_UP or subgenre_pair is SubgenrePairType.HARD_PAIR):
             return None

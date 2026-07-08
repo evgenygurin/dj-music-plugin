@@ -13,8 +13,14 @@ class HarmonicSustainRule(PickerRule):
     confidence = 0.83
 
     def evaluate(
-        self, score, from_t, to_t, *,
-        section_context=None, subgenre_pair=None, intent=None,
+        self,
+        score,
+        from_t,
+        to_t,
+        *,
+        section_context=None,
+        subgenre_pair=None,
+        intent=None,
     ) -> PickerDecision | None:
         if not _harmonic_motif(from_t):
             return None

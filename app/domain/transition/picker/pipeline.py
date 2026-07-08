@@ -14,14 +14,20 @@ class PickerPipeline:
         self._rules = rules or DEFAULT_RULES
 
     def pick(
-        self, score: TransitionScore, from_t: TrackFeatures, to_t: TrackFeatures, *,
+        self,
+        score: TransitionScore,
+        from_t: TrackFeatures,
+        to_t: TrackFeatures,
+        *,
         section_context: SectionContext | None = None,
         subgenre_pair: SubgenrePairType | None = None,
         intent: TransitionIntent | None = None,
     ) -> PickerDecision:
         for rule in self._rules:
             decision = rule.evaluate(
-                score, from_t, to_t,
+                score,
+                from_t,
+                to_t,
                 section_context=section_context,
                 subgenre_pair=subgenre_pair,
                 intent=intent,
@@ -35,11 +41,14 @@ class PickerPipeline:
         )
 
 
-def pick_neural_mix(score, from_t, to_t, *, section_context=None,
-                    subgenre_pair=None, intent=None) -> PickerDecision:
+def pick_neural_mix(
+    score, from_t, to_t, *, section_context=None, subgenre_pair=None, intent=None
+) -> PickerDecision:
     pipeline = PickerPipeline()
     return pipeline.pick(
-        score, from_t, to_t,
+        score,
+        from_t,
+        to_t,
         section_context=section_context,
         subgenre_pair=subgenre_pair,
         intent=intent,

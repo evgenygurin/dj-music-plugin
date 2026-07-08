@@ -10,8 +10,14 @@ class FilterSweepRule(PickerRule):
     confidence = 0.85
 
     def evaluate(
-        self, score, from_t, to_t, *,
-        section_context=None, subgenre_pair=None, intent=None,
+        self,
+        score,
+        from_t,
+        to_t,
+        *,
+        section_context=None,
+        subgenre_pair=None,
+        intent=None,
     ) -> PickerDecision | None:
         if subgenre_pair not in (SubgenrePairType.ACID_PAIR, SubgenrePairType.HYPNOTIC_PAIR):
             return None

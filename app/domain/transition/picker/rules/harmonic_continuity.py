@@ -9,7 +9,13 @@ class HarmonicContinuityRule(PickerRule):
     confidence = 0.70
 
     def evaluate(
-        self, score, from_t, to_t, *,
-        section_context=None, subgenre_pair=None, intent=None,
+        self,
+        score,
+        from_t,
+        to_t,
+        *,
+        section_context=None,
+        subgenre_pair=None,
+        intent=None,
     ) -> PickerDecision | None:
         return None

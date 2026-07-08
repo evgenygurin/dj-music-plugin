@@ -13,8 +13,14 @@ class DrumOnlySectionRule(PickerRule):
     confidence = 0.92
 
     def evaluate(
-        self, score, from_t, to_t, *,
-        section_context=None, subgenre_pair=None, intent=None,
+        self,
+        score,
+        from_t,
+        to_t,
+        *,
+        section_context=None,
+        subgenre_pair=None,
+        intent=None,
     ) -> PickerDecision | None:
         if section_context is None or not section_context.is_drum_only_pair:
             return None

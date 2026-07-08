@@ -15,8 +15,14 @@ class DefaultDrumsRule(PickerRule):
     confidence = 0.82
 
     def evaluate(
-        self, score, from_t, to_t, *,
-        section_context=None, subgenre_pair=None, intent=None,
+        self,
+        score,
+        from_t,
+        to_t,
+        *,
+        section_context=None,
+        subgenre_pair=None,
+        intent=None,
     ) -> PickerDecision | None:
         delta = _energy_delta_lufs(from_t, to_t)
         if score.drums >= _DRUM_SWAP_FLOOR:

@@ -10,8 +10,14 @@ class AmbientOrCooldownRule(PickerRule):
     confidence = 0.78
 
     def evaluate(
-        self, score, from_t, to_t, *,
-        section_context=None, subgenre_pair=None, intent=None,
+        self,
+        score,
+        from_t,
+        to_t,
+        *,
+        section_context=None,
+        subgenre_pair=None,
+        intent=None,
     ) -> PickerDecision | None:
         if subgenre_pair is SubgenrePairType.AMBIENT_PAIR:
             return PickerDecision(
