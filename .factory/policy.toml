@@ -1,0 +1,15 @@
+# Factory Droid — DJ Music Plugin
+# MCP server + skills for DJ techno library management
+
+[mcp_servers.dj-music]
+command = "bash"
+args = [
+    "-lc",
+    "project_root=\"$PWD\"; plugin_root=\"${FACTORY_PLUGIN_ROOT:-$PWD}\"; cd \"$plugin_root\" || exit 1; set -a; if [ -f \"$project_root/.env\" ]; then . \"$project_root/.env\"; elif [ -f .env ]; then . .env; fi; set +a; exec uv run -- fastmcp run fastmcp.json --no-banner",
+]
+
+[plugin]
+name = "dj-music"
+version = "1.8.0"
+skills = "./skills/"
+hooks = "./hooks/"

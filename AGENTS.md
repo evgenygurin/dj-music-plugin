@@ -1,3 +1,33 @@
+# DJ Music Plugin — Project Instructions
+
+> MCP-сервер для управления DJ techno библиотекой, построения оптимизированных сетов и интеграции с Яндекс Музыкой.
+> Версия: 1.8.0
+
+**Всегда думай по-русски и отвечай по-русски, если только явно не просят другое.**
+
+## Quick Check
+
+- `make check` — lint (ruff) + typecheck (mypy strict) + tests (pytest) + import-linter
+- `uv run pytest` — run tests
+- `uv run ruff check` — lint only
+- Package manager: **uv** (not pip, not poetry)
+
+## ⛔ No CI (GitHub Actions)
+
+GitHub Actions unavailable for this account (billing lock). Quality via local gates only:
+- `make check` — primary gate before every commit
+- `hooks/pre-push` — auto-runs `make check` (skip: `DJ_SKIP_CHECK=1 git push`)
+
+## Plugin Architecture
+
+This project is a **FastMCP v3** server with bounded-contexts architecture.
+Entry point: `server.py` → `fastmcp.json`. The MCP server exposes 20+ tools,
+27 resources, and 30 prompts for DJ techno library management.
+
+Key bounded contexts: `app/domain/` (pure logic), `app/audio/` (DSP/librosa),
+`app/handlers/` (orchestration), `app/tools/` (MCP tool definitions),
+`app/repositories/` (DB queries).
+
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 

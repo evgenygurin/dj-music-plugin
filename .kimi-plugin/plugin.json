@@ -1,0 +1,20 @@
+{
+  "name": "dj-music",
+  "version": "1.8.0",
+  "displayName": "DJ Music",
+  "description": "DJ techno library management — MCP server with 20+ tools, audio analysis, set building, render pipeline",
+  "author": {
+    "name": "Evgeny Gurin",
+    "url": "https://github.com/evgenygurin"
+  },
+  "homepage": "https://github.com/evgenygurin/dj-music-plugin",
+  "repository": "https://github.com/evgenygurin/dj-music-plugin",
+  "license": "MIT",
+  "keywords": ["dj", "techno", "music", "mcp", "set-building", "audio-analysis"],
+  "skills": "./skills/",
+  "sessionStart": {
+    "skill": "using-superpowers"
+  },
+  "skillInstructions": "Kimi Code tool mapping for Superpowers skills:\n\n- When a Superpowers skill says to ask the user, ask clarifying questions, ask one question at a time, present multiple-choice options, use the terminal for a question, or wait for the user's choice, call Kimi Code's `AskUserQuestion` tool.\n- When a Superpowers skill says `TodoWrite`, use Kimi Code's `TodoList` tool.\n- When a Superpowers skill says `Task tool (general-purpose)`, use Kimi Code's `Agent` tool with `subagent_type: \"coder\"`.\n- For read-only codebase exploration, use `Agent` with `subagent_type: \"explore\"`.\n- Use Kimi Code's native `Skill` tool for loading skills.\n- Use `Read`, `Write`, `Edit`, `Bash`, `Grep`, `Glob`, `FetchURL`, `WebSearch`, and MCP tools by their actual exposed names.",
+  "mcpServers": "./.mcp.json"
+}
