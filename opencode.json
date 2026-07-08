@@ -17,16 +17,7 @@
       "mode": "subagent",
       "color": "warning"
     },
-    "bg-jobs-manager": {
-      "description": "Orchestrator for long-running background workloads — planning import/analysis campaigns, prioritizing playlists.",
-      "mode": "subagent",
-      "color": "accent"
-    },
-    "bg-jobs-watcher": {
-      "description": "Monitor and diagnose background jobs — BFS expansion, L5 analysis, Supabase DB state. Status reports, log triage, restarts.",
-      "mode": "subagent",
-      "color": "info"
-    }
+
   },
 
   "plugin": [
