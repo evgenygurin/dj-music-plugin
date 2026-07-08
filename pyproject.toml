@@ -40,6 +40,10 @@ audio = [
 ]
 stems = ["demucs>=4.0", "torch>=2.0"]
 postgres = ["pgvector>=0.3"]
+supabase = [
+    "supabase>=2.0",
+    "pgvector>=0.3",
+]
 otel = [
     "opentelemetry-distro",
     "opentelemetry-exporter-otlp",
