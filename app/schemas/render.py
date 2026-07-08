@@ -31,6 +31,7 @@ class RenderDiagnosticsResult(BaseModel):
 
 class RenderVerifyResult(BaseModel):
     version_id: int
+    summary: str = ""
     passed: int = 0
     warned: int = 0
     failed: int = 0

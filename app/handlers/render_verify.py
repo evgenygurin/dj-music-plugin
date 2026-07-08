@@ -85,11 +85,13 @@ async def render_verify_handler(
     results = run_checks(manifest, src_measures, out_measure, cfg, skip_post=skip_post)
     report = VerifyReport(results=tuple(results))
 
+    counts = report.counts
     result = RenderVerifyResult(
         version_id=version_id,
-        passed=report.counts.get("PASS", 0),
-        warned=report.counts.get("WARN", 0),
-        failed=report.counts.get("FAIL", 0),
+        summary=f"{counts.get('PASS', 0)}P {counts.get('WARN', 0)}W {counts.get('FAIL', 0)}F",
+        passed=counts.get("PASS", 0),
+        warned=counts.get("WARN", 0),
+        failed=counts.get("FAIL", 0),
         exit_code=report.exit_code,
         checks=[
             {"name": r.name, "status": r.status.value, "message": r.message, "detail": r.detail}

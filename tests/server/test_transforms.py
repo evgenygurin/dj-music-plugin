@@ -44,6 +44,8 @@ def test_always_visible_list_matches_blueprint() -> None:
         "render_beatgrid",
         "render_mixdown",
         "render_diagnose",
+        "render_verify",
+        "deliver_set",
     )
 
 

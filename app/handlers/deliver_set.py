@@ -9,35 +9,24 @@ from typing import Any
 from xml.sax.saxutils import quoteattr
 
 from app.config import get_settings
+from app.domain.camelot.wheel import key_code_to_camelot
 from app.handlers._context_log import safe_info
 from app.schemas.delivery import DeliverSetResult
+from app.shared.constants import CAMELOT_KEYS
 from app.shared.workspace import render_workspace
 
+
+def _short_key_name(full_name: str) -> str:
+    """'D minor' -> 'Dm', 'F major' -> 'F'."""
+    parts = full_name.split()
+    if len(parts) >= 2 and parts[1] == "minor":
+        return parts[0] + "m"
+    return parts[0]
+
+
+# Mapping: Camelot notation -> short key name (e.g. "7A" -> "Dm") for rekordbox XML
 _CAMELOT_TO_KEY: dict[str, str] = {
-    "7A": "Dm",
-    "7B": "F",
-    "8A": "Am",
-    "8B": "C",
-    "9A": "Em",
-    "9B": "G",
-    "10A": "Bm",
-    "10B": "D",
-    "11A": "F#m",
-    "11B": "A",
-    "12A": "C#m",
-    "12B": "E",
-    "1A": "Ebm",
-    "1B": "Gb",
-    "2A": "Bbm",
-    "2B": "Db",
-    "3A": "Fm",
-    "3B": "Ab",
-    "4A": "Cm",
-    "4B": "Eb",
-    "5A": "Gm",
-    "5B": "Bb",
-    "6A": "Dm",
-    "6B": "F",
+    notation: _short_key_name(name) for (_code, (notation, name)) in CAMELOT_KEYS.items()
 }
 
 
@@ -56,7 +45,7 @@ def _is_real_file(path: Path, ratio: float) -> bool:
 def _camelot_str(key_code: int | None) -> str:
     if key_code is None:
         return ""
-    return f"{key_code % 12 + 1}{'B' if key_code >= 12 else 'A'}"
+    return key_code_to_camelot(key_code)
 
 
 async def deliver_set_handler(
@@ -142,7 +131,7 @@ async def deliver_set_handler(
         (out / "cheatsheet.txt").write_text("\n".join(lines) + "\n")
         files.append("cheatsheet.txt")
 
-    if ws and d.emit_continuous_mix:
+    if d.emit_continuous_mix:
         mix = Path(ws) / "MIX.mp3"
         if mix.exists():
             shutil.copy2(str(mix), str(out / "MIX.mp3"))
@@ -160,5 +149,5 @@ async def deliver_set_handler(
         rekordbox_xml=d.emit_rekordbox_xml,
         json_guide=d.emit_json_guide,
         cheatsheet=d.emit_cheatsheet,
-        continuous_mix=ws and d.emit_continuous_mix and (Path(ws) / "MIX.mp3").exists(),
+        continuous_mix=d.emit_continuous_mix and (Path(ws) / "MIX.mp3").exists(),
     )

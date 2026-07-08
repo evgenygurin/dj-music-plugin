@@ -115,14 +115,6 @@ packages = ["app"]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
-[tool.lint.import_linter]
-packages = ["app"]
-
-[tool.lint.import_linter.contract_types.forbidden_imports]
-name = "domain_render_audio"
-source_modules = ["app.domain.render"]
-forbidden_modules = ["app.audio"]
-
 [dependency-groups]
 dev = [
     "pytest>=8.0",

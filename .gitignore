@@ -82,3 +82,6 @@ Thumbs.db
 
 # Suno-generated audio assets (export-side artifacts, ~MB each) — never commit.
 suno_out/
+
+# import-linter cache (auto-generated)
+.import_linter_cache/
