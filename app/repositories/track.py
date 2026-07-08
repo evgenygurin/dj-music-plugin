@@ -50,9 +50,7 @@ class TrackRepository(BaseRepository[Track]):
 
         if flag is not None:
             features_exists = (
-                exists()
-                .where(TrackAudioFeaturesComputed.track_id == Track.id)
-                .correlate(Track)
+                exists().where(TrackAudioFeaturesComputed.track_id == Track.id).correlate(Track)
             )
             extras.append(features_exists if flag else ~features_exists)
 
@@ -62,22 +60,26 @@ class TrackRepository(BaseRepository[Track]):
 
         if playlist_id is not None:
             extras.append(
-                exists().where(
+                exists()
+                .where(
                     and_(
                         DjPlaylistItem.track_id == Track.id,
                         DjPlaylistItem.playlist_id == playlist_id,
                     )
-                ).correlate(Track)
+                )
+                .correlate(Track)
             )
 
         if feature_where:
             extras.append(
-                exists().where(
+                exists()
+                .where(
                     and_(
                         TrackAudioFeaturesComputed.track_id == Track.id,
                         *parse_filter(TrackAudioFeaturesComputed, feature_where),
                     )
-                ).correlate(Track)
+                )
+                .correlate(Track)
             )
 
         if extras or self._has_feature_order(order):

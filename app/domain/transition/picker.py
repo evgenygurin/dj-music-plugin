@@ -327,8 +327,7 @@ def pick_neural_mix(
             transition=NeuralMixTransition.FADE,
             confidence=0.80,
             reason=(
-                "balanced stem compatibility and stable energy — "
-                "transparent full-stem crossfade"
+                "balanced stem compatibility and stable energy — transparent full-stem crossfade"
             ),
         )
 
