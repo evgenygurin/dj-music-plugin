@@ -73,6 +73,10 @@ uv.lock
 Thumbs.db
 .superpowers/
 
+# npm
+node_modules/
+package-lock.json
+
 # Codex CLI local config
 .codex/
 

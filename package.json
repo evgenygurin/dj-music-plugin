@@ -27,5 +27,8 @@
     "url": "https://github.com/evgenygurin/dj-music-plugin.git"
   },
   "author": "Evgeny Gurin",
-  "license": "MIT"
+  "license": "MIT",
+  "dependencies": {
+    "@supabase/mcp-server-supabase": "^0.7.0"
+  }
 }
