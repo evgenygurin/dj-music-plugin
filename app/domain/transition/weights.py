@@ -48,17 +48,7 @@ CAMELOT_BASS_BASE: dict[int, float] = {0: 1.0, 1: 0.85, 2: 0.55, 3: 0.25, 4: 0.0
 
 # REFERENCE-ONLY (NOT used by the scorer): kept because
 # ``tests/domain/transition/test_weights.py`` pins it as a reference spec.
-# The live tables are CAMELOT_HARMONIC_BASE / CAMELOT_BASS_BASE above.
 CAMELOT_BASE_SCORES: dict[int, float] = {0: 1.0, 1: 0.95, 2: 0.85, 3: 0.6, 4: 0.3}
-HNR_NORM_LOW_DB: float = -30.0
-HNR_NORM_HIGH_DB: float = 0.0
-HNR_NORM_FLOOR: float = 0.5
-# DEAD constants — the live key-reliability relaxation of the Camelot HARD
-# reject now lives in settings.transition.hard_reject_key_confidence_floor
-# (+ the atonality flag), not these. Tonnetz cosine is weighted inline (0.20).
-ATONAL_RELAX_FLOOR: float = 0.8  # DEAD — superseded by hard_reject_key_confidence_floor
-TONNETZ_BLEND: float = 0.30  # DEAD — tonnetz cosine is weighted inline (0.20)
-KEY_CONFIDENCE_BLEND_THRESHOLD: float = 0.5  # DEAD — see hard_reject_key_confidence_floor
 
 # ── Energy scoring ───────────────────────────────────────
 # Gauss around a preferred rise (~0.5 LUFS, under the 2 LUFS perceptual
@@ -66,14 +56,7 @@ KEY_CONFIDENCE_BLEND_THRESHOLD: float = 0.5  # DEAD — see hard_reject_key_conf
 # and big jumps.
 ENERGY_SIGMOID_DIVISOR: float = 3.0
 ENERGY_PREFERRED_RISE_LUFS: float = 0.5
-LRA_DIFF_PENALTY_THRESHOLD: float = (
-    5.0  # ⚠️ DEAD — energy.py reads settings.transition.scoring_lra_diff_penalty_threshold (8.0)
-)
 LRA_DIFF_PENALTY: float = 0.10
-CREST_DIFF_PENALTY_THRESHOLD: float = (
-    4.0  # ⚠️ DEAD — energy.py reads settings.transition.scoring_crest_diff_penalty_threshold (10.0)
-)
-CREST_DIFF_PENALTY: float = 0.10
 ENERGY_SLOPE_BONUS: float = 0.05
 
 # ── Section-pair weight overlay (Phase 1 v2 refactor) ───────────────
