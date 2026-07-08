@@ -36,7 +36,7 @@
     },
     "supabase": {
       "type": "local",
-      "command": ["bash", "-lc", "cd /Users/laptop/dev/dj-music-plugin && scripts/start-db.sh"],
+      "command": ["bash", "-lc", "set -a && source /Users/laptop/dev/dj-music-plugin/.env && set +a && export SUPABASE_ACCESS_TOKEN=\"${DJ_DB_ACCESS_TOKEN}\" && exec npx -y @supabase/mcp-server-supabase@0.7.0 --read-only --project-ref=\"${DJ_DB_PROJECT_REF:-bowosphlnghhgaulcyfm}\" --features=database,docs,debug"],
       "timeout": 60000,
       "enabled": true
     },
