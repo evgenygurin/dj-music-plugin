@@ -1,0 +1,31 @@
+{
+  "name": "dj-music-plugin",
+  "version": "1.8.0",
+  "description": "MCP server for DJ techno library management — audio analysis, set building, render pipeline",
+  "type": "module",
+  "main": ".opencode/plugins/superpowers.js",
+  "keywords": [
+    "pi-package",
+    "dj",
+    "techno",
+    "music",
+    "mcp",
+    "audio-analysis",
+    "set-building",
+    "skills"
+  ],
+  "pi": {
+    "extensions": [
+      "./.pi/extensions/dj-music.ts"
+    ],
+    "skills": [
+      "./skills"
+    ]
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/evgenygurin/dj-music-plugin.git"
+  },
+  "author": "Evgeny Gurin",
+  "license": "MIT"
+}
