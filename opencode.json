@@ -16,8 +16,7 @@
       "description": "Yandex Music API specialist — debug provider_read/write/search, investigate 429/403/400 errors, trace YM API quirks.",
       "mode": "subagent",
       "color": "warning"
-    },
-
+    }
   },
 
   "plugin": [
