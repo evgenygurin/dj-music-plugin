@@ -11,6 +11,11 @@ from app.audio.render.runner import run_render
 from app.config import get_settings
 from app.domain.render.models import BeatgridEntry
 from app.domain.render.timeline import build_render_plan
+from app.domain.transition.subgenre_rules import (
+    body_bars_for_pair,
+    classify_pair,
+    transition_bars_for_pair,
+)
 from app.handlers._context_log import safe_info
 from app.handlers.render_beatgrid import render_beatgrid_handler
 from app.schemas.render import RenderMixdownResult
@@ -71,6 +76,17 @@ async def render_mixdown_handler(
         for r in grid_rows
     }
 
+    per_transition: list[int] = []
+    per_body: list[int] = []
+    for i in range(len(inputs)):
+        if i < len(inputs) - 1:
+            pair_type = classify_pair(
+                getattr(inputs[i], "mood", None),
+                getattr(inputs[i + 1], "mood", None),
+            )
+            per_transition.append(transition_bars_for_pair(pair_type))
+        per_body.append(body_bars_for_pair(classify_pair(getattr(inputs[i], "mood", None), None)))
+
     plan = build_render_plan(
         inputs,
         grid,
@@ -81,6 +97,8 @@ async def render_mixdown_handler(
         low_swap_bars=rs.low_swap_bars,
         outro_fade_bars=rs.outro_fade_bars,
         limiter_ceiling=rs.limiter_ceiling,
+        per_transition_bars=per_transition,
+        per_body_bars=per_body,
     )
 
     job_id = f"v{version_id}-{timestamp}"
