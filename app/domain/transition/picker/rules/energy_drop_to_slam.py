@@ -4,9 +4,6 @@ from app.domain.transition.api import PickerRule
 from app.domain.transition.enums import NeuralMixTransition, SubgenrePairType, TransitionIntent
 from app.domain.transition.picker.api import PickerDecision
 from app.domain.transition.picker.proxies.camelot_compatibility import _energy_delta_lufs
-from app.domain.transition.score import TransitionScore
-from app.domain.transition.section_context import SectionContext
-from app.shared.features import TrackFeatures
 
 _ENERGY_DELTA_RAMP_UP_LUFS = 2.0
 

@@ -1,12 +1,9 @@
 from __future__ import annotations
 
 from app.domain.transition.api import PickerRule
-from app.domain.transition.enums import NeuralMixTransition, SubgenrePairType, TransitionIntent
+from app.domain.transition.enums import NeuralMixTransition
 from app.domain.transition.picker.api import PickerDecision
 from app.domain.transition.picker.proxies.camelot_compatibility import _energy_delta_lufs
-from app.domain.transition.score import TransitionScore
-from app.domain.transition.section_context import SectionContext
-from app.shared.features import TrackFeatures
 
 _DRUM_SWAP_FLOOR = 0.62
 _DRUM_CUT_FLOOR = 0.45

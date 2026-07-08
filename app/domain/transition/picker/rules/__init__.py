@@ -27,8 +27,8 @@ DEFAULT_RULES: tuple[PickerRule, ...] = (
 )
 
 __all__ = [
-    "AmbientOrCooldownRule",
     "DEFAULT_RULES",
+    "AmbientOrCooldownRule",
     "DefaultDrumsRule",
     "DrumOnlySectionRule",
     "EnergyDropToSlamRule",

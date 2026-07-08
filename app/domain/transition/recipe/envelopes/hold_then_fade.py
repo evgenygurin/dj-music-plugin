@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from app.domain.transition.neural_mix import NeuralMixStem
-from app.domain.transition.recipe import LEVEL_SILENT, LEVEL_UNITY, Deck, StemKeyframe
+from app.domain.transition.recipe import LEVEL_SILENT, LEVEL_UNITY, StemKeyframe
 
 from .linear_fade import _hold
 

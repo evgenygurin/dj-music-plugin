@@ -1,11 +1,7 @@
 from __future__ import annotations
 
 from app.domain.transition.api import PickerRule
-from app.domain.transition.enums import NeuralMixTransition, SubgenrePairType, TransitionIntent
 from app.domain.transition.picker.api import PickerDecision
-from app.domain.transition.score import TransitionScore
-from app.domain.transition.section_context import SectionContext
-from app.shared.features import TrackFeatures
 
 
 class SmoothStemBlendRule(PickerRule):

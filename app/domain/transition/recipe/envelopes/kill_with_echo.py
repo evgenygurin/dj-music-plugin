@@ -4,7 +4,9 @@ from app.domain.transition.neural_mix import NeuralMixStem
 from app.domain.transition.recipe import MuteFXEvent, MuteFXTrigger
 
 
-def _echo_trigger(bar: float, deck: str, stem: NeuralMixStem, trigger: MuteFXTrigger) -> MuteFXEvent:
+def _echo_trigger(
+    bar: float, deck: str, stem: NeuralMixStem, trigger: MuteFXTrigger
+) -> MuteFXEvent:
     return MuteFXEvent(bar=bar, deck=deck, stem=stem, trigger=trigger)
 
 

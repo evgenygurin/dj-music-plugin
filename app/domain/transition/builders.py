@@ -13,15 +13,13 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
-from app.domain.transition.neural_mix import NeuralMixStem, NeuralMixTransition
+from app.domain.transition.neural_mix import NeuralMixStem
 from app.domain.transition.recipe import (
     DEFAULT_TRANSITION_BARS,
     LEVEL_SILENT,
     LEVEL_UNITY,
-    Deck,
     MuteFXEvent,
     MuteFXTrigger,
-    NeuralMixRecipe,
     StemKeyframe,
 )
 from app.domain.transition.recipe.envelopes.enter_ramp import _drum_swap_envelope
@@ -144,8 +142,7 @@ def build_filter_sweep(bars: int = DEFAULT_TRANSITION_BARS) -> KeyframeBundle:
 
 # ── Public dispatcher (via recipe factory) ──────────────────────────
 
-from app.domain.transition.recipe.factory import build_recipe  # noqa: E402, F811
-
+from app.domain.transition.recipe.factory import build_recipe
 
 __all__ = [
     "build_drum_cut",

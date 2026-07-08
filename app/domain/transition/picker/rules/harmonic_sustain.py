@@ -1,14 +1,11 @@
 from __future__ import annotations
 
 from app.domain.transition.api import PickerRule
-from app.domain.transition.enums import NeuralMixTransition, SubgenrePairType, TransitionIntent
+from app.domain.transition.enums import NeuralMixTransition
 from app.domain.transition.picker.api import PickerDecision
 from app.domain.transition.picker.proxies.camelot_compatibility import _camelot_compatible
 from app.domain.transition.picker.proxies.harmonic_motif import _harmonic_motif
 from app.domain.transition.picker.proxies.vocal_activity import _vocal_low
-from app.domain.transition.score import TransitionScore
-from app.domain.transition.section_context import SectionContext
-from app.shared.features import TrackFeatures
 
 
 class HarmonicSustainRule(PickerRule):

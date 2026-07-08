@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from app.domain.transition.api import RecipeBuilder
 from app.domain.transition.neural_mix import NeuralMixTransition
 from app.domain.transition.recipe import DEFAULT_TRANSITION_BARS, NeuralMixRecipe
 
