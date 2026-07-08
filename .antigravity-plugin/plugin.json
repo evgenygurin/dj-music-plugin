@@ -5,15 +5,19 @@
   "author": "Evgeny Gurin",
   "homepage": "https://github.com/evgenygurin/dj-music-plugin",
   "license": "MIT",
-  "type": "mcp_plugin",
+  "contextFileName": "DJ-MUSIC.md",
   "mcpServers": {
     "dj": {
       "command": "bash",
       "args": ["-lc",
-        "cd \"${AGY_PLUGIN_ROOT:-${WORKER_ROOT:-$PWD}}\" && set -a && [ -f .env ] && . .env; set +a && exec uv run -- fastmcp run fastmcp.json --no-banner"
+        "cd \"${AGY_PLUGIN_ROOT:-$PWD}\" && set -a && [ -f .env ] && . .env; set +a && exec uv run -- fastmcp run fastmcp.json --no-banner"
       ]
     }
   },
-  "context_file": "DJ-MUSIC.md",
-  "skills_dir": "./skills/"
+  "interface": {
+    "displayName": "DJ Music",
+    "shortDescription": "Build and manage techno DJ sets",
+    "developerName": "Evgeny Gurin",
+    "category": "Productivity"
+  }
 }

@@ -1,0 +1,67 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "instructions": ["AGENTS.md"],
+
+  "skills": {
+    "paths": [".opencode/skills"]
+  },
+
+  "agent": {
+    "dj-music": {
+      "description": "DJ techno music specialist — manages library, builds sets, analyzes audio transitions, works with Yandex Music/Beatport/Suno. Triggers on: dj, set, mix, track, transition.",
+      "mode": "subagent",
+      "model": "claude-sonnet-4-6"
+    },
+    "ym-api-specialist": {
+      "description": "Yandex Music API specialist — debug provider_read/write/search, investigate 429/403/400 errors, trace YM API quirks.",
+      "mode": "subagent",
+      "color": "warning"
+    },
+    "bg-jobs-manager": {
+      "description": "Orchestrator for long-running background workloads — planning import/analysis campaigns, prioritizing playlists.",
+      "mode": "subagent",
+      "color": "accent"
+    },
+    "bg-jobs-watcher": {
+      "description": "Monitor and diagnose background jobs — BFS expansion, L5 analysis, Supabase DB state. Status reports, log triage, restarts.",
+      "mode": "subagent",
+      "color": "info"
+    }
+  },
+
+  "plugin": [
+    "gitnexus-opencode",
+    "superpowers@git+https://github.com/obra/superpowers.git"
+  ],
+
+  "mcp": {
+    "dj": {
+      "type": "local",
+      "command": ["uv", "run", "--project", "/Users/laptop/dev/dj-music-plugin", "--env-file", "/Users/laptop/dev/dj-music-plugin/.env", "fastmcp", "run", "/Users/laptop/dev/dj-music-plugin/fastmcp.json", "--no-banner"],
+      "environment": {
+        "DJ_MCP_DISABLE_PROMPTS": "1"
+      },
+      "timeout": 120000,
+      "enabled": true
+    },
+    "supabase": {
+      "type": "local",
+      "command": ["bash", "-lc", "cd /Users/laptop/dev/dj-music-plugin && scripts/start-db.sh"],
+      "timeout": 60000,
+      "enabled": true
+    },
+    "gitnexus": {
+      "type": "local",
+      "command": ["/opt/homebrew/bin/gitnexus", "mcp"],
+      "enabled": true
+    }
+  },
+
+  "permission": {
+    "gitnexus_query": "allow",
+    "gitnexus_context": "allow",
+    "gitnexus_impact": "allow",
+    "gitnexus_list_repos": "allow",
+    "gitnexus_analyze": "allow"
+  }
+}

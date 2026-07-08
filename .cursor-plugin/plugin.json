@@ -10,8 +10,7 @@
   "homepage": "https://github.com/evgenygurin/dj-music-plugin",
   "repository": "https://github.com/evgenygurin/dj-music-plugin",
   "license": "MIT",
-  "keywords": ["dj", "techno", "music", "mcp", "set-building", "audio-analysis"],
+  "keywords": ["dj", "techno", "music", "mcp", "set-building", "audio-analysis", "yandex-music"],
   "skills": "./skills/",
-  "hooks": "./hooks/hooks.json",
-  "mcpServers": "./.mcp.json"
+  "hooks": "./hooks/hooks-cursor.json"
 }

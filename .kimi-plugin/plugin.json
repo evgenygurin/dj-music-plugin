@@ -15,6 +15,14 @@
   "sessionStart": {
     "skill": "using-superpowers"
   },
-  "skillInstructions": "Kimi Code tool mapping for Superpowers skills:\n\n- When a Superpowers skill says to ask the user, ask clarifying questions, ask one question at a time, present multiple-choice options, use the terminal for a question, or wait for the user's choice, call Kimi Code's `AskUserQuestion` tool.\n- When a Superpowers skill says `TodoWrite`, use Kimi Code's `TodoList` tool.\n- When a Superpowers skill says `Task tool (general-purpose)`, use Kimi Code's `Agent` tool with `subagent_type: \"coder\"`.\n- For read-only codebase exploration, use `Agent` with `subagent_type: \"explore\"`.\n- Use Kimi Code's native `Skill` tool for loading skills.\n- Use `Read`, `Write`, `Edit`, `Bash`, `Grep`, `Glob`, `FetchURL`, `WebSearch`, and MCP tools by their actual exposed names.",
-  "mcpServers": "./.mcp.json"
+  "skillInstructions": "Kimi Code tool mapping for DJ Music Plugin + Superpowers skills:\n\n- MCP-инструменты DJ доступны через подключённый MCP сервер `mcp`\n- Основные инструменты: track_read, track_search, set_read, set_version_build, sequence_optimize, render_mixdown, transition_score_pair\n- Когда проект просит ask the user, используй `AskUserQuestion`\n- Когда проект просит todo list, используй `TodoList`\n- Когда нужно dispatch subagent, используй `Agent` (subagent_type: coder/explore/plan)\n- Для загрузки навыков используй Kimi Code's native `Skill` tool\n- Используй `Read`, `Write`, `Edit`, `Bash`, `Grep`, `Glob`, `FetchURL`, `WebSearch`, и MCP инструменты по их реальным именам",
+  "mcpServers": {
+    "mcp": {
+      "command": "bash",
+      "args": [
+        "-lc",
+        "project_root=\"$PWD\"; plugin_root=\"${KIMI_PLUGIN_ROOT:-$PWD}\"; cd \"$plugin_root\" || exit 1; set -a; if [ -f \"$project_root/.env\" ]; then . \"$project_root/.env\"; elif [ -f .env ]; then . .env; fi; set +a; exec uv run -- fastmcp run fastmcp.json --no-banner"
+      ]
+    }
+  }
 }
