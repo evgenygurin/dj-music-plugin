@@ -50,3 +50,25 @@ async def test_list_tracks_happy_path(mcp_client: Client, mock_uow: MagicMock) -
 async def test_list_unknown_entity_raises(mcp_client: Client) -> None:
     with pytest.raises(Exception, match="entity"):
         await mcp_client.call_tool("entity_list", {"entity": "bogus", "limit": 10})
+
+
+@pytest.mark.asyncio
+async def test_sort_accepts_base_repository_suffix(
+    mcp_client: Client, mock_uow: MagicMock
+) -> None:
+    """Clients sometimes pass ``bpm_asc`` directly; keep it equivalent to ``bpm__asc``."""
+    page = MagicMock()
+    page.items = []
+    page.total = 0
+    page.next_cursor = None
+    mock_uow.track_features.filter.return_value = page
+
+    result = await mcp_client.call_tool(
+        "entity_list",
+        {"entity": "track_features", "sort": ["bpm_asc"], "limit": 5},
+    )
+
+    data = result.structured_content or result.data
+    assert data["entity"] == "track_features"
+    mock_uow.track_features.filter.assert_awaited_once()
+    assert mock_uow.track_features.filter.await_args.kwargs["order"] == ["bpm_asc"]

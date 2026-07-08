@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
+from typing import Any
+
 from sqlalchemy import func, select
 
 from app.domain.render.models import TrackInput
@@ -9,10 +12,58 @@ from app.models.set import DjSet, DjSetItem, DjSetVersion
 from app.models.track import Track
 from app.repositories.base import BaseRepository
 from app.shared.errors import ValidationError
+from app.shared.pagination import Page
 
 
 class SetRepository(BaseRepository[DjSet]):
     model = DjSet
+
+    @staticmethod
+    def _normalize_filter_aliases(where: dict[str, Any] | None) -> dict[str, Any] | None:
+        if where is None:
+            return None
+        normalized = dict(where)
+        for key in ("title__eq", "title__icontains"):
+            if key in normalized:
+                normalized[f"name__{key.rsplit('__', 1)[1]}"] = normalized.pop(key)
+        return normalized
+
+    async def count(self, *, where: dict[str, Any] | None = None) -> int:
+        return await super().count(where=self._normalize_filter_aliases(where))
+
+    async def filter(
+        self,
+        *,
+        where: dict[str, Any] | None = None,
+        order: Sequence[str] | None = None,
+        limit: int = 50,
+        cursor: str | None = None,
+        with_total: bool = False,
+    ) -> Page[DjSet]:
+        return await super().filter(
+            where=self._normalize_filter_aliases(where),
+            order=order,
+            limit=limit,
+            cursor=cursor,
+            with_total=with_total,
+        )
+
+    async def aggregate(
+        self,
+        *,
+        operation: str,
+        field: str | None = None,
+        group_by: str | None = None,
+        where: dict[str, Any] | None = None,
+        bin_size: float | None = None,
+    ) -> Any:
+        return await super().aggregate(
+            operation=operation,
+            field=field,
+            group_by=group_by,
+            where=self._normalize_filter_aliases(where),
+            bin_size=bin_size,
+        )
 
     async def version_count(self, set_id: int) -> int:
         stmt = select(func.count()).select_from(DjSetVersion).where(DjSetVersion.set_id == set_id)

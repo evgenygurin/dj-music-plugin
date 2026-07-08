@@ -72,6 +72,7 @@ class TrackFeaturesView(BaseModel):
 
     # Key / harmonic (5)
     key_code: int | None = None
+    camelot: str | None = None
     key_confidence: float | None = None
     atonality: bool | None = None
     hnr_db: float | None = None
@@ -134,6 +135,23 @@ class TrackFeaturesView(BaseModel):
     beatport_isrc: str | None = None
     beatport_release: str | None = None
     beatport_label: str | None = None
+
+    @model_validator(mode="after")
+    def _derive_camelot(self) -> Self:
+        if self.camelot is not None:
+            return self
+        if self.beatport_camelot:
+            self.camelot = self.beatport_camelot
+            return self
+        if self.key_code is None:
+            return self
+        from app.domain.camelot.wheel import key_code_to_camelot
+
+        try:
+            self.camelot = key_code_to_camelot(int(self.key_code))
+        except ValueError:
+            self.camelot = None
+        return self
 
 
 class TrackFeaturesFilter(BaseModel):

@@ -1,4 +1,4 @@
-"""Handler for entity_create(entity="track_features", data={track_ids, level, force}).
+"""Handler for entity_create(entity="track_features", data={track_id(s), level, force}).
 
 Runs the audio analysis pipeline (TieredPipeline analogue) on each track at the
 requested analysis level (L1-L4). Idempotent: skips tracks already at target
@@ -34,7 +34,10 @@ async def track_features_analyze_handler(
     pipeline: AnalysisPipeline,
     registry: ProviderRegistry | None = None,
 ) -> dict[str, Any]:
-    track_ids: list[int] = [int(x) for x in data["track_ids"]]
+    raw_track_ids = data.get("track_ids")
+    if raw_track_ids is None:
+        raw_track_ids = [data["track_id"]]
+    track_ids: list[int] = [int(x) for x in raw_track_ids]
     level: int = int(data.get("level", 3))
     force: bool = bool(data.get("force", False))
 

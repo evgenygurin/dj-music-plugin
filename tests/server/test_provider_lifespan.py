@@ -87,6 +87,16 @@ async def test_build_suno_adapter_from_sunoapi_key_without_base_url(
     tmp_path,
 ) -> None:
     monkeypatch.chdir(tmp_path)
+    # Очистить любые системные suno credentials, чтобы тест
+    # не захватил случайные значения из окружения.
+    for key in (
+        "DJ_SUNO_COOKIE_HEADER",
+        "DJ_SUNO_CLIENT_TOKEN",
+        "DJ_SUNO_DEVICE_ID",
+        "DJ_SUNO_BEARER_TOKEN",
+        "DJ_SUNO_STORAGE_STATE_PATH",
+    ):
+        monkeypatch.delenv(key, raising=False)
     monkeypatch.setenv("DJ_SUNO_AUTH_MODE", "api_key")
     monkeypatch.setenv("DJ_SUNO_API_KEY", "token")
     monkeypatch.delenv("DJ_SUNO_BASE_URL", raising=False)

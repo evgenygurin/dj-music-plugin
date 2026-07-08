@@ -40,8 +40,15 @@ async def provider_read(
     ctx: Context = CurrentContext(),
 ) -> ProviderReadResult:
     adapter = registry.get(provider)
+    params = dict(params or {})
     # Normalize numeric IDs to str — YM (and most providers) accept opaque
     # string IDs but callers naturally pass int for numeric platform IDs.
     norm_id = str(id) if id is not None else None
-    data = await adapter.read(entity, id=norm_id, params=params or {})
+    if norm_id is None:
+        fallback_id = params.get("id")
+        if fallback_id is None:
+            fallback_id = params.get(f"{entity}_id")
+        if fallback_id is not None:
+            norm_id = str(fallback_id)
+    data = await adapter.read(entity, id=norm_id, params=params)
     return ProviderReadResult(provider=provider, entity=entity, data=data)

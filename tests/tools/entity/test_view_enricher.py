@@ -183,3 +183,52 @@ async def test_track_list_enricher_uses_bulk_artist_lookup() -> None:
     assert [v["primary_artist_name"] for v in enriched] == ["Dax J", None]
     uow.tracks.get_primary_artist_names.assert_awaited_once_with([1, 2])
     uow.tracks.get_primary_artist_name.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_track_list_enricher_populates_feature_fields() -> None:
+    """``entity_list(track, fields=[...])`` exposes common feature summary fields."""
+    from types import SimpleNamespace
+
+    from app.registry.defaults import _enrich_track_views
+
+    uow = MagicMock()
+    uow.tracks.get_primary_artist_names = AsyncMock(return_value={1: "Dax J"})
+    uow.track_features.get_scoring_features_batch = AsyncMock(
+        return_value={
+            1: SimpleNamespace(
+                bpm=132.5,
+                key_code=8,
+                mood="industrial",
+                beatport_camelot=None,
+            )
+        }
+    )
+    rows = [MagicMock(id=1)]
+    views = [
+        {
+            "id": 1,
+            "title": "Opressor",
+            "primary_artist_name": None,
+            "artists": None,
+            "bpm": None,
+            "key_code": None,
+            "camelot": None,
+            "mood": None,
+        }
+    ]
+
+    enriched = await _enrich_track_views(
+        uow,
+        rows,
+        views,
+        projection={"artists", "bpm", "key_code", "camelot", "mood"},
+    )
+
+    assert enriched[0]["artists"] == ["Dax J"]
+    assert enriched[0]["bpm"] == 132.5
+    assert enriched[0]["key_code"] == 8
+    assert enriched[0]["camelot"] == "5A"
+    assert enriched[0]["mood"] == "industrial"
+    uow.tracks.get_primary_artist_names.assert_awaited_once_with([1])
+    uow.track_features.get_scoring_features_batch.assert_awaited_once_with([1])

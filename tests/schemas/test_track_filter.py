@@ -47,6 +47,23 @@ def test_track_filter_accepts_has_features_false() -> None:
     TrackFilter.model_validate({"has_features": False})
 
 
+def test_track_filter_accepts_playlist_id_eq() -> None:
+    """Track list can be scoped to tracks contained in a playlist."""
+    TrackFilter.model_validate({"playlist_id__eq": 5})
+
+
+def test_track_filter_accepts_common_feature_lookups() -> None:
+    """Compatibility: clients often query track as track+features."""
+    TrackFilter.model_validate(
+        {
+            "bpm__gte": 130,
+            "bpm__lte": 140,
+            "mood__in": ["industrial", "hard_techno", "driving", "raw"],
+            "key_code__in": [8, 9],
+        }
+    )
+
+
 def test_track_filter_still_rejects_garbage() -> None:
     """Coverage is widened, not loosened — strict ``extra="forbid"`` stays."""
     with pytest.raises(ValidationError):

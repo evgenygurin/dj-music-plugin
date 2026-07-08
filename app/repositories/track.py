@@ -5,12 +5,18 @@ from __future__ import annotations
 from collections.abc import Sequence
 from typing import Any
 
-from sqlalchemy import exists, select
+from sqlalchemy import and_, exists, select
 
+from app.models.playlist import DjPlaylistItem
 from app.models.track import Track, TrackExternalId
 from app.models.track_features import TrackAudioFeaturesComputed
 from app.repositories.base import BaseRepository
+from app.shared.errors import ValidationError
+from app.shared.filters import parse_filter, split_lookup
 from app.shared.pagination import Page
+
+_TRACK_FEATURE_FILTER_FIELDS = frozenset({"bpm", "key_code", "mood"})
+_TRACK_FEATURE_SORT_FIELDS = frozenset({"bpm", "key_code", "mood"})
 
 
 class TrackRepository(BaseRepository[Track]):
@@ -25,15 +31,17 @@ class TrackRepository(BaseRepository[Track]):
         cursor: str | None = None,
         with_total: bool = False,
     ) -> Page[Track]:
-        """Extends BaseRepository.filter with the ``has_features`` magic.
+        """Extends BaseRepository.filter with cross-table magic filters.
 
-        The ``has_features`` boolean lives on the ``track`` filter schema
-        but is NOT a column on ``tracks``. We translate it into either
-        an EXISTS or a NOT EXISTS subquery against
-        ``track_audio_features_computed`` and let the base class handle
-        every other lookup. ``None`` means "no constraint" — fall through.
+        ``has_features`` and ``playlist_id`` live on the ``track`` filter
+        schema but are NOT columns on ``tracks``. Translate them into
+        EXISTS clauses and let the base class handle every other lookup.
+        ``None`` means "no constraint" — fall through.
         """
         where = dict(where or {})
+        extras = []
+        feature_where = self._pop_feature_filters(where)
+
         # ``normalize_bare_fields`` from entity_list converts the bare
         # ``has_features`` key to ``has_features__eq``; accept either form.
         flag = where.pop("has_features__eq", None)
@@ -41,10 +49,40 @@ class TrackRepository(BaseRepository[Track]):
             flag = where.pop("has_features", None)
 
         if flag is not None:
-            features_exists = exists().where(TrackAudioFeaturesComputed.track_id == Track.id)
-            extra = features_exists if flag else ~features_exists
+            features_exists = (
+                exists()
+                .where(TrackAudioFeaturesComputed.track_id == Track.id)
+                .correlate(Track)
+            )
+            extras.append(features_exists if flag else ~features_exists)
+
+        playlist_id = where.pop("playlist_id__eq", None)
+        if playlist_id is None:
+            playlist_id = where.pop("playlist_id", None)
+
+        if playlist_id is not None:
+            extras.append(
+                exists().where(
+                    and_(
+                        DjPlaylistItem.track_id == Track.id,
+                        DjPlaylistItem.playlist_id == playlist_id,
+                    )
+                ).correlate(Track)
+            )
+
+        if feature_where:
+            extras.append(
+                exists().where(
+                    and_(
+                        TrackAudioFeaturesComputed.track_id == Track.id,
+                        *parse_filter(TrackAudioFeaturesComputed, feature_where),
+                    )
+                ).correlate(Track)
+            )
+
+        if extras or self._has_feature_order(order):
             return await self._filter_with_extra(
-                extra,
+                and_(*extras) if extras else None,
                 where=where,
                 order=order,
                 limit=limit,
@@ -56,9 +94,35 @@ class TrackRepository(BaseRepository[Track]):
             where=where, order=order, limit=limit, cursor=cursor, with_total=with_total
         )
 
+    @staticmethod
+    def _pop_feature_filters(where: dict[str, Any]) -> dict[str, Any]:
+        feature_where: dict[str, Any] = {}
+        for key in list(where):
+            field, _ = split_lookup(key)
+            if field in _TRACK_FEATURE_FILTER_FIELDS:
+                feature_where[key] = where.pop(key)
+        return feature_where
+
+    @staticmethod
+    def _has_feature_order(order: Sequence[str] | None) -> bool:
+        for spec in order or ():
+            field = spec.removesuffix("_desc").removesuffix("_asc")
+            if field in _TRACK_FEATURE_SORT_FIELDS:
+                return True
+        return False
+
+    @staticmethod
+    def _order_column(field: str) -> Any:
+        if field in _TRACK_FEATURE_SORT_FIELDS:
+            return getattr(TrackAudioFeaturesComputed, field)
+        column = getattr(Track, field, None)
+        if column is None:
+            raise ValidationError(f"unknown order field {field!r}")
+        return column
+
     async def _filter_with_extra(
         self,
-        extra: Any,
+        extra: Any | None,
         *,
         where: dict[str, Any] | None,
         order: Sequence[str] | None,
@@ -72,22 +136,31 @@ class TrackRepository(BaseRepository[Track]):
         statement monolithically), so we rebuild here while sharing all the
         keyset / order / cursor logic via the same helpers the base uses.
         """
-        from app.shared.filters import parse_filter
         from app.shared.pagination import decode_cursor, encode_cursor
 
-        stmt = select(Track).where(extra)
+        order_clauses = list(order) if order else ["id"]
+        needs_feature_join = self._has_feature_order(order_clauses)
+
+        stmt = select(Track)
+        if needs_feature_join:
+            stmt = stmt.outerjoin(
+                TrackAudioFeaturesComputed,
+                TrackAudioFeaturesComputed.track_id == Track.id,
+            )
+        if extra is not None:
+            stmt = stmt.where(extra)
         for clause in parse_filter(Track, where or {}):
             stmt = stmt.where(clause)
 
-        order_clauses = list(order) if order else ["id"]
         if cursor is not None:
             cursor_id = decode_cursor(cursor)
             first_field = order_clauses[0].removesuffix("_desc").removesuffix("_asc")
-            column = getattr(Track, first_field, None)
-            if column is None:
-                from app.shared.errors import ValidationError
-
-                raise ValidationError(f"unknown order field {first_field!r}")
+            if first_field in _TRACK_FEATURE_SORT_FIELDS:
+                raise ValidationError(
+                    "cursor pagination is not supported when sorting track by "
+                    f"feature field {first_field!r}; sort by 'id' for pagination"
+                )
+            column = self._order_column(first_field)
             stmt = (
                 stmt.where(column < cursor_id)
                 if order_clauses[0].endswith("_desc")
@@ -101,11 +174,7 @@ class TrackRepository(BaseRepository[Track]):
                 field, direction = spec.removesuffix("_asc"), "asc"
             else:
                 field, direction = spec, "asc"
-            column = getattr(Track, field, None)
-            if column is None:
-                from app.shared.errors import ValidationError
-
-                raise ValidationError(f"unknown order field {field!r}")
+            column = self._order_column(field)
             stmt = stmt.order_by(column.desc() if direction == "desc" else column.asc())
 
         stmt = stmt.limit(limit + 1)
@@ -116,13 +185,16 @@ class TrackRepository(BaseRepository[Track]):
         next_cursor: str | None = None
         if has_more and items:
             first_field = order_clauses[0].removesuffix("_desc").removesuffix("_asc")
-            next_cursor = encode_cursor(int(getattr(items[-1], first_field)))
+            if first_field not in _TRACK_FEATURE_SORT_FIELDS:
+                next_cursor = encode_cursor(int(getattr(items[-1], first_field)))
 
         total: int | None = None
         if with_total:
             from sqlalchemy import func
 
-            count_stmt = select(func.count()).select_from(Track).where(extra)
+            count_stmt = select(func.count()).select_from(Track)
+            if extra is not None:
+                count_stmt = count_stmt.where(extra)
             for clause in parse_filter(Track, where or {}):
                 count_stmt = count_stmt.where(clause)
             total = int((await self.session.execute(count_stmt)).scalar_one())

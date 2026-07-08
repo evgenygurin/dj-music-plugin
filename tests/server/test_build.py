@@ -77,6 +77,25 @@ async def test_build_for_tests_lists_prompts() -> None:
 
 
 @pytest.mark.asyncio
+async def test_build_for_tests_can_disable_prompts_for_tool_only_clients() -> None:
+    mcp = await build_mcp_app_for_tests(with_prompts=False)
+    prompts = await mcp.list_prompts()
+    tools = await mcp.list_tools()
+    names = {t.name for t in tools}
+    assert prompts == []
+    assert "entity_list" in names
+
+
+@pytest.mark.asyncio
+async def test_build_for_tests_honors_disable_prompts_env(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("DJ_MCP_DISABLE_PROMPTS", "1")
+    mcp = await build_mcp_app_for_tests()
+    assert await mcp.list_prompts() == []
+
+
+@pytest.mark.asyncio
 async def test_build_for_tests_disables_middleware_on_request() -> None:
     mcp = await build_mcp_app_for_tests(with_middleware=False)
     names = [type(m).__name__ for m in mcp.middleware]

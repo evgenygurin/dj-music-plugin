@@ -57,6 +57,20 @@ async def test_set_version_roundtrip(setup: None, session: AsyncSession) -> None
 
 
 @pytest.mark.asyncio
+async def test_set_repository_accepts_title_filter_alias(
+    setup: None, session: AsyncSession
+) -> None:
+    repo = SetRepository(session)
+    matching = await repo.create(name="QQQ Warehouse")
+    await repo.create(name="Other Set")
+
+    page = await repo.filter(where={"title__icontains": "qqq"}, order=["id"], limit=10)
+
+    assert [row.id for row in page.items] == [matching.id]
+    assert await repo.count(where={"title__eq": "QQQ Warehouse"}) == 1
+
+
+@pytest.mark.asyncio
 async def test_audio_file_and_beatgrid(setup: None, session: AsyncSession) -> None:
     t = Track(title="x")
     session.add(t)

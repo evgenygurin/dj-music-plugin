@@ -33,6 +33,18 @@ EntityName = Literal[
 ]
 
 
+def _normalize_sort_spec(raw: str) -> tuple[str, str]:
+    for suffix, direction in (
+        ("__desc", "desc"),
+        ("__asc", "asc"),
+        ("_desc", "desc"),
+        ("_asc", "asc"),
+    ):
+        if raw.endswith(suffix):
+            return raw[: -len(suffix)], direction
+    return raw, "asc"
+
+
 @tool(
     name="entity_list",
     tags={"namespace:crud:read", "read"},
@@ -109,13 +121,14 @@ async def entity_list(
 
     sort_spec: list[str] = []
     for s in list(sort or []):
-        base = s.removesuffix("__desc").removesuffix("__asc")
+        base, direction = _normalize_sort_spec(s)
         if base not in config.sortable_fields:
             raise ValueError(f"cannot sort {entity} by {base!r}")
-        # Normalize __desc/__asc to BaseRepository.filter's _desc/_asc.
-        if s.endswith("__desc"):
+        # Normalize external __desc/__asc and internal _desc/_asc forms to
+        # BaseRepository.filter's single-underscore suffix.
+        if direction == "desc":
             sort_spec.append(f"{base}_desc")
-        elif s.endswith("__asc"):
+        elif direction == "asc" and (s.endswith("__asc") or s.endswith("_asc")):
             sort_spec.append(f"{base}_asc")
         else:
             sort_spec.append(s)

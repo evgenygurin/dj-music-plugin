@@ -135,6 +135,16 @@ class TestTrackFeaturesViewExposesSpectralAndKey:
         view = TrackFeaturesView.model_validate({"track_id": 1, "atonality": True})
         assert view.atonality is True
 
+    def test_camelot_computed_from_key_code(self) -> None:
+        view = TrackFeaturesView.model_validate({"track_id": 1, "key_code": 8})
+        assert view.camelot == "5A"
+
+    def test_beatport_camelot_wins_when_present(self) -> None:
+        view = TrackFeaturesView.model_validate(
+            {"track_id": 1, "key_code": 8, "beatport_camelot": "6A"}
+        )
+        assert view.camelot == "6A"
+
 
 class TestTrackFeaturesFilterNewLookups:
     @pytest.mark.parametrize(

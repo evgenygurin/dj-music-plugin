@@ -26,7 +26,12 @@ Decision tree (first match wins):
    subgenre_pair=HARD_PAIR) → DRUM_CUT (drop-style breakdown into
    slam).
 6. Ambient pair OR intent=COOL_DOWN → FADE (gentle linear blend).
-7. Default — **techno mixes on the drums**. This is the common case for
+7. Smooth, balanced pairs with stable energy → FADE. If all routed stems
+   are compatible, a plain crossfade is the least intrusive techno move.
+8. Melodic / hypnotic compatible pairs with strong harmonic stem
+   compatibility → HARMONIC_SUSTAIN, so pads / motifs carry the idea
+   instead of every transition becoming a drum-bed swap.
+9. Default — **techno mixes on the drums**. This is the common case for
    instrumental 4/4 techno (no vocals, no melodic motif, no section
    context), and the right move is NOT an echo-tail. Route by drum-stem
    compatibility + energy direction:
@@ -82,6 +87,14 @@ _DRUM_ONLY_DRUMS_MID = 0.65
 _DRUM_SWAP_FLOOR = 0.62
 _DRUM_CUT_FLOOR = 0.45
 _DRUM_CUT_ENERGY_LIFT_LUFS = 2.0
+
+_SMOOTH_BLEND_STEM_FLOOR = 0.72
+_SMOOTH_BLEND_ENERGY_DELTA_LUFS = 1.25
+_SMOOTH_BLEND_OVERALL_FLOOR = 0.74
+
+_HARMONIC_CONTINUITY_FLOOR = 0.74
+_HARMONIC_CONTINUITY_BASS_FLOOR = 0.58
+_HARMONIC_CONTINUITY_DRUM_FLOOR = 0.52
 
 
 @dataclass(frozen=True)
@@ -167,6 +180,40 @@ def _energy_delta_lufs(a: TrackFeatures, b: TrackFeatures) -> float | None:
     if a.integrated_lufs is None or b.integrated_lufs is None:
         return None
     return b.integrated_lufs - a.integrated_lufs
+
+
+def _smooth_full_stem_blend(score: TransitionScore, delta: float | None) -> bool:
+    if delta is not None and abs(delta) > _SMOOTH_BLEND_ENERGY_DELTA_LUFS:
+        return False
+    if score.overall < _SMOOTH_BLEND_OVERALL_FLOOR:
+        return False
+    return min(score.drums, score.bass, score.harmonics, score.vocals) >= _SMOOTH_BLEND_STEM_FLOOR
+
+
+def _harmonic_continuity_candidate(
+    score: TransitionScore,
+    from_t: TrackFeatures,
+    to_t: TrackFeatures,
+    *,
+    subgenre_pair: SubgenrePairType | None,
+) -> bool:
+    if score.harmonics < _HARMONIC_CONTINUITY_FLOOR:
+        return False
+    if score.bass < _HARMONIC_CONTINUITY_BASS_FLOOR:
+        return False
+    if score.drums < _HARMONIC_CONTINUITY_DRUM_FLOOR:
+        return False
+    if _vocal_active(to_t):
+        return False
+
+    tonal_pair = _camelot_compatible(from_t, to_t)
+    style_pair = subgenre_pair in {
+        SubgenrePairType.HYPNOTIC_PAIR,
+        SubgenrePairType.MELODIC_PAIR,
+    }
+    motif_pair = _harmonic_motif(from_t) or _harmonic_motif(to_t)
+    scorer_prefers_harmonic = score.best_transition is NeuralMixTransition.HARMONIC_SUSTAIN
+    return tonal_pair and (style_pair or motif_pair or scorer_prefers_harmonic)
 
 
 # ── Picker ──────────────────────────────────────────────────────────
@@ -273,7 +320,37 @@ def pick_neural_mix(
             ),
         )
 
-    # 7. Default — techno mixes on the drums. DRUM_SWAP is the canonical
+    # 7. Smooth, full-stem blend. Use this before the drum default so
+    # highly compatible, energy-stable pairs do not all become DRUM_SWAP.
+    if _smooth_full_stem_blend(score, delta):
+        return PickerDecision(
+            transition=NeuralMixTransition.FADE,
+            confidence=0.80,
+            reason=(
+                "balanced stem compatibility and stable energy — "
+                "transparent full-stem crossfade"
+            ),
+        )
+
+    # 8. Harmonic continuity for melodic / hypnotic techno. This is broader
+    # than the strict motif rule but still requires a compatible tonal pair
+    # and enough groove / bass support to avoid pad-over-clash transitions.
+    if _harmonic_continuity_candidate(
+        score,
+        from_t,
+        to_t,
+        subgenre_pair=subgenre_pair,
+    ):
+        return PickerDecision(
+            transition=NeuralMixTransition.HARMONIC_SUSTAIN,
+            confidence=0.81,
+            reason=(
+                f"harmonic continuity ({score.harmonics:.2f}) with compatible key/style — "
+                "sustain harmonic stem"
+            ),
+        )
+
+    # 9. Default — techno mixes on the drums. DRUM_SWAP is the canonical
     # move; DRUM_CUT for energy lifts / partial groove lock; ECHO_OUT only
     # when the grooves don't lock at all.
     if score.drums >= _DRUM_SWAP_FLOOR:

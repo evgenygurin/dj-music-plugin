@@ -334,7 +334,102 @@ def test_cool_down_intent_picks_fade() -> None:
     assert decision.transition is NeuralMixTransition.FADE
 
 
-# ── Rule 7: drum-driven default ─────────────────────────────────────
+# ── Rule 7: smooth full-stem blend ──────────────────────────────────
+
+
+def test_balanced_energy_stable_pair_picks_fade() -> None:
+    """When every routed stem is compatible and LUFS is stable, use the
+    transparent crossfade instead of forcing another drum swap."""
+    a = _track(integrated_lufs=-9.2, pitch_salience_mean=0.2, spectral_centroid_hz=1500.0)
+    b = _track(integrated_lufs=-8.8, pitch_salience_mean=0.2, spectral_centroid_hz=1500.0)
+    decision = pick_neural_mix(
+        _ok_score(
+            drums=0.77,
+            bass=0.78,
+            harmonics=0.80,
+            vocals=0.74,
+            overall=0.79,
+        ),
+        a,
+        b,
+    )
+    assert decision.transition is NeuralMixTransition.FADE
+
+
+def test_balanced_pair_with_energy_lift_still_picks_drum_cut() -> None:
+    """A +4 LUFS lift is a drop, not a transparent blend."""
+    a = _track(integrated_lufs=-12.0, pitch_salience_mean=0.2, spectral_centroid_hz=1500.0)
+    b = _track(integrated_lufs=-8.0, pitch_salience_mean=0.2, spectral_centroid_hz=1500.0)
+    decision = pick_neural_mix(
+        _ok_score(
+            drums=0.77,
+            bass=0.78,
+            harmonics=0.80,
+            vocals=0.74,
+            overall=0.79,
+        ),
+        a,
+        b,
+    )
+    assert decision.transition is NeuralMixTransition.DRUM_CUT
+
+
+# ── Rule 8: melodic / hypnotic harmonic continuity ─────────────────
+
+
+def test_hypnotic_tonal_pair_picks_harmonic_sustain_before_drum_swap() -> None:
+    a = _track(
+        key_code=14,
+        pitch_salience_mean=0.40,  # above strict motif threshold
+        spectral_centroid_hz=1700.0,
+    )
+    b = _track(
+        key_code=14,
+        pitch_salience_mean=0.24,
+        spectral_centroid_hz=1600.0,
+    )
+    decision = pick_neural_mix(
+        _ok_score(
+            drums=0.70,
+            bass=0.72,
+            harmonics=0.86,
+            vocals=0.58,
+            overall=0.78,
+        ),
+        a,
+        b,
+        subgenre_pair=SubgenrePairType.HYPNOTIC_PAIR,
+    )
+    assert decision.transition is NeuralMixTransition.HARMONIC_SUSTAIN
+
+
+def test_harmonic_continuity_requires_compatible_key() -> None:
+    a = _track(
+        key_code=0,
+        pitch_salience_mean=0.40,
+        spectral_centroid_hz=1700.0,
+    )
+    b = _track(
+        key_code=8,
+        pitch_salience_mean=0.24,
+        spectral_centroid_hz=1600.0,
+    )
+    decision = pick_neural_mix(
+        _ok_score(
+            drums=0.70,
+            bass=0.72,
+            harmonics=0.86,
+            vocals=0.58,
+            overall=0.78,
+        ),
+        a,
+        b,
+        subgenre_pair=SubgenrePairType.HYPNOTIC_PAIR,
+    )
+    assert decision.transition is NeuralMixTransition.DRUM_SWAP
+
+
+# ── Rule 9: drum-driven default ─────────────────────────────────────
 
 
 def test_default_drum_driven_picks_drum_swap() -> None:

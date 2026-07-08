@@ -55,6 +55,19 @@ async def test_analyzes_unseen_track(ctx: MagicMock, uow: MagicMock, pipeline: A
 
 
 @pytest.mark.asyncio
+async def test_analyzes_single_track_id_payload(
+    ctx: MagicMock, uow: MagicMock, pipeline: AsyncMock
+) -> None:
+    uow.tracks.get.return_value = MagicMock(id=1, title="X")
+    data = {"track_id": 1, "level": 3}
+    result = await track_features_analyze_handler(ctx, uow, data, pipeline)
+
+    assert len(result["analyzed"]) == 1
+    uow.tracks.get.assert_awaited_once_with(1)
+    pipeline.analyze.assert_awaited_once()
+
+
+@pytest.mark.asyncio
 async def test_skips_tracks_already_at_level(
     ctx: MagicMock, uow: MagicMock, pipeline: AsyncMock
 ) -> None:

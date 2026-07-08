@@ -357,17 +357,19 @@ Decision tree (first match wins):
 
 1. `score.hard_reject` → **ECHO_OUT** (echo-tail rescue, masks the failure).
 2. Drum-only mix windows (`SectionContext.is_drum_only_pair`):
-   - `score.groove > 0.85` → **DRUM_SWAP** (groove transfer, harmonic continuity)
-   - `score.groove > 0.65` → **DRUM_CUT** (drumless reset)
+   - `score.drums > 0.85` → **DRUM_SWAP** (groove transfer, harmonic continuity)
+   - `score.drums > 0.65` → **DRUM_CUT** (drumless reset)
    - else → **FADE** (linear stem crossfade)
-3. Vocal-active outro on A (`pitch_salience_mean > 0.4` AND `spectral_centroid_hz > 2200 Hz`):
+3. Vocal-active outro on A (`pitch_salience_mean > 0.55` AND `spectral_centroid_hz > 2200 Hz`, plus the midband-energy gate when available):
    - Low-vocal B intro (`pitch_salience_mean < 0.3`) → **VOCAL_SUSTAIN**
    - High-vocal B intro → **VOCAL_CUT**
    - Missing B vocal data → **ECHO_OUT** (safe default)
 4. Harmonic motif on A (low pitch salience, mid centroid, tonnetz present) + Camelot distance ≤ 1 + low-vocal B → **HARMONIC_SUSTAIN**.
 5. High B-over-A energy delta (>2 LUFS) AND (`intent=RAMP_UP` OR `subgenre_pair=HARD_PAIR`) → **DRUM_CUT** (drop-style breakdown into slam).
 6. `subgenre_pair=AMBIENT_PAIR` OR `intent=COOL_DOWN` → **FADE**.
-7. **Default — techno mixes on the drums** (`score.drums`-routed):
+7. Smooth full-stem blend → **FADE** when every routed stem is compatible (`drums/bass/harmonics/vocals ≥ 0.72`), `overall ≥ 0.74`, and the LUFS delta is stable (`≤ 1.25`). This keeps clean electronic blends transparent instead of forcing another drum-bed swap.
+8. Melodic / hypnotic harmonic continuity → **HARMONIC_SUSTAIN** when the pair is Camelot-compatible, harmonic stem compatibility is strong (`harmonics ≥ 0.74`), bass/groove support is safe, and the pair is `HYPNOTIC_PAIR` / `MELODIC_PAIR` or otherwise has motif/scorer support. This carries pads / motifs when that is the musical idea.
+9. **Default — techno mixes on the drums** (`score.drums`-routed):
    - `drums ≥ 0.62` AND energy lift > +2 LUFS → **DRUM_CUT** (lock + lift)
    - `drums ≥ 0.62` → **DRUM_SWAP** (canonical long EQ-swap blend)
    - `drums ≥ 0.45` → **DRUM_CUT** (loose lock — clean quick swap)

@@ -30,6 +30,7 @@ FastMCP v3 API used:
 from __future__ import annotations
 
 import logging
+import os
 from pathlib import Path
 from typing import Any
 
@@ -55,6 +56,21 @@ def _v2_root() -> Path:
     return Path(__file__).resolve().parent.parent
 
 
+def _env_flag(name: str) -> bool:
+    value = os.getenv(name, "")
+    return value.strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _filesystem_providers(root: Path, *, include_prompts: bool) -> list[FileSystemProvider]:
+    providers = [
+        FileSystemProvider(root=root / "tools"),
+        FileSystemProvider(root=root / "resources"),
+    ]
+    if include_prompts:
+        providers.append(FileSystemProvider(root=root / "prompts"))
+    return providers
+
+
 def register_middleware(mcp: FastMCP) -> None:
     """Register all 15 middleware in blueprint §11 order (14 after PR2)."""
     for mw in build_middleware_list(get_settings()):
@@ -66,13 +82,14 @@ def build_mcp_server() -> FastMCP:
     bootstrap_observability()
 
     root = _v2_root()
-    fsp_tools = FileSystemProvider(root=root / "tools")
-    fsp_resources = FileSystemProvider(root=root / "resources")
-    fsp_prompts = FileSystemProvider(root=root / "prompts")
+    include_prompts = not _env_flag("DJ_MCP_DISABLE_PROMPTS")
+    providers = _filesystem_providers(root, include_prompts=include_prompts)
+    if not include_prompts:
+        log.info("MCP prompt provider disabled by DJ_MCP_DISABLE_PROMPTS")
 
     mcp = FastMCP(
         name="dj-music-v2",
-        providers=[fsp_tools, fsp_resources, fsp_prompts],
+        providers=providers,
         transforms=build_pre_constructor_transforms(),
         lifespan=build_server_lifespan(),
         sampling_handler=build_sampling_handler(),
@@ -100,6 +117,7 @@ async def build_mcp_app_for_tests(
     with_visibility: bool = True,
     with_lifespan: bool = False,
     with_sampling: bool = False,
+    with_prompts: bool = True,
     **_unused: Any,
 ) -> FastMCP:
     """Build a FastMCP server for integration tests.
@@ -115,13 +133,12 @@ async def build_mcp_app_for_tests(
         bootstrap_observability()
 
     root = _v2_root()
-    fsp_tools = FileSystemProvider(root=root / "tools")
-    fsp_resources = FileSystemProvider(root=root / "resources")
-    fsp_prompts = FileSystemProvider(root=root / "prompts")
+    include_prompts = with_prompts and not _env_flag("DJ_MCP_DISABLE_PROMPTS")
+    providers = _filesystem_providers(root, include_prompts=include_prompts)
 
     mcp = FastMCP(
         name="dj-music-v2-test",
-        providers=[fsp_tools, fsp_resources, fsp_prompts],
+        providers=providers,
         transforms=build_pre_constructor_transforms() if with_transforms else [],
         lifespan=build_server_lifespan() if with_lifespan else None,
         sampling_handler=build_sampling_handler() if with_sampling else None,

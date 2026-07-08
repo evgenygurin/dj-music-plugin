@@ -11,3 +11,8 @@ def test_set_filter_accepts_template_name_in() -> None:
 
 def test_set_filter_accepts_source_playlist_id_in() -> None:
     SetFilter.model_validate({"source_playlist_id__in": [1, 2, 3]})
+
+
+def test_set_filter_accepts_title_alias() -> None:
+    SetFilter.model_validate({"title__eq": "QQQ"})
+    SetFilter.model_validate({"title__icontains": "qqq"})

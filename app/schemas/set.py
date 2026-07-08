@@ -55,6 +55,11 @@ class SetFilter(BaseModel):
     id__lte: int | None = None
     name__eq: str | None = None
     name__icontains: str | None = None
+    # OpenCode/LLMs often call generic collection titles ``title``.
+    # ``DjSet`` stores the label in ``name``; repository translation keeps
+    # this alias read-only and avoids leaking ORM naming details to clients.
+    title__eq: str | None = None
+    title__icontains: str | None = None
     template_name__eq: str | None = None
     # template_name__in: "show me sets built with classic_60 or
     # peak_hour_60" - audit iter 12 caught the missing lookup.

@@ -8,6 +8,8 @@ Handlers default to ``None``; Phase 3 assigns custom handlers for
 
 from __future__ import annotations
 
+import inspect
+
 from app.handlers.audio_file_download import audio_file_download_handler
 from app.handlers.set_version_build import set_version_build_handler
 from app.handlers.track_features_analyze import track_features_analyze_handler
@@ -93,6 +95,50 @@ from app.schemas.transition_history import (
     TransitionHistoryView,
 )
 
+_TRACK_ARTIST_VIEW_FIELDS = frozenset({"primary_artist_name", "artists"})
+_TRACK_FEATURE_VIEW_FIELDS = frozenset({"bpm", "key_code", "camelot", "mood"})
+
+
+def _projection_wants(projection: set[str] | None, fields: frozenset[str]) -> bool:
+    return projection is None or bool(projection & fields)
+
+
+def _apply_track_feature_summary(view: dict, features: object | None) -> None:  # type: ignore[type-arg]
+    if features is None:
+        return
+
+    from app.domain.camelot.wheel import key_code_to_camelot
+
+    key_code = getattr(features, "key_code", None)
+    view["bpm"] = getattr(features, "bpm", None)
+    view["key_code"] = key_code
+    view["mood"] = getattr(features, "mood", None)
+
+    beatport_camelot = getattr(features, "beatport_camelot", None)
+    if beatport_camelot:
+        view["camelot"] = beatport_camelot
+    elif key_code is not None:
+        try:
+            view["camelot"] = key_code_to_camelot(int(key_code))
+        except ValueError:
+            view["camelot"] = None
+
+
+async def _load_track_features_batch(uow: object, ids: list[int]) -> dict[int, object]:
+    repo = getattr(uow, "track_features", None)
+    loader = getattr(repo, "get_scoring_features_batch", None)
+    if loader is None or not inspect.iscoroutinefunction(loader):
+        return {}
+    return await loader(ids)  # type: ignore[no-any-return]
+
+
+async def _load_track_features_one(uow: object, track_id: int) -> object | None:
+    repo = getattr(uow, "track_features", None)
+    loader = getattr(repo, "get_by_track_id", None)
+    if loader is None or not inspect.iscoroutinefunction(loader):
+        return None
+    return await loader(track_id)
+
 
 async def _enrich_playlist_view(uow: object, row: object, view: dict) -> dict:  # type: ignore[type-arg]
     """Populate ``PlaylistView.item_count`` (audit iter 46 / T-44)."""
@@ -116,7 +162,10 @@ async def _enrich_track_view(uow: object, row: object, view: dict) -> dict:  # t
     tid = getattr(row, "id", None)
     if tid is None:
         return view
-    view["primary_artist_name"] = await uow.tracks.get_primary_artist_name(tid)  # type: ignore[attr-defined]
+    name = await uow.tracks.get_primary_artist_name(tid)  # type: ignore[attr-defined]
+    view["primary_artist_name"] = name
+    view["artists"] = [name] if name else []
+    _apply_track_feature_summary(view, await _load_track_features_one(uow, int(tid)))
     return view
 
 
@@ -132,16 +181,31 @@ async def _enrich_track_views(
     enricher there creates an N+1 artist lookup path, so the list dispatcher
     calls this bulk variant instead.
     """
-    if projection is not None and "primary_artist_name" not in projection:
+    needs_artist = _projection_wants(projection, _TRACK_ARTIST_VIEW_FIELDS)
+    needs_features = _projection_wants(projection, _TRACK_FEATURE_VIEW_FIELDS)
+    if not needs_artist and not needs_features:
         return views
     ids = [int(tid) for row in rows if (tid := getattr(row, "id", None)) is not None]
     if not ids:
         return views
-    names = await uow.tracks.get_primary_artist_names(ids)  # type: ignore[attr-defined]
+
+    names = (
+        await uow.tracks.get_primary_artist_names(ids)  # type: ignore[attr-defined]
+        if needs_artist
+        else {}
+    )
+    features_by_track = await _load_track_features_batch(uow, ids) if needs_features else {}
     for view in views:
         tid = view.get("id")
-        if tid is not None:
-            view["primary_artist_name"] = names.get(int(tid))
+        if tid is None:
+            continue
+        track_id = int(tid)
+        if needs_artist:
+            name = names.get(track_id)
+            view["primary_artist_name"] = name
+            view["artists"] = [name] if name else []
+        if needs_features:
+            _apply_track_feature_summary(view, features_by_track.get(track_id))
     return views
 
 
@@ -220,6 +284,10 @@ def register_default_entities() -> None:
                 "status": ("eq", "in"),
                 "duration_ms": ("gte", "lte"),
                 "has_features": ("eq",),
+                "playlist_id": ("eq",),
+                "bpm": ("eq", "gte", "lte", "range"),
+                "key_code": ("eq", "in", "range", "isnull"),
+                "mood": ("eq", "in", "isnull"),
             },
             sortable_fields=(
                 "id",
@@ -227,6 +295,9 @@ def register_default_entities() -> None:
                 "sort_title",
                 "duration_ms",
                 "status",
+                "bpm",
+                "key_code",
+                "mood",
                 "created_at",
                 "updated_at",
             ),
@@ -307,6 +378,7 @@ def register_default_entities() -> None:
             filterable_fields={
                 "id": ("eq", "in", "gt", "gte", "lt", "lte"),
                 "name": ("eq", "icontains"),
+                "title": ("eq", "icontains"),
                 "template_name": ("eq", "in"),
                 "source_playlist_id": ("eq", "in"),
                 "target_bpm_min": ("gte", "lte"),

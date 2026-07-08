@@ -16,6 +16,11 @@ class TrackView(BaseModel):
     duration_ms: int | None = None
     status: int = 0
     primary_artist_name: str | None = None
+    artists: list[str] | None = None
+    bpm: float | None = None
+    key_code: int | None = None
+    camelot: str | None = None
+    mood: str | None = None
 
 
 class TrackArtistView(BaseModel):
@@ -32,14 +37,16 @@ class TrackArtistView(BaseModel):
 class TrackFilter(BaseModel):
     """Django-lookup filter schema for the ``track`` entity.
 
-    Direct columns on the ``tracks`` table plus one cross-table magic
-    filter (``has_features``) translated by ``TrackRepository.filter``
-    into an INNER JOIN / NOT EXISTS against
-    ``track_audio_features_computed``.
+    Direct columns on the ``tracks`` table plus cross-table magic
+    filters translated by ``TrackRepository.filter``:
 
-    Audio-feature filters (BPM, key, LUFS, mood) live on the
-    ``track_features`` entity — use
-    ``entity_list(entity="track_features", ...)`` to filter by those.
+    - ``has_features`` → EXISTS / NOT EXISTS against
+      ``track_audio_features_computed``.
+    - ``playlist_id__eq`` → EXISTS against ``dj_playlist_items``.
+
+    Full audio-feature filtering lives on the ``track_features`` entity.
+    The common summary fields below are also accepted here as a compatibility
+    layer for clients that treat ``track`` as a track+features view.
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -73,6 +80,18 @@ class TrackFilter(BaseModel):
     # either form and treats ``None`` as "no constraint".
     has_features: bool | None = None
     has_features__eq: bool | None = None
+    playlist_id__eq: int | None = None
+    bpm__eq: float | None = None
+    bpm__gte: float | None = None
+    bpm__lte: float | None = None
+    bpm__range: list[float] | None = None
+    key_code__eq: int | None = None
+    key_code__in: list[int] | None = None
+    key_code__range: list[int] | None = None
+    key_code__isnull: bool | None = None
+    mood__eq: str | None = None
+    mood__in: list[str] | None = None
+    mood__isnull: bool | None = None
 
 
 class TrackCreate(BaseModel):

@@ -55,3 +55,28 @@ async def test_read_track_accepts_integer_id(
     provider = mock_provider_registry.get.return_value
     # Tool stringifies before forwarding to the adapter.
     assert provider.read.await_args.kwargs["id"] == "137518650"
+
+
+@pytest.mark.asyncio
+async def test_read_playlist_accepts_id_inside_params(
+    mcp_client: Client, mock_provider_registry: MagicMock
+) -> None:
+    """Some clients put provider IDs in params; normalize before adapter dispatch."""
+    await mcp_client.call_tool(
+        "provider_read",
+        {"provider": "yandex", "entity": "playlist", "params": {"id": 1345}},
+    )
+    provider = mock_provider_registry.get.return_value
+    assert provider.read.await_args.kwargs["id"] == "1345"
+
+
+@pytest.mark.asyncio
+async def test_read_playlist_accepts_playlist_id_inside_params(
+    mcp_client: Client, mock_provider_registry: MagicMock
+) -> None:
+    await mcp_client.call_tool(
+        "provider_read",
+        {"provider": "yandex", "entity": "playlist", "params": {"playlist_id": 1345}},
+    )
+    provider = mock_provider_registry.get.return_value
+    assert provider.read.await_args.kwargs["id"] == "1345"
