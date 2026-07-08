@@ -76,9 +76,11 @@ ignore_imports =
     app.handlers.transition_persist -> app.domain.transition.section_context
     app.handlers.transition_persist -> app.domain.transition.subgenre_rules
     app.repositories.set -> app.domain.render.models
-    # Lazy on-demand import in _apply_track_feature_summary — pre-existing;
-    # lifespan legitimately touches the registry for entity defaults.
+    # Lazy on-demand imports through app.registry.defaults — lifespan
+    # legitimately touches the registry for entity defaults; the schemas
+    # and domain helpers it reaches are pure type/transform modules.
     app.registry.defaults -> app.domain.camelot.wheel
+    app.registry.defaults -> app.schemas.track_features
 
 # ── Contract: shared is a leaf module ───────────────────────────────
 # docs/architecture.md / CLAUDE.md document "shared — leaf, нет обратных

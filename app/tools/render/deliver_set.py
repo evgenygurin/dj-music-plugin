@@ -27,6 +27,7 @@ from app.server.di import get_uow
     ),
     meta={"timeout_s": 60.0},
     timeout=60.0,
+    task=True,
 )
 async def deliver_set(
     version_id: Annotated[int, Field(ge=1, description="Set version ID")],
