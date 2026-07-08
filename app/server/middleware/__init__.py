@@ -60,6 +60,7 @@ from app.server.middleware.deprecation_warning import DeprecationWarningMiddlewa
 from app.server.middleware.domain_error import DomainErrorMiddleware
 from app.server.middleware.json_string_coerce import JsonStringCoerceMiddleware
 from app.server.middleware.progress_throttle import ProgressThrottleMiddleware
+from app.server.middleware.prompt_guard import PromptGuardMiddleware
 from app.server.middleware.provider_rate_limit import ProviderRateLimitMiddleware
 from app.server.middleware.sampling_budget import SamplingBudgetMiddleware
 from app.server.middleware.sentry_context import SentryContextMiddleware
@@ -101,7 +102,9 @@ def build_middleware_list(settings: Settings) -> list[Middleware]:
     return [
         # 1 outermost — domain-error → ToolError translation
         DomainErrorMiddleware(mask_details=not settings.mcp.debug),
-        # 2 — JSON-string → native dict/list for stringifying transports
+        # 2 — instant placeholder rejection for prompt discovery
+        PromptGuardMiddleware(),
+        # 3 — JSON-string → native dict/list for stringifying transports
         # (Claude Code stdio shim). Runs early so audit log / cache / DB
         # session see already-coerced args.
         JsonStringCoerceMiddleware(),
@@ -167,6 +170,7 @@ def build_middleware_list(settings: Settings) -> list[Middleware]:
 # ``build_middleware_list(settings)``; this tuple carries only types.
 ALL_MIDDLEWARE: tuple[type, ...] = (
     DomainErrorMiddleware,
+    PromptGuardMiddleware,
     JsonStringCoerceMiddleware,
     SentryContextMiddleware,
     DetailedTimingMiddleware,

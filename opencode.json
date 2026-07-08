@@ -28,9 +28,6 @@
     "dj": {
       "type": "local",
       "command": ["uv", "run", "--project", "/Users/laptop/dev/dj-music-plugin", "--env-file", "/Users/laptop/dev/dj-music-plugin/.env", "fastmcp", "run", "/Users/laptop/dev/dj-music-plugin/fastmcp.json", "--no-banner"],
-      "environment": {
-        "DJ_MCP_DISABLE_PROMPTS": "1"
-      },
       "timeout": 120000,
       "enabled": true
     },
