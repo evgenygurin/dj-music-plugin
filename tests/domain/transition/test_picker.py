@@ -45,7 +45,20 @@ def test_hard_reject_routes_to_echo_out() -> None:
     decision = pick_neural_mix(score, _track(), _track())
     assert decision.transition is NeuralMixTransition.ECHO_OUT
     assert "hard reject" in decision.reason.lower()
-    assert decision.warnings  # non-empty
+
+
+def test_hard_reject_camelot_routes_to_filter_sweep() -> None:
+    score = _ok_score(hard_reject=True, reject_reason="Camelot distance >=5", overall=0.0)
+    decision = pick_neural_mix(score, _track(), _track())
+    assert decision.transition is NeuralMixTransition.FILTER_SWEEP
+    assert "camelot" in decision.reason.lower()
+
+
+def test_hard_reject_key_routes_to_filter_sweep() -> None:
+    score = _ok_score(hard_reject=True, reject_reason="key clash >=5", overall=0.0)
+    decision = pick_neural_mix(score, _track(), _track())
+    assert decision.transition is NeuralMixTransition.FILTER_SWEEP
+    assert "camelot" in decision.reason.lower()
 
 
 # ── Rule 2: drum-only pair ──────────────────────────────────────────

@@ -17,7 +17,7 @@
       "stem": "drums"
     },
     {
-      "bar": 16,
+      "bar": 16.0,
       "deck": "A",
       "level_db": -120.0,
       "stem": "drums"
@@ -35,7 +35,7 @@
       "stem": "bass"
     },
     {
-      "bar": 16,
+      "bar": 16.0,
       "deck": "A",
       "level_db": -120.0,
       "stem": "bass"
@@ -53,7 +53,7 @@
       "stem": "harmonics"
     },
     {
-      "bar": 16,
+      "bar": 16.0,
       "deck": "A",
       "level_db": -120.0,
       "stem": "harmonics"
@@ -71,7 +71,7 @@
       "stem": "vocals"
     },
     {
-      "bar": 16,
+      "bar": 16.0,
       "deck": "A",
       "level_db": -120.0,
       "stem": "vocals"
@@ -89,7 +89,7 @@
       "stem": "drums"
     },
     {
-      "bar": 16,
+      "bar": 16.0,
       "deck": "B",
       "level_db": 0.0,
       "stem": "drums"
@@ -107,7 +107,7 @@
       "stem": "bass"
     },
     {
-      "bar": 16,
+      "bar": 16.0,
       "deck": "B",
       "level_db": 0.0,
       "stem": "bass"
@@ -125,7 +125,7 @@
       "stem": "harmonics"
     },
     {
-      "bar": 16,
+      "bar": 16.0,
       "deck": "B",
       "level_db": 0.0,
       "stem": "harmonics"
@@ -143,7 +143,7 @@
       "stem": "vocals"
     },
     {
-      "bar": 16,
+      "bar": 16.0,
       "deck": "B",
       "level_db": 0.0,
       "stem": "vocals"

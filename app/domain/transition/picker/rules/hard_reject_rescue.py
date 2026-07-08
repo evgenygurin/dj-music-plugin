@@ -1,11 +1,16 @@
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from app.domain.transition.api import PickerRule
-from app.domain.transition.enums import NeuralMixTransition, SubgenrePairType, TransitionIntent
+from app.domain.transition.enums import NeuralMixTransition
 from app.domain.transition.picker.api import PickerDecision
-from app.domain.transition.score import TransitionScore
-from app.domain.transition.section_context import SectionContext
-from app.shared.features import TrackFeatures
+
+if TYPE_CHECKING:
+    from app.domain.transition.enums import SubgenrePairType, TransitionIntent  # noqa: F401
+    from app.domain.transition.score import TransitionScore  # noqa: F401
+    from app.domain.transition.section_context import SectionContext  # noqa: F401
+    from app.shared.features import TrackFeatures  # noqa: F401
 
 
 class HardRejectRescueRule(PickerRule):
@@ -13,14 +18,29 @@ class HardRejectRescueRule(PickerRule):
     confidence = 0.55
 
     def evaluate(
-        self, score, from_t, to_t, *,
-        section_context=None, subgenre_pair=None, intent=None,
+        self,
+        score,
+        from_t,
+        to_t,
+        *,
+        section_context=None,
+        subgenre_pair=None,
+        intent=None,
     ) -> PickerDecision | None:
         if not score.hard_reject:
             return None
+
+        reason = score.reject_reason or ""
+
+        if "camelot" in reason.lower() or "key" in reason.lower():
+            return PickerDecision(
+                transition=NeuralMixTransition.FILTER_SWEEP,
+                confidence=0.55,
+                reason=f"camelot clash rescue -> filter sweep ({reason})",
+            )
+
         return PickerDecision(
             transition=NeuralMixTransition.ECHO_OUT,
-            confidence=self.confidence,
-            reason=f"hard reject ({score.reject_reason or 'unknown'}) — echo-tail rescue",
-            warnings=("hard reject — recipe is best-effort",),
+            confidence=0.55,
+            reason=f"hard reject rescue -> echo out ({reason})",
         )

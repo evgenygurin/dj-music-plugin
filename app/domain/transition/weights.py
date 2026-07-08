@@ -20,12 +20,12 @@ from __future__ import annotations
 # onset alignment is the load-bearing scoring axis even more than key
 # matching at peak time.
 DEFAULT_WEIGHTS: dict[str, float] = {
-    "bpm": 0.20,
-    "energy": 0.15,
-    "drums": 0.20,
+    "bpm": 0.22,
+    "energy": 0.18,
+    "drums": 0.22,
     "bass": 0.15,
-    "harmonics": 0.15,
-    "vocals": 0.15,
+    "harmonics": 0.10,
+    "vocals": 0.13,
 }
 
 # ── BPM scoring ──────────────────────────────────────────
@@ -59,26 +59,20 @@ ENERGY_PREFERRED_RISE_LUFS: float = 0.5
 LRA_DIFF_PENALTY: float = 0.10
 ENERGY_SLOPE_BONUS: float = 0.05
 
-# ── Section-pair weight overlay (Phase 1 v2 refactor) ───────────────
+# ── Section-pair weight overlay ──────────────────────────────────────
 #
-# Multiplicative modifiers applied on top of intent-derived base weights
-# before renormalisation. Phase 1 scope: only DRUM_ONLY is active; the
-# other four classes get identity overlays (x1.0) and will be filled in
-# Phase 3 once phrase + structure components exist.
+# Multiplicative modifiers on top of intent-derived base weights before
+# renormalisation. All five section-pair classes are now filled:
 #
-# Rationale (DRUM_ONLY): both mix-out and mix-in windows are percussion-only
-# (INTRO / OUTRO / SUSTAIN / AMBIENT). Harmonic clash is minimal —
-# down-weight harmonics + vocals; rely on drums/bass tightness instead.
-# Source: docs/transitions-refactor.md § 5.3, § A.2.
-
-_IDENTITY_OVERLAY: dict[str, float] = {
-    "bpm": 1.0,
-    "energy": 1.0,
-    "drums": 1.0,
-    "bass": 1.0,
-    "harmonics": 1.0,
-    "vocals": 1.0,
-}
+# * DRUM_ONLY: percussion-only windows — down-weight harmonics/vocals;
+#   up-weight drums.
+# * DROP_TO_DROP: two high-energy sections — up-weight energy flow
+#   (body-shake continuity) at the expense of BPM precision.
+# * BREAKDOWN_OUT: mix-out is a breakdown (drums drop out) — down-weight
+#   drums, up-weight harmonics (pad/lead fluency into the next track).
+# * BUILDUP_IN: mix-in is a buildup — up-weight energy swells
+#   (tense rise), slightly down-weight raw BPM lock.
+# * GENERIC: identity pass-through.
 
 SECTION_PAIR_OVERLAY: dict[str, dict[str, float]] = {
     "drum_only": {
@@ -89,8 +83,36 @@ SECTION_PAIR_OVERLAY: dict[str, dict[str, float]] = {
         "harmonics": 0.40,
         "vocals": 0.30,
     },
-    "drop_to_drop": dict(_IDENTITY_OVERLAY),
-    "breakdown_out": dict(_IDENTITY_OVERLAY),
-    "buildup_in": dict(_IDENTITY_OVERLAY),
-    "generic": dict(_IDENTITY_OVERLAY),
+    "drop_to_drop": {
+        "bpm": 0.80,
+        "energy": 1.25,
+        "drums": 1.0,
+        "bass": 1.0,
+        "harmonics": 1.0,
+        "vocals": 1.0,
+    },
+    "breakdown_out": {
+        "bpm": 1.0,
+        "energy": 1.0,
+        "drums": 0.70,
+        "bass": 1.0,
+        "harmonics": 1.20,
+        "vocals": 1.0,
+    },
+    "buildup_in": {
+        "bpm": 0.85,
+        "energy": 1.30,
+        "drums": 1.0,
+        "bass": 1.0,
+        "harmonics": 1.0,
+        "vocals": 1.0,
+    },
+    "generic": {
+        "bpm": 1.0,
+        "energy": 1.0,
+        "drums": 1.0,
+        "bass": 1.0,
+        "harmonics": 1.0,
+        "vocals": 1.0,
+    },
 }
