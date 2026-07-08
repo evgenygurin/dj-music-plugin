@@ -24,9 +24,7 @@ async def test_missing_source_features_returns_analyze_first(
     mcp_client: Client, mock_uow: MagicMock
 ) -> None:
     mock_uow.track_features.get_scoring_features_batch = AsyncMock(return_value={})
-    result = await mcp_client.call_tool(
-        "get_transition_candidates", {"track_id": 1}
-    )
+    result = await mcp_client.call_tool("get_transition_candidates", {"track_id": 1})
     data = result.structured_content or result.data
     assert data["missing_features"] is True
     assert data["candidates"] == []
@@ -38,12 +36,8 @@ async def test_no_analyzed_tracks(mcp_client: Client, mock_uow: MagicMock) -> No
     mock_uow.track_features.get_scoring_features_batch = AsyncMock(
         side_effect=lambda ids: {1: src_feat} if ids == [1] else {}
     )
-    mock_uow.tracks.filter = AsyncMock(
-        return_value=MagicMock(items=[], next_cursor=None)
-    )
-    result = await mcp_client.call_tool(
-        "get_transition_candidates", {"track_id": 1}
-    )
+    mock_uow.tracks.filter = AsyncMock(return_value=MagicMock(items=[], next_cursor=None))
+    result = await mcp_client.call_tool("get_transition_candidates", {"track_id": 1})
     data = result.structured_content or result.data
     assert data["total_analyzed"] == 0
     assert data["candidates"] == []
@@ -56,15 +50,11 @@ async def test_excludes_source_track(mcp_client: Client, mock_uow: MagicMock) ->
         side_effect=lambda ids: {1: src_feat} if 1 in ids else {2: MagicMock(bpm=130.0)}
     )
     mock_uow.tracks.filter = AsyncMock(
-        return_value=MagicMock(
-            items=[MagicMock(id=1), MagicMock(id=2)], next_cursor=None
-        )
+        return_value=MagicMock(items=[MagicMock(id=1), MagicMock(id=2)], next_cursor=None)
     )
     mock_uow.tracks.get_many = AsyncMock(return_value={2: MagicMock(title="Other")})
 
-    result = await mcp_client.call_tool(
-        "get_transition_candidates", {"track_id": 1}
-    )
+    result = await mcp_client.call_tool("get_transition_candidates", {"track_id": 1})
     data = result.structured_content or result.data
     assert data["total_analyzed"] == 1
     for c in data["candidates"]:
@@ -76,16 +66,17 @@ async def test_returns_top_k_candidates(
     mcp_client: Client, mock_uow: MagicMock, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     scorer_mock = MagicMock()
-    scorer_mock.score.return_value = TransitionScore(
-        overall=0.85, bpm=0.9, energy=0.8
-    )
+    scorer_mock.score.return_value = TransitionScore(overall=0.85, bpm=0.9, energy=0.8)
 
     from app.server import di
+
     _original = di._read_slot
+
     async def _patched_read_slot(ctx, key, what):
         if key == "transition_scorer":
             return scorer_mock
         return await _original(ctx, key, what)
+
     monkeypatch.setattr(di, "_read_slot", _patched_read_slot)
 
     src_feat = MagicMock(bpm=128.0, key_code=1)
@@ -106,9 +97,7 @@ async def test_returns_top_k_candidates(
         return_value={i: MagicMock(title=f"Track {i}") for i in range(2, 12)}
     )
 
-    result = await mcp_client.call_tool(
-        "get_transition_candidates", {"track_id": 1, "top_k": 3}
-    )
+    result = await mcp_client.call_tool("get_transition_candidates", {"track_id": 1, "top_k": 3})
     data = result.structured_content or result.data
     assert len(data["candidates"]) <= 3
 
@@ -118,28 +107,37 @@ async def test_min_score_filters_low_scores(
     mcp_client: Client, mock_uow: MagicMock, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     scorer_mock = MagicMock()
+
     def score_side_effect(src, to):
         tid = to.bpm  # use bpm field to differentiate tracks
         if tid and tid > 130:
             return TransitionScore(overall=0.5, hard_reject=False)
         return TransitionScore(overall=0.9, hard_reject=False)
+
     scorer_mock.score.side_effect = score_side_effect
 
     from app.server import di
+
     _original = di._read_slot
+
     async def _patched_read_slot(ctx, key, what):
         if key == "transition_scorer":
             return scorer_mock
         return await _original(ctx, key, what)
+
     monkeypatch.setattr(di, "_read_slot", _patched_read_slot)
 
     src_feat = MagicMock(bpm=128.0, key_code=1)
     mock_uow.track_features.get_scoring_features_batch = AsyncMock(
-        side_effect=lambda ids: {
-            1: src_feat,
-            2: MagicMock(bpm=125.0, key_code=3),
-            3: MagicMock(bpm=135.0, key_code=5),
-        } if set(ids) & {1, 2, 3} else {}
+        side_effect=lambda ids: (
+            {
+                1: src_feat,
+                2: MagicMock(bpm=125.0, key_code=3),
+                3: MagicMock(bpm=135.0, key_code=5),
+            }
+            if set(ids) & {1, 2, 3}
+            else {}
+        )
     )
     mock_uow.tracks.filter = AsyncMock(
         return_value=MagicMock(

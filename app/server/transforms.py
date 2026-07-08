@@ -67,6 +67,8 @@ ALWAYS_VISIBLE_TOOLS: tuple[str, ...] = (
     "render_beatgrid",
     "render_mixdown",
     "render_diagnose",
+    "render_verify",
+    "deliver_set",
 )
 
 

@@ -286,7 +286,7 @@ class ConstructiveSlotBuilder:
             intent=context.intent,
             section_context=context.section_context,
         )
-        return 0.0 if result.hard_reject else result.overall
+        return float("-inf") if result.hard_reject else result.overall
 
     def _novelty_bonus(
         self,

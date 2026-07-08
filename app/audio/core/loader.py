@@ -115,7 +115,9 @@ class AudioLoader:
         import wave
 
         try:
-            wf = wave.open(str(path), "rb")  # noqa: SIM115 — wrapped in custom error guard below; manager applied right after
+            wf = wave.open(
+                str(path), "rb"
+            )  # wrapped in custom error guard below; manager applied right after
         except wave.Error as e:
             # The stdlib ``wave`` module is WAV-only — anything that
             # isn't a RIFF container (MP3, FLAC, OGG, plain garbage,

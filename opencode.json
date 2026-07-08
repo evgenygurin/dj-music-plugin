@@ -29,12 +29,15 @@
     }
   },
 
-  "plugin": ["gitnexus-opencode"],
+  "plugin": [
+    "gitnexus-opencode",
+    "superpowers@git+https://github.com/obra/superpowers.git"
+  ],
 
   "mcp": {
     "dj": {
       "type": "local",
-      "command": ["bash", "-lc", "/Users/laptop/dev/dj-music-plugin/scripts/start-mcp.sh"],
+      "command": ["uv", "run", "--project", "/Users/laptop/dev/dj-music-plugin", "--env-file", "/Users/laptop/dev/dj-music-plugin/.env", "fastmcp", "run", "/Users/laptop/dev/dj-music-plugin/fastmcp.json", "--no-banner"],
       "environment": {
         "DJ_MCP_DISABLE_PROMPTS": "1"
       },

@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 import subprocess
+import tempfile
 from dataclasses import dataclass, field
 from pathlib import Path
 
-_SR = 22050
+from app.audio.render._constants import SR as _SR
 
 
 @dataclass(frozen=True, slots=True)
@@ -39,7 +40,7 @@ class DiagnoseReport:
 def scan_mix(path: str) -> ScanReport:
     import numpy as np
 
-    tmp = "/tmp/_scan.f32"
+    tmp = tempfile.NamedTemporaryFile(suffix=".f32", delete=False).name
     subprocess.run(
         ["ffmpeg", "-y", "-i", path, "-ac", "1", "-ar", "8000", "-f", "f32le", tmp],
         stderr=subprocess.DEVNULL,

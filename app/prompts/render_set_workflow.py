@@ -31,15 +31,25 @@ tracks-only DJ mix (EQ bass-swap transitions) and deliver it:
    This is heavy (ffmpeg+rubberband) and runs as a background task; poll
    local://render/jobs/{{job_id}}/status for progress.
 
-5. Diagnose the result:
+5. Verify the mix with automated checks:
+   render_verify(version_id={version_id})
+   Runs 14 checks: 5 pre-render (source duration, BPM reliability, trim
+   bounds, boundary alignment, timeline) + 9 post-render (output duration,
+   level jumps, clipping, dropouts, loudness consistency, low-band holes,
+   stereo balance, RMS jumps, energy slope).
+
+6. Diagnose the result:
    render_diagnose(version_id={version_id})
    Read local://render/{version_id}/timeline to tell a TRANSITION-window hole
    (a mix defect) from a track's own breakdown (music). Most -17..-20 dB dips
    inside a track body are breakdowns — do NOT chase them.
 
-6. Deliver: run the deliver_set_workflow prompt for this set. With
-   emit_continuous_mix enabled the rendered MIX.mp3 ships alongside the M3U8 /
-   rekordbox XML / cheatsheet bundle.
+7. Deliver the portable bundle (source tracks + M3U8 + metadata + MIX.mp3):
+   deliver_set(version_id={version_id})
+   With emit_continuous_mix enabled the rendered MIX.mp3 ships alongside the
+   tracks/ dir, playlist.m3u8, rekordbox.xml, guide.json, and cheatsheet.txt.
+   For the full export workflow (rekordbox export + optional YM sync) run
+   the deliver_set_workflow prompt instead.
 
 Honest engine limits: no real stem separation (the bass-swap is a 2-band EQ
 crossover, not demucs); phrasing is approximate where DB beatgrids are absent;

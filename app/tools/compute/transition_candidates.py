@@ -13,7 +13,6 @@ from app.handlers._context_log import safe_report_progress
 from app.repositories.unit_of_work import UnitOfWork
 from app.schemas.tool_responses import TransitionCandidate, TransitionCandidatesResult
 from app.server.di import get_transition_scorer, get_uow
-from app.shared.errors import ValidationError
 
 
 @tool(
@@ -40,7 +39,8 @@ async def get_transition_candidates(
     min_score: Annotated[
         float,
         Field(
-            ge=0.0, le=1.0,
+            ge=0.0,
+            le=1.0,
             description="Minimum overall score threshold (0.0 = no threshold)",
         ),
     ] = 0.0,
@@ -95,7 +95,9 @@ async def get_transition_candidates(
                     key=to_feat.key_code,
                     energy=to_feat.energy_mean,
                     mood=to_feat.mood,
-                    best_transition=result.best_transition.name if result.best_transition else None,
+                    best_transition=result.best_transition.name
+                    if result.best_transition
+                    else None,
                 ),
             )
         )

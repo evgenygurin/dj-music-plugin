@@ -113,7 +113,7 @@ class TransitionCandidate(BaseModel):
     title: str = ""
     overall: float = Field(ge=0.0, le=1.0, description="Aggregate transition quality")
     bpm: float | None = None
-    key: str | None = None
+    key: int | None = None
     energy: float | None = None
     mood: str | None = None
     hard_reject: bool = False

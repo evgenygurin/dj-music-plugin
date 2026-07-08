@@ -27,3 +27,12 @@ class RenderDiagnosticsResult(BaseModel):
     overall_rms_db: float
     flagged: int = 0
     windows: list[dict[str, Any]] = Field(default_factory=list)
+
+
+class RenderVerifyResult(BaseModel):
+    version_id: int
+    passed: int = 0
+    warned: int = 0
+    failed: int = 0
+    exit_code: int = 0
+    checks: list[dict[str, Any]] = Field(default_factory=list)

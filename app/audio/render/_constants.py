@@ -1,0 +1,18 @@
+"""Shared DSP constants for the render pipeline."""
+
+SR = 22050
+HOP = 512
+FFMPEG_AC = "1"
+FFMPEG_AR = "8000"
+
+DEFAULT_TARGET_BPM = 130.0
+DEFAULT_BODY_BARS = 64
+DEFAULT_TRANSITION_BARS = 32
+DEFAULT_LOW_SWAP_BARS = 16
+DEFAULT_OUTRO_FADE_BARS = 8
+DEFAULT_XSPLIT_HZ = 250.0
+DEFAULT_LIMITER_CEILING = -0.5
+
+
+def bar_s(bpm: float) -> float:
+    return 240.0 / bpm

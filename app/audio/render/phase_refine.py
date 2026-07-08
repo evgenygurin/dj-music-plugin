@@ -9,9 +9,10 @@ from __future__ import annotations
 
 import os
 import subprocess
+import tempfile
 
-_SR = 22050
-_HOP = 512
+from app.audio.render._constants import HOP as _HOP
+from app.audio.render._constants import SR as _SR
 
 
 def refine_phase(
@@ -30,7 +31,7 @@ def refine_phase(
     tempo = target_bpm / bpm
     sos = butter(4, 150, btype="low", fs=_SR, output="sos")
 
-    tmp = f"/tmp/_qa_{abs(hash(file_path))}.wav"
+    tmp = tempfile.NamedTemporaryFile(suffix=".wav", delete=False).name
     subprocess.run(
         [
             "ffmpeg",
