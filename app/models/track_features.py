@@ -8,6 +8,7 @@ for fast candidate filtering.
 from __future__ import annotations
 
 from sqlalchemy import CheckConstraint, ForeignKey, SmallInteger, String, Text
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, TimestampMixin
@@ -42,7 +43,7 @@ class TrackAudioFeaturesComputed(Base, TimestampMixin):
         CheckConstraint(
             "key_code IS NULL OR key_code BETWEEN 0 AND 23", name="ck_features_key_code"
         ),
-        CheckConstraint("analysis_level BETWEEN 0 AND 5", name="ck_features_analysis_level"),
+        CheckConstraint("analysis_level BETWEEN 0 AND 6", name="ck_features_analysis_level"),
     )
 
     track_id: Mapped[int] = mapped_column(
@@ -184,6 +185,9 @@ class TrackSection(Base, TimestampMixin):
     # Prod is nullable (no NULLs today, but the constraint isn't enforced).
     energy: Mapped[float | None] = mapped_column(nullable=True)
     confidence: Mapped[float | None] = mapped_column(nullable=True)
+    lufs: Mapped[float | None] = mapped_column(nullable=True)
+    spectral_centroid: Mapped[float | None] = mapped_column(nullable=True)
+    stem_energy: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
 
 
 class TimeseriesReference(Base, TimestampMixin):
