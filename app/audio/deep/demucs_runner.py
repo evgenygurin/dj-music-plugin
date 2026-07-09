@@ -35,8 +35,6 @@ def run_demucs(input_path: Path, output_dir: Path) -> dict[str, Path]:
         return stem_files
 
     device = _detect_device()
-    if device == "cpu":
-        raise RuntimeError(f"Demucs requires GPU (MPS/CUDA); stems not cached for {input_path}")
     subprocess.run(
         ["python", "-W", "ignore::UserWarning", "-m", "demucs", "-n", "htdemucs", "-d", device, "-o", str(cache_dir), str(input_path)],
         check=True, stdout=subprocess.DEVNULL,
