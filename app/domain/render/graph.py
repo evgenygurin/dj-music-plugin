@@ -111,10 +111,10 @@ def build_filtergraph(plan: RenderPlan) -> list[str]:
         f"acompressor=threshold={plan.glue_comp_threshold_db}dB:"
         f"ratio={plan.glue_comp_ratio}:attack={plan.glue_comp_attack_ms}:"
         f"release={plan.glue_comp_release_ms}:knee=8:detection=rms:"
-        f"link=average:makeup=1,"
+        f"link=average:makeup=3,"
         f"firequalizer=gain_entry='{master_eq}',"
         f"alimiter=level_in=1:level_out=1:limit={plan.limiter_ceiling}:"
-        f"attack={plan.limiter_attack_ms}:release={plan.limiter_release_ms}:asc=1,"
+        f"attack={plan.limiter_attack_ms}:release={plan.limiter_release_ms}:asc=0,"
         f"dynaudnorm=framelen=500:peak=0.95:maxgain={plan.dynaudnorm_maxgain}[mix]"
     )
     return parts

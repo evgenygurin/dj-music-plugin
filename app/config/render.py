@@ -50,7 +50,7 @@ class RenderSettings(BaseSettings):
     body_bars_industrial: int | None = Field(default=None, gt=0)
     outro_fade_bars: int = Field(default=12, gt=0, description="End-of-mix fade length (bars).")
     limiter_ceiling: float = Field(
-        default=0.85, gt=0, le=1.0, description="alimiter limit (-1.4 dBFS headroom)."
+        default=0.95, gt=0, le=1.0, description="alimiter limit (-0.45 dBFS headroom)."
     )
 
     # ── Per-track pre-processing ──
@@ -69,8 +69,8 @@ class RenderSettings(BaseSettings):
     pre_comp_release_ms: float = Field(default=80.0, gt=0, description="Pre-compressor release.")
 
     # ── Master bus ──
-    glue_comp_threshold_db: float = Field(default=-14.0, description="Glue compressor threshold.")
-    glue_comp_ratio: float = Field(default=2.0, gt=1, description="Glue compressor ratio.")
+    glue_comp_threshold_db: float = Field(default=-18.0, description="Glue compressor threshold.")
+    glue_comp_ratio: float = Field(default=3.0, gt=1, description="Glue compressor ratio.")
     glue_comp_attack_ms: float = Field(default=30.0, gt=0, description="Glue compressor attack.")
     glue_comp_release_ms: float = Field(
         default=150.0, gt=0, description="Glue compressor release."

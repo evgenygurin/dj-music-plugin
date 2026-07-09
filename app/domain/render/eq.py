@@ -12,19 +12,19 @@ _MASTER_EQ_CURVE = [
     "entry(131, 0.5)",   # 60-130Hz sub weight
     "entry(185, 0.3)",
     "entry(262, -0.5)",   # 200-400Hz mud cut start
-    "entry(370, -1.0)",   # 370Hz max cut
+    "entry(370, -1.0)",   # 370Hz max mud cut
     "entry(523, -0.5)",
     "entry(740, 0)",
     "entry(1046, 0)",
     "entry(1480, 0)",
-    "entry(2093, 0)",
-    "entry(2960, 0)",
-    "entry(4186, 0)",
-    "entry(5920, 0.5)",   # 6-8kHz presence
-    "entry(8372, 1.0)",   # 8-12kHz air start
-    "entry(11840, 1.5)",  # 10-12kHz air peak
-    "entry(16744, 1.2)",  # 16kHz gentle rolloff
-    "entry(20000, 0.5)",  # 20kHz
+    "entry(2093, 0.5)",   # 2kHz — add body
+    "entry(2960, 1.5)",   # 3kHz — clarity/presence boost
+    "entry(4186, 2.0)",   # 4kHz — presence peak
+    "entry(5920, 2.5)",   # 6kHz — attack/definition
+    "entry(8372, 2.0)",   # 8kHz — air start
+    "entry(11840, 1.5)",  # 10-12kHz air
+    "entry(16744, 0.5)",  # 16kHz gentle
+    "entry(20000, 0.0)",  # 20kHz
 ]
 
 
