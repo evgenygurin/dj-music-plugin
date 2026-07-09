@@ -82,3 +82,28 @@ def test_timeline_windows_reports_transitions():
     # 3 tracks => 2 transition windows
     assert len(wins.transitions) == 2
     assert wins.transitions[0].from_index == 0 and wins.transitions[0].to_index == 1
+
+
+def test_timeline_passes_mastering_settings():
+    plan = build_render_plan(
+        _inputs(1),
+        _grid(1),
+        target_bpm=130.0,
+        body_bars=24,
+        transition_bars=32,
+        xsplit_low_hz=250,
+        xsplit_high_hz=4000,
+        eq_phase_1_ratio=0.40,
+        eq_phase_2_ratio=0.70,
+        low_swap_beats=1.0,
+        outro_fade_bars=12,
+        limiter_ceiling=0.85,
+    )
+    assert plan.hpf_cutoff_hz == 30.0
+    assert plan.pre_comp_threshold_db == -18.0
+    assert plan.pre_comp_ratio == 3.0
+    assert plan.glue_comp_ratio == 2.0
+    assert plan.master_eq_air_boost_db == 1.5
+    assert plan.limiter_attack_ms == 2.0
+    assert plan.limiter_release_ms == 40.0
+    assert plan.dynaudnorm_maxgain == 2.0

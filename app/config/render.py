@@ -54,7 +54,9 @@ class RenderSettings(BaseSettings):
     )
 
     # ── Per-track pre-processing ──
-    hpf_cutoff_hz: float = Field(default=30.0, gt=0, description="Subsonic highpass filter cutoff.")
+    hpf_cutoff_hz: float = Field(
+        default=30.0, gt=0, description="Subsonic highpass filter cutoff."
+    )
     per_track_eq_mid_cut_db: float = Field(
         default=-1.0, le=0, description="300-500Hz mid cut for all tracks."
     )
@@ -70,10 +72,18 @@ class RenderSettings(BaseSettings):
     glue_comp_threshold_db: float = Field(default=-14.0, description="Glue compressor threshold.")
     glue_comp_ratio: float = Field(default=2.0, gt=1, description="Glue compressor ratio.")
     glue_comp_attack_ms: float = Field(default=30.0, gt=0, description="Glue compressor attack.")
-    glue_comp_release_ms: float = Field(default=150.0, gt=0, description="Glue compressor release.")
-    master_eq_air_boost_db: float = Field(default=1.5, ge=0, description="10-12kHz high shelf boost.")
-    master_eq_mud_cut_db: float = Field(default=-1.0, le=0, description="200-400Hz mud cut.")
-    master_eq_sub_boost_db: float = Field(default=0.5, ge=0, description="60-80Hz sub weight boost.")
+    glue_comp_release_ms: float = Field(
+        default=150.0, gt=0, description="Glue compressor release."
+    )
+    master_eq_air_boost_db: float = Field(
+        default=1.5, ge=0, description="10-12kHz high shelf boost."
+    )
+    master_eq_mud_cut_db: float = Field(
+        default=-1.0, le=0, description="200-400Hz mud cut."
+    )
+    master_eq_sub_boost_db: float = Field(
+        default=0.5, ge=0, description="60-80Hz sub weight boost."
+    )
     limiter_attack_ms: float = Field(default=2.0, gt=0, description="alimiter attack (ms).")
     limiter_release_ms: float = Field(default=40.0, gt=0, description="alimiter release (ms).")
     dynaudnorm_maxgain: float = Field(default=2.0, ge=0, description="dynaudnorm maxgain (was 6).")

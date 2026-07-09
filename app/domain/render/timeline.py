@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+from app.config.render import RenderSettings
 from app.domain.render.models import BeatgridEntry, RenderPlan, TrackInput, TrackSegment
 
 
@@ -82,6 +83,7 @@ def build_render_plan(
             )
         )
         running_t += length - d_out
+    settings = RenderSettings()
     return RenderPlan(
         target_bpm=target_bpm,
         xsplit_low_hz=xsplit_low_hz,
@@ -91,6 +93,21 @@ def build_render_plan(
         low_swap_beats=low_swap_beats,
         outro_fade_bars=outro_fade_bars,
         limiter_ceiling=limiter_ceiling,
+        hpf_cutoff_hz=settings.hpf_cutoff_hz,
+        pre_comp_threshold_db=settings.pre_comp_threshold_db,
+        pre_comp_ratio=settings.pre_comp_ratio,
+        pre_comp_attack_ms=settings.pre_comp_attack_ms,
+        pre_comp_release_ms=settings.pre_comp_release_ms,
+        glue_comp_threshold_db=settings.glue_comp_threshold_db,
+        glue_comp_ratio=settings.glue_comp_ratio,
+        glue_comp_attack_ms=settings.glue_comp_attack_ms,
+        glue_comp_release_ms=settings.glue_comp_release_ms,
+        master_eq_air_boost_db=settings.master_eq_air_boost_db,
+        master_eq_mud_cut_db=settings.master_eq_mud_cut_db,
+        master_eq_sub_boost_db=settings.master_eq_sub_boost_db,
+        limiter_attack_ms=settings.limiter_attack_ms,
+        limiter_release_ms=settings.limiter_release_ms,
+        dynaudnorm_maxgain=settings.dynaudnorm_maxgain,
         segments=segments,
     )
 
