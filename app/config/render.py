@@ -50,7 +50,7 @@ class RenderSettings(BaseSettings):
     body_bars_industrial: int | None = Field(default=None, gt=0)
     outro_fade_bars: int = Field(default=12, gt=0, description="End-of-mix fade length (bars).")
     limiter_ceiling: float = Field(
-        default=0.95, gt=0, le=1.0, description="alimiter limit (-0.45 dBFS headroom)."
+        default=0.93, gt=0, le=1.0, description="alimiter limit (-0.45 dBFS headroom)."
     )
 
     # ── Per-track pre-processing ──
@@ -84,8 +84,8 @@ class RenderSettings(BaseSettings):
     master_eq_sub_boost_db: float = Field(
         default=0.5, ge=0, description="60-80Hz sub weight boost."
     )
-    limiter_attack_ms: float = Field(default=2.0, gt=0, description="alimiter attack (ms).")
-    limiter_release_ms: float = Field(default=40.0, gt=0, description="alimiter release (ms).")
+    limiter_attack_ms: float = Field(default=10.0, gt=0, description="alimiter attack (ms) — slower = more punch.")
+    limiter_release_ms: float = Field(default=30.0, gt=0, description="alimiter release (ms).")
     dynaudnorm_maxgain: float = Field(default=2.0, ge=0, description="dynaudnorm maxgain (was 6).")
 
     workspace_subdir: str = Field(

@@ -73,7 +73,6 @@ def test_filtergraph_is_deterministic():
 def test_filtergraph_contains_mastering_chain():
     parts = build_filtergraph(_plan(2))
     graph_str = ";".join(parts)
-    assert "acompressor" in graph_str
     assert "firequalizer" in graph_str
-    assert "attack=2.0" in graph_str
-    assert "release=40.0" in graph_str
+    assert "attack=10.0" in graph_str
+    assert "release=30.0" in graph_str

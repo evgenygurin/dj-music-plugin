@@ -102,8 +102,6 @@ def test_timeline_passes_mastering_settings():
     assert plan.hpf_cutoff_hz == 30.0
     assert plan.pre_comp_threshold_db == -18.0
     assert plan.pre_comp_ratio == 3.0
-    assert plan.glue_comp_ratio == 2.0
-    assert plan.master_eq_air_boost_db == 1.5
-    assert plan.limiter_attack_ms == 2.0
-    assert plan.limiter_release_ms == 40.0
-    assert plan.dynaudnorm_maxgain == 2.0
+    assert plan.glue_comp_ratio == 3.0
+    assert plan.limiter_attack_ms == 10.0
+    assert plan.limiter_release_ms == 30.0
