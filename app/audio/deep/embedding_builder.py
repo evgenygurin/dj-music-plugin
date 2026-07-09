@@ -95,9 +95,9 @@ def build_embeddings(features: dict[str, Any]) -> dict[str, np.ndarray]:
     full = np.pad(full, (0, max(0, 256 - len(full))))[:256]
 
     return {
-        "timbral": timbral,
-        "harmonic": harmonic,
-        "rhythmic": rhythmic,
-        "energy": energy,
+        "timbral": np.pad(timbral, (0, max(0, 256 - len(timbral))))[:256],
+        "harmonic": np.pad(harmonic, (0, max(0, 256 - len(harmonic))))[:256],
+        "rhythmic": np.pad(rhythmic, (0, max(0, 256 - len(rhythmic))))[:256],
+        "energy": np.pad(energy, (0, max(0, 256 - len(energy))))[:256],
         "full": full,
     }

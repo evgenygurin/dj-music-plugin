@@ -36,11 +36,11 @@ def test_build_embeddings_returns_correct_shapes() -> None:
 
     result = build_embeddings(features)
 
-    assert result["timbral"].shape[0] <= 64
-    assert result["harmonic"].shape[0] <= 128
-    assert result["rhythmic"].shape[0] <= 32
-    assert result["energy"].shape[0] <= 32
-    assert result["full"].shape[0] <= 256
+    assert result["timbral"].shape[0] == 256
+    assert result["harmonic"].shape[0] == 256
+    assert result["rhythmic"].shape[0] == 256
+    assert result["energy"].shape[0] == 256
+    assert result["full"].shape[0] == 256
 
 
 def test_build_embeddings_handles_missing_keys() -> None:
@@ -49,4 +49,4 @@ def test_build_embeddings_handles_missing_keys() -> None:
         "integrated_lufs": -8.0,
     }
     result = build_embeddings(features)
-    assert result["full"].shape[0] <= 256
+    assert result["full"].shape[0] == 256
