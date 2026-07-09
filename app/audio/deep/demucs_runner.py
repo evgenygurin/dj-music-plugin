@@ -1,0 +1,19 @@
+from __future__ import annotations
+
+import subprocess
+from pathlib import Path
+
+
+def run_demucs(input_path: Path, output_dir: Path) -> dict[str, Path]:
+    output_dir.mkdir(parents=True, exist_ok=True)
+    subprocess.run(
+        ["python", "-m", "demucs", "-n", "htdemucs", "-o", str(output_dir), str(input_path)],
+        check=True,
+    )
+    stem_dir = output_dir / "htdemucs" / input_path.stem
+    return {
+        "vocals": stem_dir / "vocals.wav",
+        "drums": stem_dir / "drums.wav",
+        "bass": stem_dir / "bass.wav",
+        "other": stem_dir / "other.wav",
+    }
