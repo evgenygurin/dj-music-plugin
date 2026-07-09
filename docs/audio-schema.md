@@ -16,6 +16,9 @@
 | `dj_cue_points` | **0** | drop-pending таблица (blueprint §13.2) |
 | `dj_saved_loops` | **0** | drop-pending |
 | `keys` | 24 | static reference (Camelot wheel) |
+| `stem_features` | **0** | L6 per-stem features — заполняется при `deep_analyze_track` (tiered: только для кандидатов в сеты) |
+| `track_embeddings` | **0** | pgvector эмбеддинги (5 типов: timbral/harmonic/rhythmic/energy/full) — HNSW index |
+| `cross_similarity` | **0** | CrossSimilarityMatrix (DTW alignment) между парами треков — для multi-deck mix-point detection |
 
 ### Что это значит для транзиций
 

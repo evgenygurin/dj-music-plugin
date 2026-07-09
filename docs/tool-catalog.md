@@ -1,6 +1,6 @@
 # MCP Tool Catalog
 
-Quick reference — **25 model-visible tools** (13 core dispatchers + 3 render + 8 UI/Prefab + `tool_invoke`) + **33 resources** + **31 prompts** + **6 handlers** + **11 registered entities**. One extra tool — `render_studio_panel` — is registered but app-visibility only (`visibility=["app"]`), hidden from the model / BM25 so the `ui_render_studio` UI can `CallTool` it.
+Quick reference — **29 model-visible tools** (13 core dispatchers + 3 render + 8 UI/Prefab + 4 deep analysis + `tool_invoke`) + **36 resources** + **31 prompts** + **6 handlers** + **11 registered entities**. One extra tool — `render_studio_panel` — is registered but app-visibility only (`visibility=["app"]`), hidden from the model / BM25 so the `ui_render_studio` UI can `CallTool` it.
 
 The 88-tool catalog of v0.8 was collapsed via polymorphism: generic CRUD
 (`entity_*`) dispatches via `EntityRegistry`, generic provider access
@@ -9,7 +9,7 @@ Everything else is exposed as **resources** (read-only views) or
 **prompts** (workflow recipes) — resources/prompts can be surfaced as
 tools via `app/server/transforms.py` for tool-only clients.
 
-## Tools (24)
+## Tools (29)
 
 ### Entity CRUD (6, namespace `crud:read` / `crud:write` / `crud:destructive`)
 
@@ -141,6 +141,20 @@ in `ALWAYS_VISIBLE_TOOLS` so `BM25SearchTransform` never hides them.
 - `render_diagnose` — scan + per-4s librosa defect sweep (level jumps,
   dropouts, bass-thin) of a rendered mix; writes `diagnostics.json`.
 
+### Deep Analysis (4, namespace `deep_analysis`)
+
+| Tool | Params | RO |
+|------|--------|-----|
+| `deep_analyze_track` | track_id | no (idempotent) |
+| `deep_analyze_pool` | track_ids | no |
+| `find_compatible_tracks` | active_track_ids, embedding_type="full", limit=20 | yes |
+| `get_cross_similarity` | track_a_id, track_b_id, stem_name="original" | yes |
+
+- `deep_analyze_track` — L6 full analysis: Demucs 4-stem separation → per-stem features (×5 pipeline runs) → beatgrid → structural segmentation (SBic) → pgvector embeddings (5 types) → timeseries + waveform upload to Supabase Storage. Heavy — runs as background task.
+- `deep_analyze_pool` — Batch variant: triggers L6 analysis for every track in the list.
+- `find_compatible_tracks` — pgvector ANN similarity search: builds a composite query vector from active deck tracks' embeddings, returns top-N most compatible tracks. For 6-8 deck scenarios.
+- `get_cross_similarity` — CrossSimilarityMatrix (Essentia) between two tracks: best alignment offset, DTW path, per-section segment matches.
+
 ### Admin (2, namespace `admin`)
 
 | Tool | Params | RO |
@@ -175,11 +189,11 @@ Visual renderers marked with `meta={"ui": True}` (standalone-decorator equivalen
 
 Enable with `uv sync --all-extras` (pulls `fastmcp[apps]` → `prefab_ui>=0.19`).
 
-## Resources (33)
+## Resources (36)
 
 All read-only, MIME `application/json`, auto-discovered from `app/resources/`.
 
-### Local — entity views (17)
+### Local — entity views (20)
 
 | URI | File | Purpose |
 |---|---|---|
@@ -196,6 +210,9 @@ All read-only, MIME `application/json`, auto-discovered from `app/resources/`.
 | `local://sets/{id}/review{?version}` | set.py | Set quality review (default: latest version) |
 | `local://sets/{id}/versions/compare/{a}/{b}` | set.py | Diff two set versions |
 | `local://sets/{id}/design/data{?version}` | set_design_data.py | Full labeled data-dump of one set/version (all track features + transition scores + render state) — design-agent handoff, throwaway pending dashboard redesign. Two-segment path (not `{id}/design_data`) deliberately avoids colliding with the `{id}/{view}` catch-all resource above |
+| `local://tracks/{id}/deep_features{?stem}` | track_deep.py | Per-stem L6 audio features (original/vocals/drums/bass/other) — defaults to all stems, `?stem=vocals` for one stem |
+| `local://tracks/{id}/structure` | track_deep.py | Track sections with per-section LUFS, spectral centroid, per-stem energy (SBic segmentation) |
+| `local://tracks/{id}/waveform{?stem}` | track_deep.py | Pre-computed waveform envelope (1000 points) for visualization — from Supabase Storage |
 | `local://transition/{from_id}/{to_id}/score` | transition.py | Pairwise transition score |
 | `local://transition/{from_id}/{to_id}/explain` | transition.py | Explain scored components |
 | `local://transition_history/best_pairs{?track_id,limit}` | transition_history.py | Best historical pairs |
@@ -345,6 +362,7 @@ for clients that do honour the notification.
 | `provider:read` | provider_read, provider_search | visible |
 | `provider:write` | provider_write | visible |
 | `compute` | transition_score_pool, sequence_optimize | visible |
+| `deep_analysis` | deep_analyze_track, deep_analyze_pool, find_compatible_tracks, get_cross_similarity | visible |
 | `sync` | playlist_sync | visible |
 | `render` | render_beatgrid, render_mixdown, render_diagnose | visible |
 | `admin` | unlock_namespace, tool_invoke | visible |
@@ -352,7 +370,7 @@ for clients that do honour the notification.
 | `workflow` | all prompts | visible |
 
 `ALWAYS_VISIBLE_TOOLS` in `app/server/transforms.py` whitelists every tool
-listed above (including `tool_invoke`, the 8 UI tools, and the 3 render tools)
+listed above (including `tool_invoke`, the 8 UI tools, the 4 deep analysis tools, and the 3 render tools)
 so `BM25SearchTransform` never hides them behind a search query. The
 `render_studio_panel` UI helper is `visibility=["app"]` — deliberately NOT
 whitelisted (hidden from the model / BM25; the UI reaches it via `CallTool`).
@@ -374,3 +392,4 @@ whitelisted (hidden from the model / BM25; the UI reaches it via `CallTool`).
 | render studio | **24** | **32** | +`ui_render_studio` interactive Prefab studio (namespace `ui:read`, always-visible; UI tools 6 → **7**) — buttons `CallTool` the 3 `render_*` tools, live status/beatgrid/timeline/diagnostics slots, `RenderStudioFallback` for non-Prefab clients. Plus a hidden `render_studio_panel` helper (`visibility=["app"]` — registered but not model-visible; the UI refreshes through it). See `docs/render-pipeline.md`. |
 | control center | **25** | **32** | +`ui_control_center` combined library + set/version + render-pipeline entry panel (namespace `ui:read`, always-visible; UI tools 7 → **8**) — reuses the existing hidden `render_studio_panel` helper for its render buttons (no new helper), `ControlCenterFallback` for non-Prefab clients. |
 | control center phase 2 | **25** | **32** | +3 hidden app-only tools (`control_center_panel`, `act_build`, `act_l5_set` — `visibility=["app"]`, not model-visible) + Build/Reorder, Analyze→L5 and conditional Sync-diff→YM buttons on `ui_control_center`. Model-visible count unchanged. |
+| L6 deep analysis | **29** | **36** | +4 deep analysis tools (`deep_analyze_track`, `deep_analyze_pool`, `find_compatible_tracks`, `get_cross_similarity`, namespace `deep_analysis`) + 3 track resources (`local://tracks/{id}/deep_features{?stem}`, `.../structure`, `.../waveform{?stem}`). Demucs 4-stem separation → per-stem pipeline (×5) → beatgrid → SBic structural segmentation → pgvector embeddings (5 types, HNSW index) → CrossSimilarityMatrix → Supabase Storage timeseries/waveform upload. 59 new files, ~5.7k LOC. |

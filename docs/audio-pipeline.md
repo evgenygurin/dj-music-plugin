@@ -30,8 +30,13 @@ AnalyzerRegistry (18 implemented)
 │   ├── PitchSalienceAnalyzer   → pitch salience mean
 │   └── SpectralComplexityAnalyzer → spectral complexity mean
 │
-└── NOT YET IMPLEMENTED (planned, requires [stems] extra)
-    └── StemSeparator           → vocals, drums, bass, other (demucs/htdemucs)
+└── L6‑only (requires [audio] + [stems] extra)
+    ├── ChordsAnalyzer           → chords_strength, chords_changes_rate
+    ├── HpCPExtendedAnalyzer     → hpcp_entropy, hpcp_crest
+    ├── InharmonicityAnalyzer    → inharmonicity
+    ├── MeterAnalyzer            → meter (time signature, e.g. "4/4")
+    ├── AudioQAAnalyzer          → click_detected, saturation_detected
+    └── StemSeparator            → vocals, drums, bass, other (demucs/htdemucs + MPS GPU)
 ```
 
 ## Pipeline Orchestration
@@ -241,6 +246,23 @@ DB table `timeseries_references` stores metadata: frame_count, hop_length, sampl
 ## Mood Classifier
 
 Rule-based, no ML model. Scores each track against 15 subgenre profiles:
+
+### L6 Deep Analysis (Tier 6)
+
+L6 runs only for tracks selected as set/transition candidates. Pipeline:
+
+1. **Demucs htdemucs 4-stem** → vocals, drums, bass, other (WAV locally, MPS GPU)
+2. **Per-stem pipeline ×5** — full AnalyzerRegistry (librosa + Essentia) on original + 4 stems → `stem_features` table (60+ columns per stem)
+3. **Beatgrid** — kick-phase detect + sub-beat refine → `dj_beatgrids`
+4. **Structural segmentation** — Essentia SBic (MFCC‑based) → `track_sections` with per-section LUFS, spectral centroid, per-stem energy
+5. **pgvector embeddings** — timbral (64d), harmonic (128d), rhythmic (32d), energy (32d), full (256d) → `track_embeddings` (HNSW index)
+6. **CrossSimilarityMatrix** — Essentia pairwise similarity for multi-deck mix-point detection → `cross_similarity`
+7. **Timeseries upload** — energy/chroma/spectral/beats NPZ → Supabase Storage `track-timeseries/`
+8. **Waveform upload** — envelope (1000 pts) → Supabase Storage `track-waveforms/`
+
+Invoke via `deep_analyze_track` tool (background task) or `deep_analyze_pool` for batches.
+
+## Mood Classifier
 
 ```text
 For each subgenre:
