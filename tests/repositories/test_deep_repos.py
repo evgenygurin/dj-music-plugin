@@ -5,10 +5,10 @@ from unittest.mock import AsyncMock, MagicMock
 import numpy as np
 import pytest
 
-from app.repositories.stem_features import StemFeaturesRepository
-from app.repositories.track_embedding import TrackEmbeddingRepository
 from app.repositories.cross_similarity import CrossSimilarityRepository
 from app.repositories.feature_extraction import FeatureExtractionRunRepository
+from app.repositories.stem_features import StemFeaturesRepository
+from app.repositories.track_embedding import TrackEmbeddingRepository
 
 
 @pytest.mark.asyncio

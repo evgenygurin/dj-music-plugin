@@ -7,7 +7,6 @@ import numpy as np
 import soundfile as sf
 from scipy.signal import butter, sosfiltfilt
 
-
 BANDS = {
     "sub_kick":   (20, 60),
     "kick_body":  (60, 150),

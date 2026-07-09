@@ -3,10 +3,10 @@ from __future__ import annotations
 import asyncio
 import logging
 
+from app.config.supabase import SupabaseSettings
 from app.db.session import get_session_factory
 from app.domain.deep_analysis.models import L6AnalysisResult
 from app.domain.deep_analysis.orchestrator import L6AnalysisOrchestrator
-from app.config.supabase import SupabaseSettings
 from app.providers.supabase.storage_client import SupabaseStorageClient
 from app.repositories.unit_of_work import UnitOfWork
 
