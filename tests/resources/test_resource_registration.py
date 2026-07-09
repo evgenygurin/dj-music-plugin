@@ -56,6 +56,9 @@ EXPECTED_TEMPLATE_URIS: frozenset[str] = frozenset(
         "local://render/jobs/{job_id}/diagnostics",
         "local://render/{version_id}/beatgrid",
         "local://render/{version_id}/timeline",
+        "local://tracks/{id}/deep_features{?stem}",
+        "local://tracks/{id}/structure",
+        "local://tracks/{id}/waveform{?stem}",
     }
 )
 

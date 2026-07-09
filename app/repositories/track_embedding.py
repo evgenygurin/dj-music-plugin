@@ -24,6 +24,20 @@ class TrackEmbeddingRepository:
         await self._session.flush()
         return row
 
+    async def get_for_type(
+        self, track_id: int, stem_name: str, embedding_type: str,
+    ) -> TrackEmbedding | None:
+        from sqlalchemy import select
+
+        result = await self._session.scalars(
+            select(TrackEmbedding).where(
+                TrackEmbedding.track_id == track_id,
+                TrackEmbedding.stem_name == stem_name,
+                TrackEmbedding.embedding_type == embedding_type,
+            )
+        )
+        return result.first()
+
     async def search_similar(
         self,
         query_vector: np.ndarray,
