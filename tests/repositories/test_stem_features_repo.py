@@ -8,7 +8,6 @@ from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 from app.models.stem_features import StemFeatures
 from app.repositories.stem_features import StemFeaturesRepository
 
-
 _STEM_FEATURES_DDL = text(
     """
     CREATE TABLE IF NOT EXISTS stem_features (
