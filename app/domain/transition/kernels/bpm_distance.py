@@ -3,6 +3,14 @@ from __future__ import annotations
 import numpy as np
 import numpy.typing as npt
 
+from app.domain.transition.kernels.gauss import gauss_similarity
+
+
+def bpm_gauss(bpm_a: float, bpm_b: float, sigma: float = 2.0) -> float:
+    """BPM compatibility score via gaussian kernel on bpm_distance."""
+    d = bpm_distance(bpm_a, bpm_b)
+    return gauss_similarity(d, sigma)
+
 
 def bpm_distance(bpm_a: float, bpm_b: float) -> float:
     """Minimum BPM distance considering double/half-time."""
