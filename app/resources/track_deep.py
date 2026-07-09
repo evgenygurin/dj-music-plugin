@@ -64,11 +64,11 @@ async def track_waveform(
     stem: str = "original",
     uow: UnitOfWork = Depends(get_uow),
 ) -> str:
-    from app.providers.supabase.config import SupabaseStorageSettings
+    from app.config.supabase import SupabaseSettings
     from app.providers.supabase.storage_client import SupabaseStorageClient
 
-    settings = SupabaseStorageSettings()
-    storage = SupabaseStorageClient(url=settings.url, key=settings.service_key)
+    settings = SupabaseSettings()
+    storage = SupabaseStorageClient(url=settings.supabase_url, key=settings.supabase_service_key)
     prefix = f"{id}" if stem == "original" else f"{id}/stem_{stem}"
     data = await storage.download("track-waveforms", f"{prefix}/waveform.json")
     return data.decode()

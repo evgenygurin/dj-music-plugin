@@ -6,7 +6,7 @@ import logging
 from app.db.session import get_session_factory
 from app.domain.deep_analysis.models import L6AnalysisResult
 from app.domain.deep_analysis.orchestrator import L6AnalysisOrchestrator
-from app.providers.supabase.config import SupabaseStorageSettings
+from app.config.supabase import SupabaseSettings
 from app.providers.supabase.storage_client import SupabaseStorageClient
 from app.repositories.unit_of_work import UnitOfWork
 
@@ -33,8 +33,8 @@ async def handle_deep_analyze_track(
         status="pending",
     )
 
-    settings = SupabaseStorageSettings()
-    storage = SupabaseStorageClient(url=settings.url, key=settings.service_key)
+    settings = SupabaseSettings()
+    storage = SupabaseStorageClient(url=settings.supabase_url, key=settings.supabase_service_key)
     orchestrator = L6AnalysisOrchestrator(storage_client=storage)
 
     task = asyncio.create_task(_run_background(track_id, run.id, orchestrator))
