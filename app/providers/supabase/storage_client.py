@@ -23,7 +23,7 @@ class SupabaseStorageClient:
         return await loop.run_in_executor(
             None,
             lambda: self._client.storage.from_(bucket).upload(
-                path, data, {"content-type": content_type}
+                path, data, {"content-type": content_type, "upsert": "true"}
             ),
         )
 
