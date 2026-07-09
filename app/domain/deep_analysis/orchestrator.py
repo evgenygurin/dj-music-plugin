@@ -74,20 +74,26 @@ class L6AnalysisOrchestrator:
 
             # Step 6: CrossSimilarity — skipped without candidates
 
-            # Step 7: Timeseries upload
-            try:
-                await upload_timeseries(self._storage, track_id, "original", {})
-                result.timeseries_uploaded = True
-            except Exception as e:
-                result.errors.append(f"Timeseries upload: {e}")
+            # Step 7: Timeseries upload (skip if Supabase unavailable)
+            if self._storage.available:
+                try:
+                    await upload_timeseries(self._storage, track_id, "original", {})
+                    result.timeseries_uploaded = True
+                except Exception as e:
+                    result.errors.append(f"Timeseries upload: {e}")
+            else:
+                result.errors.append("Timeseries upload: Supabase not configured")
 
-            # Step 8: Waveform
-            try:
-                peaks = build_waveform(audio_path)
-                await upload_waveform(self._storage, track_id, "original", peaks)
-                result.waveform_uploaded = True
-            except Exception as e:
-                result.errors.append(f"Waveform upload: {e}")
+            # Step 8: Waveform (skip if Supabase unavailable)
+            if self._storage.available:
+                try:
+                    peaks = build_waveform(audio_path)
+                    await upload_waveform(self._storage, track_id, "original", peaks)
+                    result.waveform_uploaded = True
+                except Exception as e:
+                    result.errors.append(f"Waveform upload: {e}")
+            else:
+                result.errors.append("Waveform upload: Supabase not configured")
 
         finally:
             import shutil

@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import logging
 
+from app.db.session import get_session_factory
 from app.domain.deep_analysis.models import L6AnalysisResult
 from app.domain.deep_analysis.orchestrator import L6AnalysisOrchestrator
 from app.providers.supabase.config import SupabaseStorageSettings
@@ -36,7 +37,7 @@ async def handle_deep_analyze_track(
     storage = SupabaseStorageClient(url=settings.url, key=settings.service_key)
     orchestrator = L6AnalysisOrchestrator(storage_client=storage)
 
-    task = asyncio.create_task(_run_background(track_id, run.id, orchestrator, uow))
+    task = asyncio.create_task(_run_background(track_id, run.id, orchestrator))
     _BACKGROUND_TASKS.add(task)
     task.add_done_callback(_BACKGROUND_TASKS.discard)
 
@@ -44,13 +45,18 @@ async def handle_deep_analyze_track(
 
 
 async def _run_background(
-    track_id: int, run_id: int, orchestrator: L6AnalysisOrchestrator, uow: UnitOfWork,
+    track_id: int, run_id: int, orchestrator: L6AnalysisOrchestrator,
 ) -> None:
-    try:
-        result = await orchestrator.run(track_id, uow)
-        _DEEP_JOBS[track_id] = result
-        await uow.feature_extraction_runs.update(run_id, status="completed")
-    except Exception as e:
-        logger.exception(f"L6 analysis failed for track {track_id}: {e}")
-        await uow.feature_extraction_runs.update(run_id, status="failed", error_message=str(e))
-        _DEEP_JOBS[track_id] = L6AnalysisResult(track_id=track_id, errors=[str(e)])
+    factory = get_session_factory()
+    async with factory() as session:
+        uow = UnitOfWork(session)
+        try:
+            result = await orchestrator.run(track_id, uow)
+            _DEEP_JOBS[track_id] = result
+            await uow.feature_extraction_runs.update(run_id, status="completed")
+            await session.commit()
+        except Exception as e:
+            logger.exception(f"L6 analysis failed for track {track_id}: {e}")
+            await uow.feature_extraction_runs.update(run_id, status="failed", error_message=str(e))
+            await session.commit()
+            _DEEP_JOBS[track_id] = L6AnalysisResult(track_id=track_id, errors=[str(e)])
