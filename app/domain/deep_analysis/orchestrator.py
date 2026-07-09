@@ -42,11 +42,15 @@ class L6AnalysisOrchestrator:
             result.stems = {k: str(v) for k, v in stem_paths.items()}
 
             # Step 2: Per-stem analysis
-            all_features = await analyze_stems(uow, track_id, stem_paths, audio_path)
-            for stem_name, features in all_features.items():
-                if features:
-                    await uow.stem_features.upsert(track_id, stem_name, features)
-                    result.stem_features_count += 1
+            all_features: dict[str, dict] = {}
+            try:
+                all_features = await analyze_stems(uow, track_id, stem_paths, audio_path)
+                for stem_name, features in all_features.items():
+                    if features:
+                        await uow.stem_features.upsert(track_id, stem_name, features)
+                        result.stem_features_count += 1
+            except Exception as e:
+                result.errors.append(f"Stem analysis: {e}")
 
             # Step 3: Beatgrid (use original audio)
             try:
@@ -65,12 +69,15 @@ class L6AnalysisOrchestrator:
                 result.errors.append(f"Structure: {e}")
 
             # Step 5: Embeddings (from original features)
-            orig_features = all_features.get("original", {})
-            if orig_features:
-                embeddings = build_embeddings(orig_features)
-                for etype, emb in embeddings.items():
-                    await uow.track_embeddings.upsert(track_id, "original", etype, emb)
-                    result.embeddings_count += 1
+            try:
+                orig_features = all_features.get("original", {})
+                if orig_features:
+                    embeddings = build_embeddings(orig_features)
+                    for etype, emb in embeddings.items():
+                        await uow.track_embeddings.upsert(track_id, "original", etype, emb)
+                        result.embeddings_count += 1
+            except Exception as e:
+                result.errors.append(f"Embeddings: {e}")
 
             # Step 6: CrossSimilarity — skipped without candidates
 
