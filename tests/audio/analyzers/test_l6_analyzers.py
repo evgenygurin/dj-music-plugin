@@ -3,11 +3,11 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
+from app.audio.analyzers.audio_qa import AudioQAAnalyzer
 from app.audio.analyzers.chords import ChordsAnalyzer
 from app.audio.analyzers.hpcp_extended import HpCPExtendedAnalyzer
 from app.audio.analyzers.inharmonicity import InharmonicityAnalyzer
 from app.audio.analyzers.meter import MeterAnalyzer
-from app.audio.analyzers.audio_qa import AudioQAAnalyzer
 
 
 @pytest.fixture
