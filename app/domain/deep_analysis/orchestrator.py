@@ -57,10 +57,11 @@ class L6AnalysisOrchestrator:
         except Exception as e:
             result.errors.append(f"Beatgrid: {e}")
 
-        # Step 4: Structure
+        # Step 4: Structure (enrich existing sections with per-stem energy)
         try:
             await uow.track_features.clear_l6_sections(track_id)
-            sections = analyze_structure(audio_path, stem_paths)
+            existing = await uow.track_features.get_track_sections(track_id)
+            sections = analyze_structure(audio_path, stem_paths, [{"start_ms": s["start_ms"], "end_ms": s["end_ms"], "section_type": s["section_type"]} for s in existing if s.get("start_ms", 0) < s.get("end_ms", 0)])
             for section in sections:
                 await uow.track_features.save_track_section(track_id, section)
             result.sections_count = len(sections)

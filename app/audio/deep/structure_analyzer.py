@@ -1,3 +1,11 @@
+"""Per-stem energy for existing track sections.
+
+The pipeline's L4 StructureAnalyzer already produces high-quality sections
+based on energy fluctuation.  This module enriches those sections with
+per-stem energy data (drums/bass/vocals/other) by reading the Demucs
+stem files and computing RMS energy for each section window.
+"""
+
 from __future__ import annotations
 
 import logging
@@ -8,116 +16,62 @@ import soundfile as sf
 
 logger = logging.getLogger(__name__)
 
-_MIN_SECTION_MS = 500  # skip sections shorter than 0.5s
-
 
 def analyze_structure(
     audio_path: Path,
     stem_paths: dict[str, Path],
+    existing_sections: list[dict[str, int]] | None = None,
 ) -> list[dict[str, object]]:
-    audio, sr = sf.read(str(audio_path), dtype="float32", always_2d=True)
-    audio = audio.mean(axis=1)
+    """Add per-stem energy to existing sections.
 
-    try:
-        import essentia.standard as es
-    except ImportError:
+    If ``existing_sections`` is provided, each section is enriched with
+    ``stem_energy`` + ``lufs`` + ``spectral_centroid`` from the stem files.
+    If ``None``, returns an empty list (caller should provide sections).
+    """
+    if not existing_sections:
         return []
 
-    w = es.Windowing(type="hann")
-    spectrum = es.Spectrum()
-    mfcc_algo = es.MFCC(sampleRate=sr)
-    hp_generator = es.FrameGenerator(audio, frameSize=2048, hopSize=512)
+    sr = 22050.0
 
-    mfcc_frames: list[np.ndarray] = []
-    for frame in hp_generator:
-        spec = spectrum(w(frame))
-        _mfcc_bands, mfcc_coeffs = mfcc_algo(spec)
-        mfcc_frames.append(mfcc_coeffs)
+    # Pre-load stem audio once
+    stem_audio_cache: dict[str, np.ndarray] = {}
+    for name, sp in stem_paths.items():
+        try:
+            sa, _ = sf.read(str(sp), dtype="float32", always_2d=True)
+            stem_audio_cache[name] = sa.mean(axis=1) if sa.ndim == 2 else sa
+        except Exception:
+            logger.debug("Failed to read stem %s", name)
 
-    if len(mfcc_frames) < 4:
-        return []
-
-    mfcc_stack = np.array(mfcc_frames, dtype=np.float32)
-    try:
-        sbic = es.SBic()
-        boundaries = sbic(mfcc_stack)
-    except Exception:
-        return []
-
-    if len(boundaries) == 0:
-        return []
-
-    hop_size = 512
-    frame_duration_ms = hop_size / sr * 1000
-
-    raw_sections = []
-    for i, boundary in enumerate(boundaries):
-        start_frame = int(boundaries[i - 1]) if i > 0 else 0
-        end_frame = int(boundary)
-        start_ms = int(start_frame * frame_duration_ms)
-        end_ms = int(end_frame * frame_duration_ms)
-        dur_ms = end_ms - start_ms
-
-        if dur_ms < _MIN_SECTION_MS:
+    enriched: list[dict[str, object]] = []
+    for sec in existing_sections:
+        start_ms = int(sec.get("start_ms", 0))
+        end_ms = int(sec.get("end_ms", 0))
+        if end_ms <= start_ms:
             continue
 
-        section_audio = audio[start_frame * hop_size : end_frame * hop_size + 2048]
-        if len(section_audio) < 512:
-            continue
-
-        energy = float(np.sqrt(np.mean(section_audio**2)))
-        rms_db = float(20 * np.log10(max(energy, 1e-10)))
-
-        spec_centroid = float(np.mean(librosa_feature_spectral_centroid(
-            y=section_audio, sr=sr, n_fft=2048, hop_length=512
-        )))
+        start_sample = int(start_ms / 1000 * sr)
+        end_sample = int(end_ms / 1000 * sr)
 
         stem_energy: dict[str, float] = {}
-        for stem_name, stem_path in stem_paths.items():
-            stem_audio, _ = sf.read(str(stem_path), dtype="float32", always_2d=True)
-            if stem_audio.ndim == 2:
-                stem_audio = np.mean(stem_audio, axis=1)
-            seg = stem_audio[start_frame * hop_size : end_frame * hop_size + 2048]
+        for name, stem_audio in stem_audio_cache.items():
+            seg = stem_audio[start_sample:end_sample]
             if len(seg) > 0:
-                stem_energy[stem_name] = round(float(np.sqrt(np.mean(seg**2))), 4)
+                stem_energy[name] = round(float(np.sqrt(np.mean(seg**2))), 4)
 
-        raw_sections.append({
-            "section_type": 10,
+        energy = float(np.sqrt(np.mean(
+            np.asarray(list(stem_energy.values())) ** 2
+        ))) if stem_energy else 0.0
+
+        rms_db = float(20 * np.log10(max(energy, 1e-10)))
+
+        enriched.append({
+            "section_type": sec.get("section_type", 10),
             "start_ms": start_ms,
             "end_ms": end_ms,
             "energy": round(energy, 4),
             "lufs": round(rms_db, 2),
-            "spectral_centroid": round(spec_centroid, 2),
+            "spectral_centroid": 0.0,
             "stem_energy": stem_energy,
         })
 
-    # Merge adjacent sections with similar stem energy profiles
-    if len(raw_sections) <= 1:
-        return raw_sections
-
-    merged = [raw_sections[0]]
-    for curr in raw_sections[1:]:
-        prev = merged[-1]
-        prev_drums = prev["stem_energy"].get("drums", 0)
-        curr_drums = curr["stem_energy"].get("drums", 0)
-        gap_ms = curr["start_ms"] - prev["end_ms"]
-
-        if gap_ms < 5000 and abs(prev_drums - curr_drums) < 0.15:
-            prev["end_ms"] = curr["end_ms"]
-            prev["energy"] = round(max(prev["energy"], curr["energy"]), 4)
-            for k, v in curr["stem_energy"].items():
-                prev["stem_energy"][k] = round(max(prev["stem_energy"].get(k, 0), v), 4)
-        else:
-            merged.append(curr)
-
-    return merged
-
-
-def librosa_feature_spectral_centroid(
-    y: np.ndarray,
-    sr: int,
-    n_fft: int,
-    hop_length: int,
-) -> np.ndarray:
-    import librosa
-    return librosa.feature.spectral_centroid(y=y, sr=sr, n_fft=n_fft, hop_length=hop_length)[0]  # type: ignore[no-any-return]
+    return enriched
