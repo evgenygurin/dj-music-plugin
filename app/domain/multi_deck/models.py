@@ -26,3 +26,49 @@ class CompatibilityResult:
     key_compatibility: dict
     bpm_compatibility: dict
     recommendations: list[str] = field(default_factory=list)
+
+
+@dataclass
+class BandBudget:
+    total_lufs: float
+    headroom_db: float
+    warning: bool
+
+
+@dataclass
+class EnergyBudgetResult:
+    total_lufs: float
+    headroom_db: float
+    per_band: dict[str, BandBudget]
+    recommendation: str
+
+
+@dataclass
+class BpmRatioMatch:
+    bpm_b: float
+    ratio: float
+    ratio_label: str
+    error_pct: float
+    bars_to_align: int
+    seconds_to_align: float
+
+
+@dataclass
+class BpmRatioResult:
+    bpm_a: float
+    matches: list[BpmRatioMatch]
+    library_pairs: list[dict]
+
+
+@dataclass
+class TimelineTrack:
+    track_id: int
+    first_downbeat_ms: float
+    bpm: float | None
+    sections: list[dict]
+
+
+@dataclass
+class TimelineOverlay:
+    tracks: list[TimelineTrack]
+    description: str
