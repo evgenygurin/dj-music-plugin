@@ -4,10 +4,21 @@ import subprocess
 from pathlib import Path
 
 
+def _detect_device() -> str:
+    try:
+        import torch
+        if torch.backends.mps.is_available():
+            return "mps"
+    except Exception:
+        pass
+    return "cpu"
+
+
 def run_demucs(input_path: Path, output_dir: Path) -> dict[str, Path]:
     output_dir.mkdir(parents=True, exist_ok=True)
+    device = _detect_device()
     subprocess.run(
-        ["python", "-m", "demucs", "-n", "htdemucs", "-o", str(output_dir), str(input_path)],
+        ["python", "-m", "demucs", "-n", "htdemucs", "-d", device, "-o", str(output_dir), str(input_path)],
         check=True,
     )
     stem_dir = output_dir / "htdemucs" / input_path.stem
