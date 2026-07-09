@@ -1,9 +1,21 @@
 # DJ Music Plugin — Project Instructions
 
 > MCP-сервер для управления DJ techno библиотекой, построения оптимизированных сетов и интеграции с Яндекс Музыкой.
-> Версия: 1.8.0
+> Версия: 1.10.0
 
 **Всегда думай по-русски и отвечай по-русски, если только явно не просят другое.**
+
+## ⚠️ ВСЕГДА используй `uv`
+
+**Запрещено** запускать `python`, `pip`, `pytest`, `ruff`, `mypy` напрямую.
+Только через `uv`:
+
+- `uv run python script.py` — запуск скриптов
+- `uv run pytest tests/` — тесты
+- `uv run ruff check` — линтинг
+- `uv sync` / `uv sync --all-extras` — установка зависимостей
+- `uv run alembic upgrade head` — миграции БД
+- `uv run python -c "..."` — однострочники
 
 ## Quick Check
 

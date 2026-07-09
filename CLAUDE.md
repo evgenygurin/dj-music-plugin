@@ -4,7 +4,19 @@
 
 MCP-сервер для управления DJ techno библиотекой, построения оптимизированных сетов и интеграции с Яндекс Музыкой.
 
-**Текущая версия:** v1.8.0 (детальная история — [CHANGELOG.md](CHANGELOG.md)).
+**Текущая версия:** v1.10.0 (детальная история — [CHANGELOG.md](CHANGELOG.md)).
+
+## ⚠️ ВСЕГДА используй `uv`
+
+**Запрещено** запускать `python`, `pip`, `pytest`, `ruff`, `mypy` напрямую.
+Только через `uv`:
+
+- `uv run python script.py` — запуск скриптов
+- `uv run pytest tests/` — тесты
+- `uv run ruff check` — линтинг
+- `uv sync` / `uv sync --all-extras` — установка зависимостей
+- `uv run alembic upgrade head` — миграции БД
+- `uv run python -c "..."` — однострочники
 
 ## ⛔ НЕ создавать CI (GitHub Actions)
 
