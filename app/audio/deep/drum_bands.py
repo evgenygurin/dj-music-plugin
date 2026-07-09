@@ -12,7 +12,7 @@ BANDS = {
     "sub_kick":   (20, 60),
     "kick_body":  (60, 150),
     "snare_clap": (150, 2000),
-    "hi_hats":    (2000, 20000),
+    "hi_hats":    (2000, 10000),
 }
 
 

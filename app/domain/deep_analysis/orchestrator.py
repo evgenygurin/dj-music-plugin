@@ -62,6 +62,7 @@ class L6AnalysisOrchestrator:
 
             # Step 4: Structure
             try:
+                await uow.track_features.clear_l6_sections(track_id)
                 sections = analyze_structure(audio_path, stem_paths)
                 for section in sections:
                     await uow.track_features.save_track_section(track_id, section)

@@ -256,3 +256,12 @@ class TrackFeaturesRepository(BaseRepository[TrackAudioFeaturesComputed]):
             }
             for r in rows
         ]
+
+    async def clear_l6_sections(self, track_id: int) -> None:
+        from sqlalchemy import delete
+        stmt = delete(TrackSection).where(
+            TrackSection.track_id == track_id,
+            TrackSection.stem_energy.isnot(None),
+        )
+        await self.session.execute(stmt)
+        await self.session.flush()

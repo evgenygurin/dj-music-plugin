@@ -19,7 +19,7 @@ def run_demucs(input_path: Path, output_dir: Path) -> dict[str, Path]:
     device = _detect_device()
     subprocess.run(
         ["python", "-W", "ignore::UserWarning", "-m", "demucs", "-n", "htdemucs", "-d", device, "-o", str(output_dir), str(input_path)],
-        check=True,
+        check=True, stdout=subprocess.DEVNULL,
     )
     stem_dir = output_dir / "htdemucs" / input_path.stem
     return {

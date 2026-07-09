@@ -1,9 +1,14 @@
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 
 import numpy as np
 import soundfile as sf
+
+logger = logging.getLogger(__name__)
+
+_MIN_SECTION_MS = 2000  # skip sections shorter than 2 seconds
 
 
 def analyze_structure(
@@ -23,7 +28,7 @@ def analyze_structure(
     mfcc_algo = es.MFCC(sampleRate=sr)
     hp_generator = es.FrameGenerator(audio, frameSize=4096, hopSize=1024)
 
-    mfcc_frames = []
+    mfcc_frames: list[np.ndarray] = []
     for frame in hp_generator:
         spec = spectrum(w(frame))
         _mfcc_bands, mfcc_coeffs = mfcc_algo(spec)
@@ -33,18 +38,28 @@ def analyze_structure(
         return []
 
     mfcc_stack = np.array(mfcc_frames, dtype=np.float32)
-    sbic = es.SBic()
-    boundaries = sbic(mfcc_stack)
+    try:
+        sbic = es.SBic()
+        boundaries = sbic(mfcc_stack)
+    except Exception:
+        return []
+
     if len(boundaries) == 0:
         return []
 
     hop_size = 1024
-    sections = []
+    frame_duration_ms = hop_size / sr * 1000
+
+    raw_sections = []
     for i, boundary in enumerate(boundaries):
         start_frame = int(boundaries[i - 1]) if i > 0 else 0
         end_frame = int(boundary)
-        start_ms = int(start_frame * hop_size / sr * 1000)
-        end_ms = int(end_frame * hop_size / sr * 1000)
+        start_ms = int(start_frame * frame_duration_ms)
+        end_ms = int(end_frame * frame_duration_ms)
+        dur_ms = end_ms - start_ms
+
+        if dur_ms < _MIN_SECTION_MS:
+            continue
 
         section_audio = audio[start_frame * hop_size : end_frame * hop_size + 4096]
         if len(section_audio) < 512:
@@ -66,7 +81,7 @@ def analyze_structure(
             if len(seg) > 0:
                 stem_energy[stem_name] = round(float(np.sqrt(np.mean(seg**2))), 4)
 
-        sections.append({
+        raw_sections.append({
             "section_type": 10,
             "start_ms": start_ms,
             "end_ms": end_ms,
@@ -76,7 +91,26 @@ def analyze_structure(
             "stem_energy": stem_energy,
         })
 
-    return sections
+    # Merge adjacent sections with similar stem energy profiles
+    if len(raw_sections) <= 1:
+        return raw_sections
+
+    merged = [raw_sections[0]]
+    for curr in raw_sections[1:]:
+        prev = merged[-1]
+        prev_drums = prev["stem_energy"].get("drums", 0)
+        curr_drums = curr["stem_energy"].get("drums", 0)
+        gap_ms = curr["start_ms"] - prev["end_ms"]
+
+        if gap_ms < 5000 and abs(prev_drums - curr_drums) < 0.15:
+            prev["end_ms"] = curr["end_ms"]
+            prev["energy"] = round(max(prev["energy"], curr["energy"]), 4)
+            for k, v in curr["stem_energy"].items():
+                prev["stem_energy"][k] = round(max(prev["stem_energy"].get(k, 0), v), 4)
+        else:
+            merged.append(curr)
+
+    return merged
 
 
 def librosa_feature_spectral_centroid(
