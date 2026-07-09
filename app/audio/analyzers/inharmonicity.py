@@ -41,4 +41,4 @@ class InharmonicityAnalyzer(BaseAnalyzer):
             return {"inharmonicity": None}
 
     def _extract(self, ctx: AnalysisContext) -> dict[str, Any]:
-        return self.analyze(ctx.samples, ctx.sr)
+        return self.analyze(ctx.samples.astype(np.float32, copy=False), ctx.sr)

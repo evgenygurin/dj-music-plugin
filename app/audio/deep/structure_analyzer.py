@@ -10,9 +10,8 @@ def analyze_structure(
     audio_path: Path,
     stem_paths: dict[str, Path],
 ) -> list[dict[str, object]]:
-    audio, sr = sf.read(str(audio_path))
-    if audio.ndim == 2:
-        audio = np.mean(audio, axis=1)
+    audio, sr = sf.read(str(audio_path), dtype="float32", always_2d=True)
+    audio = audio.mean(axis=1)
 
     try:
         import essentia.standard as es
@@ -60,7 +59,7 @@ def analyze_structure(
 
         stem_energy: dict[str, float] = {}
         for stem_name, stem_path in stem_paths.items():
-            stem_audio, _ = sf.read(str(stem_path))
+            stem_audio, _ = sf.read(str(stem_path), dtype="float32", always_2d=True)
             if stem_audio.ndim == 2:
                 stem_audio = np.mean(stem_audio, axis=1)
             seg = stem_audio[start_frame * hop_size : end_frame * hop_size + 4096]

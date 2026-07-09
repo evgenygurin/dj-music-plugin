@@ -53,4 +53,4 @@ class ChordsAnalyzer(BaseAnalyzer):
         return {"chords_strength": chords_strength, "chords_changes_rate": chords_changes_rate}
 
     def _extract(self, ctx: AnalysisContext) -> dict[str, Any]:
-        return self.analyze(ctx.samples, ctx.sr)
+        return self.analyze(ctx.samples.astype(np.float32, copy=False), ctx.sr)

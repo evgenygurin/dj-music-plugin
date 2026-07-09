@@ -31,4 +31,4 @@ class AudioQAAnalyzer(BaseAnalyzer):
         return {"click_detected": click_detected, "saturation_detected": saturation_detected}
 
     def _extract(self, ctx: AnalysisContext) -> dict[str, Any]:
-        return self.analyze(ctx.samples, ctx.sr)
+        return self.analyze(ctx.samples.astype(np.float32, copy=False), ctx.sr)
