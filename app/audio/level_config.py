@@ -11,6 +11,7 @@ class AnalysisLevel(IntEnum):
     SCORING = 3  # L3: + beat analyzer (onset, kick, hp_ratio, pulse)
     TRANSITION = 4  # L4: + structure (sections), permanent file
     ADVANCED = 5  # L5: + P3 DSP (danceability, dissonance, tonnetz, etc.)
+    DEEP = 6  # L6: + per-stem features (demucs + stem_analyzer), beatgrid, sbic, embeddings
 
 
 _LEVEL_ANALYZERS: dict[int, list[str]] = {
@@ -28,6 +29,13 @@ _LEVEL_ANALYZERS: dict[int, list[str]] = {
         "beats_loudness",
         "bpm_histogram",
         "phrase",
+    ],
+    AnalysisLevel.DEEP: [
+        "chords",
+        "hpcp_extended",
+        "inharmonicity",
+        "meter",
+        "audio_qa",
     ],
 }
 
