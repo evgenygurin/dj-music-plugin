@@ -31,6 +31,7 @@ from app.repositories.track_affinity import TrackAffinityRepository
 from app.repositories.track_embedding import TrackEmbeddingRepository
 from app.repositories.track_features import TrackFeaturesRepository
 from app.repositories.track_feedback import TrackFeedbackRepository
+from app.repositories.track_section import TrackSectionRepository
 from app.repositories.transition import TransitionRepository
 from app.repositories.transition_history import TransitionHistoryRepository
 
@@ -132,6 +133,10 @@ class UnitOfWork:
     @cached_property
     def cross_similarity(self) -> CrossSimilarityRepository:
         return CrossSimilarityRepository(self.session)
+
+    @cached_property
+    def track_sections(self) -> TrackSectionRepository:
+        return TrackSectionRepository(self.session)
 
     @cached_property
     def feature_extraction_runs(self) -> FeatureExtractionRunRepository:
