@@ -14,6 +14,8 @@ from typing import Self
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.repositories.audio_file import AudioFileRepository
+from app.repositories.cross_similarity import CrossSimilarityRepository
+from app.repositories.feature_extraction import FeatureExtractionRunRepository
 from app.repositories.key import KeyEdgeRepository, KeyRepository
 from app.repositories.playlist import PlaylistRepository
 from app.repositories.provider_metadata import (
@@ -23,8 +25,10 @@ from app.repositories.provider_metadata import (
 )
 from app.repositories.scoring_profile import ScoringProfileRepository
 from app.repositories.set import SetRepository, SetVersionRepository
+from app.repositories.stem_features import StemFeaturesRepository
 from app.repositories.track import TrackRepository
 from app.repositories.track_affinity import TrackAffinityRepository
+from app.repositories.track_embedding import TrackEmbeddingRepository
 from app.repositories.track_features import TrackFeaturesRepository
 from app.repositories.track_feedback import TrackFeedbackRepository
 from app.repositories.transition import TransitionRepository
@@ -116,3 +120,19 @@ class UnitOfWork:
     @cached_property
     def key_edges(self) -> KeyEdgeRepository:
         return KeyEdgeRepository(self.session)
+
+    @cached_property
+    def stem_features(self) -> StemFeaturesRepository:
+        return StemFeaturesRepository(self.session)
+
+    @cached_property
+    def track_embeddings(self) -> TrackEmbeddingRepository:
+        return TrackEmbeddingRepository(self.session)
+
+    @cached_property
+    def cross_similarity(self) -> CrossSimilarityRepository:
+        return CrossSimilarityRepository(self.session)
+
+    @cached_property
+    def feature_extraction_runs(self) -> FeatureExtractionRunRepository:
+        return FeatureExtractionRunRepository(self.session)

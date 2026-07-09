@@ -12,6 +12,16 @@ _LP_HZ = 150
 _SR = 22050
 
 
+def compute_kick_phase(file_path: str, bpm: float) -> tuple[float, float]:
+    """Return (trim_start_s, phase_ms) for the first detected kick.
+
+    Wraps ``detect_kick_trim`` to expose the render-friendly interface
+    consumed by ``beatgrid_builder``.
+    """
+    trim_s = detect_kick_trim(file_path, start_s=0.0, bpm=bpm)
+    return trim_s, round(trim_s * 1000.0, 2)
+
+
 def detect_kick_trim(file_path: str, *, start_s: float, bpm: float) -> float:
     """Return the render trim (seconds into the FILE) where the first kick lands.
 

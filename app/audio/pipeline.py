@@ -48,6 +48,7 @@ from collections import OrderedDict
 from concurrent.futures import ProcessPoolExecutor
 from dataclasses import dataclass, field
 from multiprocessing import shared_memory
+from pathlib import Path
 from typing import Any
 
 import numpy as np
@@ -684,3 +685,27 @@ def _build_stitched_clip(
         pieces.append(window)
 
     return np.concatenate(pieces)
+
+
+async def run_pipeline(
+    uow: Any,
+    track_id: int,
+    path: Path | str,
+    level: int = 3,
+) -> dict[str, Any]:
+    """Convenience wrapper: build a pipeline, run it at the given level.
+
+    Creates a one-off ``AnalysisPipeline`` with auto-discovered analyzers
+    and a default ``AudioLoader``. Useful for headless/script use where
+    the server lifespan pipeline is not available.
+    """
+    from app.audio.analyzers import AnalyzerRegistry
+    from app.audio.core.loader import AudioLoader
+    from app.audio.level_config import AnalysisLevel, get_analyzers_for_level
+
+    registry = AnalyzerRegistry()
+    registry.discover()
+    pipeline = AnalysisPipeline(registry, loader=AudioLoader())
+    analyzers = get_analyzers_for_level(AnalysisLevel(level))
+    result = await pipeline.analyze(str(path), analyzers=analyzers)
+    return result.features

@@ -2,11 +2,13 @@
 
 from app.models.audio_file import DjBeatgrid, DjLibraryItem
 from app.models.base import Base, TimestampMixin
+from app.models.cross_similarity import CrossSimilarity
 from app.models.key import Key, KeyEdge
 from app.models.playlist import DjPlaylist, DjPlaylistItem
 from app.models.provider_metadata import Provider, RawProviderResponse, YandexMetadata
 from app.models.scoring_profile import ScoringProfile
 from app.models.set import DjSet, DjSetItem, DjSetVersion
+from app.models.stem_features import StemFeatures
 from app.models.track import (
     Artist,
     Genre,
@@ -18,6 +20,7 @@ from app.models.track import (
     TrackRelease,
 )
 from app.models.track_affinity import TrackAffinity
+from app.models.track_embedding import TrackEmbedding
 from app.models.track_features import (
     FeatureExtractionRun,
     TimeseriesReference,
@@ -31,6 +34,7 @@ from app.models.transition_history import TransitionHistory
 __all__ = [
     "Artist",
     "Base",
+    "CrossSimilarity",
     "DjBeatgrid",
     "DjLibraryItem",
     "DjPlaylist",
@@ -46,12 +50,14 @@ __all__ = [
     "RawProviderResponse",
     "Release",
     "ScoringProfile",
+    "StemFeatures",
     "TimeseriesReference",
     "TimestampMixin",
     "Track",
     "TrackAffinity",
     "TrackArtist",
     "TrackAudioFeaturesComputed",
+    "TrackEmbedding",
     "TrackExternalId",
     "TrackFeedback",
     "TrackGenre",

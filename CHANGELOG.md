@@ -4,6 +4,45 @@ All notable changes to this project will be documented in this file.
 Format based on [Keep a Changelog](https://keepachangelog.com/).
 Versioning follows [Semantic Versioning](https://semver.org/).
 
+## [1.9.0] - 2026-07-09
+
+### Added
+- **Pinpoint bass swap:** low-band crossfade reduced from 2 bars to 1 beat,
+  anchored to phrase-boundary downbeat.
+- **3-band phased EQ ritual:** render graph uses 3-band crossover (low/mid/high)
+  with independent afade per band → highs-first, mids-second, bass-last DJ technique.
+- **Per-subgenre transition length:** hypnotic=64, minimal/melodic=48,
+  peak_time=32, hard=24, acid=32, industrial=16 bars.
+- **FILTER_SWEEP — 8th Neural Mix preset:** HPF ramp + LPF ramp for acid/hypnotic
+  techno pairs. Picker rule routes acid/hypnotic pairs → FILTER_SWEEP.
+- **VoicingAnalyzer:** real vocal detection via essentia PitchYin + HarmonicPeaks
+  (`voicing_ratio` field). Picker prefers `voicing_ratio > 0.3` over spectral proxy.
+- **Full OCP architectural refactor:** Protocols, CoR picker (10 rules), Template
+  Method recipe builders, scalar/bulk co-location per scoring component. ~55 files.
+- **Calibration:** weight rebalancing (bpm=0.22, energy=0.18, drums=0.22, bass=0.15,
+  harmonics=0.10, vocals=0.13), section-aware overlays for drop_to_drop,
+  breakdown_out, buildup_in, smarter hard-reject rescue routing.
+- **Multi-agent configuration:** plugin manifests for all 10 coding agents (Claude
+  Code, Antigravity, Codex, Cursor, Factory Droid, Copilot CLI, Kimi Code,
+  OpenCode, Pi, Gemini). OpenCode `opencode.json` restored with full MCP servers
+  (dj, supabase, gitnexus), plugins (gitnexus-opencode, superpowers), 4 subagents.
+- **Superpowers integration:** hooks (session-start, run-hook.cmd, hooks-cursor.json),
+  scripts (bump-version.sh, lint-shell.sh, sync/package-codex-plugin),
+  `.version-bump.json`, `package.json`, OpenCode plugin, GitHub templates.
+
+### Changed
+- `low_swap_bars: int` → `low_swap_beats: float` across render pipeline.
+- `transition_bars` → per-subgenre from `subgenre_rules.py`.
+- `xsplit_hz` replaced with `xsplit_low_hz` + `xsplit_high_hz` for 3-band.
+- `score_bpm` sigma 3.0 → 10.0 (Pioneer DJ calibration).
+- `neural_mix.py` (442 lines), `bulk_scorer.py` (689 lines), `picker.py` (435 lines)
+  decomposed into packages.
+
+### Removed
+- `bg-jobs-manager` and `bg-jobs-watcher` agents.
+- DEAD constants from `weights.py`.
+- `.superpowers/sdd/` and `.superpowers/brainstorm/` artifacts.
+
 ## [1.8.0] - 2026-07-06
 
 ### Added

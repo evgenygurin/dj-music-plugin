@@ -42,8 +42,11 @@ async def render_defaults_resource() -> str:
             "target_bpm": r.target_bpm,
             "transition_bars": r.transition_bars,
             "body_bars": r.body_bars,
-            "xsplit_hz": r.xsplit_hz,
-            "low_swap_bars": r.low_swap_bars,
+            "xsplit_low_hz": r.xsplit_low_hz,
+            "xsplit_high_hz": r.xsplit_high_hz,
+            "eq_phase_1_ratio": r.eq_phase_1_ratio,
+            "eq_phase_2_ratio": r.eq_phase_2_ratio,
+            "low_swap_beats": r.low_swap_beats,
             "outro_fade_bars": r.outro_fade_bars,
             "limiter_ceiling": r.limiter_ceiling,
         }

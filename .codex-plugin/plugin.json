@@ -1,6 +1,6 @@
 {
   "name": "dj-music",
-  "version": "1.6.0",
+  "version": "1.9.0",
   "description": "Manage a DJ techno library, build optimized sets, analyze transitions, and integrate with Yandex Music.",
   "author": {
     "name": "Evgeny Gurin",

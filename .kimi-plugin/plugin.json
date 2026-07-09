@@ -1,0 +1,35 @@
+{
+  "name": "dj-music",
+  "version": "1.9.0",
+  "displayName": "DJ Music",
+  "description": "DJ techno library management — MCP server with 20+ tools, audio analysis, set building, render pipeline",
+  "author": {
+    "name": "Evgeny Gurin",
+    "url": "https://github.com/evgenygurin"
+  },
+  "homepage": "https://github.com/evgenygurin/dj-music-plugin",
+  "repository": "https://github.com/evgenygurin/dj-music-plugin",
+  "license": "MIT",
+  "keywords": [
+    "dj",
+    "techno",
+    "music",
+    "mcp",
+    "set-building",
+    "audio-analysis"
+  ],
+  "skills": "./skills/",
+  "sessionStart": {
+    "skill": "using-superpowers"
+  },
+  "skillInstructions": "Kimi Code tool mapping for DJ Music Plugin + Superpowers skills:\n\n- MCP-инструменты DJ доступны через подключённый MCP сервер `mcp`\n- Основные инструменты: track_read, track_search, set_read, set_version_build, sequence_optimize, render_mixdown, transition_score_pair\n- Когда проект просит ask the user, используй `AskUserQuestion`\n- Когда проект просит todo list, используй `TodoList`\n- Когда нужно dispatch subagent, используй `Agent` (subagent_type: coder/explore/plan)\n- Для загрузки навыков используй Kimi Code's native `Skill` tool\n- Используй `Read`, `Write`, `Edit`, `Bash`, `Grep`, `Glob`, `FetchURL`, `WebSearch`, и MCP инструменты по их реальным именам",
+  "mcpServers": {
+    "mcp": {
+      "command": "bash",
+      "args": [
+        "-lc",
+        "project_root=\"$PWD\"; plugin_root=\"${KIMI_PLUGIN_ROOT:-$PWD}\"; cd \"$plugin_root\" || exit 1; set -a; if [ -f \"$project_root/.env\" ]; then . \"$project_root/.env\"; elif [ -f .env ]; then . .env; fi; set +a; exec uv run -- fastmcp run fastmcp.json --no-banner"
+      ]
+    }
+  }
+}

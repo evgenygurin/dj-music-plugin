@@ -1,6 +1,6 @@
 [project]
 name = "dj-music-plugin"
-version = "1.8.0"
+version = "1.9.0"
 description = "MCP server for DJ techno music library management"
 requires-python = ">=3.12"
 dependencies = [
@@ -38,8 +38,12 @@ audio = [
     "numba>=0.65",
     "llvmlite>=0.47",
 ]
-stems = ["demucs>=4.0", "torch>=2.0"]
+stems = ["demucs>=4.0", "torch>=2.0", "torchcodec>=0.14"]
 postgres = ["pgvector>=0.3"]
+supabase = [
+    "supabase>=2.0",
+    "pgvector>=0.3",
+]
 otel = [
     "opentelemetry-distro",
     "opentelemetry-exporter-otlp",

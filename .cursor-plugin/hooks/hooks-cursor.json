@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "sessionStart": [
+    {
+      "matcher": "startup",
+      "hooks": [
+        {
+          "type": "command",
+          "command": "./hooks/session-start.sh"
+        }
+      ]
+    }
+  ]
+}

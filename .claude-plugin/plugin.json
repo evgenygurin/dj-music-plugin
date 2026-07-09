@@ -1,6 +1,6 @@
 {
   "name": "dj-music",
-  "version": "1.8.0",
+  "version": "1.9.0",
   "description": "DJ techno music library management — 20 MCP dispatchers (6 entity CRUD + 3 provider + 2 compute + sync + 2 admin + 6 UI Prefab Apps) + 27 resources + 30 prompts + 6 handlers. FastMCP v3 bounded-contexts architecture.",
   "author": {
     "name": "Evgeny Gurin",
@@ -8,7 +8,15 @@
   },
   "repository": "https://github.com/evgenygurin/dj-music-plugin",
   "license": "MIT",
-  "keywords": ["dj", "techno", "music", "mcp", "yandex-music", "set-building", "audio-analysis"],
+  "keywords": [
+    "dj",
+    "techno",
+    "music",
+    "mcp",
+    "yandex-music",
+    "set-building",
+    "audio-analysis"
+  ],
   "mcpServers": {
     "mcp": {
       "command": "bash",

@@ -1,0 +1,18 @@
+# Factory Droid — DJ Music Plugin
+# MCP server + skills for DJ techno library management
+# Factory reads Claude Code plugin.json + skills/ by convention
+
+[plugin]
+name = "dj-music"
+version = "1.8.0"
+
+[mcp_servers.dj]
+command = "bash"
+args = [
+    "-lc",
+    "project_root=\"$PWD\"; plugin_root=\"${FACTORY_PLUGIN_ROOT:-$PWD}\"; cd \"$plugin_root\" || exit 1; set -a; if [ -f \"$project_root/.env\" ]; then . \"$project_root/.env\"; elif [ -f .env ]; then . .env; fi; set +a; exec uv run -- fastmcp run fastmcp.json --no-banner"
+]
+
+# Factory auto-discovers skills/ + hooks/ alongside this file
+# Reads CLAUDE.md for project instructions
+# Rules in .claude/rules/ are loaded automatically

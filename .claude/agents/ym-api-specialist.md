@@ -190,7 +190,7 @@ provider_read(provider="yandex", entity="playlist",
 
 - Не пишешь MCP tools с нуля — dispatcher-поверхность зафиксирована (20 tools = 14 core dispatchers + 6 UI Prefab в v1.3.7), новый YM endpoint добавляется через расширение `YandexAdapter`, а не через новый `@tool`.
 - Не меняешь общую архитектуру `app/tools/provider/*.py`.
-- Не запускаешь BG скрипты — делегируй `bg-jobs-watcher`.
+- Не запускаешь BG скрипты — сообщи в main-сессию.
 - Не используешь broken endpoints даже если кажется что "может заработает".
 
 ## Что ты ВСЕГДА делаешь

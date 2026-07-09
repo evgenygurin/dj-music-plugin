@@ -43,6 +43,7 @@ class BaseAnalyzer(ABC):
     """
 
     name: ClassVar[str] = ""
+    level: ClassVar[int] = 1
     capabilities: ClassVar[frozenset[str]] = frozenset()
     required_packages: ClassVar[list[str]] = []
     depends_on: ClassVar[frozenset[str]] = frozenset()

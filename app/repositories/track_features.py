@@ -217,3 +217,51 @@ class TrackFeaturesRepository(BaseRepository[TrackAudioFeaturesComputed]):
         )
         row = await self.session.scalar(stmt)
         return int(row) if row is not None else 0
+
+    async def save_track_section(self, track_id: int, section_data: dict) -> TrackSection:
+        section = TrackSection(
+            track_id=track_id,
+            section_type=section_data.get("section_type", 10),
+            start_ms=section_data["start_ms"],
+            end_ms=section_data["end_ms"],
+            energy=section_data.get("energy"),
+            confidence=section_data.get("confidence"),
+        )
+        for col in ("lufs", "spectral_centroid"):
+            if col in section_data:
+                setattr(section, col, section_data[col])
+        if "stem_energy" in section_data:
+            section.stem_energy = section_data["stem_energy"]
+        self.session.add(section)
+        await self.session.flush()
+        return section
+
+    async def get_track_sections(self, track_id: int) -> list[dict]:
+        stmt = (
+            select(TrackSection)
+            .where(TrackSection.track_id == track_id)
+            .order_by(TrackSection.start_ms)
+        )
+        rows = (await self.session.execute(stmt)).scalars().all()
+        return [
+            {
+                "id": r.id,
+                "section_type": r.section_type,
+                "start_ms": r.start_ms,
+                "end_ms": r.end_ms,
+                "energy": r.energy,
+                "lufs": getattr(r, "lufs", None),
+                "spectral_centroid": getattr(r, "spectral_centroid", None),
+                "stem_energy": getattr(r, "stem_energy", None),
+            }
+            for r in rows
+        ]
+
+    async def clear_l6_sections(self, track_id: int) -> None:
+        from sqlalchemy import delete
+        stmt = delete(TrackSection).where(
+            TrackSection.track_id == track_id,
+            TrackSection.stem_energy.isnot(None),
+        )
+        await self.session.execute(stmt)
+        await self.session.flush()

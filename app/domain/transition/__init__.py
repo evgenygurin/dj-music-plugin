@@ -4,7 +4,7 @@ Public surface (post Neural Mix refactor):
 
 * ``TransitionScorer`` / ``TransitionScore`` — the six-component scorer
   (BPM + energy + four Neural Mix stem compats).
-* ``NeuralMixTransition`` — the seven djay Pro 5 Automix presets:
+* ``NeuralMixTransition`` — the eight Neural Mix presets:
   FADE, ECHO_OUT, VOCAL_SUSTAIN, HARMONIC_SUSTAIN, DRUM_SWAP,
   VOCAL_CUT, DRUM_CUT.
 * ``NeuralMixRecipe`` — stem-keyframe envelope describing one

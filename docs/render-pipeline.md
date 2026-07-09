@@ -46,11 +46,15 @@ app/handlers/render_diagnose.py   mix → diagnostics.json
 aggregate as `settings.render`) holds every magic number the original script had
 inline: `target_bpm` (130.0 — all tracks are stretched to this), `transition_bars`
 (32 — overlap length between adjacent tracks), `body_bars` (24 — solo time per
-track between blends), `xsplit_hz` (180 — the low/high crossover for the EQ bass
-swap), `low_swap_bars` (2 — the low-band crossfade window), `outro_fade_bars`
-(12 — end-of-mix fade), `limiter_ceiling` (0.85), and `workspace_subdir`
-(`render`). The `beat_s` / `bar_s` properties derive seconds-per-beat and
-seconds-per-bar from `target_bpm`.
+track between blends), `xsplit_low_hz` (250 — low/mid crossover for the 3-band EQ),
+`xsplit_high_hz` (4000 — mid/high crossover), `eq_phase_1_ratio` (0.40 — fraction
+of transition for HIGH phase), `eq_phase_2_ratio` (0.70 — fraction of transition
+for MID phase), `low_swap_beats` (1.0 — low-band crossfade window in beats —
+tight pinch means two kicks never stack), `outro_fade_bars` (12 — end-of-mix fade),
+`limiter_ceiling` (0.85), per-subgenre bar overrides (`transition_bars_*`,
+`body_bars_*` for hypnotic/minimal/melodic/peak_time/hard/acid/industrial), and
+`workspace_subdir` (`render`). The `beat_s` / `bar_s` properties derive
+seconds-per-beat and seconds-per-bar from `target_bpm`.
 
 ## Domain — pure compute (`app/domain/render/`)
 
@@ -74,6 +78,11 @@ per-track trim + gain from the beatgrid — returning a `RenderPlan`. The compan
 `timeline_windows(…)` maps segments and their transition windows onto the
 timeline (from the script's `boundaries`) for downstream inspection.
 
+Per-subgenre bar overrides: `per_transition_bars` and `per_body_bars` lists
+parallel the input tracks; when non-None, each track's transition/body bars are
+taken from that list instead of the global default. This allows hypnotic pairs
+to get longer blends (64 bars) and peak-time pairs to get shorter bodies (16 bars).
+
 **`levels.py`** — `gains_to_median(lufs_by_track)` computes per-track loudness
 match: gain each track toward the median integrated LUFS, clamped to ±4 dB.
 Full-track integrated LUFS is far more reliable than the intro-chunk RMS the
@@ -84,13 +93,20 @@ is taken only over tracks that have one.
 ffmpeg `filter_complex` graph (ported from the script's `render()`), returning the
 list of statements the runner joins with `;`. Per segment `i` it reads input
 `[i:a]`, does `atrim → rubberband=tempo=<ratio> → volume=<gain>dB` (the beatmatch
-stretch to `target_bpm`), then splits the signal at `xsplit_hz` into a low band
-(`lowpass`) and high band (`highpass`) so the two can be crossfaded independently
-— the **EQ bass-swap transition**: the high band uses full-length `afade` qsin
-in/out over the 32-bar transitions, while the low band swaps only over the short
-`low_swap_bars` window centred on each transition (so two kicks never stack). Each
-segment is `adelay`-ed to its slot, all segments `amix`-ed together, and the sum
-runs through a final `alimiter` at `limiter_ceiling`. The last segment gets an
+stretch to `target_bpm`), then splits the signal through a **3-band crossover**
+at `xsplit_low_hz` (default 250 Hz) and `xsplit_high_hz` (default 4000 Hz) into
+low/mid/high bands via `lowpass`/`bandpass`/`highpass` so they can be crossfaded
+independently — the **3-band phased EQ ritual**:
+
+- **Highs** phase in/out over the first `eq_phase_1_ratio` (40 %) of the
+  transition (`afade qsin`).
+- **Mids** phase in/out from `eq_phase_1_ratio` through `eq_phase_2_ratio`
+  (40 % → 70 %) via piecewise-linear envelope.
+- **Bass** swaps only over a tight `low_swap_beats` (default 1 beat)
+  window centred on each transition — so two kicks never stack.
+
+Each segment is `adelay`-ed to its slot, all bands `amix`-ed together, and the
+sum runs through a final `alimiter` at `limiter_ceiling`. The last segment gets an
 `outro_fade_bars` fade instead of an outgoing transition. The builder is
 deterministic — a golden test pins the exact graph.
 

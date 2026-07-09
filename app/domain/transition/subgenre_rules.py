@@ -72,6 +72,36 @@ _BAR_CLAMPS: dict[SubgenrePairType, tuple[int, int]] = {
 }
 
 
+_TRANSITION_BARS: dict[SubgenrePairType, int] = {
+    SubgenrePairType.HYPNOTIC_PAIR: 64,
+    SubgenrePairType.AMBIENT_PAIR: 64,
+    SubgenrePairType.MELODIC_PAIR: 48,
+    SubgenrePairType.MIXED_PAIR: 32,
+    SubgenrePairType.ACID_PAIR: 32,
+    SubgenrePairType.HARD_PAIR: 24,
+}
+
+_BODY_BARS: dict[SubgenrePairType, int] = {
+    SubgenrePairType.HYPNOTIC_PAIR: 96,
+    SubgenrePairType.AMBIENT_PAIR: 96,
+    SubgenrePairType.MELODIC_PAIR: 64,
+    SubgenrePairType.MIXED_PAIR: 64,
+    SubgenrePairType.ACID_PAIR: 48,
+    SubgenrePairType.HARD_PAIR: 48,
+}
+
+_DEFAULT_TRANSITION_BARS = 32
+_DEFAULT_BODY_BARS = 64
+
+
+def transition_bars_for_pair(pair_type: SubgenrePairType) -> int:
+    return _TRANSITION_BARS.get(pair_type, _DEFAULT_TRANSITION_BARS)
+
+
+def body_bars_for_pair(pair_type: SubgenrePairType) -> int:
+    return _BODY_BARS.get(pair_type, _DEFAULT_BODY_BARS)
+
+
 def clamp_bars(bars: int, pair_type: SubgenrePairType) -> int:
     """Clamp transition bar count based on subgenre pair rules."""
     lo, hi = _BAR_CLAMPS.get(pair_type, (8, 64))

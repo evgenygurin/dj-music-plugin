@@ -23,8 +23,31 @@ class RenderSettings(BaseSettings):
     target_bpm: float = Field(default=130.0, gt=0, description="All tracks stretched to this.")
     transition_bars: int = Field(default=32, gt=0, description="Overlap length between tracks.")
     body_bars: int = Field(default=24, gt=0, description="Solo time per track between blends.")
-    xsplit_hz: int = Field(default=180, gt=0, description="Low/high crossover for the bass swap.")
-    low_swap_bars: int = Field(default=2, gt=0, description="Low-band crossfade window (bars).")
+    xsplit_low_hz: int = Field(default=250, gt=0, description="Low/mid crossover.")
+    xsplit_high_hz: int = Field(default=4000, gt=0, description="Mid/high crossover.")
+    eq_phase_1_ratio: float = Field(
+        default=0.40, gt=0, le=1.0, description="Fraction of transition for HIGH phase."
+    )
+    eq_phase_2_ratio: float = Field(
+        default=0.70, gt=0, le=1.0, description="Fraction of transition for MID phase."
+    )
+    low_swap_beats: float = Field(
+        default=1.0, gt=0, description="Low-band crossfade window (beats)."
+    )
+    transition_bars_hypnotic: int | None = Field(default=None, gt=0)
+    transition_bars_minimal: int | None = Field(default=None, gt=0)
+    transition_bars_melodic: int | None = Field(default=None, gt=0)
+    transition_bars_peak_time: int | None = Field(default=None, gt=0)
+    transition_bars_hard: int | None = Field(default=None, gt=0)
+    transition_bars_acid: int | None = Field(default=None, gt=0)
+    transition_bars_industrial: int | None = Field(default=None, gt=0)
+    body_bars_hypnotic: int | None = Field(default=None, gt=0)
+    body_bars_minimal: int | None = Field(default=None, gt=0)
+    body_bars_melodic: int | None = Field(default=None, gt=0)
+    body_bars_peak_time: int | None = Field(default=None, gt=0)
+    body_bars_hard: int | None = Field(default=None, gt=0)
+    body_bars_acid: int | None = Field(default=None, gt=0)
+    body_bars_industrial: int | None = Field(default=None, gt=0)
     outro_fade_bars: int = Field(default=12, gt=0, description="End-of-mix fade length (bars).")
     limiter_ceiling: float = Field(
         default=0.85, gt=0, le=1.0, description="alimiter limit (-1.4 dBFS headroom)."

@@ -5,16 +5,15 @@ from __future__ import annotations
 from app.server.middleware import ALL_MIDDLEWARE
 
 
-def test_order_length_is_sixteen_post_v110() -> None:
-    """v1.1.0 added JsonStringCoerceMiddleware (architectural fix for the
-    v1.0.10-v1.0.13 transport-asymmetry bug class). Sits at position #2 so
-    every other middleware sees already-coerced args."""
-    assert len(ALL_MIDDLEWARE) == 16
+def test_order_length_is_seventeen_post_v190() -> None:
+    """v1.9.0 added PromptGuardMiddleware for placeholder-argument guard."""
+    assert len(ALL_MIDDLEWARE) == 17
 
 
 def test_order_matches_spec() -> None:
     expected = [
         "DomainErrorMiddleware",
+        "PromptGuardMiddleware",
         "JsonStringCoerceMiddleware",
         "SentryContextMiddleware",
         # OTELTracingMiddleware removed in PR1 - FastMCP v3 native OTEL tracing.
