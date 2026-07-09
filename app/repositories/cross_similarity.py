@@ -15,10 +15,22 @@ class CrossSimilarityRepository:
     async def upsert(
         self, track_a_id: int, track_b_id: int, stem_name: str, data: dict[str, Any]
     ) -> CrossSimilarity:
+        existing = await self._session.scalar(
+            select(CrossSimilarity).where(
+                CrossSimilarity.track_a_id == track_a_id,
+                CrossSimilarity.track_b_id == track_b_id,
+                CrossSimilarity.stem_name == stem_name,
+            )
+        )
+        if existing is not None:
+            for key, val in data.items():
+                setattr(existing, key, val)
+            await self._session.flush()
+            return existing
         row = CrossSimilarity(
             track_a_id=track_a_id, track_b_id=track_b_id, stem_name=stem_name, **data
         )
-        await self._session.merge(row)
+        self._session.add(row)
         await self._session.flush()
         return row
 

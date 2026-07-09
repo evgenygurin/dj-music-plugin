@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.stem_features import StemFeatures
@@ -15,8 +16,19 @@ class StemFeaturesRepository:
         self, track_id: int, stem_name: str, features: dict[str, Any]
     ) -> StemFeatures:
         clean = StemFeatures.filter_features(features)
+        existing = await self._session.scalar(
+            select(StemFeatures).where(
+                StemFeatures.track_id == track_id,
+                StemFeatures.stem_name == stem_name,
+            )
+        )
+        if existing is not None:
+            for key, val in clean.items():
+                setattr(existing, key, val)
+            await self._session.flush()
+            return existing
         row = StemFeatures(track_id=track_id, stem_name=stem_name, **clean)
-        await self._session.merge(row)
+        self._session.add(row)
         await self._session.flush()
         return row
 

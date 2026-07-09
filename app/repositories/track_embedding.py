@@ -14,13 +14,24 @@ class TrackEmbeddingRepository:
     async def upsert(
         self, track_id: int, stem_name: str, embedding_type: str, embedding: np.ndarray
     ) -> TrackEmbedding:
+        existing = await self._session.scalar(
+            select(TrackEmbedding).where(
+                TrackEmbedding.track_id == track_id,
+                TrackEmbedding.stem_name == stem_name,
+                TrackEmbedding.embedding_type == embedding_type,
+            )
+        )
+        if existing is not None:
+            existing.embedding = embedding.tolist()  # type: ignore[assignment]
+            await self._session.flush()
+            return existing
         row = TrackEmbedding(
             track_id=track_id,
             stem_name=stem_name,
             embedding_type=embedding_type,
             embedding=embedding.tolist(),
         )
-        await self._session.merge(row)
+        self._session.add(row)
         await self._session.flush()
         return row
 
