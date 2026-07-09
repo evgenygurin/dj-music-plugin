@@ -26,7 +26,7 @@ def analyze_structure(
     w = es.Windowing(type="hann")
     spectrum = es.Spectrum()
     mfcc_algo = es.MFCC(sampleRate=sr)
-    hp_generator = es.FrameGenerator(audio, frameSize=4096, hopSize=1024)
+    hp_generator = es.FrameGenerator(audio, frameSize=2048, hopSize=512)
 
     mfcc_frames: list[np.ndarray] = []
     for frame in hp_generator:
@@ -47,7 +47,7 @@ def analyze_structure(
     if len(boundaries) == 0:
         return []
 
-    hop_size = 1024
+    hop_size = 512
     frame_duration_ms = hop_size / sr * 1000
 
     raw_sections = []
@@ -61,7 +61,7 @@ def analyze_structure(
         if dur_ms < _MIN_SECTION_MS:
             continue
 
-        section_audio = audio[start_frame * hop_size : end_frame * hop_size + 4096]
+        section_audio = audio[start_frame * hop_size : end_frame * hop_size + 2048]
         if len(section_audio) < 512:
             continue
 
@@ -77,7 +77,7 @@ def analyze_structure(
             stem_audio, _ = sf.read(str(stem_path), dtype="float32", always_2d=True)
             if stem_audio.ndim == 2:
                 stem_audio = np.mean(stem_audio, axis=1)
-            seg = stem_audio[start_frame * hop_size : end_frame * hop_size + 4096]
+            seg = stem_audio[start_frame * hop_size : end_frame * hop_size + 2048]
             if len(seg) > 0:
                 stem_energy[stem_name] = round(float(np.sqrt(np.mean(seg**2))), 4)
 

@@ -20,8 +20,8 @@ class ChordsAnalyzer(BaseAnalyzer):
         except ImportError:
             return {"chords_strength": None, "chords_changes_rate": None}
 
-        frame_size = 4096
-        hop_size = 1024
+        frame_size = 2048
+        hop_size = 512
         w = es.Windowing(type="hann")
         spectrum = es.Spectrum()
         spectral_peaks = es.SpectralPeaks(

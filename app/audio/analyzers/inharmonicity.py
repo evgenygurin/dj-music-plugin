@@ -23,8 +23,8 @@ class InharmonicityAnalyzer(BaseAnalyzer):
         except ImportError:
             return {"inharmonicity": None}
 
-        frame_size = 4096
-        hop_size = 2048
+        frame_size = 2048
+        hop_size = 512
         w = es.Windowing(type="hann")
         spectrum = es.Spectrum()
         spectral_peaks = es.SpectralPeaks(maxPeaks=100)
