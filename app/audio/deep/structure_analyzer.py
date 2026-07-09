@@ -8,7 +8,7 @@ import soundfile as sf
 
 logger = logging.getLogger(__name__)
 
-_MIN_SECTION_MS = 2000  # skip sections shorter than 2 seconds
+_MIN_SECTION_MS = 500  # skip sections shorter than 0.5s
 
 
 def analyze_structure(
