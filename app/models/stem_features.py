@@ -102,3 +102,22 @@ class StemFeatures(Base, TimestampMixin):
     meter: Mapped[str | None] = mapped_column(String(16), nullable=True)
     click_detected: Mapped[bool | None] = mapped_column(nullable=True)
     saturation_detected: Mapped[bool | None] = mapped_column(nullable=True)
+
+    @classmethod
+    def filter_features(cls, features: dict) -> dict:
+        import json
+        known = {c.name for c in cls.__table__.columns}
+        skip = {"id", "track_id", "stem_name", "pipeline_run_id",
+                "analysis_level", "created_at", "updated_at"}
+        vector_cols = {"mfcc_vector", "tonnetz_vector", "tempogram_ratio_vector",
+                       "beat_loudness_band_ratio", "phrase_boundaries_ms"}
+        clean = {}
+        for k, v in features.items():
+            if k not in known or k in skip:
+                continue
+            if k in vector_cols and v is not None and not isinstance(v, str):
+                if hasattr(v, "tolist"):
+                    v = v.tolist()
+                v = json.dumps(v)
+            clean[k] = v
+        return clean

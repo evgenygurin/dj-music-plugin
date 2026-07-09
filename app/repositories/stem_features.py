@@ -14,7 +14,8 @@ class StemFeaturesRepository:
     async def upsert(
         self, track_id: int, stem_name: str, features: dict[str, Any]
     ) -> StemFeatures:
-        row = StemFeatures(track_id=track_id, stem_name=stem_name, **features)
+        clean = StemFeatures.filter_features(features)
+        row = StemFeatures(track_id=track_id, stem_name=stem_name, **clean)
         await self._session.merge(row)
         await self._session.flush()
         return row
