@@ -20,7 +20,7 @@ async def test_build_beatgrid_registers_in_db() -> None:
         return_value=(0.0, 0.05),
     ), patch(
         "app.audio.deep.beatgrid_builder.refine_phase",
-        return_value=0.02,
+        return_value=(0.01, 0.02),
     ), patch(
         "app.audio.deep.beatgrid_builder._get_bpm_from_path",
         return_value=130.0,

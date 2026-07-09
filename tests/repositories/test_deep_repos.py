@@ -14,12 +14,13 @@ from app.repositories.feature_extraction import FeatureExtractionRunRepository
 @pytest.mark.asyncio
 async def test_stem_features_upsert() -> None:
     session = AsyncMock()
+    session.scalar = AsyncMock(return_value=None)  # no existing row → INSERT
     repo = StemFeaturesRepository(session)
     features = {"bpm": 130.0, "integrated_lufs": -8.5}
 
     await repo.upsert(track_id=1, stem_name="drums", features=features)
 
-    session.merge.assert_called_once()
+    session.add.assert_called_once()
 
 
 @pytest.mark.asyncio
@@ -45,6 +46,7 @@ async def test_track_embedding_search_similar() -> None:
 @pytest.mark.asyncio
 async def test_cross_similarity_upsert() -> None:
     session = AsyncMock()
+    session.scalar = AsyncMock(return_value=None)
     repo = CrossSimilarityRepository(session)
 
     await repo.upsert(
@@ -52,7 +54,7 @@ async def test_cross_similarity_upsert() -> None:
         data={"best_match_offset_ms": 500.0, "best_match_score": 0.87},
     )
 
-    session.merge.assert_called_once()
+    session.add.assert_called_once()
 
 
 @pytest.mark.asyncio
