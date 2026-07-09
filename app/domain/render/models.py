@@ -68,6 +68,23 @@ class RenderPlan:
     low_swap_beats: float
     outro_fade_bars: int
     limiter_ceiling: float
+    hpf_cutoff_hz: float = 30.0
+    per_track_eq_mid_cut_db: float = -1.0
+    per_track_eq_bright_boost_db: float = 1.5
+    pre_comp_threshold_db: float = -18.0
+    pre_comp_ratio: float = 3.0
+    pre_comp_attack_ms: float = 10.0
+    pre_comp_release_ms: float = 80.0
+    glue_comp_threshold_db: float = -14.0
+    glue_comp_ratio: float = 2.0
+    glue_comp_attack_ms: float = 30.0
+    glue_comp_release_ms: float = 150.0
+    master_eq_air_boost_db: float = 1.5
+    master_eq_mud_cut_db: float = -1.0
+    master_eq_sub_boost_db: float = 0.5
+    limiter_attack_ms: float = 2.0
+    limiter_release_ms: float = 40.0
+    dynaudnorm_maxgain: float = 2.0
     segments: list[TrackSegment] = field(default_factory=list)
 
     @property

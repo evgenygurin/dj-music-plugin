@@ -68,3 +68,12 @@ def test_filtergraph_two_tracks_has_incoming_fade_and_delay():
 
 def test_filtergraph_is_deterministic():
     assert build_filtergraph(_plan(3)) == build_filtergraph(_plan(3))
+
+
+def test_filtergraph_contains_mastering_chain():
+    parts = build_filtergraph(_plan(2))
+    graph_str = ";".join(parts)
+    assert "acompressor" in graph_str
+    assert "firequalizer" in graph_str
+    assert "attack=2.0" in graph_str
+    assert "release=40.0" in graph_str

@@ -11,6 +11,7 @@ them with ';'.
 
 from __future__ import annotations
 
+from app.domain.render.eq import build_master_eq
 from app.domain.render.models import RenderPlan
 
 
@@ -102,10 +103,18 @@ def build_filtergraph(plan: RenderPlan) -> list[str]:
         mixlabels.append(f"[m{i}]")
         running_t += length - d_out
 
+    master_eq = build_master_eq(
+        plan.master_eq_mud_cut_db, plan.master_eq_air_boost_db, plan.master_eq_sub_boost_db
+    )
     parts.append(
         "".join(mixlabels) + f"amix=inputs={n}:normalize=0,"
+        f"acompressor=threshold={plan.glue_comp_threshold_db}dB:"
+        f"ratio={plan.glue_comp_ratio}:attack={plan.glue_comp_attack_ms}:"
+        f"release={plan.glue_comp_release_ms}:knee=8:detection=rms:"
+        f"link=average:makeup=1,"
+        f"firequalizer=gain_entry='{master_eq}',"
         f"alimiter=level_in=1:level_out=1:limit={plan.limiter_ceiling}:"
-        "attack=5:release=60:asc=1,"
-        f"dynaudnorm=framelen=500:peak=0.95:maxgain=6[mix]"
+        f"attack={plan.limiter_attack_ms}:release={plan.limiter_release_ms}:asc=1,"
+        f"dynaudnorm=framelen=500:peak=0.95:maxgain={plan.dynaudnorm_maxgain}[mix]"
     )
     return parts
