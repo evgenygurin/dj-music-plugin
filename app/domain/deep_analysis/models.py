@@ -16,3 +16,4 @@ class L6AnalysisResult:
     timeseries_uploaded: bool = False
     waveform_uploaded: bool = False
     errors: list[str] = field(default_factory=list)
+    drum_bands: dict = field(default_factory=dict)

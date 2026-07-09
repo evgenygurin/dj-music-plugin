@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from sqlalchemy import CheckConstraint, ForeignKey, SmallInteger, String, UniqueConstraint
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import Base, TimestampMixin
@@ -102,6 +103,8 @@ class StemFeatures(Base, TimestampMixin):
     meter: Mapped[str | None] = mapped_column(String(16), nullable=True)
     click_detected: Mapped[bool | None] = mapped_column(nullable=True)
     saturation_detected: Mapped[bool | None] = mapped_column(nullable=True)
+
+    drum_bands: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
 
     @classmethod
     def filter_features(cls, features: dict) -> dict:

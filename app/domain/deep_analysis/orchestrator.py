@@ -6,6 +6,7 @@ from tempfile import mkdtemp
 
 from app.audio.deep.beatgrid_builder import build_beatgrid
 from app.audio.deep.demucs_runner import run_demucs
+from app.audio.deep.drum_bands import analyze_drum_bands
 from app.audio.deep.embedding_builder import build_embeddings
 from app.audio.deep.stem_analyzer import analyze_stems
 from app.audio.deep.structure_analyzer import analyze_structure
@@ -78,6 +79,18 @@ class L6AnalysisOrchestrator:
                         result.embeddings_count += 1
             except Exception as e:
                 result.errors.append(f"Embeddings: {e}")
+
+            # Step 5b: Drum band analysis (per-band energy + onset rate)
+            try:
+                drums_path = stem_paths.get("drums")
+                if drums_path:
+                    bands_data = analyze_drum_bands(drums_path)
+                    await uow.stem_features.upsert(
+                        track_id, "drums", {"drum_bands": bands_data}
+                    )
+                    result.drum_bands = bands_data.get("bands", {})
+            except Exception as e:
+                result.errors.append(f"DrumBands: {e}")
 
             # Step 6: CrossSimilarity — skipped without candidates
 
