@@ -43,7 +43,7 @@ def build_master_eq(
         elif 60 <= freq <= 185 and gain > 0:
             gain = sub_boost_db * (gain / 0.5)
         curve.append(f"entry({int(freq)},{gain:.1f})")
-    return ":".join(curve)
+    return ";".join(curve)
 
 
 def build_per_track_eq(features: TrackFeatures) -> str:
@@ -88,7 +88,7 @@ def build_per_track_eq(features: TrackFeatures) -> str:
     entries["20000"] = 0
 
     curve = [f"entry({freq},{gain:.1f})" for freq, gain in entries.items()]
-    return f"firequalizer=gain_entry='{':'.join(curve)}'"
+    return f"firequalizer=gain_entry='{';'.join(curve)}'"
 
 
 def build_preprocess_filter(ratio: float, gain_db: float, eq_filter: str) -> str:

@@ -12,13 +12,15 @@ def test_build_master_eq_returns_firequalizer():
 def test_build_per_track_eq_dark_track():
     feat = TrackFeatures(spectral_centroid_hz=1500.0)
     result = build_per_track_eq(feat)
-    assert any(float(p.split(",")[1].rstrip("):'")) > 0 for p in result.split("entry(") if "11840" in p or "8372" in p)
+    entries = [e.split(",")[1].rstrip(");'") for e in result.split("entry(") if "11840" in e or "8372" in e]
+    assert any(float(e) > 0 for e in entries)
 
 
 def test_build_per_track_eq_bright_track():
     feat = TrackFeatures(spectral_centroid_hz=3500.0)
     result = build_per_track_eq(feat)
-    assert any(float(p.split(",")[1].rstrip("):'")) < 0 for p in result.split("entry(") if "2960" in p)
+    entries = [e.split(",")[1].rstrip(");'") for e in result.split("entry(") if "2960" in e]
+    assert any(float(e) < 0 for e in entries)
 
 
 def test_build_per_track_eq_neutral_track():
