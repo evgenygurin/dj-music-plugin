@@ -35,9 +35,13 @@ class L6AnalysisOrchestrator:
             result.errors.append(f"File not found: {audio_path}")
             return result
 
-        # Step 1: Demucs (cached — skips if stems exist)
-        stem_paths = run_demucs(audio_path, Path(""))  # output_dir ignored, uses cache
-        result.stems = {k: str(v) for k, v in stem_paths.items()}
+        # Step 1: Demucs (requires GPU or cached stems; skip on CPU-only)
+        stem_paths: dict[str, Path] = {}
+        try:
+            stem_paths = run_demucs(audio_path, Path(""))
+            result.stems = {k: str(v) for k, v in stem_paths.items()}
+        except (RuntimeError, FileNotFoundError) as e:
+            logger.warning("Demucs skipped (no GPU / no cached stems): %s", e)
 
         # Step 2: Per-stem analysis (parallel)
         all_features: dict[str, dict] = {}

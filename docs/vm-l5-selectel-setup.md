@@ -223,3 +223,71 @@ the L2 library. Then: recalibrate `app/audio/classification/profiles.py`
 `ideal`/`tolerance` to the **real** essentia distributions and add
 confidence-gating (low margin → `mood = unknown` instead of guessing).
 See the classifier diagnosis in this session / `scripts/diag_mood_classifier.py`.
+
+---
+
+## 7. L6 Deep Track Analysis on the VM
+
+L6 requires **GPU** for Demucs stem separation (CPU is too slow). On this
+VM (8 vCPU, no GPU) we run L6 **without stems** — still produces pgvector
+embeddings, beatgrid, structural sections, and all L6-only analyzers
+(chords, HPCP, inharmonicity, meter, audio QA).
+
+```bash
+cd /root/dj-music-plugin && export PATH=$HOME/.local/bin:$PATH
+
+# Pull L6 code (after merge to main)
+git pull
+
+# Smoke test — L6 on one track (no Demucs, ~2 min)
+uv run python -c "
+import asyncio, json
+from app.db.session import get_session_factory
+from app.providers.supabase.storage_client import SupabaseStorageClient
+from app.repositories.unit_of_work import UnitOfWork
+from app.domain.deep_analysis.orchestrator import L6AnalysisOrchestrator
+
+async def run():
+    factory = get_session_factory()
+    async with factory() as session:
+        uow = UnitOfWork(session)
+        storage = SupabaseStorageClient(url='', key='')
+        orch = L6AnalysisOrchestrator(storage_client=storage)
+        result = await orch.run(track_id=146, uow=uow)
+        await session.commit()
+        print(json.dumps({
+            'stem_features': result.stem_features_count,
+            'beatgrid': result.beatgrid_registered,
+            'sections': result.sections_count,
+            'embeddings': result.embeddings_count,
+        }, indent=2))
+asyncio.run(run())
+"
+
+# Full L6 sweep — only tracks with local files, skip already-done
+# (L6 resumable: tracks with stem_features skip Demucs, partial runs skip themselves)
+```
+
+### When you get a GPU instance
+
+1. Provision a VM with **NVIDIA Tesla T4** or similar (Selectel Cloud →
+   GPU compute). 200 GB volume for stems.
+2. Install CUDA + PyTorch CUDA.
+3. Run the full L6 sweep — Demucs will auto-detect CUDA and produce 4 stems
+   per track (~30s/track with GPU):
+
+```bash
+uv run python -u scripts/vm_l6_sweep.py --workers 4 --batch 200 2>&1 | tee -a /var/log/dj_l6.log
+```
+
+### What L6 gives you
+
+| Component | With GPU (stemmed) | Without GPU |
+|-----------|-------------------|-------------|
+| Per-stem features (×5) | ✅ full | ⛔ skip |
+| Drum band analysis | ✅ 4 bands | ⛔ skip |
+| pgvector embeddings | ✅ 5 types × 256d | ✅ same |
+| Beatgrid per track | ✅ | ✅ same |
+| Sections + per-stem energy | ✅ | ✅ sections only |
+| L6 analyzers (chords, meter, …) | ✅ | ✅ same |
+| Supabase Storage | ✅ | ✅ same |
