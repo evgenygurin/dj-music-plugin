@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 
+import app.domain.suno_voice.rimjoba as rimjoba_mod
 from app.domain.suno_voice.rimjoba import (
     GENRE_TAILS,
     NEGATIVE_TAGS,
@@ -11,6 +14,9 @@ from app.domain.suno_voice.rimjoba import (
     assemble_rimjoba_style,
     list_modes,
 )
+
+ROOT = Path(__file__).resolve().parents[3]
+RIM_DIR = ROOT / "suno_out" / "rimjoba"
 
 
 def test_voice_block_is_immutable_taras_lock() -> None:
@@ -83,3 +89,15 @@ def test_genre_tail_has_no_vocal_identity_words() -> None:
 
 def test_reference_clip_id() -> None:
     assert REFERENCE_CLIP_ID == "e4d68e9a-d35d-4e70-8af0-4205cf484d2f"
+
+
+def _read(path: Path) -> str:
+    return path.read_text(encoding="utf-8").strip()
+
+
+def test_suno_out_artifacts_match_domain_constants() -> None:
+    assert _read(RIM_DIR / "VOICE_BLOCK.txt") == VOICE_BLOCK
+    assert _read(RIM_DIR / "NEGATIVE.txt") == NEGATIVE_TAGS
+    assert _read(RIM_DIR / "LYRICS_SKELETON.txt") == rimjoba_mod.LYRICS_SKELETON.strip()
+    for mode, tail in GENRE_TAILS.items():
+        assert _read(RIM_DIR / "tails" / f"{mode}.txt") == tail
