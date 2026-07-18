@@ -207,3 +207,19 @@ ask the user to refresh credentials.
   **Working path for external-audio import:** sunoapi.org mode
   (`endpoints.py`) `upload_cover`/`upload_extend` take a plain public
   `uploadUrl` and need only an api_key — no browser/bot-challenge.
+
+## RimJoba vocal identity (prompt recipe)
+
+Hard vocal-lock for MC **RimJoba** (Taras / «Графский Самовар» reference).
+Prompt-only — do **not** create Persona/Voice unless the user explicitly asks.
+
+- Spec: `docs/superpowers/specs/2026-07-18-rimjoba-suno-voice-recipe-design.md`
+- Domain: `app/domain/suno_voice/rimjoba.py` → `assemble_rimjoba_style(mode)`
+- Copy-paste: `suno_out/rimjoba/` (`VOICE_BLOCK.txt` + `tails/` + `NEGATIVE.txt`)
+- CLI: `uv run python scripts/rimjoba_prompt.py street_trap --title "…"`
+
+Rules when generating RimJoba tracks:
+1. Style **must** start with full VOICE BLOCK (never rewrite per mood).
+2. Genre only via GENRE TAIL / `tails/<mode>.txt`.
+3. Never add `no autotune` or `no singing` — breaks the Taras lock (light AT required).
+4. Lyrics: deadpan tags + ad-libs `(е)(а)(ха)(скр)(бра)`; name once in intro + hook.
