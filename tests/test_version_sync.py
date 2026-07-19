@@ -9,6 +9,7 @@ from app import __version__
 
 ROOT = Path(__file__).resolve().parents[1]
 VERSION_RE = re.compile(r"Версия:\s*([0-9]+\.[0-9]+\.[0-9]+)")
+README_VERSION_RE = re.compile(r"\*\*v([0-9]+\.[0-9]+\.[0-9]+)\*\*")
 
 
 def _json_field(data: dict, field: str) -> str:
@@ -35,6 +36,12 @@ def test_project_versions_are_synchronized() -> None:
         "GEMINI.md": expected,
         "DJ-MUSIC.md": expected,
     }
+
+    readme = (ROOT / "README.md").read_text()
+    readme_match = README_VERSION_RE.search(readme)
+    assert readme_match is not None
+    assert readme_match.group(1) == expected
+    assert f"dj-music-plugin.git#v{expected}" in readme
 
     package = json.loads((ROOT / "package.json").read_text())
     assert package["version"] == expected
