@@ -10,7 +10,6 @@ from app.audio.deep.stem_analyzer import analyze_stems
 
 @pytest.mark.asyncio
 async def test_analyze_stems_calls_pipeline_5_times() -> None:
-    uow = MagicMock()
     stem_paths = {
         "vocals": Path("/tmp/vocals.wav"),
         "drums": Path("/tmp/drums.wav"),
@@ -27,7 +26,7 @@ async def test_analyze_stems_calls_pipeline_5_times() -> None:
         "app.audio.deep.stem_analyzer._make_pipeline",
         return_value=mock_pipeline,
     ):
-        result = await analyze_stems(uow, 1, stem_paths, original)
+        result = await analyze_stems(stem_paths, original)
 
     assert mock_pipeline.analyze.call_count == 5
     assert result["original"] == pipeline_results

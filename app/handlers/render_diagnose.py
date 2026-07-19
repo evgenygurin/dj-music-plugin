@@ -20,7 +20,16 @@ async def render_diagnose_handler(
         await safe_info(ctx, f"render_diagnose: {mix_path}")
     rep = diagnose_mix(mix_path)
     windows = [
-        {"offset_s": w.offset_s, "rms_db": w.rms_db, "low_db": w.low_db, "tags": list(w.tags)}
+        {
+            "offset_s": w.offset_s,
+            "rms_db": w.rms_db,
+            "low_db": w.low_db,
+            "stereo_corr": getattr(w, "stereo_corr", None),
+            "stereo_width": getattr(w, "stereo_width", None),
+            "low_ratio": getattr(w, "low_ratio", None),
+            "centroid_hz": getattr(w, "centroid_hz", None),
+            "tags": list(w.tags),
+        }
         for w in rep.windows
     ]
     payload = {

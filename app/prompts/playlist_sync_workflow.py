@@ -28,13 +28,13 @@ Sync directions:
 - push  -> apply the local state to the remote playlist.
 
 1. ALWAYS preview first (never blind-write):
-   playlist_sync(playlist_id={playlist_id}, direction="diff", source="yandex",
+   dj_playlist_sync(playlist_id={playlist_id}, direction="diff", source="yandex",
                 dry_run=true)
    — returns {{added, removed, reordered}} without touching anything.
 
 2. Inspect both sides so the diff makes sense:
    local://playlists/{playlist_id}?include_tracks=true — local order + ids.
-   provider_read(provider="yandex", entity="playlist", id="<remote_id>") —
+   dj_provider_read(provider="yandex", entity="playlist", id="<remote_id>") —
    remote tracks + current revision (YM revisions change on every edit).
 
 3. Gate on surprises BEFORE applying:
@@ -42,18 +42,18 @@ Sync directions:
      far from local -> pause and confirm with the user (elicit) rather than
      auto-applying. Destructive divergence is the #1 sync footgun.
    - On 'pull', new remote tracks may be absent locally: import them first
-     (entity_create(entity="track", data={{"source": "yandex",
+     (dj_entity_create(entity="track", data={{"source": "yandex",
      "external_ids": [...]}})) so the local playlist can reference real rows.
 
 4. Apply the chosen direction once confirmed:
-   playlist_sync(playlist_id={playlist_id}, direction="{direction}",
+   dj_playlist_sync(playlist_id={playlist_id}, direction="{direction}",
                 source="yandex", dry_run=false)
    — for 'push'/'pull' the handler builds the YM JSON diff (insert/delete
      ops + revision) under the hood; you do not hand-craft the diff.
 
 5. Re-fetch to confirm convergence (YM bumps the revision on every write):
-   provider_read(provider="yandex", entity="playlist", id="<remote_id>")
-   playlist_sync(playlist_id={playlist_id}, direction="diff", source="yandex",
+   dj_provider_read(provider="yandex", entity="playlist", id="<remote_id>")
+   dj_playlist_sync(playlist_id={playlist_id}, direction="diff", source="yandex",
                 dry_run=true) — the diff should now be empty.
 
 Return: {{"playlist_id": {playlist_id}, "direction": "{direction}",

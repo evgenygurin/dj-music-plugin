@@ -19,7 +19,7 @@ propose concrete fixes.
    local://sets/{set_id}/narrative — does it read warm-up -> build -> peak ->
    release (or whatever the template promised)? Flag premature peaks, energy
    sag in the middle, or a flat line that never lifts.
-   ui_set_view(set_id={set_id}) — eyeball the energy arc + per-slot table.
+   dj_ui_set_view(set_id={set_id}) — eyeball the energy arc + per-slot table.
    Treat mood is a hint, not ground truth: when the narrative claims a style,
    cross-check BPM, LUFS, energy_mean, spectral balance, hp_ratio and Beatport
    genre metadata. If Beatport genre conflicts with classifier mood, report the
@@ -45,7 +45,7 @@ propose concrete fixes.
      the data contract is unclear.
 
 5. Prescribe fixes, cheapest first:
-   a. Reorder: sequence_optimize(track_ids=<current ids>, algorithm="ga",
+   a. Reorder: dj_sequence_optimize(track_ids=<current ids>, algorithm="ga",
       template=<set template>) and compare quality_score.
    b. Replace a single offender: run the replace_track_workflow prompt for
       that position.
@@ -54,7 +54,7 @@ propose concrete fixes.
       hard filters -> style/feature filters -> diversity cap -> pair scoring.
 
 6. If you applied a fix, persist a new version and diff:
-   entity_create(entity="set_version", data={{"set_id": {set_id},
+   dj_entity_create(entity="set_version", data={{"set_id": {set_id},
                 "track_order": [...], "label": "review_fix"}})
    local://sets/{set_id}/versions/compare/<old>/<new> — confirm the score
    improved and no new hard conflicts appeared.

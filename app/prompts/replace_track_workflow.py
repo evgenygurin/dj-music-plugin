@@ -24,9 +24,9 @@ def _body(set_id: int, position: int) -> str:
 
 3. Filter the candidates:
    - drop anything on the ban list:
-     entity_list(entity="track_feedback", filters={{"status": "banned"}})
+     dj_entity_list(entity="track_feedback", filters={{"status": "banned"}})
    - prefer tracks already analyzed to level >= 3 (no analysis stall):
-     entity_list(entity="track_features", filters={{"track_id__in": [...]}},
+     dj_entity_list(entity="track_features", filters={{"track_id__in": [...]}},
                 fields="scoring")
 
 4. Validate the top candidate against BOTH adjacent transitions:
@@ -36,7 +36,7 @@ def _body(set_id: int, position: int) -> str:
      hard_reject.
 
 5. Apply by persisting a new version with the swapped order:
-   entity_create(entity="set_version", data={{"set_id": {set_id},
+   dj_entity_create(entity="set_version", data={{"set_id": {set_id},
                 "track_order": [<order with candidate at position {position}>],
                 "label": "swap_p{position}"}})
 

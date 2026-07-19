@@ -15,7 +15,7 @@ def _body(a: int, b: int) -> str:
    (bpm, harmonic, energy, spectral, groove, timbral), hard_reject,
    reject_reason.
    local://transition/{a}/{b}/explain — narrative of which axis fails.
-   ui_transition_score(from_track_id={a}, to_track_id={b}) — radar of the
+   dj_ui_transition_score(from_track_id={a}, to_track_id={b}) — radar of the
    6 components (Prefab clients).
 
 2. Identify the failure mode:

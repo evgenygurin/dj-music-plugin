@@ -19,25 +19,25 @@ def _body(playlist_id: int, target_count: int) -> str:
 3. Pick 3-5 seed tracks (high-quality, diverse mood from audit pass list).
 
 4. Discover similar tracks per seed:
-   provider_search(query=<seed title/artist>, type='tracks', limit=20)
+   dj_provider_search(query=<seed title/artist>, type='tracks', limit=20)
    OR
-   provider_read(entity='track_similar', id=<provider_track_id>, params={{'limit': 20}})
+   dj_provider_read(entity='track_similar', id=<provider_track_id>, params={{'limit': 20}})
 
 5. Filter candidates against feedback memory (if available):
-   - Skip banned tracks: entity_list(entity='track_feedback', filters={{"status": "banned"}})
+   - Skip banned tracks: dj_entity_list(entity='track_feedback', filters={{"status": "banned"}})
 
 6. Import new provider tracks that aren't in the library yet:
-   entity_create(entity='track', data={{'source': 'yandex', 'external_ids': [...]}})
+   dj_entity_create(entity='track', data={{'source': 'yandex', 'external_ids': [...]}})
    — handler fetches metadata + creates rows; idempotent by (source, external_id).
    Optional: pass 'playlist_id' to auto-append imports to a playlist.
 
 7. Download MP3s for newly-imported tracks:
-   entity_create(entity='audio_file', data={{'track_ids': [...], 'source': 'yandex'}})
+   dj_entity_create(entity='audio_file', data={{'track_ids': [...], 'source': 'yandex'}})
    — handler downloads + writes file + registers DjLibraryItem.
 
 8. Analyze all newly-downloaded tracks at L3 (mood classification fires
    automatically inside this handler — no separate classify step needed):
-   entity_create(entity='track_features', data={{'track_ids': [...], 'level': 3}})
+   dj_entity_create(entity='track_features', data={{'track_ids': [...], 'level': 3}})
 
 9. Re-audit:
     local://playlists/{playlist_id}/audit — verify pass rate improved.

@@ -18,6 +18,7 @@ from logging.config import fileConfig
 
 from alembic import context
 from sqlalchemy import engine_from_config, pool
+from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import AsyncEngine
 
 from app.models.base import Base
@@ -29,6 +30,8 @@ if config.config_file_name is not None:
 target_metadata = Base.metadata
 
 db_url = os.environ.get("DB_URL", config.get_main_option("sqlalchemy.url"))
+if db_url is None:
+    raise RuntimeError("DB_URL or sqlalchemy.url is required for migrations")
 config.set_main_option("sqlalchemy.url", db_url)
 
 
@@ -44,7 +47,7 @@ def run_migrations_offline() -> None:
         context.run_migrations()
 
 
-def do_run_migrations(connection):
+def do_run_migrations(connection: Connection) -> None:
     context.configure(connection=connection, target_metadata=target_metadata)
     with context.begin_transaction():
         context.run_migrations()

@@ -18,38 +18,38 @@ def _body(seed: str, target_count: int, playlist_id: int | None) -> str:
 Digging is selection, not collection — favour character over quantity.
 
 1. Cast a wide net from the seed (artist, label, or vibe):
-   provider_search(provider="yandex", query="{seed}", type="tracks", limit=20)
-   provider_search(provider="yandex", query="{seed}", type="artists", limit=10)
+   dj_provider_search(provider="yandex", query="{seed}", type="tracks", limit=20)
+   dj_provider_search(provider="yandex", query="{seed}", type="artists", limit=10)
    — note promising artist ids and a few seed track ids.
 
 2. Follow the graph for depth:
-   provider_read(provider="yandex", entity="track_similar", id=<seed_track_id>,
+   dj_provider_read(provider="yandex", entity="track_similar", id=<seed_track_id>,
                 params={{"limit": 20}})
-   provider_read(provider="yandex", entity="artist_tracks", id=<artist_id>,
+   dj_provider_read(provider="yandex", entity="artist_tracks", id=<artist_id>,
                 params={{"page": 0, "page-size": 30}})
    — similar-track and artist-discography crawling surfaces deep cuts that
      text search misses.
 
 3. De-duplicate against what you already have and against rejects:
-   - skip ids already present: entity_list(entity="track", filters={{...}}).
-   - skip banned: entity_list(entity="track_feedback", filters={{"status": "banned"}}).
-   - consult prior chemistry: entity_list(entity="track_affinity",
+   - skip ids already present: dj_entity_list(entity="track", filters={{...}}).
+   - skip banned: dj_entity_list(entity="track_feedback", filters={{"status": "banned"}}).
+   - consult prior chemistry: dj_entity_list(entity="track_affinity",
      filters={{"net_sentiment__lte": -1}}) to avoid known-bad pairings later.
 
 4. Import the survivors (idempotent by source+external_id):
-   entity_create(entity="track", data={{"source": "yandex",
+   dj_entity_create(entity="track", data={{"source": "yandex",
                 "external_ids": [...]}})
    — {append_clause}.
 
 5. Analyze imports so they become mixable (mood classification included):
-   entity_create(entity="track_features", data={{"track_ids": [...], "level": 3}})
+   dj_entity_create(entity="track_features", data={{"track_ids": [...], "level": 3}})
 
 6. Curate down to ~{target_count}: read local://tracks/{{id}}/audit for each;
    drop hard-fail tracks; keep a diverse spread across the energy axis (don't
    end up with 30 peak-time bangers and no warm-up material).
 
 7. Optionally seed taste memory for the keepers you love:
-   entity_create(entity="track_feedback", data={{"track_id": <id>,
+   dj_entity_create(entity="track_feedback", data={{"track_id": <id>,
                 "status": "liked", "rating": 5}})
 
 Return: {{"seed": "{seed}", "discovered": N, "imported": N, "kept": N,

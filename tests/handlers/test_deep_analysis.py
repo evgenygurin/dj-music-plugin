@@ -13,12 +13,15 @@ async def test_handler_returns_job_id() -> None:
     uow.feature_extraction_runs = MagicMock()
     uow.feature_extraction_runs.create = AsyncMock(return_value=MagicMock(id=42))
 
-    with patch(
-        "app.handlers.deep_analysis.L6AnalysisOrchestrator",
-        return_value=MagicMock(run=AsyncMock()),
-    ), patch(
-        "app.handlers.deep_analysis.SupabaseStorageClient",
-        return_value=MagicMock(),
+    with (
+        patch(
+            "app.handlers.deep_analysis.L6AnalysisOrchestrator",
+            return_value=MagicMock(run=AsyncMock()),
+        ),
+        patch(
+            "app.handlers.deep_analysis.SupabaseStorageClient",
+            return_value=MagicMock(),
+        ),
     ):
         result = await handle_deep_analyze_track(track_id=1, uow=uow)
 

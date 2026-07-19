@@ -5,10 +5,10 @@ from unittest.mock import AsyncMock, MagicMock
 import numpy as np
 import pytest
 
-from app.repositories.stem_features import StemFeaturesRepository
-from app.repositories.track_embedding import TrackEmbeddingRepository
 from app.repositories.cross_similarity import CrossSimilarityRepository
 from app.repositories.feature_extraction import FeatureExtractionRunRepository
+from app.repositories.stem_features import StemFeaturesRepository
+from app.repositories.track_embedding import TrackEmbeddingRepository
 
 
 @pytest.mark.asyncio
@@ -44,13 +44,31 @@ async def test_track_embedding_search_similar() -> None:
 
 
 @pytest.mark.asyncio
+async def test_track_embedding_search_similar_excludes_ids_in_sql() -> None:
+    session = AsyncMock()
+    result_mock = MagicMock()
+    result_mock.fetchall.return_value = []
+    session.execute = AsyncMock(return_value=result_mock)
+    repo = TrackEmbeddingRepository(session)
+    query = np.zeros(256, dtype=np.float32)
+
+    await repo.search_similar(query, embedding_type="timbral", exclude_ids=[1, 2])
+
+    stmt, params = session.execute.call_args.args
+    assert "t.id NOT IN" in str(stmt)
+    assert params["exclude_ids"] == (1, 2)
+
+
+@pytest.mark.asyncio
 async def test_cross_similarity_upsert() -> None:
     session = AsyncMock()
     session.scalar = AsyncMock(return_value=None)
     repo = CrossSimilarityRepository(session)
 
     await repo.upsert(
-        track_a_id=1, track_b_id=2, stem_name="original",
+        track_a_id=1,
+        track_b_id=2,
+        stem_name="original",
         data={"best_match_offset_ms": 500.0, "best_match_score": 0.87},
     )
 
@@ -68,5 +86,9 @@ async def test_feature_extraction_create_and_update() -> None:
     session.add.assert_called_once()
     assert run.track_id == 1
 
-    await repo.update(1, status="completed")
-    session.execute.assert_called()
+    session.get = AsyncMock(return_value=run)
+    updated = await repo.update(1, status="completed")
+
+    session.get.assert_called_once_with(repo.model, 1)
+    assert updated.status == "completed"
+    assert session.flush.call_count == 2

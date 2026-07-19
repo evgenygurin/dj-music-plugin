@@ -54,13 +54,13 @@ under-appreciated DJ skill (Red Bull / Mixmag warm-up etiquette).
 
 3. Resolve + ready the pool (track has no playlist_id column):
    local://playlists/{playlist_id}?include_tracks=true -> pool_ids = [...]
-   entity_list(entity="track_features", filters={{"track_id__in": pool_ids}},
+   dj_entity_list(entity="track_features", filters={{"track_id__in": pool_ids}},
               fields="scoring")
    — ensure level >= 3; analyze_library_workflow first for stragglers.
 
 4. Pick the HANDOFF TRACK first — the last track of the slot must sit at the
    target so the next DJ can mix straight out of it:
-   entity_list(entity="track_features",
+   dj_entity_list(entity="track_features",
               filters={{"track_id__in": pool_ids, "bpm__gte": {handoff_bpm - 2},
                        "bpm__lte": {handoff_bpm + 2}}}, fields="scoring")
    — for 'warmup'/'headliner' the tail holds energy; for 'closer' the tail is
@@ -68,15 +68,15 @@ under-appreciated DJ skill (Red Bull / Mixmag warm-up etiquette).
 
 5. Order the slot so the arc climbs/holds/descends INTO that tail, pinning the
    handoff track last (and the opener first):
-   sequence_optimize(track_ids=[...], algorithm="ga", template="{template}",
+   dj_sequence_optimize(track_ids=[...], algorithm="ga", template="{template}",
                     pinned=[<opener_id>, <handoff_track_id>])
 
 6. Persist + verify the landing:
-   entity_create(entity="set_version", data={{"set_id": <id>,
+   dj_entity_create(entity="set_version", data={{"set_id": <id>,
                 "track_order": [...], "label": "handoff_{role}"}})
    local://sets/{{set_id}}/narrative — does the tail land at ~{handoff_bpm} BPM
    and the right energy for a '{role}' handoff?
-   ui_set_view(set_id=<id>) — the arc should resolve cleanly at the tail.
+   dj_ui_set_view(set_id=<id>) — the arc should resolve cleanly at the tail.
 
 7. If the tail overshoots the headliner's tempo (warm-up) or ends too hot
    (closer), swap the handoff track via replace_track_workflow and re-pin.

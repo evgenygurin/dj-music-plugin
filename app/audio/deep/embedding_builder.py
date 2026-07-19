@@ -39,56 +39,94 @@ def _key_onehot(key_code: int | None, dims: int = 24) -> np.ndarray:
 def build_embeddings(features: dict[str, Any]) -> dict[str, np.ndarray]:
     mfcc = _safe_json_float_array(features.get("mfcc_vector"), 13)
 
-    timbral = np.concatenate([
-        mfcc,
-        np.array([_safe_float(features.get(k)) for k in (
-            "spectral_centroid_hz", "spectral_rolloff_85", "spectral_rolloff_95",
-            "spectral_flux_mean", "spectral_flatness", "spectral_slope",
-            "spectral_contrast", "spectral_complexity_mean",
-        )], dtype=np.float32),
-    ])
+    timbral = np.concatenate(
+        [
+            mfcc,
+            np.array(
+                [
+                    _safe_float(features.get(k))
+                    for k in (
+                        "spectral_centroid_hz",
+                        "spectral_rolloff_85",
+                        "spectral_rolloff_95",
+                        "spectral_flux_mean",
+                        "spectral_flatness",
+                        "spectral_slope",
+                        "spectral_contrast",
+                        "spectral_complexity_mean",
+                    )
+                ],
+                dtype=np.float32,
+            ),
+        ]
+    )
     timbral = np.pad(timbral, (0, max(0, 64 - len(timbral))))[:64]
 
     tonnetz = _safe_json_float_array(features.get("tonnetz_vector"), 6)
-    hpcp_features = np.array([
-        _safe_float(features.get("hpcp_entropy")),
-        _safe_float(features.get("hpcp_crest")),
-    ], dtype=np.float32)
-    harmonic = np.concatenate([
-        tonnetz, hpcp_features,
-        _key_onehot(features.get("key_code")),
-        np.array([
-            _safe_float(features.get("chroma_entropy")),
-            _safe_float(features.get("hnr_db")),
-            _safe_float(features.get("dissonance_mean")),
-            _safe_float(features.get("inharmonicity")),
-            _safe_float(features.get("chords_strength")),
-            _safe_float(features.get("chords_changes_rate")),
-        ], dtype=np.float32),
-    ])
+    hpcp_features = np.array(
+        [
+            _safe_float(features.get("hpcp_entropy")),
+            _safe_float(features.get("hpcp_crest")),
+        ],
+        dtype=np.float32,
+    )
+    harmonic = np.concatenate(
+        [
+            tonnetz,
+            hpcp_features,
+            _key_onehot(features.get("key_code")),
+            np.array(
+                [
+                    _safe_float(features.get("chroma_entropy")),
+                    _safe_float(features.get("hnr_db")),
+                    _safe_float(features.get("dissonance_mean")),
+                    _safe_float(features.get("inharmonicity")),
+                    _safe_float(features.get("chords_strength")),
+                    _safe_float(features.get("chords_changes_rate")),
+                ],
+                dtype=np.float32,
+            ),
+        ]
+    )
     harmonic = np.pad(harmonic, (0, max(0, 128 - len(harmonic))))[:128]
 
     beat_loudness = _safe_json_float_array(features.get("beat_loudness_band_ratio"), 6)
-    rhythmic = np.concatenate([
-        np.array([
-            _safe_float(features.get("onset_rate")),
-            _safe_float(features.get("pulse_clarity")),
-            _safe_float(features.get("kick_prominence")),
-            _safe_float(features.get("bpm_stability")),
-            _safe_float(features.get("danceability")),
-        ], dtype=np.float32),
-        beat_loudness,
-    ])
+    rhythmic = np.concatenate(
+        [
+            np.array(
+                [
+                    _safe_float(features.get("onset_rate")),
+                    _safe_float(features.get("pulse_clarity")),
+                    _safe_float(features.get("kick_prominence")),
+                    _safe_float(features.get("bpm_stability")),
+                    _safe_float(features.get("danceability")),
+                ],
+                dtype=np.float32,
+            ),
+            beat_loudness,
+        ]
+    )
     rhythmic = np.pad(rhythmic, (0, max(0, 32 - len(rhythmic))))[:32]
 
-    energy = np.array([
-        _safe_float(features.get(k)) for k in (
-            "integrated_lufs", "energy_sub_ratio", "energy_low_ratio",
-            "energy_lowmid_ratio", "energy_mid_ratio", "energy_highmid_ratio",
-            "energy_high_ratio", "crest_factor_db", "loudness_range_lu",
-            "energy_slope", "dynamic_complexity",
-        )
-    ], dtype=np.float32)
+    energy = np.array(
+        [
+            _safe_float(features.get(k))
+            for k in (
+                "integrated_lufs",
+                "energy_sub_ratio",
+                "energy_low_ratio",
+                "energy_lowmid_ratio",
+                "energy_mid_ratio",
+                "energy_highmid_ratio",
+                "energy_high_ratio",
+                "crest_factor_db",
+                "loudness_range_lu",
+                "energy_slope",
+                "dynamic_complexity",
+            )
+        ],
+        dtype=np.float32,
+    )
     energy = np.pad(energy, (0, max(0, 32 - len(energy))))[:32]
 
     full = np.concatenate([timbral, harmonic, rhythmic, energy])

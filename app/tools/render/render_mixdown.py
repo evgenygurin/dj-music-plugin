@@ -21,12 +21,15 @@ from app.tools.render._shared import render_timestamp, render_workspace
     tags={"namespace:render", "write"},
     annotations={"readOnlyHint": False, "idempotentHint": False, "openWorldHint": False},
     description=(
-        "Render the continuous beatmatched mix (rubberband→target BPM, 32-bar "
-        "EQ bass-swap transitions, limiter) for a set version. Auto-runs the "
-        "beatgrid if missing. Heavy (ffmpeg) — background task."
+        "Render the continuous beatmatched mix (rubberband→target BPM, "
+        "per-stem transitions, limiter) for a set version. Default: demucs "
+        "4-stem multi-deck (clean bass swap, driving drums, gradual "
+        "harmonics/vocals). stem=False uses the classic 3-band EQ bass-swap. "
+        "Auto-runs the beatgrid if missing; falls back to classic when demucs "
+        "is unavailable. Heavy (ffmpeg + demucs) — background task."
     ),
-    meta={"timeout_s": 900.0},
-    timeout=900.0,
+    meta={"timeout_s": 1800.0},
+    timeout=1800.0,
     task=True,
 )
 async def render_mixdown(
@@ -39,6 +42,9 @@ async def render_mixdown(
         int | None, Field(ge=1, description="Override per-track solo length")
     ] = None,
     refresh_grid: Annotated[bool, Field(description="Recompute the beatgrid first")] = False,
+    stem: Annotated[
+        bool, Field(description="Demucs stem render (default); False = classic EQ bass-swap")
+    ] = True,
     uow: UnitOfWork = Depends(get_uow),
     ctx: Context = CurrentContext(),
 ) -> RenderMixdownResult:
@@ -52,4 +58,5 @@ async def render_mixdown(
         transition_bars=transition_bars,
         body_bars=body_bars,
         refresh_grid=refresh_grid,
+        stem=stem,
     )

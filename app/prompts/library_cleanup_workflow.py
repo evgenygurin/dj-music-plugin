@@ -24,42 +24,42 @@ problems and prescribes the fix for each.
 
 {scope_resolve}
 1. UNANALYZED tracks (no features row — useless for set building):
-   entity_list(entity="track", filters={{"has_features": false}}, limit=500)
-   entity_aggregate(entity="track", operation="count",
+   dj_entity_list(entity="track", filters={{"has_features": false}}, limit=500)
+   dj_entity_aggregate(entity="track", operation="count",
                     filters={{"has_features": false}})
    -> Fix: run analyze_library_workflow to bring them to level >= 3.
 
 2. UNDER-ANALYZED tracks (have features but below set-ready tier 3):
-   entity_list(entity="track_features", filters={{"analysis_level__lt": 3}})
-   -> Fix: entity_update(entity="track_features", id=<track_id>,
+   dj_entity_list(entity="track_features", filters={{"analysis_level__lt": 3}})
+   -> Fix: dj_entity_update(entity="track_features", id=<track_id>,
                         data={{"level": 3}})  (dispatches the reanalyze handler).
 
 3. LOW-CONFIDENCE mood labels (classifier was unsure — bad for subgenre
    journeys / style locks):
-   entity_list(entity="track_features",
+   dj_entity_list(entity="track_features",
               filters={{"mood_confidence__lte": 0.35}}, fields="scoring")
    -> Fix: re-analyze higher (more features sharpen the classifier), or treat
      the mood as untrusted when planning.
 
 4. TEMPO-SUSPECT tracks (flagged variable, or low BPM detection confidence —
    they wobble ramps and tempo journeys):
-   entity_list(entity="track_features",
+   dj_entity_list(entity="track_features",
               filters={{"variable_tempo": true}}, fields="scoring")
-   entity_list(entity="track_features", filters={{"bpm_confidence__lte": 0.5}})
+   dj_entity_list(entity="track_features", filters={{"bpm_confidence__lte": 0.5}})
    -> Fix: verify BPM by ear; keep them off steep tempo steps.
 
 5. ARCHIVED / inactive tracks cluttering selection (status != active):
-   entity_aggregate(entity="track", operation="count",
+   dj_entity_aggregate(entity="track", operation="count",
                     filters={{"status__in": [1]}})
-   entity_list(entity="track", filters={{"status__in": [1]}}, fields="summary")
+   dj_entity_list(entity="track", filters={{"status__in": [1]}}, fields="summary")
    -> Fix: leave archived (status=1) out of pools, or
-     entity_delete(entity="track", id=<id>) only if truly dead (irreversible —
+     dj_entity_delete(entity="track", id=<id>) only if truly dead (irreversible —
      confirm first; this cascades features/sections).
 
 6. LOUDNESS outliers that will hard-reject on energy (>6 LUFS gap to the pool):
-   entity_aggregate(entity="track_features", operation="min_max",
+   dj_entity_aggregate(entity="track_features", operation="min_max",
                     field="integrated_lufs")
-   entity_aggregate(entity="track_features", operation="histogram",
+   dj_entity_aggregate(entity="track_features", operation="histogram",
                     field="integrated_lufs")
    -> Fix: the extreme-quiet / extreme-loud tails are mix-hostile; park them or
      plan deliberate energy resets around them.

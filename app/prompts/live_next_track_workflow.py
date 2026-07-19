@@ -36,9 +36,9 @@ persisted set). Nothing is persisted here; it is an in-the-moment decision.
 
 4. Filter the candidates fast:
    - drop banned tracks:
-     entity_list(entity="track_feedback", filters={{"status": "banned"}})
+     dj_entity_list(entity="track_feedback", filters={{"status": "banned"}})
    - confirm they are set-ready (level >= 3) and inspect the marquee numbers:
-     entity_list(entity="track_features", filters={{"track_id__in": [...]}},
+     dj_entity_list(entity="track_features", filters={{"track_id__in": [...]}},
                 fields="scoring")  — bpm, key_code, integrated_lufs, mood.
    - prefer tracks you have NOT already played this session (session://set-draft).
    - if any filter/payload is uncertain, read schema://entities/track_features.

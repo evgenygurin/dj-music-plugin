@@ -18,7 +18,7 @@ my crate goes together?" and for seeding a set core you then extend.
 
 1. Resolve + ready the pool (track has no playlist_id column):
    local://playlists/{playlist_id}?include_tracks=true -> pool_ids = [...]
-   entity_list(entity="track_features", filters={{"track_id__in": pool_ids}},
+   dj_entity_list(entity="track_features", filters={{"track_id__in": pool_ids}},
               fields="scoring")
    — ensure level >= 3; analyze_library_workflow first for stragglers. Cap the
      pool at ~{limit} tracks (pairwise scoring is O(n^2)); if larger, pre-filter
@@ -31,10 +31,10 @@ my crate goes together?" and for seeding a set core you then extend.
    energy_mean, spectral balance and Beatport genre metadata.
 
 2. Score every pair in the pool:
-   transition_score_pool(track_ids=[...up to {limit}...])
+   dj_transition_score_pool(track_ids=[...up to {limit}...])
    — returns the pairwise compatibility matrix (overall + per-component). Pairs
      at overall 0.0 are hard_rejects (BPM/key/energy clash) — un-mixable.
-   ui_score_pool_matrix(track_ids=[...]) — visual N x N heatmap (Prefab
+   dj_ui_score_pool_matrix(track_ids=[...]) — visual N x N heatmap (Prefab
      clients); the bright diagonal-adjacent cells are your clusters.
 
 3. Read the clusters off the matrix:
@@ -52,14 +52,14 @@ my crate goes together?" and for seeding a set core you then extend.
 4. Cross-check against history + taste (optional but recommended):
    local://transition_history/best_pairs?limit=20 — pairs that mixed well
    before; if any sit in your cluster, anchor on them.
-   entity_list(entity="track_affinity", filters={{"avg_score__gte": 0.7}})
+   dj_entity_list(entity="track_affinity", filters={{"avg_score__gte": 0.7}})
    — learned good pairings to prefer.
 
 5. Order the best chain and persist it as a set core:
-   sequence_optimize(track_ids=[<chain ids>], algorithm="greedy")
+   dj_sequence_optimize(track_ids=[<chain ids>], algorithm="greedy")
    — greedy is fine here: the pool is already mutually compatible, so a nearest
      -neighbour walk preserves the clusters. Use "ga" if you want an arc on top.
-   entity_create(entity="set_version", data={{"set_id": <id>,
+   dj_entity_create(entity="set_version", data={{"set_id": <id>,
                 "track_order": [...], "label": "cluster_core"}})
 
 6. Grow from the core if needed: run extend_set_workflow to lengthen the chain,

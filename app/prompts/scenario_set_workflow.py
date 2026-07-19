@@ -69,7 +69,7 @@ using template '{template}'.
    playlist_id column, so resolve the playlist's track ids first, then
    filter features by track_id__in:
    local://playlists/{playlist_id}?include_tracks=true -> pool_ids = [...]
-   entity_list(entity="track_features", filters={{"track_id__in": pool_ids}},
+   dj_entity_list(entity="track_features", filters={{"track_id__in": pool_ids}},
               fields="scoring")
    — for any track below level 3, run the analyze_library_workflow prompt
      first (sequence_optimize auto-upgrades, but pre-analysis is faster).
@@ -79,16 +79,16 @@ using template '{template}'.
    peak set, hard_techno in a warm-up).
 
 5. Order under the template arc:
-   sequence_optimize(track_ids=[...], algorithm="ga", template="{template}")
+   dj_sequence_optimize(track_ids=[...], algorithm="ga", template="{template}")
    — the GA reads the per-template phase table so intent (ramp_up / maintain /
      cool_down) tracks the '{scenario}' shape.
 
 6. Persist + inspect:
-   entity_create(entity="set_version", data={{"set_id": <id>,
+   dj_entity_create(entity="set_version", data={{"set_id": <id>,
                 "track_order": [...], "label": "{scenario}"}})
    local://sets/{{set_id}}/review     — weak transitions / hard conflicts.
    local://sets/{{set_id}}/narrative  — does the arc read as '{scenario}'?
-   ui_set_view(set_id=<id>)           — visual energy arc (Prefab clients).
+   dj_ui_set_view(set_id=<id>)           — visual energy arc (Prefab clients).
 
 7. If the arc fights the scenario (e.g. peaks too early for a warm-up), pin
    the anchors and re-run sequence_optimize, or swap offenders via the

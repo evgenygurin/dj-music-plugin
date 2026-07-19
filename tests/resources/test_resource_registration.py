@@ -27,6 +27,11 @@ EXPECTED_STATIC_URIS: frozenset[str] = frozenset(
         "reference://templates",
         "reference://audit_rules",
         "reference://render/defaults",
+        "reference://feature-catalog/stem_features",
+        "reference://section-types",
+        "reference://suno/models",
+        "reference://suno/prompt-craft",
+        "reference://suno/voices",
     }
 )
 
@@ -117,6 +122,7 @@ def test_all_resource_modules_importable() -> None:
     assert any(m.endswith(".reference.subgenres") for m in imported)
     assert any(m.endswith(".reference.templates") for m in imported)
     assert any(m.endswith(".reference.audit_rules") for m in imported)
+    assert any(m.endswith(".reference.suno") for m in imported)
 
 
 @pytest.mark.asyncio

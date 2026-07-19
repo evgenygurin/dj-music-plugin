@@ -218,7 +218,9 @@ class TrackFeaturesRepository(BaseRepository[TrackAudioFeaturesComputed]):
         row = await self.session.scalar(stmt)
         return int(row) if row is not None else 0
 
-    async def save_track_section(self, track_id: int, section_data: dict) -> TrackSection:
+    async def save_track_section(
+        self, track_id: int, section_data: dict[str, Any]
+    ) -> TrackSection:
         section = TrackSection(
             track_id=track_id,
             section_type=section_data.get("section_type", 10),
@@ -236,7 +238,7 @@ class TrackFeaturesRepository(BaseRepository[TrackAudioFeaturesComputed]):
         await self.session.flush()
         return section
 
-    async def get_track_sections(self, track_id: int) -> list[dict]:
+    async def get_track_sections(self, track_id: int) -> list[dict[str, Any]]:
         stmt = (
             select(TrackSection)
             .where(TrackSection.track_id == track_id)
@@ -259,6 +261,7 @@ class TrackFeaturesRepository(BaseRepository[TrackAudioFeaturesComputed]):
 
     async def clear_l6_sections(self, track_id: int) -> None:
         from sqlalchemy import delete
+
         stmt = delete(TrackSection).where(
             TrackSection.track_id == track_id,
             TrackSection.stem_energy.isnot(None),

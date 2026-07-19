@@ -29,12 +29,12 @@ Harmonic-mixing rules (Camelot wheel — read reference://camelot first):
    local://playlists/{playlist_id}?include_tracks=true -> pool_ids = [...].
 
 1. Load candidate keys:
-   entity_list(entity="track_features", filters={{"track_id__in": pool_ids}},
+   dj_entity_list(entity="track_features", filters={{"track_id__in": pool_ids}},
               fields="scoring")
    — group track_ids by key_code; map key_code -> Camelot via reference://camelot.
 
 2. Survey supply:
-   entity_aggregate(entity="track_features", operation="histogram",
+   dj_entity_aggregate(entity="track_features", operation="histogram",
                     field="key_code", filters={{"track_id__in": pool_ids}})
    — thin keys are dead-ends; route around them.
 
@@ -50,12 +50,12 @@ Harmonic-mixing rules (Camelot wheel — read reference://camelot first):
    the harmonic component.
 
 6. Lock the ordered ids and hand off:
-   sequence_optimize(track_ids=[...], algorithm="greedy")
+   dj_sequence_optimize(track_ids=[...], algorithm="greedy")
    — greedy respects the harmonic chain you built without reshuffling it as
      aggressively as the GA.
 
 7. Persist if happy:
-   entity_create(entity="set_version", data={{"set_id": <id>,
+   dj_entity_create(entity="set_version", data={{"set_id": <id>,
                 "track_order": [...], "label": "harmonic_journey"}})
 
 Return: {{"playlist_id": {playlist_id}, "camelot_path": ["8A","8A","9A",...],

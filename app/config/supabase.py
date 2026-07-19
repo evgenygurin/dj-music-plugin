@@ -17,4 +17,6 @@ class SupabaseSettings(BaseSettings):
     )
 
     supabase_url: str = Field(default="", description="Supabase project URL")
-    supabase_service_key: str = Field(default="", description="Supabase service_role key for storage writes")
+    supabase_service_key: str = Field(
+        default="", description="Supabase service_role key for storage writes"
+    )

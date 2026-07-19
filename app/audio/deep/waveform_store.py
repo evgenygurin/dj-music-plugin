@@ -2,11 +2,20 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from typing import Any, Protocol
 
 import numpy as np
 import soundfile as sf
 
-from app.providers.supabase.storage_client import SupabaseStorageClient
+
+class StorageUploader(Protocol):
+    async def upload(
+        self,
+        bucket: str,
+        path: str,
+        data: bytes,
+        content_type: str = "application/octet-stream",
+    ) -> Any: ...
 
 
 def build_waveform(audio_path: Path, n_points: int = 1000) -> list[float]:
@@ -29,7 +38,7 @@ def build_waveform(audio_path: Path, n_points: int = 1000) -> list[float]:
 
 
 async def upload_waveform(
-    storage: SupabaseStorageClient,
+    storage: StorageUploader,
     track_id: int,
     stem_name: str,
     peaks: list[float],

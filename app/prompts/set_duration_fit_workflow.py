@@ -19,11 +19,11 @@ advisory per-slot targets only), so this is a deliberate trim/extend pass.
 1. Measure the current length:
    local://sets/{set_id}/tracks  — ordered (position, track_id, title).
    Sum the track durations:
-   entity_aggregate(entity="track", operation="sum", field="duration_ms",
+   dj_entity_aggregate(entity="track", operation="sum", field="duration_ms",
                     filters={{"id__in": [<set track ids>]}})
    — compare the sum to the target {target_ms} ms. Account for blend overlap:
      each transition's transition_bars trims a few seconds of real wall-clock
-     (read entity_list(entity="transition", filters={{"from_track_id__in":
+     (read dj_entity_list(entity="transition", filters={{"from_track_id__in":
      [...]}}, fields="full") if you need the exact overlap_ms per pair — the
      "summary" preset omits overlap_ms/transition_bars).
 
@@ -40,13 +40,13 @@ advisory per-slot targets only), so this is a deliberate trim/extend pass.
 
 4. Re-order the adjusted track list so the seams stay smooth, pinning the
    opener and closer so the arc shape survives the resize:
-   sequence_optimize(track_ids=[<adjusted ids>], algorithm="ga",
+   dj_sequence_optimize(track_ids=[<adjusted ids>], algorithm="ga",
                     pinned=[<opener_id>, <closer_id>])
 
 5. Persist + verify length AND arc:
-   entity_create(entity="set_version", data={{"set_id": {set_id},
+   dj_entity_create(entity="set_version", data={{"set_id": {set_id},
                 "track_order": [...], "label": "fit_{target_minutes}m"}})
-   entity_aggregate(entity="track", operation="sum", field="duration_ms",
+   dj_entity_aggregate(entity="track", operation="sum", field="duration_ms",
                     filters={{"id__in": [<new ids>]}})  — within ~1 track of target.
    local://sets/{set_id}/narrative — arc still reads as intended after resize.
    local://sets/{set_id}/review    — no new hard conflicts introduced.

@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from sqlalchemy import CheckConstraint, ForeignKey, SmallInteger, String, UniqueConstraint
+from typing import Any
+
+from sqlalchemy import JSON, CheckConstraint, ForeignKey, SmallInteger, String, UniqueConstraint
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -104,17 +106,32 @@ class StemFeatures(Base, TimestampMixin):
     click_detected: Mapped[bool | None] = mapped_column(nullable=True)
     saturation_detected: Mapped[bool | None] = mapped_column(nullable=True)
 
-    drum_bands: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    drum_bands: Mapped[dict[str, Any] | None] = mapped_column(
+        JSONB().with_variant(JSON(), "sqlite"), nullable=True
+    )
 
     @classmethod
-    def filter_features(cls, features: dict) -> dict:
+    def filter_features(cls, features: dict[str, Any]) -> dict[str, Any]:
         import json
+
         known = {c.name for c in cls.__table__.columns}
-        skip = {"id", "track_id", "stem_name", "pipeline_run_id",
-                "analysis_level", "created_at", "updated_at"}
-        vector_cols = {"mfcc_vector", "tonnetz_vector", "tempogram_ratio_vector",
-                       "beat_loudness_band_ratio", "phrase_boundaries_ms"}
-        clean = {}
+        skip = {
+            "id",
+            "track_id",
+            "stem_name",
+            "pipeline_run_id",
+            "analysis_level",
+            "created_at",
+            "updated_at",
+        }
+        vector_cols = {
+            "mfcc_vector",
+            "tonnetz_vector",
+            "tempogram_ratio_vector",
+            "beat_loudness_band_ratio",
+            "phrase_boundaries_ms",
+        }
+        clean: dict[str, Any] = {}
         for k, v in features.items():
             if k not in known or k in skip:
                 continue

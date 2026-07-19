@@ -7,7 +7,20 @@ generic `api_call` / `upload_file`), `adapter.py` (Provider protocol),
 web registry), `session_auth.py`
 (no-browser credential loader), `client_errors.py`. Config: `app/config/suno.py`
 (`DJ_SUNO_*`). Wired in `app/server/lifespan.py:build_suno_adapter` (registered
-only when `SunoSettings.enabled`). Prompt: `suno_set_asset_workflow`.
+only when `SunoSettings.enabled`). Prompts: `suno_set_asset_workflow` and
+`suno_track_production_workflow`.
+
+## Agent-facing Suno workflow (2026-07-19)
+
+- Claude Code skill: `skills/suno/SKILL.md`.
+- Research source of truth:
+  `docs/research/2026-07-19-suno-programmatic-deep-research.md`.
+- FastMCP references: `reference://suno/models`,
+  `reference://suno/prompt-craft`, `reference://suno/voices`.
+- Universal production prompt: `suno_track_production_workflow`; DJ set utility
+  prompt remains `suno_set_asset_workflow`.
+- Default rule: preflight with `provider_read(provider="suno", entity="account")`,
+  then select only operations supported by the reported `payload_mode`.
 
 ## Two surfaces, one adapter (mode-gated)
 
@@ -15,8 +28,9 @@ The adapter surface is **mode-dependent** (`SunoAdapter.entities_supported` /
 `operations_supported` are set from `payload_mode` in `__init__`):
 
 - **session** (browser Suno web, `studio-api-prod.suno.com`) — **project
-  default**. Minimal surface: `generation` × `create|cancel|download` +
-  `account` read + `generation` read.
+  default**. Base surface: `generation` × `create|cancel|download` +
+  `account` read + `generation` read; `payload_mode="suno_web"` enables the
+  fuller web registry below.
 - **sunoapi** (`api.sunoapi.org`, `api_key` mode) — **full sunoapi.org REST
   surface** below. Endpoints declared in `endpoints.py` from the sunoapi.org
   OpenAPI specs. These do NOT exist on the browser host — calling a
@@ -207,3 +221,19 @@ ask the user to refresh credentials.
   **Working path for external-audio import:** sunoapi.org mode
   (`endpoints.py`) `upload_cover`/`upload_extend` take a plain public
   `uploadUrl` and need only an api_key — no browser/bot-challenge.
+
+## RimJoba vocal identity (prompt recipe)
+
+Hard vocal-lock for MC **RimJoba** (Taras / «Графский Самовар» reference).
+Prompt-only — do **not** create Persona/Voice unless the user explicitly asks.
+
+- Spec: `docs/superpowers/specs/2026-07-18-rimjoba-suno-voice-recipe-design.md`
+- Domain: `app/domain/suno_voice/rimjoba.py` → `assemble_rimjoba_style(mode)`
+- Copy-paste: `suno_out/rimjoba/` (`VOICE_BLOCK.txt` + `tails/` + `NEGATIVE.txt`)
+- CLI: `uv run python scripts/rimjoba_prompt.py street_trap --title "…"`
+
+Rules when generating RimJoba tracks:
+1. Style **must** start with full VOICE BLOCK (never rewrite per mood).
+2. Genre only via GENRE TAIL / `tails/<mode>.txt`.
+3. Never add `no autotune` or `no singing` — breaks the Taras lock (light AT required).
+4. Lyrics: deadpan tags + ad-libs `(е)(а)(ха)(скр)(бра)`; name once in intro + hook.

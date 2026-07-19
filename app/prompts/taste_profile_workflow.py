@@ -18,32 +18,32 @@ Two memory layers:
   learns which pairings actually work on the floor.
 
 1. Review the current taste state:
-   entity_list(entity="track_feedback", filters={"status__in": ["liked","banned"]})
-   entity_aggregate(entity="track_feedback", operation="histogram", field="rating")
-   entity_list(entity="track_affinity", filters={"net_sentiment__lte": -1})
+   dj_entity_list(entity="track_feedback", filters={"status__in": ["liked","banned"]})
+   dj_entity_aggregate(entity="track_feedback", operation="histogram", field="rating")
+   dj_entity_list(entity="track_affinity", filters={"net_sentiment__lte": -1})
    — surface loved tracks, banned tracks, and pairings that disappointed.
 
 2. Pull platform signals to bootstrap, if useful:
-   provider_read(provider="yandex", entity="likes")    — liked track ids.
-   provider_read(provider="yandex", entity="dislikes")  — disliked track ids.
+   dj_provider_read(provider="yandex", entity="likes")    — liked track ids.
+   dj_provider_read(provider="yandex", entity="dislikes")  — disliked track ids.
    Map these to local tracks and mirror them into feedback below.
 
 3. Record verdicts (idempotent per track):
-   - Love it:  entity_create(entity="track_feedback",
+   - Love it:  dj_entity_create(entity="track_feedback",
                 data={"track_id": <id>, "status": "liked", "rating": 5})
-   - Ban it:   entity_create(entity="track_feedback",
+   - Ban it:   dj_entity_create(entity="track_feedback",
                 data={"track_id": <id>, "status": "banned"})
-   - Adjust:   entity_update(entity="track_feedback", id=<row_id>,
+   - Adjust:   dj_entity_update(entity="track_feedback", id=<row_id>,
                 data={"status": "archived"}) to retire an old verdict.
 
 4. Reinforce or veto pairings (the chemistry layer). The affinity create
    schema only accepts track_a_id / track_b_id / avg_score; the count
    columns (ban_count / like_count / net_sentiment) are update-only:
    - Ensure the row exists (create is idempotent on the pair):
-     entity_create(entity="track_affinity",
+     dj_entity_create(entity="track_affinity",
                   data={"track_a_id": <a>, "track_b_id": <b>})
    - A pairing that killed the floor — bump its veto count:
-     entity_update(entity="track_affinity", id=<row_id>,
+     dj_entity_update(entity="track_affinity", id=<row_id>,
                   data={"ban_count": <current + 1>})
    - A pairing that landed — bump like_count the same way via entity_update.
 

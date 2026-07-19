@@ -54,6 +54,7 @@ from app.prompts.set_review_workflow import set_review_workflow
 from app.prompts.style_lock_set_workflow import style_lock_set_workflow
 from app.prompts.subgenre_journey_workflow import subgenre_journey_workflow
 from app.prompts.suno_set_asset_workflow import suno_set_asset_workflow
+from app.prompts.suno_track_production_workflow import suno_track_production_workflow
 from app.prompts.taste_profile_workflow import taste_profile_workflow
 from app.prompts.tempo_journey_workflow import tempo_journey_workflow
 from app.prompts.track_prep_workflow import track_prep_workflow
@@ -135,6 +136,8 @@ def _render(p: Callable[..., object]) -> str:
         result = p(playlist_id=1)
     elif name == "suno_set_asset_workflow":
         result = p(set_id=1)
+    elif name == "suno_track_production_workflow":
+        result = p(title="Test Suno", brief="hypnotic techno")
     elif name == "render_set_workflow":
         result = p(version_id=1)
     else:
@@ -148,11 +151,11 @@ def _render(p: Callable[..., object]) -> str:
 
 _ENTITY_RE = re.compile(r"""\bentity\s*=\s*['"]([a-z_]+)['"]""")
 _PROVIDER_CALL_RE = re.compile(
-    r"""provider_(?:read|write)\(((?:(?!provider_(?:read|write)).)*?)\)""",
+    r"""(?<![A-Za-z0-9_])(?:dj_)?provider_(?:read|write)\(((?:(?!\b(?:dj_)?provider_(?:read|write)\().)*?)\)""",
     re.DOTALL,
 )
 _PROVIDER_READ_RE = re.compile(
-    r"""provider_read\s*\(((?:(?!provider_read).)*?)\)""",
+    r"""(?<![A-Za-z0-9_])(?:dj_)?provider_read\s*\(((?:(?!\b(?:dj_)?provider_read\s*\().)*?)\)""",
     re.DOTALL,
 )
 _PROVIDER_RE = re.compile(r"""\bprovider\s*=\s*['"]([a-z_]+)['"]""")
@@ -215,6 +218,7 @@ PROMPTS = (
     playlist_sync_workflow,
     library_cleanup_workflow,
     suno_set_asset_workflow,
+    suno_track_production_workflow,
     render_set_workflow,
 )
 
@@ -353,7 +357,7 @@ def test_create_update_data_keys_valid_against_schema(
 # Each provider_write(...) call: pull entity= and operation= from the call
 # window (order-agnostic, window bounded by the next provider_write).
 _PWRITE_RE = re.compile(
-    r"provider_write\(((?:(?!provider_write).)*?)\)",
+    r"(?<![A-Za-z0-9_])provider_write\(((?:(?!\bprovider_write\().)*?)\)",
     re.DOTALL,
 )
 _PW_ENTITY_RE = re.compile(r"entity=['\"](\w+)['\"]")
@@ -390,6 +394,18 @@ def test_provider_write_operations_match_adapter(
             for entity, ops in operations.items()
         )
     )
+
+
+@pytest.mark.parametrize(
+    "prompt",
+    (suno_set_asset_workflow, suno_track_production_workflow),
+    ids=lambda p: p.__name__,
+)
+def test_prompts_use_native_fastmcp_tool_names(prompt: Callable[..., object]) -> None:
+    body = _render(prompt)
+    forbidden = ["dj_provider_read", "dj_provider_write", "dj_entity_create"]
+    bad = [name for name in forbidden if name in body]
+    assert not bad, f"{prompt.__name__} references non-native FastMCP tool names: {bad}"
 
 
 def test_set_building_prompts_include_data_quality_guardrails() -> None:

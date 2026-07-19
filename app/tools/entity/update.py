@@ -52,10 +52,12 @@ EntityName = Literal[
     },
     description=(
         "Update an entity. Track_features has a reanalyze handler that re-runs "
-        "the audio pipeline at a higher level."
+        "the audio pipeline at a higher level. This is a heavy operation — clients "
+        "should request background execution for track_features updates."
     ),
-    meta={"timeout_s": 120.0},
-    timeout=120.0,
+    meta={"timeout_s": 360.0},
+    timeout=360.0,
+    task=True,
 )
 async def entity_update(
     entity: Annotated[EntityName, Field(description="Entity type")],

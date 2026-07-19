@@ -1,4 +1,4 @@
-"""register_default_entities wires 11 entities + custom handlers (Phase 3)."""
+"""register_default_entities wires 13 entities + custom handlers (Phase 3)."""
 
 from __future__ import annotations
 
@@ -15,7 +15,7 @@ def _reset_registry() -> None:
     EntityRegistry.clear()
 
 
-def test_registers_all_11_entities() -> None:
+def test_registers_all_13_entities() -> None:
     register_default_entities()
     names = set(EntityRegistry.names())
     expected = {
@@ -30,6 +30,8 @@ def test_registers_all_11_entities() -> None:
         "track_feedback",
         "track_affinity",
         "scoring_profile",
+        "stem_features",
+        "track_section",
     }
     assert names == expected
 

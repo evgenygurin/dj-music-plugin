@@ -48,10 +48,13 @@ EntityName = Literal[
     description=(
         "Create an entity. Some entities have custom handlers with side-effects: "
         "track=import from provider, audio_file=download, track_features=run analysis, "
-        "set_version=build + compute transitions."
+        "set_version=build + compute transitions. Heavy handlers run as background "
+        "tasks — track_features_analyze, audio_file_download, set_version_build, "
+        "track_import. Clients should request background execution for those."
     ),
-    meta={"timeout_s": 120.0},
-    timeout=120.0,
+    meta={"timeout_s": 360.0},
+    timeout=360.0,
+    task=True,
 )
 async def entity_create(
     entity: Annotated[EntityName, Field(description="Entity type")],

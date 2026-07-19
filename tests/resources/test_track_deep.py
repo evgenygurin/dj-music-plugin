@@ -35,16 +35,18 @@ async def test_track_deep_features_with_stems() -> None:
     mock_feature.stem_name = "original"
     mock_feature._mock_methods = None  # allow __table__ magic attribute
     mock_feature.__table__ = MagicMock()
-    mock_feature.__table__.columns = _ColumnsDict({
-        "id": SimpleNamespace(name="id"),
-        "track_id": SimpleNamespace(name="track_id"),
-        "pipeline_run_id": SimpleNamespace(name="pipeline_run_id"),
-        "created_at": SimpleNamespace(name="created_at"),
-        "updated_at": SimpleNamespace(name="updated_at"),
-        "stem_name": SimpleNamespace(name="stem_name"),
-        "bpm": SimpleNamespace(name="bpm"),
-        "bpm_confidence": SimpleNamespace(name="bpm_confidence"),
-    })
+    mock_feature.__table__.columns = _ColumnsDict(
+        {
+            "id": SimpleNamespace(name="id"),
+            "track_id": SimpleNamespace(name="track_id"),
+            "pipeline_run_id": SimpleNamespace(name="pipeline_run_id"),
+            "created_at": SimpleNamespace(name="created_at"),
+            "updated_at": SimpleNamespace(name="updated_at"),
+            "stem_name": SimpleNamespace(name="stem_name"),
+            "bpm": SimpleNamespace(name="bpm"),
+            "bpm_confidence": SimpleNamespace(name="bpm_confidence"),
+        }
+    )
     mock_feature.bpm = 128.0
     mock_feature.bpm_confidence = 0.95
     uow.stem_features = MagicMock()
@@ -96,15 +98,15 @@ async def test_track_waveform_returns_bytes() -> None:
 
     uow = MagicMock()
     mock_client = MagicMock()
-    mock_client.download = AsyncMock(return_value=b'{"samples": []}')
+    mock_client.storage.from_.return_value.download.return_value = b'{"samples": []}'
 
     with (
-        patch("app.providers.supabase.config.SupabaseStorageSettings") as mock_settings_cls,
-        patch("app.providers.supabase.storage_client.SupabaseStorageClient", return_value=mock_client),
+        patch("app.config.supabase.SupabaseSettings") as mock_settings_cls,
+        patch("supabase.create_client", return_value=mock_client),
     ):
         mock_settings = MagicMock()
-        mock_settings.url = "http://test"
-        mock_settings.service_key = "test-key"
+        mock_settings.supabase_url = "http://test"
+        mock_settings.supabase_service_key = "test-key"
         mock_settings_cls.return_value = mock_settings
 
         result = await track_waveform(id=1, uow=uow)

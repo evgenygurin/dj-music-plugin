@@ -90,7 +90,7 @@ cannot render.
 
 3. Resolve + ready the pool (track has no playlist_id column):
    local://playlists/{playlist_id}?include_tracks=true -> pool_ids = [...]
-   entity_list(entity="track_features", filters={{"track_id__in": pool_ids}},
+   dj_entity_list(entity="track_features", filters={{"track_id__in": pool_ids}},
               fields="scoring")
    — ensure level >= 3; analyze_library_workflow first for stragglers.
    Read schema://entities/track_features if any field/filter name is uncertain.
@@ -100,7 +100,7 @@ cannot render.
 4. Select to character: keep tracks whose mood sits in the persona band
    ({moods}); drop clear outliers (e.g. melodic_deep in a Lens set, hard_techno
    in a Hawtin set):
-   entity_list(entity="track_features",
+   dj_entity_list(entity="track_features",
               filters={{"track_id__in": pool_ids,
                        "mood__in": [<persona moods>]}}, fields="scoring")
    Data rule: mood is a hint, not ground truth. Confirm the persona fit with
@@ -109,7 +109,7 @@ cannot render.
    and only keep the track if it supports the persona by audio features.
 
 5. Order under the template arc with the persona's transition feel:
-   sequence_optimize(track_ids=[...], algorithm="ga", template="{template}")
+   dj_sequence_optimize(track_ids=[...], algorithm="ga", template="{template}")
    — long blends / HARMONIC_SUSTAIN for Klock/Hawtin; tight bass-swaps and
      hands-up cuts for Lens/de Witte; quick dense blends for Mills.
    For raw/hypnotic/industrial schools or low key_confidence material, use
@@ -117,11 +117,11 @@ cannot render.
    outrank Camelot neatness.
 
 6. Persist + critique against the persona:
-   entity_create(entity="set_version", data={{"set_id": <id>,
+   dj_entity_create(entity="set_version", data={{"set_id": <id>,
                 "track_order": [...], "label": "persona_{persona}"}})
    local://sets/{{set_id}}/narrative — does the arc read like '{persona}'?
    local://sets/{{set_id}}/review    — weak transitions / hard conflicts.
-   ui_set_view(set_id=<id>)          — visual energy arc.
+   dj_ui_set_view(set_id=<id>)          — visual energy arc.
 
 7. If the set drifts off-character, pin the most on-brand anchors and re-run
    sequence_optimize, or swap offenders via replace_track_workflow.

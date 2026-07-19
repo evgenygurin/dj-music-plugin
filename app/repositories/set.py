@@ -107,6 +107,7 @@ class SetVersionRepository(BaseRepository[DjSetVersion]):
                 DjSetItem.sort_index,
                 DjSetItem.mix_in_point_ms,
                 Track.title,
+                Track.duration_ms,
                 TrackAudioFeaturesComputed.bpm,
                 TrackAudioFeaturesComputed.key_code,
                 TrackAudioFeaturesComputed.integrated_lufs,
@@ -147,6 +148,7 @@ class SetVersionRepository(BaseRepository[DjSetVersion]):
                     mix_in_ms=int(row.mix_in_point_ms or 0),
                     integrated_lufs=row.integrated_lufs,
                     file_path=row.file_path,
+                    duration_ms=row.duration_ms,
                 )
             )
         return out

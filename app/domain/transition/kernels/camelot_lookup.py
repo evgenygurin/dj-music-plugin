@@ -7,6 +7,11 @@ from app.domain.camelot.wheel import camelot_distance
 from app.domain.transition.weights import CAMELOT_BASS_BASE, CAMELOT_HARMONIC_BASE
 
 
+def key_distance(key_a: int, key_b: int) -> int:
+    """Raw Camelot distance between two keys (0-7)."""
+    return camelot_distance(key_a, key_b)
+
+
 def camelot_harmonic_score(key_a: int | None, key_b: int | None) -> float:
     if key_a is None or key_b is None:
         return 0.5

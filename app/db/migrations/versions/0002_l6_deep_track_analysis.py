@@ -4,19 +4,20 @@ Revision ID: 0002
 Revises: f3702c8a41cd
 Create Date: 2026-07-09
 """
+
 from __future__ import annotations
 
-from typing import Sequence, Union
+from collections.abc import Sequence
 
-from alembic import op
 import sqlalchemy as sa
-from pgvector.sqlalchemy import Vector
+from alembic import op
+from pgvector.sqlalchemy import Vector  # type: ignore[import-untyped]
 from sqlalchemy.dialects.postgresql import JSONB
 
 revision: str = "0002"
-down_revision: Union[str, None] = "f3702c8a41cd"
-branch_labels: Union[str, Sequence[str], None] = None
-depends_on: Union[str, Sequence[str], None] = None
+down_revision: str | None = "f3702c8a41cd"
+branch_labels: str | Sequence[str] | None = None
+depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
@@ -24,9 +25,19 @@ def upgrade() -> None:
     op.create_table(
         "stem_features",
         sa.Column("id", sa.Integer(), autoincrement=True, nullable=False),
-        sa.Column("track_id", sa.Integer(), sa.ForeignKey("tracks.id", ondelete="CASCADE"), nullable=False),
+        sa.Column(
+            "track_id",
+            sa.Integer(),
+            sa.ForeignKey("tracks.id", ondelete="CASCADE"),
+            nullable=False,
+        ),
         sa.Column("stem_name", sa.String(length=16), nullable=False),
-        sa.Column("pipeline_run_id", sa.Integer(), sa.ForeignKey("feature_extraction_runs.id"), nullable=True),
+        sa.Column(
+            "pipeline_run_id",
+            sa.Integer(),
+            sa.ForeignKey("feature_extraction_runs.id"),
+            nullable=True,
+        ),
         sa.Column("analysis_level", sa.Integer(), server_default="6", nullable=False),
         # — Tempo —
         sa.Column("bpm", sa.Float(), nullable=True),
@@ -105,8 +116,12 @@ def upgrade() -> None:
         sa.Column("click_detected", sa.Boolean(), nullable=True),
         sa.Column("saturation_detected", sa.Boolean(), nullable=True),
         # — timestamps —
-        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
-        sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
+        sa.Column(
+            "created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False
+        ),
+        sa.Column(
+            "updated_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False
+        ),
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint("track_id", "stem_name", name="uq_sf_track_stem"),
     )
@@ -116,17 +131,29 @@ def upgrade() -> None:
     op.create_table(
         "track_embeddings",
         sa.Column("id", sa.Integer(), autoincrement=True, nullable=False),
-        sa.Column("track_id", sa.Integer(), sa.ForeignKey("tracks.id", ondelete="CASCADE"), nullable=False),
+        sa.Column(
+            "track_id",
+            sa.Integer(),
+            sa.ForeignKey("tracks.id", ondelete="CASCADE"),
+            nullable=False,
+        ),
         sa.Column("stem_name", sa.String(length=16), server_default="original", nullable=False),
         sa.Column("embedding_type", sa.String(length=32), nullable=False),
         sa.Column("embedding", Vector(256), nullable=True),
-        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
+        sa.Column(
+            "created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False
+        ),
         sa.PrimaryKeyConstraint("id"),
-        sa.UniqueConstraint("track_id", "stem_name", "embedding_type", name="uq_te_track_stem_type"),
+        sa.UniqueConstraint(
+            "track_id", "stem_name", "embedding_type", name="uq_te_track_stem_type"
+        ),
     )
     op.create_index(
-        "idx_track_embeddings_hnsw", "track_embeddings", ["embedding"],
-        postgresql_using="hnsw", postgresql_with={"m": 16, "ef_construction": 200},
+        "idx_track_embeddings_hnsw",
+        "track_embeddings",
+        ["embedding"],
+        postgresql_using="hnsw",
+        postgresql_with={"m": 16, "ef_construction": 200},
         postgresql_ops={"embedding": "vector_cosine_ops"},
     )
 
@@ -134,15 +161,27 @@ def upgrade() -> None:
     op.create_table(
         "cross_similarity",
         sa.Column("id", sa.Integer(), autoincrement=True, nullable=False),
-        sa.Column("track_a_id", sa.Integer(), sa.ForeignKey("tracks.id", ondelete="CASCADE"), nullable=False),
-        sa.Column("track_b_id", sa.Integer(), sa.ForeignKey("tracks.id", ondelete="CASCADE"), nullable=False),
+        sa.Column(
+            "track_a_id",
+            sa.Integer(),
+            sa.ForeignKey("tracks.id", ondelete="CASCADE"),
+            nullable=False,
+        ),
+        sa.Column(
+            "track_b_id",
+            sa.Integer(),
+            sa.ForeignKey("tracks.id", ondelete="CASCADE"),
+            nullable=False,
+        ),
         sa.Column("stem_name", sa.String(length=16), server_default="original", nullable=False),
         sa.Column("matrix_shape", sa.String(length=50), nullable=True),
         sa.Column("best_match_offset_ms", sa.Float(), nullable=True),
         sa.Column("best_match_score", sa.Float(), nullable=True),
         sa.Column("alignment_path", JSONB, nullable=True),
         sa.Column("segment_matches", JSONB, nullable=True),
-        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
+        sa.Column(
+            "created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False
+        ),
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint("track_a_id", "track_b_id", "stem_name", name="uq_cs_pair_stem"),
     )

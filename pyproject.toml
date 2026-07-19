@@ -76,7 +76,7 @@ unfixable = ["F401", "F811", "F841"]
 "app/audio/**" = ["RUF012", "E501"]  # mutable class defaults OK for analyzer ABC pattern
 "app/tools/**" = ["B008", "E501"]  # FastMCP DI: Depends() in arg defaults is correct
 "app/handlers/**" = ["B008", "E501"]  # FastMCP handler conventions
-"app/resources/**" = ["B008", "E501"]  # FastMCP DI: Depends() in arg defaults is correct
+"app/resources/**" = ["B008", "E501", "RUF001"]  # FastMCP DI: Depends() in arg defaults is correct; RUF001: Russian descriptions contain Cyrillic lookalikes
 "app/providers/**" = ["E501"]  # long URLs and API paths
 "tests/**" = ["E501", "RUF012", "B017", "N806"]  # tests can use blind pytest.raises; mock context managers use uppercase
 

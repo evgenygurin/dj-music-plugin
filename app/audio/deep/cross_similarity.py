@@ -39,14 +39,14 @@ def compute_cross_similarity(
             spec = spectrum(w(frame))
             _, coeffs = mfcc(spec)
             frames.append(coeffs)
-        return np.array(frames, dtype=np.float32) if frames else np.zeros((1, 13), dtype=np.float32)
+        return (
+            np.array(frames, dtype=np.float32) if frames else np.zeros((1, 13), dtype=np.float32)
+        )
 
     mfcc_a = extract_mfcc(audio_a)
     mfcc_b = extract_mfcc(audio_b)
 
-    csm_algo = es.CrossSimilarityMatrix(
-        frameStackSize=9, frameStackStride=1, binarize=False
-    )
+    csm_algo = es.CrossSimilarityMatrix(frameStackSize=9, frameStackStride=1, binarize=False)
     csm = csm_algo(mfcc_a, mfcc_b)
 
     best_idx = int(csm.flatten().argmax())

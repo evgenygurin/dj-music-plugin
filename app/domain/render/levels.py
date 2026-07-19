@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from statistics import median
 
-_CLAMP_DB = 4.0
+_CLAMP_DB = 1.5
 
 
 def gains_to_median(lufs_by_track: dict[int, float | None]) -> dict[int, float]:

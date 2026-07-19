@@ -18,9 +18,10 @@ from app.models.audio_file import DjLibraryItem
 from app.models.playlist import DjPlaylist
 from app.models.scoring_profile import ScoringProfile
 from app.models.set import DjSet, DjSetVersion
+from app.models.stem_features import StemFeatures
 from app.models.track import Track
 from app.models.track_affinity import TrackAffinity
-from app.models.track_features import TrackAudioFeaturesComputed
+from app.models.track_features import TrackAudioFeaturesComputed, TrackSection
 from app.models.track_feedback import TrackFeedback
 from app.models.transition import Transition
 from app.models.transition_history import TransitionHistory
@@ -55,6 +56,12 @@ from app.schemas.set import (
     SetVersionView,
     SetView,
 )
+from app.schemas.stem_features import (
+    StemFeaturesCreate,
+    StemFeaturesFilter,
+    StemFeaturesUpdate,
+    StemFeaturesView,
+)
 from app.schemas.track import (
     TrackArtistView,
     TrackCreate,
@@ -79,6 +86,12 @@ from app.schemas.track_feedback import (
     TrackFeedbackFilter,
     TrackFeedbackUpdate,
     TrackFeedbackView,
+)
+from app.schemas.track_section import (
+    TrackSectionCreate,
+    TrackSectionFilter,
+    TrackSectionUpdate,
+    TrackSectionView,
 )
 from app.schemas.transition import (
     TransitionCreate,
@@ -668,6 +681,98 @@ def register_default_entities() -> None:
             ),
             relations={},
             tags=frozenset({"namespace:feedback"}),
+        )
+    )
+
+    EntityRegistry.register(
+        EntityConfig(
+            name="stem_features",
+            model=StemFeatures,
+            repo_attr="stem_features",
+            view_schema=StemFeaturesView,
+            filter_schema=StemFeaturesFilter,
+            create_schema=StemFeaturesCreate,
+            update_schema=StemFeaturesUpdate,
+            allowed_ops=frozenset({"list", "get", "aggregate"}),
+            field_presets={
+                "id": ["track_id", "stem_name"],
+                "summary": [
+                    "track_id",
+                    "stem_name",
+                    "bpm",
+                    "key_code",
+                    "integrated_lufs",
+                    "energy_mean",
+                    "kick_prominence",
+                    "onset_rate",
+                    "pulse_clarity",
+                ],
+                "full": "*",
+            },
+            default_preset="full",
+            searchable_fields=(),
+            filterable_fields={
+                "track_id": ("eq", "in"),
+                "stem_name": ("eq", "in"),
+                "bpm": ("eq", "gte", "lte", "range"),
+                "key_code": ("eq", "in", "range"),
+                "integrated_lufs": ("gte", "lte"),
+                "energy_mean": ("gte", "lte"),
+                "spectral_centroid_hz": ("gte", "lte"),
+                "kick_prominence": ("gte", "lte"),
+                "onset_rate": ("gte", "lte"),
+                "pulse_clarity": ("gte", "lte"),
+                "hp_ratio": ("gte", "lte"),
+                "hnr_db": ("gte", "lte"),
+                "dissonance_mean": ("gte", "lte"),
+                "inharmonicity": ("gte", "lte"),
+                "chords_strength": ("gte", "lte"),
+                "saturation_detected": ("eq",),
+                "click_detected": ("eq",),
+                "analysis_level": ("eq", "gte"),
+            },
+            sortable_fields=(
+                "track_id",
+                "bpm",
+                "key_code",
+                "integrated_lufs",
+                "energy_mean",
+                "kick_prominence",
+                "onset_rate",
+            ),
+            relations={},
+            tags=frozenset({"namespace:analysis"}),
+        )
+    )
+
+    EntityRegistry.register(
+        EntityConfig(
+            name="track_section",
+            model=TrackSection,
+            repo_attr="track_sections",
+            view_schema=TrackSectionView,
+            filter_schema=TrackSectionFilter,
+            create_schema=TrackSectionCreate,
+            update_schema=TrackSectionUpdate,
+            allowed_ops=frozenset({"list", "get", "aggregate"}),
+            field_presets={
+                "id": ["track_id", "section_type", "start_ms", "end_ms"],
+                "summary": ["track_id", "section_type", "start_ms", "end_ms", "energy", "lufs"],
+                "full": "*",
+            },
+            default_preset="full",
+            searchable_fields=(),
+            filterable_fields={
+                "track_id": ("eq", "in"),
+                "section_type": ("eq", "in", "range"),
+                "start_ms": ("gte", "lte"),
+                "end_ms": ("gte", "lte"),
+                "energy": ("gte", "lte"),
+                "lufs": ("gte", "lte"),
+            },
+            sortable_fields=("track_id", "section_type", "start_ms", "energy"),
+            relations={},
+            tags=frozenset({"namespace:analysis"}),
         )
     )
 

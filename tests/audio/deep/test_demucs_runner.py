@@ -10,6 +10,7 @@ from app.audio.deep.demucs_runner import run_demucs
 
 def test_run_demucs_calls_subprocess_with_correct_args() -> None:
     import hashlib
+
     from app.audio.deep.demucs_runner import _CACHE_ROOT
 
     input_path = Path("/tmp/test_track.mp3")

@@ -28,6 +28,8 @@ EntityName = Literal[
     "track_feedback",
     "track_affinity",
     "scoring_profile",
+    "stem_features",
+    "track_section",
 ]
 
 

@@ -45,7 +45,9 @@ class ChordsAnalyzer(BaseAnalyzer):
         chords_result = chords_detector(hpcp_stack)
         chords_strength = float(np.mean(chords_result[1])) if chords_result[1].size > 0 else None
         chord_labels = chords_result[0]
-        changes = sum(1 for i in range(1, len(chord_labels)) if chord_labels[i] != chord_labels[i - 1])
+        changes = sum(
+            1 for i in range(1, len(chord_labels)) if chord_labels[i] != chord_labels[i - 1]
+        )
         chords_changes = changes
         total_frames = len(chord_labels)
         chords_changes_rate = float(chords_changes / total_frames) if total_frames > 0 else None

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import Any
 
 
 @dataclass
@@ -16,4 +17,4 @@ class L6AnalysisResult:
     timeseries_uploaded: bool = False
     waveform_uploaded: bool = False
     errors: list[str] = field(default_factory=list)
-    drum_bands: dict = field(default_factory=dict)
+    drum_bands: dict[str, Any] = field(default_factory=dict)

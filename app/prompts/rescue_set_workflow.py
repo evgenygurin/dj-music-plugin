@@ -19,25 +19,25 @@ not a track problem.
 1. Measure the damage:
    local://sets/{set_id}/review — count hard_reject pairs and weak
    (overall < 0.5) transitions; note their positions.
-   entity_list(entity="transition",
+   dj_entity_list(entity="transition",
               filters={{"from_track_id__in": [<set track ids>], "hard_reject": true}},
               fields="summary")
    — reject_reason tells you the dominant failure (bpm cliff / camelot clash /
      energy gap). If one reason dominates, the cure is structural.
 
 2. Cheapest fix — RE-ORDER the existing tracks (no swaps yet):
-   sequence_optimize(track_ids=[<current set ids>], algorithm="ga",
+   dj_sequence_optimize(track_ids=[<current set ids>], algorithm="ga",
                     template=<set template>)
    — the GA threads a path that avoids hard_reject steps if one exists. Persist
      a trial version and re-check:
-   entity_create(entity="set_version", data={{"set_id": {set_id},
+   dj_entity_create(entity="set_version", data={{"set_id": {set_id},
                 "track_order": [...], "label": "rescue_reorder"}})
    local://sets/{set_id}/review — how many conflicts survived the reorder?
 
 3. Isolate the IRREDEEMABLE tracks. A track that hard_rejects against most of
    the pool is a foreign-character intruder (wrong BPM band, lone key, or
    energy outlier). Find it:
-   entity_list(entity="track_features", filters={{"track_id__in": [...]}},
+   dj_entity_list(entity="track_features", filters={{"track_id__in": [...]}},
               fields="scoring")
    — the BPM/key/mood outlier is usually the culprit. Drop it from the set or
      replace it via replace_track_workflow for its slot.
@@ -49,7 +49,7 @@ not a track problem.
      tail masks the clash); accept it only where no clean fix exists.
 
 5. Re-persist the rescued order and confirm recovery:
-   entity_create(entity="set_version", data={{"set_id": {set_id},
+   dj_entity_create(entity="set_version", data={{"set_id": {set_id},
                 "track_order": [...], "label": "rescue_final"}})
    local://sets/{set_id}/versions/compare/<broken>/<rescued> — hard_reject
    count must drop to 0 (or only intentional ECHO_OUT bridges remain).

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import numpy as np
-from sqlalchemy import select, text
+from sqlalchemy import bindparam, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.track_embedding import TrackEmbedding
@@ -22,7 +22,7 @@ class TrackEmbeddingRepository:
             )
         )
         if existing is not None:
-            existing.embedding = embedding.tolist()  # type: ignore[assignment]
+            existing.embedding = embedding.tolist()
             await self._session.flush()
             return existing
         row = TrackEmbedding(
@@ -36,7 +36,10 @@ class TrackEmbeddingRepository:
         return row
 
     async def get_for_type(
-        self, track_id: int, stem_name: str, embedding_type: str,
+        self,
+        track_id: int,
+        stem_name: str,
+        embedding_type: str,
     ) -> TrackEmbedding | None:
         from sqlalchemy import select
 
@@ -58,15 +61,22 @@ class TrackEmbeddingRepository:
         exclude_ids: list[int] | None = None,
     ) -> list[tuple[int, float]]:
         vector_str = f"[{','.join(str(v) for v in query_vector)}]"
-        sql = text("""
+        exclude_ids_tuple = tuple(exclude_ids or [])
+        exclude_clause = "AND t.id NOT IN :exclude_ids" if exclude_ids_tuple else ""
+        sql = text(f"""
             SELECT t.id, 1 - (e.embedding <=> :query) AS similarity
             FROM track_embeddings e
             JOIN tracks t ON t.id = e.track_id
             WHERE e.embedding_type = :etype
               AND e.stem_name = :stem
+              {exclude_clause}
             ORDER BY e.embedding <=> :query
             LIMIT :lim
         """)
+        if exclude_ids_tuple:
+            sql = sql.bindparams(bindparam("exclude_ids", expanding=True))
         params = {"query": vector_str, "etype": embedding_type, "stem": stem_name, "lim": limit}
+        if exclude_ids_tuple:
+            params["exclude_ids"] = exclude_ids_tuple
         result = await self._session.execute(sql, params)
         return [(row.id, row.similarity) for row in result.fetchall()]

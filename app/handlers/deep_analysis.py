@@ -3,10 +3,10 @@ from __future__ import annotations
 import asyncio
 import logging
 
+from app.config.supabase import SupabaseSettings
 from app.db.session import get_session_factory
 from app.domain.deep_analysis.models import L6AnalysisResult
 from app.domain.deep_analysis.orchestrator import L6AnalysisOrchestrator
-from app.config.supabase import SupabaseSettings
 from app.providers.supabase.storage_client import SupabaseStorageClient
 from app.repositories.unit_of_work import UnitOfWork
 
@@ -45,7 +45,9 @@ async def handle_deep_analyze_track(
 
 
 async def _run_background(
-    track_id: int, run_id: int, orchestrator: L6AnalysisOrchestrator,
+    track_id: int,
+    run_id: int,
+    orchestrator: L6AnalysisOrchestrator,
 ) -> None:
     factory = get_session_factory()
     async with factory() as session:

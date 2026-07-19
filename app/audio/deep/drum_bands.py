@@ -7,12 +7,11 @@ import numpy as np
 import soundfile as sf
 from scipy.signal import butter, sosfiltfilt
 
-
 BANDS = {
-    "sub_kick":   (20, 60),
-    "kick_body":  (60, 150),
+    "sub_kick": (20, 60),
+    "kick_body": (60, 150),
     "snare_clap": (150, 2000),
-    "hi_hats":    (2000, 10000),
+    "hi_hats": (2000, 10000),
 }
 
 
@@ -22,6 +21,7 @@ def analyze_drum_bands(drums_path: Path, sr: int = 22050) -> dict[str, Any]:
     audio = audio.mean(axis=1)
     if file_sr != sr:
         from scipy.signal import resample
+
         n = int(len(audio) * sr / file_sr)
         audio = resample(audio, n)
 
@@ -47,6 +47,7 @@ def analyze_drum_bands(drums_path: Path, sr: int = 22050) -> dict[str, Any]:
 
 def _detect_onsets(audio: np.ndarray, sr: int) -> np.ndarray:
     import librosa
+
     try:
         env = librosa.onset.onset_strength(y=audio, sr=sr, hop_length=512)
         onsets = librosa.onset.onset_detect(onset_envelope=env, sr=sr, hop_length=512)

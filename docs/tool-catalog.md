@@ -1,6 +1,6 @@
 # MCP Tool Catalog
 
-Quick reference — **29 model-visible tools** (13 core dispatchers + 3 render + 8 UI/Prefab + 4 deep analysis + `tool_invoke`) + **36 resources** + **31 prompts** + **6 handlers** + **11 registered entities**. One extra tool — `render_studio_panel` — is registered but app-visibility only (`visibility=["app"]`), hidden from the model / BM25 so the `ui_render_studio` UI can `CallTool` it.
+Quick reference — **29 model-visible tools** (13 core dispatchers + 3 render + 8 UI/Prefab + 4 deep analysis + `tool_invoke`) + **41 resources** + **32 prompts** + **6 handlers** + **11 registered entities**. One extra tool — `render_studio_panel` — is registered but app-visibility only (`visibility=["app"]`), hidden from the model / BM25 so the `ui_render_studio` UI can `CallTool` it.
 
 The 88-tool catalog of v0.8 was collapsed via polymorphism: generic CRUD
 (`entity_*`) dispatches via `EntityRegistry`, generic provider access
@@ -130,14 +130,17 @@ in `ALWAYS_VISIBLE_TOOLS` so `BM25SearchTransform` never hides them.
 | Tool | Params | RO |
 |------|--------|-----|
 | `render_beatgrid` | version_id, refresh=false | no (idempotent) |
-| `render_mixdown` | version_id, out_name?, transition_bars?, body_bars?, refresh_grid=false | no |
+| `render_mixdown` | version_id, out_name?, transition_bars?, body_bars?, refresh_grid=false, stem=true | no |
 | `render_diagnose` | version_id, mix_path? | yes |
 
 - `render_beatgrid` — kick-phase detect + sub-beat phase refine + LUFS
   level-match; writes `beatgrid.json`.
-- `render_mixdown` — beatmatch (rubberband→target BPM) + 32-bar EQ bass-swap
-  transitions + limiter → one continuous `MIX.mp3`. Auto-runs the beatgrid if
-  missing.
+- `render_mixdown` — beatmatch (rubberband→target BPM) + limiter → one
+  continuous `MIX.mp3`. **Default `stem=true`**: demucs 4-stem multi-deck with
+  staggered per-stem transitions (clean 1-beat bass swap, continuous drums,
+  gradual harmonics/vocals, HPF bleed-masking on vocals/other, intro/outro
+  fades). `stem=false` uses the classic 3-band EQ bass-swap. Falls back to
+  classic when demucs is unavailable. Auto-runs the beatgrid if missing.
 - `render_diagnose` — scan + per-4s librosa defect sweep (level jumps,
   dropouts, bass-thin) of a rendered mix; writes `diagnostics.json`.
 
@@ -189,7 +192,7 @@ Visual renderers marked with `meta={"ui": True}` (standalone-decorator equivalen
 
 Enable with `uv sync --all-extras` (pulls `fastmcp[apps]` → `prefab_ui>=0.19`).
 
-## Resources (36)
+## Resources (41)
 
 All read-only, MIME `application/json`, auto-discovered from `app/resources/`.
 
@@ -235,7 +238,7 @@ All read-only, MIME `application/json`, auto-discovered from `app/resources/`.
 | `session://tool-history` | Last N tool calls in session |
 | `session://energy-trend{?limit}` | Adaptive arc — energy direction suggestion |
 
-### Reference — static knowledge (5)
+### Reference — static knowledge (10)
 
 | URI | Purpose |
 |---|---|
@@ -244,6 +247,11 @@ All read-only, MIME `application/json`, auto-discovered from `app/resources/`.
 | `reference://templates` | 8 set templates (warm_up_30, classic_60, …) |
 | `reference://audit_rules` | Techno audit thresholds |
 | `reference://render/defaults` | RenderSettings constants (target BPM, bars, XSPLIT, limiter) |
+| `reference://feature-catalog/stem_features` | Stem feature catalog for L6/multi-deck analysis |
+| `reference://section-types` | Track section type enum reference |
+| `reference://suno/models` | Suno web/session and SunoAPI model defaults, limits, and caveats |
+| `reference://suno/prompt-craft` | Suno prompt field split, structure tags, sliders, and DJ asset recipes |
+| `reference://suno/voices` | Project Suno voice recipes and formal Suno Voice workflow notes |
 
 ### Render — continuous-mix pipeline (4)
 
@@ -257,7 +265,7 @@ math); the heavy defect sweep is the `render_diagnose` tool, not a resource.
 | `local://render/{version_id}/beatgrid` | Saved `beatgrid.json` (per-track trim / gain / phase) |
 | `local://render/{version_id}/timeline` | Segment + transition-window timeline (pure math) |
 
-## Prompts (31, namespace `workflow`)
+## Prompts (32, namespace `workflow`)
 
 Design rationale + techno-domain research:
 [docs/research/2026-06-22-techno-set-construction-and-mcp-prompts.md](research/2026-06-22-techno-set-construction-and-mcp-prompts.md)
@@ -341,6 +349,13 @@ resolve is a runtime hard error, not a no-op).
 |---|---|
 | `library_cleanup_workflow` | Actionable hygiene: unanalyzed/low-quality/outlier tracks + per-problem fix (`playlist_id?`) |
 
+**Generation (2)**
+
+| Prompt | Purpose |
+|---|---|
+| `suno_set_asset_workflow` | Generate DJ set utility assets: gap fills, texture beds, bridges, rescue loops (`set_id`) |
+| `suno_track_production_workflow` | Full Suno production: account preflight, prompt craft, generate, poll, refine, download (`title`, `brief`) |
+
 ## Visibility
 
 **Current state (see `app/server/visibility.py`):** `DISABLED_NAMESPACE_TAGS`
@@ -393,3 +408,5 @@ whitelisted (hidden from the model / BM25; the UI reaches it via `CallTool`).
 | control center | **25** | **32** | +`ui_control_center` combined library + set/version + render-pipeline entry panel (namespace `ui:read`, always-visible; UI tools 7 → **8**) — reuses the existing hidden `render_studio_panel` helper for its render buttons (no new helper), `ControlCenterFallback` for non-Prefab clients. |
 | control center phase 2 | **25** | **32** | +3 hidden app-only tools (`control_center_panel`, `act_build`, `act_l5_set` — `visibility=["app"]`, not model-visible) + Build/Reorder, Analyze→L5 and conditional Sync-diff→YM buttons on `ui_control_center`. Model-visible count unchanged. |
 | L6 deep analysis | **29** | **36** | +4 deep analysis tools (`deep_analyze_track`, `deep_analyze_pool`, `find_compatible_tracks`, `get_cross_similarity`, namespace `deep_analysis`) + 3 track resources (`local://tracks/{id}/deep_features{?stem}`, `.../structure`, `.../waveform{?stem}`). Demucs 4-stem separation → per-stem pipeline (×5) → beatgrid → SBic structural segmentation → pgvector embeddings (5 types, HNSW index) → CrossSimilarityMatrix → Supabase Storage timeseries/waveform upload. 59 new files, ~5.7k LOC. |
+| multi-deck resources | **29** | **38** | +2 reference resources from `app/resources/multi_deck.py`: `reference://feature-catalog/stem_features`, `reference://section-types`. |
+| Suno agent layer | **29** | **41** | +3 Suno reference resources (`reference://suno/models`, `reference://suno/prompt-craft`, `reference://suno/voices`) + `suno_track_production_workflow` prompt (31 → **32**) + Claude Code skill `skills/suno`. Provider runtime unchanged. |

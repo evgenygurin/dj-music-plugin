@@ -43,9 +43,10 @@ Discovery & ops (3):
 - ``taste_profile_workflow``   — feedback/affinity taste memory
 - ``playlist_sync_workflow``   — pull/push/diff with YM (conflict gate)
 
-Generation (1):
+Generation (2):
 
-- ``suno_set_asset_workflow``  — generate intro/bridge/outro/rescue assets
+- ``suno_set_asset_workflow``  — enrich tracks: gap fills, texture, bridges
+- ``suno_track_production_workflow`` — full Suno track / vocal production
 
 Prompts are pure text-builders — they MUST NOT import repositories, tools,
 or providers. Every entity / provider / field-preset name referenced in a

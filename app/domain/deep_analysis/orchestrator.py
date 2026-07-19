@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
+from typing import Any
 
 from app.audio.deep.beatgrid_builder import build_beatgrid
 from app.audio.deep.demucs_runner import run_demucs
@@ -44,9 +45,9 @@ class L6AnalysisOrchestrator:
             logger.warning("Demucs skipped (no GPU / no cached stems): %s", e)
 
         # Step 2: Per-stem analysis (parallel)
-        all_features: dict[str, dict] = {}
+        all_features: dict[str, dict[str, Any]] = {}
         try:
-            all_features = await analyze_stems(uow, track_id, stem_paths, audio_path)
+            all_features = await analyze_stems(stem_paths, audio_path)
             for stem_name, features in all_features.items():
                 if features:
                     await uow.stem_features.upsert(track_id, stem_name, features)
@@ -56,7 +57,15 @@ class L6AnalysisOrchestrator:
 
         # Step 3: Beatgrid (use original audio)
         try:
-            await build_beatgrid(uow, track_id, audio_path)
+            beatgrid = build_beatgrid(audio_path)
+            lib_item = await uow.audio_files.get_for_track(track_id)
+            if lib_item is not None:
+                await uow.audio_files.register_beatgrid(
+                    library_item_id=lib_item.id,
+                    bpm=beatgrid.bpm,
+                    first_downbeat_ms=beatgrid.refined_trim_s * 1000.0,
+                    canonical=True,
+                )
             result.beatgrid_registered = True
         except Exception as e:
             result.errors.append(f"Beatgrid: {e}")
@@ -65,7 +74,19 @@ class L6AnalysisOrchestrator:
         try:
             await uow.track_features.clear_l6_sections(track_id)
             existing = await uow.track_features.get_track_sections(track_id)
-            sections = analyze_structure(audio_path, stem_paths, [{"start_ms": s["start_ms"], "end_ms": s["end_ms"], "section_type": s["section_type"]} for s in existing if s.get("start_ms", 0) < s.get("end_ms", 0)])
+            sections = analyze_structure(
+                audio_path,
+                stem_paths,
+                [
+                    {
+                        "start_ms": s["start_ms"],
+                        "end_ms": s["end_ms"],
+                        "section_type": s["section_type"],
+                    }
+                    for s in existing
+                    if s.get("start_ms", 0) < s.get("end_ms", 0)
+                ],
+            )
             for section in sections:
                 await uow.track_features.save_track_section(track_id, section)
             result.sections_count = len(sections)
@@ -88,9 +109,7 @@ class L6AnalysisOrchestrator:
             drums_path = stem_paths.get("drums")
             if drums_path:
                 bands_data = analyze_drum_bands(drums_path)
-                await uow.stem_features.upsert(
-                    track_id, "drums", {"drum_bands": bands_data}
-                )
+                await uow.stem_features.upsert(track_id, "drums", {"drum_bands": bands_data})
                 result.drum_bands = bands_data.get("bands", {})
         except Exception as e:
             result.errors.append(f"DrumBands: {e}")
