@@ -44,8 +44,8 @@ async def test_energy_budget():
         target_lufs=-8.0,
     )
 
-    assert result.total_lufs < -8.0
-    assert result.headroom_db > 0
+    assert result.total_lufs == -7.9
+    assert result.headroom_db == -0.1
 
 
 @pytest.mark.asyncio
@@ -70,7 +70,48 @@ async def test_energy_budget_with_gain():
         target_lufs=-8.0,
     )
 
-    assert result.total_lufs < -2.0
+    assert result.total_lufs == -4.0
+    assert result.headroom_db == -4.0
+
+
+@pytest.mark.asyncio
+async def test_energy_budget_sums_lufs_in_power_domain():
+    mock_a = MagicMock(
+        stem_name="drums",
+        integrated_lufs=-10.0,
+        energy_sub=0.0,
+        energy_low=0.0,
+        energy_lowmid=0.0,
+        energy_mid=0.0,
+        energy_highmid=0.0,
+        energy_high=0.0,
+    )
+    mock_b = MagicMock(
+        stem_name="bass",
+        integrated_lufs=-10.0,
+        energy_sub=0.0,
+        energy_low=0.0,
+        energy_lowmid=0.0,
+        energy_mid=0.0,
+        energy_highmid=0.0,
+        energy_high=0.0,
+    )
+    uow = MagicMock()
+    uow.stem_features.get_all_for_track = AsyncMock(
+        side_effect=lambda tid: [mock_a] if tid == 1 else [mock_b]
+    )
+
+    result = await compute_energy_budget(
+        uow,
+        [
+            StemLayer(track_id=1, stem_name="drums"),
+            StemLayer(track_id=2, stem_name="bass"),
+        ],
+        target_lufs=-8.0,
+    )
+
+    assert result.total_lufs == -7.0
+    assert result.headroom_db == -1.0
 
 
 @pytest.mark.asyncio

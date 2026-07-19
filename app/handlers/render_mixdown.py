@@ -78,7 +78,8 @@ def _clamp_body_bars_to_source_duration(
         g = grid.get(ti.track_id)
         trim = g.effective_trim if g is not None else 0.0
         available_source_s = max(0.0, duration_ms / 1000.0 - trim - 1.0)
-        max_output_s = available_source_s * ti.tempo_ratio(target_bpm)
+        ratio = ti.tempo_ratio(target_bpm)
+        max_output_s = available_source_s / ratio if ratio > 0 else available_source_s
         body_budget_s = max_output_s - d_in - d_out
         if body_budget_s <= 0:
             clamped[i] = 1

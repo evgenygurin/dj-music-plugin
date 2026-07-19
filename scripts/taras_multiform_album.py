@@ -60,7 +60,6 @@ async def main() -> int:
                     "style": style,
                     "negative_tags": negative,
                     "instrumental": False,
-                    "model": "chirp-fenix",
                 },
             )
         except AuthFailedError:

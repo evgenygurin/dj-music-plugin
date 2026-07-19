@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import inspect
+
 import pytest
 
 from app.domain.suno_voice.swallow_boy import (
@@ -12,6 +14,23 @@ from app.domain.suno_voice.swallow_boy import (
     assemble_swallow_boy_prompt,
     get_swallow_boy_variant,
 )
+
+
+def test_swallow_boy_script_defaults_to_free_safe_model(monkeypatch) -> None:
+    from scripts import swallow_boy_variants as script
+
+    monkeypatch.delenv("DJ_SUNO_MODEL", raising=False)
+
+    assert script._selected_model() == "chirp-auk-turbo"
+
+
+def test_swallow_boy_script_propagates_selected_model() -> None:
+    from scripts import swallow_boy_variants as script
+
+    main_source = inspect.getsource(script.main)
+
+    assert "MODEL" not in main_source
+    assert "_write_outputs(results)" not in main_source
 
 
 def test_reference_clip_identity() -> None:

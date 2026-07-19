@@ -44,6 +44,22 @@ async def test_track_embedding_search_similar() -> None:
 
 
 @pytest.mark.asyncio
+async def test_track_embedding_search_similar_excludes_ids_in_sql() -> None:
+    session = AsyncMock()
+    result_mock = MagicMock()
+    result_mock.fetchall.return_value = []
+    session.execute = AsyncMock(return_value=result_mock)
+    repo = TrackEmbeddingRepository(session)
+    query = np.zeros(256, dtype=np.float32)
+
+    await repo.search_similar(query, embedding_type="timbral", exclude_ids=[1, 2])
+
+    stmt, params = session.execute.call_args.args
+    assert "t.id NOT IN" in str(stmt)
+    assert params["exclude_ids"] == (1, 2)
+
+
+@pytest.mark.asyncio
 async def test_cross_similarity_upsert() -> None:
     session = AsyncMock()
     session.scalar = AsyncMock(return_value=None)

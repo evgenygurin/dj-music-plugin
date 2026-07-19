@@ -22,7 +22,13 @@ from app.providers.suno.client_errors import AuthFailedError, RateLimitedError
 from app.server.lifespan import build_suno_adapter
 
 OUT_DIR = Path("suno_out/rimjoba/swallow_boy")
-MODEL = "chirp-fenix"
+DEFAULT_MODEL = "chirp-auk-turbo"
+
+
+def _selected_model() -> str:
+    from app.config.suno import SunoSettings
+
+    return SunoSettings().model or DEFAULT_MODEL
 
 
 async def _preflight(adapter: object) -> dict:
@@ -54,7 +60,7 @@ async def _read_generation_ready(adapter: object, clip_id: str, *, attempts: int
     return await _with_retry(lambda: adapter.read(entity="generation", id=clip_id, params={}))
 
 
-def _write_outputs(results: list[dict]) -> None:
+def _write_outputs(results: list[dict], *, model: str) -> None:
     summary_path = OUT_DIR / "SUMMARY.json"
     summary_path.write_text(json.dumps(results, ensure_ascii=False, indent=2), encoding="utf-8")
 
@@ -62,7 +68,7 @@ def _write_outputs(results: list[dict]) -> None:
         "# Swallow Boy — 10 short variants",
         "",
         f"Reference: {SWALLOW_BOY_REFERENCE_URL}",
-        f"Model: `{MODEL}`",
+        f"Model: `{model}`",
         "",
         "| # | Variant | Suno | Local | Duration |",
         "|---|---------|------|-------|----------|",
@@ -115,9 +121,10 @@ async def main() -> int:
         print("Refresh with: uv run python scripts/suno_refresh_token.py")
         return 3
 
+    model = _selected_model()
     usable_models = account.get("usable_models") or []
-    if MODEL not in usable_models:
-        print(f"Model {MODEL!r} is not available. Usable models: {usable_models}")
+    if usable_models and model not in usable_models:
+        print(f"Model {model!r} is not available. Usable models: {usable_models}")
         return 4
 
     results = []
@@ -134,7 +141,7 @@ async def main() -> int:
                     "style": prompt.style,
                     "negative_tags": prompt.negative_tags,
                     "instrumental": False,
-                    "model": MODEL,
+                    "model": model,
                 }: adapter.write(
                     entity="generation",
                     operation="create",
@@ -145,7 +152,7 @@ async def main() -> int:
             print("Suno requires CAPTCHA/challenge for this account or IP.")
             print("Open Suno in the browser, complete the challenge, then rerun:")
             print("uv run python scripts/swallow_boy_variants.py")
-            _write_outputs(results)
+            _write_outputs(results, model=model)
             return 5
         clip_ids = list(created.get("clip_ids") or [])
         if not clip_ids and created.get("generation_id"):
@@ -176,17 +183,17 @@ async def main() -> int:
             {
                 "variant_id": variant.variant_id,
                 "title_hint": variant.title_hint,
-                "model": MODEL,
+                "model": model,
                 "reference_url": SWALLOW_BOY_REFERENCE_URL,
                 "style": prompt.style,
                 "negative_tags": prompt.negative_tags,
                 "clips": clips,
             }
         )
-        _write_outputs(results)
+        _write_outputs(results, model=model)
 
     summary_path = OUT_DIR / "SUMMARY.json"
-    _write_outputs(results)
+    _write_outputs(results, model=model)
     print(f"Generated {len(results)} variants -> {summary_path}")
     return 0
 

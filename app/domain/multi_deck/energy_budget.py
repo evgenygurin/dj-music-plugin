@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import math
+
 from app.domain.multi_deck.models import BandBudget, EnergyBudgetResult, StemLayer
 from app.repositories.unit_of_work import UnitOfWork
 
@@ -32,20 +34,22 @@ async def compute_energy_budget(
         if match:
             features[(layer.track_id, layer.stem_name)] = match[0]
 
-    total_lufs = 0.0
+    total_power = 0.0
     per_band_energy: dict[str, float] = {b: 0.0 for b in _BANDS}
 
     for i, layer in enumerate(layers):
         f = features.get((layer.track_id, layer.stem_name))
         if f is None or f.integrated_lufs is None:
             continue
-        gain_linear = 10.0 ** (gain_db[i] / 20.0)
-        total_lufs += f.integrated_lufs * gain_linear
+        gain = gain_db[i]
+        total_power += 10.0 ** ((f.integrated_lufs + gain) / 10.0)
+        power_gain = 10.0 ** (gain / 10.0)
         for band in _BANDS:
             col = _ENERGY_COLS[band]
             val = getattr(f, col, None) or 0.0
-            per_band_energy[band] += val * gain_linear
+            per_band_energy[band] += val * power_gain
 
+    total_lufs = 10.0 * math.log10(total_power) if total_power > 0.0 else 0.0
     headroom_db = target_lufs - total_lufs
     per_band = {}
     for band in _BANDS:

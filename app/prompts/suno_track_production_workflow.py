@@ -33,12 +33,12 @@ Hard boundaries:
 - Do not launch Playwright/browser-login/OAuth from this workflow.
 - Do not bypass CAPTCHA, 2FA, Cloudflare, or any bot-detection.
 - Generated files are export-side assets; do not call
-  dj_entity_create(entity="audio_file") for them.
+  entity_create(entity="audio_file") for them.
 - If commercial use matters, verify account plan/rights first. Free-plan Suno
   output is non-commercial; paid-plan output is governed by Suno terms.
 
 1. Preflight account and provider mode.
-   dj_provider_read(provider="suno", entity="account")
+   provider_read(provider="suno", entity="account")
    Capture `payload_mode`, credits, plan, and available models. If the provider
    is not registered or credentials are expired, ask the user to refresh their
    browser session credentials. In this project the refresh path is:
@@ -63,7 +63,7 @@ Hard boundaries:
      requested; formal Suno Voice must only use the user's own voice.
 
 4. Create one generation.
-   dj_provider_write(provider="suno", entity="generation", operation="create",
+   provider_write(provider="suno", entity="generation", operation="create",
                   params={{
                     "title": "{title}",
                     "prompt": "<non-empty lyrics or musical brief>",
@@ -76,7 +76,7 @@ Hard boundaries:
    `instrumental`, and `callBackUrl` as required by the gateway contract.
 
 5. Poll until ready.
-   dj_provider_read(provider="suno", entity="generation", id="<generation_id>")
+   provider_read(provider="suno", entity="generation", id="<generation_id>")
    - session mode: poll each returned `clip_ids` entry; `batch_id` is not a feed id.
    - sunoapi mode: poll the task id until `SUCCESS` and `response.sunoData[]` has
      audioUrl entries.
@@ -89,38 +89,38 @@ Hard boundaries:
 
 7. Refine only when the mode supports it.
    Web-session refinements:
-   dj_provider_write(provider="suno", entity="generation", operation="extend",
+   provider_write(provider="suno", entity="generation", operation="extend",
                   params={{"continue_clip_id": "<clip>", "continue_at": <sec>,
                            "prompt": "<continuation brief>"}})
-   dj_provider_write(provider="suno", entity="generation", operation="concat",
+   provider_write(provider="suno", entity="generation", operation="concat",
                   params={{"clip_id": "<extension clip>"}})
-   dj_provider_write(provider="suno", entity="stem", operation="create",
+   provider_write(provider="suno", entity="stem", operation="create",
                   params={{"clip_id": "<clip>"}})
-   dj_provider_write(provider="suno", entity="wav", operation="create",
+   provider_write(provider="suno", entity="wav", operation="create",
                   params={{"clip_id": "<clip>"}})
-   dj_provider_write(provider="suno", entity="edit", operation="crop",
+   provider_write(provider="suno", entity="edit", operation="crop",
                   params={{"clip_id": "<clip>", "crop_start_s": <s>,
                            "crop_end_s": <s>}})
-   dj_provider_write(provider="suno", entity="edit", operation="fade",
+   provider_write(provider="suno", entity="edit", operation="fade",
                   params={{"clip_id": "<clip>", "fade_in_time": <s>,
                            "fade_out_time": <s>}})
 
    SunoAPI refinements:
-   dj_provider_write(provider="suno", entity="vocal_removal", operation="create",
+   provider_write(provider="suno", entity="vocal_removal", operation="create",
                   params={{"taskId": "<task>", "audioId": "<audio>",
                            "type": "separate_vocal"}})
-   dj_provider_write(provider="suno", entity="lyrics", operation="create",
+   provider_write(provider="suno", entity="lyrics", operation="create",
                   params={{"prompt": "<lyrics brief>"}})
-   dj_provider_write(provider="suno", entity="persona", operation="create",
+   provider_write(provider="suno", entity="persona", operation="create",
                   params={{"taskId": "<task>", "audioId": "<audio>"}})
-   dj_provider_write(provider="suno", entity="voice", operation="validate",
+   provider_write(provider="suno", entity="voice", operation="validate",
                   params={{"voiceName": "<user-owned voice name>"}})
-   dj_provider_write(provider="suno", entity="voice", operation="generate",
+   provider_write(provider="suno", entity="voice", operation="generate",
                   params={{"taskId": "<validation task>",
                            "verifyUrl": "<user singing verification url>"}})
 
 8. Download final assets.
-   dj_provider_write(provider="suno", entity="generation", operation="download",
+   provider_write(provider="suno", entity="generation", operation="download",
                   params={{
                     "generation_id": "<ready clip or task id>",
                     "target_dir": "{target_dir}",
