@@ -27,11 +27,20 @@ async def energy_budget(
         gain_db: Per-layer gain adjustment in dB (same order as layers).
         target_lufs: Target integrated LUFS (default -8.0).
     """
-    stem_layers = [StemLayer(track_id=int(lyr["track_id"]), stem_name=str(lyr["stem_name"])) for lyr in layers]
+    stem_layers = [
+        StemLayer(track_id=int(lyr["track_id"]), stem_name=str(lyr["stem_name"])) for lyr in layers
+    ]
     result = await compute_energy_budget(uow, stem_layers, gain_db, target_lufs)
     return {
         "total_lufs": result.total_lufs,
         "headroom_db": result.headroom_db,
-        "per_band": {band: {"total_lufs": bb.total_lufs, "headroom_db": bb.headroom_db, "warning": bb.warning} for band, bb in result.per_band.items()},
+        "per_band": {
+            band: {
+                "total_lufs": bb.total_lufs,
+                "headroom_db": bb.headroom_db,
+                "warning": bb.warning,
+            }
+            for band, bb in result.per_band.items()
+        },
         "recommendation": result.recommendation,
     }

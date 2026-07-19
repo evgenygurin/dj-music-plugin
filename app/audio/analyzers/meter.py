@@ -30,12 +30,11 @@ class MeterAnalyzer(BaseAnalyzer):
             bar_length = median_interval * 4
             strengths: dict[str, float] = {}
             for denom, label in [(4, "4/4"), (3, "3/4"), (5, "5/4"), (6, "6/8"), (7, "7/8")]:
-                tempo_seconds = 60.0 / (bpm / (denom / 4.0))
                 acc = 0.0
                 for i in range(len(beats) - denom):
                     acc += 1.0 / (1.0 + abs((beats[i + denom] - beats[i]) - bar_length))
                 strengths[label] = acc / max(len(beats) - denom, 1)
-            best = max(strengths, key=strengths.get)
+            best = max(strengths, key=lambda label: strengths[label])
             return {"meter": best if strengths[best] > 0.01 else "4/4"}
         except Exception:
             return {"meter": "4/4"}

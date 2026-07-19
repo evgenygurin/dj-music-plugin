@@ -34,6 +34,13 @@ async def stem_embedding_search(
 
     query = np.array(emb_row.embedding, dtype=np.float32)
     rows = await uow.track_embeddings.search_similar(
-        query, embedding_type=embedding_type, stem_name=stem_name, limit=limit, exclude_ids=[track_id]
+        query,
+        embedding_type=embedding_type,
+        stem_name=stem_name,
+        limit=limit,
+        exclude_ids=[track_id],
     )
-    return [{"track_id": int(row[0]), "stem_name": stem_name, "similarity": round(row[1], 4)} for row in rows]
+    return [
+        {"track_id": int(row[0]), "stem_name": stem_name, "similarity": round(row[1], 4)}
+        for row in rows
+    ]

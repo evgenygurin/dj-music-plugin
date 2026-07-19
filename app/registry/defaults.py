@@ -709,7 +709,7 @@ def register_default_entities() -> None:
                 ],
                 "full": "*",
             },
-            default_preset="summary",
+            default_preset="full",
             searchable_fields=(),
             filterable_fields={
                 "track_id": ("eq", "in"),
@@ -732,8 +732,13 @@ def register_default_entities() -> None:
                 "analysis_level": ("eq", "gte"),
             },
             sortable_fields=(
-                "track_id", "bpm", "key_code", "integrated_lufs",
-                "energy_mean", "kick_prominence", "onset_rate",
+                "track_id",
+                "bpm",
+                "key_code",
+                "integrated_lufs",
+                "energy_mean",
+                "kick_prominence",
+                "onset_rate",
             ),
             relations={},
             tags=frozenset({"namespace:analysis"}),
@@ -755,7 +760,7 @@ def register_default_entities() -> None:
                 "summary": ["track_id", "section_type", "start_ms", "end_ms", "energy", "lufs"],
                 "full": "*",
             },
-            default_preset="summary",
+            default_preset="full",
             searchable_fields=(),
             filterable_fields={
                 "track_id": ("eq", "in"),

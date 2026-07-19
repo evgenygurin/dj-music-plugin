@@ -20,11 +20,23 @@ SECTION_TYPES: dict[int, dict[str, str]] = {
     2: {"name": "drop", "label": "Drop", "description": "Основная секция с полным киком и басом."},
     3: {"name": "breakdown", "label": "Breakdown", "description": "Спад энергии, снятие кика."},
     4: {"name": "bridge", "label": "Bridge", "description": "Переходная секция."},
-    5: {"name": "drop_variation", "label": "Drop Variation", "description": "Вариация основного дропа."},
+    5: {
+        "name": "drop_variation",
+        "label": "Drop Variation",
+        "description": "Вариация основного дропа.",
+    },
     6: {"name": "outro", "label": "Outro", "description": "Завершение, затухание."},
     7: {"name": "fill", "label": "Fill", "description": "Брейк/заполнение, короткая вставка."},
-    8: {"name": "drum_only", "label": "Drum Only", "description": "Только ударные, без баса и синтов."},
-    9: {"name": "ambient", "label": "Ambient", "description": "Атмосферная секция, пэды и текстуры."},
+    8: {
+        "name": "drum_only",
+        "label": "Drum Only",
+        "description": "Только ударные, без баса и синтов.",
+    },
+    9: {
+        "name": "ambient",
+        "label": "Ambient",
+        "description": "Атмосферная секция, пэды и текстуры.",
+    },
     10: {"name": "acid_line", "label": "Acid Line", "description": "Кислотная линия TB-303."},
     11: {"name": "unknown", "label": "Unknown", "description": "Неклассифицированная секция."},
 }
@@ -43,10 +55,7 @@ def stem_features_catalog() -> str:
         {
             "entity": "stem_features",
             "total_fields": len(STEM_FEATURE_CATALOG),
-            "fields": [
-                {"name": name, **entry}
-                for name, entry in STEM_FEATURE_CATALOG.items()
-            ],
+            "fields": [{"name": name, **entry} for name, entry in STEM_FEATURE_CATALOG.items()],
         },
         ensure_ascii=False,
     )
@@ -64,10 +73,7 @@ def section_types() -> str:
     return json.dumps(
         {
             "description": "TrackSection type enum (0-11). Mirrors SectionType in models.",
-            "types": [
-                {"value": code, **info}
-                for code, info in SECTION_TYPES.items()
-            ],
+            "types": [{"value": code, **info} for code, info in SECTION_TYPES.items()],
         },
         ensure_ascii=False,
     )

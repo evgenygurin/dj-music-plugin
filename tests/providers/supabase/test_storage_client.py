@@ -38,6 +38,10 @@ async def test_download_returns_bytes() -> None:
     assert result == b"downloaded"
 
 
-def test_client_requires_url_and_key() -> None:
-    with pytest.raises(ValueError):
-        SupabaseStorageClient(url="", key="")
+@pytest.mark.asyncio
+async def test_client_unavailable_without_url_and_key() -> None:
+    client = SupabaseStorageClient(url="", key="")
+
+    assert client.available is False
+    assert await client.download("test-bucket", "track/1/energy.npz") == b""
+    assert await client.upload("test-bucket", "track/1/energy.npz", b"fake") is None

@@ -11,17 +11,17 @@ def _build_body(playlist_id: int, template: str) -> str:
     return f"""To build a set from playlist {playlist_id} with template '{template}':
 
 1. Load playlist items and their track IDs:
-   entity_get(entity="playlist", id={playlist_id}, include_relations=["items"])
+   dj_entity_get(entity="playlist", id={playlist_id}, include_relations=["items"])
    (each item carries track_id + sort_index)
 
 2. For every track lacking analysis level >= 3, schedule analysis:
-   entity_create(entity="track_features", data={{"track_ids": [...], "level": 3}})
+   dj_entity_create(entity="track_features", data={{"track_ids": [...], "level": 3}})
 
 3. Audit each track against techno criteria:
    - Read local://tracks/{{id}}/audit for each and drop any with hard violations.
 
 4. Build the candidate pool (features projection):
-   entity_list(entity="track_features", filters={{"track_id__in": [...]}}, fields="scoring")
+   dj_entity_list(entity="track_features", filters={{"track_id__in": [...]}}, fields="scoring")
    Data guardrails:
    - Use schema://entities/track_features if any filter/payload name is uncertain.
    - Treat mood is a hint, not ground truth; confirm style with BPM, LUFS,
@@ -38,10 +38,10 @@ def _build_body(playlist_id: int, template: str) -> str:
    pool, it is not the crate-digging selector.
 
 6. Compute pairwise scores across the candidate pool:
-   transition_score_pool(track_ids=[...])
+   dj_transition_score_pool(track_ids=[...])
 
 7. Optimize under the template arc:
-   sequence_optimize(
+   dj_sequence_optimize(
        track_ids=[...],
        algorithm="ga",
        template="{template}",
@@ -51,7 +51,7 @@ def _build_body(playlist_id: int, template: str) -> str:
      need a fast nearest-neighbour chain.
 
 8. Persist the ordered set as a new version:
-   entity_create(entity="set_version", data={{
+   dj_entity_create(entity="set_version", data={{
        "set_id": ...,
        "track_order": [...],
        "label": "v1"

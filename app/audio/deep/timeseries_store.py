@@ -1,14 +1,23 @@
 from __future__ import annotations
 
 import io
+from typing import Any, Protocol
 
 import numpy as np
 
-from app.providers.supabase.storage_client import SupabaseStorageClient
+
+class StorageUploader(Protocol):
+    async def upload(
+        self,
+        bucket: str,
+        path: str,
+        data: bytes,
+        content_type: str = "application/octet-stream",
+    ) -> Any: ...
 
 
 async def upload_timeseries(
-    storage: SupabaseStorageClient,
+    storage: StorageUploader,
     track_id: int,
     stem_name: str,
     data: dict[str, np.ndarray],

@@ -26,4 +26,5 @@ def test_stem_features_view_from_orm():
 def test_stem_features_filter_forbids_unknown():
     with pytest.raises(ValueError):
         from app.schemas.stem_features import StemFeaturesFilter
+
         StemFeaturesFilter(random_field__eq=1)

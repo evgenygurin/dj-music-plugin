@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from sqlalchemy import ForeignKey, String, UniqueConstraint
+from typing import Any
+
+from sqlalchemy import JSON, ForeignKey, String, UniqueConstraint
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -22,5 +24,9 @@ class CrossSimilarity(Base, TimestampMixin):
     matrix_shape: Mapped[str | None] = mapped_column(String(50), nullable=True)
     best_match_offset_ms: Mapped[float | None] = mapped_column(nullable=True)
     best_match_score: Mapped[float | None] = mapped_column(nullable=True)
-    alignment_path: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
-    segment_matches: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    alignment_path: Mapped[dict[str, Any] | None] = mapped_column(
+        JSONB().with_variant(JSON(), "sqlite"), nullable=True
+    )
+    segment_matches: Mapped[dict[str, Any] | None] = mapped_column(
+        JSONB().with_variant(JSON(), "sqlite"), nullable=True
+    )

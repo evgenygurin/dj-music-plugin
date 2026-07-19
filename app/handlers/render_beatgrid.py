@@ -16,6 +16,9 @@ from app.domain.render.levels import gains_to_median
 from app.handlers._context_log import safe_info, safe_report_progress
 from app.schemas.render import RenderBeatgridResult
 
+_MAX_PHASE_MS = 120.0
+_MAX_TRIM_START_S = 8.0
+
 
 async def render_beatgrid_handler(
     *, ctx: Any, uow: Any, version_id: int, workspace: str, refresh: bool = False
@@ -37,6 +40,9 @@ async def render_beatgrid_handler(
     for i, ti in enumerate(inputs):
         trim = detect_kick_trim(ti.file_path, start_s=ti.mix_in_ms / 1000.0, bpm=ti.bpm)
         delta_ms, refined = refine_phase(ti.file_path, base_trim_s=trim, bpm=ti.bpm)
+        trim = min(trim, _MAX_TRIM_START_S)
+        delta_ms = max(-_MAX_PHASE_MS, min(_MAX_PHASE_MS, delta_ms))
+        refined = min(round(trim + delta_ms / 1000.0, 4), round(trim + _MAX_PHASE_MS / 1000.0, 4))
         gain = gains[ti.track_id]
         flags = ["fixed"] if abs(delta_ms) > 40 or abs(gain) > 1.5 else []
         rows.append(

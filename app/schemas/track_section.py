@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from pydantic import BaseModel, ConfigDict
 
 
@@ -17,7 +19,7 @@ class TrackSectionView(BaseModel):
     confidence: float | None = None
     lufs: float | None = None
     spectral_centroid: float | None = None
-    stem_energy: dict | None = None
+    stem_energy: dict[str, Any] | None = None
 
 
 class TrackSectionFilter(BaseModel):

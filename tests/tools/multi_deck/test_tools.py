@@ -11,7 +11,8 @@ async def test_stem_vertical_compatibility_tool():
 
     with patch("app.tools.multi_deck.compatibility.compute_stem_compatibility") as mock:
         mock.return_value = MagicMock(
-            overall_score=0.8, hard_reject=False,
+            overall_score=0.8,
+            hard_reject=False,
             per_band={},
             key_compatibility={"score": 0.9},
             bpm_compatibility={"score": 0.9},
@@ -31,7 +32,8 @@ async def test_energy_budget_tool():
 
     with patch("app.tools.multi_deck.energy_budget.compute_energy_budget") as mock:
         mock.return_value = MagicMock(
-            total_lufs=-10.0, headroom_db=2.0,
+            total_lufs=-10.0,
+            headroom_db=2.0,
             per_band={},
             recommendation="OK",
         )

@@ -99,9 +99,7 @@ def assemble_rimjoba_style(mode: str, *, extra_negative: str = "") -> RimJobaPro
     tail = GENRE_TAILS.get(key)
     if tail is None:
         known = ", ".join(list_modes())
-        raise UnknownRimJobaModeError(
-            f"unknown RimJoba mode {mode!r}; known: {known}"
-        )
+        raise UnknownRimJobaModeError(f"unknown RimJoba mode {mode!r}; known: {known}")
     style = f"{VOICE_BLOCK}. {tail}."
     negative = NEGATIVE_TAGS
     extra = extra_negative.strip()

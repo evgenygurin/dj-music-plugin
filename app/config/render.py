@@ -34,6 +34,9 @@ class RenderSettings(BaseSettings):
     low_swap_beats: float = Field(
         default=1.0, gt=0, description="Low-band crossfade window (beats)."
     )
+    outro_fade_bars: int = Field(
+        default=12, gt=0, description="End-of-mix fade length when no outgoing transition exists."
+    )
     transition_bars_hypnotic: int | None = Field(default=None, gt=0)
     transition_bars_minimal: int | None = Field(default=None, gt=0)
     transition_bars_melodic: int | None = Field(default=None, gt=0)
@@ -48,9 +51,8 @@ class RenderSettings(BaseSettings):
     body_bars_hard: int | None = Field(default=None, gt=0)
     body_bars_acid: int | None = Field(default=None, gt=0)
     body_bars_industrial: int | None = Field(default=None, gt=0)
-    outro_fade_bars: int = Field(default=12, gt=0, description="End-of-mix fade length (bars).")
     limiter_ceiling: float = Field(
-        default=0.93, gt=0, le=1.0, description="alimiter limit (-0.45 dBFS headroom)."
+        default=0.85, gt=0, le=1.0, description="alimiter limit (~-1.4 dBFS headroom)."
     )
 
     # ── Per-track pre-processing ──
@@ -78,18 +80,21 @@ class RenderSettings(BaseSettings):
     master_eq_air_boost_db: float = Field(
         default=1.5, ge=0, description="10-12kHz high shelf boost."
     )
-    master_eq_mud_cut_db: float = Field(
-        default=-1.0, le=0, description="200-400Hz mud cut."
-    )
+    master_eq_mud_cut_db: float = Field(default=-1.0, le=0, description="200-400Hz mud cut.")
     master_eq_sub_boost_db: float = Field(
         default=0.5, ge=0, description="60-80Hz sub weight boost."
     )
-    limiter_attack_ms: float = Field(default=10.0, gt=0, description="alimiter attack (ms) — slower = more punch.")
+    limiter_attack_ms: float = Field(
+        default=10.0, gt=0, description="alimiter attack (ms) — slower = more punch."
+    )
     limiter_release_ms: float = Field(default=30.0, gt=0, description="alimiter release (ms).")
     dynaudnorm_maxgain: float = Field(default=2.0, ge=0, description="dynaudnorm maxgain (was 6).")
 
     workspace_subdir: str = Field(
         default="render", description="Subdir under DeliverySettings.output_dir for job files."
+    )
+    mix_filename: str = Field(
+        default="MIX.mp3", description="Default continuous-mix output filename."
     )
 
     @property

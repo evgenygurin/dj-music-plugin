@@ -30,17 +30,17 @@ Requested arc '{arc}':
    local://playlists/{playlist_id}?include_tracks=true -> pool_ids = [...].
 
 1. Inventory subgenres present:
-   entity_aggregate(entity="track_features", operation="distinct", field="mood",
+   dj_entity_aggregate(entity="track_features", operation="distinct", field="mood",
                     filters={{"track_id__in": pool_ids}})
    then counts per mood:
-   entity_aggregate(entity="track_features", operation="count",
+   dj_entity_aggregate(entity="track_features", operation="count",
                     filters={{"track_id__in": pool_ids, "mood": <m>}})
 
 2. Draft the mood sequence honouring the arc and the axis-distance rule.
    Skip empty subgenres; bridge gaps with the nearest populated neighbour.
 
 3. Pull candidate ids per mood bucket:
-   entity_list(entity="track_features",
+   dj_entity_list(entity="track_features",
               filters={{"track_id__in": pool_ids, "mood__in": [...]}},
               fields="scoring")
    — prefer high mood_confidence tracks as the spine; low-confidence ones
@@ -50,8 +50,8 @@ Requested arc '{arc}':
    low between neighbours (cross-check local://transition/{{a}}/{{b}}/score).
 
 5. Order and persist:
-   sequence_optimize(track_ids=[...], algorithm="ga")
-   entity_create(entity="set_version", data={{"set_id": <id>,
+   dj_sequence_optimize(track_ids=[...], algorithm="ga")
+   dj_entity_create(entity="set_version", data={{"set_id": <id>,
                 "track_order": [...], "label": "subgenre_{arc}"}})
 
 6. Sanity-check the narrative:

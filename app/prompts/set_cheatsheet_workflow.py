@@ -23,7 +23,7 @@ persisted set + transitions into a single per-track crib sheet.
    local://sets/{set_id}/summary — template, quality_score, version_id.
 
 2. Pull the persisted transitions for the per-pair technique:
-   entity_list(entity="transition",
+   dj_entity_list(entity="transition",
               filters={{"from_track_id__in": [<set track ids>]}},
               fields="full")
    — each row carries fx_type (the chosen Neural Mix preset: FADE / ECHO_OUT /
@@ -34,7 +34,7 @@ persisted set + transitions into a single per-track crib sheet.
    local://transition/{{a}}/{{b}}/explain for the component breakdown.
 
 3. Pull the scoring features for the marquee numbers per track:
-   entity_list(entity="track_features", filters={{"track_id__in": [...]}},
+   dj_entity_list(entity="track_features", filters={{"track_id__in": [...]}},
               fields="scoring")
    — bpm, key_code (-> Camelot via reference://camelot), integrated_lufs
      (energy), mood (subgenre).

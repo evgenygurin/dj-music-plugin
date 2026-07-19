@@ -15,13 +15,16 @@ async def test_upload_timeseries_calls_storage() -> None:
     storage = MagicMock()
     storage.upload = AsyncMock()
 
-    await upload_timeseries(storage, track_id=1, stem_name="original", data={"energy": np.array([0.1, 0.2])})
+    await upload_timeseries(
+        storage, track_id=1, stem_name="original", data={"energy": np.array([0.1, 0.2])}
+    )
 
     storage.upload.assert_called()
 
 
 def test_build_waveform_returns_1000_points(tmp_path: Path) -> None:
     import soundfile as sf
+
     sr = 44100
     sig = np.random.default_rng(42).random(sr * 5).astype(np.float32) * 0.3
     ap = tmp_path / "test.wav"

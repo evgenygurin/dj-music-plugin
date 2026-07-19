@@ -4,10 +4,10 @@ Revision ID: f3702c8a41cd
 Revises: None
 Create Date: 2026-07-09 (placeholder)
 """
+
 from __future__ import annotations
 
 from collections.abc import Sequence
-from typing import Union
 
 revision: str = "f3702c8a41cd"
 down_revision: str | None = None

@@ -30,3 +30,45 @@ def test_diagnose_flags_dropout(tmp_path):
     rep = diagnose_mix(f)
     tags = [t for w in rep.windows for t in w.tags]
     assert any("DROPOUT" in t for t in tags)
+
+
+def test_diagnose_flags_phase_instability(tmp_path):
+    from app.audio.render.diagnostics import diagnose_mix
+
+    sr = 22050
+    dur = 24.0
+    n = int(sr * dur)
+    rng = np.random.RandomState(2)
+    left = (0.15 * rng.randn(n)).astype("float32")
+    right = left.copy()
+    # Create a strong anti-phase region 8-12s.
+    a = int(8 * sr)
+    b = int(12 * sr)
+    right[a:b] = -left[a:b]
+    stereo = np.column_stack([left, right])
+    f = str(tmp_path / "phase.wav")
+    sf.write(f, stereo, sr)
+    rep = diagnose_mix(f)
+    tags = [t for w in rep.windows for t in w.tags]
+    assert any("PHASE" in t for t in tags)
+
+
+def test_diagnose_flags_abrupt_entry_shock(tmp_path):
+    from app.audio.render.diagnostics import diagnose_mix
+
+    sr = 22050
+    dur = 24.0
+    n = int(sr * dur)
+    rng = np.random.RandomState(3)
+    y = np.zeros(n, dtype="float32")
+    # low-energy darker bed
+    y[: int(8 * sr)] = 0.03 * rng.randn(int(8 * sr))
+    # abrupt bright, much louder entry
+    y[int(8 * sr) : int(12 * sr)] = 0.35 * rng.randn(int(4 * sr))
+    # back to medium energy
+    y[int(12 * sr) :] = 0.08 * rng.randn(n - int(12 * sr))
+    f = str(tmp_path / "entry.wav")
+    sf.write(f, y, sr)
+    rep = diagnose_mix(f)
+    tags = [t for w in rep.windows for t in w.tags]
+    assert any("ENTRY-SHOCK" in t for t in tags)

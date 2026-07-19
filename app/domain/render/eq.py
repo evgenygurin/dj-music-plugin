@@ -1,4 +1,5 @@
 """Firequalizer curve builders for per-track and master EQ."""
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
@@ -9,19 +10,19 @@ if TYPE_CHECKING:
 _MASTER_EQ_CURVE = [
     "entry(65, 0)",
     "entry(92, 0)",
-    "entry(131, 0.5)",   # 60-130Hz sub weight
+    "entry(131, 0.5)",  # 60-130Hz sub weight
     "entry(185, 0.3)",
-    "entry(262, -0.5)",   # 200-400Hz mud cut start
-    "entry(370, -1.0)",   # 370Hz max mud cut
+    "entry(262, -0.5)",  # 200-400Hz mud cut start
+    "entry(370, -1.0)",  # 370Hz max mud cut
     "entry(523, -0.5)",
     "entry(740, 0)",
     "entry(1046, 0)",
     "entry(1480, 0)",
-    "entry(2093, 0.5)",   # 2kHz — add body
-    "entry(2960, 1.5)",   # 3kHz — clarity/presence boost
-    "entry(4186, 2.0)",   # 4kHz — presence peak
-    "entry(5920, 2.5)",   # 6kHz — attack/definition
-    "entry(8372, 2.0)",   # 8kHz — air start
+    "entry(2093, 0.5)",  # 2kHz — add body
+    "entry(2960, 1.5)",  # 3kHz — clarity/presence boost
+    "entry(4186, 2.0)",  # 4kHz — presence peak
+    "entry(5920, 2.5)",  # 6kHz — attack/definition
+    "entry(8372, 2.0)",  # 8kHz — air start
     "entry(11840, 1.5)",  # 10-12kHz air
     "entry(16744, 0.5)",  # 16kHz gentle
     "entry(20000, 0.0)",  # 20kHz
@@ -57,9 +58,16 @@ def build_per_track_eq(features: TrackFeatures) -> str:
     mid_cut = -1.0  # dB, configurable later
 
     entries = {
-        "65": 0, "92": 0, "131": 0, "185": 0,
-        "262": 0, "370": mid_cut / 2, "523": mid_cut,
-        "740": mid_cut / 2, "1046": 0, "1480": 0,
+        "65": 0,
+        "92": 0,
+        "131": 0,
+        "185": 0,
+        "262": 0,
+        "370": mid_cut / 2,
+        "523": mid_cut,
+        "740": mid_cut / 2,
+        "1046": 0,
+        "1480": 0,
     }
 
     if centroid > 3000:

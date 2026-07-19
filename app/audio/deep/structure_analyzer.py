@@ -58,20 +58,24 @@ def analyze_structure(
             if len(seg) > 0:
                 stem_energy[name] = round(float(np.sqrt(np.mean(seg**2))), 4)
 
-        energy = float(np.sqrt(np.mean(
-            np.asarray(list(stem_energy.values())) ** 2
-        ))) if stem_energy else 0.0
+        energy = (
+            float(np.sqrt(np.mean(np.asarray(list(stem_energy.values())) ** 2)))
+            if stem_energy
+            else 0.0
+        )
 
         rms_db = float(20 * np.log10(max(energy, 1e-10)))
 
-        enriched.append({
-            "section_type": sec.get("section_type", 10),
-            "start_ms": start_ms,
-            "end_ms": end_ms,
-            "energy": round(energy, 4),
-            "lufs": round(rms_db, 2),
-            "spectral_centroid": 0.0,
-            "stem_energy": stem_energy,
-        })
+        enriched.append(
+            {
+                "section_type": sec.get("section_type", 10),
+                "start_ms": start_ms,
+                "end_ms": end_ms,
+                "energy": round(energy, 4),
+                "lufs": round(rms_db, 2),
+                "spectral_centroid": 0.0,
+                "stem_energy": stem_energy,
+            }
+        )
 
     return enriched

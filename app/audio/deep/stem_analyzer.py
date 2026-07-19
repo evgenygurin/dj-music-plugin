@@ -8,7 +8,6 @@ from app.audio.analyzers import AnalyzerRegistry
 from app.audio.core.loader import AudioLoader
 from app.audio.level_config import AnalysisLevel, get_analyzers_for_level
 from app.audio.pipeline import AnalysisPipeline
-from app.repositories.unit_of_work import UnitOfWork
 
 
 def _make_pipeline() -> AnalysisPipeline:
@@ -18,8 +17,6 @@ def _make_pipeline() -> AnalysisPipeline:
 
 
 async def analyze_stems(
-    uow: UnitOfWork,
-    track_id: int,
     stem_paths: dict[str, Path],
     original_path: Path,
 ) -> dict[str, dict[str, Any]]:

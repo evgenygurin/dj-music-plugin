@@ -13,7 +13,7 @@ from pydantic import Field
 from app.handlers.render_diagnose import render_diagnose_handler
 from app.schemas.render import RenderDiagnosticsResult
 from app.shared.errors import ValidationError
-from app.tools.render._shared import render_workspace
+from app.tools.render._shared import render_mix_path, render_workspace
 
 
 @tool(
@@ -36,13 +36,12 @@ async def render_diagnose(
     ] = None,
     ctx: Context = CurrentContext(),
 ) -> RenderDiagnosticsResult:
-    ws = render_workspace(version_id)
-    path = mix_path or str(Path(ws) / "MIX.mp3")
+    path = mix_path or render_mix_path(version_id)
     if not Path(path).exists():
         raise ValidationError(f"no rendered mix at {path} — run render_mixdown first")
     return await render_diagnose_handler(
         ctx=ctx,
         job_id=f"v{version_id}",
         mix_path=path,
-        workspace=ws,
+        workspace=render_workspace(version_id),
     )

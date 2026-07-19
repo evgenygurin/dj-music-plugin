@@ -45,7 +45,9 @@ async def handle_deep_analyze_track(
 
 
 async def _run_background(
-    track_id: int, run_id: int, orchestrator: L6AnalysisOrchestrator,
+    track_id: int,
+    run_id: int,
+    orchestrator: L6AnalysisOrchestrator,
 ) -> None:
     factory = get_session_factory()
     async with factory() as session:

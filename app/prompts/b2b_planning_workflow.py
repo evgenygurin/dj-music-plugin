@@ -21,9 +21,9 @@ bring it down. The better warm-up DJ opens; the stronger closer lands it.
    features by track_id__in:
    local://playlists/{playlist_a}?include_tracks=true -> ids_a = [...]
    local://playlists/{playlist_b}?include_tracks=true -> ids_b = [...]
-   entity_list(entity="track_features", filters={{"track_id__in": ids_a}},
+   dj_entity_list(entity="track_features", filters={{"track_id__in": ids_a}},
               fields="scoring")
-   entity_list(entity="track_features", filters={{"track_id__in": ids_b}},
+   dj_entity_list(entity="track_features", filters={{"track_id__in": ids_b}},
               fields="scoring")
    — both crates must be at level >= 3; analyze gaps first.
 
@@ -40,14 +40,14 @@ bring it down. The better warm-up DJ opens; the stronger closer lands it.
 
 4. Build the interleaved order and let the optimizer smooth seams while
    respecting ownership (pin each DJ's chosen anchors):
-   sequence_optimize(track_ids=[<interleaved a/b ids>], algorithm="ga",
+   dj_sequence_optimize(track_ids=[<interleaved a/b ids>], algorithm="ga",
                     template="{template}", pinned=[<anchor ids>])
 
 5. Persist and review the seams specifically:
-   entity_create(entity="set_version", data={{"set_id": <id>,
+   dj_entity_create(entity="set_version", data={{"set_id": <id>,
                 "track_order": [...], "label": "b2b"}})
    local://sets/{{set_id}}/review — pay attention to the A<->B boundary pairs.
-   ui_set_view(set_id=<id>) — confirm a single coherent arc, not two stitched
+   dj_ui_set_view(set_id=<id>) — confirm a single coherent arc, not two stitched
    half-sets.
 
 6. Produce the shared cheatsheet both DJs read live:

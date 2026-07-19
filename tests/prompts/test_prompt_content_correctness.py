@@ -54,6 +54,7 @@ from app.prompts.set_review_workflow import set_review_workflow
 from app.prompts.style_lock_set_workflow import style_lock_set_workflow
 from app.prompts.subgenre_journey_workflow import subgenre_journey_workflow
 from app.prompts.suno_set_asset_workflow import suno_set_asset_workflow
+from app.prompts.suno_track_production_workflow import suno_track_production_workflow
 from app.prompts.taste_profile_workflow import taste_profile_workflow
 from app.prompts.tempo_journey_workflow import tempo_journey_workflow
 from app.prompts.track_prep_workflow import track_prep_workflow
@@ -135,6 +136,8 @@ def _render(p: Callable[..., object]) -> str:
         result = p(playlist_id=1)
     elif name == "suno_set_asset_workflow":
         result = p(set_id=1)
+    elif name == "suno_track_production_workflow":
+        result = p(title="Test Suno", brief="hypnotic techno")
     elif name == "render_set_workflow":
         result = p(version_id=1)
     else:
@@ -215,6 +218,7 @@ PROMPTS = (
     playlist_sync_workflow,
     library_cleanup_workflow,
     suno_set_asset_workflow,
+    suno_track_production_workflow,
     render_set_workflow,
 )
 

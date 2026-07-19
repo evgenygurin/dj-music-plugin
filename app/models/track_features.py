@@ -7,7 +7,9 @@ for fast candidate filtering.
 
 from __future__ import annotations
 
-from sqlalchemy import CheckConstraint, ForeignKey, SmallInteger, String, Text
+from typing import Any
+
+from sqlalchemy import JSON, CheckConstraint, ForeignKey, SmallInteger, String, Text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -187,7 +189,9 @@ class TrackSection(Base, TimestampMixin):
     confidence: Mapped[float | None] = mapped_column(nullable=True)
     lufs: Mapped[float | None] = mapped_column(nullable=True)
     spectral_centroid: Mapped[float | None] = mapped_column(nullable=True)
-    stem_energy: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    stem_energy: Mapped[dict[str, Any] | None] = mapped_column(
+        JSONB().with_variant(JSON(), "sqlite"), nullable=True
+    )
 
 
 class TimeseriesReference(Base, TimestampMixin):

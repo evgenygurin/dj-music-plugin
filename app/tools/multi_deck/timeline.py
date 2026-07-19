@@ -45,4 +45,6 @@ async def find_loops(
         exclude_vocals: Skip sections with vocal energy > 0.15.
         min_energy_stability: Minimum energy stability (0-1).
     """
-    return await _find_loops(uow, track_id, min_bars, max_bars, exclude_vocals, min_energy_stability)
+    return await _find_loops(
+        uow, track_id, min_bars, max_bars, exclude_vocals, min_energy_stability
+    )

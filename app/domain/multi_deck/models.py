@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import Any
 
 
 @dataclass
@@ -23,8 +24,8 @@ class CompatibilityResult:
     overall_score: float
     hard_reject: bool
     per_band: dict[str, BandScore]
-    key_compatibility: dict
-    bpm_compatibility: dict
+    key_compatibility: dict[str, Any]
+    bpm_compatibility: dict[str, Any]
     recommendations: list[str] = field(default_factory=list)
 
 
@@ -57,7 +58,7 @@ class BpmRatioMatch:
 class BpmRatioResult:
     bpm_a: float
     matches: list[BpmRatioMatch]
-    library_pairs: list[dict]
+    library_pairs: list[dict[str, Any]]
 
 
 @dataclass
@@ -65,7 +66,7 @@ class TimelineTrack:
     track_id: int
     first_downbeat_ms: float
     bpm: float | None
-    sections: list[dict]
+    sections: list[dict[str, Any]]
 
 
 @dataclass

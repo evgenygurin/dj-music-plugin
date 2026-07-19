@@ -50,7 +50,9 @@ async def test_cross_similarity_upsert() -> None:
     repo = CrossSimilarityRepository(session)
 
     await repo.upsert(
-        track_a_id=1, track_b_id=2, stem_name="original",
+        track_a_id=1,
+        track_b_id=2,
+        stem_name="original",
         data={"best_match_offset_ms": 500.0, "best_match_score": 0.87},
     )
 
@@ -68,5 +70,9 @@ async def test_feature_extraction_create_and_update() -> None:
     session.add.assert_called_once()
     assert run.track_id == 1
 
-    await repo.update(1, status="completed")
-    session.execute.assert_called()
+    session.get = AsyncMock(return_value=run)
+    updated = await repo.update(1, status="completed")
+
+    session.get.assert_called_once_with(repo.model, 1)
+    assert updated.status == "completed"
+    assert session.flush.call_count == 2

@@ -51,9 +51,7 @@ async def test_find_compatible_tracks_delegates_to_repo() -> None:
     emb.embedding = [0.1] * 256
     uow.track_embeddings = MagicMock()
     uow.track_embeddings.get_for_type = AsyncMock(return_value=emb)
-    uow.track_embeddings.search_similar = AsyncMock(
-        return_value=[(2, 0.95), (3, 0.87)]
-    )
+    uow.track_embeddings.search_similar = AsyncMock(return_value=[(2, 0.95), (3, 0.87)])
 
     result = await find_compatible_tracks(active_track_ids=[1], uow=uow)
 

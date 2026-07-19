@@ -23,36 +23,59 @@ async def test_orchestrator_runs_full_pipeline() -> None:
 
     orch = L6AnalysisOrchestrator(storage_client=MagicMock())
 
-    with patch(
-        "app.domain.deep_analysis.orchestrator.run_demucs",
-        return_value={"vocals": None, "drums": None, "bass": None, "other": None},
-    ), patch(
-        "app.domain.deep_analysis.orchestrator.analyze_stems",
-        new_callable=AsyncMock,
-        return_value={"original": {"bpm": 128}, "vocals": {"energy": 0.5}, "drums": {"energy": 0.8}, "bass": {"energy": 0.6}, "other": {"energy": 0.3}},
-    ), patch(
-        "app.domain.deep_analysis.orchestrator.build_beatgrid",
-        new_callable=AsyncMock,
-    ), patch(
-        "app.domain.deep_analysis.orchestrator.analyze_structure",
-        return_value=[],
-    ), patch(
-        "app.domain.deep_analysis.orchestrator.build_embeddings",
-        return_value={"full": None, "timbral": None, "harmonic": None, "rhythmic": None, "energy": None},
-    ), patch(
-        "app.domain.deep_analysis.orchestrator.upload_timeseries",
-        new_callable=AsyncMock,
-    ), patch(
-        "app.domain.deep_analysis.orchestrator.upload_waveform",
-        new_callable=AsyncMock,
-    ), patch(
-        "app.domain.deep_analysis.orchestrator.build_waveform",
-        return_value=[0.5, 0.3, 0.8],
-    ), patch(
-        "app.domain.deep_analysis.orchestrator.Path.exists",
-        return_value=True,
-    ), patch(
-        "app.domain.deep_analysis.orchestrator.Path.mkdir",
+    with (
+        patch(
+            "app.domain.deep_analysis.orchestrator.run_demucs",
+            return_value={"vocals": None, "drums": None, "bass": None, "other": None},
+        ),
+        patch(
+            "app.domain.deep_analysis.orchestrator.analyze_stems",
+            new_callable=AsyncMock,
+            return_value={
+                "original": {"bpm": 128},
+                "vocals": {"energy": 0.5},
+                "drums": {"energy": 0.8},
+                "bass": {"energy": 0.6},
+                "other": {"energy": 0.3},
+            },
+        ),
+        patch(
+            "app.domain.deep_analysis.orchestrator.build_beatgrid",
+            new_callable=AsyncMock,
+        ),
+        patch(
+            "app.domain.deep_analysis.orchestrator.analyze_structure",
+            return_value=[],
+        ),
+        patch(
+            "app.domain.deep_analysis.orchestrator.build_embeddings",
+            return_value={
+                "full": None,
+                "timbral": None,
+                "harmonic": None,
+                "rhythmic": None,
+                "energy": None,
+            },
+        ),
+        patch(
+            "app.domain.deep_analysis.orchestrator.upload_timeseries",
+            new_callable=AsyncMock,
+        ),
+        patch(
+            "app.domain.deep_analysis.orchestrator.upload_waveform",
+            new_callable=AsyncMock,
+        ),
+        patch(
+            "app.domain.deep_analysis.orchestrator.build_waveform",
+            return_value=[0.5, 0.3, 0.8],
+        ),
+        patch(
+            "app.domain.deep_analysis.orchestrator.Path.exists",
+            return_value=True,
+        ),
+        patch(
+            "app.domain.deep_analysis.orchestrator.Path.mkdir",
+        ),
     ):
         result = await orch.run(track_id=1, uow=uow)
 

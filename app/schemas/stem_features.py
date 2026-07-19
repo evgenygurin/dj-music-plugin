@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from pydantic import BaseModel, ConfigDict
 
 
@@ -100,7 +102,7 @@ class StemFeaturesView(BaseModel):
     meter: str | None = None
     click_detected: bool | None = None
     saturation_detected: bool | None = None
-    drum_bands: dict | None = None
+    drum_bands: dict[str, Any] | None = None
 
 
 class StemFeaturesFilter(BaseModel):

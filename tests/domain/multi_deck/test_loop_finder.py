@@ -28,9 +28,7 @@ async def test_find_loops():
             },
         ]
     )
-    uow.track_features.get_by_track_id = AsyncMock(
-        return_value=MagicMock(bpm=128.0)
-    )
+    uow.track_features.get_by_track_id = AsyncMock(return_value=MagicMock(bpm=128.0))
 
     result = await find_loops(uow, 1, min_bars=4)
     assert len(result["loops"]) >= 1
@@ -53,9 +51,7 @@ async def test_find_loops_exclude_vocals():
             },
         ]
     )
-    uow.track_features.get_by_track_id = AsyncMock(
-        return_value=MagicMock(bpm=120.0)
-    )
+    uow.track_features.get_by_track_id = AsyncMock(return_value=MagicMock(bpm=120.0))
 
     result = await find_loops(uow, 1, min_bars=4)
     assert len(result["loops"]) == 0
@@ -82,9 +78,7 @@ async def test_find_loops_bar_range():
             },
         ]
     )
-    uow.track_features.get_by_track_id = AsyncMock(
-        return_value=MagicMock(bpm=128.0)
-    )
+    uow.track_features.get_by_track_id = AsyncMock(return_value=MagicMock(bpm=128.0))
 
     result = await find_loops(uow, 1, min_bars=4, max_bars=16)
     loops = result["loops"]
@@ -129,9 +123,7 @@ async def test_find_loops_energy_stability_threshold():
             },
         ]
     )
-    uow.track_features.get_by_track_id = AsyncMock(
-        return_value=MagicMock(bpm=128.0)
-    )
+    uow.track_features.get_by_track_id = AsyncMock(return_value=MagicMock(bpm=128.0))
 
     result = await find_loops(uow, 1, min_bars=4, min_energy_stability=0.5)
     assert len(result["loops"]) == 0

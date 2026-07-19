@@ -19,6 +19,12 @@ def render_workspace(version_id: int) -> str:
     return str(root)
 
 
+def render_mix_path(version_id: int, name: str | None = None) -> str:
+    """Absolute path of a version's rendered mix (defaults to ``RenderSettings.mix_filename``)."""
+    filename = name or get_settings().render.mix_filename
+    return str(Path(render_workspace(version_id)) / filename)
+
+
 def render_timestamp() -> str:
     """Sortable job timestamp, e.g. 20260706-142530."""
     return utc_now().strftime("%Y%m%d-%H%M%S")

@@ -19,13 +19,13 @@ rules, surface its mix numbers, and find compatible neighbours.
    is active (status=0), not archived.
 
 2. Ensure it is analyzed to the set-ready floor (level >= 3):
-   entity_list(entity="track_features", filters={{"track_id__in": [{track_id}]}},
+   dj_entity_list(entity="track_features", filters={{"track_id__in": [{track_id}]}},
               fields="scoring")
    — if the row is missing or analysis_level < 3:
-     entity_create(entity="track_features",
+     dj_entity_create(entity="track_features",
                   data={{"track_ids": [{track_id}], "level": 3}})
      (runs the tiered pipeline; mood classification fires at level >= 2). If the
-     track has no physical MP3, entity_create(entity="audio_file", ...) downloads
+     track has no physical MP3, dj_entity_create(entity="audio_file", ...) downloads
      it first.
 
 3. Read the full feature picture:

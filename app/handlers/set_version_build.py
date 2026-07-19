@@ -15,7 +15,7 @@ from typing import Any
 
 from fastmcp.server.context import Context
 
-from app.handlers._context_log import safe_info
+from app.handlers._context_log import safe_info, safe_report_progress
 from app.repositories.unit_of_work import UnitOfWork
 from app.shared.errors import NotFoundError, ValidationError
 
@@ -84,6 +84,12 @@ async def set_version_build_handler(
         items_by_track = {item.track_id: item for item in items}
         n = len(track_order)
         for position_index, (a, b) in enumerate(itertools.pairwise(track_order)):
+            await safe_report_progress(
+                ctx,
+                progress=position_index + 1,
+                total=max(1, n - 1),
+                message=f"scoring transition {position_index + 1}/{n - 1}",
+            )
             if a not in features or b not in features:
                 continue
             feat_a = features[a]

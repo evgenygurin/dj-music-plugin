@@ -12,11 +12,11 @@ def _build_body(set_id: int, sync_to_ym: bool) -> str:
         "7. Sync the set to the platform as a new playlist (there is no\n"
         "   single 'create from set' operation — do it in two real steps):\n"
         "   a. Create the empty playlist:\n"
-        "      provider_write(entity='playlist', operation='create',\n"
+        "      dj_provider_write(entity='playlist', operation='create',\n"
         "                    params={'title': '<set name>'})  -> new playlist id.\n"
         "   b. Resolve each set track's Yandex id (yandex_track_id via\n"
-        "      entity_get(entity='track', id=<tid>) / its external ids), then:\n"
-        "      provider_write(entity='playlist', operation='add_tracks',\n"
+        "      dj_entity_get(entity='track', id=<tid>) / its external ids), then:\n"
+        "      dj_provider_write(entity='playlist', operation='add_tracks',\n"
         "                    params={'playlist_id': <new id>,\n"
         "                            'track_ids': [<yandex ids in set order>],\n"
         "                            'at': 0})\n"
@@ -25,7 +25,7 @@ def _build_body(set_id: int, sync_to_ym: bool) -> str:
         "    The track_ids ARE the per-track yandex external ids — the\n"
         "    same ids the audio_file download resolved; the `track` view\n"
         "    does not expose yandex_track_id directly. Verify final order\n"
-        "    with provider_read(entity='playlist', id=<new id>).)\n"
+        "    with dj_provider_read(entity='playlist', id=<new id>).)\n"
         "   (Alternatively run the playlist_sync_workflow prompt with\n"
         "    direction='push' once the local playlist mirrors the set.)\n"
         if sync_to_ym
@@ -43,23 +43,23 @@ def _build_body(set_id: int, sync_to_ym: bool) -> str:
    track to analysis_level=5 so the picker routes Neural-Mix presets on
    accurate spectral / pitch features (303 vs vocal, DRUM_SWAP vs
    ECHO_OUT). Skip tracks already at L5.
-   a. Download MP3s — entity_create(entity='audio_file',
+   a. Download MP3s — dj_entity_create(entity='audio_file',
       data={{'track_ids': [<set track ids>]}}). Batch 3-5 ids per call:
       a larger batch can exceed the 120s tool timeout and roll back the
       DB registration (files land on disk but no library_item row). L5
       reanalyze NEEDS that row.
-   b. L5 each track — entity_update(entity='track_features',
+   b. L5 each track — dj_entity_update(entity='track_features',
       id=<track_id>, data={{'level': 5}}) (fast, ~5-10s; requires the
       audio_file from step a, else 'audio_file not found').
    c. Re-build so transitions re-score on L5 features —
-      entity_create(entity='set_version', data={{'set_id': {set_id},
+      dj_entity_create(entity='set_version', data={{'set_id': {set_id},
       'label': 'L5 final', 'track_order': [<same order>]}}).
 
 1. Read the latest version summary:
    local://sets/{set_id}/summary — note version_id and quality_score.
 
 2. Score every transition fresh (read-only, not cached):
-   transition_score_pool(track_ids=<ordered track list>)
+   dj_transition_score_pool(track_ids=<ordered track list>)
    — returns a live NxN score matrix for inspection / QA only; it does
      NOT write to the ``transitions`` table.
    Persisted transition rows are refreshed by step 0c when you rebuild
@@ -69,7 +69,7 @@ def _build_body(set_id: int, sync_to_ym: bool) -> str:
    local://sets/{set_id}/review — inspect 'hard_conflicts'.
 
 4. If hard_conflicts is non-empty:
-   - Use ctx.elicit to ask the user whether to continue or abort.
+   - Use the ``question`` tool to ask the user whether to continue or abort.
    - If abort -> stop; if continue -> proceed.
 
 5. Capture deliverables (server-side delivery handler is not yet wired
@@ -81,10 +81,10 @@ def _build_body(set_id: int, sync_to_ym: bool) -> str:
      energy per slot); copy verbatim into a `.txt` next to the MP3s.
    - local://sets/{set_id}/tracks — ordered (track_id, title, position)
      list; assemble M3U8 / Rekordbox XML client-side from this plus the
-     ``audio_file`` rows fetched via entity_get(entity='audio_file', ...).
+     ``audio_file`` rows fetched via dj_entity_get(entity='audio_file', ...).
 
 6. Copy MP3 files into generated-sets/<name>/ — resolve each track's
-   audio_file via entity_list(entity='audio_file', filters={{
+   audio_file via dj_entity_list(entity='audio_file', filters={{
    'track_id__in': [<set track ids>]}}, fields='full') to get
    `file_path`, then ``cp`` to the destination.
 {continuous_clause}

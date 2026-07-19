@@ -22,7 +22,7 @@ class TrackEmbeddingRepository:
             )
         )
         if existing is not None:
-            existing.embedding = embedding.tolist()  # type: ignore[assignment]
+            existing.embedding = embedding.tolist()
             await self._session.flush()
             return existing
         row = TrackEmbedding(
@@ -36,7 +36,10 @@ class TrackEmbeddingRepository:
         return row
 
     async def get_for_type(
-        self, track_id: int, stem_name: str, embedding_type: str,
+        self,
+        track_id: int,
+        stem_name: str,
+        embedding_type: str,
     ) -> TrackEmbedding | None:
         from sqlalchemy import select
 

@@ -24,6 +24,10 @@ class DiagWindow:
     offset_s: float
     rms_db: float
     low_db: float
+    stereo_corr: float | None = None
+    stereo_width: float | None = None
+    low_ratio: float | None = None
+    centroid_hz: float | None = None
     tags: list[str] = field(default_factory=list)
 
 
@@ -102,17 +106,34 @@ def diagnose_mix(path: str) -> DiagnoseReport:
     rows = []
     for i in range(int((dur - win) // win)):
         off = i * win
-        y, _ = librosa.load(path, sr=sr, offset=off, duration=win, mono=True)
-        rms = 20 * np.log10(np.sqrt(np.mean(y**2)) + 1e-9)
-        low = sosfiltfilt(losos, y).astype(np.float32)
+        y_st, _ = librosa.load(path, sr=sr, offset=off, duration=win, mono=False)
+        if y_st.ndim == 1:
+            left = right = y_st
+            mono = y_st
+        else:
+            left = y_st[0]
+            right = y_st[1]
+            mono = (left + right) / 2.0
+        rms = 20 * np.log10(np.sqrt(np.mean(mono**2)) + 1e-9)
+        low = sosfiltfilt(losos, mono).astype(np.float32)
         lo_rms = 20 * np.log10(np.sqrt(np.mean(low**2)) + 1e-9)
-        rows.append((off, float(rms), float(lo_rms)))
+        if np.std(left) > 1e-9 and np.std(right) > 1e-9:
+            corr = float(np.corrcoef(left, right)[0, 1])
+        else:
+            corr = 1.0
+        width = float(np.std(left - right) / (np.std(left + right) + 1e-9))
+        spec = np.abs(np.fft.rfft(mono * np.hanning(len(mono))))
+        freqs = np.fft.rfftfreq(len(mono), 1 / sr)
+        total = float(np.sum(spec) + 1e-12)
+        low_ratio = float(np.sum(spec[(freqs >= 20) & (freqs < 120)])) / total
+        centroid = float(np.sum(freqs * spec) / total)
+        rows.append((off, float(rms), float(lo_rms), corr, width, low_ratio, centroid))
 
     rms_arr = np.array([r[1] for r in rows]) if rows else np.array([0.0])
     mean = float(rms_arr.mean())
     windows: list[DiagWindow] = []
     flagged = 0
-    for i, (off, r, lo) in enumerate(rows):
+    for i, (off, r, lo, corr, width, low_ratio, centroid) in enumerate(rows):
         tags: list[str] = []
         if i > 0 and abs(r - rows[i - 1][1]) > 5:
             tags.append(f"LEVEL-JUMP {r - rows[i - 1][1]:+.0f}dB")
@@ -120,9 +141,32 @@ def diagnose_mix(path: str) -> DiagnoseReport:
             tags.append(f"DROPOUT {r:.0f}dB")
         if lo < r - 22:
             tags.append("bass-thin")
+        if corr < 0.2 or width > 0.9:
+            tags.append("PHASE-UNSTABLE")
+        if i > 0:
+            prev_r = rows[i - 1][1]
+            prev_low_ratio = rows[i - 1][5]
+            prev_centroid = rows[i - 1][6]
+            if (r - prev_r) > 10 or (
+                (r - prev_r) > 5 and r > -14 and centroid > max(1800.0, prev_centroid * 1.05)
+            ):
+                tags.append("ENTRY-SHOCK")
+            if prev_low_ratio > 0 and low_ratio < prev_low_ratio * 0.25 and (r - prev_r) > 3:
+                tags.append("LOW-END-COLLAPSE")
         if tags:
             flagged += 1
-        windows.append(DiagWindow(offset_s=off, rms_db=r, low_db=lo, tags=tags))
+        windows.append(
+            DiagWindow(
+                offset_s=off,
+                rms_db=r,
+                low_db=lo,
+                stereo_corr=corr,
+                stereo_width=width,
+                low_ratio=low_ratio,
+                centroid_hz=centroid,
+                tags=tags,
+            )
+        )
     return DiagnoseReport(
         name=Path(path).name, duration_s=dur, overall_rms_db=mean, windows=windows, flagged=flagged
     )

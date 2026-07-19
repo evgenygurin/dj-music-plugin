@@ -46,8 +46,7 @@ def test_cmd_has_one_input_per_segment_and_mapping():
 
 def test_build_preprocess_cmd():
     cmd = build_preprocess_cmd(
-        "/tmp/test.mp3", "/tmp/test_pre.wav",
-        "firequalizer=gain_entry='entry(100,0)'"
+        "/tmp/test.mp3", "/tmp/test_pre.wav", "firequalizer=gain_entry='entry(100,0)'"
     )
     assert "highpass=f=30:t=4" in " ".join(cmd)
     assert "acompressor" in " ".join(cmd)

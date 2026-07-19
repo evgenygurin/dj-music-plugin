@@ -30,18 +30,18 @@ without breaking its energy arc.
 
 4. Keep only viable, on-character candidates:
    - exclude tracks already in the set and banned tracks
-     (entity_list(entity="track_feedback", filters={{"status": "banned"}})).
+     (dj_entity_list(entity="track_feedback", filters={{"status": "banned"}})).
    - ensure level >= 3:
-     entity_list(entity="track_features", filters={{"track_id__in": [...]}},
+     dj_entity_list(entity="track_features", filters={{"track_id__in": [...]}},
                 fields="scoring").
 
 5. Re-order the COMBINED list (existing + additions) so the seam is smooth,
    pinning the existing tracks so the GA does not reshuffle the approved body:
-   sequence_optimize(track_ids=[<existing + new>], algorithm="ga",
+   dj_sequence_optimize(track_ids=[<existing + new>], algorithm="ga",
                     pinned=[<existing ids>])
 
 6. Persist and verify the seam:
-   entity_create(entity="set_version", data={{"set_id": {set_id},
+   dj_entity_create(entity="set_version", data={{"set_id": {set_id},
                 "track_order": [...], "label": "extend_{where}"}})
    local://sets/{set_id}/review — the new boundary transitions must clear
    hard_reject; local://sets/{set_id}/narrative — arc still coherent.

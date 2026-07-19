@@ -25,29 +25,29 @@ def _body(playlist_id: int | None) -> str:
     return f"""Produce a health report {scope}.
 
 1. Headline counts:
-   entity_aggregate(entity="track", operation="count")
-   entity_aggregate(entity="track_features", operation="count")
+   dj_entity_aggregate(entity="track", operation="count")
+   dj_entity_aggregate(entity="track_features", operation="count")
    — coverage = features / tracks. Below ~95% means analysis backlog.
 
 2. Analysis-level coverage (how deep is the library analyzed):
-   entity_aggregate(entity="track_features", operation="histogram",
+   dj_entity_aggregate(entity="track_features", operation="histogram",
                     field="analysis_level")
    — flag the share at level < 3 (not yet set-ready).
 
 3. Tempo distribution:
-   entity_aggregate(entity="track_features", operation="histogram", field="bpm")
+   dj_entity_aggregate(entity="track_features", operation="histogram", field="bpm")
    — techno core is 120-150; note clusters and outliers (<118 / >155).
 
 4. Harmonic distribution:
-   entity_aggregate(entity="track_features", operation="histogram",
+   dj_entity_aggregate(entity="track_features", operation="histogram",
                     field="key_code")
    — read reference://camelot to map key_code -> Camelot; spot thin keys
      (mixing dead-ends) and over-represented keys.
 
 5. Subgenre (mood) distribution:
-   entity_aggregate(entity="track_features", operation="distinct", field="mood")
+   dj_entity_aggregate(entity="track_features", operation="distinct", field="mood")
    then per mood:
-   entity_aggregate(entity="track_features", operation="count",
+   dj_entity_aggregate(entity="track_features", operation="count",
                     filters={{"mood": <m>}})
    — check the energy axis (ambient_dub .. hard_techno) for gaps.
 
@@ -57,13 +57,13 @@ def _body(playlist_id: int | None) -> str:
     variable_tempo). Cross-check thresholds via reference://audit_rules.
 
 7. Physical-file readiness:
-   entity_aggregate(entity="audio_file", operation="count")
+   dj_entity_aggregate(entity="audio_file", operation="count")
    — vs track count; low ratio means most tracks have no local MP3
      (downloaded only on demand under deliver_set_workflow).
 
 8. Visual rollup (Prefab clients):
-   ui_library_dashboard()   — BPM / mood / Camelot at a glance.
-   ui_library_audit(playlist_id={playlist_id if playlist_id is not None else 0})
+   dj_ui_library_dashboard()   — BPM / mood / Camelot at a glance.
+   dj_ui_library_audit(playlist_id={playlist_id if playlist_id is not None else 0})
 
 Return: {{"tracks": N, "feature_coverage": 0.xx, "level_lt_3": N,
          "bpm_clusters": [...], "thin_keys": [...], "subgenre_gaps": [...],

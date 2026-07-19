@@ -12,7 +12,7 @@ from typing import Any
 from fastmcp.server.context import Context
 
 from app.handlers._beatport_enrich import enrich_beatport_genre
-from app.handlers._context_log import safe_info
+from app.handlers._context_log import safe_info, safe_report_progress
 from app.handlers.track_features_analyze import AnalysisPipeline
 from app.registry.provider import ProviderRegistry
 from app.repositories.unit_of_work import UnitOfWork
@@ -42,7 +42,13 @@ async def track_features_reanalyze_handler(
     if lib is None:
         raise NotFoundError("audio_file", track_id)
 
+    await safe_report_progress(ctx, progress=0, total=1, message=f"reanalyzing track {track_id}")
+
     result = await pipeline.analyze(lib.file_path)
+
+    await safe_report_progress(
+        ctx, progress=0.5, total=1, message=f"saving features for track {track_id}"
+    )
     await uow.track_features.upsert_analysis(
         track_id=track_id,
         analysis_level=level,
@@ -51,6 +57,9 @@ async def track_features_reanalyze_handler(
     beatport = await enrich_beatport_genre(
         ctx, uow, registry, track_id=track_id, track=track, features=result.features
     )
+
+    await safe_report_progress(ctx, progress=1, total=1, message=f"reanalyzed track {track_id}")
+
     await safe_info(ctx, f"reanalyzed track {track_id} at L{level}")
 
     return {

@@ -27,7 +27,8 @@ async def compute_stem_compatibility(
 ) -> CompatibilityResult:
     if len(layers) < 2:
         return CompatibilityResult(
-            overall_score=1.0, hard_reject=False,
+            overall_score=1.0,
+            hard_reject=False,
             per_band={b: BandScore(score=1.0, clash=False) for b in _BANDS},
             key_compatibility={"score": 1.0},
             bpm_compatibility={"score": 1.0},
@@ -42,10 +43,7 @@ async def compute_stem_compatibility(
             features[(layer.track_id, layer.stem_name)] = f
 
     # BPM compatibility — minimum pairwise gauss
-    bpms = [
-        features[k].bpm for k in features
-        if features[k].bpm is not None
-    ]
+    bpms = [bpm for k in features if (bpm := features[k].bpm) is not None]
     bpm_min = 1.0
     if len(bpms) >= 2:
         for i in range(len(bpms)):
@@ -53,10 +51,7 @@ async def compute_stem_compatibility(
                 bpm_min = min(bpm_min, bpm_gauss(bpms[i], bpms[j]))
 
     # Key compatibility — minimum pairwise Camelot distance
-    keys = [
-        features[k].key_code for k in features
-        if features[k].key_code is not None
-    ]
+    keys = [key for k in features if (key := features[k].key_code) is not None]
     key_min = 1.0
     if len(keys) >= 2:
         for i in range(len(keys)):

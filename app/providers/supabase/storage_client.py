@@ -16,7 +16,9 @@ class SupabaseStorageClient:
     def available(self) -> bool:
         return self._available
 
-    async def upload(self, bucket: str, path: str, data: bytes, content_type: str = "application/octet-stream") -> Any:
+    async def upload(
+        self, bucket: str, path: str, data: bytes, content_type: str = "application/octet-stream"
+    ) -> Any:
         if not self._available:
             return None
         loop = asyncio.get_running_loop()

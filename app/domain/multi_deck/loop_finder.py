@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from app.repositories.unit_of_work import UnitOfWork
 
 
@@ -12,10 +14,10 @@ async def find_loops(
     max_bars: int = 32,
     exclude_vocals: bool = True,
     min_energy_stability: float = 0.7,
-) -> dict:
+) -> dict[str, Any]:
     sections = await uow.track_features.get_track_sections(track_id)
     features_row = await uow.track_features.get_by_track_id(track_id)
-    bpm = features_row.bpm if features_row else 120.0
+    bpm = features_row.bpm if features_row and features_row.bpm is not None else 120.0
     bar_duration_ms = 240_000.0 / bpm
 
     loops = []

@@ -12,6 +12,26 @@ from app.domain.suno_voice.rimjoba import (
     assemble_rimjoba_style,
     list_modes,
 )
+from app.domain.suno_voice.swallow_boy import (
+    SWALLOW_BOY_NEGATIVE,
+    SWALLOW_BOY_REFERENCE_CLIP_ID,
+    SWALLOW_BOY_REFERENCE_URL,
+    SWALLOW_BOY_VARIANTS,
+    SWALLOW_BOY_VOICE_CORE,
+    SwallowBoyPrompt,
+    UnknownSwallowBoyVariantError,
+    VoiceVariant,
+    assemble_swallow_boy_prompt,
+    get_swallow_boy_variant,
+)
+from app.domain.suno_voice.taras_album import (
+    TARAS_ALBUM_TITLE,
+    TARAS_ALBUM_TRACKS,
+    TARAS_NEGATIVE,
+    TARAS_VOICE_CORE,
+    TarasAlbumTrack,
+    assemble_taras_album_prompt,
+)
 
 __all__ = [
     "GENRE_TAILS",
@@ -19,9 +39,25 @@ __all__ = [
     "NEGATIVE_TAGS",
     "REFERENCE_CLIP_ID",
     "REFERENCE_URL",
+    "SWALLOW_BOY_NEGATIVE",
+    "SWALLOW_BOY_REFERENCE_CLIP_ID",
+    "SWALLOW_BOY_REFERENCE_URL",
+    "SWALLOW_BOY_VARIANTS",
+    "SWALLOW_BOY_VOICE_CORE",
+    "TARAS_ALBUM_TITLE",
+    "TARAS_ALBUM_TRACKS",
+    "TARAS_NEGATIVE",
+    "TARAS_VOICE_CORE",
     "VOICE_BLOCK",
     "RimJobaPrompt",
+    "SwallowBoyPrompt",
+    "TarasAlbumTrack",
     "UnknownRimJobaModeError",
+    "UnknownSwallowBoyVariantError",
+    "VoiceVariant",
     "assemble_rimjoba_style",
+    "assemble_swallow_boy_prompt",
+    "assemble_taras_album_prompt",
+    "get_swallow_boy_variant",
     "list_modes",
 ]

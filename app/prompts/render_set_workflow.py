@@ -13,26 +13,26 @@ tracks-only DJ mix (EQ bass-swap transitions) and deliver it:
 
 1. Ensure every track has a physical MP3 registered (the engine reads files
    from dj_library_items; it does NOT download). For any missing track:
-   entity_create(entity="audio_file", data={{"track_ids": [<track ids>]}})
+   dj_entity_create(entity="audio_file", data={{"track_ids": [<track ids>]}})
    Download in batches of ~8-10 under the tool timeout; verify with
-   entity_list(entity="audio_file", filters={{"track_id__in": [...]}}).
+   dj_entity_list(entity="audio_file", filters={{"track_id__in": [...]}}).
 
 2. (Recommended) Bring the set tracks to analysis_level=5 first so bpm / key /
    LUFS are accurate:
-   entity_update(entity="track_features", id=<track_id>, data={{"level": 5}})
+   dj_entity_update(entity="track_features", id=<track_id>, data={{"level": 5}})
 
 3. Compute the beatgrid (kick-phase + sub-beat phase refine + LUFS level-match):
-   render_beatgrid(version_id={version_id})
+   dj_render_beatgrid(version_id={version_id})
    Inspect it: read local://render/{version_id}/beatgrid — check per-track
    phase (ms) and gain (dB); tracks flagged "fixed" had a large correction.
 
 4. Render the continuous mix (auto-uses the cached beatgrid):
-   render_mixdown(version_id={version_id})
+   dj_render_mixdown(version_id={version_id})
    This is heavy (ffmpeg+rubberband) and runs as a background task; poll
    local://render/jobs/{{job_id}}/status for progress.
 
 5. Diagnose the result:
-   render_diagnose(version_id={version_id})
+   dj_render_diagnose(version_id={version_id})
    Read local://render/{version_id}/timeline to tell a TRANSITION-window hole
    (a mix defect) from a track's own breakdown (music). Most -17..-20 dB dips
    inside a track body are breakdowns — do NOT chase them.

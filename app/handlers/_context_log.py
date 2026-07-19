@@ -29,6 +29,9 @@ log = logging.getLogger(__name__)
 
 async def safe_info(ctx: Any, message: str) -> None:
     """``await ctx.info(message)`` if a session is live, else log locally."""
+    if ctx is None:
+        log.info(message)
+        return
     try:
         await ctx.info(message)
     except RuntimeError:
@@ -38,6 +41,9 @@ async def safe_info(ctx: Any, message: str) -> None:
 
 
 async def safe_warning(ctx: Any, message: str) -> None:
+    if ctx is None:
+        log.warning(message)
+        return
     try:
         await ctx.warning(message)
     except RuntimeError:
@@ -45,6 +51,9 @@ async def safe_warning(ctx: Any, message: str) -> None:
 
 
 async def safe_error(ctx: Any, message: str) -> None:
+    if ctx is None:
+        log.error(message)
+        return
     try:
         await ctx.error(message)
     except RuntimeError:
@@ -69,6 +78,12 @@ async def safe_report_progress(
     progress is too chatty for the main log; we only want it on
     explicit DEBUG.
     """
+    if ctx is None:
+        if message:
+            log.debug("progress %s/%s: %s", progress, total, message)
+        else:
+            log.debug("progress %s/%s", progress, total)
+        return
     try:
         await ctx.report_progress(progress=progress, total=total, message=message)
     except RuntimeError:

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import json
 from typing import Any
 
@@ -64,11 +65,18 @@ async def track_waveform(
     stem: str = "original",
     uow: UnitOfWork = Depends(get_uow),
 ) -> str:
+    from supabase import create_client
+
     from app.config.supabase import SupabaseSettings
-    from app.providers.supabase.storage_client import SupabaseStorageClient
 
     settings = SupabaseSettings()
-    storage = SupabaseStorageClient(url=settings.supabase_url, key=settings.supabase_service_key)
     prefix = f"{id}" if stem == "original" else f"{id}/stem_{stem}"
-    data = await storage.download("track-waveforms", f"{prefix}/waveform.json")
+    if not settings.supabase_url or not settings.supabase_service_key:
+        return b"".decode()
+    client = create_client(settings.supabase_url, settings.supabase_service_key)
+    loop = asyncio.get_running_loop()
+    data = await loop.run_in_executor(
+        None,
+        lambda: client.storage.from_("track-waveforms").download(f"{prefix}/waveform.json"),
+    )
     return data.decode()

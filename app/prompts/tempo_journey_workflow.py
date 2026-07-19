@@ -29,16 +29,16 @@ track, or a deliberate reset — never as a raw cut.
    local://playlists/{playlist_id}?include_tracks=true -> pool_ids = [...]
 
 3. Read tempo + scoring features for the pool, ensure level >= 3:
-   entity_list(entity="track_features", filters={{"track_id__in": pool_ids}},
+   dj_entity_list(entity="track_features", filters={{"track_id__in": pool_ids}},
               fields="scoring")
    — for tracks below level 3, run analyze_library_workflow first
      (sequence_optimize auto-upgrades, but pre-analysis is faster).
-   entity_aggregate(entity="track_features", operation="histogram",
+   dj_entity_aggregate(entity="track_features", operation="histogram",
                     field="bpm")  — see how the pool is distributed.
 
 4. Keep only tracks inside the ramp band; trim outliers that would force a
    tempo cliff:
-   entity_list(entity="track_features",
+   dj_entity_list(entity="track_features",
               filters={{"track_id__in": pool_ids, "bpm__gte": {min(start_bpm, end_bpm)},
                        "bpm__lte": {max(start_bpm, end_bpm)}}}, fields="scoring")
    — flag variable_tempo tracks (filters={{"variable_tempo": true}}); they
@@ -46,17 +46,17 @@ track, or a deliberate reset — never as a raw cut.
 
 5. Order under a tempo-aware ramp. Pin the slowest track first and the fastest
    last so the GA threads a monotonic {direction}:
-   sequence_optimize(track_ids=[...], algorithm="ga", template="progressive_120")
+   dj_sequence_optimize(track_ids=[...], algorithm="ga", template="progressive_120")
    — progressive_120's phase table rewards one long imperceptible ramp; for a
      short set use "classic_60". Pin anchors:
-     sequence_optimize(..., pinned=[<slowest_id>, <fastest_id>])
+     dj_sequence_optimize(..., pinned=[<slowest_id>, <fastest_id>])
 
 6. Persist + verify the ramp reads as intended:
-   entity_create(entity="set_version", data={{"set_id": <id>,
+   dj_entity_create(entity="set_version", data={{"set_id": <id>,
                 "track_order": [...], "label": "tempo_{start_bpm}_{end_bpm}"}})
    local://sets/{{set_id}}/review     — no |dBPM| hard_rejects on the steps.
    local://sets/{{set_id}}/narrative  — does the energy track the tempo {direction}?
-   ui_set_view(set_id=<id>)           — visual arc (Prefab clients).
+   dj_ui_set_view(set_id=<id>)           — visual arc (Prefab clients).
 
 7. If a single step exceeds the BPM ceiling, insert a bridge track at that BPM
    or run replace_track_workflow for the offending slot.
