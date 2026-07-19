@@ -47,6 +47,44 @@ The project contract records current web/session keys as version-dependent:
 
 Agents must read account/model access first. Paid web model keys can return 403 on free accounts; an empty `mv` can default to a paid model and fail.
 
+## 2026-07-19 Deep-Research Deltas (adversarially verified)
+
+A second fan-out research pass (23 sources, 25 adversarially verified claims)
+refined the model + pricing + prompt-craft picture. Confidence markers: 3-0/2-1
+= adversarial vote; [reported] = single reputable source.
+
+### Model codename ↔ version (3-0)
+
+- `chirp-fenix` = **v5.5**, current stable (released 2026-03-26; paid).
+- `chirp-crow` = v5.0 (paid); `chirp-bluejay` = v4.5+ (paid); `chirp-auk` = v4.5.
+- **Free plan runs `v4.5-all`** (replaced the free default 2025-10-21); v5 / v5.5
+  are **paid-only**. A paid model key — or an empty `mv` — on a free account → 403.
+- sunoapi.org enum stays `V4, V4_5, V4_5PLUS, V4_5ALL, V5, V5_5` (3-0).
+- The plugin config default `chirp-auk-turbo` is a v4.5-turbo variant; prefer
+  sending a model from the live `usable_models` list (account read).
+
+### Pricing / rights (reported)
+
+- Suno free: ~50 credits/day, **personal / non-commercial only**.
+- Pro $10/mo → 2,500 credits/mo; Premier $30/mo → 10,000 credits/mo; **0% revenue
+  share** and commercial rights on paid tiers.
+- sunoapi.org ~$0.06/song. Each generation returns **2 variants**.
+
+### Prompt-craft additions
+
+- **Front-loading**: V5.5's tokenizer weights leading tokens more heavily —
+  order the style field **genre → timbre → mood → technical (BPM/key)**.
+- **8–15 tags** is the sweet spot (>20 dilutes, <5 too vague).
+- **`[Instrumental]` must be in the LYRICS field** — without it Suno adds vocals
+  regardless of the style field (the `instrumental: true` flag maps to this).
+- Explicit `[BPM]`/`[Key]` markers stabilize tempo/mood across regenerations.
+
+> This section supplements the detailed sunoapi.org operational facts below
+> (concurrency 20 req/10 s, stem credit costs, 14–15-day retention), which
+> remain accurate. Sources: help.suno.com, unifically.com, techjacksolutions.com,
+> docs.sunoapi.org, suno.bi, hookgenius.app, dynamoi.com. Re-verify model lineup
+> + pricing before relying — they drift every few months.
+
 ## Two API Surfaces
 
 ### Browser-Session Suno Web

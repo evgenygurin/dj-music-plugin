@@ -161,9 +161,12 @@ ask the user to refresh credentials.
 - **status `GET /api/feed/v2/?ids={clip_id}`** → `{"clips":[...]}`. Poll **clip
   ids** (`clip_ids`), not the **batch id** create returns
   (`/api/feed/v2/?ids=<batch>` is empty). The old `/api/feed/?ids=` returns [].
-- **model `mv`**: free default `chirp-auk-turbo`; `chirp-fenix` (v5.5),
-  `chirp-crow` (v5), `chirp-auk`/`bluejay` (v4.5) are PRO → 403 on free; an
-  empty `mv` defaults to a paid model → 403. Always send a model.
+- **model `mv`** (lineup verified 2026-07-19): current **free** default is
+  **`v4.5-all`** (replaced the free model 2025-10-21); `chirp-auk-turbo` is a
+  v4.5-turbo variant. Codenames → version: `chirp-fenix` v5.5 (current stable,
+  2026-03-26), `chirp-crow` v5, `chirp-bluejay` v4.5+, `chirp-auk` v4.5 — all
+  PRO → 403 on free; an empty `mv` defaults to a paid model → 403. Always send a
+  model the account's `usable_models` includes.
 - **captcha `/api/c/check` is POST** (`ctype` body); GET → 405. The pre-gen
   guard is best-effort — endpoint drift (405/422/404) never blocks a gen.
 - **download**: audio is on off-host CDN (`cdn1.suno.ai`); the client strips
