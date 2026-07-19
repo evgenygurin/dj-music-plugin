@@ -12,7 +12,7 @@ version: 1.0.0
 
 1. **Preflight before every generation**
    - `provider_read(provider="suno", entity="account")` — зафиксируй `payload_mode`, credits, plan/models, ошибки auth.
-   - `payload_mode=session|suno_web`: default model `chirp-auk-turbo`; paid keys (`chirp-fenix`, `chirp-crow`, `chirp-auk`/`bluejay`) только если account показывает доступ.
+   - `payload_mode=session|suno_web`: текущий **free**-дефолт — `v4.5-all` (сменил free-модель 21.10.2025); `chirp-auk-turbo` — v4.5-turbo вариант. Codenames: `chirp-fenix`=v5.5 (stable, 2026-03-26), `chirp-crow`=v5, `chirp-bluejay`=v4.5+, `chirp-auk`=v4.5 — все PRO, доступны только если account (`usable_models`) их показывает; пустой `mv` → 403.
    - `payload_mode=sunoapi`: модели `V4`, `V4_5`, `V4_5PLUS`, `V4_5ALL`, `V5`, `V5_5`; для `voice_persona` предпочитай `V5_5`/`V5`.
    - Если session истёк: `uv run python scripts/suno_refresh_token.py` после того, как пользователь залогинен в Suno в своём браузере. Не запускай OAuth/Playwright/CAPTCHA из плагина.
 

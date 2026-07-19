@@ -39,14 +39,34 @@ _MODELS_JSON = json_dump(
         ],
         "defaults": {
             "session_web": "chirp-auk-turbo",
+            "session_web_note": (
+                "chirp-auk-turbo is a v4.5-turbo variant; the CURRENT Suno free "
+                "default is v4.5-all (replaced the free model 2025-10-21). Always "
+                "send a model the account's usable_models includes."
+            ),
             "sunoapi_general": "V5",
             "sunoapi_voice": "V5_5",
             "sunoapi_compatibility": "V4_5",
         },
+        "codename_map": {
+            "note": "Suno bird codename -> version (help.suno.com / unifically.com, 3-0 verified 2026-07-19)",
+            "chirp-fenix": "v5.5 (current stable, 2026-03-26; paid)",
+            "chirp-crow": "v5.0 (paid)",
+            "chirp-bluejay": "v4.5+ / V4_5PLUS (paid)",
+            "chirp-auk": "v4.5 / V4_5 (paid)",
+            "v4.5-all": "free plan default / V4_5ALL (since 2025-10-21)",
+            "chirp-v4": "v4 (legacy)",
+            "chirp-v3-5": "v3.5 (legacy)",
+        },
+        "free_vs_paid": {
+            "free": "v4.5-all only; personal / non-commercial use",
+            "paid": "v5, v5.5 and full line; commercial rights granted",
+            "gotcha": "paid model key or empty mv on a free account -> 403",
+        },
         "session_web": [
             {
                 "model": "chirp-auk-turbo",
-                "use": "free-safe project default for browser-session mode",
+                "use": "project default for browser-session mode (v4.5-turbo variant; current free model is v4.5-all)",
                 "confidence": "project-live-contract",
             },
             {
@@ -97,6 +117,14 @@ _MODELS_JSON = json_dump(
                 "notes": "current voice/custom-model oriented model; supports voice_persona",
             },
         ],
+        "pricing": {
+            "note": "version-dependent; re-verify before relying (reported 2026-07-19)",
+            "suno_free": "~50 credits/day; personal / non-commercial only",
+            "suno_pro": "$10/mo -> 2,500 credits/mo; commercial rights; 0% revenue share",
+            "suno_premier": "$30/mo -> 10,000 credits/mo; + Suno Studio",
+            "sunoapi_org": "~$0.06/song (gateway; varies by provider)",
+            "variants_per_generation": 2,
+        },
         "operational_rules": [
             "Read provider account/models before choosing a paid web key.",
             "Session mode polls clip ids; sunoapi mode polls task ids.",
@@ -115,6 +143,12 @@ _PROMPT_CRAFT_JSON = json_dump(
             "custom_instrumental": "instrumental=true; style carries the complete brief; prompt may be minimal",
             "simple_mode": "prompt is a short idea; generated lyrics may not match exactly",
             "negative_tags": "exclude voices, genres, instruments, long intros, or unwanted production traits",
+            "instrumental_caveat": "for instrumental output put [Instrumental] in the LYRICS field (the instrumental=true flag maps to this) — without it Suno adds vocals regardless of the style field",
+        },
+        "style_field": {
+            "front_loading": "V5.5 tokenizer weights leading tokens more heavily; order genre -> timbre -> mood -> technical (BPM/key)",
+            "tag_count": "8-15 tags is the sweet spot; >20 dilutes, <5 is too vague",
+            "bpm_key_markers": "add explicit [BPM] 128 [Key] A minor markers to stabilize tempo/mood across regenerations",
         },
         "structure_tags": [
             "[Intro]",
