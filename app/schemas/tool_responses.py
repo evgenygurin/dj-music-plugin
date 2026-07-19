@@ -108,6 +108,33 @@ class PlaylistSyncResult(BaseModel):
     conflicts: list[dict[str, Any]] = Field(default_factory=list)
 
 
+class TransitionCandidate(BaseModel):
+    track_id: int = Field(description="Candidate track ID")
+    title: str = ""
+    overall: float = Field(ge=0.0, le=1.0, description="Aggregate transition quality")
+    bpm: float | None = None
+    key: int | None = None
+    energy: float | None = None
+    mood: str | None = None
+    best_transition: str | None = Field(
+        default=None,
+        description="Selected Neural Mix preset name",
+    )
+
+
+class TransitionCandidatesResult(BaseModel):
+    from_track_id: int = Field(description="Source track being scored against")
+    total_analyzed: int = Field(description="Analyzed candidates scored, excluding source track")
+    candidates: list[TransitionCandidate] = Field(
+        default_factory=list,
+        description="Sorted by overall descending; hard rejects excluded",
+    )
+    missing_features: bool = Field(
+        default=False,
+        description="True when the source track has no scoring features",
+    )
+
+
 class UnlockNamespaceResult(BaseModel):
     namespace: str
     status: Literal["unlocked", "locked", "status"]
