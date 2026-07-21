@@ -1,6 +1,6 @@
 # tests/domain/render/test_graph.py
 from app.domain.render.graph import build_filtergraph
-from app.domain.render.models import RenderPlan, TrackSegment
+from app.domain.render.models import RenderMode, RenderPlan, TrackSegment
 
 BAR = 4 * (60.0 / 130.0)
 
@@ -30,6 +30,7 @@ def _plan(n):
         )
         t += length - d_out
     return RenderPlan(
+        mode=RenderMode.CLASSIC,
         target_bpm=130.0,
         xsplit_low_hz=250,
         xsplit_high_hz=4000,

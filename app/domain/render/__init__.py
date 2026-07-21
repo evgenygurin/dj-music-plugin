@@ -7,6 +7,7 @@ from app.domain.render.levels import gains_to_median
 from app.domain.render.models import (
     STEM_ORDER,
     BeatgridEntry,
+    RenderMode,
     RenderPlan,
     StemSegment,
     TrackInput,
@@ -28,6 +29,7 @@ __all__ = [
     "STEM_ORDER",
     "BarPlanner",
     "BeatgridEntry",
+    "RenderMode",
     "RenderPlan",
     "RenderPlanBuilder",
     "RenderStrategy",

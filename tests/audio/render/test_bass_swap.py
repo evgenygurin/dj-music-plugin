@@ -1,7 +1,7 @@
 import re
 
 from app.domain.render.graph import build_filtergraph
-from app.domain.render.models import RenderPlan, TrackSegment
+from app.domain.render.models import RenderMode, RenderPlan, TrackSegment
 
 
 def make_segment(index, length_s=90.0, d_in_s=30.0, d_out_s=30.0, start_s=0.0):
@@ -23,6 +23,7 @@ def make_segment(index, length_s=90.0, d_in_s=30.0, d_out_s=30.0, start_s=0.0):
 class TestBassSwapFiltergraph:
     def test_low_swap_is_beat_based(self):
         plan = RenderPlan(
+            mode=RenderMode.CLASSIC,
             target_bpm=130.0,
             xsplit_low_hz=250,
             xsplit_high_hz=4000,

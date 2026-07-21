@@ -25,6 +25,7 @@ from collections.abc import Sequence
 from app.domain.render.eq import build_master_eq
 from app.domain.render.models import (
     STEM_ORDER,
+    RenderMode,
     RenderPlan,
     StemSegment,
     TrackSegment,
@@ -115,6 +116,7 @@ class ClassicGraphBuilder(FilterGraphBuilder):
         sweep_expr = ""
         if has_echo:
             from app.audio.effects.echo_delay import ECHO_PRESETS
+
             ep = ECHO_PRESETS.get(plan.echo_preset)  # type: ignore[arg-type]
             if ep:
                 echo_wet = min(0.25, ep.wet_dry_ratio * 0.6)
@@ -124,6 +126,7 @@ class ClassicGraphBuilder(FilterGraphBuilder):
 
         if has_sweep and plan.filter_sweep_preset:
             from app.audio.effects.filter_sweep import FILTER_PRESETS
+
             fp = FILTER_PRESETS.get(plan.filter_sweep_preset)  # type: ignore[arg-type]
             if fp and fp.outgoing and i < n - 1:
                 end_f = int(fp.outgoing.end_freq_hz)
@@ -206,8 +209,7 @@ class ClassicGraphBuilder(FilterGraphBuilder):
             )
         else:
             parts.append(
-                f"[H{i}][MID{i}][Lo{i}]amix=inputs=3:normalize=0,"
-                f"adelay={t_ms}|{t_ms}|{t_ms}[m{i}]"
+                f"[H{i}][MID{i}][Lo{i}]amix=inputs=3:normalize=0,adelay={t_ms}|{t_ms}|{t_ms}[m{i}]"
             )
         return parts, f"[m{i}]"
 
@@ -372,5 +374,15 @@ class StemMultiDeckStrategy(RenderStrategy):
 
 
 def select_strategy(plan: RenderPlan) -> RenderStrategy:
-    """Pick the render strategy from the plan's mode (stem segments → stem)."""
-    return StemMultiDeckStrategy() if plan.stem_segments else ClassicEqStrategy()
+    """Pick the render strategy via the plan's explicit mode.
+
+    Transitional back-compat: legacy plans built via ``build_stem_render_plan``
+    still default to ``mode=CLASSIC`` but carry ``stem_segments`` — dispatch them
+    to the stem strategy until Task 9 rebuilds the planner to set the mode.
+    """
+    if plan.mode is RenderMode.CLASSIC and plan.stem_segments is not None:
+        return StemMultiDeckStrategy()
+    return {
+        RenderMode.CLASSIC: ClassicEqStrategy(),
+        RenderMode.STEM: StemMultiDeckStrategy(),
+    }[plan.mode]

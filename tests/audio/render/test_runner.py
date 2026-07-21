@@ -1,5 +1,5 @@
 from app.audio.render.runner import build_ffmpeg_cmd, build_preprocess_cmd
-from app.domain.render.models import RenderPlan, TrackSegment
+from app.domain.render.models import RenderMode, RenderPlan, TrackSegment
 
 BAR = 4 * (60.0 / 130.0)
 
@@ -21,6 +21,7 @@ def _plan():
         )
     ]
     return RenderPlan(
+        mode=RenderMode.CLASSIC,
         target_bpm=130.0,
         xsplit_low_hz=250,
         xsplit_high_hz=4000,

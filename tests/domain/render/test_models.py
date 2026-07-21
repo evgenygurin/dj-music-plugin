@@ -1,5 +1,11 @@
 # tests/domain/render/test_models.py
-from app.domain.render.models import BeatgridEntry, RenderPlan, TrackInput, TrackSegment
+from app.domain.render.models import (
+    BeatgridEntry,
+    RenderMode,
+    RenderPlan,
+    TrackInput,
+    TrackSegment,
+)
 
 
 def test_track_input_roundtrip():
@@ -54,3 +60,32 @@ def test_render_plan_holds_segments():
     )
     assert plan.segments[0].index == 0
     assert plan.n == 1
+
+
+def test_render_plan_carries_mode():
+    seg = TrackSegment(
+        index=0,
+        track_id=1,
+        file_path="/x.mp3",
+        tempo_ratio=1.0,
+        trim_start_s=0.4,
+        gain_db=0.0,
+        body_bars=24,
+        d_in_s=0.0,
+        d_out_s=59.0,
+        length_s=103.0,
+        start_s=0.0,
+    )
+    plan = RenderPlan(
+        mode=RenderMode.CLASSIC,
+        target_bpm=130.0,
+        xsplit_low_hz=250,
+        xsplit_high_hz=4000,
+        eq_phase_1_ratio=0.40,
+        eq_phase_2_ratio=0.70,
+        low_swap_beats=1.0,
+        outro_fade_bars=12,
+        limiter_ceiling=0.85,
+        segments=[seg],
+    )
+    assert plan.mode is RenderMode.CLASSIC

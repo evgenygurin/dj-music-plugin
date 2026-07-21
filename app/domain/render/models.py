@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from enum import Enum
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -11,6 +12,13 @@ if TYPE_CHECKING:
 # Prepared stem order — the single source of truth for both the ffmpeg input
 # ordering (5 ``-i`` per track) and the stem filtergraph. Never reorder.
 STEM_ORDER: tuple[str, ...] = ("drums", "bass", "harmonic", "instrumental", "acappella")
+
+
+class RenderMode(str, Enum):  # noqa: UP042 - keep `str, Enum` for broader compat
+    """Render pipeline selector — see :class:`RenderPlan.mode`."""
+
+    CLASSIC = "classic"
+    STEM = "stem"
 
 
 @dataclass(frozen=True, slots=True)
@@ -105,6 +113,7 @@ class RenderPlan:
     low_swap_beats: float
     outro_fade_bars: int
     limiter_ceiling: float
+    mode: RenderMode = RenderMode.CLASSIC
     hpf_cutoff_hz: float = 30.0
     per_track_eq_mid_cut_db: float = -1.0
     per_track_eq_bright_boost_db: float = 1.5
