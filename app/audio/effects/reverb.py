@@ -13,10 +13,12 @@ scipy.signal.fftconvolve (fast FFT-based convolution).
 For real-time or large files, the IR can be saved and applied via ffmpeg
 ``afftfilt`` with the IR as a second input.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
+from typing import cast
 
 import numpy as np
 
@@ -74,9 +76,7 @@ class ReverbIR:
         # Four parallel comb filters with prime-number delay lengths
         # for dense, non-periodic decay
         comb_delays_ms = [29.7, 37.1, 41.3, 43.7]
-        comb_gains = [
-            10 ** (-3 * d / (self.decay_s * 1000)) for d in comb_delays_ms
-        ]
+        comb_gains = [10 ** (-3 * d / (self.decay_s * 1000)) for d in comb_delays_ms]
 
         for delay_ms, gain in zip(comb_delays_ms, comb_gains, strict=False):
             delay_samples = int(sr * delay_ms / 1000.0)
@@ -125,13 +125,18 @@ class ReverbIR:
 
         if audio.ndim == 1:
             wet = fftconvolve(audio, ir, mode="full")[: len(audio)]
-            return (1.0 - self.mix_ratio) * audio + self.mix_ratio * wet.astype(np.float32)
+            return cast(
+                np.ndarray,
+                (1.0 - self.mix_ratio) * audio + self.mix_ratio * wet.astype(np.float32),
+            )
 
         # Stereo: apply same IR to both channels
         result = np.zeros_like(audio)
         for ch in range(audio.shape[1]):
             wet = fftconvolve(audio[:, ch], ir, mode="full")[: audio.shape[0]]
-            result[:, ch] = (1.0 - self.mix_ratio) * audio[:, ch] + self.mix_ratio * wet.astype(np.float32)
+            result[:, ch] = (1.0 - self.mix_ratio) * audio[:, ch] + self.mix_ratio * wet.astype(
+                np.float32
+            )
         return result
 
     def apply_mono(self, audio: np.ndarray) -> np.ndarray:
@@ -142,38 +147,61 @@ class ReverbIR:
         if audio.ndim > 1:
             audio = audio.mean(axis=1)
         wet = fftconvolve(audio, ir, mode="full")[: len(audio)]
-        return (1.0 - self.mix_ratio) * audio + self.mix_ratio * wet.astype(np.float32)
+        return cast(
+            np.ndarray,
+            (1.0 - self.mix_ratio) * audio + self.mix_ratio * wet.astype(np.float32),
+        )
 
 
 # ── Preset library ──────────────────────────────────────────
 
 TECHNO_HALL = ReverbIR(
-    decay_s=2.5, pre_delay_ms=25, early_reflections=8,
-    mix_ratio=0.30, highpass_hz=100, lowpass_hz=6000,
+    decay_s=2.5,
+    pre_delay_ms=25,
+    early_reflections=8,
+    mix_ratio=0.30,
+    highpass_hz=100,
+    lowpass_hz=6000,
     space=ReverbSpace.HALL,
 )
 
 TECHNO_CATHEDRAL = ReverbIR(
-    decay_s=5.0, pre_delay_ms=40, early_reflections=12,
-    mix_ratio=0.25, highpass_hz=80, lowpass_hz=4000,
+    decay_s=5.0,
+    pre_delay_ms=40,
+    early_reflections=12,
+    mix_ratio=0.25,
+    highpass_hz=80,
+    lowpass_hz=4000,
     space=ReverbSpace.CATHEDRAL,
 )
 
 INDUSTRIAL_WAREHOUSE = ReverbIR(
-    decay_s=3.0, pre_delay_ms=15, early_reflections=6,
-    mix_ratio=0.40, highpass_hz=120, lowpass_hz=10000,
+    decay_s=3.0,
+    pre_delay_ms=15,
+    early_reflections=6,
+    mix_ratio=0.40,
+    highpass_hz=120,
+    lowpass_hz=10000,
     space=ReverbSpace.WAREHOUSE,
 )
 
 DUB_PLATE = ReverbIR(
-    decay_s=1.8, pre_delay_ms=10, early_reflections=4,
-    mix_ratio=0.50, highpass_hz=200, lowpass_hz=5000,
+    decay_s=1.8,
+    pre_delay_ms=10,
+    early_reflections=4,
+    mix_ratio=0.50,
+    highpass_hz=200,
+    lowpass_hz=5000,
     space=ReverbSpace.PLATE,
 )
 
 MINIMAL_ROOM = ReverbIR(
-    decay_s=1.0, pre_delay_ms=12, early_reflections=5,
-    mix_ratio=0.20, highpass_hz=150, lowpass_hz=8000,
+    decay_s=1.0,
+    pre_delay_ms=12,
+    early_reflections=5,
+    mix_ratio=0.20,
+    highpass_hz=150,
+    lowpass_hz=8000,
     space=ReverbSpace.ROOM,
 )
 

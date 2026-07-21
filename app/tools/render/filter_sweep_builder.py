@@ -1,4 +1,5 @@
 """filter_sweep_builder — construct filter sweep effects for DJ transitions."""
+
 from __future__ import annotations
 
 from typing import Annotated

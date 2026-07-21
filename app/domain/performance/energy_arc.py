@@ -13,8 +13,10 @@ Arc shapes (matching techno set archetypes):
 The planner uses scipy.optimize to fit tracks to the target energy curve
 while respecting BPM progression, key compatibility, and subgenre flow.
 """
+
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import TYPE_CHECKING
@@ -36,19 +38,21 @@ class ArcShape(Enum):
 @dataclass
 class ArcSlot:
     """One position in the energy arc — describes what kind of track fits here."""
-    position: int                # 1-based position in set
+
+    position: int  # 1-based position in set
     target_bpm: float
-    target_energy: float         # 0.0 to 1.0
-    bpm_tolerance: float = 3.0   # ± BPM
+    target_energy: float  # 0.0 to 1.0
+    bpm_tolerance: float = 3.0  # ± BPM
     energy_tolerance: float = 0.15
     preferred_keys: list[int] = field(default_factory=list)  # Camelot codes
     preferred_subgenres: list[str] = field(default_factory=list)
-    label: str = ""              # e.g. "warmup", "peak", "closing"
+    label: str = ""  # e.g. "warmup", "peak", "closing"
 
 
 @dataclass
 class EnergyArc:
     """Complete energy arc specification for a DJ set."""
+
     shape: ArcShape
     num_tracks: int
     target_bpm_start: float
@@ -76,9 +80,7 @@ class EnergyArc:
 
         elif self.shape == ArcShape.JOURNEY:
             # Two peaks: one at 30%, one at 75%
-            bpm_curve = self.target_bpm_start + (
-                self.target_bpm_peak - self.target_bpm_start
-            ) * x
+            bpm_curve = self.target_bpm_start + (self.target_bpm_peak - self.target_bpm_start) * x
             energy_curve = (
                 0.30
                 + 0.25 * np.exp(-((x - 0.30) ** 2) / 0.03)
@@ -137,6 +139,7 @@ def _arc_label(pos: int, total: int, shape: ArcShape) -> str:
 @dataclass
 class TrackCandidate:
     """One track considered for arc placement."""
+
     track_id: int
     bpm: float
     energy_mean: float
@@ -215,6 +218,7 @@ def _camelot_distance(a: int, b: int) -> int:
 
 # ── Arc presets ─────────────────────────────────────────────
 
+
 def roller_arc(num_tracks: int = 16) -> EnergyArc:
     return EnergyArc(
         shape=ArcShape.ROLLER,
@@ -262,7 +266,7 @@ def festival_arc(num_tracks: int = 14) -> EnergyArc:
     )
 
 
-ARC_PRESETS: dict[str, type] = {
+ARC_PRESETS: dict[str, Callable[[int], EnergyArc]] = {
     "roller": roller_arc,
     "journey": journey_arc,
     "warehouse": warehouse_arc,

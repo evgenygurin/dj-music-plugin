@@ -14,36 +14,40 @@ Standard 8-cue layout for techno:
   G — 16 bars before drop (pre-drop cue for quick transitions)
   H — 32 bars from end (last safe mix-in point for next DJ)
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import IntEnum
+from typing import Any
 
 
 class CueType(IntEnum):
-    GRID = 0       # beatgrid anchor
-    BUILD = 1      # build-up start
-    DROP = 2       # peak energy
+    GRID = 0  # beatgrid anchor
+    BUILD = 1  # build-up start
+    DROP = 2  # peak energy
     BREAKDOWN = 3  # breakdown / ambient
-    OUTRO = 4      # safe mix-out
-    LOOP_IN = 5    # loop start (8-16 bars of stable energy)
-    LOOP_OUT = 6   # loop end
-    PRE_DROP = 7   # 16 bars before drop (quick mix cue)
+    OUTRO = 4  # safe mix-out
+    LOOP_IN = 5  # loop start (8-16 bars of stable energy)
+    LOOP_OUT = 6  # loop end
+    PRE_DROP = 7  # 16 bars before drop (quick mix cue)
 
 
 @dataclass(frozen=True, slots=True)
 class CuePoint:
     """One hot cue / memory point for DJ software."""
-    index: int          # 0-7 (A-H)
+
+    index: int  # 0-7 (A-H)
     cue_type: CueType
     position_ms: int
     label: str
-    color: str = ""     # hex for Rekordbox (e.g. "#FF0000")
+    color: str = ""  # hex for Rekordbox (e.g. "#FF0000")
 
 
 @dataclass
 class CuePointSet:
     """Complete 8-cue layout for a track."""
+
     track_id: int
     cues: list[CuePoint] = field(default_factory=list)
     bpm: float = 0.0
@@ -101,7 +105,7 @@ SECTION_NAMES: dict[int, str] = {
 
 
 def detect_cues(
-    sections: list[dict],
+    sections: list[dict[str, Any]],
     bpm: float,
     first_downbeat_ms: float = 0.0,
     duration_ms: int = 0,
@@ -118,96 +122,135 @@ def detect_cues(
     sorted_secs = sorted(sections, key=lambda s: s.get("start_ms", 0))
 
     # ── Cue A: First downbeat ──
-    cues.append(CuePoint(
-        index=0, cue_type=CueType.GRID,
-        position_ms=int(first_downbeat_ms),
-        label="A: Grid", color="#FF0000",
-    ))
+    cues.append(
+        CuePoint(
+            index=0,
+            cue_type=CueType.GRID,
+            position_ms=int(first_downbeat_ms),
+            label="A: Grid",
+            color="#FF0000",
+        )
+    )
 
     # ── Cue B: Build-up start (section_type=1 or energy rising steeply) ──
     builds = [s for s in sorted_secs if s.get("section_type") in (1, 8)]
     if builds:
-        cues.append(CuePoint(
-            index=1, cue_type=CueType.BUILD,
-            position_ms=int(builds[0]["start_ms"]),
-            label="B: Build", color="#00FF00",
-        ))
+        cues.append(
+            CuePoint(
+                index=1,
+                cue_type=CueType.BUILD,
+                position_ms=int(builds[0]["start_ms"]),
+                label="B: Build",
+                color="#00FF00",
+            )
+        )
     else:
         # Fallback: 32 bars before first drop
         bar_ms = 240000.0 / bpm if bpm > 0 else 2000.0
         drops = [s for s in sorted_secs if s.get("section_type") in (2, 4)]
         if drops:
             pos = max(0, drops[0]["start_ms"] - 32 * bar_ms)
-            cues.append(CuePoint(
-                index=1, cue_type=CueType.BUILD,
-                position_ms=int(pos),
-                label="B: Build (est)", color="#00FF00",
-            ))
+            cues.append(
+                CuePoint(
+                    index=1,
+                    cue_type=CueType.BUILD,
+                    position_ms=int(pos),
+                    label="B: Build (est)",
+                    color="#00FF00",
+                )
+            )
 
     # ── Cue C: First drop / Peak (section_type=2 or 4) ──
     drops = [s for s in sorted_secs if s.get("section_type") in (2, 4)]
     if drops:
         best = max(drops, key=lambda s: s.get("energy", 0) or 0)
-        cues.append(CuePoint(
-            index=2, cue_type=CueType.DROP,
-            position_ms=int(best["start_ms"]),
-            label="C: Drop", color="#0000FF",
-        ))
+        cues.append(
+            CuePoint(
+                index=2,
+                cue_type=CueType.DROP,
+                position_ms=int(best["start_ms"]),
+                label="C: Drop",
+                color="#0000FF",
+            )
+        )
 
     # ── Cue D: Breakdown (section_type=3, 6, or 9) ──
     breakdowns = [s for s in sorted_secs if s.get("section_type") in (3, 6, 9)]
     if breakdowns:
-        cues.append(CuePoint(
-            index=3, cue_type=CueType.BREAKDOWN,
-            position_ms=int(breakdowns[0]["start_ms"]),
-            label="D: Break", color="#FFFF00",
-        ))
+        cues.append(
+            CuePoint(
+                index=3,
+                cue_type=CueType.BREAKDOWN,
+                position_ms=int(breakdowns[0]["start_ms"]),
+                label="D: Break",
+                color="#FFFF00",
+            )
+        )
 
     # ── Cue E: Second drop ──
     if len(drops) >= 2:
-        cues.append(CuePoint(
-            index=4, cue_type=CueType.DROP,
-            position_ms=int(drops[1]["start_ms"]),
-            label="E: Drop 2", color="#FF00FF",
-        ))
+        cues.append(
+            CuePoint(
+                index=4,
+                cue_type=CueType.DROP,
+                position_ms=int(drops[1]["start_ms"]),
+                label="E: Drop 2",
+                color="#FF00FF",
+            )
+        )
 
     # ── Cue F: Outro (section_type=5) ──
     outros = [s for s in sorted_secs if s.get("section_type") == 5]
     if outros:
-        cues.append(CuePoint(
-            index=5, cue_type=CueType.OUTRO,
-            position_ms=int(outros[0]["start_ms"]),
-            label="F: Outro", color="#FF8800",
-        ))
+        cues.append(
+            CuePoint(
+                index=5,
+                cue_type=CueType.OUTRO,
+                position_ms=int(outros[0]["start_ms"]),
+                label="F: Outro",
+                color="#FF8800",
+            )
+        )
     elif duration_ms > 0:
-        cues.append(CuePoint(
-            index=5, cue_type=CueType.OUTRO,
-            position_ms=max(0, duration_ms - 32000),
-            label="F: Outro (est)", color="#FF8800",
-        ))
+        cues.append(
+            CuePoint(
+                index=5,
+                cue_type=CueType.OUTRO,
+                position_ms=max(0, duration_ms - 32000),
+                label="F: Outro (est)",
+                color="#FF8800",
+            )
+        )
 
     # ── Cue G: Pre-drop (16 bars before drop) ──
     if drops:
         bar_ms = 240000.0 / bpm if bpm > 0 else 2000.0
         pos = max(0, drops[0]["start_ms"] - 16 * bar_ms)
-        cues.append(CuePoint(
-            index=6, cue_type=CueType.PRE_DROP,
-            position_ms=int(pos),
-            label="G: Pre-drop", color="#00FFFF",
-        ))
+        cues.append(
+            CuePoint(
+                index=6,
+                cue_type=CueType.PRE_DROP,
+                position_ms=int(pos),
+                label="G: Pre-drop",
+                color="#00FFFF",
+            )
+        )
 
     # ── Cue H: 32 bars from end ──
     if duration_ms > 0 and bpm > 0:
         bar_ms = 240000.0 / bpm
         pos = max(0, duration_ms - 32 * bar_ms)
-        cues.append(CuePoint(
-            index=7, cue_type=CueType.LOOP_IN,
-            position_ms=int(pos),
-            label="H: 32b from end", color="#FFFFFF",
-        ))
+        cues.append(
+            CuePoint(
+                index=7,
+                cue_type=CueType.LOOP_IN,
+                position_ms=int(pos),
+                label="H: 32b from end",
+                color="#FFFFFF",
+            )
+        )
 
-    return CuePointSet(track_id=track_id, cues=cues, bpm=bpm,
-                       first_downbeat_ms=first_downbeat_ms)
+    return CuePointSet(track_id=track_id, cues=cues, bpm=bpm, first_downbeat_ms=first_downbeat_ms)
 
 
 @dataclass
@@ -216,16 +259,16 @@ class TransitionCueWindow:
 
     from_track_id: int
     to_track_id: int
-    mix_out_start_ms: int   # when to start mixing OUT of track A
-    mix_out_end_ms: int     # when track A should be fully out
-    mix_in_start_ms: int    # when to start mixing IN track B
-    mix_in_end_ms: int      # when track B should be fully in
-    recommendation: str     # human-readable advice
+    mix_out_start_ms: int  # when to start mixing OUT of track A
+    mix_out_end_ms: int  # when track A should be fully out
+    mix_in_start_ms: int  # when to start mixing IN track B
+    mix_in_end_ms: int  # when track B should be fully in
+    recommendation: str  # human-readable advice
 
 
 def find_transition_window(
-    from_sections: list[dict],
-    to_sections: list[dict],
+    from_sections: list[dict[str, Any]],
+    to_sections: list[dict[str, Any]],
     bpm: float,
 ) -> TransitionCueWindow:
     """Find the best transition window between two tracks.
@@ -262,9 +305,10 @@ def find_transition_window(
         mix_out_end = track_end
 
     recommendation = (
-        f"Mix OUT of track A at {mix_out_start/1000:.1f}s ({mix_out_start/(bar_ms*4):.0f} bars from end), "
-        f"IN track B at {mix_in_start/1000:.1f}s (intro). "
-        f"Transition: {transition_bars} bars ({transition_ms/1000:.0f}s)."
+        f"Mix OUT of track A at {mix_out_start / 1000:.1f}s "
+        f"({mix_out_start / (bar_ms * 4):.0f} bars from end), "
+        f"IN track B at {mix_in_start / 1000:.1f}s (intro). "
+        f"Transition: {transition_bars} bars ({transition_ms / 1000:.0f}s)."
     )
 
     return TransitionCueWindow(

@@ -12,6 +12,7 @@ Also handles key detection confidence weighting:
 - L5 keys (essentia Krumhansl-Kessler) have higher confidence
 - Keys with low confidence get wider tolerance in compatibility checks
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -19,20 +20,41 @@ from enum import Enum
 
 
 class KeyRelation(Enum):
-    SAME = "same"                    # identical key — safest, seamless
-    PERFECT = "perfect"              # ±1 on wheel — smooth, no energy change
-    ENERGY_UP = "energy_up"          # +2, +7 — rising energy feeling
-    ENERGY_DOWN = "energy_down"      # -2, -5 — releasing tension
-    MODAL = "modal"                  # relative major/minor (±3) — modal shift
-    CHROMATIC = "chromatic"         # ±4 — bold, attention-grabbing
-    TRITONE = "tritone"            # ±6 — dark, industrial, risky
-    CLASH = "clash"                 # avoid unless intentional dissonance
+    SAME = "same"  # identical key — safest, seamless
+    PERFECT = "perfect"  # ±1 on wheel — smooth, no energy change
+    ENERGY_UP = "energy_up"  # +2, +7 — rising energy feeling
+    ENERGY_DOWN = "energy_down"  # -2, -5 — releasing tension
+    MODAL = "modal"  # relative major/minor (±3) — modal shift
+    CHROMATIC = "chromatic"  # ±4 — bold, attention-grabbing
+    TRITONE = "tritone"  # ±6 — dark, industrial, risky
+    CLASH = "clash"  # avoid unless intentional dissonance
 
 
 CAMELOT_NAMES: list[str] = [
-    "8B", "7B", "7A", "8A", "9A", "9B", "10B", "10A",
-    "11A", "11B", "12B", "12A", "1A", "1B", "2B", "2A",
-    "3A", "3B", "4B", "4A", "5A", "5B", "6B", "6A",
+    "8B",
+    "7B",
+    "7A",
+    "8A",
+    "9A",
+    "9B",
+    "10B",
+    "10A",
+    "11A",
+    "11B",
+    "12B",
+    "12A",
+    "1A",
+    "1B",
+    "2B",
+    "2A",
+    "3A",
+    "3B",
+    "4B",
+    "4A",
+    "5A",
+    "5B",
+    "6B",
+    "6A",
 ]
 
 
@@ -52,13 +74,14 @@ def camelot_distance(a: int, b: int) -> int:
 @dataclass(frozen=True, slots=True)
 class KeyRelationResult:
     """Analysis of the harmonic relationship between two keys."""
+
     from_key: int
     to_key: int
     from_camelot: str
     to_camelot: str
     distance: int
     relation: KeyRelation
-    compatibility_score: float   # 0.0 = clash, 1.0 = perfect
+    compatibility_score: float  # 0.0 = clash, 1.0 = perfect
     description: str
 
 
@@ -110,11 +133,14 @@ def analyze_key_relation(
         score = max(score, 0.5)  # don't be too harsh when detection is uncertain
 
     return KeyRelationResult(
-        from_key=from_key, to_key=to_key,
+        from_key=from_key,
+        to_key=to_key,
         from_camelot=key_to_camelot(from_key),
         to_camelot=key_to_camelot(to_key),
-        distance=dist, relation=relation,
-        compatibility_score=score, description=desc,
+        distance=dist,
+        relation=relation,
+        compatibility_score=score,
+        description=desc,
     )
 
 
@@ -122,44 +148,76 @@ def analyze_key_relation(
 
 SUBGENRE_KEY_PREFERENCES: dict[str, dict[str, float]] = {
     "dub_techno": {
-        "same": 1.0, "perfect": 0.9, "modal": 0.8,
-        "energy_up": 0.4, "energy_down": 0.7,
-        "chromatic": 0.2, "tritone": 0.1,
+        "same": 1.0,
+        "perfect": 0.9,
+        "modal": 0.8,
+        "energy_up": 0.4,
+        "energy_down": 0.7,
+        "chromatic": 0.2,
+        "tritone": 0.1,
     },
     "industrial_techno": {
-        "same": 0.5, "perfect": 0.6, "modal": 0.5,
-        "energy_up": 0.8, "energy_down": 0.6,
-        "chromatic": 0.7, "tritone": 0.6,  # industrial LOVES dissonance
+        "same": 0.5,
+        "perfect": 0.6,
+        "modal": 0.5,
+        "energy_up": 0.8,
+        "energy_down": 0.6,
+        "chromatic": 0.7,
+        "tritone": 0.6,  # industrial LOVES dissonance
     },
     "hard_techno": {
-        "same": 0.6, "perfect": 0.7, "modal": 0.5,
-        "energy_up": 0.9, "energy_down": 0.5,
-        "chromatic": 0.6, "tritone": 0.4,
+        "same": 0.6,
+        "perfect": 0.7,
+        "modal": 0.5,
+        "energy_up": 0.9,
+        "energy_down": 0.5,
+        "chromatic": 0.6,
+        "tritone": 0.4,
     },
     "hypnotic_techno": {
-        "same": 0.9, "perfect": 0.95, "modal": 0.85,
-        "energy_up": 0.5, "energy_down": 0.6,
-        "chromatic": 0.3, "tritone": 0.1,
+        "same": 0.9,
+        "perfect": 0.95,
+        "modal": 0.85,
+        "energy_up": 0.5,
+        "energy_down": 0.6,
+        "chromatic": 0.3,
+        "tritone": 0.1,
     },
     "peak_time_techno": {
-        "same": 0.7, "perfect": 0.8, "modal": 0.6,
-        "energy_up": 0.85, "energy_down": 0.55,
-        "chromatic": 0.5, "tritone": 0.3,
+        "same": 0.7,
+        "perfect": 0.8,
+        "modal": 0.6,
+        "energy_up": 0.85,
+        "energy_down": 0.55,
+        "chromatic": 0.5,
+        "tritone": 0.3,
     },
     "acid_techno": {
-        "same": 0.5, "perfect": 0.6, "modal": 0.5,
-        "energy_up": 0.7, "energy_down": 0.5,
-        "chromatic": 0.7, "tritone": 0.5,  # acid = weird is good
+        "same": 0.5,
+        "perfect": 0.6,
+        "modal": 0.5,
+        "energy_up": 0.7,
+        "energy_down": 0.5,
+        "chromatic": 0.7,
+        "tritone": 0.5,  # acid = weird is good
     },
     "driving_techno": {
-        "same": 0.7, "perfect": 0.8, "modal": 0.6,
-        "energy_up": 0.85, "energy_down": 0.5,
-        "chromatic": 0.4, "tritone": 0.2,
+        "same": 0.7,
+        "perfect": 0.8,
+        "modal": 0.6,
+        "energy_up": 0.85,
+        "energy_down": 0.5,
+        "chromatic": 0.4,
+        "tritone": 0.2,
     },
     "raw_techno": {
-        "same": 0.4, "perfect": 0.5, "modal": 0.4,
-        "energy_up": 0.7, "energy_down": 0.5,
-        "chromatic": 0.7, "tritone": 0.7,  # raw = embrace the noise
+        "same": 0.4,
+        "perfect": 0.5,
+        "modal": 0.4,
+        "energy_up": 0.7,
+        "energy_down": 0.5,
+        "chromatic": 0.7,
+        "tritone": 0.7,  # raw = embrace the noise
     },
 }
 
@@ -178,9 +236,7 @@ def subgenre_key_score(
     base_score = result.compatibility_score
 
     if subgenre:
-        prefs = SUBGENRE_KEY_PREFERENCES.get(
-            subgenre.lower().replace(" ", "_")
-        )
+        prefs = SUBGENRE_KEY_PREFERENCES.get(subgenre.lower().replace(" ", "_"))
         if prefs:
             relation_key = result.relation.value
             weight = prefs.get(relation_key, 0.5)

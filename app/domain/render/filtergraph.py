@@ -198,9 +198,7 @@ class ClassicGraphBuilder(FilterGraphBuilder):
     def _high_fades(ctx: _FrameContext) -> list[str]:
         fades: list[str] = []
         if ctx.has_prev:
-            fades.append(
-                f"afade=t=in:curve={ctx.curve_in}:st=0:d={ctx.seg.d_in_s * ctx.p1:.3f}"
-            )
+            fades.append(f"afade=t=in:curve={ctx.curve_in}:st=0:d={ctx.seg.d_in_s * ctx.p1:.3f}")
         if ctx.has_next:
             fades.append(
                 f"afade=t=out:curve={ctx.curve_out}:st={ctx.length - ctx.seg.d_out_s:.3f}:"

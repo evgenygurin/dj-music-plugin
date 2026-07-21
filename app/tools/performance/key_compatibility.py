@@ -1,4 +1,5 @@
 """key_compatibility — Camelot wheel key analysis with subgenre weighting."""
+
 from __future__ import annotations
 
 from typing import Annotated

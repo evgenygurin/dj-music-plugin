@@ -1,4 +1,5 @@
 """Structured-output model for energy_arc_plan tool."""
+
 from __future__ import annotations
 
 from pydantic import BaseModel, ConfigDict, Field

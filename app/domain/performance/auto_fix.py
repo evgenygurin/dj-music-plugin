@@ -12,6 +12,7 @@ Fix strategies:
   ENTRY-SHOCK: apply short fade-in (100-500 ms)
   LOW-END-COLLAPSE: apply multiband compression on low band
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -30,6 +31,7 @@ class DefectType(Enum):
 @dataclass
 class Defect:
     """One detected defect from render_diagnose."""
+
     defect_type: DefectType
     start_s: float
     end_s: float
@@ -42,6 +44,7 @@ class Defect:
 @dataclass
 class FixOperation:
     """One corrective operation in the ffmpeg filter chain."""
+
     start_s: float
     end_s: float
     ffmpeg_filter: str  # the filter string to apply
@@ -68,60 +71,76 @@ class AutoFixPlan:
             if defect.defect_type == DefectType.LEVEL_JUMP:
                 # Apply compression: threshold = current level - 3dB, ratio 4:1
                 threshold = defect.rms_db - 3.0
-                self.fixes.append(FixOperation(
-                    start_s=defect.start_s, end_s=defect.end_s,
-                    ffmpeg_filter=(
-                        f"compand=attacks=0.001:decays=0.1:"
-                        f"points=-80/-80|{threshold}/{threshold}|"
-                        f"0/-{6 * defect.severity}|20/-{12 * defect.severity}:"
-                        f"gain=0:volume=-90"
-                    ),
-                    description=f"Compress level jump at {defect.start_s:.1f}s "
-                                f"(threshold={threshold:.0f}dB, severity={defect.severity:.1f})",
-                ))
+                self.fixes.append(
+                    FixOperation(
+                        start_s=defect.start_s,
+                        end_s=defect.end_s,
+                        ffmpeg_filter=(
+                            f"compand=attacks=0.001:decays=0.1:"
+                            f"points=-80/-80|{threshold}/{threshold}|"
+                            f"0/-{6 * defect.severity}|20/-{12 * defect.severity}:"
+                            f"gain=0:volume=-90"
+                        ),
+                        description=f"Compress level jump at {defect.start_s:.1f}s "
+                        f"(threshold={threshold:.0f}dB, severity={defect.severity:.1f})",
+                    )
+                )
 
             elif defect.defect_type == DefectType.DROPOUT:
                 gain_boost = 3.0 + 3.0 * defect.severity
-                self.fixes.append(FixOperation(
-                    start_s=defect.start_s, end_s=defect.end_s,
-                    ffmpeg_filter=f"volume={gain_boost:.1f}dB",
-                    description=f"Boost {gain_boost:.0f}dB at dropout {defect.start_s:.1f}s",
-                ))
+                self.fixes.append(
+                    FixOperation(
+                        start_s=defect.start_s,
+                        end_s=defect.end_s,
+                        ffmpeg_filter=f"volume={gain_boost:.1f}dB",
+                        description=f"Boost {gain_boost:.0f}dB at dropout {defect.start_s:.1f}s",
+                    )
+                )
 
             elif defect.defect_type == DefectType.BASS_THIN:
                 boost_db = 3.0 + 3.0 * defect.severity
-                self.fixes.append(FixOperation(
-                    start_s=defect.start_s, end_s=defect.end_s,
-                    ffmpeg_filter=(
-                        f"equalizer=f=80:t=q:w=1.0:g={boost_db:.0f},"
-                        f"equalizer=f=120:t=q:w=0.7:g={boost_db/2:.0f}"
-                    ),
-                    description=f"Bass boost {boost_db:.0f}dB at {defect.start_s:.1f}s",
-                ))
+                self.fixes.append(
+                    FixOperation(
+                        start_s=defect.start_s,
+                        end_s=defect.end_s,
+                        ffmpeg_filter=(
+                            f"equalizer=f=80:t=q:w=1.0:g={boost_db:.0f},"
+                            f"equalizer=f=120:t=q:w=0.7:g={boost_db / 2:.0f}"
+                        ),
+                        description=f"Bass boost {boost_db:.0f}dB at {defect.start_s:.1f}s",
+                    )
+                )
 
             elif defect.defect_type == DefectType.ENTRY_SHOCK:
                 fade_ms = int(200 + 300 * defect.severity)
-                self.fixes.append(FixOperation(
-                    start_s=defect.start_s, end_s=defect.start_s + fade_ms / 1000.0,
-                    ffmpeg_filter=f"afade=t=in:d={fade_ms/1000:.3f}",
-                    description=f"Fade-in {fade_ms}ms at entry shock {defect.start_s:.1f}s",
-                ))
+                self.fixes.append(
+                    FixOperation(
+                        start_s=defect.start_s,
+                        end_s=defect.start_s + fade_ms / 1000.0,
+                        ffmpeg_filter=f"afade=t=in:d={fade_ms / 1000:.3f}",
+                        description=f"Fade-in {fade_ms}ms at entry shock {defect.start_s:.1f}s",
+                    )
+                )
 
             elif defect.defect_type == DefectType.LOW_END_COLLAPSE:
-                self.fixes.append(FixOperation(
-                    start_s=defect.start_s, end_s=defect.end_s,
-                    ffmpeg_filter=(
-                        "mcompand=args='0.005 0.1 -40/-40 0/0 6'"
-                    ),
-                    description=f"Multiband comp on low end at {defect.start_s:.1f}s",
-                ))
+                self.fixes.append(
+                    FixOperation(
+                        start_s=defect.start_s,
+                        end_s=defect.end_s,
+                        ffmpeg_filter=("mcompand=args='0.005 0.1 -40/-40 0/0 6'"),
+                        description=f"Multiband comp on low end at {defect.start_s:.1f}s",
+                    )
+                )
 
             elif defect.defect_type == DefectType.PHASE_UNSTABLE:
-                self.fixes.append(FixOperation(
-                    start_s=defect.start_s, end_s=defect.end_s,
-                    ffmpeg_filter="stereotools=mode=ms:level_in=1",
-                    description=f"Mid-side processing for phase at {defect.start_s:.1f}s",
-                ))
+                self.fixes.append(
+                    FixOperation(
+                        start_s=defect.start_s,
+                        end_s=defect.end_s,
+                        ffmpeg_filter="stereotools=mode=ms:level_in=1",
+                        description=f"Mid-side processing for phase at {defect.start_s:.1f}s",
+                    )
+                )
 
     def ffmpeg_fix_chain(self, input_path: str, output_path: str) -> str:
         """Generate complete ffmpeg command with all fixes applied.

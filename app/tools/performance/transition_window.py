@@ -1,4 +1,5 @@
 """transition_window — find optimal mix-in/out window between two tracks."""
+
 from __future__ import annotations
 
 from typing import Annotated, Any
@@ -16,9 +17,14 @@ from app.server.di import get_uow
 async def _get_sections(uow: UnitOfWork, track_id: int) -> list[dict[str, Any]]:
     sections = await uow.track_sections.list_by_track(track_id)
     return [
-        {"track_id": s.track_id, "section_type": s.section_type,
-         "start_ms": s.start_ms, "end_ms": s.end_ms,
-         "energy": s.energy, "confidence": s.confidence}
+        {
+            "track_id": s.track_id,
+            "section_type": s.section_type,
+            "start_ms": s.start_ms,
+            "end_ms": s.end_ms,
+            "energy": s.energy,
+            "confidence": s.confidence,
+        }
         for s in sections
     ]
 
@@ -38,9 +44,7 @@ async def _get_sections(uow: UnitOfWork, track_id: int) -> list[dict[str, Any]]:
 async def transition_window(
     from_track_id: Annotated[int, Field(ge=1, description="Outgoing track ID")],
     to_track_id: Annotated[int, Field(ge=1, description="Incoming track ID")],
-    bpm: Annotated[
-        float | None, Field(ge=20, le=300, description="Override BPM")
-    ] = None,
+    bpm: Annotated[float | None, Field(ge=20, le=300, description="Override BPM")] = None,
     preferred_bars: Annotated[
         int, Field(ge=4, le=128, description="Preferred transition length in bars")
     ] = 32,

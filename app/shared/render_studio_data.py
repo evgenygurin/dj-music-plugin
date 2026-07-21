@@ -17,9 +17,6 @@ from dataclasses import asdict
 from pathlib import Path
 from typing import Any
 
-from pathlib import Path
-from typing import Any
-
 from app.config import get_settings
 from app.domain.render.timeline import timeline_windows
 from app.repositories.unit_of_work import UnitOfWork

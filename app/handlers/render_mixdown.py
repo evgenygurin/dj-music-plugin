@@ -17,6 +17,7 @@ def _validate_out_name(out_name: str | None) -> None:
             details={"out_name": out_name},
         )
 
+
 async def render_mixdown_handler(
     *,
     ctx: Any,

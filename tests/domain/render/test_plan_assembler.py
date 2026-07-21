@@ -72,9 +72,7 @@ def test_assemble_stem_returns_plan_with_stem_mode() -> None:
     settings = RenderSettings()
     request = _req(stem=True)
     inputs = _inputs(2)
-    stem_paths = {
-        i: {stem: f"/stems/{i}/{stem}.flac" for stem in STEM_NAMES} for i in range(2)
-    }
+    stem_paths = {i: {stem: f"/stems/{i}/{stem}.flac" for stem in STEM_NAMES} for i in range(2)}
     bar_plan = BarPlan(transition_bars=(16,), body_bars=[24, 24])
 
     plan = RenderPlanner().assemble(settings, request, inputs, _grid(2), bar_plan, stem_paths)

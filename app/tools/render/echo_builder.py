@@ -1,4 +1,5 @@
 """echo_builder — construct delay/echo effects for DJ transitions."""
+
 from __future__ import annotations
 
 from typing import Annotated
@@ -32,15 +33,9 @@ async def echo_builder(
     delay_ms: Annotated[
         float | None, Field(ge=1, le=2000, description="Delay time in milliseconds")
     ] = None,
-    decay: Annotated[
-        float | None, Field(ge=0.0, le=1.0, description="Feedback decay")
-    ] = None,
-    taps: Annotated[
-        int | None, Field(ge=1, le=10, description="Number of echo taps")
-    ] = None,
-    wet_dry: Annotated[
-        float | None, Field(ge=0.0, le=1.0, description="Wet/dry ratio")
-    ] = None,
+    decay: Annotated[float | None, Field(ge=0.0, le=1.0, description="Feedback decay")] = None,
+    taps: Annotated[int | None, Field(ge=1, le=10, description="Number of echo taps")] = None,
+    wet_dry: Annotated[float | None, Field(ge=0.0, le=1.0, description="Wet/dry ratio")] = None,
     stereo_spread: Annotated[
         float | None, Field(ge=0.0, le=1.0, description="Stereo spread")
     ] = None,

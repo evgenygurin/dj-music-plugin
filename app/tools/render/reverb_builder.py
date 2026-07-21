@@ -1,4 +1,5 @@
 """reverb_builder — construct reverb effects for DJ sets."""
+
 from __future__ import annotations
 
 from typing import Annotated

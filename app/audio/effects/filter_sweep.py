@@ -10,6 +10,7 @@ The sweep is applied during the transition window between two tracks:
   outgoing track → filter closes (lowpass sweep down)
   incoming track → filter opens (highpass sweep up)
 """
+
 from __future__ import annotations
 
 import math
@@ -23,8 +24,8 @@ if TYPE_CHECKING:
 
 class SweepDirection(Enum):
     CLOSE = "close"  # lowpass: freq goes down
-    OPEN = "open"    # highpass: freq goes up
-    PEAK = "peak"    # bandpass: freq sweeps through middle
+    OPEN = "open"  # highpass: freq goes up
+    PEAK = "peak"  # bandpass: freq sweeps through middle
 
 
 class SweepCurve(Enum):
@@ -37,7 +38,7 @@ class SweepCurve(Enum):
 class FilterSweepPlan:
     """One filter sweep applied during a transition window.
 
-    start_freq_hz / end_freq_hz: sweep range (20–20000 Hz).
+    start_freq_hz / end_freq_hz: sweep range (20-20000 Hz).
     curve: LINEAR for clinical techno, EXPONENTIAL for organic feel.
     resonance: Q factor (0.5 = gentle, 2.0 = squelchy acid).
     apply_to: 'outgoing' (close filter on current track), 'incoming' (open filter
@@ -80,15 +81,9 @@ class FilterSweepPlan:
         if self.curve == SweepCurve.LINEAR:
             expr = f"lowpass=f='{start}+({end}-{start})*t/{dur}':p=1"
         elif self.curve == SweepCurve.EXPONENTIAL:
-            expr = (
-                f"lowpass=f='{start}+({end}-{start})*"
-                f"(exp(3*t/{dur})-1)/(exp(3)-1)':p=1"
-            )
+            expr = f"lowpass=f='{start}+({end}-{start})*(exp(3*t/{dur})-1)/(exp(3)-1)':p=1"
         else:
-            expr = (
-                f"lowpass=f='{start}+({end}-{start})*"
-                f"log(1+9*t/{dur})/log(10)':p=1"
-            )
+            expr = f"lowpass=f='{start}+({end}-{start})*log(1+9*t/{dur})/log(10)':p=1"
         return expr
 
     def ffmpeg_highpass_expr(self, total_duration_s: float) -> str:
@@ -100,19 +95,14 @@ class FilterSweepPlan:
         if self.curve == SweepCurve.LINEAR:
             expr = f"highpass=f='{start}+({end}-{start})*t/{dur}':p=1"
         elif self.curve == SweepCurve.EXPONENTIAL:
-            expr = (
-                f"highpass=f='{start}+({end}-{start})*"
-                f"(exp(3*t/{dur})-1)/(exp(3)-1)':p=1"
-            )
+            expr = f"highpass=f='{start}+({end}-{start})*(exp(3*t/{dur})-1)/(exp(3)-1)':p=1"
         else:
-            expr = (
-                f"highpass=f='{start}+({end}-{start})*"
-                f"log(1+9*t/{dur})/log(10)':p=1"
-            )
+            expr = f"highpass=f='{start}+({end}-{start})*log(1+9*t/{dur})/log(10)':p=1"
         return expr
 
 
 # ── Preset factory ──────────────────────────────────────────
+
 
 @dataclass
 class TransitionFilterPreset:
@@ -126,36 +116,48 @@ class TransitionFilterPreset:
 # Pre-built presets for common transition types
 CLASSIC_LOWPASS = TransitionFilterPreset(
     outgoing=FilterSweepPlan(
-        start_freq_hz=14000, end_freq_hz=200,
-        direction=SweepDirection.CLOSE, curve=SweepCurve.EXPONENTIAL,
+        start_freq_hz=14000,
+        end_freq_hz=200,
+        direction=SweepDirection.CLOSE,
+        curve=SweepCurve.EXPONENTIAL,
         resonance=0.5,
     ),
     incoming=FilterSweepPlan(
-        start_freq_hz=200, end_freq_hz=14000,
-        direction=SweepDirection.OPEN, curve=SweepCurve.LOGARITHMIC,
-        resonance=0.5, apply_to="incoming",
+        start_freq_hz=200,
+        end_freq_hz=14000,
+        direction=SweepDirection.OPEN,
+        curve=SweepCurve.LOGARITHMIC,
+        resonance=0.5,
+        apply_to="incoming",
     ),
     resonance=0.5,
 )
 
 ACID_SQUELCH = TransitionFilterPreset(
     outgoing=FilterSweepPlan(
-        start_freq_hz=8000, end_freq_hz=800,
-        direction=SweepDirection.CLOSE, curve=SweepCurve.LINEAR,
+        start_freq_hz=8000,
+        end_freq_hz=800,
+        direction=SweepDirection.CLOSE,
+        curve=SweepCurve.LINEAR,
         resonance=1.0,
     ),
     incoming=FilterSweepPlan(
-        start_freq_hz=800, end_freq_hz=8000,
-        direction=SweepDirection.OPEN, curve=SweepCurve.LINEAR,
-        resonance=1.0, apply_to="incoming",
+        start_freq_hz=800,
+        end_freq_hz=8000,
+        direction=SweepDirection.OPEN,
+        curve=SweepCurve.LINEAR,
+        resonance=1.0,
+        apply_to="incoming",
     ),
     resonance=1.0,
 )
 
 INDUSTRIAL_CUT = TransitionFilterPreset(
     outgoing=FilterSweepPlan(
-        start_freq_hz=20000, end_freq_hz=80,
-        direction=SweepDirection.CLOSE, curve=SweepCurve.EXPONENTIAL,
+        start_freq_hz=20000,
+        end_freq_hz=80,
+        direction=SweepDirection.CLOSE,
+        curve=SweepCurve.EXPONENTIAL,
         resonance=2.0,
     ),
     incoming=None,  # incoming drops in hard
@@ -164,28 +166,38 @@ INDUSTRIAL_CUT = TransitionFilterPreset(
 
 HYPNOTIC_WASH = TransitionFilterPreset(
     outgoing=FilterSweepPlan(
-        start_freq_hz=12000, end_freq_hz=300,
-        direction=SweepDirection.CLOSE, curve=SweepCurve.LOGARITHMIC,
+        start_freq_hz=12000,
+        end_freq_hz=300,
+        direction=SweepDirection.CLOSE,
+        curve=SweepCurve.LOGARITHMIC,
         resonance=0.5,
     ),
     incoming=FilterSweepPlan(
-        start_freq_hz=300, end_freq_hz=12000,
-        direction=SweepDirection.OPEN, curve=SweepCurve.LOGARITHMIC,
-        resonance=0.3, apply_to="incoming",
+        start_freq_hz=300,
+        end_freq_hz=12000,
+        direction=SweepDirection.OPEN,
+        curve=SweepCurve.LOGARITHMIC,
+        resonance=0.3,
+        apply_to="incoming",
     ),
     resonance=0.5,
 )
 
 DUB_ECHO_SWEEP = TransitionFilterPreset(
     outgoing=FilterSweepPlan(
-        start_freq_hz=10000, end_freq_hz=500,
-        direction=SweepDirection.CLOSE, curve=SweepCurve.EXPONENTIAL,
+        start_freq_hz=10000,
+        end_freq_hz=500,
+        direction=SweepDirection.CLOSE,
+        curve=SweepCurve.EXPONENTIAL,
         resonance=0.8,
     ),
     incoming=FilterSweepPlan(
-        start_freq_hz=500, end_freq_hz=10000,
-        direction=SweepDirection.OPEN, curve=SweepCurve.LOGARITHMIC,
-        resonance=0.4, apply_to="incoming",
+        start_freq_hz=500,
+        end_freq_hz=10000,
+        direction=SweepDirection.OPEN,
+        curve=SweepCurve.LOGARITHMIC,
+        resonance=0.4,
+        apply_to="incoming",
     ),
     resonance=0.8,
 )

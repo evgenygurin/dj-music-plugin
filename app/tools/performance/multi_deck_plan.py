@@ -1,4 +1,5 @@
 """multi_deck_plan — 3+ simultaneous deck render plan."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -37,12 +38,8 @@ async def multi_deck_plan(
     track_order: Annotated[
         list[int], Field(min_length=2, max_length=30, description="Ordered track IDs")
     ],
-    stem_mode: Annotated[
-        bool, Field(description="Use demucs stem mode")
-    ] = False,
-    max_simultaneous: Annotated[
-        int, Field(ge=2, le=12, description="Max concurrent decks")
-    ] = 6,
+    stem_mode: Annotated[bool, Field(description="Use demucs stem mode")] = False,
+    max_simultaneous: Annotated[int, Field(ge=2, le=12, description="Max concurrent decks")] = 6,
     uow: UnitOfWork = Depends(get_uow),
 ) -> MultiDeckPlanResult:
     # Read track metadata from DB
@@ -69,32 +66,49 @@ async def multi_deck_plan(
             continue
         start = i * body_s
         # Body window
-        windows.append(DeckWindow(
-            start_s=start,
-            end_s=start + body_s,
-            decks=[
-                DeckAssign(
-                    deck_index=0, track_id=tid,
-                    active_stems=["drums", "bass", "other"],
-                    gain_db=0.0, lowpass_hz=20000, highpass_hz=20,
-                )
-            ],
-        ))
+        windows.append(
+            DeckWindow(
+                start_s=start,
+                end_s=start + body_s,
+                decks=[
+                    DeckAssign(
+                        deck_index=0,
+                        track_id=tid,
+                        active_stems=["drums", "bass", "other"],
+                        gain_db=0.0,
+                        lowpass_hz=20000,
+                        highpass_hz=20,
+                    )
+                ],
+            )
+        )
         # Transition window (if not last)
         if i < len(track_order) - 1:
             next_tid = track_order[i + 1]
-            windows.append(DeckWindow(
-                start_s=start + body_s,
-                end_s=start + body_s + trans_s,
-                decks=[
-                    DeckAssign(deck_index=0, track_id=tid,
-                               active_stems=["drums"], gain_db=-6.0,
-                               lowpass_hz=20000, highpass_hz=20),
-                    DeckAssign(deck_index=1, track_id=next_tid,
-                               active_stems=["bass", "drums"], gain_db=-3.0,
-                               lowpass_hz=20000, highpass_hz=20),
-                ],
-            ))
+            windows.append(
+                DeckWindow(
+                    start_s=start + body_s,
+                    end_s=start + body_s + trans_s,
+                    decks=[
+                        DeckAssign(
+                            deck_index=0,
+                            track_id=tid,
+                            active_stems=["drums"],
+                            gain_db=-6.0,
+                            lowpass_hz=20000,
+                            highpass_hz=20,
+                        ),
+                        DeckAssign(
+                            deck_index=1,
+                            track_id=next_tid,
+                            active_stems=["bass", "drums"],
+                            gain_db=-3.0,
+                            lowpass_hz=20000,
+                            highpass_hz=20,
+                        ),
+                    ],
+                )
+            )
 
     return MultiDeckPlanResult(
         max_simultaneous=max_simultaneous,

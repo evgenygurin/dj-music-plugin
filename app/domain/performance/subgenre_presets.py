@@ -5,6 +5,7 @@ Industrial wants aggressive 8-bar bass swaps; dub techno wants 64-bar hypnotic f
 
 Wire: MoodClassifier(SubgenreProfile) → SubgenreRenderPreset → RenderSettings overrides.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -243,13 +244,13 @@ PRESET_MAP: dict[str, SubgenreRenderPreset] = {
     "peak_time_techno": PEAK_TIME,
     "driving_techno": DRIVING,
     "acid_techno": ACID,
-    "raw_techno": INDUSTRIAL,        # близко к industrial
-    "tribal_techno": DRIVING,        # близко к driving
-    "detroit_techno": PEAK_TIME,     # близко к peak_time
-    "deep_techno": DUB_TECHNO,       # близко к dub
-    "minimal_techno": DUB_TECHNO,    # близко к dub
-    "progressive_techno": PEAK_TIME, # close to peak_time
-    "melodic_techno": HYPNOTIC,      # близко к hypnotic
+    "raw_techno": INDUSTRIAL,  # близко к industrial
+    "tribal_techno": DRIVING,  # близко к driving
+    "detroit_techno": PEAK_TIME,  # близко к peak_time
+    "deep_techno": DUB_TECHNO,  # близко к dub
+    "minimal_techno": DUB_TECHNO,  # близко к dub
+    "progressive_techno": PEAK_TIME,  # close to peak_time
+    "melodic_techno": HYPNOTIC,  # близко к hypnotic
 }
 
 

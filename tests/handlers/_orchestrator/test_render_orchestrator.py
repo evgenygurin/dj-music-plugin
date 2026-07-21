@@ -57,7 +57,9 @@ class _BeatgridProvider:
 
 
 class _StemResolver:
-    def __init__(self, recorder: _Recorder, result: dict[int, dict[str, str]] | None = None) -> None:
+    def __init__(
+        self, recorder: _Recorder, result: dict[int, dict[str, str]] | None = None
+    ) -> None:
         self._recorder = recorder
         self._result = result
 
@@ -75,7 +77,9 @@ class _StemResolver:
 
 
 class _Planner:
-    def __init__(self, recorder: _Recorder, expected_stems: dict[int, dict[str, str]] | None) -> None:
+    def __init__(
+        self, recorder: _Recorder, expected_stems: dict[int, dict[str, str]] | None
+    ) -> None:
         self._recorder = recorder
         self._expected_stems = expected_stems
 
@@ -189,4 +193,12 @@ async def test_run_calls_stem_resolver_before_planner_in_stem_mode() -> None:
 
     await orchestrator.run(ctx=None, request=_req(stem=True))
 
-    assert recorder.calls == ["preset", "ensure", "inputs", "load", "resolve", "assemble", "execute"]
+    assert recorder.calls == [
+        "preset",
+        "ensure",
+        "inputs",
+        "load",
+        "resolve",
+        "assemble",
+        "execute",
+    ]

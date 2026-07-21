@@ -1,4 +1,5 @@
 """cue_points — auto-detect 8 hot cues (A-H) from track structure."""
+
 from __future__ import annotations
 
 from typing import Annotated
@@ -13,9 +14,13 @@ from app.schemas.cue_points import CueItem, CuePointsResult
 from app.server.di import get_uow
 
 CUE_LABELS = {
-    CueType.GRID: "A: Grid", CueType.BUILD: "B: Build", CueType.DROP: "C: Drop",
-    CueType.BREAKDOWN: "D: Break", CueType.OUTRO: "F: Outro",
-    CueType.PRE_DROP: "G: Pre-drop", CueType.LOOP_IN: "H: Loop",
+    CueType.GRID: "A: Grid",
+    CueType.BUILD: "B: Build",
+    CueType.DROP: "C: Drop",
+    CueType.BREAKDOWN: "D: Break",
+    CueType.OUTRO: "F: Outro",
+    CueType.PRE_DROP: "G: Pre-drop",
+    CueType.LOOP_IN: "H: Loop",
 }
 
 

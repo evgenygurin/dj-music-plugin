@@ -1,4 +1,5 @@
 """auto_fix — automatically repair render diagnostics defects."""
+
 from __future__ import annotations
 
 import json
@@ -34,9 +35,7 @@ async def auto_fix(
         str | None,
         Field(description="Custom mix path (default: workspace MIX.mp3)"),
     ] = None,
-    dry_run: Annotated[
-        bool, Field(description="Preview fix plan without applying")
-    ] = True,
+    dry_run: Annotated[bool, Field(description="Preview fix plan without applying")] = True,
     ctx: Context = CurrentContext(),
 ) -> AutoFixResult:
     ws = Path(render_workspace(version_id))
@@ -52,14 +51,16 @@ async def auto_fix(
                     dt = DefectType(tag)
                 except ValueError:
                     dt = DefectType.LEVEL_JUMP
-                defects.append(Defect(
-                    defect_type=dt,
-                    start_s=w.get("start_s", 0),
-                    end_s=w.get("end_s", 0),
-                    severity=w.get("severity", 1.0),
-                    rms_db=w.get("rms_db", 0),
-                    low_db=w.get("low_db", 0),
-                ))
+                defects.append(
+                    Defect(
+                        defect_type=dt,
+                        start_s=w.get("start_s", 0),
+                        end_s=w.get("end_s", 0),
+                        severity=w.get("severity", 1.0),
+                        rms_db=w.get("rms_db", 0),
+                        low_db=w.get("low_db", 0),
+                    )
+                )
 
     plan = AutoFixPlan(defects=defects, original_path=path)
     plan.generate_fixes()

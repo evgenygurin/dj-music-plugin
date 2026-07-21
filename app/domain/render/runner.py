@@ -11,6 +11,7 @@ from app.domain.render.models import RenderPlan
 # 320 kbps CBR MP3, highest LAME quality — the render deliverable format.
 _MP3_ENCODE_ARGS: list[str] = ["-c:a", "libmp3lame", "-b:a", "320k", "-q:a", "0"]
 
+
 def build_ffmpeg_cmd(plan: RenderPlan, out_path: str) -> list[str]:
     """Assemble the ffmpeg render command for the plan's render strategy.
 

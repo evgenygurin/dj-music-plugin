@@ -105,7 +105,15 @@ class AudioLoader:
                 samples, file_sr = librosa_module.load(str(path), sr=None, mono=True)
                 return samples, int(file_sr)
             except librosa_module.util.exceptions.ParameterError as e:
-                log.warning("librosa decode failed for %s: %s", path, e)
+                detail = str(e) or type(e).__name__
+                msg = f"audio decode failed: {detail}"
+                raise RuntimeError(msg) from e
+            except Exception as e:
+                if e.__class__.__module__.startswith("audioread"):
+                    detail = str(e) or type(e).__name__
+                    msg = f"audio decode failed: {detail}"
+                    raise RuntimeError(msg) from e
+                raise
 
         import wave
 

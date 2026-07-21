@@ -9,6 +9,7 @@ Generates time-varying parameter curves for:
 Curves are sampled at frame rate and converted to ffmpeg
 timeline editing expressions or sendcmd/zmq commands.
 """
+
 from __future__ import annotations
 
 import math
@@ -20,13 +21,13 @@ import numpy as np
 
 class CurveType(Enum):
     LINEAR = "linear"
-    S_CURVE = "s_curve"       # smooth start and end (cosine interpolation)
+    S_CURVE = "s_curve"  # smooth start and end (cosine interpolation)
     EXPONENTIAL = "exponential"
     LOGARITHMIC = "logarithmic"
-    STEP = "step"             # instant jump
-    SAW = "saw"               # repeating ramp (LFO-like)
-    TRIANGLE = "triangle"     # repeating up-down
-    SINE = "sine"             # smooth sinusoidal LFO
+    STEP = "step"  # instant jump
+    SAW = "saw"  # repeating ramp (LFO-like)
+    TRIANGLE = "triangle"  # repeating up-down
+    SINE = "sine"  # smooth sinusoidal LFO
 
 
 class AutomatableParam(Enum):
@@ -45,6 +46,7 @@ class AutomatableParam(Enum):
 @dataclass
 class AutomationPoint:
     """One keyframe in the automation curve."""
+
     time_s: float
     value: float
     curve_type: CurveType = CurveType.LINEAR
@@ -96,7 +98,9 @@ class AutomationCurve:
             phase = (t * rate_hz) % 1.0
             v = min_value + (max_value - min_value) * (1.0 - abs(2.0 * phase - 1.0))
         else:  # sine
-            v = min_value + (max_value - min_value) * 0.5 * (1.0 + np.sin(2 * math.pi * rate_hz * t))
+            v = min_value + (max_value - min_value) * 0.5 * (
+                1.0 + np.sin(2 * math.pi * rate_hz * t)
+            )
         points = [AutomationPoint(time_s=float(t[i]), value=float(v[i])) for i in range(samples)]
         return cls(param=param, points=points, duration_s=duration_s)
 

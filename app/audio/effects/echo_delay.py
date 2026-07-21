@@ -11,6 +11,7 @@ Typical techno usage:
 - Vocal throw: 1/2 note delay on last word before transition
 - Industrial stutter: 1/16 note delay with high feedback for glitch effect
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -127,37 +128,52 @@ class EchoPlan:
 
 TECHNO_STANDARD = EchoPlan(
     delay_ms=375,  # dotted 8th at 128 BPM
-    decay=0.4, taps=3, wet_dry_ratio=0.45,
-    highpass_hz=300, lowpass_hz=6000,
+    decay=0.4,
+    taps=3,
+    wet_dry_ratio=0.45,
+    highpass_hz=300,
+    lowpass_hz=6000,
     stereo_spread=0.4,
 )
 
 VOCAL_THROW = EchoPlan(
     delay_ms=500,  # quarter note at 120 BPM
-    decay=0.35, taps=4, wet_dry_ratio=0.55,
-    highpass_hz=500, lowpass_hz=10000,
+    decay=0.35,
+    taps=4,
+    wet_dry_ratio=0.55,
+    highpass_hz=500,
+    lowpass_hz=10000,
     stereo_spread=0.7,
     pre_delay_beats=1.0,  # one beat of silence before first echo
 )
 
 INDUSTRIAL_STUTTER = EchoPlan(
     delay_ms=94,  # 1/16 note at ~130 BPM
-    decay=0.4, taps=3, wet_dry_ratio=0.3,
-    highpass_hz=200, lowpass_hz=8000,
+    decay=0.4,
+    taps=3,
+    wet_dry_ratio=0.3,
+    highpass_hz=200,
+    lowpass_hz=8000,
     stereo_spread=0.2,
 )
 
 DUB_SPACE = EchoPlan(
     delay_ms=750,  # half note feel
-    decay=0.6, taps=4, wet_dry_ratio=0.5,
-    highpass_hz=150, lowpass_hz=4000,
+    decay=0.6,
+    taps=4,
+    wet_dry_ratio=0.5,
+    highpass_hz=150,
+    lowpass_hz=4000,
     stereo_spread=0.8,
 )
 
 ACID_BOUNCE = EchoPlan(
     delay_ms=188,  # 1/16 note triplet at ~128 BPM
-    decay=0.5, taps=3, wet_dry_ratio=0.4,
-    highpass_hz=400, lowpass_hz=8000,
+    decay=0.5,
+    taps=3,
+    wet_dry_ratio=0.4,
+    highpass_hz=400,
+    lowpass_hz=8000,
     stereo_spread=0.6,
 )
 
