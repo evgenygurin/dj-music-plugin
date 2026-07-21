@@ -63,9 +63,8 @@ async def filter_sweep_builder(
                 details={"preset": preset},
             )
         tp = FILTER_PRESETS[preset]
-        result = FilterSweepResult(preset_name=preset)
-        if tp.outgoing:
-            result.outgoing = FilterSweepSide(
+        outgoing = (
+            FilterSweepSide(
                 start_freq_hz=tp.outgoing.start_freq_hz,
                 end_freq_hz=tp.outgoing.end_freq_hz,
                 direction=tp.outgoing.direction.value,
@@ -73,8 +72,11 @@ async def filter_sweep_builder(
                 resonance=tp.outgoing.resonance,
                 ffmpeg_expr=tp.outgoing.ffmpeg_lowpass_expr(8.0),
             )
-        if tp.incoming:
-            result.incoming = FilterSweepSide(
+            if tp.outgoing
+            else None
+        )
+        incoming = (
+            FilterSweepSide(
                 start_freq_hz=tp.incoming.start_freq_hz,
                 end_freq_hz=tp.incoming.end_freq_hz,
                 direction=tp.incoming.direction.value,
@@ -82,7 +84,10 @@ async def filter_sweep_builder(
                 resonance=tp.incoming.resonance,
                 ffmpeg_expr=tp.incoming.ffmpeg_lowpass_expr(8.0),
             )
-        return result
+            if tp.incoming
+            else None
+        )
+        return FilterSweepResult(preset_name=preset, outgoing=outgoing, incoming=incoming)
 
     if start_freq_hz is None or end_freq_hz is None:
         raise ValidationError(

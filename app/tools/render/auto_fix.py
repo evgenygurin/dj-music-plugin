@@ -71,6 +71,7 @@ async def auto_fix(
             FixItem(type=f.ffmpeg_filter[:40], at_s=f.start_s, action=f.description)
             for f in plan.fixes
         ],
+        fixed_path=None,
     )
 
     if not dry_run and plan.fixes:
@@ -79,6 +80,11 @@ async def auto_fix(
         fixed_path = str(ws / "MIX_fixed.mp3")
         cmd = plan.ffmpeg_fix_chain(path, fixed_path)
         subprocess.run(cmd, shell=True, check=True)
-        result.fixed_path = fixed_path
+        result = AutoFixResult(
+            dry_run=dry_run,
+            defects_found=len(defects),
+            fixes=result.fixes,
+            fixed_path=fixed_path,
+        )
 
     return result

@@ -1,7 +1,7 @@
 """transition_window — find optimal mix-in/out window between two tracks."""
 from __future__ import annotations
 
-from typing import Annotated
+from typing import Annotated, Any
 
 from fastmcp.dependencies import Depends
 from fastmcp.tools import tool
@@ -13,7 +13,7 @@ from app.schemas.transition_window import TransitionWindowResult
 from app.server.di import get_uow
 
 
-async def _get_sections(uow: UnitOfWork, track_id: int) -> list[dict]:
+async def _get_sections(uow: UnitOfWork, track_id: int) -> list[dict[str, Any]]:
     sections = await uow.track_sections.list_by_track(track_id)
     return [
         {"track_id": s.track_id, "section_type": s.section_type,
