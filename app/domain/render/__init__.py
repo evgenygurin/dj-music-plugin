@@ -24,6 +24,7 @@ from app.domain.render.models import (
 from app.domain.render.plan_builder import RenderPlanBuilder
 from app.domain.render.request import RenderRequest
 from app.domain.render.stem_graph import build_stem_filtergraph
+from app.domain.render.stem_voicing import STEM_VOICING, StemVoicing
 from app.domain.render.timeline import (
     SegmentGeometry,
     TimelineWindows,
@@ -36,6 +37,7 @@ from app.domain.render.timeline import (
 
 __all__ = [
     "STEM_ORDER",
+    "STEM_VOICING",
     "BarPlan",
     "BarPlanner",
     "BeatgridEntry",
@@ -48,6 +50,7 @@ __all__ = [
     "RenderStrategy",
     "SegmentGeometry",
     "StemSegment",
+    "StemVoicing",
     "TimelineWindows",
     "TrackInput",
     "TrackSegment",

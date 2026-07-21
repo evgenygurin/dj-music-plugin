@@ -30,16 +30,7 @@ from app.domain.render.models import (
     StemSegment,
     TrackSegment,
 )
-
-# Artifact-masking high-pass per stem (Hz) — removes demucs kick/bass bleed so
-# the isolated bass stem owns the low end. None keeps the stem full-range.
-_STEM_HPF_HZ: dict[str, int | None] = {
-    "drums": None,
-    "bass": None,
-    "harmonic": 80,
-    "instrumental": 120,
-    "acappella": 120,
-}
+from app.domain.render.stem_voicing import STEM_VOICING
 
 
 class FilterGraphBuilder(ABC):
@@ -243,8 +234,10 @@ class StemGraphBuilder(FilterGraphBuilder):
         for stem in STEM_ORDER:
             input_idx = seg.track_idx * len(STEM_ORDER) + STEM_ORDER.index(stem)
             label = f"s{i}_{stem}"
-            gain_db = seg.gain_db + self._stem_trim_gain_db(stem)
-            parts.append(self._stem_chain(input_idx, seg, label, _STEM_HPF_HZ[stem], gain_db))
+            gain_db = seg.gain_db + STEM_VOICING[stem].gain_db
+            parts.append(
+                self._stem_chain(input_idx, seg, label, STEM_VOICING[stem].hpf_hz, gain_db)
+            )
             fades = self._stem_fades(
                 stem,
                 seg,
@@ -283,17 +276,6 @@ class StemGraphBuilder(FilterGraphBuilder):
             f"aformat=sample_rates=44100:channel_layouts=stereo"
             f"[{label}]"
         )
-
-    @staticmethod
-    def _stem_trim_gain_db(stem: str) -> float:
-        """Static headroom budget for summing five prepared stems."""
-        if stem == "instrumental":
-            return -7.0
-        if stem == "acappella":
-            return -3.0
-        if stem == "harmonic":
-            return -2.0
-        return 0.0
 
     @staticmethod
     def _stem_fades(
