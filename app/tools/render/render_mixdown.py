@@ -45,6 +45,34 @@ async def render_mixdown(
     stem: Annotated[
         bool, Field(description="Demucs stem render (default); False = classic EQ bass-swap")
     ] = True,
+    subgenre: Annotated[
+        str | None,
+        Field(description="Subgenre preset: industrial_techno, dub_techno, hard_techno, hypnotic_techno, peak_time_techno, driving_techno, acid_techno"),
+    ] = None,
+    filter_sweep: Annotated[
+        str | None,
+        Field(description="Filter sweep preset: classic_lowpass, acid_squelch, industrial_cut, hypnotic_wash, dub_echo_sweep"),
+    ] = None,
+    echo: Annotated[
+        str | None,
+        Field(description="Echo preset: techno_standard, vocal_throw, industrial_stutter, dub_space, acid_bounce"),
+    ] = None,
+    crossfade_curve_out: Annotated[
+        str,
+        Field(description="Crossfade curve for outgoing track: tri, exp, log, squ, sin, nofade"),
+    ] = "tri",
+    crossfade_curve_in: Annotated[
+        str,
+        Field(description="Crossfade curve for incoming track: tri, exp, log, squ, sin, nofade"),
+    ] = "exp",
+    reverb: Annotated[
+        str | None,
+        Field(description="Reverb preset: techno_hall, techno_cathedral, industrial_warehouse, dub_plate, minimal_room"),
+    ] = None,
+    reverb_mix: Annotated[
+        float,
+        Field(ge=0.0, le=1.0, description="Reverb wet/dry ratio"),
+    ] = 0.25,
     uow: UnitOfWork = Depends(get_uow),
     ctx: Context = CurrentContext(),
 ) -> RenderMixdownResult:
@@ -59,4 +87,11 @@ async def render_mixdown(
         body_bars=body_bars,
         refresh_grid=refresh_grid,
         stem=stem,
+        subgenre=subgenre,
+        filter_sweep=filter_sweep,
+        echo=echo,
+        crossfade_curve_out=crossfade_curve_out,
+        crossfade_curve_in=crossfade_curve_in,
+        reverb=reverb,
+        reverb_mix=reverb_mix,
     )

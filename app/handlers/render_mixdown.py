@@ -180,9 +180,25 @@ async def render_mixdown_handler(
     body_bars: int | None = None,
     refresh_grid: bool = False,
     stem: bool = True,
+    subgenre: str | None = None,
+    filter_sweep: str | None = None,
+    echo: str | None = None,
+    crossfade_curve_out: str = "tri",
+    crossfade_curve_in: str = "exp",
+    reverb: str | None = None,
+    reverb_mix: float = 0.25,
 ) -> RenderMixdownResult:
     _validate_out_name(out_name)
     rs = get_settings().render
+
+    if subgenre:
+        from app.domain.performance.subgenre_presets import resolve_preset
+
+        preset = resolve_preset(subgenre)
+        if preset is not None:
+            preset.apply(rs)
+            await safe_info(ctx, f"render_mixdown: subgenre preset '{subgenre}' applied")
+
     ws = Path(workspace)
     ws.mkdir(parents=True, exist_ok=True)
     grid_path = ws / "beatgrid.json"
@@ -224,7 +240,14 @@ async def render_mixdown_handler(
         "limiter_ceiling": rs.limiter_ceiling,
         "per_transition_bars": per_transition,
         "per_body_bars": per_body,
+        "filter_sweep_name": filter_sweep,
+        "echo_name": echo,
+        "crossfade_curve_out": crossfade_curve_out,
+        "crossfade_curve_in": crossfade_curve_in,
     }
+    if reverb:
+        plan_kwargs["reverb_name"] = reverb
+        plan_kwargs["reverb_mix"] = reverb_mix
     if stem_paths_by_track:
         plan = build_stem_render_plan(inputs, stem_paths_by_track, grid, **plan_kwargs)
         phase = "stem_mixdown"
