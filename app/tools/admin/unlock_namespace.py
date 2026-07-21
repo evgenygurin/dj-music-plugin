@@ -17,6 +17,8 @@ NAMESPACES = frozenset(
         "provider:write",
         "sync",
         "ui:read",
+        "render:diagnostics",
+        "performance",
         "all",
     }
 )
@@ -26,11 +28,15 @@ NAMESPACE_TAGS = {
     "provider:write": ["namespace:provider:write"],
     "sync": ["namespace:sync"],
     "ui:read": ["namespace:ui:read"],
+    "render:diagnostics": ["namespace:render:diagnostics"],
+    "performance": ["namespace:performance"],
     "all": [
         "namespace:crud:destructive",
         "namespace:provider:write",
         "namespace:sync",
         "namespace:ui:read",
+        "namespace:render:diagnostics",
+        "namespace:performance",
     ],
 }
 
@@ -41,14 +47,14 @@ NAMESPACE_TAGS = {
     annotations={"readOnlyHint": False, "idempotentHint": True},
     description=(
         "Per-session activation of hidden tool namespaces. "
-        "Namespaces: crud:destructive, provider:write, sync, ui:read, or 'all'."
+        "Namespaces: crud:destructive, provider:write, sync, ui:read, render:diagnostics, performance, or 'all'."
     ),
     meta={"timeout_s": 30.0},
     timeout=30.0,
 )
 async def unlock_namespace(
     namespace: Annotated[
-        Literal["crud:destructive", "provider:write", "sync", "ui:read", "all"],
+        Literal["crud:destructive", "provider:write", "sync", "ui:read", "render:diagnostics", "performance", "all"],
         Field(description="Namespace to toggle"),
     ],
     action: Annotated[
