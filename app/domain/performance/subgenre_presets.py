@@ -19,7 +19,7 @@ class SubgenreRenderPreset:
     """Per-subgenre tuning for the classic EQ bass-swap render engine.
 
     Overrides are applied on top of RenderSettings defaults via the handler's
-    ``_compute_bars()`` / ``build_render_plan()`` — subgenre-specific values
+    bar planning and render-planner assembly — subgenre-specific values
     take priority over the global defaults but can still be overridden by
     explicit user args (``transition_bars`` / ``body_bars`` kwargs).
     """

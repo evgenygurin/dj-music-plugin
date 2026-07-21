@@ -418,14 +418,7 @@ class StemMultiDeckStrategy(RenderStrategy):
 
 
 def select_strategy(plan: RenderPlan) -> RenderStrategy:
-    """Pick the render strategy via the plan's explicit mode.
-
-    Transitional back-compat: legacy plans built via ``build_stem_render_plan``
-    still default to ``mode=CLASSIC`` but carry ``stem_segments`` — dispatch them
-    to the stem strategy until Task 9 rebuilds the planner to set the mode.
-    """
-    if plan.mode is RenderMode.CLASSIC and plan.stem_segments is not None:
-        return StemMultiDeckStrategy()
+    """Pick the render strategy via the plan's explicit mode."""
     return {
         RenderMode.CLASSIC: ClassicEqStrategy(),
         RenderMode.STEM: StemMultiDeckStrategy(),

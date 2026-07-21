@@ -1,9 +1,12 @@
 """Stem-aware multi-deck filtergraph + plan builder."""
 
 from app.audio.render.runner import build_ffmpeg_cmd
+from app.config.render import RenderSettings
+from app.domain.render.bar_plan import BarPlan
 from app.domain.render.models import STEM_ORDER, BeatgridEntry, TrackInput
+from app.domain.render.plan_assembler import RenderPlanner
+from app.domain.render.request import RenderRequest
 from app.domain.render.stem_graph import build_stem_filtergraph
-from app.domain.render.timeline import build_stem_render_plan
 
 _STEMS = STEM_ORDER
 
@@ -30,20 +33,25 @@ def _stem_plan(n: int, *, target_bpm: float = 130.0):
         )
         for i in range(n)
     }
-    return build_stem_render_plan(
-        inputs,
-        stem_paths_by_track,
-        grid,
-        target_bpm=target_bpm,
+    request = RenderRequest(
+        version_id=1,
+        workspace="/tmp/ws",
+        timestamp="20260101",
+        stem=True,
         body_bars=24,
         transition_bars=16,
-        xsplit_low_hz=250,
-        xsplit_high_hz=4000,
-        eq_phase_1_ratio=0.40,
-        eq_phase_2_ratio=0.70,
-        low_swap_beats=1.0,
-        outro_fade_bars=12,
-        limiter_ceiling=0.85,
+    )
+    bar_plan = BarPlan(
+        transition_bars=tuple([16] * max(0, n - 1)),
+        body_bars=[24] * n,
+    )
+    return RenderPlanner().assemble(
+        RenderSettings(target_bpm=target_bpm),
+        request,
+        inputs,
+        grid,
+        bar_plan,
+        stem_paths=stem_paths_by_track,
     )
 
 

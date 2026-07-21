@@ -22,16 +22,15 @@ from app.domain.render.models import (
     TrackInput,
     TrackSegment,
 )
-from app.domain.render.plan_builder import RenderPlanBuilder
+from app.domain.render.plan_assembler import RenderPlanner
 from app.domain.render.request import RenderRequest
+from app.domain.render.segments import ClassicSegmentFactory, SegmentFactory, StemSegmentFactory
 from app.domain.render.stem_graph import build_stem_filtergraph
 from app.domain.render.stem_voicing import STEM_VOICING, StemVoicing
 from app.domain.render.timeline import (
     SegmentGeometry,
     TimelineWindows,
     TransitionWindow,
-    build_render_plan,
-    build_stem_render_plan,
     place_segments,
     timeline_windows,
 )
@@ -44,24 +43,25 @@ __all__ = [
     "BeatgridEntry",
     "BeatgridIO",
     "BeatgridLimits",
+    "ClassicSegmentFactory",
     "EffectPresetResolver",
     "RenderMode",
     "RenderPlan",
-    "RenderPlanBuilder",
+    "RenderPlanner",
     "RenderRequest",
     "RenderStrategy",
     "ResolvedEffects",
+    "SegmentFactory",
     "SegmentGeometry",
     "StemSegment",
+    "StemSegmentFactory",
     "StemVoicing",
     "TimelineWindows",
     "TrackInput",
     "TrackSegment",
     "TransitionWindow",
     "build_filtergraph",
-    "build_render_plan",
     "build_stem_filtergraph",
-    "build_stem_render_plan",
     "clamp_entry",
     "entry_flags",
     "entry_from_row",

@@ -10,7 +10,7 @@ from app.config import get_settings
 from app.domain.performance.subgenre_presets import resolve_preset
 from app.domain.render.bar_plan import BarPlanner
 from app.domain.render.models import BeatgridEntry
-from app.domain.render.plan_builder import RenderPlanBuilder
+from app.domain.render.plan_assembler import RenderPlanner
 from app.handlers._context_log import safe_info
 from app.handlers._stem_resolver import StemResolver
 from app.handlers.render_beatgrid import render_beatgrid_handler
@@ -89,8 +89,8 @@ async def render_mixdown_handler(
     inputs = await uow.set_versions.get_render_inputs(version_id)
     grid = _load_grid(ws)
 
-    planner = BarPlanner(rs)
-    planned_transition, planned_body = planner.compute(
+    bar_planner = BarPlanner(rs)
+    planned_transition, planned_body = bar_planner.compute(
         inputs,
         grid,
         transition_bars_override=transition_bars,
@@ -102,12 +102,12 @@ async def render_mixdown_handler(
     stem_resolver = StemResolver()
     stem_paths = await stem_resolver.resolve(ctx, uow, inputs) if stem else None
 
-    plan_builder = RenderPlanBuilder(rs)
+    render_planner = RenderPlanner(rs)
     resolved_body = body_bars or rs.body_bars
     resolved_transition = transition_bars or rs.transition_bars
 
     if stem_paths:
-        plan = plan_builder.build_stem(
+        plan = render_planner.build_stem(
             inputs,
             stem_paths,
             grid,
@@ -124,7 +124,7 @@ async def render_mixdown_handler(
         )
         phase = "prepared_stem_mixdown"
     else:
-        plan = plan_builder.build_classic(
+        plan = render_planner.build_classic(
             inputs,
             grid,
             body_bars=resolved_body,
