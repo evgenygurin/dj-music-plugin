@@ -7,10 +7,10 @@ from typing import Any
 from app.audio.render.diagnostics import scan_mix
 from app.audio.render.runner import run_render
 from app.config import get_settings
-from app.domain.render.bar_planner import BarPlanner
+from app.domain.performance.subgenre_presets import resolve_preset
+from app.domain.render.bar_plan import BarPlanner
 from app.domain.render.models import BeatgridEntry
 from app.domain.render.plan_builder import RenderPlanBuilder
-from app.domain.performance.subgenre_presets import resolve_preset
 from app.handlers._context_log import safe_info
 from app.handlers._stem_resolver import StemResolver
 from app.handlers.render_beatgrid import render_beatgrid_handler
@@ -90,11 +90,14 @@ async def render_mixdown_handler(
     grid = _load_grid(ws)
 
     planner = BarPlanner(rs)
-    per_transition, per_body = planner.compute(
-        inputs, grid,
+    planned_transition, planned_body = planner.compute(
+        inputs,
+        grid,
         transition_bars_override=transition_bars,
         body_bars_override=body_bars,
     )
+    per_transition = list(planned_transition)
+    per_body = list(planned_body)
 
     stem_resolver = StemResolver()
     stem_paths = await stem_resolver.resolve(ctx, uow, inputs) if stem else None

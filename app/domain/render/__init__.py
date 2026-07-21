@@ -1,6 +1,6 @@
 """Pure render-plan compute (no IO). See docs/render-pipeline.md."""
 
-from app.domain.render.bar_planner import BarPlanner
+from app.domain.render.bar_plan import BarPlan, BarPlanner
 from app.domain.render.filtergraph import RenderStrategy, select_strategy
 from app.domain.render.graph import build_filtergraph
 from app.domain.render.levels import gains_to_median
@@ -28,6 +28,7 @@ from app.domain.render.timeline import (
 
 __all__ = [
     "STEM_ORDER",
+    "BarPlan",
     "BarPlanner",
     "BeatgridEntry",
     "RenderMode",
