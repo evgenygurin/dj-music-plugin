@@ -21,7 +21,9 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from collections.abc import Sequence
+from dataclasses import dataclass
 
+from app.domain.render.effects_resolver import EffectPresetResolver, ResolvedEffects
 from app.domain.render.eq import build_master_eq
 from app.domain.render.models import (
     STEM_ORDER,
@@ -31,6 +33,47 @@ from app.domain.render.models import (
     TrackSegment,
 )
 from app.domain.render.stem_voicing import STEM_VOICING
+
+
+@dataclass(frozen=True, slots=True)
+class _FrameContext:
+    plan: RenderPlan
+    i: int
+    seg: TrackSegment
+    length: float
+    bar_s: float
+    beat_s: float
+    low_x: float
+    p1: float
+    p2: float
+    has_prev: bool
+    has_next: bool
+    curve_out: str
+    curve_in: str
+    n: int
+    outro_fade_s: float
+
+    @classmethod
+    def from_segment(cls, plan: RenderPlan, i: int, seg: TrackSegment) -> _FrameContext:
+        bar_s = 4.0 * (60.0 / plan.target_bpm)
+        beat_s = 60.0 / plan.target_bpm
+        return cls(
+            plan=plan,
+            i=i,
+            seg=seg,
+            length=seg.length_s,
+            bar_s=bar_s,
+            beat_s=beat_s,
+            low_x=plan.low_swap_beats * beat_s,
+            p1=plan.eq_phase_1_ratio,
+            p2=plan.eq_phase_2_ratio,
+            has_prev=i > 0,
+            has_next=i < plan.n - 1,
+            curve_out=plan.crossfade_curve_out,
+            curve_in=plan.crossfade_curve_in,
+            n=plan.n,
+            outro_fade_s=min(plan.outro_fade_bars * bar_s, seg.length_s),
+        )
 
 
 class FilterGraphBuilder(ABC):
@@ -73,136 +116,155 @@ class FilterGraphBuilder(ABC):
 class ClassicGraphBuilder(FilterGraphBuilder):
     """Single-file-per-track 3-band EQ bass-swap (highs → mids → bass pinpoint)."""
 
+    _effects: EffectPresetResolver = EffectPresetResolver()
+
     def _segments(self, plan: RenderPlan) -> Sequence[TrackSegment]:
         return plan.segments
 
     def _segment_block(self, plan: RenderPlan, i: int, seg: object) -> tuple[list[str], str]:
         assert isinstance(seg, TrackSegment)
-        xlo, xhi = plan.xsplit_low_hz, plan.xsplit_high_hz
-        bar_s = 4.0 * (60.0 / plan.target_bpm)
-        beat_s = 60.0 / plan.target_bpm
-        low_x = plan.low_swap_beats * beat_s
-        p1, p2 = plan.eq_phase_1_ratio, plan.eq_phase_2_ratio
-        n = plan.n
-        d_in, d_out, length = seg.d_in_s, seg.d_out_s, seg.length_s
-        fd = min(plan.outro_fade_bars * bar_s, length)
-        curve_out = plan.crossfade_curve_out
-        curve_in = plan.crossfade_curve_in
-        has_echo = plan.echo_preset is not None
-        has_sweep = plan.filter_sweep_preset is not None
+        ctx = _FrameContext.from_segment(plan, i, seg)
+        fx = self._effects.resolve(plan)
+        return [
+            self._source_chain(ctx),
+            *self._echo_split(ctx, fx),
+            *self._band_split(ctx, fx),
+            self._emit_high_band(ctx),
+            self._emit_mid_band(ctx),
+            self._emit_low_band(ctx),
+            self._mix_segment(ctx, fx),
+        ], f"[m{i}]"
 
-        parts: list[str] = []
-        base = (
-            f"[{i}:a]atrim=start={seg.trim_start_s:.4f}:"
-            f"duration={length / seg.tempo_ratio + 1.0:.3f},"
+    @staticmethod
+    def _source_chain(ctx: _FrameContext) -> str:
+        seg = ctx.seg
+        return (
+            f"[{ctx.i}:a]atrim=start={seg.trim_start_s:.4f}:"
+            f"duration={ctx.length / seg.tempo_ratio + 1.0:.3f},"
             f"asetpts=PTS-STARTPTS,rubberband=tempo={seg.tempo_ratio:.5f}:pitchq=quality,"
-            f"atrim=duration={length:.3f},asetpts=PTS-STARTPTS,volume={seg.gain_db:.2f}dB,"
-            f"aformat=sample_rates=44100:channel_layouts=stereo"
+            f"atrim=duration={ctx.length:.3f},asetpts=PTS-STARTPTS,volume={seg.gain_db:.2f}dB,"
+            f"aformat=sample_rates=44100:channel_layouts=stereo[s{ctx.i}]"
         )
-        parts.append(f"{base}[s{i}]")
 
-        # ── Resolve effect presets ──
-        echo_wet = 0.0
-        echo_aecho = ""
+    @staticmethod
+    def _echo_split(ctx: _FrameContext, fx: ResolvedEffects) -> list[str]:
+        if fx.echo is None:
+            return []
+
+        echo_aecho = fx.echo.ffmpeg_aecho_expr()
+        parts = [f"[s{ctx.i}]asplit=2[sd{ctx.i}][se{ctx.i}]"]
+        if ctx.has_next:
+            tail_start = max(0.0, ctx.length - ctx.seg.d_out_s * 0.3)
+            tail_dur = min(ctx.seg.d_out_s * 0.3, ctx.length - tail_start)
+            parts.append(
+                f"[se{ctx.i}]atrim=start={tail_start:.3f}:duration={tail_dur:.3f},"
+                f"asetpts=PTS-STARTPTS,"
+                f"aecho={echo_aecho}[se{ctx.i}_out]"
+            )
+        else:
+            parts.append(f"[se{ctx.i}]aecho={echo_aecho}[se{ctx.i}_out]")
+        return parts
+
+    @staticmethod
+    def _band_split(ctx: _FrameContext, fx: ResolvedEffects) -> list[str]:
         sweep_expr = ""
-        if has_echo:
-            from app.audio.effects.echo_delay import ECHO_PRESETS
+        if fx.sweep is not None and fx.sweep.outgoing is not None and ctx.has_next:
+            end_f = int(fx.sweep.outgoing.end_freq_hz)
+            t_start = ctx.length - ctx.seg.d_out_s
+            sweep_expr = f"lowpass=f={end_f}:enable='between(t,{t_start:.2f},{ctx.length:.2f})',"
 
-            ep = ECHO_PRESETS.get(plan.echo_preset)  # type: ignore[arg-type]
-            if ep:
-                echo_wet = min(0.25, ep.wet_dry_ratio * 0.6)
-                echo_aecho = ep.ffmpeg_aecho_expr()
-            else:
-                has_echo = False
+        dry_in = f"[sd{ctx.i}]" if fx.echo is not None else f"[s{ctx.i}]"
+        return [
+            f"{dry_in}{sweep_expr}asplit=3[s{ctx.i}a][s{ctx.i}b][s{ctx.i}c]",
+            f"[s{ctx.i}a]lowpass=f={ctx.plan.xsplit_low_hz}[lo{ctx.i}]",
+            f"[s{ctx.i}b]highpass=f={ctx.plan.xsplit_low_hz},"
+            f"lowpass=f={ctx.plan.xsplit_high_hz}[mid{ctx.i}]",
+            f"[s{ctx.i}c]highpass=f={ctx.plan.xsplit_high_hz}[hi{ctx.i}]",
+        ]
 
-        if has_sweep and plan.filter_sweep_preset:
-            from app.audio.effects.filter_sweep import FILTER_PRESETS
+    def _emit_high_band(self, ctx: _FrameContext) -> str:
+        fades = self._high_fades(ctx)
+        return f"[hi{ctx.i}]{','.join(fades) if fades else 'acopy'}[H{ctx.i}]"
 
-            fp = FILTER_PRESETS.get(plan.filter_sweep_preset)  # type: ignore[arg-type]
-            if fp and fp.outgoing and i < n - 1:
-                end_f = int(fp.outgoing.end_freq_hz)
-                t_start = length - d_out
-                sweep_expr = f"lowpass=f={end_f}:enable='between(t,{t_start:.2f},{length:.2f})',"
-            else:
-                has_sweep = False
+    def _emit_mid_band(self, ctx: _FrameContext) -> str:
+        fades = self._mid_fades(ctx)
+        return f"[mid{ctx.i}]{','.join(fades) if fades else 'acopy'}[MID{ctx.i}]"
 
-        # ── Split for echo (if enabled) ──
-        if has_echo:
-            parts.append(f"[s{i}]asplit=2[sd{i}][se{i}]")
-            if i < n - 1:
-                tail_start = max(0, length - d_out * 0.3)
-                tail_dur = min(d_out * 0.3, length - tail_start)
-                parts.append(
-                    f"[se{i}]atrim=start={tail_start:.3f}:duration={tail_dur:.3f},"
-                    f"asetpts=PTS-STARTPTS,"
-                    f"aecho={echo_aecho}[se{i}_out]"
-                )
-            else:
-                parts.append(f"[se{i}]aecho={echo_aecho}[se{i}_out]")
-            # Apply sweep on dry branch before band split
-            if has_sweep:
-                parts.append(f"[sd{i}]{sweep_expr}asplit=3[s{i}a][s{i}b][s{i}c]")
-            else:
-                parts.append(f"[sd{i}]asplit=3[s{i}a][s{i}b][s{i}c]")
-        else:
-            if has_sweep:
-                parts.append(f"[s{i}]{sweep_expr}asplit=3[s{i}a][s{i}b][s{i}c]")
-            else:
-                parts.append(f"[s{i}]asplit=3[s{i}a][s{i}b][s{i}c]")
+    def _emit_low_band(self, ctx: _FrameContext) -> str:
+        fades = self._low_fades(ctx)
+        return f"[lo{ctx.i}]{','.join(fades) if fades else 'acopy'}[Lo{ctx.i}]"
 
-        parts.append(f"[s{i}a]lowpass=f={xlo}[lo{i}]")
-        parts.append(f"[s{i}b]highpass=f={xlo},lowpass=f={xhi}[mid{i}]")
-        parts.append(f"[s{i}c]highpass=f={xhi}[hi{i}]")
-
-        # ── HIGH band: Phase 1 ──
-        hi: list[str] = []
-        if i > 0:
-            hi.append(f"afade=t=in:curve={curve_in}:st=0:d={d_in * p1:.3f}")
-        if i < n - 1:
-            hi.append(f"afade=t=out:curve={curve_out}:st={length - d_out:.3f}:d={d_out * p1:.3f}")
-        else:
-            hi.append(f"afade=t=out:curve={curve_out}:st={length - fd:.3f}:d={fd:.3f}")
-        parts.append(f"[hi{i}]{','.join(hi) if hi else 'acopy'}[H{i}]")
-
-        # ── MID band: Phase 2 ──
-        mid: list[str] = []
-        if i > 0:
-            mid.append(f"afade=t=in:curve={curve_in}:st={d_in * p1:.3f}:d={d_in * (p2 - p1):.3f}")
-        if i < n - 1:
-            mid.append(
-                f"afade=t=out:curve={curve_out}:st={length - d_out * (1.0 - p1):.3f}:"
-                f"d={d_out * (p2 - p1):.3f}"
+    @staticmethod
+    def _high_fades(ctx: _FrameContext) -> list[str]:
+        fades: list[str] = []
+        if ctx.has_prev:
+            fades.append(
+                f"afade=t=in:curve={ctx.curve_in}:st=0:d={ctx.seg.d_in_s * ctx.p1:.3f}"
+            )
+        if ctx.has_next:
+            fades.append(
+                f"afade=t=out:curve={ctx.curve_out}:st={ctx.length - ctx.seg.d_out_s:.3f}:"
+                f"d={ctx.seg.d_out_s * ctx.p1:.3f}"
             )
         else:
-            mid.append(f"afade=t=out:curve={curve_out}:st={length - fd:.3f}:d={fd:.3f}")
-        parts.append(f"[mid{i}]{','.join(mid) if mid else 'acopy'}[MID{i}]")
+            fades.append(
+                f"afade=t=out:curve={ctx.curve_out}:st={ctx.length - ctx.outro_fade_s:.3f}:"
+                f"d={ctx.outro_fade_s:.3f}"
+            )
+        return fades
 
-        # ── LOW band: pinpoint swap (Phase 3) ──
-        lo: list[str] = []
-        if i > 0:
-            st = d_in * p2 - low_x / 2
-            lo.append(f"afade=t=in:curve={curve_in}:st={st:.3f}:d={low_x:.3f}")
-        if i < n - 1:
-            st = length - d_out * (1.0 - p2) - low_x / 2
-            lo.append(f"afade=t=out:curve={curve_out}:st={st:.3f}:d={low_x:.3f}")
-        else:
-            lo.append(f"afade=t=out:curve={curve_out}:st={length - fd:.3f}:d={fd:.3f}")
-        parts.append(f"[lo{i}]{','.join(lo) if lo else 'acopy'}[Lo{i}]")
-
-        t_ms = int(seg.start_s * 1000)
-
-        if has_echo:
-            echo_w = max(0.1, min(0.5, echo_wet))
-            parts.append(
-                f"[H{i}][MID{i}][Lo{i}]amix=inputs=3:normalize=0[sm{i}];"
-                f"[sm{i}][se{i}_out]amix=inputs=2:normalize=0:weights=1 {echo_w:.2f},"
-                f"adelay={t_ms}|{t_ms}[m{i}]"
+    @staticmethod
+    def _mid_fades(ctx: _FrameContext) -> list[str]:
+        fades: list[str] = []
+        if ctx.has_prev:
+            fades.append(
+                f"afade=t=in:curve={ctx.curve_in}:st={ctx.seg.d_in_s * ctx.p1:.3f}:"
+                f"d={ctx.seg.d_in_s * (ctx.p2 - ctx.p1):.3f}"
+            )
+        if ctx.has_next:
+            fades.append(
+                f"afade=t=out:curve={ctx.curve_out}:"
+                f"st={ctx.length - ctx.seg.d_out_s * (1.0 - ctx.p1):.3f}:"
+                f"d={ctx.seg.d_out_s * (ctx.p2 - ctx.p1):.3f}"
             )
         else:
-            parts.append(
-                f"[H{i}][MID{i}][Lo{i}]amix=inputs=3:normalize=0,adelay={t_ms}|{t_ms}|{t_ms}[m{i}]"
+            fades.append(
+                f"afade=t=out:curve={ctx.curve_out}:st={ctx.length - ctx.outro_fade_s:.3f}:"
+                f"d={ctx.outro_fade_s:.3f}"
             )
-        return parts, f"[m{i}]"
+        return fades
+
+    @staticmethod
+    def _low_fades(ctx: _FrameContext) -> list[str]:
+        fades: list[str] = []
+        if ctx.has_prev:
+            st = ctx.seg.d_in_s * ctx.p2 - ctx.low_x / 2
+            fades.append(f"afade=t=in:curve={ctx.curve_in}:st={st:.3f}:d={ctx.low_x:.3f}")
+        if ctx.has_next:
+            st = ctx.length - ctx.seg.d_out_s * (1.0 - ctx.p2) - ctx.low_x / 2
+            fades.append(f"afade=t=out:curve={ctx.curve_out}:st={st:.3f}:d={ctx.low_x:.3f}")
+        else:
+            fades.append(
+                f"afade=t=out:curve={ctx.curve_out}:st={ctx.length - ctx.outro_fade_s:.3f}:"
+                f"d={ctx.outro_fade_s:.3f}"
+            )
+        return fades
+
+    @staticmethod
+    def _mix_segment(ctx: _FrameContext, fx: ResolvedEffects) -> str:
+        t_ms = int(ctx.seg.start_s * 1000)
+        if fx.echo is None:
+            return (
+                f"[H{ctx.i}][MID{ctx.i}][Lo{ctx.i}]amix=inputs=3:normalize=0,"
+                f"adelay={t_ms}|{t_ms}|{t_ms}[m{ctx.i}]"
+            )
+
+        echo_w = max(0.1, min(0.5, min(0.25, fx.echo.wet_dry_ratio * 0.6)))
+        return (
+            f"[H{ctx.i}][MID{ctx.i}][Lo{ctx.i}]amix=inputs=3:normalize=0[sm{ctx.i}];"
+            f"[sm{ctx.i}][se{ctx.i}_out]amix=inputs=2:normalize=0:weights=1 {echo_w:.2f},"
+            f"adelay={t_ms}|{t_ms}[m{ctx.i}]"
+        )
 
 
 class StemGraphBuilder(FilterGraphBuilder):
