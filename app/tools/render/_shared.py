@@ -1,30 +1,9 @@
-"""Workspace-path + clock helpers for the render tools.
-
-The tools inject the timestamp (clock) so the pure/domain layers never call
-Date.now — keeps everything deterministic and testable.
-"""
-
 from __future__ import annotations
 
-from pathlib import Path
+from app.shared.render_workspace import (
+    render_mix_path as render_mix_path,
+    render_timestamp as render_timestamp,
+    render_workspace as render_workspace,
+)
 
-from app.config import get_settings
-from app.shared.time import utc_now
-
-
-def render_workspace(version_id: int) -> str:
-    """`<DeliverySettings.output_dir>/<RenderSettings.workspace_subdir>/v{id}`."""
-    s = get_settings()
-    root = Path(s.delivery.output_dir) / s.render.workspace_subdir / f"v{version_id}"
-    return str(root)
-
-
-def render_mix_path(version_id: int, name: str | None = None) -> str:
-    """Absolute path of a version's rendered mix (defaults to ``RenderSettings.mix_filename``)."""
-    filename = name or get_settings().render.mix_filename
-    return str(Path(render_workspace(version_id)) / filename)
-
-
-def render_timestamp() -> str:
-    """Sortable job timestamp, e.g. 20260706-142530."""
-    return utc_now().strftime("%Y%m%d-%H%M%S")
+__all__ = ["render_workspace", "render_mix_path", "render_timestamp"]

@@ -83,13 +83,10 @@ class AudioLoader:
                 samples, file_sr = sf_module.read(str(path), dtype="float32", always_2d=True)
                 return samples.mean(axis=1), file_sr
             except sf_module.LibsndfileError as e:
-                # libsndfile recognised the file but could not decode it
-                # (corrupt MP3, unknown subtype, missing codec). Surface
-                # the real error rather than masking it with a fall-
-                # through to ``wave.open``.
+                # Format not recognised by libsndfile (e.g. M4A/AAC).
+                # Fall through to librosa which may succeed via
+                # audioread (macOS Core Audio) or ffmpeg.
                 log.warning("soundfile decode failed for %s: %s", path, e)
-                msg = f"audio decode failed: {e}"
-                raise RuntimeError(msg) from e
             except RuntimeError:
                 # soundfile may raise generic RuntimeError on truly
                 # broken inputs — re-raise so it is not swallowed.
@@ -109,8 +106,6 @@ class AudioLoader:
                 return samples, int(file_sr)
             except librosa_module.util.exceptions.ParameterError as e:
                 log.warning("librosa decode failed for %s: %s", path, e)
-                msg = f"audio decode failed: {e}"
-                raise RuntimeError(msg) from e
 
         import wave
 

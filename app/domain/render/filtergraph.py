@@ -7,8 +7,10 @@ Two render algorithms share one skeleton:
   shared master bus (amix → master EQ → limiter).
 * :class:`ClassicGraphBuilder` — single file per track, asplit 3-band EQ
   bass-swap (highs phase 1, mids phase 2, bass pinpoint swap phase 3).
-* :class:`StemGraphBuilder` — 4 demucs stems per track, staggered per-stem
-  transitions with artifact-masking high-pass.
+  Supports filter_sweep and echo effects per RenderPlan config.
+* :class:`StemGraphBuilder` — 5 prepared stems per track, staggered per-stem
+  transitions with artifact-masking high-pass. This mode consumes already
+  separated files and never runs source separation.
 * :class:`RenderStrategy` (**Strategy**) — pairs a graph builder with its ffmpeg
   input expansion; :func:`select_strategy` picks the mode from the plan. The
   runner depends only on the strategy, so a new render mode is a new subclass —
@@ -33,8 +35,9 @@ from app.domain.render.models import (
 _STEM_HPF_HZ: dict[str, int | None] = {
     "drums": None,
     "bass": None,
-    "vocals": 120,
-    "other": 80,
+    "harmonic": 80,
+    "instrumental": 120,
+    "acappella": 120,
 }
 
 
@@ -91,6 +94,10 @@ class ClassicGraphBuilder(FilterGraphBuilder):
         n = plan.n
         d_in, d_out, length = seg.d_in_s, seg.d_out_s, seg.length_s
         fd = min(plan.outro_fade_bars * bar_s, length)
+        curve_out = plan.crossfade_curve_out
+        curve_in = plan.crossfade_curve_in
+        has_echo = plan.echo_preset is not None
+        has_sweep = plan.filter_sweep_preset is not None
 
         parts: list[str] = []
         base = (
@@ -101,7 +108,54 @@ class ClassicGraphBuilder(FilterGraphBuilder):
             f"aformat=sample_rates=44100:channel_layouts=stereo"
         )
         parts.append(f"{base}[s{i}]")
-        parts.append(f"[s{i}]asplit=3[s{i}a][s{i}b][s{i}c]")
+
+        # ── Resolve effect presets ──
+        echo_wet = 0.0
+        echo_aecho = ""
+        sweep_expr = ""
+        if has_echo:
+            from app.audio.effects.echo_delay import ECHO_PRESETS
+            ep = ECHO_PRESETS.get(plan.echo_preset)  # type: ignore[arg-type]
+            if ep:
+                echo_wet = min(0.25, ep.wet_dry_ratio * 0.6)
+                echo_aecho = ep.ffmpeg_aecho_expr()
+            else:
+                has_echo = False
+
+        if has_sweep and plan.filter_sweep_preset:
+            from app.audio.effects.filter_sweep import FILTER_PRESETS
+            fp = FILTER_PRESETS.get(plan.filter_sweep_preset)  # type: ignore[arg-type]
+            if fp and fp.outgoing and i < n - 1:
+                end_f = int(fp.outgoing.end_freq_hz)
+                t_start = length - d_out
+                sweep_expr = f"lowpass=f={end_f}:enable='between(t,{t_start:.2f},{length:.2f})',"
+            else:
+                has_sweep = False
+
+        # ── Split for echo (if enabled) ──
+        if has_echo:
+            parts.append(f"[s{i}]asplit=2[sd{i}][se{i}]")
+            if i < n - 1:
+                tail_start = max(0, length - d_out * 0.3)
+                tail_dur = min(d_out * 0.3, length - tail_start)
+                parts.append(
+                    f"[se{i}]atrim=start={tail_start:.3f}:duration={tail_dur:.3f},"
+                    f"asetpts=PTS-STARTPTS,"
+                    f"aecho={echo_aecho}[se{i}_out]"
+                )
+            else:
+                parts.append(f"[se{i}]aecho={echo_aecho}[se{i}_out]")
+            # Apply sweep on dry branch before band split
+            if has_sweep:
+                parts.append(f"[sd{i}]{sweep_expr}asplit=3[s{i}a][s{i}b][s{i}c]")
+            else:
+                parts.append(f"[sd{i}]asplit=3[s{i}a][s{i}b][s{i}c]")
+        else:
+            if has_sweep:
+                parts.append(f"[s{i}]{sweep_expr}asplit=3[s{i}a][s{i}b][s{i}c]")
+            else:
+                parts.append(f"[s{i}]asplit=3[s{i}a][s{i}b][s{i}c]")
+
         parts.append(f"[s{i}a]lowpass=f={xlo}[lo{i}]")
         parts.append(f"[s{i}b]highpass=f={xlo},lowpass=f={xhi}[mid{i}]")
         parts.append(f"[s{i}c]highpass=f={xhi}[hi{i}]")
@@ -109,52 +163,63 @@ class ClassicGraphBuilder(FilterGraphBuilder):
         # ── HIGH band: Phase 1 ──
         hi: list[str] = []
         if i > 0:
-            hi.append(f"afade=t=in:curve=qsin:st=0:d={d_in * p1:.3f}")
+            hi.append(f"afade=t=in:curve={curve_in}:st=0:d={d_in * p1:.3f}")
         if i < n - 1:
-            hi.append(f"afade=t=out:curve=qsin:st={length - d_out:.3f}:d={d_out * p1:.3f}")
+            hi.append(f"afade=t=out:curve={curve_out}:st={length - d_out:.3f}:d={d_out * p1:.3f}")
         else:
-            hi.append(f"afade=t=out:curve=qsin:st={length - fd:.3f}:d={fd:.3f}")
+            hi.append(f"afade=t=out:curve={curve_out}:st={length - fd:.3f}:d={fd:.3f}")
         parts.append(f"[hi{i}]{','.join(hi) if hi else 'acopy'}[H{i}]")
 
         # ── MID band: Phase 2 ──
         mid: list[str] = []
         if i > 0:
-            mid.append(f"afade=t=in:curve=qsin:st={d_in * p1:.3f}:d={d_in * (p2 - p1):.3f}")
+            mid.append(f"afade=t=in:curve={curve_in}:st={d_in * p1:.3f}:d={d_in * (p2 - p1):.3f}")
         if i < n - 1:
             mid.append(
-                f"afade=t=out:curve=qsin:st={length - d_out * (1.0 - p1):.3f}:"
+                f"afade=t=out:curve={curve_out}:st={length - d_out * (1.0 - p1):.3f}:"
                 f"d={d_out * (p2 - p1):.3f}"
             )
         else:
-            mid.append(f"afade=t=out:curve=qsin:st={length - fd:.3f}:d={fd:.3f}")
+            mid.append(f"afade=t=out:curve={curve_out}:st={length - fd:.3f}:d={fd:.3f}")
         parts.append(f"[mid{i}]{','.join(mid) if mid else 'acopy'}[MID{i}]")
 
         # ── LOW band: pinpoint swap (Phase 3) ──
         lo: list[str] = []
         if i > 0:
             st = d_in * p2 - low_x / 2
-            lo.append(f"afade=t=in:curve=qsin:st={st:.3f}:d={low_x:.3f}")
+            lo.append(f"afade=t=in:curve={curve_in}:st={st:.3f}:d={low_x:.3f}")
         if i < n - 1:
             st = length - d_out * (1.0 - p2) - low_x / 2
-            lo.append(f"afade=t=out:curve=qsin:st={st:.3f}:d={low_x:.3f}")
+            lo.append(f"afade=t=out:curve={curve_out}:st={st:.3f}:d={low_x:.3f}")
         else:
-            lo.append(f"afade=t=out:curve=qsin:st={length - fd:.3f}:d={fd:.3f}")
+            lo.append(f"afade=t=out:curve={curve_out}:st={length - fd:.3f}:d={fd:.3f}")
         parts.append(f"[lo{i}]{','.join(lo) if lo else 'acopy'}[Lo{i}]")
 
         t_ms = int(seg.start_s * 1000)
-        parts.append(
-            f"[H{i}][MID{i}][Lo{i}]amix=inputs=3:normalize=0,adelay={t_ms}|{t_ms}|{t_ms}[m{i}]"
-        )
+
+        if has_echo:
+            echo_w = max(0.1, min(0.5, echo_wet))
+            parts.append(
+                f"[H{i}][MID{i}][Lo{i}]amix=inputs=3:normalize=0[sm{i}];"
+                f"[sm{i}][se{i}_out]amix=inputs=2:normalize=0:weights=1 {echo_w:.2f},"
+                f"adelay={t_ms}|{t_ms}[m{i}]"
+            )
+        else:
+            parts.append(
+                f"[H{i}][MID{i}][Lo{i}]amix=inputs=3:normalize=0,"
+                f"adelay={t_ms}|{t_ms}|{t_ms}[m{i}]"
+            )
         return parts, f"[m{i}]"
 
 
 class StemGraphBuilder(FilterGraphBuilder):
-    """4-stem multi-deck: staggered per-stem transitions + bleed-masking HPF.
+    """5-stem multi-deck: staggered per-stem transitions + bleed-masking HPF.
 
-    Staggered like the classic 3-band ritual: OTHER swaps early (p1), DRUMS ride
-    the whole window (continuous drive), VOCALS wide (p2), BASS a 1-beat pinpoint
-    swap at ``bass_swap_ratio`` — only one bassline is ever at full. First track
-    eases in, last fades out over ``outro_fade_bars``.
+    Staggered like the classic 3-band ritual: HARMONIC swaps early (p1), DRUMS
+    ride the whole window (continuous drive), ACAPPELLA stays wide (p2), and
+    BASS uses a 1-beat pinpoint swap at ``bass_swap_ratio``. INSTRUMENTAL is
+    kept as a lower-gain safety bed so five prepared stems can sum cleanly.
+    First track eases in, last fades out over ``outro_fade_bars``.
     """
 
     def _segments(self, plan: RenderPlan) -> Sequence[StemSegment]:
@@ -176,7 +241,8 @@ class StemGraphBuilder(FilterGraphBuilder):
         for stem in STEM_ORDER:
             input_idx = seg.track_idx * len(STEM_ORDER) + STEM_ORDER.index(stem)
             label = f"s{i}_{stem}"
-            parts.append(self._stem_chain(input_idx, seg, label, _STEM_HPF_HZ[stem]))
+            gain_db = seg.gain_db + self._stem_trim_gain_db(stem)
+            parts.append(self._stem_chain(input_idx, seg, label, _STEM_HPF_HZ[stem], gain_db))
             fades = self._stem_fades(
                 stem,
                 seg,
@@ -197,7 +263,13 @@ class StemGraphBuilder(FilterGraphBuilder):
         return parts, f"[m{i}]"
 
     @staticmethod
-    def _stem_chain(input_idx: int, seg: StemSegment, label: str, hpf_hz: int | None) -> str:
+    def _stem_chain(
+        input_idx: int,
+        seg: StemSegment,
+        label: str,
+        hpf_hz: int | None,
+        gain_db: float,
+    ) -> str:
         """One stem: trim → tempo-stretch → (optional HPF) → gain → format."""
         hpf = f"highpass=f={hpf_hz}," if hpf_hz else ""
         return (
@@ -205,11 +277,21 @@ class StemGraphBuilder(FilterGraphBuilder):
             f"duration={seg.length_s / seg.tempo_ratio + 1.0:.3f},"
             f"asetpts=PTS-STARTPTS,rubberband=tempo={seg.tempo_ratio:.5f}:pitchq=quality,"
             f"atrim=duration={seg.length_s:.3f},asetpts=PTS-STARTPTS,"
-            f"{hpf}"
-            f"volume={seg.gain_db:.2f}dB,"
+            f"{hpf}volume={gain_db:.2f}dB,"
             f"aformat=sample_rates=44100:channel_layouts=stereo"
             f"[{label}]"
         )
+
+    @staticmethod
+    def _stem_trim_gain_db(stem: str) -> float:
+        """Static headroom budget for summing five prepared stems."""
+        if stem == "instrumental":
+            return -7.0
+        if stem == "acappella":
+            return -3.0
+        if stem == "harmonic":
+            return -2.0
+        return 0.0
 
     @staticmethod
     def _stem_fades(
@@ -233,9 +315,9 @@ class StemGraphBuilder(FilterGraphBuilder):
             fades.append(f"afade=t=in:curve=qsin:st=0:d={intro_d:.3f}")
         elif stem == "drums":
             fades.append(f"afade=t=in:curve=qsin:st=0:d={d_in:.3f}")
-        elif stem == "other":
+        elif stem in {"harmonic", "instrumental"}:
             fades.append(f"afade=t=in:curve=qsin:st=0:d={max(0.05, d_in * p1):.3f}")
-        elif stem == "vocals":
+        elif stem == "acappella":
             fades.append(f"afade=t=in:curve=qsin:st=0:d={max(0.05, d_in * p2):.3f}")
         else:  # bass — pinpoint swap
             st = max(0.0, d_in * seg.bass_swap_ratio - low_x / 2)
@@ -248,10 +330,10 @@ class StemGraphBuilder(FilterGraphBuilder):
         elif stem == "drums":
             st = max(0.0, length - d_out)
             fades.append(f"afade=t=out:curve=qsin:st={st:.3f}:d={d_out:.3f}")
-        elif stem == "other":
+        elif stem in {"harmonic", "instrumental"}:
             dur = max(0.05, d_out * p1)
             fades.append(f"afade=t=out:curve=qsin:st={length - dur:.3f}:d={dur:.3f}")
-        elif stem == "vocals":
+        elif stem == "acappella":
             dur = max(0.05, d_out * p2)
             fades.append(f"afade=t=out:curve=qsin:st={length - dur:.3f}:d={dur:.3f}")
         else:  # bass — pinpoint swap

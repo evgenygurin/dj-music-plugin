@@ -127,6 +127,12 @@ def build_render_plan(
     limiter_ceiling: float,
     per_transition_bars: list[int] | None = None,
     per_body_bars: list[int] | None = None,
+    filter_sweep_preset: str | None = None,
+    echo_preset: str | None = None,
+    crossfade_curve_out: str = "tri",
+    crossfade_curve_in: str = "exp",
+    reverb_preset: str | None = None,
+    reverb_mix: float = 0.25,
 ) -> RenderPlan:
     """Classic single-file-per-track plan (asplit 3-band EQ bass-swap)."""
     geometries = place_segments(
@@ -165,6 +171,12 @@ def build_render_plan(
         outro_fade_bars=outro_fade_bars,
         limiter_ceiling=limiter_ceiling,
         segments=segments,
+        filter_sweep_preset=filter_sweep_preset,
+        echo_preset=echo_preset,
+        crossfade_curve_out=crossfade_curve_out,
+        crossfade_curve_in=crossfade_curve_in,
+        reverb_preset=reverb_preset,
+        reverb_mix=reverb_mix,
     )
 
 
@@ -185,9 +197,15 @@ def build_stem_render_plan(
     limiter_ceiling: float,
     per_transition_bars: list[int] | None = None,
     per_body_bars: list[int] | None = None,
+    filter_sweep_preset: str | None = None,
+    echo_preset: str | None = None,
+    crossfade_curve_out: str = "tri",
+    crossfade_curve_in: str = "exp",
+    reverb_preset: str | None = None,
+    reverb_mix: float = 0.25,
     bass_swap_ratio: float = 0.70,
 ) -> RenderPlan:
-    """Stem multi-deck plan — each segment carries 4 demucs stem paths."""
+    """Prepared-stem multi-deck plan — each segment carries 5 stem paths."""
     geometries = place_segments(
         inputs,
         grid,
@@ -230,6 +248,12 @@ def build_stem_render_plan(
         outro_fade_bars=outro_fade_bars,
         limiter_ceiling=limiter_ceiling,
         stem_segments=stem_segments,
+        filter_sweep_preset=filter_sweep_preset,
+        echo_preset=echo_preset,
+        crossfade_curve_out=crossfade_curve_out,
+        crossfade_curve_in=crossfade_curve_in,
+        reverb_preset=reverb_preset,
+        reverb_mix=reverb_mix,
     )
 
 

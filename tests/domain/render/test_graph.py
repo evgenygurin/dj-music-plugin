@@ -50,7 +50,7 @@ def test_filtergraph_single_track_shape():
     assert "lowpass=f=250[lo0]" in joined
     assert "highpass=f=4000[hi0]" in joined
     # single track: no incoming/outgoing crossfade, but an outro fade of 12 bars
-    assert "afade=t=out:curve=qsin" in joined
+    assert "afade=t=out:curve=tri" in joined
     # final limiter
     assert "alimiter=level_in=1:level_out=1:limit=0.85" in joined
     assert joined.endswith("[mix]")
@@ -60,7 +60,7 @@ def test_filtergraph_two_tracks_has_incoming_fade_and_delay():
     parts = build_filtergraph(_plan(2))
     joined = ";".join(parts)
     # second segment's high band fades IN over the incoming transition
-    assert "[hi1]afade=t=in:curve=qsin:st=0" in joined
+    assert "afade=t=in:curve=exp" in joined
     # amix + adelay wiring for segment 1 (delayed to its slot)
     assert "adelay=" in joined
     assert ["amix=inputs=2:normalize=0", ""][0][:5] in joined  # amix present

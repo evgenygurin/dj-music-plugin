@@ -1,22 +1,10 @@
 {
   "$schema": "https://opencode.ai/config.json",
+  "shell": "/bin/zsh",
   "instructions": ["AGENTS.md"],
 
   "skills": {
-    "paths": [".opencode/skills"]
-  },
-
-  "agent": {
-    "dj-music": {
-      "description": "DJ techno music specialist — manages library, builds sets, analyzes audio transitions, works with Yandex Music/Beatport/Suno. Triggers on: dj, set, mix, track, transition.",
-      "mode": "subagent",
-      "model": "claude-sonnet-4-6"
-    },
-    "ym-api-specialist": {
-      "description": "Yandex Music API specialist — debug provider_read/write/search, investigate 429/403/400 errors, trace YM API quirks.",
-      "mode": "subagent",
-      "color": "warning"
-    }
+    "paths": [".opencode/skills", "skills"]
   },
 
   "plugin": [
@@ -45,10 +33,97 @@
   },
 
   "permission": {
+    "read": "allow",
+    "glob": "allow",
+    "grep": "allow",
+    "list": "allow",
+    "webfetch": "allow",
+    "websearch": "allow",
+    "skill": "allow",
+    "todowrite": "allow",
+    "question": "allow",
+    "task": "allow",
+    "lsp": "allow",
+
+    "external_directory": {
+      "/Users/laptop/dev/*": "allow",
+      "/var/folders/**": "allow",
+      "/tmp/*": "allow",
+      "*": "ask"
+    },
+
+    "edit": {
+      "/Users/laptop/dev/dj-music-plugin/**": "allow",
+      "/Users/laptop/.config/opencode/**": "allow",
+      "*": "ask"
+    },
+
+    "bash": {
+      "uv *": "allow",
+      "git status": "allow",
+      "git diff": "allow",
+      "git log *": "allow",
+      "git branch": "allow",
+      "git add *": "ask",
+      "git commit *": "ask",
+      "git push *": "ask",
+      "gh *": "ask",
+      "make check": "allow",
+      "make *": "ask",
+      "npm *": "ask",
+      "npx ctx7*": "allow",
+      "node .gitnexus/*": "allow",
+      "mkdir *": "allow",
+      "ls *": "allow",
+      "*": "ask"
+    },
+
+    "gitnexus_analyze": "allow",
     "gitnexus_query": "allow",
     "gitnexus_context": "allow",
     "gitnexus_impact": "allow",
     "gitnexus_list_repos": "allow",
-    "gitnexus_analyze": "allow"
+    "gitnexus_detect_changes": "allow",
+    "gitnexus_cypher": "allow",
+    "gitnexus_rename": "allow",
+
+    "dj_entity_list": "allow",
+    "dj_entity_get": "allow",
+    "dj_entity_aggregate": "allow",
+    "dj_entity_create": "allow",
+    "dj_entity_update": "allow",
+    "dj_entity_delete": "ask",
+    "dj_provider_read": "allow",
+    "dj_provider_search": "allow",
+    "dj_provider_write": "ask",
+    "dj_playlist_sync": "ask",
+    "dj_sequence_optimize": "allow",
+    "dj_transition_score_pool": "allow",
+    "dj_render_beatgrid": "allow",
+    "dj_render_mixdown": "allow",
+    "dj_render_diagnose": "allow",
+    "dj_ui_library_dashboard": "allow",
+    "dj_ui_library_audit": "allow",
+    "dj_ui_camelot_wheel": "allow",
+    "dj_ui_set_view": "allow",
+    "dj_ui_control_center": "allow",
+    "dj_ui_render_studio": "allow",
+    "dj_ui_transition_score": "allow",
+    "dj_ui_score_pool_matrix": "allow",
+    "dj_unlock_namespace": "ask",
+    "dj_search_tools": "allow",
+    "dj_call_tool": "allow",
+    "dj_tool_invoke": "allow",
+    "dj_list_prompts": "allow",
+    "dj_get_prompt": "allow",
+    "dj_list_resources": "allow",
+    "dj_read_resource": "allow",
+
+    "supabase_execute_sql": "allow",
+    "supabase_list_tables": "allow",
+    "supabase_get_schema": "allow",
+    "supabase_apply_migration": "ask",
+
+    "doom_loop": "deny"
   }
 }

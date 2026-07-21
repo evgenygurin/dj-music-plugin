@@ -1,11 +1,11 @@
 """Stem-aware multi-deck filtergraph + plan builder."""
 
 from app.audio.render.runner import build_ffmpeg_cmd
-from app.domain.render.models import BeatgridEntry, TrackInput
+from app.domain.render.models import STEM_ORDER, BeatgridEntry, TrackInput
 from app.domain.render.stem_graph import build_stem_filtergraph
 from app.domain.render.timeline import build_stem_render_plan
 
-_STEMS = ("drums", "bass", "vocals", "other")
+_STEMS = STEM_ORDER
 
 
 def _stem_plan(n: int, *, target_bpm: float = 130.0):
@@ -56,14 +56,14 @@ def test_stem_plan_has_stem_segments_not_classic():
     assert set(seg.stem_paths) == set(_STEMS)
 
 
-def test_stem_filtergraph_shape_all_four_stems():
+def test_stem_filtergraph_shape_all_five_stems():
     parts = build_stem_filtergraph(_stem_plan(1))
     joined = ";".join(parts)
     for stem in _STEMS:
         assert f"[s0_{stem}]" in joined
         assert f"[s0_{stem}_faded]" in joined
-    # 4 stems recombined per track, straight sum (no averaging)
-    assert "amix=inputs=4:normalize=0" in joined
+    # 5 stems recombined per track, straight sum (no averaging)
+    assert "amix=inputs=5:normalize=0" in joined
     # master chain
     assert "firequalizer" in joined
     assert "alimiter=level_in=1:level_out=1:limit=0.85" in joined
@@ -72,9 +72,9 @@ def test_stem_filtergraph_shape_all_four_stems():
 
 def test_stem_filtergraph_artifact_masking_hpf():
     joined = ";".join(build_stem_filtergraph(_stem_plan(1)))
-    # vocals + other get a bleed-masking high-pass; drums + bass stay full-range
-    assert "highpass=f=120" in joined  # vocals
-    assert "highpass=f=80" in joined  # other
+    # harmonic/instrumental/acappella get bleed-masking high-pass; drums + bass stay full-range
+    assert "highpass=f=120" in joined  # instrumental + acappella
+    assert "highpass=f=80" in joined  # harmonic
     # the drums chain carries no highpass before its volume stage
     drums_chain = next(
         p for p in build_stem_filtergraph(_stem_plan(1)) if p.endswith("[s0_drums]")
@@ -94,7 +94,7 @@ def test_stem_bass_is_pinpoint_swap_between_tracks():
 def test_stem_last_track_fades_out_no_hard_cut():
     parts = build_stem_filtergraph(_stem_plan(2))
     fade_lines = [p for p in parts if any(p.startswith(f"[s1_{s}]") for s in _STEMS)]
-    assert len(fade_lines) == 4
+    assert len(fade_lines) == 5
     # every stem of the final track carries an out-fade
     assert all("afade=t=out" in p for p in fade_lines)
 
@@ -103,19 +103,27 @@ def test_stem_filtergraph_is_deterministic():
     assert build_stem_filtergraph(_stem_plan(3)) == build_stem_filtergraph(_stem_plan(3))
 
 
-def test_runner_stem_branch_maps_four_inputs_per_track():
+def test_stem_filtergraph_keeps_instrumental_as_quiet_safety_bed():
+    joined = ";".join(build_stem_filtergraph(_stem_plan(1)))
+    assert "[s0_instrumental]" in joined
+    assert "volume=-7.00dB" in joined
+
+
+def test_runner_stem_branch_maps_five_inputs_per_track():
     plan = _stem_plan(2)
     cmd = build_ffmpeg_cmd(plan, "/tmp/out.mp3")
-    # 2 tracks x 4 stems = 8 inputs, in (track, stem) order
+    # 2 tracks x 5 stems = 10 inputs, in (track, stem) order
     inputs = [cmd[i + 1] for i, tok in enumerate(cmd) if tok == "-i"]
     assert inputs == [
         "/stems/0/drums.flac",
         "/stems/0/bass.flac",
-        "/stems/0/vocals.flac",
-        "/stems/0/other.flac",
+        "/stems/0/harmonic.flac",
+        "/stems/0/instrumental.flac",
+        "/stems/0/acappella.flac",
         "/stems/1/drums.flac",
         "/stems/1/bass.flac",
-        "/stems/1/vocals.flac",
-        "/stems/1/other.flac",
+        "/stems/1/harmonic.flac",
+        "/stems/1/instrumental.flac",
+        "/stems/1/acappella.flac",
     ]
     assert "[mix]" in cmd

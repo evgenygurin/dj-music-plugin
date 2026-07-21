@@ -8,9 +8,9 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from app.config.render import RenderSettings
 
-# Demucs stem order — the single source of truth for both the ffmpeg input
-# ordering (4 ``-i`` per track) and the stem filtergraph. Never reorder.
-STEM_ORDER: tuple[str, ...] = ("drums", "bass", "vocals", "other")
+# Prepared stem order — the single source of truth for both the ffmpeg input
+# ordering (5 ``-i`` per track) and the stem filtergraph. Never reorder.
+STEM_ORDER: tuple[str, ...] = ("drums", "bass", "harmonic", "instrumental", "acappella")
 
 
 @dataclass(frozen=True, slots=True)
@@ -67,7 +67,7 @@ class TrackSegment:
 
 @dataclass(frozen=True, slots=True)
 class StemSegment:
-    """One track on the stem multi-deck timeline (4 stem inputs from demucs)."""
+    """One track on the prepared-stem multi-deck timeline."""
 
     index: int
     track_idx: int
@@ -124,6 +124,13 @@ class RenderPlan:
     dynaudnorm_maxgain: float = 2.0
     segments: list[TrackSegment] = field(default_factory=list)
     stem_segments: list[StemSegment] | None = None
+    # ── effects (set-wide, one preset per render) ──
+    filter_sweep_preset: str | None = None
+    echo_preset: str | None = None
+    crossfade_curve_out: str = "tri"
+    crossfade_curve_in: str = "exp"
+    reverb_preset: str | None = None
+    reverb_mix: float = 0.25
 
     @property
     def n(self) -> int:
@@ -146,6 +153,12 @@ class RenderPlan:
         limiter_ceiling: float,
         segments: list[TrackSegment] | None = None,
         stem_segments: list[StemSegment] | None = None,
+        filter_sweep_preset: str | None = None,
+        echo_preset: str | None = None,
+        crossfade_curve_out: str = "tri",
+        crossfade_curve_in: str = "exp",
+        reverb_preset: str | None = None,
+        reverb_mix: float = 0.25,
     ) -> RenderPlan:
         """Factory: timeline args from the caller, DSP constants from ``settings``.
 
@@ -178,4 +191,10 @@ class RenderPlan:
             dynaudnorm_maxgain=settings.dynaudnorm_maxgain,
             segments=segments if segments is not None else [],
             stem_segments=stem_segments,
+            filter_sweep_preset=filter_sweep_preset,
+            echo_preset=echo_preset,
+            crossfade_curve_out=crossfade_curve_out,
+            crossfade_curve_in=crossfade_curve_in,
+            reverb_preset=reverb_preset,
+            reverb_mix=reverb_mix,
         )
