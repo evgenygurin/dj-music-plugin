@@ -78,9 +78,9 @@ async def test_mixdown_builds_plan_runs_and_registers(tmp_path, monkeypatch):
 
         Path(out_path).write_bytes(b"ID3fake")
 
-    monkeypatch.setattr("app.handlers.render_mixdown.run_render", _fake_run)
+    monkeypatch.setattr("app.handlers._orchestrator.render_executor.run_render", _fake_run)
     monkeypatch.setattr(
-        "app.handlers.render_mixdown.scan_mix",
+        "app.handlers._orchestrator.render_executor.scan_mix",
         lambda p: type(
             "S",
             (),
@@ -150,9 +150,9 @@ async def test_mixdown_uses_prepared_stems_without_demucs(tmp_path, monkeypatch)
 
         Path(out_path).write_bytes(b"ID3fake")
 
-    monkeypatch.setattr("app.handlers.render_mixdown.run_render", _fake_run)
+    monkeypatch.setattr("app.handlers._orchestrator.render_executor.run_render", _fake_run)
     monkeypatch.setattr(
-        "app.handlers.render_mixdown.scan_mix",
+        "app.handlers._orchestrator.render_executor.scan_mix",
         lambda p: type(
             "S",
             (),
@@ -257,9 +257,9 @@ async def test_mixdown_clamps_body_bars_to_source_duration(tmp_path, monkeypatch
 
         Path(out_path).write_bytes(b"ID3fake")
 
-    monkeypatch.setattr("app.handlers.render_mixdown.run_render", _fake_run)
+    monkeypatch.setattr("app.handlers._orchestrator.render_executor.run_render", _fake_run)
     monkeypatch.setattr(
-        "app.handlers.render_mixdown.scan_mix",
+        "app.handlers._orchestrator.render_executor.scan_mix",
         lambda p: type(
             "S",
             (),
@@ -320,9 +320,9 @@ async def test_mixdown_clamp_uses_inverse_tempo_ratio_for_fast_tracks(tmp_path, 
 
         Path(out_path).write_bytes(b"ID3fake")
 
-    monkeypatch.setattr("app.handlers.render_mixdown.run_render", _fake_run)
+    monkeypatch.setattr("app.handlers._orchestrator.render_executor.run_render", _fake_run)
     monkeypatch.setattr(
-        "app.handlers.render_mixdown.scan_mix",
+        "app.handlers._orchestrator.render_executor.scan_mix",
         lambda p: type(
             "S",
             (),
@@ -397,9 +397,9 @@ async def test_mixdown_explicit_bar_overrides_take_precedence(tmp_path, monkeypa
 
         Path(out_path).write_bytes(b"ID3fake")
 
-    monkeypatch.setattr("app.handlers.render_mixdown.run_render", _fake_run)
+    monkeypatch.setattr("app.handlers._orchestrator.render_executor.run_render", _fake_run)
     monkeypatch.setattr(
-        "app.handlers.render_mixdown.scan_mix",
+        "app.handlers._orchestrator.render_executor.scan_mix",
         lambda p: type(
             "S",
             (),
