@@ -1,11 +1,11 @@
 """Stem-aware multi-deck filtergraph + plan builder."""
 
-from app.audio.render.runner import build_ffmpeg_cmd
 from app.config.render import RenderSettings
 from app.domain.render.bar_plan import BarPlan
 from app.domain.render.models import STEM_ORDER, BeatgridEntry, TrackInput
 from app.domain.render.plan_assembler import RenderPlanner
 from app.domain.render.request import RenderRequest
+from app.domain.render.runner import build_ffmpeg_cmd
 from app.domain.render.stem_graph import build_stem_filtergraph
 
 _STEMS = STEM_ORDER

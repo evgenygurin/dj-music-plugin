@@ -5,12 +5,12 @@ from pathlib import Path
 from typing import Any
 
 from app.audio.render.diagnostics import scan_mix
-from app.audio.render.runner import run_render
 from app.config import get_settings
 from app.domain.performance.subgenre_presets import resolve_preset
 from app.domain.render.bar_plan import BarPlanner
 from app.domain.render.models import BeatgridEntry
 from app.domain.render.plan_assembler import RenderPlanner
+from app.domain.render.runner import run_render
 from app.handlers._context_log import safe_info
 from app.handlers._stem_resolver import StemResolver
 from app.handlers.render_beatgrid import render_beatgrid_handler

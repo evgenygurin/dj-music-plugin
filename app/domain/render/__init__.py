@@ -24,6 +24,7 @@ from app.domain.render.models import (
 )
 from app.domain.render.plan_assembler import RenderPlanner
 from app.domain.render.request import RenderRequest
+from app.domain.render.runner import build_ffmpeg_cmd, run_render
 from app.domain.render.segments import ClassicSegmentFactory, SegmentFactory, StemSegmentFactory
 from app.domain.render.stem_graph import build_stem_filtergraph
 from app.domain.render.stem_voicing import STEM_VOICING, StemVoicing
@@ -60,6 +61,7 @@ __all__ = [
     "TrackInput",
     "TrackSegment",
     "TransitionWindow",
+    "build_ffmpeg_cmd",
     "build_filtergraph",
     "build_stem_filtergraph",
     "clamp_entry",
@@ -68,6 +70,7 @@ __all__ = [
     "entry_to_row",
     "gains_to_median",
     "place_segments",
+    "run_render",
     "select_strategy",
     "timeline_windows",
 ]
