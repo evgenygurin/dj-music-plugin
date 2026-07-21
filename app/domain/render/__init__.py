@@ -9,6 +9,7 @@ from app.domain.render.beatgrid import (
     entry_from_row,
     entry_to_row,
 )
+from app.domain.render.effects_resolver import EffectPresetResolver, ResolvedEffects
 from app.domain.render.filtergraph import RenderStrategy, select_strategy
 from app.domain.render.graph import build_filtergraph
 from app.domain.render.levels import gains_to_median
@@ -43,11 +44,13 @@ __all__ = [
     "BeatgridEntry",
     "BeatgridIO",
     "BeatgridLimits",
+    "EffectPresetResolver",
     "RenderMode",
     "RenderPlan",
     "RenderPlanBuilder",
     "RenderRequest",
     "RenderStrategy",
+    "ResolvedEffects",
     "SegmentGeometry",
     "StemSegment",
     "StemVoicing",
