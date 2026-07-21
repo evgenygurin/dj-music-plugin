@@ -1,6 +1,14 @@
 """Pure render-plan compute (no IO). See docs/render-pipeline.md."""
 
 from app.domain.render.bar_plan import BarPlan, BarPlanner
+from app.domain.render.beatgrid import (
+    BeatgridIO,
+    BeatgridLimits,
+    clamp_entry,
+    entry_flags,
+    entry_from_row,
+    entry_to_row,
+)
 from app.domain.render.filtergraph import RenderStrategy, select_strategy
 from app.domain.render.graph import build_filtergraph
 from app.domain.render.levels import gains_to_median
@@ -31,6 +39,8 @@ __all__ = [
     "BarPlan",
     "BarPlanner",
     "BeatgridEntry",
+    "BeatgridIO",
+    "BeatgridLimits",
     "RenderMode",
     "RenderPlan",
     "RenderPlanBuilder",
@@ -46,6 +56,10 @@ __all__ = [
     "build_render_plan",
     "build_stem_filtergraph",
     "build_stem_render_plan",
+    "clamp_entry",
+    "entry_flags",
+    "entry_from_row",
+    "entry_to_row",
     "gains_to_median",
     "place_segments",
     "select_strategy",
