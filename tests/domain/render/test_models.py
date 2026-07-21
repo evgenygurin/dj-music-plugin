@@ -8,7 +8,7 @@ from app.domain.render.models import (
 )
 
 
-def test_track_input_roundtrip():
+def test_track_input_roundtrip() -> None:
     ti = TrackInput(
         track_id=5435,
         yandex_id=49353955,
@@ -22,7 +22,7 @@ def test_track_input_roundtrip():
     assert ti.tempo_ratio(130.0) == 1.0
 
 
-def test_beatgrid_entry_effective_trim():
+def test_beatgrid_entry_effective_trim() -> None:
     e = BeatgridEntry(
         track_id=1, trim_start_s=0.4, refined_trim_s=0.42, gain_db=1.5, phase_ms=20.0
     )
@@ -33,7 +33,7 @@ def test_beatgrid_entry_effective_trim():
     assert e2.effective_trim == 0.4
 
 
-def test_render_plan_holds_segments():
+def test_render_plan_holds_segments() -> None:
     seg = TrackSegment(
         index=0,
         track_id=1,
@@ -62,7 +62,7 @@ def test_render_plan_holds_segments():
     assert plan.n == 1
 
 
-def test_render_plan_carries_mode():
+def test_render_plan_carries_mode() -> None:
     seg = TrackSegment(
         index=0,
         track_id=1,
@@ -89,3 +89,48 @@ def test_render_plan_carries_mode():
         segments=[seg],
     )
     assert plan.mode is RenderMode.CLASSIC
+
+
+def test_render_package_exports_resolvable() -> None:
+    import app.domain.render as r
+
+    assert r.__all__ == [
+        "STEM_ORDER",
+        "STEM_VOICING",
+        "BarPlan",
+        "BarPlanner",
+        "BeatgridEntry",
+        "BeatgridIO",
+        "BeatgridLimits",
+        "ClassicSegmentFactory",
+        "EffectPresetResolver",
+        "RenderMode",
+        "RenderPlan",
+        "RenderPlanner",
+        "RenderRequest",
+        "RenderStrategy",
+        "ResolvedEffects",
+        "SegmentFactory",
+        "SegmentGeometry",
+        "StemSegment",
+        "StemSegmentFactory",
+        "StemVoicing",
+        "TimelineWindows",
+        "TrackInput",
+        "TrackSegment",
+        "TransitionWindow",
+        "build_ffmpeg_cmd",
+        "build_filtergraph",
+        "build_stem_filtergraph",
+        "clamp_entry",
+        "entry_flags",
+        "entry_from_row",
+        "entry_to_row",
+        "gains_to_median",
+        "place_segments",
+        "run_render",
+        "select_strategy",
+        "timeline_windows",
+    ]
+    for name in r.__all__:
+        assert hasattr(r, name), f"missing export: {name}"
