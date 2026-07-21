@@ -14,6 +14,7 @@ from app.domain.render.models import (
     TrackSegment,
 )
 from app.domain.render.plan_builder import RenderPlanBuilder
+from app.domain.render.request import RenderRequest
 from app.domain.render.stem_graph import build_stem_filtergraph
 from app.domain.render.timeline import (
     SegmentGeometry,
@@ -32,6 +33,7 @@ __all__ = [
     "RenderMode",
     "RenderPlan",
     "RenderPlanBuilder",
+    "RenderRequest",
     "RenderStrategy",
     "SegmentGeometry",
     "StemSegment",
