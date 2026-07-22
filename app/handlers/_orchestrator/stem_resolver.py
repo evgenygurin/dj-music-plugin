@@ -9,13 +9,22 @@ from app.domain.render.models import STEM_ORDER
 from app.handlers._context_log import safe_info
 from app.models.audio_file import DjLibraryItem
 
+_STEM_EXTENSIONS = (".m4a", ".mp3", ".wav", ".flac")
+_STEM_ALIASES: dict[str, tuple[str, ...]] = {
+    **{stem: (stem,) for stem in STEM_ORDER},
+    "vocals": ("acappella",),
+    "other": ("harmonic", "instrumental"),
+}
 
-def _stem_type_from_path(path: str) -> str | None:
+
+def _stem_type_from_path(path: str) -> tuple[str, ...]:
     name = Path(path).name.lower()
-    for stem in STEM_ORDER:
-        if name.endswith(f"-{stem}.m4a") or name.endswith(f"-{stem}.mp3"):
-            return stem
-    return None
+    for stem_name, internal_stems in _STEM_ALIASES.items():
+        for ext in _STEM_EXTENSIONS:
+            suffix = f"{stem_name}{ext}"
+            if name == suffix or name.endswith(f"-{suffix}"):
+                return internal_stems
+    return ()
 
 
 class StemResolver:
@@ -39,8 +48,7 @@ class StemResolver:
         rows = (await session.execute(stmt)).all()
         by_track: dict[int, dict[str, str]] = {tid: {} for tid in track_ids}
         for row in rows:
-            stem = _stem_type_from_path(row.file_path)
-            if stem is not None:
+            for stem in _stem_type_from_path(row.file_path):
                 by_track[row.track_id][stem] = row.file_path
 
         required = set(STEM_ORDER)

@@ -1,4 +1,6 @@
 # tests/domain/render/test_graph.py
+from dataclasses import replace
+
 from app.domain.render.graph import build_filtergraph
 from app.domain.render.models import RenderMode, RenderPlan, TrackSegment
 
@@ -65,6 +67,17 @@ def test_filtergraph_two_tracks_has_incoming_fade_and_delay():
     # amix + adelay wiring for segment 1 (delayed to its slot)
     assert "adelay=" in joined
     assert ["amix=inputs=2:normalize=0", ""][0][:5] in joined  # amix present
+
+
+def test_filtergraph_outgoing_echo_tail_stays_at_tail_position():
+    plan = replace(_plan(2), echo_preset="techno_standard")
+    first = plan.segments[0]
+    tail_start = max(0.0, first.length_s - first.d_out_s * 0.3)
+    tail_ms = int(tail_start * 1000)
+
+    joined = ";".join(build_filtergraph(plan))
+
+    assert f"adelay={tail_ms}|{tail_ms}[se0_out]" in joined
 
 
 def test_filtergraph_is_deterministic():

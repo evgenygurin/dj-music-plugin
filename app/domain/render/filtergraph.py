@@ -156,10 +156,11 @@ class ClassicGraphBuilder(FilterGraphBuilder):
         if ctx.has_next:
             tail_start = max(0.0, ctx.length - ctx.seg.d_out_s * 0.3)
             tail_dur = min(ctx.seg.d_out_s * 0.3, ctx.length - tail_start)
+            tail_ms = int(tail_start * 1000)
             parts.append(
                 f"[se{ctx.i}]atrim=start={tail_start:.3f}:duration={tail_dur:.3f},"
                 f"asetpts=PTS-STARTPTS,"
-                f"aecho={echo_aecho}[se{ctx.i}_out]"
+                f"aecho={echo_aecho},adelay={tail_ms}|{tail_ms}[se{ctx.i}_out]"
             )
         else:
             parts.append(f"[se{ctx.i}]aecho={echo_aecho}[se{ctx.i}_out]")
