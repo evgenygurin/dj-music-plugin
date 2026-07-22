@@ -153,10 +153,10 @@ class AutoFixPlan:
             return ["cp", input_path, output_path]
 
         # Build compound filter with timeline enables
-        filter_parts = []
+        filter_parts: list[str] = []
         for fix in self.fixes:
             enable = f"enable='between(t,{fix.start_s:.3f},{fix.end_s:.3f})'"
-            filter_parts.append(f"{fix.ffmpeg_filter}:{enable}")
+            filter_parts.extend(f"{part}:{enable}" for part in fix.ffmpeg_filter.split(","))
 
         compound = ",".join(filter_parts)
         return [
