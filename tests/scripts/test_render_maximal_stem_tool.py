@@ -135,7 +135,9 @@ def test_scan_features_skips_failed_track_when_enough_material(
     assert {feature.track_index for feature in features.values()} == {1}
 
 
-def _feature(track_index: int, stem: str, *, low: float = 0.2, high: float = 0.3) -> script.StemFeature:
+def _feature(
+    track_index: int, stem: str, *, low: float = 0.2, high: float = 0.3
+) -> script.StemFeature:
     return script.StemFeature(
         track_index=track_index,
         stem=stem,
@@ -163,7 +165,9 @@ def _track(idx: int, bpm: float, genre: str) -> script.StemTrack:
 
 
 def _features_for(track: script.StemTrack) -> dict[str, script.StemFeature]:
-    return {str(track.stems[stem].resolve()): _feature(track.index, stem) for stem in script.STEM_ORDER}
+    return {
+        str(track.stems[stem].resolve()): _feature(track.index, stem) for stem in script.STEM_ORDER
+    }
 
 
 def test_choose_target_bpm_prefers_132_to_134_window() -> None:
@@ -179,12 +183,12 @@ def test_section_scoring_prefers_hypnotic_early_and_peak_late() -> None:
     industrial = _track(2, 134, "industrial")
     features = _features_for(hypnotic) | _features_for(industrial)
 
-    assert script.score_track_for_section(hypnotic, features, early, 133.0, 0) > script.score_track_for_section(
-        industrial, features, early, 133.0, 0
-    )
-    assert script.score_track_for_section(industrial, features, peak, 133.0, 0) > script.score_track_for_section(
-        hypnotic, features, peak, 133.0, 0
-    )
+    assert script.score_track_for_section(
+        hypnotic, features, early, 133.0, 0
+    ) > script.score_track_for_section(industrial, features, early, 133.0, 0)
+    assert script.score_track_for_section(
+        industrial, features, peak, 133.0, 0
+    ) > script.score_track_for_section(hypnotic, features, peak, 133.0, 0)
 
 
 def test_section_scoring_penalizes_reuse_and_extreme_bpm() -> None:
@@ -202,7 +206,16 @@ def test_section_scoring_penalizes_reuse_and_extreme_bpm() -> None:
 
 
 def _many_tracks(count: int = 48) -> tuple[list[script.StemTrack], dict[str, script.StemFeature]]:
-    genres = ["hypnotic", "dub_techno", "progressive", "driving", "industrial", "peak_time", "acid", "detroit"]
+    genres = [
+        "hypnotic",
+        "dub_techno",
+        "progressive",
+        "driving",
+        "industrial",
+        "peak_time",
+        "acid",
+        "detroit",
+    ]
     tracks = [_track(i + 1, 128 + (i % 9), genres[i % len(genres)]) for i in range(count)]
     features: dict[str, script.StemFeature] = {}
     for track in tracks:
@@ -212,7 +225,9 @@ def _many_tracks(count: int = 48) -> tuple[list[script.StemTrack], dict[str, scr
 
 def test_arrangement_pressure_windows_keep_10_to_12_layers() -> None:
     tracks, features = _many_tracks()
-    config = script.PlannerConfig(target_bpm=133.0, duration_bars=64, rotation_bars=4, max_layers=12, seed=7)
+    config = script.PlannerConfig(
+        target_bpm=133.0, duration_bars=64, rotation_bars=4, max_layers=12, seed=7
+    )
 
     plan = script.plan_arrangement(tracks, features, config)
 
@@ -224,7 +239,9 @@ def test_arrangement_pressure_windows_keep_10_to_12_layers() -> None:
 
 def test_arrangement_never_has_two_full_bass_leaders() -> None:
     tracks, features = _many_tracks()
-    config = script.PlannerConfig(target_bpm=133.0, duration_bars=64, rotation_bars=4, max_layers=12, seed=7)
+    config = script.PlannerConfig(
+        target_bpm=133.0, duration_bars=64, rotation_bars=4, max_layers=12, seed=7
+    )
 
     plan = script.plan_arrangement(tracks, features, config)
 
@@ -236,7 +253,9 @@ def test_arrangement_never_has_two_full_bass_leaders() -> None:
 
 def test_arrangement_rotates_layers_every_4_bars() -> None:
     tracks, features = _many_tracks()
-    config = script.PlannerConfig(target_bpm=133.0, duration_bars=48, rotation_bars=4, max_layers=12, seed=3)
+    config = script.PlannerConfig(
+        target_bpm=133.0, duration_bars=48, rotation_bars=4, max_layers=12, seed=3
+    )
 
     plan = script.plan_arrangement(tracks, features, config)
 
@@ -244,7 +263,9 @@ def test_arrangement_rotates_layers_every_4_bars() -> None:
     for window in range(1, config.duration_bars // config.rotation_bars):
         prev = {
             (e.track_index, e.stem, e.role)
-            for e in script.active_events_at(plan, (window - 1) * config.rotation_bars * bar_s + 0.1)
+            for e in script.active_events_at(
+                plan, (window - 1) * config.rotation_bars * bar_s + 0.1
+            )
         }
         cur = {
             (e.track_index, e.stem, e.role)
@@ -255,7 +276,9 @@ def test_arrangement_rotates_layers_every_4_bars() -> None:
 
 def test_arrangement_uses_broad_source_set() -> None:
     tracks, features = _many_tracks(72)
-    config = script.PlannerConfig(target_bpm=133.0, duration_bars=96, rotation_bars=4, max_layers=12, seed=11)
+    config = script.PlannerConfig(
+        target_bpm=133.0, duration_bars=96, rotation_bars=4, max_layers=12, seed=11
+    )
 
     plan = script.plan_arrangement(tracks, features, config)
 
@@ -311,7 +334,9 @@ def test_split_chunks_caps_input_count() -> None:
         script.StemEvent(**{**asdict(plan.events[0]), "track_index": i, "path": f"/tmp/{i}.m4a"})
         for i in range(125)
     ]
-    large = script.ArrangementPlan(title="large", target_bpm=133.0, duration_s=8.0, events=many_events)
+    large = script.ArrangementPlan(
+        title="large", target_bpm=133.0, duration_s=8.0, events=many_events
+    )
 
     chunks = script.split_chunks(large, max_inputs=50)
 
@@ -350,7 +375,13 @@ def test_render_chunk_runs_without_shell(tmp_path: Path, monkeypatch: pytest.Mon
 
 def test_build_manifest_contains_required_fields(tmp_path: Path) -> None:
     plan = _tiny_plan()
-    manifest = script.build_manifest(plan, [_track(1, 132, "hypnotic")], tmp_path, tmp_path / "final.mp3", {"true_peak_db": -1.0})
+    manifest = script.build_manifest(
+        plan,
+        [_track(1, 132, "hypnotic")],
+        tmp_path,
+        tmp_path / "final.mp3",
+        {"true_peak_db": -1.0},
+    )
 
     assert manifest["title"] == "test"
     assert manifest["target_bpm"] == 133.0
@@ -367,7 +398,9 @@ def test_write_manifest_creates_json(tmp_path: Path) -> None:
     assert json.loads(target.read_text(encoding="utf-8")) == {"ok": True}
 
 
-def test_cli_plan_only_writes_manifest_without_render(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_cli_plan_only_writes_manifest_without_render(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     _write_track(tmp_path, 1, 132, "hypnotic", "One")
     _write_track(tmp_path, 2, 133, "driving", "Two")
     tracks = script.parse_catalog(tmp_path)
@@ -376,7 +409,9 @@ def test_cli_plan_only_writes_manifest_without_render(tmp_path: Path, monkeypatc
         _write_track(tmp_path, idx, 132 + idx % 4, "driving", f"Extra {idx}")
         tracks = script.parse_catalog(tmp_path)
 
-    def fake_scan(input_tracks: list[script.StemTrack], cache_path: Path) -> dict[str, script.StemFeature]:
+    def fake_scan(
+        input_tracks: list[script.StemTrack], cache_path: Path
+    ) -> dict[str, script.StemFeature]:
         features: dict[str, script.StemFeature] = {}
         for track in input_tracks:
             features.update(_features_for(track))
@@ -385,7 +420,17 @@ def test_cli_plan_only_writes_manifest_without_render(tmp_path: Path, monkeypatc
     monkeypatch.setattr(script, "scan_features", fake_scan)
     out_dir = tmp_path / "out"
 
-    rc = script.main(["--stems-dir", str(tmp_path), "--out-dir", str(out_dir), "--plan-only", "--duration-bars", "48"])
+    rc = script.main(
+        [
+            "--stems-dir",
+            str(tmp_path),
+            "--out-dir",
+            str(out_dir),
+            "--plan-only",
+            "--duration-bars",
+            "48",
+        ]
+    )
 
     assert rc == 0
     manifest = json.loads((out_dir / "manifest.json").read_text(encoding="utf-8"))
