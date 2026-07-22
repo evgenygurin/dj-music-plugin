@@ -27,8 +27,8 @@ Versioning follows [Semantic Versioning](https://semver.org/).
   Claude instruction file so release metadata drift is caught locally.
 
 ### Tests
-- Added 11 focused regression tests for the review findings.
-- Targeted review-fix suite: `11 passed`.
+- Added 12 focused regression tests for the review findings.
+- Targeted review-fix suite: `12 passed`.
 
 ## [1.11.0] - 2026-07-22
 
