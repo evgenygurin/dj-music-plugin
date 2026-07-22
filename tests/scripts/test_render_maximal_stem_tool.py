@@ -132,3 +132,69 @@ def test_scan_features_skips_failed_track_when_enough_material(
     features = script.scan_features(tracks, tmp_path / "features-cache.json")
 
     assert {feature.track_index for feature in features.values()} == {1}
+
+
+def _feature(track_index: int, stem: str, *, low: float = 0.2, high: float = 0.3) -> script.StemFeature:
+    return script.StemFeature(
+        track_index=track_index,
+        stem=stem,
+        path=f"/tmp/{track_index}-{stem}.m4a",
+        mtime_ns=1,
+        size=1,
+        rms_db=-18.0,
+        low_ratio=low,
+        mid_ratio=0.5,
+        high_ratio=high,
+        centroid_hz=1200.0,
+        onset_rate=3.0 if stem == "drums" else 1.0,
+        chroma_peak=4 if stem in {"harmonic", "instrumental", "acappella"} else None,
+    )
+
+
+def _track(idx: int, bpm: float, genre: str) -> script.StemTrack:
+    return script.StemTrack(
+        index=idx,
+        title=f"Track {idx}",
+        bpm=bpm,
+        genre=genre,
+        stems={stem: Path(f"/tmp/{idx}-{stem}.m4a") for stem in script.STEM_ORDER},
+    )
+
+
+def _features_for(track: script.StemTrack) -> dict[str, script.StemFeature]:
+    return {str(track.stems[stem].resolve()): _feature(track.index, stem) for stem in script.STEM_ORDER}
+
+
+def test_choose_target_bpm_prefers_132_to_134_window() -> None:
+    tracks = [_track(1, 128, "hypnotic"), _track(2, 132, "driving"), _track(3, 136, "industrial")]
+
+    assert 132.0 <= script.choose_target_bpm(tracks) <= 134.0
+
+
+def test_section_scoring_prefers_hypnotic_early_and_peak_late() -> None:
+    early = script.SECTION_ARC[0]
+    peak = script.SECTION_ARC[-2]
+    hypnotic = _track(1, 132, "hypnotic")
+    industrial = _track(2, 134, "industrial")
+    features = _features_for(hypnotic) | _features_for(industrial)
+
+    assert script.score_track_for_section(hypnotic, features, early, 133.0, 0) > script.score_track_for_section(
+        industrial, features, early, 133.0, 0
+    )
+    assert script.score_track_for_section(industrial, features, peak, 133.0, 0) > script.score_track_for_section(
+        hypnotic, features, peak, 133.0, 0
+    )
+
+
+def test_section_scoring_penalizes_reuse_and_extreme_bpm() -> None:
+    section = script.SECTION_ARC[1]
+    close = _track(1, 132, "driving")
+    far = _track(2, 156, "driving")
+    features = _features_for(close) | _features_for(far)
+
+    fresh = script.score_track_for_section(close, features, section, 133.0, 0)
+    reused = script.score_track_for_section(close, features, section, 133.0, 5)
+    stretched = script.score_track_for_section(far, features, section, 133.0, 0)
+
+    assert fresh > reused
+    assert fresh > stretched

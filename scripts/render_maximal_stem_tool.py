@@ -132,6 +132,124 @@ def scan_features(tracks: Sequence[StemTrack], cache_path: Path) -> dict[str, St
     return features
 
 
+@dataclass(frozen=True, slots=True)
+class SectionSpec:
+    name: str
+    start: float
+    end: float
+    density: tuple[int, int]
+    preferred_genres: tuple[str, ...]
+
+
+SECTION_ARC: tuple[SectionSpec, ...] = (
+    SectionSpec(
+        "intro_hypnotic",
+        0.00,
+        0.15,
+        (5, 8),
+        ("hypnotic", "dub_techno", "minimal", "progressive", "detroit"),
+    ),
+    SectionSpec(
+        "build_driving",
+        0.15,
+        0.38,
+        (8, 10),
+        ("hypnotic", "driving", "progressive", "acid", "detroit"),
+    ),
+    SectionSpec(
+        "pressure",
+        0.38,
+        0.76,
+        (10, 12),
+        ("driving", "industrial", "peak_time", "acid", "detroit"),
+    ),
+    SectionSpec(
+        "peak_release",
+        0.76,
+        0.91,
+        (10, 12),
+        ("industrial", "peak_time", "hard_techno", "driving", "acid"),
+    ),
+    SectionSpec(
+        "outro_control",
+        0.91,
+        1.00,
+        (5, 8),
+        ("dub_techno", "hypnotic", "detroit", "progressive", "driving"),
+    ),
+)
+
+
+def choose_target_bpm(tracks: Sequence[StemTrack]) -> float:
+    candidates = [track.bpm for track in tracks if 128.0 <= track.bpm <= 138.0]
+    if not candidates:
+        return 133.0
+    avg = sum(candidates) / len(candidates)
+    return max(132.0, min(134.0, round(avg)))
+
+
+def track_features(features: dict[str, StemFeature], track: StemTrack) -> dict[str, StemFeature]:
+    selected: dict[str, StemFeature] = {}
+    for stem in STEM_ORDER:
+        key = feature_key(track.stems[stem])
+        if key in features:
+            selected[stem] = features[key]
+    return selected
+
+
+def _genre_score(genre: str, preferred: tuple[str, ...]) -> float:
+    if genre not in preferred:
+        return -2.5
+    return 5.0 - preferred.index(genre) * 0.65
+
+
+def score_track_for_section(
+    track: StemTrack,
+    features: dict[str, StemFeature],
+    section: SectionSpec,
+    target_bpm: float,
+    reuse_count: int,
+) -> float:
+    per_stem = track_features(features, track)
+    bpm_penalty = abs(track.bpm - target_bpm) * 0.8
+    reuse_penalty = reuse_count * 2.0
+    low_penalty = (
+        max(0.0, per_stem.get("bass", _feature_fallback(track, "bass")).low_ratio - 0.38)
+        * 4.0
+    )
+    drum_bonus = min(
+        2.0,
+        per_stem.get("drums", _feature_fallback(track, "drums")).onset_rate * 0.2,
+    )
+    brightness = per_stem.get("harmonic", _feature_fallback(track, "harmonic")).high_ratio
+    brightness_bonus = min(1.0, brightness * 2.0)
+    return (
+        _genre_score(track.genre, section.preferred_genres)
+        + drum_bonus
+        + brightness_bonus
+        - bpm_penalty
+        - reuse_penalty
+        - low_penalty
+    )
+
+
+def _feature_fallback(track: StemTrack, stem: str) -> StemFeature:
+    return StemFeature(
+        track_index=track.index,
+        stem=stem,
+        path=str(track.stems[stem]),
+        mtime_ns=0,
+        size=0,
+        rms_db=-24.0,
+        low_ratio=0.2,
+        mid_ratio=0.5,
+        high_ratio=0.3,
+        centroid_hz=1000.0,
+        onset_rate=1.0,
+        chroma_peak=None,
+    )
+
+
 def complete_tracks(tracks: Iterable[StemTrack]) -> list[StemTrack]:
     required = set(STEM_ORDER)
     return sorted(
