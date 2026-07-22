@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import random
 import re
 import shutil
 import subprocess
@@ -14,6 +15,16 @@ from typing import Any
 STEMS_DIR = Path("/Users/laptop/Desktop/Stems")
 OUT_DIR = Path("generated-sets/maximal-stem-tool-2026-07-22")
 STEM_ORDER: tuple[str, ...] = ("acappella", "bass", "drums", "harmonic", "instrumental")
+ROLE_STEM_MAP: dict[str, str] = {
+    "drum_core": "drums",
+    "drum_top": "drums",
+    "drum_drive": "drums",
+    "bass_leader": "bass",
+    "bass_ghost": "bass",
+    "harmonic": "harmonic",
+    "instrumental_bed": "instrumental",
+    "acappella_chop": "acappella",
+}
 STEM_PATTERN = re.compile(
     r"^(?P<index>\d+)\s+\[(?P<bpm>\d+)bpm\]\s+\[(?P<genre>[\w-]+)\]\s+"
     r"(?P<title>.+)-(?P<stem>acappella|bass|drums|harmonic|instrumental)\.m4a$"
@@ -258,7 +269,7 @@ def _feature_fallback(track: StemTrack, stem: str) -> StemFeature:
 class PlannerConfig:
     target_bpm: float = 133.0
     duration_bars: int = 360
-    rotation_bars: int = 4
+    rotation_bars: int = 32
     max_layers: int = 12
     seed: int = 17
 
@@ -406,6 +417,25 @@ def _add_event(
     )
 
 
+def _compute_window_roles(target_layers: int) -> list[tuple[str, str, str]]:
+    slots: list[tuple[str, str, str]] = []
+    drum_count = 3 if target_layers >= 10 else 2
+    drum_roles = (("drum_core", "drums"), ("drum_top", "drums"), ("drum_drive", "drums"))
+    for i, (role_name, stem) in enumerate(drum_roles):
+        if i < drum_count:
+            slots.append((f"drum_{i}", stem, role_name))
+    slots.append(("bass_0", "bass", "bass_leader"))
+    if target_layers >= 11:
+        slots.append(("bass_1", "bass", "bass_ghost"))
+    harmonic_count = 4 if target_layers >= 10 else 2
+    for i in range(harmonic_count):
+        slots.append((f"harmonic_{i}", "harmonic", "harmonic"))
+    bed_count = 2 if target_layers >= 11 else 1
+    for i in range(bed_count):
+        slots.append((f"bed_{i}", "instrumental", "instrumental_bed"))
+    return slots
+
+
 def plan_arrangement(
     tracks: Sequence[StemTrack],
     features: dict[str, StemFeature],
@@ -417,115 +447,129 @@ def plan_arrangement(
     window_s = config.rotation_bars * bar_s
     windows = config.duration_bars // config.rotation_bars
     duration_s = windows * window_s
-    events: list[StemEvent] = []
     reuse: Counter[int] = Counter()
 
+    fade_s = min(4.0, window_s * 0.35)
+    rng = random.Random(config.seed)
+    window_assignments: list[dict[str, tuple[float, StemTrack]]] = []
+    slot_meta: dict[str, tuple[str, str]] = {}
+    prev_slots: dict[str, tuple[float, StemTrack]] = {}
+    prev_slot_ids: set[str] = set()
+
     for window in range(windows):
-        start_s = window * window_s
-        end_s = start_s + window_s
         progress = window / max(1, windows - 1)
         section = section_for_progress(progress)
         target_layers = min(config.max_layers, section.density[1])
         ranked = _rank_tracks(tracks, features, section, config.target_bpm, reuse)
         blocked: set[int] = set()
-        fade_s = min(4.0, window_s * 0.35)
 
-        drum_count = 3 if target_layers >= 10 else 2
-        drum_picks = _pick_distinct(ranked, count=drum_count, blocked=blocked)
-        for role, (score, track) in zip(
-            ("drum_core", "drum_top", "drum_drive"),
-            drum_picks,
-            strict=False,
-        ):
-            _add_event(
-                events,
-                track,
-                stem="drums",
-                role=role,
-                start_s=start_s,
-                end_s=end_s,
-                target_bpm=config.target_bpm,
-                score=score,
-                fade_s=fade_s,
-            )
-            reuse[track.index] += 1
+        slot_specs = _compute_window_roles(target_layers)
+        cur_slot_ids = {sid for sid, _, _ in slot_specs}
+        new_slot_ids = cur_slot_ids - prev_slot_ids
+        common_slot_ids = cur_slot_ids & prev_slot_ids
 
-        bass_count = 2 if target_layers >= 10 else 1
-        bass_picks = _pick_distinct(ranked, count=bass_count, blocked=blocked)
-        if bass_picks:
-            score, track = bass_picks[0]
-            _add_event(
-                events,
-                track,
-                stem="bass",
-                role="bass_leader",
-                start_s=start_s,
-                end_s=end_s,
-                target_bpm=config.target_bpm,
-                score=score,
-                fade_s=fade_s,
-            )
-            reuse[track.index] += 1
-        if len(bass_picks) > 1 and target_layers >= 11:
-            score, track = bass_picks[1]
-            _add_event(
-                events,
-                track,
-                stem="bass",
-                role="bass_ghost",
-                start_s=start_s,
-                end_s=end_s,
-                target_bpm=config.target_bpm,
-                score=score,
-                fade_s=fade_s,
-            )
-            reuse[track.index] += 1
+        for sid, stem, role in slot_specs:
+            slot_meta.setdefault(sid, (stem, role))
 
-        harmonic_count = 4 if target_layers >= 10 else 2
-        for score, track in _pick_distinct(ranked, count=harmonic_count, blocked=blocked):
-            _add_event(
-                events,
-                track,
-                stem="harmonic",
-                role="harmonic",
-                start_s=start_s,
-                end_s=end_s,
-                target_bpm=config.target_bpm,
-                score=score,
-                fade_s=fade_s,
-            )
-            reuse[track.index] += 1
+        rotate_count = max(2, min(5, len(cur_slot_ids) // 3))
+        to_rotate: set[str] = set()
 
-        bed_count = 2 if target_layers >= 11 else 1
-        for score, track in _pick_distinct(ranked, count=bed_count, blocked=blocked):
+        if window == 0:
+            to_rotate = cur_slot_ids.copy()
+        else:
+            to_rotate.update(new_slot_ids)
+            candidates = sorted(common_slot_ids)
+            rng.shuffle(candidates)
+            to_rotate.update(candidates[:max(0, rotate_count - len(to_rotate))])
+
+        cur: dict[str, tuple[float, StemTrack]] = {}
+        for sid, _, _ in slot_specs:
+            if sid in prev_slots:
+                _, existing = prev_slots[sid]
+                blocked.add(existing.index)
+            if sid in to_rotate or sid not in prev_slots:
+                picks = _pick_distinct(ranked, count=1, blocked=blocked)
+                if picks:
+                    score, track = picks[0]
+                    cur[sid] = (score, track)
+                    reuse[track.index] += 1
+            else:
+                cur[sid] = prev_slots[sid]
+                score, track = prev_slots[sid]
+                reuse[track.index] += 1
+
+        window_assignments.append(cur)
+        prev_slots = cur
+        prev_slot_ids = cur_slot_ids
+
+    events: list[StemEvent] = []
+    for sid in sorted(slot_meta):
+        stem, role = slot_meta[sid]
+        run_start: float | None = None
+        run_score: float = 0.0
+        run_track: StemTrack | None = None
+        for win_idx, assignments in enumerate(window_assignments):
+            win_start = win_idx * window_s
+            if sid in assignments:
+                score, track = assignments[sid]
+                if run_track is None:
+                    run_track = track
+                    run_score = score
+                    run_start = win_start
+                elif run_track.index != track.index:
+                    assert run_start is not None
+                    _add_event(
+                        events,
+                        run_track, stem=stem, role=role,
+                        start_s=run_start, end_s=win_start,
+                        target_bpm=config.target_bpm,
+                        score=run_score, fade_s=fade_s,
+                    )
+                    run_track = track
+                    run_score = score
+                    run_start = win_start
+            else:
+                if run_track is not None:
+                    assert run_start is not None
+                    _add_event(
+                        events,
+                        run_track, stem=stem, role=role,
+                        start_s=run_start, end_s=win_start,
+                        target_bpm=config.target_bpm,
+                        score=run_score, fade_s=fade_s,
+                    )
+                    run_track = None
+        if run_track is not None:
+            assert run_start is not None
             _add_event(
                 events,
-                track,
-                stem="instrumental",
-                role="instrumental_bed",
-                start_s=start_s,
-                end_s=end_s,
+                run_track, stem=stem, role=role,
+                start_s=run_start, end_s=duration_s,
                 target_bpm=config.target_bpm,
-                score=score,
-                fade_s=fade_s,
+                score=run_score, fade_s=fade_s,
             )
-            reuse[track.index] += 1
+
+    for window in range(windows):
+        progress = window / max(1, windows - 1)
+        section = section_for_progress(progress)
+        target_layers = min(config.max_layers, section.density[1])
+        ranked = _rank_tracks(tracks, features, section, config.target_bpm, reuse)
+        chop_blocked: set[int] = set()
+        start_s = window * window_s
+        end_s = start_s + window_s
 
         if target_layers >= 12 and window % 3 == 1:
-            picks = _pick_distinct(ranked, count=1, blocked=blocked)
+            picks = _pick_distinct(ranked, count=1, blocked=chop_blocked)
             if picks:
                 score, track = picks[0]
                 chop_start = start_s + window_s * 0.50
                 _add_event(
                     events,
-                    track,
-                    stem="acappella",
-                    role="acappella_chop",
+                    track, stem="acappella", role="acappella_chop",
                     start_s=chop_start,
                     end_s=min(end_s, chop_start + window_s * 0.45),
                     target_bpm=config.target_bpm,
-                    score=score,
-                    fade_s=1.0,
+                    score=score, fade_s=1.0,
                 )
                 reuse[track.index] += 1
 
@@ -635,8 +679,9 @@ def build_chunk_command(chunk: RenderChunk, out_path: Path) -> list[str]:
     labels = "".join(f"[e{i}]" for i in range(len(chunk.events)))
     filters.append(
         f"{labels}amix=inputs={len(chunk.events)}:normalize=0,"
+        "volume=-2dB,"
         "firequalizer=gain_entry='entry(50,-1);entry(250,-1);entry(900,0);entry(8000,0.8)',"
-        "alimiter=level_in=1:level_out=1:limit=0.86:attack=10:release=35:asc=0[mix]"
+        "alimiter=level_in=1:level_out=0.89:limit=0.89:attack=2:release=18:asc=0[mix]"
     )
     return [
         "ffmpeg",
@@ -686,7 +731,7 @@ def join_parts(parts: Sequence[Path], out_path: Path) -> None:
         "-y",
         *inputs,
         "-filter_complex",
-        f"{chain};[joined]loudnorm=I=-14:LRA=6:TP=-1.0,alimiter=limit=0.86:attack=10:release=35[mix]",
+        f"{chain};[joined]volume=-2dB,alimiter=level_in=1:level_out=0.89:limit=0.89:attack=2:release=18:asc=0[mix]",
         "-map",
         "[mix]",
         "-c:a",
@@ -811,7 +856,7 @@ def _parse_args(argv: Sequence[str] | None) -> argparse.Namespace:
     parser.add_argument("--out-dir", type=Path, default=OUT_DIR)
     parser.add_argument("--target-bpm", type=float, default=None)
     parser.add_argument("--duration-bars", type=int, default=360)
-    parser.add_argument("--rotation-bars", type=int, default=4)
+    parser.add_argument("--rotation-bars", type=int, default=32)
     parser.add_argument("--max-layers", type=int, default=12)
     parser.add_argument("--max-inputs-per-part", type=int, default=96)
     parser.add_argument("--plan-only", action="store_true")
