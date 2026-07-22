@@ -4,6 +4,32 @@ All notable changes to this project will be documented in this file.
 Format based on [Keep a Changelog](https://keepachangelog.com/).
 Versioning follows [Semantic Versioning](https://semver.org/).
 
+## [1.11.1] - 2026-07-22
+
+### Fixed
+- **`auto_fix` no longer shells out through `shell=True`.** The ffmpeg repair
+  command is now built as an argv list and executed without a shell, so custom
+  mix paths cannot inject shell commands.
+- **`auto_fix` parses real `render_diagnose` windows.** It now understands
+  `offset_s` plus tag prefixes like `LEVEL-JUMP +8dB` / `DROPOUT -30dB` and
+  creates non-zero repair windows from diagnostic offsets.
+- **Performance cue section mapping uses shared `SectionType`.** Cue detection
+  and transition-window planning now use the canonical section ids (`OUTRO=7`,
+  `DROP=4`, etc.) instead of stale local constants.
+- **`transition_window.preferred_bars` is honored.** The tool now passes the
+  requested transition length into domain planning.
+- **Effect builders preserve zero-valued custom params.** `echo_builder` and
+  `reverb_builder` no longer replace `0.0` wet/dry, mix, pre-delay, decay, or
+  stereo-spread values with defaults.
+- **Open filter sweeps emit highpass expressions.** Custom `direction="open"`
+  and preset incoming sweeps now return `highpass=...` ffmpeg expressions.
+- **Version synchronization includes `CLAUDE.md`.** The test now covers the
+  Claude instruction file so release metadata drift is caught locally.
+
+### Tests
+- Added 11 focused regression tests for the review findings.
+- Targeted review-fix suite: `11 passed`.
+
 ## [1.11.0] - 2026-07-22
 
 ### Changed

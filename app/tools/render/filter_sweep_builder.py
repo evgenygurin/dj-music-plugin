@@ -17,6 +17,12 @@ from app.schemas.filter_sweep import FilterSweepResult, FilterSweepSide
 from app.shared.errors import ValidationError
 
 
+def _ffmpeg_expr(plan: FilterSweepPlan) -> str:
+    if plan.direction == SweepDirection.OPEN:
+        return plan.ffmpeg_highpass_expr(8.0)
+    return plan.ffmpeg_lowpass_expr(8.0)
+
+
 @tool(
     name="filter_sweep_builder",
     tags={"namespace:render:effects"},
@@ -71,7 +77,7 @@ async def filter_sweep_builder(
                 direction=tp.outgoing.direction.value,
                 curve=tp.outgoing.curve.value,
                 resonance=tp.outgoing.resonance,
-                ffmpeg_expr=tp.outgoing.ffmpeg_lowpass_expr(8.0),
+                ffmpeg_expr=_ffmpeg_expr(tp.outgoing),
             )
             if tp.outgoing
             else None
@@ -83,7 +89,7 @@ async def filter_sweep_builder(
                 direction=tp.incoming.direction.value,
                 curve=tp.incoming.curve.value,
                 resonance=tp.incoming.resonance,
-                ffmpeg_expr=tp.incoming.ffmpeg_lowpass_expr(8.0),
+                ffmpeg_expr=_ffmpeg_expr(tp.incoming),
             )
             if tp.incoming
             else None
@@ -102,7 +108,7 @@ async def filter_sweep_builder(
         end_freq_hz=end_freq_hz,
         direction=dir_enum,
         curve=curve_enum,
-        resonance=resonance or 0.7,
+        resonance=resonance if resonance is not None else 0.7,
     )
     side = FilterSweepSide(
         start_freq_hz=plan.start_freq_hz,
@@ -110,6 +116,6 @@ async def filter_sweep_builder(
         direction=plan.direction.value,
         curve=plan.curve.value,
         resonance=plan.resonance,
-        ffmpeg_expr=plan.ffmpeg_lowpass_expr(8.0),
+        ffmpeg_expr=_ffmpeg_expr(plan),
     )
     return FilterSweepResult(outgoing=side)

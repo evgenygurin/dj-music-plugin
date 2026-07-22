@@ -142,15 +142,15 @@ class AutoFixPlan:
                     )
                 )
 
-    def ffmpeg_fix_chain(self, input_path: str, output_path: str) -> str:
-        """Generate complete ffmpeg command with all fixes applied.
+    def ffmpeg_fix_chain(self, input_path: str, output_path: str) -> list[str]:
+        """Generate complete ffmpeg argv with all fixes applied.
 
         Uses timeline editing (enable='between(t,start,end)') to apply
         each fix only during its time window, leaving the rest untouched.
         """
         self.generate_fixes()
         if not self.fixes:
-            return f"cp '{input_path}' '{output_path}'  # no fixes needed"
+            return ["cp", input_path, output_path]
 
         # Build compound filter with timeline enables
         filter_parts = []
@@ -159,7 +159,16 @@ class AutoFixPlan:
             filter_parts.append(f"{fix.ffmpeg_filter}:{enable}")
 
         compound = ",".join(filter_parts)
-        return (
-            f"ffmpeg -i '{input_path}' -af '{compound}' "
-            f"-c:a libmp3lame -b:a 320k -y '{output_path}'"
-        )
+        return [
+            "ffmpeg",
+            "-i",
+            input_path,
+            "-af",
+            compound,
+            "-c:a",
+            "libmp3lame",
+            "-b:a",
+            "320k",
+            "-y",
+            output_path,
+        ]

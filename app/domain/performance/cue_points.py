@@ -21,6 +21,8 @@ from dataclasses import dataclass, field
 from enum import IntEnum
 from typing import Any
 
+from app.shared.constants import SectionType
+
 
 class CueType(IntEnum):
     GRID = 0  # beatgrid anchor
@@ -86,22 +88,30 @@ class CuePointSet:
         return 0
 
 
-# Section type constants from app/models/track_features.py TrackSection
-# (0-11 as defined in the check constraint ck_section_type_range)
 SECTION_NAMES: dict[int, str] = {
-    0: "intro",
-    1: "build",
-    2: "drop",
-    3: "breakdown",
-    4: "peak",
-    5: "outro",
-    6: "valley",
-    7: "sustain",
-    8: "attack",
-    9: "ambient",
-    10: "bridge",
-    11: "buildup",
+    SectionType.INTRO: "intro",
+    SectionType.ATTACK: "attack",
+    SectionType.BUILD: "build",
+    SectionType.PRE_DROP: "pre_drop",
+    SectionType.DROP: "drop",
+    SectionType.PEAK: "peak",
+    SectionType.BREAKDOWN: "breakdown",
+    SectionType.OUTRO: "outro",
+    SectionType.RISE: "rise",
+    SectionType.VALLEY: "valley",
+    SectionType.SUSTAIN: "sustain",
+    SectionType.AMBIENT: "ambient",
 }
+
+
+def _section_type(section: dict[str, Any]) -> SectionType | None:
+    raw = section.get("section_type")
+    if raw is None:
+        return None
+    try:
+        return SectionType(int(raw))
+    except (TypeError, ValueError):
+        return None
 
 
 def detect_cues(
@@ -132,8 +142,12 @@ def detect_cues(
         )
     )
 
-    # ── Cue B: Build-up start (section_type=1 or energy rising steeply) ──
-    builds = [s for s in sorted_secs if s.get("section_type") in (1, 8)]
+    # ── Cue B: Build-up start ──
+    builds = [
+        s
+        for s in sorted_secs
+        if _section_type(s) in {SectionType.ATTACK, SectionType.BUILD, SectionType.RISE}
+    ]
     if builds:
         cues.append(
             CuePoint(
@@ -147,7 +161,9 @@ def detect_cues(
     else:
         # Fallback: 32 bars before first drop
         bar_ms = 240000.0 / bpm if bpm > 0 else 2000.0
-        drops = [s for s in sorted_secs if s.get("section_type") in (2, 4)]
+        drops = [
+            s for s in sorted_secs if _section_type(s) in {SectionType.DROP, SectionType.PEAK}
+        ]
         if drops:
             pos = max(0, drops[0]["start_ms"] - 32 * bar_ms)
             cues.append(
@@ -160,8 +176,8 @@ def detect_cues(
                 )
             )
 
-    # ── Cue C: First drop / Peak (section_type=2 or 4) ──
-    drops = [s for s in sorted_secs if s.get("section_type") in (2, 4)]
+    # ── Cue C: First drop / Peak ──
+    drops = [s for s in sorted_secs if _section_type(s) in {SectionType.DROP, SectionType.PEAK}]
     if drops:
         best = max(drops, key=lambda s: s.get("energy", 0) or 0)
         cues.append(
@@ -174,8 +190,12 @@ def detect_cues(
             )
         )
 
-    # ── Cue D: Breakdown (section_type=3, 6, or 9) ──
-    breakdowns = [s for s in sorted_secs if s.get("section_type") in (3, 6, 9)]
+    # ── Cue D: Breakdown ──
+    breakdowns = [
+        s
+        for s in sorted_secs
+        if _section_type(s) in {SectionType.BREAKDOWN, SectionType.VALLEY, SectionType.AMBIENT}
+    ]
     if breakdowns:
         cues.append(
             CuePoint(
@@ -199,8 +219,8 @@ def detect_cues(
             )
         )
 
-    # ── Cue F: Outro (section_type=5) ──
-    outros = [s for s in sorted_secs if s.get("section_type") == 5]
+    # ── Cue F: Outro ──
+    outros = [s for s in sorted_secs if _section_type(s) == SectionType.OUTRO]
     if outros:
         cues.append(
             CuePoint(
@@ -270,6 +290,7 @@ def find_transition_window(
     from_sections: list[dict[str, Any]],
     to_sections: list[dict[str, Any]],
     bpm: float,
+    preferred_bars: int = 32,
 ) -> TransitionCueWindow:
     """Find the best transition window between two tracks.
 
@@ -279,17 +300,17 @@ def find_transition_window(
     - Align so the energy handoff feels natural
     """
     bar_ms = 240000.0 / bpm if bpm > 0 else 2000.0
-    transition_bars = 32  # default techno transition length
+    transition_bars = preferred_bars
     transition_ms = transition_bars * bar_ms
 
     # Find outro of track A
     from_sorted = sorted(from_sections, key=lambda s: s.get("start_ms", 0))
-    outros_a = [s for s in from_sorted if s.get("section_type") == 5]
+    outros_a = [s for s in from_sorted if _section_type(s) == SectionType.OUTRO]
     outro_start = outros_a[0]["start_ms"] if outros_a else 0
 
     # Find intro of track B
     to_sorted = sorted(to_sections, key=lambda s: s.get("start_ms", 0))
-    intros_b = [s for s in to_sorted if s.get("section_type") == 0]
+    intros_b = [s for s in to_sorted if _section_type(s) == SectionType.INTRO]
     intro_end = intros_b[0]["end_ms"] if intros_b else 32000
 
     mix_out_start = outro_start if outro_start > 0 else 0

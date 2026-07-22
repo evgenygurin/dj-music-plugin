@@ -57,7 +57,7 @@ async def transition_window(
         features = await uow.track_features.get_by_track_id(from_track_id)
         bpm = float(getattr(features, "bpm", 128) or 128)
 
-    win = find_transition_window(from_sections, to_sections, bpm)
+    win = find_transition_window(from_sections, to_sections, bpm, preferred_bars=preferred_bars)
 
     return TransitionWindowResult(
         from_track_id=win.from_track_id,
