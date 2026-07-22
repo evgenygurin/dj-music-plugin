@@ -135,11 +135,14 @@ async def test_mixdown_uses_prepared_stems_without_demucs(tmp_path, monkeypatch)
             ]
         )
     )
-    rows = [
-        SimpleNamespace(track_id=i, file_path=f"/Users/laptop/Desktop/Stems/{i:04d}-x-{stem}.m4a")
-        for i in range(2)
-        for stem in STEM_ORDER
-    ]
+    rows = []
+    stems_dir = tmp_path / "stems"
+    stems_dir.mkdir()
+    for i in range(2):
+        for stem in STEM_ORDER:
+            path = stems_dir / f"{i:04d}-x-{stem}.m4a"
+            path.write_bytes(b"stem")
+            rows.append(SimpleNamespace(track_id=i, file_path=str(path)))
     session = _PreparedStemSession(rows)
     captured = {}
 

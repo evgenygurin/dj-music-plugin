@@ -44,6 +44,14 @@ def _complete_stem_order(stems: dict[str, str]) -> tuple[str, ...] | None:
     return None
 
 
+def _missing_for_any_order(stems: dict[str, str]) -> list[str]:
+    keys = set(stems)
+    missing_prepared = set(STEM_ORDER) - keys
+    missing_demucs = set(DEMUCS_STEM_ORDER) - keys
+    missing = missing_prepared if len(missing_prepared) <= len(missing_demucs) else missing_demucs
+    return sorted(missing)
+
+
 async def _separate_stems(
     ctx: Any, inputs: list[Any], workspace: str
 ) -> dict[int, dict[str, str]] | None:
@@ -110,16 +118,35 @@ class StemResolver:
             for stem in _stem_type_from_path(row.file_path):
                 by_track[row.track_id][stem] = row.file_path
 
-        missing = {
-            tid: sorted(set(STEM_ORDER) - set(stems))
-            for tid, stems in by_track.items()
-            if _complete_stem_order(stems) is None
-        }
+        orders: dict[int, tuple[str, ...]] = {}
+        missing = {}
+        for tid, stems in by_track.items():
+            order = _complete_stem_order(stems)
+            if order is None:
+                missing[tid] = _missing_for_any_order(stems)
+            else:
+                orders[tid] = order
         if missing:
             await safe_info(
                 ctx,
                 "prepared stem render unavailable; missing stems for "
                 f"{len(missing)}/{len(track_ids)} tracks",
+            )
+            return await _separate_stems(ctx, inputs, workspace) if workspace else None
+        if len(set(orders.values())) > 1:
+            await safe_info(ctx, "prepared stem render unavailable; mixed stem layouts")
+            return await _separate_stems(ctx, inputs, workspace) if workspace else None
+
+        missing_files = {
+            tid: sorted({path for path in stems.values() if not Path(path).exists()})
+            for tid, stems in by_track.items()
+        }
+        missing_files = {tid: paths for tid, paths in missing_files.items() if paths}
+        if missing_files:
+            await safe_info(
+                ctx,
+                "prepared stem render unavailable; missing files for "
+                f"{len(missing_files)}/{len(track_ids)} tracks",
             )
             return await _separate_stems(ctx, inputs, workspace) if workspace else None
 

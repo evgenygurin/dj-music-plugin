@@ -50,50 +50,80 @@ def _row(track_id: int, file_path: str) -> Any:
     return SimpleNamespace(track_id=track_id, file_path=file_path)
 
 
+def _write_stems(tmp_path: Path, track: str, stems: tuple[str, ...]) -> list[str]:
+    stem_dir = tmp_path / track
+    stem_dir.mkdir()
+    paths: list[str] = []
+    for stem in stems:
+        path = stem_dir / f"{stem}.wav"
+        path.write_bytes(b"audio")
+        paths.append(str(path))
+    return paths
+
+
 @pytest.mark.asyncio
-async def test_resolve_accepts_demucs_four_stem_directory_names() -> None:
-    rows = [
-        _row(1, "/stems/track/drums.wav"),
-        _row(1, "/stems/track/bass.wav"),
-        _row(1, "/stems/track/vocals.wav"),
-        _row(1, "/stems/track/other.wav"),
-    ]
+async def test_resolve_accepts_demucs_four_stem_directory_names(tmp_path: Path) -> None:
+    rows = [_row(1, file_path) for file_path in _write_stems(tmp_path, "track", _DEMUCS_STEMS)]
 
     result = await StemResolver().resolve(None, _Uow(rows), [_input(1)])
 
     assert result is not None
     assert set(result[1]) == set(_DEMUCS_STEMS)
-    assert result[1]["drums"] == "/stems/track/drums.wav"
-    assert result[1]["bass"] == "/stems/track/bass.wav"
-    assert result[1]["vocals"] == "/stems/track/vocals.wav"
-    assert result[1]["other"] == "/stems/track/other.wav"
+    assert result[1]["drums"].endswith("/track/drums.wav")
+    assert result[1]["bass"].endswith("/track/bass.wav")
+    assert result[1]["vocals"].endswith("/track/vocals.wav")
+    assert result[1]["other"].endswith("/track/other.wav")
 
 
 @pytest.mark.asyncio
-async def test_resolve_accepts_demucs_prefixed_flac_names() -> None:
-    rows = [
-        _row(1, "/stems/track-name-drums.flac"),
-        _row(1, "/stems/track-name-bass.flac"),
-        _row(1, "/stems/track-name-vocals.flac"),
-        _row(1, "/stems/track-name-other.flac"),
-    ]
+async def test_resolve_accepts_demucs_prefixed_flac_names(tmp_path: Path) -> None:
+    rows = []
+    for stem in _DEMUCS_STEMS:
+        path = tmp_path / f"track-name-{stem}.flac"
+        path.write_bytes(b"audio")
+        rows.append(_row(1, str(path)))
 
     result = await StemResolver().resolve(None, _Uow(rows), [_input(1)])
 
     assert result is not None
     assert set(result[1]) == set(_DEMUCS_STEMS)
-    assert result[1]["vocals"] == "/stems/track-name-vocals.flac"
-    assert result[1]["other"] == "/stems/track-name-other.flac"
+    assert result[1]["vocals"].endswith("track-name-vocals.flac")
+    assert result[1]["other"].endswith("track-name-other.flac")
 
 
 @pytest.mark.asyncio
-async def test_resolve_accepts_prepared_five_stem_names() -> None:
-    rows = [_row(1, f"/stems/track/{stem}.m4a") for stem in STEM_ORDER]
+async def test_resolve_accepts_prepared_five_stem_names(tmp_path: Path) -> None:
+    rows = []
+    for stem in STEM_ORDER:
+        path = tmp_path / f"{stem}.m4a"
+        path.write_bytes(b"audio")
+        rows.append(_row(1, str(path)))
 
     result = await StemResolver().resolve(None, _Uow(rows), [_input(1)])
 
     assert result is not None
     assert set(result[1]) == set(STEM_ORDER)
+
+
+@pytest.mark.asyncio
+async def test_resolve_returns_none_for_mixed_prepared_layouts(tmp_path: Path) -> None:
+    rows = [
+        *[_row(1, file_path) for file_path in _write_stems(tmp_path, "prepared", STEM_ORDER)],
+        *[_row(2, file_path) for file_path in _write_stems(tmp_path, "demucs", _DEMUCS_STEMS)],
+    ]
+
+    result = await StemResolver().resolve(None, _Uow(rows), [_input(1), _input(2)])
+
+    assert result is None
+
+
+@pytest.mark.asyncio
+async def test_resolve_returns_none_when_prepared_stem_file_is_missing() -> None:
+    rows = [_row(1, f"/missing/{stem}.m4a") for stem in STEM_ORDER]
+
+    result = await StemResolver().resolve(None, _Uow(rows), [_input(1)])
+
+    assert result is None
 
 
 @pytest.mark.asyncio

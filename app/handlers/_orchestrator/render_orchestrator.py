@@ -36,16 +36,25 @@ class RenderOrchestrator:
         self._executor = executor or RenderExecutor()
 
     async def run(self, ctx: Any, request: RenderRequest) -> RenderMixdownResult:
-        settings = get_settings().render
-        await self._preset.apply(settings, ctx, request.subgenre)
+        settings = get_settings().render.model_copy(deep=True)
+        preset_applied = await self._preset.apply(settings, ctx, request.subgenre)
         await self._beatgrid.ensure(ctx, request, self._uow)
         inputs = await self._uow.set_versions.get_render_inputs(request.version_id)
         grid = self._beatgrid.load(request.workspace)
+        transition_override = request.transition_bars
+        body_override = request.body_bars
+        if preset_applied:
+            transition_override = (
+                transition_override
+                if transition_override is not None
+                else settings.transition_bars
+            )
+            body_override = body_override if body_override is not None else settings.body_bars
         bar_plan = BarPlanner(settings).compute(
             inputs,
             grid,
-            transition_override=request.transition_bars,
-            body_override=request.body_bars,
+            transition_override=transition_override,
+            body_override=body_override,
         )
         plan_request = request
         stem_paths = None

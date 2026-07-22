@@ -5,8 +5,10 @@ from typing import Any
 
 import pytest
 
+from app.config import get_settings, reset_settings_cache
 from app.domain.render.models import RenderMode, TrackInput
 from app.domain.render.request import RenderRequest
+from app.handlers._orchestrator.preset_applier import SubgenrePresetApplier
 from app.handlers._orchestrator.render_orchestrator import RenderOrchestrator
 from app.schemas.render import RenderMixdownResult
 from app.shared.render_jobs import RENDER_JOBS
@@ -100,6 +102,31 @@ class _Planner:
         assert grid == {}
         assert len(bar_plan.body_bars) == len(inputs)
         assert stem_paths == self._expected_stems
+        self._recorder.calls.append("assemble")
+        return type("Plan", (), {"mode": request.mode, "n": len(inputs)})()
+
+
+class _CapturingPlanner:
+    def __init__(self, recorder: _Recorder) -> None:
+        self._recorder = recorder
+        self.settings: Any = None
+        self.bar_plan: Any = None
+
+    def assemble(
+        self,
+        settings: Any,
+        request: RenderRequest,
+        inputs: list[TrackInput],
+        grid: dict[int, Any],
+        bar_plan: Any,
+        stem_paths: dict[int, dict[str, str]] | None,
+    ) -> Any:
+        assert request.version_id == 1
+        assert inputs
+        assert grid == {}
+        assert stem_paths is None
+        self.settings = settings
+        self.bar_plan = bar_plan
         self._recorder.calls.append("assemble")
         return type("Plan", (), {"mode": request.mode, "n": len(inputs)})()
 
@@ -204,3 +231,34 @@ async def test_run_calls_stem_resolver_before_planner_in_stem_mode() -> None:
         "assemble",
         "execute",
     ]
+
+
+@pytest.mark.asyncio
+async def test_subgenre_preset_uses_per_render_settings_and_bar_plan() -> None:
+    RENDER_JOBS.clear()
+    reset_settings_cache()
+    base_render_settings = get_settings().render
+    base_transition = base_render_settings.transition_bars
+    base_body = base_render_settings.body_bars
+    recorder = _Recorder(calls=[])
+    planner = _CapturingPlanner(recorder)
+    orchestrator = RenderOrchestrator(
+        _StubUow(_inputs(2), recorder),
+        preset_applier=SubgenrePresetApplier(),
+        beatgrid_provider=_BeatgridProvider(recorder),
+        stem_resolver=_StemResolver(recorder),
+        planner=planner,
+        executor=_Executor(recorder, expected_mode=RenderMode.CLASSIC),
+    )
+
+    try:
+        await orchestrator.run(ctx=None, request=_req(stem=False))
+
+        assert planner.settings.transition_bars == 64
+        assert planner.settings.body_bars == 32
+        assert planner.bar_plan.transition_bars == (64,)
+        assert planner.bar_plan.body_bars == [32, 32]
+        assert get_settings().render.transition_bars == base_transition
+        assert get_settings().render.body_bars == base_body
+    finally:
+        reset_settings_cache()

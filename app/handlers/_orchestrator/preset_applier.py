@@ -10,11 +10,12 @@ from app.handlers._context_log import safe_info
 
 
 class SubgenrePresetApplier:
-    async def apply(self, settings: RenderSettings, ctx: Any, subgenre: str | None) -> None:
+    async def apply(self, settings: RenderSettings, ctx: Any, subgenre: str | None) -> bool:
         if not subgenre:
-            return
+            return False
         preset = resolve_preset(subgenre)
         if preset is None:
-            return
+            return False
         preset.apply(settings)
         await safe_info(ctx, f"render_mixdown: subgenre preset {subgenre!r} applied")
+        return True
