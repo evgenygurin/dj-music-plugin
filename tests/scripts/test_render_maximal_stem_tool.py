@@ -346,3 +346,55 @@ def test_render_chunk_runs_without_shell(tmp_path: Path, monkeypatch: pytest.Mon
     assert calls
     assert calls[0]["check"] is True
     assert isinstance(calls[0]["cmd"], list)
+
+
+def test_build_manifest_contains_required_fields(tmp_path: Path) -> None:
+    plan = _tiny_plan()
+    manifest = script.build_manifest(plan, [_track(1, 132, "hypnotic")], tmp_path, tmp_path / "final.mp3", {"true_peak_db": -1.0})
+
+    assert manifest["title"] == "test"
+    assert manifest["target_bpm"] == 133.0
+    assert manifest["output"]["final_path"] == str(tmp_path / "final.mp3")
+    assert manifest["qa"]["true_peak_db"] == -1.0
+    assert manifest["reuse"]["source_track_count"] >= 1
+    assert manifest["events"][0]["role"] == "drum_core"
+
+
+def test_write_manifest_creates_json(tmp_path: Path) -> None:
+    target = tmp_path / "manifest.json"
+    script.write_manifest(target, {"ok": True})
+
+    assert json.loads(target.read_text(encoding="utf-8")) == {"ok": True}
+
+
+def test_cli_plan_only_writes_manifest_without_render(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    _write_track(tmp_path, 1, 132, "hypnotic", "One")
+    _write_track(tmp_path, 2, 133, "driving", "Two")
+    tracks = script.parse_catalog(tmp_path)
+    while len(tracks) < 24:
+        idx = len(tracks) + 1
+        _write_track(tmp_path, idx, 132 + idx % 4, "driving", f"Extra {idx}")
+        tracks = script.parse_catalog(tmp_path)
+
+    def fake_scan(input_tracks: list[script.StemTrack], cache_path: Path) -> dict[str, script.StemFeature]:
+        features: dict[str, script.StemFeature] = {}
+        for track in input_tracks:
+            features.update(_features_for(track))
+        return features
+
+    monkeypatch.setattr(script, "scan_features", fake_scan)
+    out_dir = tmp_path / "out"
+
+    rc = script.main(["--stems-dir", str(tmp_path), "--out-dir", str(out_dir), "--plan-only", "--duration-bars", "48"])
+
+    assert rc == 0
+    manifest = json.loads((out_dir / "manifest.json").read_text(encoding="utf-8"))
+    assert manifest["source"]["stems_dir"] == str(tmp_path)
+    assert manifest["output"]["final_path"] is None
+
+
+def test_preflight_missing_ffmpeg_raises(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(script.shutil, "which", lambda name: None)
+
+    with pytest.raises(RuntimeError, match="ffmpeg is required"):
+        script.preflight_ffmpeg()

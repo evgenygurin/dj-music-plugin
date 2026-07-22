@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import argparse
 import json
 import re
+import shutil
 import subprocess
 from collections import Counter
 from collections.abc import Iterable, Sequence
@@ -738,3 +740,128 @@ def parse_catalog(stems_dir: Path) -> list[StemTrack]:
     if not tracks:
         raise RuntimeError(f"no complete five-stem tracks found in {stems_dir}")
     return tracks
+
+
+def build_manifest(
+    plan: ArrangementPlan,
+    tracks: Sequence[StemTrack],
+    out_dir: Path,
+    final_path: Path | None,
+    qa: dict[str, Any] | None,
+) -> dict[str, Any]:
+    source_counts = Counter(event.track_index for event in plan.events)
+    genre_counts = Counter(event.genre for event in plan.events)
+    return {
+        "title": plan.title,
+        "target_bpm": plan.target_bpm,
+        "duration_s": plan.duration_s,
+        "source": {
+            "stems_dir": str(STEMS_DIR),
+            "candidate_tracks": len(tracks),
+        },
+        "output": {
+            "out_dir": str(out_dir),
+            "final_path": str(final_path) if final_path is not None else None,
+        },
+        "reuse": {
+            "source_track_count": len(source_counts),
+            "source_counts": dict(sorted(source_counts.items())),
+            "genre_counts": dict(sorted(genre_counts.items())),
+        },
+        "events": [asdict(event) for event in plan.events],
+        "qa": qa or {},
+    }
+
+
+def write_manifest(path: Path, manifest: dict[str, Any]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+def run_qa(final_path: Path) -> dict[str, Any]:
+    from app.audio.render.diagnostics import diagnose_mix, scan_mix
+
+    scan = scan_mix(str(final_path))
+    diagnose = diagnose_mix(str(final_path))
+    return {
+        "duration_s": scan.duration_s,
+        "true_peak_db": scan.true_peak_db,
+        "clip_risk": scan.clip_risk,
+        "level_jumps": len(scan.level_jumps),
+        "near_silent_s": len(scan.near_silent_s),
+        "flagged_windows": diagnose.flagged,
+    }
+
+
+def preflight_ffmpeg() -> None:
+    if shutil.which("ffmpeg") is None:
+        raise RuntimeError("ffmpeg is required on PATH")
+    proc = subprocess.run(
+        ["ffmpeg", "-hide_banner", "-filters"], capture_output=True, text=True, check=False
+    )
+    if "rubberband" not in proc.stdout:
+        raise RuntimeError("ffmpeg rubberband filter is required for tempo-stretching")
+
+
+def _parse_args(argv: Sequence[str] | None) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description="Render a maximal local prepared-stem techno tool"
+    )
+    parser.add_argument("--stems-dir", type=Path, default=STEMS_DIR)
+    parser.add_argument("--out-dir", type=Path, default=OUT_DIR)
+    parser.add_argument("--target-bpm", type=float, default=None)
+    parser.add_argument("--duration-bars", type=int, default=360)
+    parser.add_argument("--rotation-bars", type=int, default=4)
+    parser.add_argument("--max-layers", type=int, default=12)
+    parser.add_argument("--max-inputs-per-part", type=int, default=96)
+    parser.add_argument("--plan-only", action="store_true")
+    return parser.parse_args(argv)
+
+
+def main(argv: Sequence[str] | None = None) -> int:
+    args = _parse_args(argv)
+    tracks = parse_catalog(args.stems_dir)
+    args.out_dir.mkdir(parents=True, exist_ok=True)
+    features = scan_features(tracks, args.out_dir / "features-cache.json")
+    target_bpm = args.target_bpm if args.target_bpm is not None else choose_target_bpm(tracks)
+    config = PlannerConfig(
+        target_bpm=target_bpm,
+        duration_bars=args.duration_bars,
+        rotation_bars=args.rotation_bars,
+        max_layers=args.max_layers,
+    )
+    plan = plan_arrangement(tracks, features, config)
+    final_path = args.out_dir / "MAXIMAL_STEM_TOOL_FINAL.mp3"
+
+    if args.plan_only:
+        manifest = build_manifest(plan, tracks, args.out_dir, None, None)
+        manifest["source"]["stems_dir"] = str(args.stems_dir)
+        write_manifest(args.out_dir / "manifest.json", manifest)
+        plan_summary = {
+            "mode": "plan-only",
+            "events": len(plan.events),
+            "out_dir": str(args.out_dir),
+        }
+        print(json.dumps(plan_summary))
+        return 0
+
+    preflight_ffmpeg()
+    chunks = split_chunks(plan, max_inputs=args.max_inputs_per_part)
+    parts: list[Path] = []
+    for chunk in chunks:
+        part_path = args.out_dir / f"PART_{chunk.index:03d}.mp3"
+        render_chunk(chunk, part_path)
+        parts.append(part_path)
+    join_parts(parts, final_path)
+    qa = run_qa(final_path)
+    manifest = build_manifest(plan, tracks, args.out_dir, final_path, qa)
+    manifest["source"]["stems_dir"] = str(args.stems_dir)
+    write_manifest(args.out_dir / "manifest.json", manifest)
+    write_manifest(args.out_dir / "diagnostics.json", qa)
+    render_summary = {"mode": "render", "final_path": str(final_path), "qa": qa}
+    print(json.dumps(render_summary, ensure_ascii=False))
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
