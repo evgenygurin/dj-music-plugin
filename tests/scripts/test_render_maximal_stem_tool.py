@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from dataclasses import asdict
 from pathlib import Path
 
 import pytest
@@ -261,3 +262,87 @@ def test_arrangement_uses_broad_source_set() -> None:
     used_tracks = {event.track_index for event in plan.events}
 
     assert len(used_tracks) >= 36
+
+
+def _tiny_plan() -> script.ArrangementPlan:
+    track = _track(1, 132, "hypnotic")
+    events = [
+        script.StemEvent(
+            track_index=1,
+            title="Track 1",
+            genre="hypnotic",
+            stem="drums",
+            role="drum_core",
+            path=str(track.stems["drums"]),
+            start_s=0.0,
+            end_s=8.0,
+            source_bpm=132.0,
+            target_bpm=133.0,
+            gain_db=-6.0,
+            fade_in_s=1.0,
+            fade_out_s=1.0,
+            eq_chain="highpass=f=36",
+            score=1.0,
+        ),
+        script.StemEvent(
+            track_index=2,
+            title="Track 2",
+            genre="driving",
+            stem="bass",
+            role="bass_leader",
+            path="/tmp/2-bass.m4a",
+            start_s=0.0,
+            end_s=8.0,
+            source_bpm=134.0,
+            target_bpm=133.0,
+            gain_db=-7.0,
+            fade_in_s=1.0,
+            fade_out_s=1.0,
+            eq_chain="highpass=f=30,lowpass=f=235",
+            score=1.0,
+        ),
+    ]
+    return script.ArrangementPlan(title="test", target_bpm=133.0, duration_s=8.0, events=events)
+
+
+def test_split_chunks_caps_input_count() -> None:
+    plan = _tiny_plan()
+    many_events = [
+        script.StemEvent(**{**asdict(plan.events[0]), "track_index": i, "path": f"/tmp/{i}.m4a"})
+        for i in range(125)
+    ]
+    large = script.ArrangementPlan(title="large", target_bpm=133.0, duration_s=8.0, events=many_events)
+
+    chunks = script.split_chunks(large, max_inputs=50)
+
+    assert len(chunks) == 3
+    assert all(len(chunk.events) <= 50 for chunk in chunks)
+
+
+def test_build_chunk_command_is_argv_and_contains_no_shell_string(tmp_path: Path) -> None:
+    chunk = script.split_chunks(_tiny_plan(), max_inputs=50)[0]
+    cmd = script.build_chunk_command(chunk, tmp_path / "part.mp3")
+
+    assert isinstance(cmd, list)
+    assert cmd[0] == "ffmpeg"
+    assert "-filter_complex" in cmd
+    assert all(";" not in arg or arg == cmd[cmd.index("-filter_complex") + 1] for arg in cmd)
+    assert any("rubberband=tempo=" in arg for arg in cmd)
+    assert any("alimiter=" in arg for arg in cmd)
+
+
+def test_render_chunk_runs_without_shell(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    calls: list[dict[str, object]] = []
+
+    def fake_run(cmd: list[str], *, stderr: object, text: bool, check: bool) -> object:
+        calls.append({"cmd": cmd, "stderr": stderr, "text": text, "check": check})
+        return object()
+
+    monkeypatch.setattr(script.subprocess, "run", fake_run)
+    chunk = script.split_chunks(_tiny_plan(), max_inputs=50)[0]
+
+    script.render_chunk(chunk, tmp_path / "part.mp3")
+
+    assert calls
+    assert calls[0]["check"] is True
+    assert isinstance(calls[0]["cmd"], list)

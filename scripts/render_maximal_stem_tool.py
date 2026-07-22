@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import re
+import subprocess
 from collections import Counter
 from collections.abc import Iterable, Sequence
 from dataclasses import asdict, dataclass, field
@@ -547,6 +548,154 @@ def validate_arrangement(plan: ArrangementPlan, config: PlannerConfig) -> None:
         bass_leaders = [event for event in active if event.role == "bass_leader"]
         if len(bass_leaders) > 1:
             raise RuntimeError(f"multiple bass leaders at {second}s")
+
+
+@dataclass(frozen=True, slots=True)
+class RenderChunk:
+    index: int
+    start_s: float
+    end_s: float
+    events: list[StemEvent]
+
+
+def split_chunks(plan: ArrangementPlan, max_inputs: int = 96) -> list[RenderChunk]:
+    if max_inputs < 2:
+        raise ValueError("max_inputs must be >= 2")
+    chunks: list[RenderChunk] = []
+    events = sorted(plan.events, key=lambda event: (event.start_s, event.track_index, event.stem))
+    current: list[StemEvent] = []
+    current_start = 0.0
+    for start_s in sorted({event.start_s for event in events}):
+        group = [event for event in events if event.start_s == start_s]
+        if current and len(current) + len(group) > max_inputs:
+            chunks.append(
+                RenderChunk(
+                    index=len(chunks),
+                    start_s=current_start,
+                    end_s=max(event.end_s for event in current),
+                    events=current,
+                )
+            )
+            current = []
+        if not current:
+            current_start = start_s
+        if len(group) > max_inputs:
+            for offset in range(0, len(group), max_inputs):
+                piece = group[offset : offset + max_inputs]
+                chunks.append(
+                    RenderChunk(
+                        index=len(chunks),
+                        start_s=start_s,
+                        end_s=max(event.end_s for event in piece),
+                        events=piece,
+                    )
+                )
+            current = []
+            continue
+        current.extend(group)
+    if current:
+        chunks.append(
+            RenderChunk(
+                index=len(chunks),
+                start_s=current_start,
+                end_s=max(event.end_s for event in current),
+                events=current,
+            )
+        )
+    return chunks
+
+
+def _delay_ms(event: StemEvent, chunk: RenderChunk) -> int:
+    return max(0, round((event.start_s - chunk.start_s) * 1000))
+
+
+def _event_filter(input_idx: int, event: StemEvent, chunk: RenderChunk) -> str:
+    duration = max(0.05, event.duration_s)
+    tempo = event.tempo_ratio
+    delay = _delay_ms(event, chunk)
+    fade_out_start = max(0.0, duration - event.fade_out_s)
+    return (
+        f"[{input_idx}:a]atrim=start=0:duration={duration / tempo + 1.0:.3f},"
+        f"asetpts=PTS-STARTPTS,rubberband=tempo={tempo:.5f}:pitchq=quality,"
+        f"atrim=duration={duration:.3f},asetpts=PTS-STARTPTS,"
+        f"{event.eq_chain},volume={event.gain_db:.2f}dB,"
+        f"afade=t=in:curve=qsin:st=0:d={event.fade_in_s:.3f},"
+        f"afade=t=out:curve=qsin:st={fade_out_start:.3f}:d={event.fade_out_s:.3f},"
+        f"adelay={delay}|{delay}[e{input_idx}]"
+    )
+
+
+def build_chunk_command(chunk: RenderChunk, out_path: Path) -> list[str]:
+    if not chunk.events:
+        raise RuntimeError("cannot render empty chunk")
+    inputs = [arg for event in chunk.events for arg in ("-i", event.path)]
+    filters = [_event_filter(i, event, chunk) for i, event in enumerate(chunk.events)]
+    labels = "".join(f"[e{i}]" for i in range(len(chunk.events)))
+    filters.append(
+        f"{labels}amix=inputs={len(chunk.events)}:normalize=0,"
+        "firequalizer=gain_entry='entry(50,-1);entry(250,-1);entry(900,0);entry(8000,0.8)',"
+        "alimiter=level_in=1:level_out=1:limit=0.86:attack=10:release=35:asc=0[mix]"
+    )
+    return [
+        "ffmpeg",
+        "-y",
+        *inputs,
+        "-filter_complex",
+        ";".join(filters),
+        "-map",
+        "[mix]",
+        "-c:a",
+        "libmp3lame",
+        "-b:a",
+        "320k",
+        "-q:a",
+        "0",
+        str(out_path),
+    ]
+
+
+def render_chunk(chunk: RenderChunk, out_path: Path) -> None:
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    subprocess.run(
+        build_chunk_command(chunk, out_path),
+        stderr=subprocess.PIPE,
+        text=True,
+        check=True,
+    )
+
+
+def join_parts(parts: Sequence[Path], out_path: Path) -> None:
+    if not parts:
+        raise RuntimeError("no rendered parts to join")
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    if len(parts) == 1:
+        out_path.write_bytes(parts[0].read_bytes())
+        return
+    inputs = [arg for part in parts for arg in ("-i", str(part))]
+    chain = ""
+    prev = "[0:a]"
+    for idx in range(1, len(parts)):
+        out = f"[x{idx}]" if idx < len(parts) - 1 else "[joined]"
+        chain += f"{prev}[{idx}:a]acrossfade=d=2:c1=qsin:c2=qsin{out};"
+        prev = out
+    chain = chain.rstrip(";")
+    cmd = [
+        "ffmpeg",
+        "-y",
+        *inputs,
+        "-filter_complex",
+        f"{chain};[joined]loudnorm=I=-14:LRA=6:TP=-1.0,alimiter=limit=0.86:attack=10:release=35[mix]",
+        "-map",
+        "[mix]",
+        "-c:a",
+        "libmp3lame",
+        "-b:a",
+        "320k",
+        "-q:a",
+        "0",
+        str(out_path),
+    ]
+    subprocess.run(cmd, stderr=subprocess.PIPE, text=True, check=True)
 
 
 def complete_tracks(tracks: Iterable[StemTrack]) -> list[StemTrack]:
