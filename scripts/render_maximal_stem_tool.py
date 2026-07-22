@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import re
+from collections import Counter
 from collections.abc import Iterable, Sequence
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
@@ -248,6 +249,304 @@ def _feature_fallback(track: StemTrack, stem: str) -> StemFeature:
         onset_rate=1.0,
         chroma_peak=None,
     )
+
+
+@dataclass(frozen=True, slots=True)
+class PlannerConfig:
+    target_bpm: float = 133.0
+    duration_bars: int = 360
+    rotation_bars: int = 4
+    max_layers: int = 12
+    seed: int = 17
+
+
+@dataclass(frozen=True, slots=True)
+class StemEvent:
+    track_index: int
+    title: str
+    genre: str
+    stem: str
+    role: str
+    path: str
+    start_s: float
+    end_s: float
+    source_bpm: float
+    target_bpm: float
+    gain_db: float
+    fade_in_s: float
+    fade_out_s: float
+    eq_chain: str
+    score: float
+
+    @property
+    def duration_s(self) -> float:
+        return self.end_s - self.start_s
+
+    @property
+    def tempo_ratio(self) -> float:
+        return self.target_bpm / self.source_bpm
+
+
+@dataclass(frozen=True, slots=True)
+class ArrangementPlan:
+    title: str
+    target_bpm: float
+    duration_s: float
+    events: list[StemEvent]
+
+
+def bar_seconds(target_bpm: float) -> float:
+    return 4.0 * (60.0 / target_bpm)
+
+
+def section_for_progress(progress: float) -> SectionSpec:
+    for section in SECTION_ARC:
+        if section.start <= progress < section.end:
+            return section
+    return SECTION_ARC[-1]
+
+
+def active_events_at(plan: ArrangementPlan, time_s: float) -> list[StemEvent]:
+    return [event for event in plan.events if event.start_s <= time_s < event.end_s]
+
+
+def stem_eq_chain(stem: str, role: str) -> str:
+    if role == "bass_leader":
+        return "highpass=f=30:t=4,lowpass=f=235,equalizer=f=58:t=q:w=1.0:g=0.8"
+    if role == "bass_ghost":
+        return "highpass=f=95:t=4,lowpass=f=310,volume=-5dB"
+    if stem == "drums":
+        return "highpass=f=36:t=4,lowpass=f=15500,equalizer=f=260:t=q:w=1.2:g=-1.0"
+    if stem == "harmonic":
+        return "highpass=f=170:t=4,lowpass=f=10500,equalizer=f=360:t=q:w=1.3:g=-1.0"
+    if stem == "instrumental":
+        return "highpass=f=230:t=4,lowpass=f=7800,equalizer=f=420:t=q:w=1.2:g=-2.0"
+    return "highpass=f=155:t=4,lowpass=f=11200,equalizer=f=280:t=q:w=1.0:g=-1.5"
+
+
+def role_gain_db(role: str) -> float:
+    return {
+        "drum_core": -5.5,
+        "drum_top": -8.0,
+        "drum_drive": -7.0,
+        "bass_leader": -6.0,
+        "bass_ghost": -13.0,
+        "harmonic": -11.0,
+        "instrumental_bed": -17.0,
+        "acappella_chop": -15.0,
+    }[role]
+
+
+def _rank_tracks(
+    tracks: Sequence[StemTrack],
+    features: dict[str, StemFeature],
+    section: SectionSpec,
+    target_bpm: float,
+    reuse: Counter[int],
+) -> list[tuple[float, StemTrack]]:
+    ranked = [
+        (score_track_for_section(track, features, section, target_bpm, reuse[track.index]), track)
+        for track in tracks
+    ]
+    ranked.sort(key=lambda item: (item[0], -item[1].index), reverse=True)
+    return ranked
+
+
+def _pick_distinct(
+    ranked: list[tuple[float, StemTrack]],
+    *,
+    count: int,
+    blocked: set[int],
+) -> list[tuple[float, StemTrack]]:
+    picked: list[tuple[float, StemTrack]] = []
+    for score, track in ranked:
+        if track.index in blocked:
+            continue
+        picked.append((score, track))
+        blocked.add(track.index)
+        if len(picked) == count:
+            return picked
+    return picked
+
+
+def _add_event(
+    events: list[StemEvent],
+    track: StemTrack,
+    *,
+    stem: str,
+    role: str,
+    start_s: float,
+    end_s: float,
+    target_bpm: float,
+    score: float,
+    fade_s: float,
+) -> None:
+    duration_s = end_s - start_s
+    events.append(
+        StemEvent(
+            track_index=track.index,
+            title=track.title,
+            genre=track.genre,
+            stem=stem,
+            role=role,
+            path=str(track.stems[stem]),
+            start_s=start_s,
+            end_s=end_s,
+            source_bpm=track.bpm,
+            target_bpm=target_bpm,
+            gain_db=role_gain_db(role),
+            fade_in_s=min(fade_s, max(0.05, duration_s * 0.25)),
+            fade_out_s=min(fade_s, max(0.05, duration_s * 0.25)),
+            eq_chain=stem_eq_chain(stem, role),
+            score=score,
+        )
+    )
+
+
+def plan_arrangement(
+    tracks: Sequence[StemTrack],
+    features: dict[str, StemFeature],
+    config: PlannerConfig,
+) -> ArrangementPlan:
+    if len(tracks) < 24:
+        raise RuntimeError("planner needs at least 24 complete tracks for broad maximal layering")
+    bar_s = bar_seconds(config.target_bpm)
+    window_s = config.rotation_bars * bar_s
+    windows = config.duration_bars // config.rotation_bars
+    duration_s = windows * window_s
+    events: list[StemEvent] = []
+    reuse: Counter[int] = Counter()
+
+    for window in range(windows):
+        start_s = window * window_s
+        end_s = start_s + window_s
+        progress = window / max(1, windows - 1)
+        section = section_for_progress(progress)
+        target_layers = min(config.max_layers, section.density[1])
+        ranked = _rank_tracks(tracks, features, section, config.target_bpm, reuse)
+        blocked: set[int] = set()
+        fade_s = min(4.0, window_s * 0.35)
+
+        drum_count = 3 if target_layers >= 10 else 2
+        drum_picks = _pick_distinct(ranked, count=drum_count, blocked=blocked)
+        for role, (score, track) in zip(
+            ("drum_core", "drum_top", "drum_drive"),
+            drum_picks,
+            strict=False,
+        ):
+            _add_event(
+                events,
+                track,
+                stem="drums",
+                role=role,
+                start_s=start_s,
+                end_s=end_s,
+                target_bpm=config.target_bpm,
+                score=score,
+                fade_s=fade_s,
+            )
+            reuse[track.index] += 1
+
+        bass_count = 2 if target_layers >= 10 else 1
+        bass_picks = _pick_distinct(ranked, count=bass_count, blocked=blocked)
+        if bass_picks:
+            score, track = bass_picks[0]
+            _add_event(
+                events,
+                track,
+                stem="bass",
+                role="bass_leader",
+                start_s=start_s,
+                end_s=end_s,
+                target_bpm=config.target_bpm,
+                score=score,
+                fade_s=fade_s,
+            )
+            reuse[track.index] += 1
+        if len(bass_picks) > 1 and target_layers >= 11:
+            score, track = bass_picks[1]
+            _add_event(
+                events,
+                track,
+                stem="bass",
+                role="bass_ghost",
+                start_s=start_s,
+                end_s=end_s,
+                target_bpm=config.target_bpm,
+                score=score,
+                fade_s=fade_s,
+            )
+            reuse[track.index] += 1
+
+        harmonic_count = 4 if target_layers >= 10 else 2
+        for score, track in _pick_distinct(ranked, count=harmonic_count, blocked=blocked):
+            _add_event(
+                events,
+                track,
+                stem="harmonic",
+                role="harmonic",
+                start_s=start_s,
+                end_s=end_s,
+                target_bpm=config.target_bpm,
+                score=score,
+                fade_s=fade_s,
+            )
+            reuse[track.index] += 1
+
+        bed_count = 2 if target_layers >= 11 else 1
+        for score, track in _pick_distinct(ranked, count=bed_count, blocked=blocked):
+            _add_event(
+                events,
+                track,
+                stem="instrumental",
+                role="instrumental_bed",
+                start_s=start_s,
+                end_s=end_s,
+                target_bpm=config.target_bpm,
+                score=score,
+                fade_s=fade_s,
+            )
+            reuse[track.index] += 1
+
+        if target_layers >= 12 and window % 3 == 1:
+            picks = _pick_distinct(ranked, count=1, blocked=blocked)
+            if picks:
+                score, track = picks[0]
+                chop_start = start_s + window_s * 0.50
+                _add_event(
+                    events,
+                    track,
+                    stem="acappella",
+                    role="acappella_chop",
+                    start_s=chop_start,
+                    end_s=min(end_s, chop_start + window_s * 0.45),
+                    target_bpm=config.target_bpm,
+                    score=score,
+                    fade_s=1.0,
+                )
+                reuse[track.index] += 1
+
+    plan = ArrangementPlan(
+        title="MAXIMAL_STEM_TOOL_FINAL",
+        target_bpm=config.target_bpm,
+        duration_s=duration_s,
+        events=events,
+    )
+    validate_arrangement(plan, config)
+    return plan
+
+
+def validate_arrangement(plan: ArrangementPlan, config: PlannerConfig) -> None:
+    if not plan.events:
+        raise RuntimeError("arrangement has no events")
+    step_s = max(1, int(bar_seconds(config.target_bpm)))
+    for second in range(0, int(plan.duration_s), step_s):
+        active = active_events_at(plan, float(second))
+        if len(active) > config.max_layers:
+            raise RuntimeError(f"too many active layers at {second}s: {len(active)}")
+        bass_leaders = [event for event in active if event.role == "bass_leader"]
+        if len(bass_leaders) > 1:
+            raise RuntimeError(f"multiple bass leaders at {second}s")
 
 
 def complete_tracks(tracks: Iterable[StemTrack]) -> list[StemTrack]:

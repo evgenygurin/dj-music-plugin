@@ -198,3 +198,66 @@ def test_section_scoring_penalizes_reuse_and_extreme_bpm() -> None:
 
     assert fresh > reused
     assert fresh > stretched
+
+
+def _many_tracks(count: int = 48) -> tuple[list[script.StemTrack], dict[str, script.StemFeature]]:
+    genres = ["hypnotic", "dub_techno", "progressive", "driving", "industrial", "peak_time", "acid", "detroit"]
+    tracks = [_track(i + 1, 128 + (i % 9), genres[i % len(genres)]) for i in range(count)]
+    features: dict[str, script.StemFeature] = {}
+    for track in tracks:
+        features.update(_features_for(track))
+    return tracks, features
+
+
+def test_arrangement_pressure_windows_keep_10_to_12_layers() -> None:
+    tracks, features = _many_tracks()
+    config = script.PlannerConfig(target_bpm=133.0, duration_bars=64, rotation_bars=4, max_layers=12, seed=7)
+
+    plan = script.plan_arrangement(tracks, features, config)
+
+    pressure_times = [plan.duration_s * 0.45, plan.duration_s * 0.55, plan.duration_s * 0.70]
+    for time_s in pressure_times:
+        active = script.active_events_at(plan, time_s)
+        assert 10 <= len(active) <= 12
+
+
+def test_arrangement_never_has_two_full_bass_leaders() -> None:
+    tracks, features = _many_tracks()
+    config = script.PlannerConfig(target_bpm=133.0, duration_bars=64, rotation_bars=4, max_layers=12, seed=7)
+
+    plan = script.plan_arrangement(tracks, features, config)
+
+    for step in range(0, int(plan.duration_s), 4):
+        active = script.active_events_at(plan, float(step))
+        leaders = [event for event in active if event.role == "bass_leader"]
+        assert len(leaders) <= 1
+
+
+def test_arrangement_rotates_layers_every_4_bars() -> None:
+    tracks, features = _many_tracks()
+    config = script.PlannerConfig(target_bpm=133.0, duration_bars=48, rotation_bars=4, max_layers=12, seed=3)
+
+    plan = script.plan_arrangement(tracks, features, config)
+
+    bar_s = script.bar_seconds(config.target_bpm)
+    for window in range(1, config.duration_bars // config.rotation_bars):
+        prev = {
+            (e.track_index, e.stem, e.role)
+            for e in script.active_events_at(plan, (window - 1) * config.rotation_bars * bar_s + 0.1)
+        }
+        cur = {
+            (e.track_index, e.stem, e.role)
+            for e in script.active_events_at(plan, window * config.rotation_bars * bar_s + 0.1)
+        }
+        assert prev != cur
+
+
+def test_arrangement_uses_broad_source_set() -> None:
+    tracks, features = _many_tracks(72)
+    config = script.PlannerConfig(target_bpm=133.0, duration_bars=96, rotation_bars=4, max_layers=12, seed=11)
+
+    plan = script.plan_arrangement(tracks, features, config)
+
+    used_tracks = {event.track_index for event in plan.events}
+
+    assert len(used_tracks) >= 36
