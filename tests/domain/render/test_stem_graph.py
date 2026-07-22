@@ -9,9 +9,15 @@ from app.domain.render.runner import build_ffmpeg_cmd
 from app.domain.render.stem_graph import build_stem_filtergraph
 
 _STEMS = STEM_ORDER
+_DEMUCS_STEMS = ("drums", "bass", "vocals", "other")
 
 
-def _stem_plan(n: int, *, target_bpm: float = 130.0):
+def _stem_plan(
+    n: int,
+    *,
+    target_bpm: float = 130.0,
+    stems: tuple[str, ...] = _STEMS,
+):
     inputs = [
         TrackInput(
             track_id=i,
@@ -26,7 +32,7 @@ def _stem_plan(n: int, *, target_bpm: float = 130.0):
         )
         for i in range(n)
     ]
-    stem_paths_by_track = {i: {s: f"/stems/{i}/{s}.flac" for s in _STEMS} for i in range(n)}
+    stem_paths_by_track = {i: {s: f"/stems/{i}/{s}.flac" for s in stems} for i in range(n)}
     grid = {
         i: BeatgridEntry(
             track_id=i, trim_start_s=0.4, refined_trim_s=0.4, gain_db=0.0, phase_ms=0.0
@@ -117,6 +123,21 @@ def test_stem_filtergraph_keeps_instrumental_as_quiet_safety_bed():
     assert "volume=-7.00dB" in joined
 
 
+def test_demucs_stem_plan_uses_four_stem_order_without_duplicate_other():
+    plan = _stem_plan(1, stems=_DEMUCS_STEMS)
+
+    assert plan.stem_order == _DEMUCS_STEMS
+    joined = ";".join(build_stem_filtergraph(plan))
+
+    for stem in _DEMUCS_STEMS:
+        assert f"[s0_{stem}]" in joined
+        assert f"[s0_{stem}_faded]" in joined
+    assert "[s0_harmonic]" not in joined
+    assert "[s0_instrumental]" not in joined
+    assert "[s0_acappella]" not in joined
+    assert "amix=inputs=4:normalize=0" in joined
+
+
 def test_runner_stem_branch_maps_five_inputs_per_track():
     plan = _stem_plan(2)
     cmd = build_ffmpeg_cmd(plan, "/tmp/out.mp3")
@@ -133,5 +154,23 @@ def test_runner_stem_branch_maps_five_inputs_per_track():
         "/stems/1/harmonic.flac",
         "/stems/1/instrumental.flac",
         "/stems/1/acappella.flac",
+    ]
+    assert "[mix]" in cmd
+
+
+def test_runner_demucs_stem_branch_maps_four_inputs_per_track():
+    plan = _stem_plan(2, stems=_DEMUCS_STEMS)
+    cmd = build_ffmpeg_cmd(plan, "/tmp/out.mp3")
+
+    inputs = [cmd[i + 1] for i, tok in enumerate(cmd) if tok == "-i"]
+    assert inputs == [
+        "/stems/0/drums.flac",
+        "/stems/0/bass.flac",
+        "/stems/0/vocals.flac",
+        "/stems/0/other.flac",
+        "/stems/1/drums.flac",
+        "/stems/1/bass.flac",
+        "/stems/1/vocals.flac",
+        "/stems/1/other.flac",
     ]
     assert "[mix]" in cmd

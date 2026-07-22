@@ -24,6 +24,26 @@ class ResolvedEcho:
 
 
 @dataclass(frozen=True, slots=True)
+class ResolvedReverb:
+    decay_s: float
+    pre_delay_ms: float
+    highpass_hz: int
+    lowpass_hz: int
+
+    def ffmpeg_chain(self) -> str:
+        spacing = max(45.0, self.decay_s * 45.0)
+        delays = [self.pre_delay_ms + spacing * i for i in range(3)]
+        decay = max(0.20, min(0.72, self.decay_s / 7.0))
+        decays = [decay ** (i + 1) for i in range(3)]
+        delay_str = "|".join(f"{d:.0f}" for d in delays)
+        decay_str = "|".join(f"{d:.3f}" for d in decays)
+        return (
+            f"aecho=0.800:0.900:{delay_str}:{decay_str},"
+            f"highpass=f={self.highpass_hz},lowpass=f={self.lowpass_hz}"
+        )
+
+
+@dataclass(frozen=True, slots=True)
 class ResolvedSweepPlan:
     start_freq_hz: float
     end_freq_hz: float
@@ -40,6 +60,7 @@ class ResolvedSweep:
 class ResolvedEffects:
     echo: ResolvedEcho | None = None
     sweep: ResolvedSweep | None = None
+    reverb: ResolvedReverb | None = None
 
 
 ECHO_PRESETS: dict[str, ResolvedEcho] = {
@@ -77,12 +98,46 @@ FILTER_PRESETS: dict[str, ResolvedSweep] = {
     ),
 }
 
+REVERB_PRESETS: dict[str, ResolvedReverb] = {
+    "techno_hall": ResolvedReverb(
+        decay_s=2.5,
+        pre_delay_ms=25,
+        highpass_hz=100,
+        lowpass_hz=6000,
+    ),
+    "techno_cathedral": ResolvedReverb(
+        decay_s=5.0,
+        pre_delay_ms=40,
+        highpass_hz=80,
+        lowpass_hz=4000,
+    ),
+    "industrial_warehouse": ResolvedReverb(
+        decay_s=3.0,
+        pre_delay_ms=15,
+        highpass_hz=120,
+        lowpass_hz=10000,
+    ),
+    "dub_plate": ResolvedReverb(
+        decay_s=1.8,
+        pre_delay_ms=10,
+        highpass_hz=200,
+        lowpass_hz=5000,
+    ),
+    "minimal_room": ResolvedReverb(
+        decay_s=1.0,
+        pre_delay_ms=12,
+        highpass_hz=150,
+        lowpass_hz=8000,
+    ),
+}
+
 
 class EffectPresetResolver:
     def resolve(self, plan: Any) -> ResolvedEffects:
         return ResolvedEffects(
-            echo=self._resolve_echo(plan.echo_preset),
-            sweep=self._resolve_sweep(plan.filter_sweep_preset),
+            echo=self._resolve_echo(getattr(plan, "echo_preset", None)),
+            sweep=self._resolve_sweep(getattr(plan, "filter_sweep_preset", None)),
+            reverb=self._resolve_reverb(getattr(plan, "reverb_preset", None)),
         )
 
     @staticmethod
@@ -96,3 +151,9 @@ class EffectPresetResolver:
         if name is None:
             return None
         return FILTER_PRESETS.get(name)
+
+    @staticmethod
+    def _resolve_reverb(name: str | None) -> ResolvedReverb | None:
+        if name is None:
+            return None
+        return REVERB_PRESETS.get(name)

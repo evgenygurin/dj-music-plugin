@@ -7,6 +7,8 @@ from typing import ClassVar, cast
 from app.config.render import RenderSettings
 from app.domain.render.bar_plan import BarPlan
 from app.domain.render.models import (
+    DEMUCS_STEM_ORDER,
+    STEM_ORDER,
     BeatgridEntry,
     RenderMode,
     RenderPlan,
@@ -17,6 +19,16 @@ from app.domain.render.models import (
 from app.domain.render.request import RenderRequest
 from app.domain.render.segments import ClassicSegmentFactory, SegmentFactory, StemSegmentFactory
 from app.domain.render.timeline import place_segments
+
+
+def _resolve_stem_order(stem_paths: dict[int, dict[str, str]] | None) -> tuple[str, ...]:
+    if not stem_paths:
+        return STEM_ORDER
+    if all(set(STEM_ORDER).issubset(paths) for paths in stem_paths.values()):
+        return STEM_ORDER
+    if all(set(DEMUCS_STEM_ORDER).issubset(paths) for paths in stem_paths.values()):
+        return DEMUCS_STEM_ORDER
+    return STEM_ORDER
 
 
 class RenderPlanner:
@@ -70,4 +82,5 @@ class RenderPlanner:
             request,
             segments=[],
             stem_segments=cast(list[StemSegment], segments),
+            stem_order=_resolve_stem_order(stem_paths),
         )

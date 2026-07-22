@@ -8,9 +8,8 @@ Two render algorithms share one skeleton:
 * :class:`ClassicGraphBuilder` — single file per track, asplit 3-band EQ
   bass-swap (highs phase 1, mids phase 2, bass pinpoint swap phase 3).
   Supports filter_sweep and echo effects per RenderPlan config.
-* :class:`StemGraphBuilder` — 5 prepared stems per track, staggered per-stem
-  transitions with artifact-masking high-pass. This mode consumes already
-  separated files and never runs source separation.
+* :class:`StemGraphBuilder` — 5 prepared stems or Demucs' native 4 stems per
+  track, staggered per-stem transitions with artifact-masking high-pass.
 * :class:`RenderStrategy` (**Strategy**) — pairs a graph builder with its ffmpeg
   input expansion; :func:`select_strategy` picks the mode from the plan. The
   runner depends only on the strategy, so a new render mode is a new subclass —
@@ -26,13 +25,12 @@ from dataclasses import dataclass
 from app.domain.render.effects_resolver import EffectPresetResolver, ResolvedEffects
 from app.domain.render.eq import build_master_eq
 from app.domain.render.models import (
-    STEM_ORDER,
     RenderMode,
     RenderPlan,
     StemSegment,
     TrackSegment,
 )
-from app.domain.render.stem_voicing import STEM_VOICING
+from app.domain.render.stem_voicing import stem_voicing
 
 
 @dataclass(frozen=True, slots=True)
@@ -105,11 +103,23 @@ class FilterGraphBuilder(ABC):
             plan.master_eq_air_boost_db,
             plan.master_eq_sub_boost_db,
         )
-        return (
-            "".join(mixlabels) + f"amix=inputs={len(mixlabels)}:normalize=0,"
+        fx = EffectPresetResolver().resolve(plan)
+        limiter = (
             f"firequalizer=gain_entry='{master_eq}',"
             f"alimiter=level_in=1:level_out=1:limit={plan.limiter_ceiling}:"
             f"attack={plan.limiter_attack_ms}:release={plan.limiter_release_ms}:asc=0[mix]"
+        )
+        if fx.reverb is None or plan.reverb_mix <= 0:
+            return "".join(mixlabels) + f"amix=inputs={len(mixlabels)}:normalize=0,{limiter}"
+
+        wet = max(0.0, min(1.0, plan.reverb_mix))
+        dry = 1.0 - wet
+        return (
+            "".join(mixlabels) + f"amix=inputs={len(mixlabels)}:normalize=0[master_pre];"
+            "[master_pre]asplit=2[master_dry][master_wet];"
+            f"[master_wet]{fx.reverb.ffmpeg_chain()}[master_rv];"
+            f"[master_dry][master_rv]amix=inputs=2:normalize=0:weights={dry:.2f} {wet:.2f},"
+            f"{limiter}"
         )
 
 
@@ -292,13 +302,12 @@ class StemGraphBuilder(FilterGraphBuilder):
 
         parts: list[str] = []
         faded: list[str] = []
-        for stem in STEM_ORDER:
-            input_idx = seg.track_idx * len(STEM_ORDER) + STEM_ORDER.index(stem)
+        for stem_idx, stem in enumerate(plan.stem_order):
+            input_idx = seg.track_idx * len(plan.stem_order) + stem_idx
             label = f"s{i}_{stem}"
-            gain_db = seg.gain_db + STEM_VOICING[stem].gain_db
-            parts.append(
-                self._stem_chain(input_idx, seg, label, STEM_VOICING[stem].hpf_hz, gain_db)
-            )
+            voicing = stem_voicing(stem)
+            gain_db = seg.gain_db + voicing.gain_db
+            parts.append(self._stem_chain(input_idx, seg, label, voicing.hpf_hz, gain_db))
             fades = self._stem_fades(
                 stem,
                 seg,
@@ -313,7 +322,7 @@ class StemGraphBuilder(FilterGraphBuilder):
 
         t_ms = int(seg.start_s * 1000)
         parts.append(
-            f"{''.join(faded)}amix=inputs={len(STEM_ORDER)}:normalize=0,"
+            f"{''.join(faded)}amix=inputs={len(plan.stem_order)}:normalize=0,"
             f"adelay={t_ms}|{t_ms}|{t_ms}[m{i}]"
         )
         return parts, f"[m{i}]"
@@ -360,9 +369,9 @@ class StemGraphBuilder(FilterGraphBuilder):
             fades.append(f"afade=t=in:curve=qsin:st=0:d={intro_d:.3f}")
         elif stem == "drums":
             fades.append(f"afade=t=in:curve=qsin:st=0:d={d_in:.3f}")
-        elif stem in {"harmonic", "instrumental"}:
+        elif stem in {"harmonic", "instrumental", "other"}:
             fades.append(f"afade=t=in:curve=qsin:st=0:d={max(0.05, d_in * p1):.3f}")
-        elif stem == "acappella":
+        elif stem in {"acappella", "vocals"}:
             fades.append(f"afade=t=in:curve=qsin:st=0:d={max(0.05, d_in * p2):.3f}")
         else:  # bass — pinpoint swap
             st = max(0.0, d_in * seg.bass_swap_ratio - low_x / 2)
@@ -375,10 +384,10 @@ class StemGraphBuilder(FilterGraphBuilder):
         elif stem == "drums":
             st = max(0.0, length - d_out)
             fades.append(f"afade=t=out:curve=qsin:st={st:.3f}:d={d_out:.3f}")
-        elif stem in {"harmonic", "instrumental"}:
+        elif stem in {"harmonic", "instrumental", "other"}:
             dur = max(0.05, d_out * p1)
             fades.append(f"afade=t=out:curve=qsin:st={length - dur:.3f}:d={dur:.3f}")
-        elif stem == "acappella":
+        elif stem in {"acappella", "vocals"}:
             dur = max(0.05, d_out * p2)
             fades.append(f"afade=t=out:curve=qsin:st={length - dur:.3f}:d={dur:.3f}")
         else:  # bass — pinpoint swap
@@ -413,7 +422,7 @@ class StemMultiDeckStrategy(RenderStrategy):
 
     def input_files(self, plan: RenderPlan) -> list[str]:
         assert plan.stem_segments is not None
-        return [seg.stem_paths[stem] for seg in plan.stem_segments for stem in STEM_ORDER]
+        return [seg.stem_paths[stem] for seg in plan.stem_segments for stem in plan.stem_order]
 
 
 def select_strategy(plan: RenderPlan) -> RenderStrategy:

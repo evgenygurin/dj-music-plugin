@@ -5,15 +5,14 @@ from typing import Any
 
 from sqlalchemy import select
 
-from app.domain.render.models import STEM_ORDER
+from app.domain.render.models import DEMUCS_STEM_ORDER, STEM_ORDER
 from app.handlers._context_log import safe_info
 from app.models.audio_file import DjLibraryItem
 
 _STEM_EXTENSIONS = (".m4a", ".mp3", ".wav", ".flac")
 _STEM_ALIASES: dict[str, tuple[str, ...]] = {
     **{stem: (stem,) for stem in STEM_ORDER},
-    "vocals": ("acappella",),
-    "other": ("harmonic", "instrumental"),
+    **{stem: (stem,) for stem in DEMUCS_STEM_ORDER},
 }
 
 
@@ -34,6 +33,15 @@ def _expand_stem_paths(stems: Any) -> dict[str, str]:
         for stem in internal_stems:
             result[stem] = str(path)
     return result
+
+
+def _complete_stem_order(stems: dict[str, str]) -> tuple[str, ...] | None:
+    keys = set(stems)
+    if set(STEM_ORDER).issubset(keys):
+        return STEM_ORDER
+    if set(DEMUCS_STEM_ORDER).issubset(keys):
+        return DEMUCS_STEM_ORDER
+    return None
 
 
 async def _separate_stems(
@@ -63,7 +71,7 @@ async def _separate_stems(
             await safe_info(ctx, f"demucs failed ({exc}); classic fallback")
             return None
         mapped = _expand_stem_paths(stems)
-        missing = set(STEM_ORDER) - set(mapped)
+        missing = set(DEMUCS_STEM_ORDER) - set(mapped)
         if missing:
             await safe_info(
                 ctx,
@@ -102,11 +110,10 @@ class StemResolver:
             for stem in _stem_type_from_path(row.file_path):
                 by_track[row.track_id][stem] = row.file_path
 
-        required = set(STEM_ORDER)
         missing = {
-            tid: sorted(required - set(stems))
+            tid: sorted(set(STEM_ORDER) - set(stems))
             for tid, stems in by_track.items()
-            if required - set(stems)
+            if _complete_stem_order(stems) is None
         }
         if missing:
             await safe_info(
@@ -118,6 +125,6 @@ class StemResolver:
 
         await safe_info(
             ctx,
-            f"prepared stem render: loaded {len(by_track)} x {len(STEM_ORDER)} stems",
+            f"prepared stem render: loaded {len(by_track)} tracks",
         )
         return by_track

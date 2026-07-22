@@ -9,6 +9,8 @@ import pytest
 from app.domain.render.models import STEM_ORDER, TrackInput
 from app.handlers._orchestrator.stem_resolver import StemResolver
 
+_DEMUCS_STEMS = ("drums", "bass", "vocals", "other")
+
 
 class _Rows:
     def __init__(self, rows: list[Any]) -> None:
@@ -60,12 +62,11 @@ async def test_resolve_accepts_demucs_four_stem_directory_names() -> None:
     result = await StemResolver().resolve(None, _Uow(rows), [_input(1)])
 
     assert result is not None
-    assert set(result[1]) == set(STEM_ORDER)
+    assert set(result[1]) == set(_DEMUCS_STEMS)
     assert result[1]["drums"] == "/stems/track/drums.wav"
     assert result[1]["bass"] == "/stems/track/bass.wav"
-    assert result[1]["acappella"] == "/stems/track/vocals.wav"
-    assert result[1]["harmonic"] == "/stems/track/other.wav"
-    assert result[1]["instrumental"] == "/stems/track/other.wav"
+    assert result[1]["vocals"] == "/stems/track/vocals.wav"
+    assert result[1]["other"] == "/stems/track/other.wav"
 
 
 @pytest.mark.asyncio
@@ -80,10 +81,19 @@ async def test_resolve_accepts_demucs_prefixed_flac_names() -> None:
     result = await StemResolver().resolve(None, _Uow(rows), [_input(1)])
 
     assert result is not None
+    assert set(result[1]) == set(_DEMUCS_STEMS)
+    assert result[1]["vocals"] == "/stems/track-name-vocals.flac"
+    assert result[1]["other"] == "/stems/track-name-other.flac"
+
+
+@pytest.mark.asyncio
+async def test_resolve_accepts_prepared_five_stem_names() -> None:
+    rows = [_row(1, f"/stems/track/{stem}.m4a") for stem in STEM_ORDER]
+
+    result = await StemResolver().resolve(None, _Uow(rows), [_input(1)])
+
+    assert result is not None
     assert set(result[1]) == set(STEM_ORDER)
-    assert result[1]["acappella"] == "/stems/track-name-vocals.flac"
-    assert result[1]["harmonic"] == "/stems/track-name-other.flac"
-    assert result[1]["instrumental"] == "/stems/track-name-other.flac"
 
 
 @pytest.mark.asyncio
@@ -119,12 +129,11 @@ async def test_resolve_runs_demucs_without_session_when_workspace_provided(
     )
 
     assert result is not None
-    assert set(result[1]) == set(STEM_ORDER)
+    assert set(result[1]) == set(_DEMUCS_STEMS)
     assert result[1]["drums"] == str(tmp_path / "drums.flac")
     assert result[1]["bass"] == str(tmp_path / "bass.flac")
-    assert result[1]["acappella"] == str(tmp_path / "vocals.flac")
-    assert result[1]["harmonic"] == str(tmp_path / "other.flac")
-    assert result[1]["instrumental"] == str(tmp_path / "other.flac")
+    assert result[1]["vocals"] == str(tmp_path / "vocals.flac")
+    assert result[1]["other"] == str(tmp_path / "other.flac")
     assert calls == [(source, Path("/tmp/dj_stems"), workspace / "stems", True)]
 
 

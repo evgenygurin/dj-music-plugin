@@ -10,9 +10,13 @@ if TYPE_CHECKING:
     from app.config.render import RenderSettings
     from app.domain.render.request import RenderRequest
 
-# Prepared stem order — the single source of truth for both the ffmpeg input
-# ordering (5 ``-i`` per track) and the stem filtergraph. Never reorder.
+# Prepared stem order — the default source of truth for ffmpeg input ordering
+# (5 ``-i`` per track) and the stem filtergraph. Never reorder.
 STEM_ORDER: tuple[str, ...] = ("drums", "bass", "harmonic", "instrumental", "acappella")
+
+# Demucs' native 4-stem order. On-demand separation uses this to preserve the
+# pre-refactor render balance instead of duplicating ``other`` as two inputs.
+DEMUCS_STEM_ORDER: tuple[str, ...] = ("drums", "bass", "vocals", "other")
 
 
 class RenderMode(str, Enum):  # noqa: UP042 - keep `str, Enum` for broader compat
@@ -134,6 +138,7 @@ class RenderPlan:
     dynaudnorm_maxgain: float = 2.0
     segments: list[TrackSegment] = field(default_factory=list)
     stem_segments: list[StemSegment] | None = None
+    stem_order: tuple[str, ...] = STEM_ORDER
     # ── effects (set-wide, one preset per render) ──
     filter_sweep_preset: str | None = None
     echo_preset: str | None = None
@@ -156,6 +161,7 @@ class RenderPlan:
         *,
         segments: list[TrackSegment] | None = None,
         stem_segments: list[StemSegment] | None = None,
+        stem_order: tuple[str, ...] = STEM_ORDER,
     ) -> RenderPlan:
         """Factory: DSP constants from ``settings``, effects from ``request``."""
         return cls(
@@ -187,6 +193,7 @@ class RenderPlan:
             dynaudnorm_maxgain=settings.dynaudnorm_maxgain,
             segments=segments if segments is not None else [],
             stem_segments=stem_segments,
+            stem_order=stem_order,
             filter_sweep_preset=request.filter_sweep,
             echo_preset=request.echo,
             crossfade_curve_out=request.crossfade_curve_out,

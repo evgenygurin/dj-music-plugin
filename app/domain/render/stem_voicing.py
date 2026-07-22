@@ -23,3 +23,12 @@ STEM_VOICING: dict[str, StemVoicing] = {
     "instrumental": StemVoicing(hpf_hz=120, gain_db=-7.0),
     "acappella": StemVoicing(hpf_hz=120, gain_db=-3.0),
 }
+
+_DEMUCS_STEM_VOICING: dict[str, StemVoicing] = {
+    "vocals": StemVoicing(hpf_hz=120, gain_db=0.0),
+    "other": StemVoicing(hpf_hz=80, gain_db=0.0),
+}
+
+
+def stem_voicing(stem: str) -> StemVoicing:
+    return STEM_VOICING.get(stem) or _DEMUCS_STEM_VOICING[stem]

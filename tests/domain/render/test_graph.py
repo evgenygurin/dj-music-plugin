@@ -80,6 +80,17 @@ def test_filtergraph_outgoing_echo_tail_stays_at_tail_position():
     assert f"adelay={tail_ms}|{tail_ms}[se0_out]" in joined
 
 
+def test_filtergraph_applies_reverb_preset_on_master_bus():
+    plan = replace(_plan(1), reverb_preset="techno_hall", reverb_mix=0.40)
+
+    joined = ";".join(build_filtergraph(plan))
+
+    assert "aecho=" in joined
+    assert "highpass=f=100" in joined
+    assert "lowpass=f=6000" in joined
+    assert "weights=0.60 0.40" in joined
+
+
 def test_filtergraph_is_deterministic():
     assert build_filtergraph(_plan(3)) == build_filtergraph(_plan(3))
 
