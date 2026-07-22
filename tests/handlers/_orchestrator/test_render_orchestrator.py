@@ -68,10 +68,12 @@ class _StemResolver:
         ctx: Any,
         uow: Any,
         inputs: list[TrackInput],
+        workspace: str | None = None,
     ) -> dict[int, dict[str, str]] | None:
         assert ctx is None
         assert uow is not None
         assert inputs
+        assert workspace == "/tmp/ws"
         self._recorder.calls.append("resolve")
         return self._result
 

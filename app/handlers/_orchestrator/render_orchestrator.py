@@ -50,7 +50,9 @@ class RenderOrchestrator:
         plan_request = request
         stem_paths = None
         if request.mode is RenderMode.STEM:
-            stem_paths = await self._stems.resolve(ctx, self._uow, inputs)
+            stem_paths = await self._stems.resolve(
+                ctx, self._uow, inputs, workspace=request.workspace
+            )
             if stem_paths is None:
                 plan_request = replace(request, stem=False)
         plan = self._planner.assemble(settings, plan_request, inputs, grid, bar_plan, stem_paths)

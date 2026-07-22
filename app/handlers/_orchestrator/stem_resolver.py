@@ -19,12 +19,62 @@ _STEM_ALIASES: dict[str, tuple[str, ...]] = {
 
 def _stem_type_from_path(path: str) -> tuple[str, ...]:
     name = Path(path).name.lower()
+    if Path(name).suffix in _STEM_EXTENSIONS:
+        name = Path(name).stem
     for stem_name, internal_stems in _STEM_ALIASES.items():
-        for ext in _STEM_EXTENSIONS:
-            suffix = f"{stem_name}{ext}"
-            if name == suffix or name.endswith(f"-{suffix}"):
-                return internal_stems
+        if name == stem_name or name.endswith(f"-{stem_name}"):
+            return internal_stems
     return ()
+
+
+def _expand_stem_paths(stems: Any) -> dict[str, str]:
+    result: dict[str, str] = {}
+    for key, path in stems.items():
+        internal_stems = _stem_type_from_path(str(key)) or _stem_type_from_path(str(path))
+        for stem in internal_stems:
+            result[stem] = str(path)
+    return result
+
+
+async def _separate_stems(
+    ctx: Any, inputs: list[Any], workspace: str
+) -> dict[int, dict[str, str]] | None:
+    try:
+        from app.audio.deep.demucs_runner import run_demucs
+    except ImportError as exc:  # pragma: no cover - optional [stems] extra
+        await safe_info(ctx, f"stem separation unavailable ({exc}); classic render")
+        return None
+
+    result: dict[int, dict[str, str]] = {}
+    await safe_info(ctx, f"stem render: separating {len(inputs)} tracks (demucs)...")
+    for ti in inputs:
+        input_file = Path(ti.file_path)
+        if not input_file.exists():
+            await safe_info(ctx, f"missing audio for track {ti.track_id}; classic fallback")
+            return None
+        try:
+            stems = run_demucs(
+                input_file,
+                Path("/tmp/dj_stems"),
+                cache_root=Path(workspace) / "stems",
+                flac=True,
+            )
+        except Exception as exc:
+            await safe_info(ctx, f"demucs failed ({exc}); classic fallback")
+            return None
+        mapped = _expand_stem_paths(stems)
+        missing = set(STEM_ORDER) - set(mapped)
+        if missing:
+            await safe_info(
+                ctx,
+                "demucs output missing stems "
+                f"{sorted(missing)} for track {ti.track_id}; classic fallback",
+            )
+            return None
+        result[ti.track_id] = mapped
+
+    await safe_info(ctx, f"stem render: {len(result)} tracks separated")
+    return result
 
 
 class StemResolver:
@@ -33,13 +83,14 @@ class StemResolver:
         ctx: Any,
         uow: Any,
         inputs: list[Any],
+        workspace: str | None = None,
     ) -> dict[int, dict[str, str]] | None:
         if not inputs:
             return None
 
         session = getattr(uow, "session", None)
         if session is None:
-            return None
+            return await _separate_stems(ctx, inputs, workspace) if workspace else None
 
         track_ids = [ti.track_id for ti in inputs]
         stmt = select(DjLibraryItem.track_id, DjLibraryItem.file_path).where(
@@ -63,7 +114,7 @@ class StemResolver:
                 "prepared stem render unavailable; missing stems for "
                 f"{len(missing)}/{len(track_ids)} tracks",
             )
-            return None
+            return await _separate_stems(ctx, inputs, workspace) if workspace else None
 
         await safe_info(
             ctx,

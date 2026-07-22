@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
 
@@ -30,7 +31,7 @@ class _Uow:
         self.session = _Session(rows)
 
 
-def _input(track_id: int) -> TrackInput:
+def _input(track_id: int, *, file_path: str | None = None) -> TrackInput:
     return TrackInput(
         track_id=track_id,
         yandex_id=track_id,
@@ -39,7 +40,7 @@ def _input(track_id: int) -> TrackInput:
         key_code=1,
         mix_in_ms=0,
         integrated_lufs=-12.0,
-        file_path=f"/music/{track_id}.mp3",
+        file_path=file_path or f"/music/{track_id}.mp3",
     )
 
 
@@ -83,3 +84,86 @@ async def test_resolve_accepts_demucs_prefixed_flac_names() -> None:
     assert result[1]["acappella"] == "/stems/track-name-vocals.flac"
     assert result[1]["harmonic"] == "/stems/track-name-other.flac"
     assert result[1]["instrumental"] == "/stems/track-name-other.flac"
+
+
+@pytest.mark.asyncio
+async def test_resolve_runs_demucs_without_session_when_workspace_provided(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    source = tmp_path / "track.mp3"
+    source.write_bytes(b"audio")
+    workspace = tmp_path / "workspace"
+    calls: list[tuple[Path, Path, Path | None, bool]] = []
+
+    def fake_run_demucs(
+        input_path: Path,
+        output_dir: Path,
+        cache_root: Path | None = None,
+        flac: bool = False,
+    ) -> dict[str, Path]:
+        calls.append((input_path, output_dir, cache_root, flac))
+        return {
+            "drums": tmp_path / "drums.flac",
+            "bass": tmp_path / "bass.flac",
+            "vocals": tmp_path / "vocals.flac",
+            "other": tmp_path / "other.flac",
+        }
+
+    monkeypatch.setattr("app.audio.deep.demucs_runner.run_demucs", fake_run_demucs)
+
+    result = await StemResolver().resolve(
+        None,
+        SimpleNamespace(session=None),
+        [_input(1, file_path=str(source))],
+        workspace=str(workspace),
+    )
+
+    assert result is not None
+    assert set(result[1]) == set(STEM_ORDER)
+    assert result[1]["drums"] == str(tmp_path / "drums.flac")
+    assert result[1]["bass"] == str(tmp_path / "bass.flac")
+    assert result[1]["acappella"] == str(tmp_path / "vocals.flac")
+    assert result[1]["harmonic"] == str(tmp_path / "other.flac")
+    assert result[1]["instrumental"] == str(tmp_path / "other.flac")
+    assert calls == [(source, Path("/tmp/dj_stems"), workspace / "stems", True)]
+
+
+@pytest.mark.asyncio
+async def test_resolve_returns_none_when_demucs_source_missing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def fake_run_demucs(*_args: Any, **_kwargs: Any) -> dict[str, Path]:
+        raise AssertionError("run_demucs should not be called for missing source")
+
+    monkeypatch.setattr("app.audio.deep.demucs_runner.run_demucs", fake_run_demucs)
+
+    result = await StemResolver().resolve(
+        None,
+        SimpleNamespace(session=None),
+        [_input(1, file_path=str(tmp_path / "missing.mp3"))],
+        workspace=str(tmp_path / "workspace"),
+    )
+
+    assert result is None
+
+
+@pytest.mark.asyncio
+async def test_resolve_returns_none_when_demucs_raises(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    source = tmp_path / "track.mp3"
+    source.write_bytes(b"audio")
+
+    def fake_run_demucs(*_args: Any, **_kwargs: Any) -> dict[str, Path]:
+        raise RuntimeError("boom")
+
+    monkeypatch.setattr("app.audio.deep.demucs_runner.run_demucs", fake_run_demucs)
+
+    result = await StemResolver().resolve(
+        None,
+        SimpleNamespace(session=None),
+        [_input(1, file_path=str(source))],
+        workspace=str(tmp_path / "workspace"),
+    )
+
+    assert result is None
