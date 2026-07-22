@@ -1,19 +1,31 @@
+from types import SimpleNamespace
+
 import pytest
 
 from app.config import get_settings
-from app.domain.render.models import TrackInput
+from app.domain.render.models import STEM_ORDER, TrackInput
 from app.handlers.render_mixdown import render_mixdown_handler
 from app.shared.errors import ValidationError
 from app.shared.render_jobs import RENDER_JOBS
 
 
 class _StubUow:
-    def __init__(self, inputs):
+    def __init__(self, inputs, session=None):
+        self.session = session
+
         class _SV:
             async def get_render_inputs(self, vid):
                 return inputs
 
         self.set_versions = _SV()
+
+
+class _PreparedStemSession:
+    def __init__(self, rows):
+        self._rows = rows
+
+    async def execute(self, stmt):
+        return SimpleNamespace(all=lambda: self._rows)
 
 
 @pytest.mark.asyncio
@@ -66,9 +78,9 @@ async def test_mixdown_builds_plan_runs_and_registers(tmp_path, monkeypatch):
 
         Path(out_path).write_bytes(b"ID3fake")
 
-    monkeypatch.setattr("app.handlers.render_mixdown.run_render", _fake_run)
+    monkeypatch.setattr("app.handlers._orchestrator.render_executor.run_render", _fake_run)
     monkeypatch.setattr(
-        "app.handlers.render_mixdown.scan_mix",
+        "app.handlers._orchestrator.render_executor.scan_mix",
         lambda p: type(
             "S",
             (),
@@ -88,6 +100,80 @@ async def test_mixdown_builds_plan_runs_and_registers(tmp_path, monkeypatch):
     assert res.out_path.endswith("MIX.mp3")
     assert res.job_id == "v131-20260706-000000"
     assert RENDER_JOBS.get(res.job_id).done is True
+
+
+@pytest.mark.asyncio
+async def test_mixdown_uses_prepared_stems_without_demucs(tmp_path, monkeypatch):
+    RENDER_JOBS.clear()
+    inputs = [
+        TrackInput(
+            track_id=i,
+            yandex_id=i,
+            title=f"t{i}",
+            bpm=130.0,
+            key_code=1,
+            mix_in_ms=0,
+            integrated_lufs=-12.0,
+            file_path=f"/x{i}.mp3",
+            duration_ms=600_000,
+        )
+        for i in range(2)
+    ]
+    import json
+
+    (tmp_path / "beatgrid.json").write_text(
+        json.dumps(
+            [
+                {
+                    "track_id": i,
+                    "trim_start_s": 0.0,
+                    "refined_trim_s": 0.0,
+                    "gain_db": 0.0,
+                    "phase_ms": 0.0,
+                }
+                for i in range(2)
+            ]
+        )
+    )
+    rows = []
+    stems_dir = tmp_path / "stems"
+    stems_dir.mkdir()
+    for i in range(2):
+        for stem in STEM_ORDER:
+            path = stems_dir / f"{i:04d}-x-{stem}.m4a"
+            path.write_bytes(b"stem")
+            rows.append(SimpleNamespace(track_id=i, file_path=str(path)))
+    session = _PreparedStemSession(rows)
+    captured = {}
+
+    def _fake_run(plan, out_path):
+        captured["phase_n"] = plan.n
+        captured["stem_paths"] = plan.stem_segments[0].stem_paths
+        from pathlib import Path
+
+        Path(out_path).write_bytes(b"ID3fake")
+
+    monkeypatch.setattr("app.handlers._orchestrator.render_executor.run_render", _fake_run)
+    monkeypatch.setattr(
+        "app.handlers._orchestrator.render_executor.scan_mix",
+        lambda p: type(
+            "S",
+            (),
+            {"duration_s": 100.0, "true_peak_db": -1.4, "level_jumps": [], "near_silent_s": []},
+        )(),
+    )
+
+    await render_mixdown_handler(
+        ctx=None,
+        uow=_StubUow(inputs, session=session),
+        version_id=131,
+        workspace=str(tmp_path),
+        out_name="MIX.mp3",
+        timestamp="20260706-000002",
+    )
+
+    assert captured["phase_n"] == 2
+    assert set(captured["stem_paths"]) == set(STEM_ORDER)
 
 
 @pytest.mark.parametrize(
@@ -174,9 +260,9 @@ async def test_mixdown_clamps_body_bars_to_source_duration(tmp_path, monkeypatch
 
         Path(out_path).write_bytes(b"ID3fake")
 
-    monkeypatch.setattr("app.handlers.render_mixdown.run_render", _fake_run)
+    monkeypatch.setattr("app.handlers._orchestrator.render_executor.run_render", _fake_run)
     monkeypatch.setattr(
-        "app.handlers.render_mixdown.scan_mix",
+        "app.handlers._orchestrator.render_executor.scan_mix",
         lambda p: type(
             "S",
             (),
@@ -237,9 +323,9 @@ async def test_mixdown_clamp_uses_inverse_tempo_ratio_for_fast_tracks(tmp_path, 
 
         Path(out_path).write_bytes(b"ID3fake")
 
-    monkeypatch.setattr("app.handlers.render_mixdown.run_render", _fake_run)
+    monkeypatch.setattr("app.handlers._orchestrator.render_executor.run_render", _fake_run)
     monkeypatch.setattr(
-        "app.handlers.render_mixdown.scan_mix",
+        "app.handlers._orchestrator.render_executor.scan_mix",
         lambda p: type(
             "S",
             (),
@@ -314,9 +400,9 @@ async def test_mixdown_explicit_bar_overrides_take_precedence(tmp_path, monkeypa
 
         Path(out_path).write_bytes(b"ID3fake")
 
-    monkeypatch.setattr("app.handlers.render_mixdown.run_render", _fake_run)
+    monkeypatch.setattr("app.handlers._orchestrator.render_executor.run_render", _fake_run)
     monkeypatch.setattr(
-        "app.handlers.render_mixdown.scan_mix",
+        "app.handlers._orchestrator.render_executor.scan_mix",
         lambda p: type(
             "S",
             (),

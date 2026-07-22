@@ -1,6 +1,10 @@
 # tests/domain/render/test_timeline.py
+from app.config.render import RenderSettings
+from app.domain.render.bar_plan import BarPlan
 from app.domain.render.models import BeatgridEntry, TrackInput
-from app.domain.render.timeline import build_render_plan, timeline_windows
+from app.domain.render.plan_assembler import RenderPlanner
+from app.domain.render.request import RenderRequest
+from app.domain.render.timeline import timeline_windows
 
 # Two identical 130-BPM tracks, 24-bar bodies, 32-bar transitions.
 BAR = 4 * (60.0 / 130.0)
@@ -31,21 +35,31 @@ def _grid(n):
     }
 
 
-def test_single_segment_no_transitions():
-    plan = build_render_plan(
-        _inputs(1),
-        _grid(1),
-        target_bpm=130.0,
-        body_bars=24,
-        transition_bars=32,
-        xsplit_low_hz=250,
-        xsplit_high_hz=4000,
-        eq_phase_1_ratio=0.40,
-        eq_phase_2_ratio=0.70,
-        low_swap_beats=1.0,
-        outro_fade_bars=12,
-        limiter_ceiling=0.85,
+def _assemble(n, *, transition_bars=32, body_bars=24):
+    request = RenderRequest(
+        version_id=1,
+        workspace="/tmp/ws",
+        timestamp="20260101",
+        transition_bars=transition_bars,
+        body_bars=body_bars,
+        stem=False,
     )
+    bar_plan = BarPlan(
+        transition_bars=tuple([transition_bars] * max(0, n - 1)),
+        body_bars=[body_bars] * n,
+    )
+    return RenderPlanner().assemble(
+        RenderSettings(),
+        request,
+        _inputs(n),
+        _grid(n),
+        bar_plan,
+        stem_paths=None,
+    )
+
+
+def test_single_segment_no_transitions():
+    plan = _assemble(1, transition_bars=32, body_bars=24)
     seg = plan.segments[0]
     assert seg.d_in_s == 0.0 and seg.d_out_s == 0.0
     assert round(seg.length_s, 4) == round(24 * BAR, 4)
@@ -53,20 +67,7 @@ def test_single_segment_no_transitions():
 
 
 def test_two_segments_overlap():
-    plan = build_render_plan(
-        _inputs(2),
-        _grid(2),
-        target_bpm=130.0,
-        body_bars=24,
-        transition_bars=32,
-        xsplit_low_hz=250,
-        xsplit_high_hz=4000,
-        eq_phase_1_ratio=0.40,
-        eq_phase_2_ratio=0.70,
-        low_swap_beats=1.0,
-        outro_fade_bars=12,
-        limiter_ceiling=0.85,
-    )
+    plan = _assemble(2, transition_bars=32, body_bars=24)
     s0, s1 = plan.segments
     # middle-of-nothing: first segment has no incoming, has outgoing 32 bars
     assert s0.d_in_s == 0.0
@@ -85,20 +86,7 @@ def test_timeline_windows_reports_transitions():
 
 
 def test_timeline_passes_mastering_settings():
-    plan = build_render_plan(
-        _inputs(1),
-        _grid(1),
-        target_bpm=130.0,
-        body_bars=24,
-        transition_bars=32,
-        xsplit_low_hz=250,
-        xsplit_high_hz=4000,
-        eq_phase_1_ratio=0.40,
-        eq_phase_2_ratio=0.70,
-        low_swap_beats=1.0,
-        outro_fade_bars=12,
-        limiter_ceiling=0.85,
-    )
+    plan = _assemble(1, transition_bars=32, body_bars=24)
     assert plan.hpf_cutoff_hz == 30.0
     assert plan.pre_comp_threshold_db == -18.0
     assert plan.pre_comp_ratio == 3.0

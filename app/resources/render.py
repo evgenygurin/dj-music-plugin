@@ -20,11 +20,7 @@ from app.resources._shared import ANNOTATIONS_READ_ONLY, RESOURCE_META
 from app.server.di import get_uow
 from app.shared.errors import NotFoundError
 from app.shared.render_jobs import RENDER_JOBS
-
-
-def _workspace(version_id: int) -> Path:
-    s = get_settings()
-    return Path(s.delivery.output_dir) / s.render.workspace_subdir / f"v{version_id}"
+from app.shared.render_workspace import render_workspace
 
 
 @resource(
@@ -83,7 +79,7 @@ async def render_job_diagnostics_resource(job_id: str) -> str:
         version_id = int(vid)
     except ValueError as exc:
         raise NotFoundError("render_diagnostics", job_id) from exc
-    path = _workspace(version_id) / "diagnostics.json"
+    path = Path(render_workspace(version_id)) / "diagnostics.json"
     if not path.exists():
         raise NotFoundError("render_diagnostics", job_id)
     return path.read_text()
@@ -98,7 +94,7 @@ async def render_job_diagnostics_resource(job_id: str) -> str:
 )
 async def render_beatgrid_resource(version_id: int) -> str:
     """Saved beatgrid.json for a version (or 404 → run render_beatgrid)."""
-    path = _workspace(version_id) / "beatgrid.json"
+    path = Path(render_workspace(version_id)) / "beatgrid.json"
     if not path.exists():
         raise NotFoundError("render_beatgrid", version_id)
     return path.read_text()
