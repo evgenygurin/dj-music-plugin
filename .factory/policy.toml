@@ -4,7 +4,7 @@
 
 [plugin]
 name = "dj-music"
-version = "1.10.0"
+version = "1.11.0"
 
 [mcp_servers.dj]
 command = "bash"
