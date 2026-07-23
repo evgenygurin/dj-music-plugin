@@ -27,3 +27,4 @@ class RenderDiagnosticsResult(BaseModel):
     overall_rms_db: float
     flagged: int = 0
     windows: list[dict[str, Any]] = Field(default_factory=list)
+    flow: dict[str, Any] | None = None

@@ -113,3 +113,75 @@ This project is indexed by GitNexus as **dj-music-plugin** (13474 symbols, 22196
   intro/outro/bridges/rescue loops, скачивай через
   `provider_write(provider="suno", entity="generation", operation="download")`
   и держи эти файлы как export-side assets до появления local-file track import.
+
+## Render Lessons (бойся граблей)
+
+### 1. Всегда проверяй Camelot совместимость ДО рендера
+
+Перед рендером сета: получи ключи треков, проверь все переходы через
+`_camelot_distance()`. Если хоть один трек изолирован (dist=99 со всеми) —
+удали его или замени. **Не рендерь сет с заведомыми конфликтами.**
+
+### 2. `render_mixdown(stem=True)` — всегда отключай эффекты явно
+
+```python
+# НЕПРАВИЛЬНО — автоэффекты (filter_sweep, echo, reverb) включены по умолчанию
+# и создают артефакты: фильтр пульсирует быстрее бита, приглушает треки
+dj_render_mixdown(version_id=X, stem=True)
+
+# ПРАВИЛЬНО — всегда передавай null для всех эффектов
+dj_render_mixdown(version_id=X, stem=True, filter_sweep=None, echo=None, reverb=None)
+```
+
+Без явного ``None`` рендер применяет дефолтные preset'ы эффектов, которые
+работают некорректно — фильтр «захлёбывается» быстрее основного бита.
+
+### 3. Проверяй beatgrid phase перед рендером — на оригинальном аудио, не на стемах!
+
+После ``render_beatgrid`` или автоматического битгрида:
+
+- **Demucs стемы сдвигают транзиенты!** Никогда не анализируй phase на Demucs
+  drums/other стемах — там первый удар может быть смещён на 30-100ms. Только
+  оригинальный файл: ``/tmp/dj_audio/NN. Artist - Title [ym_id].mp3``.
+- Если у трека ``phase_ms: 0.0`` и ``flags: []`` — алгоритм не нашёл первый
+  удар (тихое интро).
+- **Всегда анализируй ВСЕ треки**, а не только подозрительные:
+  ``librosa.beat.beat_track(y=..., sr=..., units='time')``.
+- Сравни phase_ms для КАЖДОЙ соседней пары: разница >0.25 бита = проблема.
+  ``phase_offset_beats = (phase_b - phase_a) * target_bpm / 60``.
+
+### 4. BPM discrepancy — проверяй реальный темп
+
+Stored BPM (из Beatport/DB) может отличаться от реального audio BPM на 1+ BPM.
+При time-stretch (rubberband) ошибка в 1 BPM на 60-секундном переходе даёт
+drift ~1 beat — слышимый рассинхрон.
+
+Перед рендером: сравни ``bpm`` и ``audio_bpm`` в track_features. Если
+расхождение >0.5 BPM — используй audio_bpm для time-stretch, а не stored BPM.
+
+### 5. Пре-рендер чеклист (выполнять ПЕРЕД каждым рендером)
+
+```python
+# 1. Camelot: проверить все пары
+for i in range(len(tracks) - 1):
+    if _camelot_distance(a.key, b.key) > 2:
+        WARN("Camelot conflict!")
+
+# 2. BPM: проверить discrepancy
+for t in tracks:
+    if abs(t.stored_bpm - t.audio_bpm) > 0.5:
+        WARN(f"BPM mismatch: stored={t.stored_bpm} audio={t.audio_bpm}")
+
+# 3. Phase: проверить каждый трек на оригинальном файле
+y, sr = librosa.load(orig_file, sr=22050, mono=True)
+_, beats = librosa.beat.beat_track(y=y, sr=sr, units='time')
+phase_ms = beats[0] * 1000
+if abs(beatgrid_phase - phase_ms) > 30:
+    WARN(f"Phase mismatch: grid={beatgrid_phase} actual={phase_ms}")
+
+# 4. Phase offset между соседями в битах
+for a, b in zip(tracks, tracks[1:]):
+    offset_beats = abs(a.phase_s - b.phase_s) * target_bpm / 60
+    if offset_beats > 0.25:
+        WARN(f"Transition {a}→{b}: phase offset {offset_beats:.2f} beats")
+```

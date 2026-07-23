@@ -1,4 +1,4 @@
-"""Handler: run scan + diagnose on a rendered mix, persist the report."""
+"""Handler: run scan + diagnose + structural flow analysis on a rendered mix."""
 
 from __future__ import annotations
 
@@ -6,13 +6,18 @@ import json
 from pathlib import Path
 from typing import Any
 
-from app.audio.render.diagnostics import diagnose_mix
+from app.audio.render.diagnostics import analyze_set_flow, diagnose_mix
 from app.handlers._context_log import safe_info
 from app.schemas.render import RenderDiagnosticsResult
 
 
 async def render_diagnose_handler(
-    *, ctx: Any, job_id: str, mix_path: str, workspace: str
+    *,
+    ctx: Any,
+    job_id: str,
+    mix_path: str,
+    workspace: str,
+    version_context: dict[str, Any] | None = None,
 ) -> RenderDiagnosticsResult:
     ws = Path(workspace)
     ws.mkdir(parents=True, exist_ok=True)
@@ -32,13 +37,31 @@ async def render_diagnose_handler(
         }
         for w in rep.windows
     ]
-    payload = {
+    payload: dict[str, Any] = {
         "job_id": job_id,
         "overall_rms_db": rep.overall_rms_db,
         "flagged": rep.flagged,
         "windows": windows,
     }
+
+    flow: dict[str, Any] | None = None
+    if version_context is not None:
+        flow = analyze_set_flow(
+            name=rep.name,
+            duration_s=rep.duration_s,
+            windows=rep.windows,
+            segments=version_context.get("segments", []),
+            features=version_context.get("features", {}),
+            titles=version_context.get("titles", {}),
+            target_subgenre=version_context.get("subgenre"),
+        )
+        payload["flow"] = flow
+
     (ws / "diagnostics.json").write_text(json.dumps(payload, indent=1))
     return RenderDiagnosticsResult(
-        job_id=job_id, overall_rms_db=rep.overall_rms_db, flagged=rep.flagged, windows=windows
+        job_id=job_id,
+        overall_rms_db=rep.overall_rms_db,
+        flagged=rep.flagged,
+        windows=windows,
+        flow=flow,
     )

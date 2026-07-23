@@ -35,7 +35,7 @@ async def test_auto_fix_parses_real_diagnostics_windows(
     assert result.defects_found == 3
     assert len(result.fixes) == 3
     assert {fix.at_s for fix in result.fixes} == {4.0}
-    assert any("Compress level jump" in fix.action for fix in result.fixes)
+    assert any("Level jump fix" in fix.action for fix in result.fixes)
     assert any("dropout" in fix.action for fix in result.fixes)
     assert any("Bass boost" in fix.action for fix in result.fixes)
 
