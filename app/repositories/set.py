@@ -90,9 +90,11 @@ class SetVersionRepository(BaseRepository[DjSetVersion]):
         """Ordered render inputs for a version: title/bpm/key/mix-in/LUFS/file.
 
         One batch query joining dj_set_items ⋈ tracks ⋈
-        track_audio_features_computed ⋈ dj_library_items. Raises
-        ValidationError when a track has no registered audio file (download
-        first — mirrors the L5 finalization contract).
+        track_audio_features_computed, with a scalar subquery for the
+        audio file path. Uses ``LIMIT 1`` per track so tracks with multiple
+        ``DjLibraryItem`` rows (e.g. Suno stems) don't produce cartesian
+        duplicates. Raises ValidationError when a track has no registered
+        audio file (download first — mirrors the L5 finalization contract).
         """
         import re
 
@@ -101,6 +103,14 @@ class SetVersionRepository(BaseRepository[DjSetVersion]):
         from app.models.track import Track
         from app.models.track_features import TrackAudioFeaturesComputed
 
+        file_path_subq = (
+            select(DjLibraryItem.file_path)
+            .where(DjLibraryItem.track_id == DjSetItem.track_id)
+            .limit(1)
+            .correlate(DjSetItem)
+            .scalar_subquery()
+            .label("file_path")
+        )
         stmt = (
             select(
                 DjSetItem.track_id,
@@ -111,7 +121,7 @@ class SetVersionRepository(BaseRepository[DjSetVersion]):
                 TrackAudioFeaturesComputed.bpm,
                 TrackAudioFeaturesComputed.key_code,
                 TrackAudioFeaturesComputed.integrated_lufs,
-                DjLibraryItem.file_path,
+                file_path_subq,
             )
             .join(Track, Track.id == DjSetItem.track_id)
             .join(
@@ -119,7 +129,6 @@ class SetVersionRepository(BaseRepository[DjSetVersion]):
                 TrackAudioFeaturesComputed.track_id == DjSetItem.track_id,
                 isouter=True,
             )
-            .join(DjLibraryItem, DjLibraryItem.track_id == DjSetItem.track_id, isouter=True)
             .where(DjSetItem.version_id == version_id)
             .order_by(DjSetItem.sort_index)
         )

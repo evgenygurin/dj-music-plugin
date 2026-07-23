@@ -8,10 +8,8 @@ Techno DJs need reverb for:
 
 Implementation: Schroeder reverberator (4 comb filters + 2 allpass filters)
 generating an impulse response, then convolve with the source audio via
-scipy.signal.fftconvolve (fast FFT-based convolution).
-
-For real-time or large files, the IR can be saved and applied via ffmpeg
-``afftfilt`` with the IR as a second input.
+scipy.signal.fftconvolve (fast FFT-based convolution). No ffmpeg needed —
+pure scipy FFT convolution with wet/dry mix.
 """
 
 from __future__ import annotations

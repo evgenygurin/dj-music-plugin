@@ -5,12 +5,13 @@ phase issues, entry shocks, low-end collapse), this module generates
 corrective ffmpeg filter graphs to fix them automatically.
 
 Fix strategies:
-  LEVEL-JUMP: apply downward compression at the jump point
+  LEVEL-JUMP: smooth volume adjustment at the jump point (compand unsupported
+    with timeline enables in FFmpeg 8)
   DROPOUT: apply makeup gain (+3-6 dB) at the dropout
   BASS-THIN: boost sub-bass (60-120 Hz) during affected window
   PHASE-UNSTABLE: apply mid-side processing to widen stereo safely
   ENTRY-SHOCK: apply short fade-in (100-500 ms)
-  LOW-END-COLLAPSE: apply multiband compression on low band
+  LOW-END-COLLAPSE: EQ boost + volume makeup on low band
 """
 
 from __future__ import annotations
@@ -69,20 +70,17 @@ class AutoFixPlan:
                 continue
 
             if defect.defect_type == DefectType.LEVEL_JUMP:
-                # Apply compression: threshold = current level - 3dB, ratio 4:1
-                threshold = defect.rms_db - 3.0
+                # Smooth volume adjustment — compand doesn't support
+                # enable='between(t,...)' so we use volume + afade instead.
+                gain = 3.0 * defect.severity
+                dur = max(0.1, defect.end_s - defect.start_s)
                 self.fixes.append(
                     FixOperation(
                         start_s=defect.start_s,
                         end_s=defect.end_s,
-                        ffmpeg_filter=(
-                            f"compand=attacks=0.001:decays=0.1:"
-                            f"points=-80/-80|{threshold}/{threshold}|"
-                            f"0/-{6 * defect.severity}|20/-{12 * defect.severity}:"
-                            f"gain=0:volume=-90"
-                        ),
-                        description=f"Compress level jump at {defect.start_s:.1f}s "
-                        f"(threshold={threshold:.0f}dB, severity={defect.severity:.1f})",
+                        ffmpeg_filter=f"volume={gain:.1f}dB",
+                        description=f"Level jump fix at {defect.start_s:.1f}s "
+                        f"({gain:.0f}dB adjust)",
                     )
                 )
 
@@ -123,12 +121,16 @@ class AutoFixPlan:
                 )
 
             elif defect.defect_type == DefectType.LOW_END_COLLAPSE:
+                boost_db = 3.0 + 3.0 * defect.severity
                 self.fixes.append(
                     FixOperation(
                         start_s=defect.start_s,
                         end_s=defect.end_s,
-                        ffmpeg_filter=("mcompand=args='0.005 0.1 -40/-40 0/0 6'"),
-                        description=f"Multiband comp on low end at {defect.start_s:.1f}s",
+                        ffmpeg_filter=(
+                            f"equalizer=f=80:t=q:w=1.0:g={boost_db:.0f},"
+                            f"volume={boost_db * 0.5:.1f}dB"
+                        ),
+                        description=f"Low-end EQ+volume fix at {defect.start_s:.1f}s",
                     )
                 )
 
