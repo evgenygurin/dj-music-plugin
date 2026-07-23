@@ -1,4 +1,5 @@
 """subgenre_preset — render settings tailored to a techno subgenre."""
+
 from __future__ import annotations
 
 from typing import Annotated, Literal
@@ -10,10 +11,19 @@ from app.domain.performance.subgenre_presets import PRESET_MAP, resolve_preset
 from app.schemas.subgenre_preset import SubgenrePresetResult
 
 VALID_SUBGENRES = Literal[
-    "industrial_techno", "dub_techno", "hard_techno",
-    "hypnotic_techno", "peak_time_techno", "driving_techno",
-    "acid_techno", "raw_techno", "tribal_techno", "detroit_techno",
-    "deep_techno", "minimal_techno", "progressive_techno",
+    "industrial_techno",
+    "dub_techno",
+    "hard_techno",
+    "hypnotic_techno",
+    "peak_time_techno",
+    "driving_techno",
+    "acid_techno",
+    "raw_techno",
+    "tribal_techno",
+    "detroit_techno",
+    "deep_techno",
+    "minimal_techno",
+    "progressive_techno",
     "melodic_techno",
 ]
 
@@ -40,9 +50,7 @@ async def subgenre_preset(
     ],
 ) -> SubgenrePresetResult:
     if subgenre not in PRESET_MAP:
-        raise ValueError(
-            f"unknown subgenre {subgenre!r}; valid: {sorted(SUBGENRE_NAMES)}"
-        )
+        raise ValueError(f"unknown subgenre {subgenre!r}; valid: {sorted(SUBGENRE_NAMES)}")
     preset = resolve_preset(subgenre)
     if preset is None:
         raise ValueError(f"no preset for {subgenre!r}")

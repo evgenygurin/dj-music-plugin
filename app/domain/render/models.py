@@ -3,14 +3,27 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from enum import Enum
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from app.config.render import RenderSettings
+    from app.domain.render.request import RenderRequest
 
-# Demucs stem order — the single source of truth for both the ffmpeg input
-# ordering (4 ``-i`` per track) and the stem filtergraph. Never reorder.
-STEM_ORDER: tuple[str, ...] = ("drums", "bass", "vocals", "other")
+# Prepared stem order — the default source of truth for ffmpeg input ordering
+# (5 ``-i`` per track) and the stem filtergraph. Never reorder.
+STEM_ORDER: tuple[str, ...] = ("drums", "bass", "harmonic", "instrumental", "acappella")
+
+# Demucs' native 4-stem order. On-demand separation uses this to preserve the
+# pre-refactor render balance instead of duplicating ``other`` as two inputs.
+DEMUCS_STEM_ORDER: tuple[str, ...] = ("drums", "bass", "vocals", "other")
+
+
+class RenderMode(str, Enum):  # noqa: UP042 - keep `str, Enum` for broader compat
+    """Render pipeline selector — see :class:`RenderPlan.mode`."""
+
+    CLASSIC = "classic"
+    STEM = "stem"
 
 
 @dataclass(frozen=True, slots=True)
@@ -67,7 +80,7 @@ class TrackSegment:
 
 @dataclass(frozen=True, slots=True)
 class StemSegment:
-    """One track on the stem multi-deck timeline (4 stem inputs from demucs)."""
+    """One track on the prepared-stem multi-deck timeline."""
 
     index: int
     track_idx: int
@@ -105,6 +118,7 @@ class RenderPlan:
     low_swap_beats: float
     outro_fade_bars: int
     limiter_ceiling: float
+    mode: RenderMode = RenderMode.CLASSIC
     hpf_cutoff_hz: float = 30.0
     per_track_eq_mid_cut_db: float = -1.0
     per_track_eq_bright_boost_db: float = 1.5
@@ -124,6 +138,14 @@ class RenderPlan:
     dynaudnorm_maxgain: float = 2.0
     segments: list[TrackSegment] = field(default_factory=list)
     stem_segments: list[StemSegment] | None = None
+    stem_order: tuple[str, ...] = STEM_ORDER
+    # ── effects (set-wide, one preset per render) ──
+    filter_sweep_preset: str | None = None
+    echo_preset: str | None = None
+    crossfade_curve_out: str = "tri"
+    crossfade_curve_in: str = "exp"
+    reverb_preset: str | None = None
+    reverb_mix: float = 0.25
 
     @property
     def n(self) -> int:
@@ -135,33 +157,26 @@ class RenderPlan:
     def from_settings(
         cls,
         settings: RenderSettings,
+        request: RenderRequest,
         *,
-        target_bpm: float,
-        xsplit_low_hz: int,
-        xsplit_high_hz: int,
-        eq_phase_1_ratio: float,
-        eq_phase_2_ratio: float,
-        low_swap_beats: float,
-        outro_fade_bars: int,
-        limiter_ceiling: float,
         segments: list[TrackSegment] | None = None,
         stem_segments: list[StemSegment] | None = None,
+        stem_order: tuple[str, ...] = STEM_ORDER,
     ) -> RenderPlan:
-        """Factory: timeline args from the caller, DSP constants from ``settings``.
-
-        Single source of the ``RenderSettings`` → ``RenderPlan`` mapping, shared
-        by the classic and stem plan builders (was duplicated verbatim).
-        """
+        """Factory: DSP constants from ``settings``, effects from ``request``."""
         return cls(
-            target_bpm=target_bpm,
-            xsplit_low_hz=xsplit_low_hz,
-            xsplit_high_hz=xsplit_high_hz,
-            eq_phase_1_ratio=eq_phase_1_ratio,
-            eq_phase_2_ratio=eq_phase_2_ratio,
-            low_swap_beats=low_swap_beats,
-            outro_fade_bars=outro_fade_bars,
-            limiter_ceiling=limiter_ceiling,
+            mode=request.mode,
+            target_bpm=settings.target_bpm,
+            xsplit_low_hz=settings.xsplit_low_hz,
+            xsplit_high_hz=settings.xsplit_high_hz,
+            eq_phase_1_ratio=settings.eq_phase_1_ratio,
+            eq_phase_2_ratio=settings.eq_phase_2_ratio,
+            low_swap_beats=settings.low_swap_beats,
+            outro_fade_bars=settings.outro_fade_bars,
+            limiter_ceiling=settings.limiter_ceiling,
             hpf_cutoff_hz=settings.hpf_cutoff_hz,
+            per_track_eq_mid_cut_db=settings.per_track_eq_mid_cut_db,
+            per_track_eq_bright_boost_db=settings.per_track_eq_bright_boost_db,
             pre_comp_threshold_db=settings.pre_comp_threshold_db,
             pre_comp_ratio=settings.pre_comp_ratio,
             pre_comp_attack_ms=settings.pre_comp_attack_ms,
@@ -178,4 +193,11 @@ class RenderPlan:
             dynaudnorm_maxgain=settings.dynaudnorm_maxgain,
             segments=segments if segments is not None else [],
             stem_segments=stem_segments,
+            stem_order=stem_order,
+            filter_sweep_preset=request.filter_sweep,
+            echo_preset=request.echo,
+            crossfade_curve_out=request.crossfade_curve_out,
+            crossfade_curve_in=request.crossfade_curve_in,
+            reverb_preset=request.reverb,
+            reverb_mix=request.reverb_mix,
         )

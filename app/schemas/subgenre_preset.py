@@ -1,4 +1,5 @@
 """Structured-output model for subgenre_preset tool."""
+
 from __future__ import annotations
 
 from pydantic import BaseModel, ConfigDict

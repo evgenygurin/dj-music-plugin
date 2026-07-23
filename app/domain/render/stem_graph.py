@@ -13,5 +13,5 @@ _BUILDER = StemGraphBuilder()
 
 
 def build_stem_filtergraph(plan: RenderPlan) -> list[str]:
-    """Stem multi-deck filtergraph — 4 demucs stems per track, staggered fades."""
+    """Stem multi-deck filtergraph — 5 prepared stems per track, staggered fades."""
     return _BUILDER.build(plan)

@@ -8,7 +8,7 @@ from pathlib import Path
 from app import __version__
 
 ROOT = Path(__file__).resolve().parents[1]
-VERSION_RE = re.compile(r"Версия:\s*([0-9]+\.[0-9]+\.[0-9]+)")
+VERSION_RE = re.compile(r"[Вв]ерсия:\**\s*v?([0-9]+\.[0-9]+\.[0-9]+)")
 README_VERSION_RE = re.compile(r"\*\*v([0-9]+\.[0-9]+\.[0-9]+)\*\*")
 
 
@@ -26,13 +26,19 @@ def test_project_versions_are_synchronized() -> None:
 
     docs_versions = {
         path.name: match.group(1)
-        for path in (ROOT / "AGENTS.md", ROOT / "GEMINI.md", ROOT / "DJ-MUSIC.md")
+        for path in (
+            ROOT / "AGENTS.md",
+            ROOT / "CLAUDE.md",
+            ROOT / "GEMINI.md",
+            ROOT / "DJ-MUSIC.md",
+        )
         if (match := VERSION_RE.search(path.read_text()))
     }
 
     assert __version__ == expected
     assert docs_versions == {
         "AGENTS.md": expected,
+        "CLAUDE.md": expected,
         "GEMINI.md": expected,
         "DJ-MUSIC.md": expected,
     }

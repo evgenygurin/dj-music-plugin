@@ -54,7 +54,15 @@ NAMESPACE_TAGS = {
 )
 async def unlock_namespace(
     namespace: Annotated[
-        Literal["crud:destructive", "provider:write", "sync", "ui:read", "render:diagnostics", "performance", "all"],
+        Literal[
+            "crud:destructive",
+            "provider:write",
+            "sync",
+            "ui:read",
+            "render:diagnostics",
+            "performance",
+            "all",
+        ],
         Field(description="Namespace to toggle"),
     ],
     action: Annotated[

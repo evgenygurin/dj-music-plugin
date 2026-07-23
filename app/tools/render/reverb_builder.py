@@ -1,4 +1,5 @@
 """reverb_builder — construct reverb effects for DJ sets."""
+
 from __future__ import annotations
 
 from typing import Annotated
@@ -51,9 +52,9 @@ async def reverb_builder(
         rv = REVERB_PRESETS[preset]
     else:
         rv = ReverbIR(
-            decay_s=decay_s or 2.5,
-            pre_delay_ms=pre_delay_ms or 20.0,
-            mix_ratio=mix_ratio or 0.35,
+            decay_s=decay_s if decay_s is not None else 2.5,
+            pre_delay_ms=pre_delay_ms if pre_delay_ms is not None else 20.0,
+            mix_ratio=mix_ratio if mix_ratio is not None else 0.35,
             space=ReverbSpace(space or "hall"),
         )
     return ReverbResult(

@@ -47,15 +47,21 @@ async def render_mixdown(
     ] = True,
     subgenre: Annotated[
         str | None,
-        Field(description="Subgenre preset: industrial_techno, dub_techno, hard_techno, hypnotic_techno, peak_time_techno, driving_techno, acid_techno"),
+        Field(
+            description="Subgenre preset: industrial_techno, dub_techno, hard_techno, hypnotic_techno, peak_time_techno, driving_techno, acid_techno"
+        ),
     ] = None,
     filter_sweep: Annotated[
         str | None,
-        Field(description="Filter sweep preset: classic_lowpass, acid_squelch, industrial_cut, hypnotic_wash, dub_echo_sweep"),
+        Field(
+            description="Filter sweep preset: classic_lowpass, acid_squelch, industrial_cut, hypnotic_wash, dub_echo_sweep"
+        ),
     ] = None,
     echo: Annotated[
         str | None,
-        Field(description="Echo preset: techno_standard, vocal_throw, industrial_stutter, dub_space, acid_bounce"),
+        Field(
+            description="Echo preset: techno_standard, vocal_throw, industrial_stutter, dub_space, acid_bounce"
+        ),
     ] = None,
     crossfade_curve_out: Annotated[
         str,
@@ -67,7 +73,9 @@ async def render_mixdown(
     ] = "exp",
     reverb: Annotated[
         str | None,
-        Field(description="Reverb preset: techno_hall, techno_cathedral, industrial_warehouse, dub_plate, minimal_room"),
+        Field(
+            description="Reverb preset: techno_hall, techno_cathedral, industrial_warehouse, dub_plate, minimal_room"
+        ),
     ] = None,
     reverb_mix: Annotated[
         float,

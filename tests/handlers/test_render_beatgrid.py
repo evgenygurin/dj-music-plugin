@@ -41,10 +41,12 @@ async def test_beatgrid_writes_file_and_result(tmp_path, monkeypatch):
     ]
     # stub the DSP so no librosa/ffmpeg needed
     monkeypatch.setattr(
-        "app.handlers.render_beatgrid.detect_kick_trim", lambda f, start_s, bpm: 0.4
+        "app.handlers._orchestrator.beatgrid_provider.detect_kick_trim",
+        lambda f, start_s, bpm: 0.4,
     )
     monkeypatch.setattr(
-        "app.handlers.render_beatgrid.refine_phase", lambda f, base_trim_s, bpm: (10.0, 0.41)
+        "app.handlers._orchestrator.beatgrid_provider.refine_phase",
+        lambda f, base_trim_s, bpm: (10.0, 0.41),
     )
 
     res = await render_beatgrid_handler(
@@ -79,10 +81,12 @@ async def test_beatgrid_clamps_phase_and_trim_for_late_kick_entries(tmp_path, mo
         )
     ]
     monkeypatch.setattr(
-        "app.handlers.render_beatgrid.detect_kick_trim", lambda f, start_s, bpm: 12.3
+        "app.handlers._orchestrator.beatgrid_provider.detect_kick_trim",
+        lambda f, start_s, bpm: 12.3,
     )
     monkeypatch.setattr(
-        "app.handlers.render_beatgrid.refine_phase", lambda f, base_trim_s, bpm: (229.3, 12.5293)
+        "app.handlers._orchestrator.beatgrid_provider.refine_phase",
+        lambda f, base_trim_s, bpm: (229.3, 12.5293),
     )
 
     res = await render_beatgrid_handler(

@@ -1,4 +1,5 @@
 """stem_matrix — 12-deck stem activation matrix over set timeline."""
+
 from __future__ import annotations
 
 from typing import Annotated
@@ -31,9 +32,7 @@ async def stem_matrix(
     track_order: Annotated[
         list[int], Field(min_length=2, max_length=30, description="Ordered track IDs")
     ],
-    target_bpm: Annotated[
-        float, Field(ge=60, le=200, description="Target BPM")
-    ] = 130.0,
+    target_bpm: Annotated[float, Field(ge=60, le=200, description="Target BPM")] = 130.0,
     transition_bars: Annotated[
         int, Field(ge=4, le=128, description="Transition length in bars")
     ] = 32,
@@ -53,14 +52,17 @@ async def stem_matrix(
         # Body frames
         body_end = t + body_s
         while t < body_end:
-            frames.append(MatrixFrame(
-                time_s=round(t, 2),
-                active_decks=[
-                    ActiveStem(deck_index=j, stem_type=st, track_id=tid)
-                    for j, st in enumerate(STEM_TYPES)
-                ],
-                fade_outs=0, fade_ins=0,
-            ))
+            frames.append(
+                MatrixFrame(
+                    time_s=round(t, 2),
+                    active_decks=[
+                        ActiveStem(deck_index=j, stem_type=st, track_id=tid)
+                        for j, st in enumerate(STEM_TYPES)
+                    ],
+                    fade_outs=0,
+                    fade_ins=0,
+                )
+            )
             t += frame_interval
 
         # Transition frames
@@ -71,17 +73,21 @@ async def stem_matrix(
                 progress = (t - (trans_end - trans_s)) / trans_s
                 fade_outs = 3 if progress > 0.5 else 0
                 fade_ins = 3 if progress > 0.3 else 0
-                frames.append(MatrixFrame(
-                    time_s=round(t, 2),
-                    active_decks=[
-                        ActiveStem(deck_index=j, stem_type=st, track_id=tid)
-                        for j, st in enumerate(STEM_TYPES[:3])
-                    ] + [
-                        ActiveStem(deck_index=j + 5, stem_type=st, track_id=next_tid)
-                        for j, st in enumerate(STEM_TYPES[:3])
-                    ],
-                    fade_outs=fade_outs, fade_ins=fade_ins,
-                ))
+                frames.append(
+                    MatrixFrame(
+                        time_s=round(t, 2),
+                        active_decks=[
+                            ActiveStem(deck_index=j, stem_type=st, track_id=tid)
+                            for j, st in enumerate(STEM_TYPES[:3])
+                        ]
+                        + [
+                            ActiveStem(deck_index=j + 5, stem_type=st, track_id=next_tid)
+                            for j, st in enumerate(STEM_TYPES[:3])
+                        ],
+                        fade_outs=fade_outs,
+                        fade_ins=fade_ins,
+                    )
+                )
                 t += frame_interval
 
     return StemMatrixResult(

@@ -4,6 +4,62 @@ All notable changes to this project will be documented in this file.
 Format based on [Keep a Changelog](https://keepachangelog.com/).
 Versioning follows [Semantic Versioning](https://semver.org/).
 
+## [1.11.1] - 2026-07-22
+
+### Fixed
+- **`auto_fix` no longer shells out through `shell=True`.** The ffmpeg repair
+  command is now built as an argv list and executed without a shell, so custom
+  mix paths cannot inject shell commands.
+- **`auto_fix` parses real `render_diagnose` windows.** It now understands
+  `offset_s` plus tag prefixes like `LEVEL-JUMP +8dB` / `DROPOUT -30dB` and
+  creates non-zero repair windows from diagnostic offsets.
+- **Performance cue section mapping uses shared `SectionType`.** Cue detection
+  and transition-window planning now use the canonical section ids (`OUTRO=7`,
+  `DROP=4`, etc.) instead of stale local constants.
+- **`transition_window.preferred_bars` is honored.** The tool now passes the
+  requested transition length into domain planning.
+- **Effect builders preserve zero-valued custom params.** `echo_builder` and
+  `reverb_builder` no longer replace `0.0` wet/dry, mix, pre-delay, decay, or
+  stereo-spread values with defaults.
+- **Open filter sweeps emit highpass expressions.** Custom `direction="open"`
+  and preset incoming sweeps now return `highpass=...` ffmpeg expressions.
+- **Version synchronization includes `CLAUDE.md`.** The test now covers the
+  Claude instruction file so release metadata drift is caught locally.
+
+### Tests
+- Added 12 focused regression tests for the review findings.
+- Targeted review-fix suite: `12 passed`.
+
+## [1.11.0] - 2026-07-22
+
+### Changed
+- **Render pipeline orchestration split:** `render_mixdown` and `render_beatgrid`
+  now route through thin handlers plus orchestrator/domain collaborators, keeping
+  planning and ffmpeg graph assembly isolated from MCP handler wiring.
+- **Stem-aware mixdown planning:** render plans now carry explicit stem layout
+  (`drums/bass/vocals/other` for Demucs, prepared 5-stem order for cached stems)
+  so graph assembly preserves native stem semantics instead of relying on
+  positional assumptions.
+- **Subgenre presets feed timeline planning:** request-level subgenre presets now
+  affect transition/body bar defaults unless explicit request overrides are set.
+
+### Fixed
+- **Demucs fallback restored:** missing or unusable prepared stems now fall back to
+  on-demand Demucs or classic EQ rendering instead of failing the mixdown.
+- **Prepared stem validation:** cached stem rows are only trusted when every file
+  exists on disk, and mixed 4-stem/5-stem layouts are rejected before graph build.
+- **Per-render settings isolation:** subgenre preset application mutates only a
+  per-render settings copy, not the cached global settings object.
+- **Reverb routing restored:** reverb is applied as a master-bus ffmpeg stage while
+  the no-reverb path remains the direct `amix -> firequalizer -> alimiter` chain.
+
+### Tests
+- `make check` clean: ruff, mypy strict, import-linter, and pytest
+  (`2207 passed`, `46 xfailed`).
+- Added regression coverage for per-render settings isolation, subgenre bar-plan
+  overrides, Demucs/prepared-stem fallback, missing prepared files, and mixed stem
+  layout rejection.
+
 ## [1.9.0] - 2026-07-09
 
 ### Added

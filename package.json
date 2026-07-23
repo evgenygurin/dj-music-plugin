@@ -1,6 +1,6 @@
 {
   "name": "dj-music-plugin",
-  "version": "1.10.0",
+  "version": "1.11.1",
   "description": "MCP server for DJ techno library management — audio analysis, set building, render pipeline",
   "type": "module",
   "main": ".opencode/plugins/superpowers.js",

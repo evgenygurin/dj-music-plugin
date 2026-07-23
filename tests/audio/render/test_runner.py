@@ -1,5 +1,5 @@
-from app.audio.render.runner import build_ffmpeg_cmd, build_preprocess_cmd
-from app.domain.render.models import RenderPlan, TrackSegment
+from app.domain.render.models import RenderMode, RenderPlan, TrackSegment
+from app.domain.render.runner import build_ffmpeg_cmd
 
 BAR = 4 * (60.0 / 130.0)
 
@@ -21,6 +21,7 @@ def _plan():
         )
     ]
     return RenderPlan(
+        mode=RenderMode.CLASSIC,
         target_bpm=130.0,
         xsplit_low_hz=250,
         xsplit_high_hz=4000,
@@ -42,15 +43,6 @@ def test_cmd_has_one_input_per_segment_and_mapping():
     assert cmd[-1] == "/out.mp3"
     assert "[mix]" in cmd  # -map [mix]
     assert "libmp3lame" in cmd
-
-
-def test_build_preprocess_cmd():
-    cmd = build_preprocess_cmd(
-        "/tmp/test.mp3", "/tmp/test_pre.wav", "firequalizer=gain_entry='entry(100,0)'"
-    )
-    assert "highpass=f=30:t=4" in " ".join(cmd)
-    assert "acompressor" in " ".join(cmd)
-    assert "/tmp/test_pre.wav" in cmd
 
 
 def test_ffmpeg_cmd_has_quality_flag():

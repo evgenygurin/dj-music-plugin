@@ -1,6 +1,6 @@
 {
   "name": "dj-music",
-  "version": "1.10.0",
+  "version": "1.11.1",
   "displayName": "DJ Music",
   "description": "DJ techno library management — MCP server with 20+ tools, audio analysis, set building, render pipeline",
   "author": {

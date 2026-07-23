@@ -1,4 +1,5 @@
 """energy_arc_plan — generate target energy/BPM slots for a DJ set."""
+
 from __future__ import annotations
 
 from typing import Annotated, Literal
@@ -31,18 +32,10 @@ async def energy_arc_plan(
         str,
         Field(description="Arc shape: roller, journey, warehouse, festival"),
     ] = "roller",
-    num_tracks: Annotated[
-        int, Field(ge=3, le=30, description="Number of tracks in the set")
-    ] = 16,
-    bpm_start: Annotated[
-        float, Field(ge=100, le=160, description="Starting BPM")
-    ] = 126.0,
-    bpm_peak: Annotated[
-        float, Field(ge=100, le=160, description="Peak BPM")
-    ] = 136.0,
-    bpm_end: Annotated[
-        float, Field(ge=100, le=160, description="Ending BPM")
-    ] = 128.0,
+    num_tracks: Annotated[int, Field(ge=3, le=30, description="Number of tracks in the set")] = 16,
+    bpm_start: Annotated[float, Field(ge=100, le=160, description="Starting BPM")] = 126.0,
+    bpm_peak: Annotated[float, Field(ge=100, le=160, description="Peak BPM")] = 136.0,
+    bpm_end: Annotated[float, Field(ge=100, le=160, description="Ending BPM")] = 128.0,
 ) -> EnergyArcResult:
     factory = ARC_PRESETS.get(shape)
     if factory is None:

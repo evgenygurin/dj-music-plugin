@@ -1,4 +1,5 @@
 """Structured-output model for reverb_builder tool."""
+
 from __future__ import annotations
 
 from pydantic import BaseModel, ConfigDict

@@ -1,5 +1,5 @@
 from app.domain.render.graph import build_filtergraph
-from app.domain.render.models import RenderPlan, TrackSegment
+from app.domain.render.models import RenderMode, RenderPlan, TrackSegment
 
 
 def _segment(**kwargs):
@@ -23,6 +23,7 @@ def _segment(**kwargs):
 class TestEQRitualFiltergraph:
     def test_three_band_split(self):
         plan = RenderPlan(
+            mode=RenderMode.CLASSIC,
             target_bpm=130.0,
             xsplit_low_hz=250,
             xsplit_high_hz=4000,
@@ -54,6 +55,7 @@ class TestEQRitualFiltergraph:
             start_s=64.0,
         )
         plan = RenderPlan(
+            mode=RenderMode.CLASSIC,
             target_bpm=130.0,
             xsplit_low_hz=250,
             xsplit_high_hz=4000,
@@ -82,6 +84,7 @@ class TestEQRitualFiltergraph:
             start_s=64.0,
         )
         plan = RenderPlan(
+            mode=RenderMode.CLASSIC,
             target_bpm=130.0,
             xsplit_low_hz=250,
             xsplit_high_hz=4000,

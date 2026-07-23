@@ -1,6 +1,6 @@
 # DJ Music Plugin
 
-**v1.10.0** · MIT · MCP-сервер для управления личной DJ techno библиотекой, построения оптимизированных DJ сетов и интеграции с Яндекс Музыкой.
+**v1.11.1** · MIT · MCP-сервер для управления личной DJ techno библиотекой, построения оптимизированных DJ сетов и интеграции с Яндекс Музыкой.
 
 Surface: **MCP** (Claude Desktop / Cursor / любой MCP-client) — 20 tools, 27 resources, 19 workflow prompts.
 
@@ -52,7 +52,7 @@ claude plugin install dj-music@dj-music-plugin
 Альтернативный синтаксис через git URL (любая ветка/тег/SHA):
 
 ```bash
-claude plugin marketplace add https://github.com/evgenygurin/dj-music-plugin.git#v1.10.0
+claude plugin marketplace add https://github.com/evgenygurin/dj-music-plugin.git#v1.11.1
 ```
 
 **Session-only тест без install** (не пишет в `~/.claude/settings.json`):

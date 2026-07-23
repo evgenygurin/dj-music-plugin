@@ -21,11 +21,7 @@ from app.config import get_settings
 from app.domain.render.timeline import timeline_windows
 from app.repositories.unit_of_work import UnitOfWork
 from app.shared.render_jobs import RENDER_JOBS
-
-
-def render_studio_workspace(version_id: int) -> Path:
-    s = get_settings()
-    return Path(s.delivery.output_dir) / s.render.workspace_subdir / f"v{version_id}"
+from app.shared.render_workspace import render_workspace
 
 
 async def gather_render_studio(
@@ -34,7 +30,7 @@ async def gather_render_studio(
     """Read every render data source for one version (DRY across UI + resource)."""
     r = get_settings().render
     inputs = await uow.set_versions.get_render_inputs(version_id)
-    ws = render_studio_workspace(version_id)
+    ws = Path(render_workspace(version_id))
 
     beatgrid: list[dict[str, Any]] = []
     gp = ws / "beatgrid.json"

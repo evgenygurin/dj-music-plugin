@@ -1,4 +1,5 @@
 """echo_builder — construct delay/echo effects for DJ transitions."""
+
 from __future__ import annotations
 
 from typing import Annotated
@@ -32,15 +33,9 @@ async def echo_builder(
     delay_ms: Annotated[
         float | None, Field(ge=1, le=2000, description="Delay time in milliseconds")
     ] = None,
-    decay: Annotated[
-        float | None, Field(ge=0.0, le=1.0, description="Feedback decay")
-    ] = None,
-    taps: Annotated[
-        int | None, Field(ge=1, le=10, description="Number of echo taps")
-    ] = None,
-    wet_dry: Annotated[
-        float | None, Field(ge=0.0, le=1.0, description="Wet/dry ratio")
-    ] = None,
+    decay: Annotated[float | None, Field(ge=0.0, le=1.0, description="Feedback decay")] = None,
+    taps: Annotated[int | None, Field(ge=1, le=10, description="Number of echo taps")] = None,
+    wet_dry: Annotated[float | None, Field(ge=0.0, le=1.0, description="Wet/dry ratio")] = None,
     stereo_spread: Annotated[
         float | None, Field(ge=0.0, le=1.0, description="Stereo spread")
     ] = None,
@@ -56,11 +51,11 @@ async def echo_builder(
         from app.audio.effects.echo_delay import EchoPlan
 
         ep = EchoPlan(
-            delay_ms=delay_ms or 375.0,
-            decay=decay or 0.4,
-            taps=taps or 3,
-            wet_dry_ratio=wet_dry or 0.5,
-            stereo_spread=stereo_spread or 0.4,
+            delay_ms=delay_ms if delay_ms is not None else 375.0,
+            decay=decay if decay is not None else 0.4,
+            taps=taps if taps is not None else 3,
+            wet_dry_ratio=wet_dry if wet_dry is not None else 0.5,
+            stereo_spread=stereo_spread if stereo_spread is not None else 0.4,
         )
     return EchoResult(
         preset_name=preset,
