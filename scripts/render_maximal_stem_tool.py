@@ -625,19 +625,6 @@ def split_chunks(plan: ArrangementPlan, max_inputs: int = 96) -> list[RenderChun
             current = []
         if not current:
             current_start = start_s
-        if len(group) > max_inputs:
-            for offset in range(0, len(group), max_inputs):
-                piece = group[offset : offset + max_inputs]
-                chunks.append(
-                    RenderChunk(
-                        index=len(chunks),
-                        start_s=start_s,
-                        end_s=max(event.end_s for event in piece),
-                        events=piece,
-                    )
-                )
-            current = []
-            continue
         current.extend(group)
     if current:
         chunks.append(
@@ -648,6 +635,13 @@ def split_chunks(plan: ArrangementPlan, max_inputs: int = 96) -> list[RenderChun
                 events=current,
             )
         )
+    for chunk in chunks:
+        if len(chunk.events) > max_inputs:
+            print(
+                f"WARN chunk {chunk.index} has {len(chunk.events)} events "
+                f"(max_inputs={max_inputs}) — ffmpeg may fail with too many inputs; "
+                f"increase --max-inputs-per-part or reduce --max-layers"
+            )
     return chunks
 
 
@@ -660,8 +654,9 @@ def _event_filter(input_idx: int, event: StemEvent, chunk: RenderChunk) -> str:
     tempo = event.tempo_ratio
     delay = _delay_ms(event, chunk)
     fade_out_start = max(0.0, duration - event.fade_out_s)
+    pre_stretch = max(duration, duration * tempo) + 0.5
     return (
-        f"[{input_idx}:a]atrim=start=0:duration={duration / tempo + 1.0:.3f},"
+        f"[{input_idx}:a]atrim=start=0:duration={pre_stretch:.3f},"
         f"asetpts=PTS-STARTPTS,rubberband=tempo={tempo:.5f}:pitchq=quality,"
         f"atrim=duration={duration:.3f},asetpts=PTS-STARTPTS,"
         f"{event.eq_chain},volume={event.gain_db:.2f}dB,"
@@ -868,6 +863,13 @@ def main(argv: Sequence[str] | None = None) -> int:
     tracks = parse_catalog(args.stems_dir)
     args.out_dir.mkdir(parents=True, exist_ok=True)
     features = scan_features(tracks, args.out_dir / "features-cache.json")
+    feature_keys: set[str] = set(features)
+    valid_tracks = [t for t in tracks if any(feature_key(t.stems[s]) in feature_keys for s in STEM_ORDER)]
+    if len(valid_tracks) < 24:
+        raise RuntimeError(
+            f"only {len(valid_tracks)} tracks passed feature scan (need >= 24); "
+            f"check WARN lines above for scan failures"
+        )
     target_bpm = args.target_bpm if args.target_bpm is not None else choose_target_bpm(tracks)
     config = PlannerConfig(
         target_bpm=target_bpm,
@@ -875,7 +877,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         rotation_bars=args.rotation_bars,
         max_layers=args.max_layers,
     )
-    plan = plan_arrangement(tracks, features, config)
+    plan = plan_arrangement(valid_tracks, features, config)
     final_path = args.out_dir / "MAXIMAL_STEM_TOOL_FINAL.mp3"
 
     if args.plan_only:

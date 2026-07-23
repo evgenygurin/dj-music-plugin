@@ -328,7 +328,7 @@ def _tiny_plan() -> script.ArrangementPlan:
     return script.ArrangementPlan(title="test", target_bpm=133.0, duration_s=8.0, events=events)
 
 
-def test_split_chunks_caps_input_count() -> None:
+def test_split_chunks_keeps_same_time_events_together() -> None:
     plan = _tiny_plan()
     many_events = [
         script.StemEvent(**{**asdict(plan.events[0]), "track_index": i, "path": f"/tmp/{i}.m4a"})
@@ -340,8 +340,45 @@ def test_split_chunks_caps_input_count() -> None:
 
     chunks = script.split_chunks(large, max_inputs=50)
 
-    assert len(chunks) == 3
-    assert all(len(chunk.events) <= 50 for chunk in chunks)
+    assert len(chunks) == 1
+    assert len(chunks[0].events) == 125
+
+
+def test_split_chunks_splits_across_time_windows() -> None:
+    plan = _tiny_plan()
+    base = plan.events[0]
+    many_events: list[script.StemEvent] = []
+    for i in range(100):
+        many_events.append(
+            script.StemEvent(
+                **{
+                    **asdict(base),
+                    "track_index": i,
+                    "path": f"/tmp/{i}_a.m4a",
+                    "start_s": 0.0,
+                    "end_s": 4.0,
+                }
+            )
+        )
+    for i in range(100, 180):
+        many_events.append(
+            script.StemEvent(
+                **{
+                    **asdict(base),
+                    "track_index": i,
+                    "path": f"/tmp/{i}_b.m4a",
+                    "start_s": 4.0,
+                    "end_s": 8.0,
+                }
+            )
+        )
+    large = script.ArrangementPlan(
+        title="large", target_bpm=133.0, duration_s=8.0, events=many_events
+    )
+
+    chunks = script.split_chunks(large, max_inputs=60)
+
+    assert len(chunks) >= 2
 
 
 def test_build_chunk_command_is_argv_and_contains_no_shell_string(tmp_path: Path) -> None:
