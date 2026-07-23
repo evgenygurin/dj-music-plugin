@@ -91,4 +91,4 @@ def register_post_constructor_transforms(mcp: FastMCP) -> None:
     mcp.add_transform(JSONAwarePromptsAsTools(mcp))
     mcp.add_transform(JSONAwareResourcesAsTools(mcp))
     if os.getenv("DJ_MCP_CODE_MODE", "0") == "1" and CodeMode is not None:
-        mcp.add_transform(CodeMode(mcp))  # type: ignore[misc,arg-type]
+        mcp.add_transform(CodeMode(mcp))  # type: ignore[call-arg,arg-type]

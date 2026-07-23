@@ -1,0 +1,914 @@
+from __future__ import annotations
+
+import argparse
+import json
+import random
+import re
+import shutil
+import subprocess
+from collections import Counter
+from collections.abc import Iterable, Sequence
+from dataclasses import asdict, dataclass, field
+from pathlib import Path
+from typing import Any
+
+STEMS_DIR = Path("/Users/laptop/Desktop/Stems")
+OUT_DIR = Path("generated-sets/maximal-stem-tool-2026-07-22")
+STEM_ORDER: tuple[str, ...] = ("acappella", "bass", "drums", "harmonic", "instrumental")
+ROLE_STEM_MAP: dict[str, str] = {
+    "drum_core": "drums",
+    "drum_top": "drums",
+    "drum_drive": "drums",
+    "bass_leader": "bass",
+    "bass_ghost": "bass",
+    "harmonic": "harmonic",
+    "instrumental_bed": "instrumental",
+    "acappella_chop": "acappella",
+}
+STEM_PATTERN = re.compile(
+    r"^(?P<index>\d+)\s+\[(?P<bpm>\d+)bpm\]\s+\[(?P<genre>[\w-]+)\]\s+"
+    r"(?P<title>.+)-(?P<stem>acappella|bass|drums|harmonic|instrumental)\.m4a$"
+)
+
+
+@dataclass(slots=True)
+class StemTrack:
+    index: int
+    title: str
+    bpm: float
+    genre: str
+    stems: dict[str, Path] = field(default_factory=dict)
+
+
+@dataclass(frozen=True, slots=True)
+class StemFeature:
+    track_index: int
+    stem: str
+    path: str
+    mtime_ns: int
+    size: int
+    rms_db: float
+    low_ratio: float
+    mid_ratio: float
+    high_ratio: float
+    centroid_hz: float
+    onset_rate: float
+    chroma_peak: int | None
+
+
+def feature_key(path: Path) -> str:
+    return str(path.resolve())
+
+
+def _feature_from_cache(key: str, payload: dict[str, Any], path: Path) -> StemFeature | None:
+    stat = path.stat()
+    if payload.get("path") != str(path):
+        return None
+    if payload.get("mtime_ns") != stat.st_mtime_ns or payload.get("size") != stat.st_size:
+        return None
+    return StemFeature(**payload)
+
+
+def _load_feature_cache(cache_path: Path) -> dict[str, dict[str, Any]]:
+    if not cache_path.exists():
+        return {}
+    return json.loads(cache_path.read_text(encoding="utf-8"))
+
+
+def _write_feature_cache(cache_path: Path, features: dict[str, StemFeature]) -> None:
+    cache_path.parent.mkdir(parents=True, exist_ok=True)
+    cache_path.write_text(
+        json.dumps({key: asdict(feature) for key, feature in features.items()}, indent=2),
+        encoding="utf-8",
+    )
+
+
+def extract_stem_feature(track: StemTrack, stem: str) -> StemFeature:
+    import librosa
+    import numpy as np
+
+    path = track.stems[stem]
+    stat = path.stat()
+    y, sr = librosa.load(str(path), sr=22050, mono=True, duration=30.0)
+    if y.size == 0:
+        raise RuntimeError(f"empty audio: {path}")
+    rms_db = float(20.0 * np.log10(np.sqrt(np.mean(y**2)) + 1e-9))
+    spec = np.abs(np.fft.rfft(y * np.hanning(len(y))))
+    freqs = np.fft.rfftfreq(len(y), 1 / sr)
+    total = float(np.sum(spec) + 1e-12)
+    low_ratio = float(np.sum(spec[(freqs >= 20) & (freqs < 160)]) / total)
+    mid_ratio = float(np.sum(spec[(freqs >= 160) & (freqs < 2500)]) / total)
+    high_ratio = float(np.sum(spec[(freqs >= 2500) & (freqs < 12000)]) / total)
+    centroid_hz = float(np.sum(freqs * spec) / total)
+    onset_env = librosa.onset.onset_strength(y=y, sr=sr)
+    onset_rate = float(np.mean(onset_env))
+    chroma_peak: int | None = None
+    if stem in {"harmonic", "instrumental", "acappella"}:
+        chroma = librosa.feature.chroma_cqt(y=y, sr=sr)
+        chroma_peak = int(np.argmax(np.mean(chroma, axis=1)))
+    return StemFeature(
+        track_index=track.index,
+        stem=stem,
+        path=str(path),
+        mtime_ns=stat.st_mtime_ns,
+        size=stat.st_size,
+        rms_db=rms_db,
+        low_ratio=low_ratio,
+        mid_ratio=mid_ratio,
+        high_ratio=high_ratio,
+        centroid_hz=centroid_hz,
+        onset_rate=onset_rate,
+        chroma_peak=chroma_peak,
+    )
+
+
+def scan_features(tracks: Sequence[StemTrack], cache_path: Path) -> dict[str, StemFeature]:
+    raw_cache = _load_feature_cache(cache_path)
+    features: dict[str, StemFeature] = {}
+    failed_tracks: set[int] = set()
+    for track in tracks:
+        staged: dict[str, StemFeature] = {}
+        try:
+            for stem in STEM_ORDER:
+                path = track.stems[stem]
+                key = feature_key(path)
+                cached = _feature_from_cache(key, raw_cache.get(key, {}), path)
+                staged[key] = cached if cached is not None else extract_stem_feature(track, stem)
+        except Exception as exc:
+            print(f"WARN skipping track {track.index} {track.title}: {exc}")
+            failed_tracks.add(track.index)
+            continue
+        features.update(staged)
+    if not features:
+        raise RuntimeError("feature scan produced no usable tracks")
+    _write_feature_cache(cache_path, features)
+    if failed_tracks:
+        print(f"WARN skipped {len(failed_tracks)} tracks during feature scan")
+    return features
+
+
+@dataclass(frozen=True, slots=True)
+class SectionSpec:
+    name: str
+    start: float
+    end: float
+    density: tuple[int, int]
+    preferred_genres: tuple[str, ...]
+
+
+SECTION_ARC: tuple[SectionSpec, ...] = (
+    SectionSpec(
+        "intro_hypnotic",
+        0.00,
+        0.15,
+        (5, 8),
+        ("hypnotic", "dub_techno", "minimal", "progressive", "detroit"),
+    ),
+    SectionSpec(
+        "build_driving",
+        0.15,
+        0.38,
+        (8, 10),
+        ("hypnotic", "driving", "progressive", "acid", "detroit"),
+    ),
+    SectionSpec(
+        "pressure",
+        0.38,
+        0.76,
+        (10, 12),
+        ("driving", "industrial", "peak_time", "acid", "detroit"),
+    ),
+    SectionSpec(
+        "peak_release",
+        0.76,
+        0.91,
+        (10, 12),
+        ("industrial", "peak_time", "hard_techno", "driving", "acid"),
+    ),
+    SectionSpec(
+        "outro_control",
+        0.91,
+        1.00,
+        (5, 8),
+        ("dub_techno", "hypnotic", "detroit", "progressive", "driving"),
+    ),
+)
+
+
+def choose_target_bpm(tracks: Sequence[StemTrack]) -> float:
+    candidates = [track.bpm for track in tracks if 128.0 <= track.bpm <= 138.0]
+    if not candidates:
+        return 133.0
+    avg = sum(candidates) / len(candidates)
+    return max(132.0, min(134.0, round(avg)))
+
+
+def track_features(features: dict[str, StemFeature], track: StemTrack) -> dict[str, StemFeature]:
+    selected: dict[str, StemFeature] = {}
+    for stem in STEM_ORDER:
+        key = feature_key(track.stems[stem])
+        if key in features:
+            selected[stem] = features[key]
+    return selected
+
+
+def _genre_score(genre: str, preferred: tuple[str, ...]) -> float:
+    if genre not in preferred:
+        return -2.5
+    return 5.0 - preferred.index(genre) * 0.65
+
+
+def score_track_for_section(
+    track: StemTrack,
+    features: dict[str, StemFeature],
+    section: SectionSpec,
+    target_bpm: float,
+    reuse_count: int,
+) -> float:
+    per_stem = track_features(features, track)
+    bpm_penalty = abs(track.bpm - target_bpm) * 0.8
+    reuse_penalty = reuse_count * 2.0
+    low_penalty = (
+        max(0.0, per_stem.get("bass", _feature_fallback(track, "bass")).low_ratio - 0.38)
+        * 4.0
+    )
+    drum_bonus = min(
+        2.0,
+        per_stem.get("drums", _feature_fallback(track, "drums")).onset_rate * 0.2,
+    )
+    brightness = per_stem.get("harmonic", _feature_fallback(track, "harmonic")).high_ratio
+    brightness_bonus = min(1.0, brightness * 2.0)
+    return (
+        _genre_score(track.genre, section.preferred_genres)
+        + drum_bonus
+        + brightness_bonus
+        - bpm_penalty
+        - reuse_penalty
+        - low_penalty
+    )
+
+
+def _feature_fallback(track: StemTrack, stem: str) -> StemFeature:
+    return StemFeature(
+        track_index=track.index,
+        stem=stem,
+        path=str(track.stems[stem]),
+        mtime_ns=0,
+        size=0,
+        rms_db=-24.0,
+        low_ratio=0.2,
+        mid_ratio=0.5,
+        high_ratio=0.3,
+        centroid_hz=1000.0,
+        onset_rate=1.0,
+        chroma_peak=None,
+    )
+
+
+@dataclass(frozen=True, slots=True)
+class PlannerConfig:
+    target_bpm: float = 133.0
+    duration_bars: int = 360
+    rotation_bars: int = 32
+    max_layers: int = 12
+    seed: int = 17
+
+
+@dataclass(frozen=True, slots=True)
+class StemEvent:
+    track_index: int
+    title: str
+    genre: str
+    stem: str
+    role: str
+    path: str
+    start_s: float
+    end_s: float
+    source_bpm: float
+    target_bpm: float
+    gain_db: float
+    fade_in_s: float
+    fade_out_s: float
+    eq_chain: str
+    score: float
+
+    @property
+    def duration_s(self) -> float:
+        return self.end_s - self.start_s
+
+    @property
+    def tempo_ratio(self) -> float:
+        return self.target_bpm / self.source_bpm
+
+
+@dataclass(frozen=True, slots=True)
+class ArrangementPlan:
+    title: str
+    target_bpm: float
+    duration_s: float
+    events: list[StemEvent]
+
+
+def bar_seconds(target_bpm: float) -> float:
+    return 4.0 * (60.0 / target_bpm)
+
+
+def section_for_progress(progress: float) -> SectionSpec:
+    for section in SECTION_ARC:
+        if section.start <= progress < section.end:
+            return section
+    return SECTION_ARC[-1]
+
+
+def active_events_at(plan: ArrangementPlan, time_s: float) -> list[StemEvent]:
+    return [event for event in plan.events if event.start_s <= time_s < event.end_s]
+
+
+def stem_eq_chain(stem: str, role: str) -> str:
+    if role == "bass_leader":
+        return "highpass=f=30:t=4,lowpass=f=235,equalizer=f=58:t=q:w=1.0:g=0.8"
+    if role == "bass_ghost":
+        return "highpass=f=95:t=4,lowpass=f=310,volume=-5dB"
+    if stem == "drums":
+        return "highpass=f=36:t=4,lowpass=f=15500,equalizer=f=260:t=q:w=1.2:g=-1.0"
+    if stem == "harmonic":
+        return "highpass=f=170:t=4,lowpass=f=10500,equalizer=f=360:t=q:w=1.3:g=-1.0"
+    if stem == "instrumental":
+        return "highpass=f=230:t=4,lowpass=f=7800,equalizer=f=420:t=q:w=1.2:g=-2.0"
+    return "highpass=f=155:t=4,lowpass=f=11200,equalizer=f=280:t=q:w=1.0:g=-1.5"
+
+
+def role_gain_db(role: str) -> float:
+    return {
+        "drum_core": -5.5,
+        "drum_top": -8.0,
+        "drum_drive": -7.0,
+        "bass_leader": -6.0,
+        "bass_ghost": -13.0,
+        "harmonic": -11.0,
+        "instrumental_bed": -17.0,
+        "acappella_chop": -15.0,
+    }[role]
+
+
+def _rank_tracks(
+    tracks: Sequence[StemTrack],
+    features: dict[str, StemFeature],
+    section: SectionSpec,
+    target_bpm: float,
+    reuse: Counter[int],
+) -> list[tuple[float, StemTrack]]:
+    ranked = [
+        (score_track_for_section(track, features, section, target_bpm, reuse[track.index]), track)
+        for track in tracks
+    ]
+    ranked.sort(key=lambda item: (item[0], -item[1].index), reverse=True)
+    return ranked
+
+
+def _pick_distinct(
+    ranked: list[tuple[float, StemTrack]],
+    *,
+    count: int,
+    blocked: set[int],
+) -> list[tuple[float, StemTrack]]:
+    picked: list[tuple[float, StemTrack]] = []
+    for score, track in ranked:
+        if track.index in blocked:
+            continue
+        picked.append((score, track))
+        blocked.add(track.index)
+        if len(picked) == count:
+            return picked
+    return picked
+
+
+def _add_event(
+    events: list[StemEvent],
+    track: StemTrack,
+    *,
+    stem: str,
+    role: str,
+    start_s: float,
+    end_s: float,
+    target_bpm: float,
+    score: float,
+    fade_s: float,
+) -> None:
+    duration_s = end_s - start_s
+    events.append(
+        StemEvent(
+            track_index=track.index,
+            title=track.title,
+            genre=track.genre,
+            stem=stem,
+            role=role,
+            path=str(track.stems[stem]),
+            start_s=start_s,
+            end_s=end_s,
+            source_bpm=track.bpm,
+            target_bpm=target_bpm,
+            gain_db=role_gain_db(role),
+            fade_in_s=min(fade_s, max(0.05, duration_s * 0.25)),
+            fade_out_s=min(fade_s, max(0.05, duration_s * 0.25)),
+            eq_chain=stem_eq_chain(stem, role),
+            score=score,
+        )
+    )
+
+
+def _compute_window_roles(target_layers: int) -> list[tuple[str, str, str]]:
+    slots: list[tuple[str, str, str]] = []
+    drum_count = 3 if target_layers >= 10 else 2
+    drum_roles = (("drum_core", "drums"), ("drum_top", "drums"), ("drum_drive", "drums"))
+    for i, (role_name, stem) in enumerate(drum_roles):
+        if i < drum_count:
+            slots.append((f"drum_{i}", stem, role_name))
+    slots.append(("bass_0", "bass", "bass_leader"))
+    if target_layers >= 11:
+        slots.append(("bass_1", "bass", "bass_ghost"))
+    harmonic_count = 4 if target_layers >= 10 else 2
+    for i in range(harmonic_count):
+        slots.append((f"harmonic_{i}", "harmonic", "harmonic"))
+    bed_count = 2 if target_layers >= 11 else 1
+    for i in range(bed_count):
+        slots.append((f"bed_{i}", "instrumental", "instrumental_bed"))
+    return slots
+
+
+def plan_arrangement(
+    tracks: Sequence[StemTrack],
+    features: dict[str, StemFeature],
+    config: PlannerConfig,
+) -> ArrangementPlan:
+    if len(tracks) < 24:
+        raise RuntimeError("planner needs at least 24 complete tracks for broad maximal layering")
+    bar_s = bar_seconds(config.target_bpm)
+    window_s = config.rotation_bars * bar_s
+    windows = config.duration_bars // config.rotation_bars
+    duration_s = windows * window_s
+    reuse: Counter[int] = Counter()
+
+    fade_s = min(4.0, window_s * 0.35)
+    rng = random.Random(config.seed)
+    window_assignments: list[dict[str, tuple[float, StemTrack]]] = []
+    slot_meta: dict[str, tuple[str, str]] = {}
+    prev_slots: dict[str, tuple[float, StemTrack]] = {}
+    prev_slot_ids: set[str] = set()
+
+    for window in range(windows):
+        progress = window / max(1, windows - 1)
+        section = section_for_progress(progress)
+        target_layers = min(config.max_layers, section.density[1])
+        ranked = _rank_tracks(tracks, features, section, config.target_bpm, reuse)
+        blocked: set[int] = set()
+
+        slot_specs = _compute_window_roles(target_layers)
+        cur_slot_ids = {sid for sid, _, _ in slot_specs}
+        new_slot_ids = cur_slot_ids - prev_slot_ids
+        common_slot_ids = cur_slot_ids & prev_slot_ids
+
+        for sid, stem, role in slot_specs:
+            slot_meta.setdefault(sid, (stem, role))
+
+        rotate_count = max(2, min(5, len(cur_slot_ids) // 3))
+        to_rotate: set[str] = set()
+
+        if window == 0:
+            to_rotate = cur_slot_ids.copy()
+        else:
+            to_rotate.update(new_slot_ids)
+            candidates = sorted(common_slot_ids)
+            rng.shuffle(candidates)
+            to_rotate.update(candidates[:max(0, rotate_count - len(to_rotate))])
+
+        cur: dict[str, tuple[float, StemTrack]] = {}
+        for sid, _, _ in slot_specs:
+            if sid in prev_slots:
+                _, existing = prev_slots[sid]
+                blocked.add(existing.index)
+            if sid in to_rotate or sid not in prev_slots:
+                picks = _pick_distinct(ranked, count=1, blocked=blocked)
+                if picks:
+                    score, track = picks[0]
+                    cur[sid] = (score, track)
+                    reuse[track.index] += 1
+            else:
+                cur[sid] = prev_slots[sid]
+                score, track = prev_slots[sid]
+                reuse[track.index] += 1
+
+        window_assignments.append(cur)
+        prev_slots = cur
+        prev_slot_ids = cur_slot_ids
+
+    events: list[StemEvent] = []
+    for sid in sorted(slot_meta):
+        stem, role = slot_meta[sid]
+        run_start: float | None = None
+        run_score: float = 0.0
+        run_track: StemTrack | None = None
+        for win_idx, assignments in enumerate(window_assignments):
+            win_start = win_idx * window_s
+            if sid in assignments:
+                score, track = assignments[sid]
+                if run_track is None:
+                    run_track = track
+                    run_score = score
+                    run_start = win_start
+                elif run_track.index != track.index:
+                    assert run_start is not None
+                    _add_event(
+                        events,
+                        run_track, stem=stem, role=role,
+                        start_s=run_start, end_s=win_start,
+                        target_bpm=config.target_bpm,
+                        score=run_score, fade_s=fade_s,
+                    )
+                    run_track = track
+                    run_score = score
+                    run_start = win_start
+            else:
+                if run_track is not None:
+                    assert run_start is not None
+                    _add_event(
+                        events,
+                        run_track, stem=stem, role=role,
+                        start_s=run_start, end_s=win_start,
+                        target_bpm=config.target_bpm,
+                        score=run_score, fade_s=fade_s,
+                    )
+                    run_track = None
+        if run_track is not None:
+            assert run_start is not None
+            _add_event(
+                events,
+                run_track, stem=stem, role=role,
+                start_s=run_start, end_s=duration_s,
+                target_bpm=config.target_bpm,
+                score=run_score, fade_s=fade_s,
+            )
+
+    for window in range(windows):
+        progress = window / max(1, windows - 1)
+        section = section_for_progress(progress)
+        target_layers = min(config.max_layers, section.density[1])
+        ranked = _rank_tracks(tracks, features, section, config.target_bpm, reuse)
+        chop_blocked: set[int] = set()
+        start_s = window * window_s
+        end_s = start_s + window_s
+
+        if target_layers >= 12 and window % 3 == 1:
+            picks = _pick_distinct(ranked, count=1, blocked=chop_blocked)
+            if picks:
+                score, track = picks[0]
+                chop_start = start_s + window_s * 0.50
+                _add_event(
+                    events,
+                    track, stem="acappella", role="acappella_chop",
+                    start_s=chop_start,
+                    end_s=min(end_s, chop_start + window_s * 0.45),
+                    target_bpm=config.target_bpm,
+                    score=score, fade_s=1.0,
+                )
+                reuse[track.index] += 1
+
+    plan = ArrangementPlan(
+        title="MAXIMAL_STEM_TOOL_FINAL",
+        target_bpm=config.target_bpm,
+        duration_s=duration_s,
+        events=events,
+    )
+    validate_arrangement(plan, config)
+    return plan
+
+
+def validate_arrangement(plan: ArrangementPlan, config: PlannerConfig) -> None:
+    if not plan.events:
+        raise RuntimeError("arrangement has no events")
+    step_s = max(1, int(bar_seconds(config.target_bpm)))
+    for second in range(0, int(plan.duration_s), step_s):
+        active = active_events_at(plan, float(second))
+        if len(active) > config.max_layers:
+            raise RuntimeError(f"too many active layers at {second}s: {len(active)}")
+        bass_leaders = [event for event in active if event.role == "bass_leader"]
+        if len(bass_leaders) > 1:
+            raise RuntimeError(f"multiple bass leaders at {second}s")
+
+
+@dataclass(frozen=True, slots=True)
+class RenderChunk:
+    index: int
+    start_s: float
+    end_s: float
+    events: list[StemEvent]
+
+
+def split_chunks(plan: ArrangementPlan, max_inputs: int = 96) -> list[RenderChunk]:
+    if max_inputs < 2:
+        raise ValueError("max_inputs must be >= 2")
+    chunks: list[RenderChunk] = []
+    events = sorted(plan.events, key=lambda event: (event.start_s, event.track_index, event.stem))
+    current: list[StemEvent] = []
+    current_start = 0.0
+    for start_s in sorted({event.start_s for event in events}):
+        group = [event for event in events if event.start_s == start_s]
+        if current and len(current) + len(group) > max_inputs:
+            chunks.append(
+                RenderChunk(
+                    index=len(chunks),
+                    start_s=current_start,
+                    end_s=max(event.end_s for event in current),
+                    events=current,
+                )
+            )
+            current = []
+        if not current:
+            current_start = start_s
+        current.extend(group)
+    if current:
+        chunks.append(
+            RenderChunk(
+                index=len(chunks),
+                start_s=current_start,
+                end_s=max(event.end_s for event in current),
+                events=current,
+            )
+        )
+    for chunk in chunks:
+        if len(chunk.events) > max_inputs:
+            print(
+                f"WARN chunk {chunk.index} has {len(chunk.events)} events "
+                f"(max_inputs={max_inputs}) — ffmpeg may fail with too many inputs; "
+                f"increase --max-inputs-per-part or reduce --max-layers"
+            )
+    return chunks
+
+
+def _delay_ms(event: StemEvent, chunk: RenderChunk) -> int:
+    return max(0, round((event.start_s - chunk.start_s) * 1000))
+
+
+def _event_filter(input_idx: int, event: StemEvent, chunk: RenderChunk) -> str:
+    duration = max(0.05, event.duration_s)
+    tempo = event.tempo_ratio
+    delay = _delay_ms(event, chunk)
+    fade_out_start = max(0.0, duration - event.fade_out_s)
+    pre_stretch = max(duration, duration * tempo) + 0.5
+    return (
+        f"[{input_idx}:a]atrim=start=0:duration={pre_stretch:.3f},"
+        f"asetpts=PTS-STARTPTS,rubberband=tempo={tempo:.5f}:pitchq=quality,"
+        f"atrim=duration={duration:.3f},asetpts=PTS-STARTPTS,"
+        f"{event.eq_chain},volume={event.gain_db:.2f}dB,"
+        f"afade=t=in:curve=qsin:st=0:d={event.fade_in_s:.3f},"
+        f"afade=t=out:curve=qsin:st={fade_out_start:.3f}:d={event.fade_out_s:.3f},"
+        f"adelay={delay}|{delay}[e{input_idx}]"
+    )
+
+
+def build_chunk_command(chunk: RenderChunk, out_path: Path) -> list[str]:
+    if not chunk.events:
+        raise RuntimeError("cannot render empty chunk")
+    inputs = [arg for event in chunk.events for arg in ("-i", event.path)]
+    filters = [_event_filter(i, event, chunk) for i, event in enumerate(chunk.events)]
+    labels = "".join(f"[e{i}]" for i in range(len(chunk.events)))
+    filters.append(
+        f"{labels}amix=inputs={len(chunk.events)}:normalize=0,"
+        "volume=-2dB,"
+        "firequalizer=gain_entry='entry(50,-1);entry(250,-1);entry(900,0);entry(8000,0.8)',"
+        "alimiter=level_in=1:level_out=0.89:limit=0.89:attack=2:release=18:asc=0[mix]"
+    )
+    return [
+        "ffmpeg",
+        "-y",
+        *inputs,
+        "-filter_complex",
+        ";".join(filters),
+        "-map",
+        "[mix]",
+        "-c:a",
+        "libmp3lame",
+        "-b:a",
+        "320k",
+        "-q:a",
+        "0",
+        str(out_path),
+    ]
+
+
+def render_chunk(chunk: RenderChunk, out_path: Path) -> None:
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    subprocess.run(
+        build_chunk_command(chunk, out_path),
+        stderr=subprocess.PIPE,
+        text=True,
+        check=True,
+    )
+
+
+def join_parts(parts: Sequence[Path], out_path: Path) -> None:
+    if not parts:
+        raise RuntimeError("no rendered parts to join")
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    if len(parts) == 1:
+        out_path.write_bytes(parts[0].read_bytes())
+        return
+    inputs = [arg for part in parts for arg in ("-i", str(part))]
+    chain = ""
+    prev = "[0:a]"
+    for idx in range(1, len(parts)):
+        out = f"[x{idx}]" if idx < len(parts) - 1 else "[joined]"
+        chain += f"{prev}[{idx}:a]acrossfade=d=2:c1=qsin:c2=qsin{out};"
+        prev = out
+    chain = chain.rstrip(";")
+    cmd = [
+        "ffmpeg",
+        "-y",
+        *inputs,
+        "-filter_complex",
+        f"{chain};[joined]volume=-2dB,alimiter=level_in=1:level_out=0.89:limit=0.89:attack=2:release=18:asc=0[mix]",
+        "-map",
+        "[mix]",
+        "-c:a",
+        "libmp3lame",
+        "-b:a",
+        "320k",
+        "-q:a",
+        "0",
+        str(out_path),
+    ]
+    subprocess.run(cmd, stderr=subprocess.PIPE, text=True, check=True)
+
+
+def complete_tracks(tracks: Iterable[StemTrack]) -> list[StemTrack]:
+    required = set(STEM_ORDER)
+    return sorted(
+        (track for track in tracks if required.issubset(track.stems)),
+        key=lambda track: track.index,
+    )
+
+
+def parse_catalog(stems_dir: Path) -> list[StemTrack]:
+    if not stems_dir.exists():
+        raise FileNotFoundError(f"stems directory does not exist: {stems_dir}")
+    if not stems_dir.is_dir():
+        raise NotADirectoryError(f"stems path is not a directory: {stems_dir}")
+
+    by_index: dict[int, StemTrack] = {}
+    matched = 0
+    for path in sorted(stems_dir.glob("*.m4a")):
+        match = STEM_PATTERN.match(path.name)
+        if match is None:
+            continue
+        matched += 1
+        idx = int(match.group("index"))
+        track = by_index.setdefault(
+            idx,
+            StemTrack(
+                index=idx,
+                title=match.group("title"),
+                bpm=float(match.group("bpm")),
+                genre=match.group("genre"),
+            ),
+        )
+        track.stems[match.group("stem")] = path
+
+    if matched == 0:
+        raise RuntimeError(f"no prepared stem files matched in {stems_dir}")
+
+    tracks = complete_tracks(by_index.values())
+    if not tracks:
+        raise RuntimeError(f"no complete five-stem tracks found in {stems_dir}")
+    return tracks
+
+
+def build_manifest(
+    plan: ArrangementPlan,
+    tracks: Sequence[StemTrack],
+    out_dir: Path,
+    final_path: Path | None,
+    qa: dict[str, Any] | None,
+) -> dict[str, Any]:
+    source_counts = Counter(event.track_index for event in plan.events)
+    genre_counts = Counter(event.genre for event in plan.events)
+    return {
+        "title": plan.title,
+        "target_bpm": plan.target_bpm,
+        "duration_s": plan.duration_s,
+        "source": {
+            "stems_dir": str(STEMS_DIR),
+            "candidate_tracks": len(tracks),
+        },
+        "output": {
+            "out_dir": str(out_dir),
+            "final_path": str(final_path) if final_path is not None else None,
+        },
+        "reuse": {
+            "source_track_count": len(source_counts),
+            "source_counts": dict(sorted(source_counts.items())),
+            "genre_counts": dict(sorted(genre_counts.items())),
+        },
+        "events": [asdict(event) for event in plan.events],
+        "qa": qa or {},
+    }
+
+
+def write_manifest(path: Path, manifest: dict[str, Any]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+def run_qa(final_path: Path) -> dict[str, Any]:
+    from app.audio.render.diagnostics import diagnose_mix, scan_mix
+
+    scan = scan_mix(str(final_path))
+    diagnose = diagnose_mix(str(final_path))
+    return {
+        "duration_s": scan.duration_s,
+        "true_peak_db": scan.true_peak_db,
+        "clip_risk": scan.clip_risk,
+        "level_jumps": len(scan.level_jumps),
+        "near_silent_s": len(scan.near_silent_s),
+        "flagged_windows": diagnose.flagged,
+    }
+
+
+def preflight_ffmpeg() -> None:
+    if shutil.which("ffmpeg") is None:
+        raise RuntimeError("ffmpeg is required on PATH")
+    proc = subprocess.run(
+        ["ffmpeg", "-hide_banner", "-filters"], capture_output=True, text=True, check=False
+    )
+    if "rubberband" not in proc.stdout:
+        raise RuntimeError("ffmpeg rubberband filter is required for tempo-stretching")
+
+
+def _parse_args(argv: Sequence[str] | None) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description="Render a maximal local prepared-stem techno tool"
+    )
+    parser.add_argument("--stems-dir", type=Path, default=STEMS_DIR)
+    parser.add_argument("--out-dir", type=Path, default=OUT_DIR)
+    parser.add_argument("--target-bpm", type=float, default=None)
+    parser.add_argument("--duration-bars", type=int, default=360)
+    parser.add_argument("--rotation-bars", type=int, default=32)
+    parser.add_argument("--max-layers", type=int, default=12)
+    parser.add_argument("--max-inputs-per-part", type=int, default=96)
+    parser.add_argument("--plan-only", action="store_true")
+    return parser.parse_args(argv)
+
+
+def main(argv: Sequence[str] | None = None) -> int:
+    args = _parse_args(argv)
+    tracks = parse_catalog(args.stems_dir)
+    args.out_dir.mkdir(parents=True, exist_ok=True)
+    features = scan_features(tracks, args.out_dir / "features-cache.json")
+    feature_keys: set[str] = set(features)
+    valid_tracks = [t for t in tracks if any(feature_key(t.stems[s]) in feature_keys for s in STEM_ORDER)]
+    if len(valid_tracks) < 24:
+        raise RuntimeError(
+            f"only {len(valid_tracks)} tracks passed feature scan (need >= 24); "
+            f"check WARN lines above for scan failures"
+        )
+    target_bpm = args.target_bpm if args.target_bpm is not None else choose_target_bpm(tracks)
+    config = PlannerConfig(
+        target_bpm=target_bpm,
+        duration_bars=args.duration_bars,
+        rotation_bars=args.rotation_bars,
+        max_layers=args.max_layers,
+    )
+    plan = plan_arrangement(valid_tracks, features, config)
+    final_path = args.out_dir / "MAXIMAL_STEM_TOOL_FINAL.mp3"
+
+    if args.plan_only:
+        manifest = build_manifest(plan, tracks, args.out_dir, None, None)
+        manifest["source"]["stems_dir"] = str(args.stems_dir)
+        write_manifest(args.out_dir / "manifest.json", manifest)
+        plan_summary = {
+            "mode": "plan-only",
+            "events": len(plan.events),
+            "out_dir": str(args.out_dir),
+        }
+        print(json.dumps(plan_summary))
+        return 0
+
+    preflight_ffmpeg()
+    chunks = split_chunks(plan, max_inputs=args.max_inputs_per_part)
+    parts: list[Path] = []
+    for chunk in chunks:
+        part_path = args.out_dir / f"PART_{chunk.index:03d}.mp3"
+        render_chunk(chunk, part_path)
+        parts.append(part_path)
+    join_parts(parts, final_path)
+    qa = run_qa(final_path)
+    manifest = build_manifest(plan, tracks, args.out_dir, final_path, qa)
+    manifest["source"]["stems_dir"] = str(args.stems_dir)
+    write_manifest(args.out_dir / "manifest.json", manifest)
+    write_manifest(args.out_dir / "diagnostics.json", qa)
+    render_summary = {"mode": "render", "final_path": str(final_path), "qa": qa}
+    print(json.dumps(render_summary, ensure_ascii=False))
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
