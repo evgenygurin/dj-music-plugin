@@ -4,6 +4,42 @@ All notable changes to this project will be documented in this file.
 Format based on [Keep a Changelog](https://keepachangelog.com/).
 Versioning follows [Semantic Versioning](https://semver.org/).
 
+## [1.12.0] - 2026-07-23
+
+### Added
+- **Maximal stem pipeline** — a complete CLI tool (`render_maximal_stem_tool.py`)
+  for building maximal DJ sets from individual stem files:
+  - **Stem catalog parser** — scans a directory of stem M4A files, parses
+    naming conventions, groups them by track, validates completeness.
+  - **Stem feature cache** — extracts and caches per-stem audio features
+    (RMS, spectral centroid, onset rate, chroma peak) so repeated runs
+    skip slow librosa analysis.
+  - **Stem compatibility scoring** — per-stem score function that weights
+    genre affinity, BPM proximity, bass density, drum onset rate, and
+    harmonic brightness with reuse penalties.
+  - **Arrangement planner** — section-based planning (intro → build → peak
+    → close) with per-window layer rotation, gradual filler rotation (3–5
+    layers/window), and smooth stem entry/exit staggеring.
+  - **Chunked ffmpeg renderer** — splits the arrangement into non-overlapping
+    time chunks, renders each via ffmpeg with rubberband tempo correction,
+    EQ, gain staging, fades, and delay alignment; then joins parts.
+  - **Manifest QA + diagnostics** — writes a full manifest JSON with source
+    metadata and a per-window diagnostic report (level jumps, dropouts,
+    bass-thin windows, entry shocks, true peak).
+
+### Fixed
+- **Failed feature-scan tracks no longer reach the planner.** Tracks that
+  don't have a full set of scanned features are now filtered out before
+  `plan_arrangement`, preventing unreadable stems from reaching ffmpeg.
+- **Tempo pre-stretch formula corrected.** `_event_filter` now uses
+  `max(duration, duration * tempo) + 0.5` instead of `duration / tempo + 1.0`,
+  so accelerated events (tempo > 1) get enough source material and slowed-down
+  events (tempo < 1) don't waste input.
+- **Same-timestamp events stay in one ffmpeg call.** `split_chunks` no longer
+  breaks a group of events at identical `start_s` into separate chunks that
+  `join_parts` would concatenate sequentially; they are now rendered together
+  and mixed in parallel.
+
 ## [1.11.1] - 2026-07-22
 
 ### Fixed
