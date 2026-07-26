@@ -2,13 +2,17 @@
 
 Full-track integrated LUFS is far more reliable than a short-chunk RMS
 (the script's note: measuring an intro chunk mis-fired). Clamp ±4 dB.
+
+NOTE: Gain staging disabled (#206-retrofit). With Demucs stem rendering the
+stem-voicing gains handle loudness balance. Track-level gain pushes the
+mix into the limiter and creates audible pumping.
 """
 
 from __future__ import annotations
 
 from statistics import median
 
-_CLAMP_DB = 1.5
+_CLAMP_DB = 0.0
 
 
 def gains_to_median(lufs_by_track: dict[int, float | None]) -> dict[int, float]:

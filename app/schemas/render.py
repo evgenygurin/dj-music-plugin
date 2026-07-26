@@ -25,6 +25,10 @@ class RenderMixdownResult(BaseModel):
 class RenderDiagnosticsResult(BaseModel):
     job_id: str
     overall_rms_db: float
+    integrated_lufs: float | None = None
+    loudness_range_lu: float | None = None
+    overall_flatness: float | None = None
+    overall_onset_db: float | None = None
     flagged: int = 0
     windows: list[dict[str, Any]] = Field(default_factory=list)
     flow: dict[str, Any] | None = None

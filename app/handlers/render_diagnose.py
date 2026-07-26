@@ -29,10 +29,14 @@ async def render_diagnose_handler(
             "offset_s": w.offset_s,
             "rms_db": w.rms_db,
             "low_db": w.low_db,
-            "stereo_corr": getattr(w, "stereo_corr", None),
-            "stereo_width": getattr(w, "stereo_width", None),
-            "low_ratio": getattr(w, "low_ratio", None),
-            "centroid_hz": getattr(w, "centroid_hz", None),
+            "stereo_corr": w.stereo_corr,
+            "stereo_width": w.stereo_width,
+            "low_ratio": w.low_ratio,
+            "centroid_hz": w.centroid_hz,
+            "spectral_flatness": w.spectral_flatness,
+            "rolloff_hz": w.rolloff_hz,
+            "spectral_contrast_mean": w.spectral_contrast_mean,
+            "onset_strength_db": w.onset_strength_db,
             "tags": list(w.tags),
         }
         for w in rep.windows
@@ -40,6 +44,10 @@ async def render_diagnose_handler(
     payload: dict[str, Any] = {
         "job_id": job_id,
         "overall_rms_db": rep.overall_rms_db,
+        "integrated_lufs": rep.integrated_lufs,
+        "loudness_range_lu": rep.loudness_range_lu,
+        "overall_flatness": rep.overall_flatness,
+        "overall_onset_db": rep.overall_onset_db,
         "flagged": rep.flagged,
         "windows": windows,
     }
@@ -54,6 +62,7 @@ async def render_diagnose_handler(
             features=version_context.get("features", {}),
             titles=version_context.get("titles", {}),
             target_subgenre=version_context.get("subgenre"),
+            lra=rep.loudness_range_lu,
         )
         payload["flow"] = flow
 
@@ -61,6 +70,10 @@ async def render_diagnose_handler(
     return RenderDiagnosticsResult(
         job_id=job_id,
         overall_rms_db=rep.overall_rms_db,
+        integrated_lufs=rep.integrated_lufs,
+        loudness_range_lu=rep.loudness_range_lu,
+        overall_flatness=rep.overall_flatness,
+        overall_onset_db=rep.overall_onset_db,
         flagged=rep.flagged,
         windows=windows,
         flow=flow,

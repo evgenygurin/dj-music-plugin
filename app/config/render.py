@@ -21,8 +21,8 @@ class RenderSettings(BaseSettings):
     )
 
     target_bpm: float = Field(default=130.0, gt=0, description="All tracks stretched to this.")
-    transition_bars: int = Field(default=32, gt=0, description="Overlap length between tracks.")
-    body_bars: int = Field(default=24, gt=0, description="Solo time per track between blends.")
+    transition_bars: int = Field(default=48, gt=0, description="Overlap length between tracks.")
+    body_bars: int = Field(default=40, gt=0, description="Solo time per track between blends.")
     xsplit_low_hz: int = Field(default=250, gt=0, description="Low/mid crossover.")
     xsplit_high_hz: int = Field(default=4000, gt=0, description="Mid/high crossover.")
     eq_phase_1_ratio: float = Field(
@@ -60,35 +60,35 @@ class RenderSettings(BaseSettings):
         default=30.0, gt=0, description="Subsonic highpass filter cutoff."
     )
     per_track_eq_mid_cut_db: float = Field(
-        default=-1.0, le=0, description="300-500Hz mid cut for all tracks."
+        default=-0.5, le=0, description="300-500Hz mid cut for all tracks."
     )
     per_track_eq_bright_boost_db: float = Field(
-        default=1.5, ge=0, description="8-12kHz boost for dark tracks (centroid < 2000 Hz)."
+        default=1.0, ge=0, description="8-12kHz boost for dark tracks (centroid < 2000 Hz)."
     )
-    pre_comp_threshold_db: float = Field(default=-18.0, description="Pre-compressor threshold.")
-    pre_comp_ratio: float = Field(default=3.0, gt=1, description="Pre-compressor ratio.")
-    pre_comp_attack_ms: float = Field(default=10.0, gt=0, description="Pre-compressor attack.")
-    pre_comp_release_ms: float = Field(default=80.0, gt=0, description="Pre-compressor release.")
+    pre_comp_threshold_db: float = Field(default=-16.0, description="Pre-compressor threshold.")
+    pre_comp_ratio: float = Field(default=2.5, gt=1, description="Pre-compressor ratio.")
+    pre_comp_attack_ms: float = Field(default=12.0, gt=0, description="Pre-compressor attack.")
+    pre_comp_release_ms: float = Field(default=100.0, gt=0, description="Pre-compressor release.")
 
     # ── Master bus ──
-    glue_comp_threshold_db: float = Field(default=-18.0, description="Glue compressor threshold.")
-    glue_comp_ratio: float = Field(default=3.0, gt=1, description="Glue compressor ratio.")
+    glue_comp_threshold_db: float = Field(default=-13.0, description="Glue compressor threshold.")
+    glue_comp_ratio: float = Field(default=2.5, gt=1, description="Glue compressor ratio.")
     glue_comp_attack_ms: float = Field(default=30.0, gt=0, description="Glue compressor attack.")
     glue_comp_release_ms: float = Field(
         default=150.0, gt=0, description="Glue compressor release."
     )
     master_eq_air_boost_db: float = Field(
-        default=1.5, ge=0, description="10-12kHz high shelf boost."
+        default=1.0, ge=0, description="10-12kHz high shelf boost."
     )
-    master_eq_mud_cut_db: float = Field(default=-1.0, le=0, description="200-400Hz mud cut.")
+    master_eq_mud_cut_db: float = Field(default=-0.5, le=0, description="200-400Hz mud cut.")
     master_eq_sub_boost_db: float = Field(
-        default=0.5, ge=0, description="60-80Hz sub weight boost."
+        default=1.0, ge=0, description="60-80Hz sub weight boost."
     )
     limiter_attack_ms: float = Field(
-        default=10.0, gt=0, description="alimiter attack (ms) — slower = more punch."
+        default=12.0, gt=0, description="alimiter attack (ms) — slower = more punch."
     )
-    limiter_release_ms: float = Field(default=30.0, gt=0, description="alimiter release (ms).")
-    dynaudnorm_maxgain: float = Field(default=2.0, ge=0, description="dynaudnorm maxgain (was 6).")
+    limiter_release_ms: float = Field(default=40.0, gt=0, description="alimiter release (ms).")
+    dynaudnorm_maxgain: float = Field(default=2.5, ge=0, description="dynaudnorm maxgain (was 6).")
 
     workspace_subdir: str = Field(
         default="render", description="Subdir under DeliverySettings.output_dir for job files."

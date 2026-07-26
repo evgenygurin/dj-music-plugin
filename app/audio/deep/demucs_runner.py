@@ -5,6 +5,7 @@ import subprocess
 from pathlib import Path
 
 _CACHE_ROOT = Path("/tmp/dj_stems")
+_DEMUCS_TIMEOUT = 1800  # 30 min per track — MPS can hang under memory pressure
 
 
 def _detect_device() -> str:
@@ -16,6 +17,31 @@ def _detect_device() -> str:
     except Exception:
         pass
     return "cpu"
+
+
+def _run_with_retry(args: list[str], timeout: int = _DEMUCS_TIMEOUT) -> None:
+    for attempt in range(2):
+        try:
+            subprocess.run(
+                args,
+                check=True,
+                timeout=timeout,
+                stdout=subprocess.DEVNULL,
+            )
+            return
+        except subprocess.TimeoutExpired:
+            if attempt == 1:
+                raise
+            import gc
+
+            gc.collect()
+            try:
+                import torch
+
+                if torch.backends.mps.is_available():
+                    torch.mps.empty_cache()
+            except Exception:
+                pass
 
 
 def run_demucs(
@@ -43,7 +69,7 @@ def run_demucs(
         return stem_files
 
     device = _detect_device()
-    subprocess.run(
+    _run_with_retry(
         [
             "python",
             "-W",
@@ -57,9 +83,7 @@ def run_demucs(
             "-o",
             str(cache_dir),
             str(input_path),
-        ],
-        check=True,
-        stdout=subprocess.DEVNULL,
+        ]
     )
 
     wav_stems = {
@@ -90,6 +114,7 @@ def run_demucs(
                         str(flac_path),
                     ],
                     check=True,
+                    timeout=300,
                     stdout=subprocess.DEVNULL,
                     stderr=subprocess.DEVNULL,
                 )

@@ -185,3 +185,25 @@ for a, b in zip(tracks, tracks[1:]):
     if offset_beats > 0.25:
         WARN(f"Transition {a}→{b}: phase offset {offset_beats:.2f} beats")
 ```
+
+### 6. Sound quality — дефолтные параметры рендера
+
+Текущие дефолты (``app/config/render.py``): ``transition_bars=48, body_bars=40``,
+``pre_comp_threshold=-16.0, glue_comp_threshold=-13.0``.
+
+- **``stem=True``** — уже дефолт (Demucs 4-stem). Классический 3-полосный EQ
+  (``stem=False``) звучит дёшево («Siemens A52») и режет вокал на переходах.
+- **gain_db не трогать** — ``gains_to_median()`` в ``app/domain/render/levels.py``
+  заклуплен на ±0dB (отключён). С Demucs стем-войсинг сам балансит громкость.
+  Ручной gain_db толкает микс в лимитер и создаёт пампинг.
+- **Эффекты (filter_sweep, echo, reverb) всегда null** — их дефолтные пресеты
+  работают некорректно (фильтр пульсирует быстрее бита).
+- **subgenre="hypnotic_techno"** — дефолт (с v206). Самый щадящий: плавное
+  введение стемов (phase_1_ratio 0.55), длинные переходы 48 bars, мягкая
+  компрессия. Для более энергичной атмосферы передавай ``driving_techno``,
+  ``peak_time_techno`` или ``hard_techno``. Dub-техно → ``dub_techno``
+  (64-bar переходы, минимальная обработка).
+- **hi-hat / тарелки** — с Demucs стемы drums приходят вместе с хай-хэтами.
+  ``hypnotic_techno`` решает это плавным вводом drums стема (transition 48+ bars,
+  phase_1_ratio 0.55).
+```

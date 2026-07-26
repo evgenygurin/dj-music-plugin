@@ -88,8 +88,8 @@ def test_timeline_windows_reports_transitions():
 def test_timeline_passes_mastering_settings():
     plan = _assemble(1, transition_bars=32, body_bars=24)
     assert plan.hpf_cutoff_hz == 30.0
-    assert plan.pre_comp_threshold_db == -18.0
-    assert plan.pre_comp_ratio == 3.0
-    assert plan.glue_comp_ratio == 3.0
-    assert plan.limiter_attack_ms == 10.0
-    assert plan.limiter_release_ms == 30.0
+    assert plan.pre_comp_threshold_db == -16.0
+    assert plan.pre_comp_ratio == 2.5
+    assert plan.glue_comp_ratio == 2.5
+    assert plan.limiter_attack_ms == 12.0
+    assert plan.limiter_release_ms == 40.0

@@ -46,11 +46,11 @@ async def render_mixdown(
         bool, Field(description="Demucs stem render (default); False = classic EQ bass-swap")
     ] = True,
     subgenre: Annotated[
-        str | None,
+        str,
         Field(
             description="Subgenre preset: industrial_techno, dub_techno, hard_techno, hypnotic_techno, peak_time_techno, driving_techno, acid_techno"
         ),
-    ] = None,
+    ] = "hypnotic_techno",
     filter_sweep: Annotated[
         str | None,
         Field(
