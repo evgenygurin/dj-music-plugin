@@ -139,7 +139,7 @@ class AutoFixPlan:
                     FixOperation(
                         start_s=defect.start_s,
                         end_s=defect.end_s,
-                        ffmpeg_filter="stereotools=mode=ms:level_in=1",
+                        ffmpeg_filter="stereotools=mode=1:level_in=1",
                         description=f"Mid-side processing for phase at {defect.start_s:.1f}s",
                     )
                 )

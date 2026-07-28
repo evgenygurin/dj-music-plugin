@@ -60,9 +60,9 @@ async def test_beatgrid_writes_file_and_result(tmp_path, monkeypatch):
     assert len(res.tracks) == 2
     grid = json.loads((tmp_path / "beatgrid.json").read_text())
     assert grid[0]["refined_trim_s"] == 0.41
-    # median LUFS of (-12,-10) is -11 -> track1 gain +1, track2 gain -1
+    # gain staging disabled (#206-retrofit) — all tracks at 0 dB
     g = {r["track_id"]: r["gain_db"] for r in res.tracks}
-    assert g[1] == 1.0 and g[2] == -1.0
+    assert g[1] == 0.0 and g[2] == 0.0
 
 
 @pytest.mark.asyncio

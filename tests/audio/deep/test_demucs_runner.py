@@ -21,7 +21,7 @@ def test_run_demucs_calls_subprocess_with_correct_args() -> None:
     cache_key = hashlib.sha256(str(input_path.resolve()).encode()).hexdigest()[:12]
     stem_dir = _CACHE_ROOT / f"test_track_{cache_key}" / "htdemucs" / "test_track"
     stem_dir.mkdir(parents=True, exist_ok=True)
-    for name in ("vocals.wav", "drums.wav", "bass.wav", "other.wav"):
+    for name in ("vocals.wav", "drums.wav", "bass.wav", "other.wav", "percussion.wav"):
         (stem_dir / name).touch()
 
     with patch("subprocess.run") as mock_run:
@@ -33,6 +33,7 @@ def test_run_demucs_calls_subprocess_with_correct_args() -> None:
     assert result["drums"] == stem_dir / "drums.wav"
     assert result["bass"] == stem_dir / "bass.wav"
     assert result["other"] == stem_dir / "other.wav"
+    assert result["percussion"] == stem_dir / "percussion.wav"
     input_path.unlink(missing_ok=True)
 
 

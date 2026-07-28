@@ -12,13 +12,31 @@ async def test_diagnose_writes_report(tmp_path, monkeypatch):
 
     class _Rep:
         name = "MIX.mp3"
+        duration_s = 120.0
         overall_rms_db = -11.0
+        integrated_lufs = -12.0
+        loudness_range_lu = 8.0
+        overall_flatness = 0.15
+        overall_onset_db = -18.0
         flagged = 1
         windows = [
             type(
                 "W",
                 (),
-                {"offset_s": 20.0, "rms_db": -30.0, "low_db": -40.0, "tags": ["DROPOUT -30dB"]},
+                {
+                    "offset_s": 20.0,
+                    "rms_db": -30.0,
+                    "low_db": -40.0,
+                    "stereo_corr": 0.95,
+                    "stereo_width": 0.5,
+                    "low_ratio": 0.3,
+                    "centroid_hz": 2000.0,
+                    "spectral_flatness": 0.2,
+                    "rolloff_hz": 8000.0,
+                    "spectral_contrast_mean": 10.0,
+                    "onset_strength_db": -20.0,
+                    "tags": ["DROPOUT -30dB"],
+                },
             )()
         ]
 

@@ -1,9 +1,11 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from app.domain.transition.score import TransitionScore
 from app.shared.features import TrackFeatures
+
+if TYPE_CHECKING:
+    from app.domain.transition.score import TransitionScore
 
 
 class HardConstraintChain:
@@ -28,6 +30,8 @@ class HardConstraintChain:
                 pre_energy_delta=pre_energy_delta,
             )
             if reason is not None:
+                from app.domain.transition.score import TransitionScore
+
                 return TransitionScore(
                     bpm=0.0,
                     energy=0.0,

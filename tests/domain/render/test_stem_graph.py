@@ -9,7 +9,7 @@ from app.domain.render.runner import build_ffmpeg_cmd
 from app.domain.render.stem_graph import build_stem_filtergraph
 
 _STEMS = STEM_ORDER
-_DEMUCS_STEMS = ("drums", "bass", "vocals", "other")
+_DEMUCS_STEMS = ("drums", "bass", "vocals", "other", "percussion")
 
 
 def _stem_plan(
@@ -123,7 +123,7 @@ def test_stem_filtergraph_keeps_instrumental_as_quiet_safety_bed():
     assert "volume=-7.00dB" in joined
 
 
-def test_demucs_stem_plan_uses_four_stem_order_without_duplicate_other():
+def test_demucs_stem_plan_uses_five_stem_order_without_duplicate_other():
     plan = _stem_plan(1, stems=_DEMUCS_STEMS)
 
     assert plan.stem_order == _DEMUCS_STEMS
@@ -135,7 +135,7 @@ def test_demucs_stem_plan_uses_four_stem_order_without_duplicate_other():
     assert "[s0_harmonic]" not in joined
     assert "[s0_instrumental]" not in joined
     assert "[s0_acappella]" not in joined
-    assert "amix=inputs=4:normalize=0" in joined
+    assert "amix=inputs=5:normalize=0" in joined
 
 
 def test_runner_stem_branch_maps_five_inputs_per_track():
@@ -158,7 +158,7 @@ def test_runner_stem_branch_maps_five_inputs_per_track():
     assert "[mix]" in cmd
 
 
-def test_runner_demucs_stem_branch_maps_four_inputs_per_track():
+def test_runner_demucs_stem_branch_maps_five_inputs_per_track():
     plan = _stem_plan(2, stems=_DEMUCS_STEMS)
     cmd = build_ffmpeg_cmd(plan, "/tmp/out.mp3")
 
@@ -168,9 +168,11 @@ def test_runner_demucs_stem_branch_maps_four_inputs_per_track():
         "/stems/0/bass.flac",
         "/stems/0/vocals.flac",
         "/stems/0/other.flac",
+        "/stems/0/percussion.flac",
         "/stems/1/drums.flac",
         "/stems/1/bass.flac",
         "/stems/1/vocals.flac",
         "/stems/1/other.flac",
+        "/stems/1/percussion.flac",
     ]
     assert "[mix]" in cmd

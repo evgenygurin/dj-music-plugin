@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, replace
+from typing import Any
 
 from app.domain.render.models import RenderPlan
 
@@ -34,7 +35,7 @@ class RenderRequestOverrides:
 
 
 def apply_overrides(plan: RenderPlan, overrides: RenderRequestOverrides) -> RenderPlan:
-    kwargs: dict[str, object] = {}
+    kwargs: Any = {}
     for field_name in overrides.__dataclass_fields__:
         value = getattr(overrides, field_name)
         if value is not None:

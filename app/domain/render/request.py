@@ -6,9 +6,12 @@ Replaces the 14-kwarg pass-through chain tool → handler → builder → timeli
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 from app.config import get_settings
-from app.domain.render.models import RenderMode
+
+if TYPE_CHECKING:
+    from app.domain.render.models import RenderMode
 
 
 @dataclass(frozen=True, slots=True)
@@ -31,6 +34,8 @@ class RenderRequest:
 
     @property
     def mode(self) -> RenderMode:
+        from app.domain.render.models import RenderMode
+
         return RenderMode.STEM if self.stem else RenderMode.CLASSIC
 
     @property

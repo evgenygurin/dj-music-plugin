@@ -5,8 +5,8 @@ from app.config.render import RenderSettings
 def test_render_settings_defaults():
     s = RenderSettings()
     assert s.target_bpm == 130.0
-    assert s.transition_bars == 32
-    assert s.body_bars == 24
+    assert s.transition_bars == 48
+    assert s.body_bars == 40
     assert s.xsplit_low_hz == 250
     assert s.xsplit_high_hz == 4000
     assert s.eq_phase_1_ratio == 0.40

@@ -5,7 +5,7 @@ import subprocess
 from pathlib import Path
 
 _CACHE_ROOT = Path("/tmp/dj_stems")
-_DEMUCS_TIMEOUT = 1800  # 30 min per track — MPS can hang under memory pressure
+_DEMUCS_TIMEOUT = 1800
 
 
 def _detect_device() -> str:
@@ -58,44 +58,78 @@ def run_demucs(
     stem_dir = cache_dir / "htdemucs" / input_path.stem
     ext = "flac" if flac else "wav"
 
-    stem_files = {
+    stem_files: dict[str, Path] = {
         "vocals": stem_dir / f"vocals.{ext}",
         "drums": stem_dir / f"drums.{ext}",
         "bass": stem_dir / f"bass.{ext}",
         "other": stem_dir / f"other.{ext}",
+        "percussion": stem_dir / f"percussion.{ext}",
     }
 
     if all(p.exists() for p in stem_files.values()):
         return stem_files
 
-    device = _detect_device()
-    _run_with_retry(
-        [
-            "python",
-            "-W",
-            "ignore::UserWarning",
-            "-m",
-            "demucs",
-            "-n",
-            "htdemucs",
-            "-d",
-            device,
-            "-o",
-            str(cache_dir),
-            str(input_path),
-        ]
-    )
-
-    wav_stems = {
+    wav_stems: dict[str, Path] = {
         "vocals": stem_dir / "vocals.wav",
         "drums": stem_dir / "drums.wav",
         "bass": stem_dir / "bass.wav",
         "other": stem_dir / "other.wav",
     }
 
+    # Migration path: 4 demucs stems exist but no percussion
+    # Run demucs_6s to get the 5th stem
+    need_demucs = not all(p.exists() for p in wav_stems.values())
+
+    if need_demucs:
+        device = _detect_device()
+        _run_with_retry(
+            [
+                "python",
+                "-W",
+                "ignore::UserWarning",
+                "-m",
+                "demucs",
+                "-n",
+                "htdemucs_6s",
+                "-d",
+                device,
+                "-o",
+                str(cache_dir),
+                str(input_path),
+            ]
+        )
+
     for name, wav_path in wav_stems.items():
         if not wav_path.exists():
             raise RuntimeError(f"Demucs failed to produce {name} stem at {wav_path}")
+
+    perc_wav = stem_dir / "percussion.wav"
+    if not perc_wav.exists():
+        drums_wav = wav_stems["drums"]
+        tmp_drums = stem_dir / "drums_tmp.wav"
+        subprocess.run(
+            [
+                "ffmpeg",
+                "-y",
+                "-i",
+                str(drums_wav),
+                "-filter_complex",
+                "[0]lowpass=f=400:poles=2,asetpts=PTS-STARTPTS[drums];"
+                "[0]highpass=f=400:poles=2,asetpts=PTS-STARTPTS[perc]",
+                "-map",
+                "[drums]",
+                str(tmp_drums),
+                "-map",
+                "[perc]",
+                str(perc_wav),
+            ],
+            check=True,
+            timeout=300,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+        tmp_drums.replace(drums_wav)
+    wav_stems["percussion"] = perc_wav
 
     if flac:
         for name, wav_path in wav_stems.items():
