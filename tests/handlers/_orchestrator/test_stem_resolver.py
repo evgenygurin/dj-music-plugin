@@ -135,15 +135,14 @@ async def test_resolve_runs_demucs_without_session_when_workspace_provided(
     source = tmp_path / "track.mp3"
     source.write_bytes(b"audio")
     workspace = tmp_path / "workspace"
-    calls: list[tuple[Path, Path, Path | None, bool]] = []
+    calls: list[tuple[Path, Path, bool]] = []
 
     def fake_run_demucs(
         input_path: Path,
-        output_dir: Path,
-        cache_root: Path | None = None,
+        cache_root: Path,
         flac: bool = False,
     ) -> dict[str, Path]:
-        calls.append((input_path, output_dir, cache_root, flac))
+        calls.append((input_path, cache_root, flac))
         return {
             "drums": tmp_path / "drums.flac",
             "bass": tmp_path / "bass.flac",
@@ -168,7 +167,7 @@ async def test_resolve_runs_demucs_without_session_when_workspace_provided(
     assert result[1]["vocals"] == str(tmp_path / "vocals.flac")
     assert result[1]["other"] == str(tmp_path / "other.flac")
     assert result[1]["percussion"] == str(tmp_path / "percussion.flac")
-    assert calls == [(source, Path("/tmp/dj_stems"), workspace / "stems", True)]
+    assert calls == [(source, workspace / "stems", True)]
 
 
 @pytest.mark.asyncio

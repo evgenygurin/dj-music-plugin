@@ -39,7 +39,7 @@ class L6AnalysisOrchestrator:
         # Step 1: Demucs (requires GPU or cached stems; skip on CPU-only)
         stem_paths: dict[str, Path] = {}
         try:
-            stem_paths = run_demucs(audio_path, Path(""))
+            stem_paths = run_demucs(audio_path, cache_root=Path("/tmp/dj_stems"))
             result.stems = {k: str(v) for k, v in stem_paths.items()}
         except (RuntimeError, FileNotFoundError) as e:
             logger.warning("Demucs skipped (no GPU / no cached stems): %s", e)

@@ -71,7 +71,6 @@ async def _separate_stems(
         try:
             stems = run_demucs(
                 input_file,
-                Path("/tmp/dj_stems"),
                 cache_root=Path(workspace) / "stems",
                 flac=True,
             )

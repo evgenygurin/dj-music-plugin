@@ -4,7 +4,6 @@ import hashlib
 import subprocess
 from pathlib import Path
 
-_CACHE_ROOT = Path("/tmp/dj_stems")
 _DEMUCS_TIMEOUT = 1800
 
 
@@ -46,16 +45,14 @@ def _run_with_retry(args: list[str], timeout: int = _DEMUCS_TIMEOUT) -> None:
 
 def run_demucs(
     input_path: Path,
-    output_dir: Path,
-    cache_root: Path | None = None,
+    cache_root: Path,
     flac: bool = False,
 ) -> dict[str, Path]:
-    output_dir.mkdir(parents=True, exist_ok=True)
+    cache_root.mkdir(parents=True, exist_ok=True)
 
     cache_key = hashlib.sha256(str(input_path.resolve()).encode()).hexdigest()[:12]
-    root = cache_root if cache_root is not None else _CACHE_ROOT
-    cache_dir = root / f"{input_path.stem}_{cache_key}"
-    stem_dir = cache_dir / "htdemucs" / input_path.stem
+    cache_dir = cache_root / f"{input_path.stem}_{cache_key}"
+    stem_dir = cache_dir / "htdemucs_6s" / input_path.stem
     ext = "flac" if flac else "wav"
 
     stem_files: dict[str, Path] = {
