@@ -89,9 +89,11 @@ def place_segments(
         length = seg_body * bar_s + d_in + d_out
         g = grid.get(ti.track_id)
         raw_trim = g.effective_trim if g is not None else 0.0
+        grid_bpm = g.effective_bpm if g is not None else None
+        stretch_bpm = grid_bpm if grid_bpm else ti.bpm
         phrase_aligned = False
-        if g is not None and ti.phrase_boundaries_ms and ti.bpm:
-            snapped = snap_trim_to_phrase(raw_trim, ti.phrase_boundaries_ms, ti.bpm)
+        if g is not None and ti.phrase_boundaries_ms and stretch_bpm:
+            snapped = snap_trim_to_phrase(raw_trim, ti.phrase_boundaries_ms, stretch_bpm)
             if snapped != raw_trim:
                 phrase_aligned = True
             raw_trim = snapped
@@ -99,7 +101,7 @@ def place_segments(
             SegmentGeometry(
                 index=i,
                 track_id=ti.track_id,
-                tempo_ratio=ti.tempo_ratio(target_bpm),
+                tempo_ratio=target_bpm / stretch_bpm,
                 trim_start_s=raw_trim,
                 gain_db=g.gain_db if g is not None else 0.0,
                 body_bars=seg_body,

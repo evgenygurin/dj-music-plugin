@@ -175,3 +175,45 @@ def test_assemble_reports_phrase_align_count():
         stem_paths=None,
     )
     assert plan.phrase_align_count == 1
+
+
+def test_place_segments_uses_measured_bpm_for_stretch():
+    ti = TrackInput(
+        track_id=1,
+        yandex_id=1,
+        title="t",
+        bpm=130.0,
+        key_code=None,
+        mix_in_ms=0,
+        integrated_lufs=-12.0,
+        file_path="/x.mp3",
+    )
+    grid = {
+        1: BeatgridEntry(
+            track_id=1,
+            trim_start_s=0.0,
+            refined_trim_s=0.0,
+            gain_db=0.0,
+            phase_ms=0.0,
+            bpm_measured=120.0,
+        )
+    }
+    geoms = place_segments([ti], grid, target_bpm=130.0, body_bars=24, transition_bars=32)
+    assert round(geoms[0].tempo_ratio, 4) == round(130.0 / 120.0, 4)
+
+
+def test_place_segments_falls_back_to_db_bpm_without_measurement():
+    ti = TrackInput(
+        track_id=1,
+        yandex_id=1,
+        title="t",
+        bpm=130.0,
+        key_code=None,
+        mix_in_ms=0,
+        integrated_lufs=-12.0,
+        file_path="/x.mp3",
+    )
+    geoms = place_segments(
+        [ti], _grid_with_trim(0.0), target_bpm=130.0, body_bars=24, transition_bars=32
+    )
+    assert round(geoms[0].tempo_ratio, 4) == 1.0

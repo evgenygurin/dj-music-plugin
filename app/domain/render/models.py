@@ -56,11 +56,17 @@ class BeatgridEntry:
     refined_trim_s: float | None
     gain_db: float
     phase_ms: float
+    bpm_measured: float | None = None
 
     @property
     def effective_trim(self) -> float:
         """Refined kick trim when QA ran, else the raw kick anchor."""
         return self.refined_trim_s if self.refined_trim_s is not None else self.trim_start_s
+
+    @property
+    def effective_bpm(self) -> float | None:
+        """Measured kick BPM (preferred for stretch), else None → fall back."""
+        return self.bpm_measured
 
 
 @dataclass(frozen=True, slots=True)

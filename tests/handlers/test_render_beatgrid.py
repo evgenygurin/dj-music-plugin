@@ -42,7 +42,7 @@ async def test_beatgrid_writes_file_and_result(tmp_path, monkeypatch):
     # stub the DSP so no librosa/ffmpeg needed
     monkeypatch.setattr(
         "app.handlers._orchestrator.beatgrid_provider.detect_kick_trim",
-        lambda f, start_s, bpm: 0.4,
+        lambda f, start_s, bpm: (0.4, 130.0),
     )
     monkeypatch.setattr(
         "app.handlers._orchestrator.beatgrid_provider.refine_phase",
@@ -60,13 +60,14 @@ async def test_beatgrid_writes_file_and_result(tmp_path, monkeypatch):
     assert len(res.tracks) == 2
     grid = json.loads((tmp_path / "beatgrid.json").read_text())
     assert grid[0]["refined_trim_s"] == 0.41
+    assert grid[0]["bpm_measured"] == 130.0
     # gain staging disabled (#206-retrofit) — all tracks at 0 dB
     g = {r["track_id"]: r["gain_db"] for r in res.tracks}
     assert g[1] == 0.0 and g[2] == 0.0
 
 
 @pytest.mark.asyncio
-async def test_beatgrid_clamps_phase_and_trim_for_late_kick_entries(tmp_path, monkeypatch):
+async def test_beatgrid_keeps_late_kick_trim_but_clamps_phase(tmp_path, monkeypatch):
     inputs = [
         TrackInput(
             track_id=1,
@@ -82,7 +83,7 @@ async def test_beatgrid_clamps_phase_and_trim_for_late_kick_entries(tmp_path, mo
     ]
     monkeypatch.setattr(
         "app.handlers._orchestrator.beatgrid_provider.detect_kick_trim",
-        lambda f, start_s, bpm: 12.3,
+        lambda f, start_s, bpm: (12.3, 145.0),
     )
     monkeypatch.setattr(
         "app.handlers._orchestrator.beatgrid_provider.refine_phase",
@@ -97,6 +98,8 @@ async def test_beatgrid_clamps_phase_and_trim_for_late_kick_entries(tmp_path, mo
         refresh=True,
     )
     row = res.tracks[0]
-    assert row["trim_start_s"] <= 8.0
+    # long-intro tracks keep their real first-kick trim (no 8 s clamp)
+    assert row["trim_start_s"] == 12.3
+    assert row["bpm_measured"] == 145.0
     assert abs(row["phase_ms"]) <= 120.0
     assert row["refined_trim_s"] <= row["trim_start_s"] + 0.12

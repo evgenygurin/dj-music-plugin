@@ -27,7 +27,7 @@ def _entry(
 def test_limits_defaults() -> None:
     limits = BeatgridLimits()
     assert limits.max_phase_ms == 120.0
-    assert limits.max_trim_start_s == 8.0
+    assert limits.max_trim_start_s == 120.0
     assert limits.fixed_flag_threshold_ms == 40.0
     assert limits.fixed_flag_gain_db == 1.5
 
@@ -73,7 +73,21 @@ def test_entry_to_row_round_trips() -> None:
     assert row["refined_trim_s"] == 0.43
     assert row["gain_db"] == 1.0
     assert row["phase_ms"] == 15.0
+    assert row["bpm_measured"] is None
     assert row["flags"] == []
+
+
+def test_entry_bpm_measured_round_trips() -> None:
+    with_bpm = BeatgridEntry(
+        track_id=1,
+        trim_start_s=0.42,
+        refined_trim_s=0.42,
+        gain_db=0.0,
+        phase_ms=0.0,
+        bpm_measured=145.0,
+    )
+    assert entry_from_row(entry_to_row(with_bpm)).bpm_measured == 145.0
+    assert clamp_entry(with_bpm, BeatgridLimits()).bpm_measured == 145.0
 
 
 def test_entry_from_row_inverts_to_row() -> None:

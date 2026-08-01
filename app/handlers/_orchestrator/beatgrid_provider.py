@@ -62,14 +62,19 @@ class BeatgridProvider:
 
         entries: list[BeatgridEntry] = []
         for i, ti in enumerate(inputs):
-            trim = detect_kick_trim(ti.file_path, start_s=ti.mix_in_ms / 1000.0, bpm=ti.bpm)
-            delta_ms, refined_s = refine_phase(ti.file_path, base_trim_s=trim, bpm=ti.bpm)
+            trim, bpm_measured = detect_kick_trim(
+                ti.file_path, start_s=ti.mix_in_ms / 1000.0, bpm=ti.bpm
+            )
+            delta_ms, refined_s = refine_phase(
+                ti.file_path, base_trim_s=trim, bpm=bpm_measured or ti.bpm
+            )
             entry = BeatgridEntry(
                 track_id=ti.track_id,
                 trim_start_s=trim,
                 refined_trim_s=refined_s,
                 gain_db=gains[ti.track_id],
                 phase_ms=delta_ms,
+                bpm_measured=bpm_measured,
             )
             entries.append(clamp_entry(entry, limits))
             if ctx is not None:

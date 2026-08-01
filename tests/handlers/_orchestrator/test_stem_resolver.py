@@ -1,13 +1,18 @@
 from __future__ import annotations
 
+import hashlib
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
 
 import pytest
 
+from app.config import reset_settings_cache
 from app.domain.render.models import STEM_ORDER, TrackInput
-from app.handlers._orchestrator.stem_resolver import StemResolver
+from app.handlers._orchestrator.stem_resolver import (
+    StemResolver,
+    _find_cached_stems,
+)
 
 _DEMUCS_STEMS = ("drums", "bass", "vocals", "other", "percussion")
 
@@ -174,6 +179,8 @@ async def test_resolve_runs_demucs_without_session_when_workspace_provided(
 async def test_resolve_returns_none_when_demucs_source_missing(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    source = tmp_path / "missing.mp3"
+
     def fake_run_demucs(*_args: Any, **_kwargs: Any) -> dict[str, Path]:
         raise AssertionError("run_demucs should not be called for missing source")
 
@@ -182,11 +189,80 @@ async def test_resolve_returns_none_when_demucs_source_missing(
     result = await StemResolver().resolve(
         None,
         SimpleNamespace(session=None),
-        [_input(1, file_path=str(tmp_path / "missing.mp3"))],
+        [_input(1, file_path=str(source))],
         workspace=str(tmp_path / "workspace"),
     )
 
     assert result is None
+
+
+@pytest.mark.asyncio
+async def test_resolve_reuses_cached_stems_without_demucs(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    source = tmp_path / "track.mp3"
+    source.write_bytes(b"audio")
+
+    cache_key = hashlib.sha256(str(source.resolve()).encode()).hexdigest()[:12]
+    stem_dir = (
+        tmp_path / "render" / "v9" / "stems" / f"track_{cache_key}" / "htdemucs_6s" / "track"
+    )
+    stem_dir.mkdir(parents=True)
+    for stem in _DEMUCS_STEMS:
+        (stem_dir / f"{stem}.flac").write_bytes(b"audio")
+
+    calls: list[bool] = []
+
+    def fake_run_demucs(*_args: Any, **_kwargs: Any) -> dict[str, Path]:
+        calls.append(True)
+        raise AssertionError("demucs must not rerun when cache is present")
+
+    monkeypatch.setattr("app.audio.deep.demucs_runner.run_demucs", fake_run_demucs)
+    reset_settings_cache()
+    monkeypatch.setenv("DJ_DELIVERY_OUTPUT_DIR", str(tmp_path))
+
+    try:
+        result = await StemResolver().resolve(
+            None,
+            SimpleNamespace(session=None),
+            [_input(1, file_path=str(source))],
+            workspace=str(tmp_path / "v9" / "render"),
+        )
+    finally:
+        reset_settings_cache()
+
+    assert result is not None
+    assert calls == []
+    assert set(result[1]) == set(_DEMUCS_STEMS)
+    assert result[1]["drums"].endswith("drums.flac")
+
+
+def test_find_cached_stems_matches_flac_by_hash(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    source = tmp_path / "track.mp3"
+    source.write_bytes(b"audio")
+
+    cache_key = hashlib.sha256(str(source.resolve()).encode()).hexdigest()[:12]
+    stem_dir = (
+        tmp_path / "render" / "v9" / "stems" / f"track_{cache_key}" / "htdemucs_6s" / "track"
+    )
+    stem_dir.mkdir(parents=True)
+    for stem in _DEMUCS_STEMS:
+        (stem_dir / f"{stem}.flac").write_bytes(b"audio")
+
+    found = _find_cached_stems(source, output_dir=str(tmp_path))
+    assert found is not None
+    assert set(found) == set(_DEMUCS_STEMS)
+
+
+def test_find_cached_stems_returns_none_when_missing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    source = tmp_path / "track.mp3"
+    source.write_bytes(b"audio")
+
+    assert _find_cached_stems(source, output_dir=str(tmp_path)) is None
 
 
 @pytest.mark.asyncio

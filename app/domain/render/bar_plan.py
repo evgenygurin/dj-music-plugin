@@ -127,7 +127,9 @@ class BarPlanner:
             g = grid.get(ti.track_id)
             trim = g.effective_trim if g is not None else 0.0
             available_source_s = max(0.0, duration_ms / 1000.0 - trim - 1.0)
-            ratio = ti.tempo_ratio(target_bpm)
+            grid_bpm = g.effective_bpm if g is not None else None
+            stretch_bpm = grid_bpm if grid_bpm else getattr(ti, "bpm", 130.0)
+            ratio = target_bpm / stretch_bpm if stretch_bpm > 0 else 1.0
             max_output_s = available_source_s / ratio if ratio > 0 else available_source_s
             body_budget_s = max_output_s - d_in - d_out
             if body_budget_s <= 0:

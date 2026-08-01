@@ -100,6 +100,12 @@ async def test_mixdown_builds_plan_runs_and_registers(tmp_path, monkeypatch):
     assert res.out_path.endswith("MIX.mp3")
     assert res.job_id == "v131-20260706-000000"
     assert RENDER_JOBS.get(res.job_id).done is True
+    import json
+
+    plan = json.loads((tmp_path / "render_plan.json").read_text())
+    assert [seg["track_id"] for seg in plan["segments"]] == [0, 1]
+    assert len(plan["segments"]) == 2
+    assert all(seg["end_s"] > seg["start_s"] >= 0 for seg in plan["segments"])
 
 
 @pytest.mark.asyncio
