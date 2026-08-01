@@ -29,7 +29,7 @@ class TestCamelotDistanceSpec:
         spec = CamelotDistanceSpec()
         a = TrackFeatures(key_code=4)
         b = TrackFeatures(key_code=4)
-        assert spec.check(a, b) is None
+        assert spec.check(a, b) == (None, None)
 
     def test_pre_computed_dist(self) -> None:
         spec = CamelotDistanceSpec()
@@ -42,7 +42,7 @@ class TestCamelotDistanceSpec:
         spec = CamelotDistanceSpec()
         a = TrackFeatures(key_code=0, atonality=True)
         b = TrackFeatures(key_code=23, atonality=True)
-        assert spec.check(a, b) is None
+        assert spec.check(a, b) == (None, None)
 
 
 class TestEnergyGapSpec:

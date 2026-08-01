@@ -49,23 +49,21 @@ def _optimize_by_arc(
         peak_only_arc,
     )
 
-    candidates = [
-        TrackCandidate(
-            track_id=tid,
-            bpm=features[tid].bpm if features[tid].bpm is not None else 130.0,
-            energy_mean=features[tid].energy_mean
-            if features[tid].energy_mean is not None
-            else 0.5,
-            key_code=features[tid].key_code,
-            integrated_lufs=(
-                features[tid].integrated_lufs
-                if features[tid].integrated_lufs is not None
-                else -12.0
-            ),
-            spectral_centroid_hz=features[tid].spectral_centroid_hz or 0.0,
+    candidates = []
+    for tid in track_ids:
+        feat = features[tid]
+        candidates.append(
+            TrackCandidate(
+                track_id=tid,
+                bpm=feat.bpm if feat.bpm is not None else 130.0,
+                energy_mean=feat.energy_mean if feat.energy_mean is not None else 0.5,
+                key_code=feat.key_code,
+                integrated_lufs=feat.integrated_lufs
+                if feat.integrated_lufs is not None
+                else -12.0,
+                spectral_centroid_hz=feat.spectral_centroid_hz or 0.0,
+            )
         )
-        for tid in track_ids
-    ]
     arc = peak_only_arc(num_tracks=len(track_ids))
     order = fit_tracks_to_arc(candidates, arc)
     if order is None:
