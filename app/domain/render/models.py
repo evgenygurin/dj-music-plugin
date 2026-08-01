@@ -39,6 +39,8 @@ class TrackInput:
     integrated_lufs: float | None
     file_path: str
     duration_ms: int | None = None
+    phrase_boundaries_ms: list[int] | None = None
+    dominant_phrase_bars: int | None = None
 
     def tempo_ratio(self, target_bpm: float) -> float:
         """Stretch ratio to reach ``target_bpm`` (>1 speeds a slow track up)."""
