@@ -39,10 +39,17 @@ class ProviderRateLimitMiddleware(Middleware):
         name = getattr(context.message, "name", "<unknown>")
         if not any(name.startswith(p) for p in self.tool_prefixes):
             return await call_next(context)
-        async with self._lock:
+        # Rate limit WITHOUT holding the lock during sleep. Multiple
+        # concurrent provider calls each check the deadline, sleep
+        # independently, and retry — only the lock (brief) serialises
+        # the actual _last_call update. Parallel calls interleave their
+        # sleeps instead of queueing behind one sleeping holder.
+        while True:
             now = time.monotonic()
-            elapsed = now - self._last_call
-            if elapsed < self.delay_s:
-                await asyncio.sleep(self.delay_s - elapsed)
-            self._last_call = time.monotonic()
+            async with self._lock:
+                if now >= self._last_call + self.delay_s:
+                    self._last_call = now
+                    break
+                wait = self._last_call + self.delay_s - now
+            await asyncio.sleep(wait)
         return await call_next(context)

@@ -1,6 +1,9 @@
 from __future__ import annotations
 
-from app.domain.transition.api import PickerRule
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from app.domain.transition.api import PickerRule
 from app.domain.transition.enums import NeuralMixTransition, SubgenrePairType, TransitionIntent
 from app.domain.transition.picker.api import PickerDecision
 from app.domain.transition.picker.rules import DEFAULT_RULES

@@ -16,7 +16,7 @@ STEM_ORDER: tuple[str, ...] = ("drums", "bass", "harmonic", "instrumental", "aca
 
 # Demucs' native 4-stem order. On-demand separation uses this to preserve the
 # pre-refactor render balance instead of duplicating ``other`` as two inputs.
-DEMUCS_STEM_ORDER: tuple[str, ...] = ("drums", "bass", "vocals", "other")
+DEMUCS_STEM_ORDER: tuple[str, ...] = ("drums", "bass", "vocals", "other", "percussion")
 
 
 class RenderMode(str, Enum):  # noqa: UP042 - keep `str, Enum` for broader compat

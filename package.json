@@ -1,6 +1,6 @@
 {
   "name": "dj-music-plugin",
-  "version": "1.11.1",
+  "version": "1.12.0",
   "description": "MCP server for DJ techno library management — audio analysis, set building, render pipeline",
   "type": "module",
   "main": ".opencode/plugins/superpowers.js",
@@ -28,7 +28,7 @@
   },
   "author": "Evgeny Gurin",
   "license": "MIT",
-  "dependencies": {
-    "@supabase/mcp-server-supabase": "^0.7.0"
+  "devDependencies": {
+    "@supabase/mcp-server-supabase": "^0.9.0"
   }
 }

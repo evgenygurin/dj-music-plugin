@@ -14,7 +14,7 @@ from app.resources.render import (
 async def test_defaults_resource_has_settings():
     payload = json.loads(await render_defaults_resource())
     assert payload["target_bpm"] == 130.0
-    assert payload["transition_bars"] == 32
+    assert payload["transition_bars"] == 48
 
 
 @pytest.mark.asyncio

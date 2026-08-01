@@ -150,7 +150,7 @@ class ClassicGraphBuilder(FilterGraphBuilder):
         seg = ctx.seg
         return (
             f"[{ctx.i}:a]atrim=start={seg.trim_start_s:.4f}:"
-            f"duration={ctx.length / seg.tempo_ratio + 1.0:.3f},"
+            f"duration={ctx.length * seg.tempo_ratio + 1.0:.3f},"
             f"asetpts=PTS-STARTPTS,rubberband=tempo={seg.tempo_ratio:.5f}:pitchq=quality,"
             f"atrim=duration={ctx.length:.3f},asetpts=PTS-STARTPTS,volume={seg.gain_db:.2f}dB,"
             f"aformat=sample_rates=44100:channel_layouts=stereo[s{ctx.i}]"
@@ -339,7 +339,7 @@ class StemGraphBuilder(FilterGraphBuilder):
         hpf = f"highpass=f={hpf_hz}," if hpf_hz else ""
         return (
             f"[{input_idx}:a]atrim=start={seg.trim_start_s:.4f}:"
-            f"duration={seg.length_s / seg.tempo_ratio + 1.0:.3f},"
+            f"duration={seg.length_s * seg.tempo_ratio + 1.0:.3f},"
             f"asetpts=PTS-STARTPTS,rubberband=tempo={seg.tempo_ratio:.5f}:pitchq=quality,"
             f"atrim=duration={seg.length_s:.3f},asetpts=PTS-STARTPTS,"
             f"{hpf}volume={gain_db:.2f}dB,"

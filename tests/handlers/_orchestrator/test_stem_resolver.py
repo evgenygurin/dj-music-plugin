@@ -9,7 +9,7 @@ import pytest
 from app.domain.render.models import STEM_ORDER, TrackInput
 from app.handlers._orchestrator.stem_resolver import StemResolver
 
-_DEMUCS_STEMS = ("drums", "bass", "vocals", "other")
+_DEMUCS_STEMS = ("drums", "bass", "vocals", "other", "percussion")
 
 
 class _Rows:
@@ -73,6 +73,7 @@ async def test_resolve_accepts_demucs_four_stem_directory_names(tmp_path: Path) 
     assert result[1]["bass"].endswith("/track/bass.wav")
     assert result[1]["vocals"].endswith("/track/vocals.wav")
     assert result[1]["other"].endswith("/track/other.wav")
+    assert result[1]["percussion"].endswith("/track/percussion.wav")
 
 
 @pytest.mark.asyncio
@@ -89,6 +90,7 @@ async def test_resolve_accepts_demucs_prefixed_flac_names(tmp_path: Path) -> Non
     assert set(result[1]) == set(_DEMUCS_STEMS)
     assert result[1]["vocals"].endswith("track-name-vocals.flac")
     assert result[1]["other"].endswith("track-name-other.flac")
+    assert result[1]["percussion"].endswith("track-name-percussion.flac")
 
 
 @pytest.mark.asyncio
@@ -133,20 +135,20 @@ async def test_resolve_runs_demucs_without_session_when_workspace_provided(
     source = tmp_path / "track.mp3"
     source.write_bytes(b"audio")
     workspace = tmp_path / "workspace"
-    calls: list[tuple[Path, Path, Path | None, bool]] = []
+    calls: list[tuple[Path, Path, bool]] = []
 
     def fake_run_demucs(
         input_path: Path,
-        output_dir: Path,
-        cache_root: Path | None = None,
+        cache_root: Path,
         flac: bool = False,
     ) -> dict[str, Path]:
-        calls.append((input_path, output_dir, cache_root, flac))
+        calls.append((input_path, cache_root, flac))
         return {
             "drums": tmp_path / "drums.flac",
             "bass": tmp_path / "bass.flac",
             "vocals": tmp_path / "vocals.flac",
             "other": tmp_path / "other.flac",
+            "percussion": tmp_path / "percussion.flac",
         }
 
     monkeypatch.setattr("app.audio.deep.demucs_runner.run_demucs", fake_run_demucs)
@@ -164,7 +166,8 @@ async def test_resolve_runs_demucs_without_session_when_workspace_provided(
     assert result[1]["bass"] == str(tmp_path / "bass.flac")
     assert result[1]["vocals"] == str(tmp_path / "vocals.flac")
     assert result[1]["other"] == str(tmp_path / "other.flac")
-    assert calls == [(source, Path("/tmp/dj_stems"), workspace / "stems", True)]
+    assert result[1]["percussion"] == str(tmp_path / "percussion.flac")
+    assert calls == [(source, workspace / "stems", True)]
 
 
 @pytest.mark.asyncio

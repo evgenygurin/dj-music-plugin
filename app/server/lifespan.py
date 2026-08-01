@@ -17,6 +17,7 @@ from pathlib import Path
 from typing import Any
 
 from fastmcp.server.lifespan import lifespan
+from sqlalchemy import text
 
 from app.audio.analyzers import AnalyzerRegistry
 from app.audio.pipeline import AnalysisPipeline
@@ -159,6 +160,15 @@ async def db_lifespan(app: Any) -> AsyncIterator[dict[str, Any]]:
         register_default_entities()
     engine = build_engine()
     factory = build_session_factory(engine)
+    # Pre-warm the connection pool so the first tool call doesn't pay the
+    # cold-connection cost to Supabase (remote PostgreSQL in another region).
+    # Opens and immediately closes one session — the connection returns to
+    # the pool, ready for reuse by the first real tool call.
+    try:
+        async with factory() as warmup_session:
+            await warmup_session.execute(text("SELECT 1"))
+    except Exception:
+        pass
     try:
         yield {"db_engine": engine, "db_session_factory": factory}
     finally:

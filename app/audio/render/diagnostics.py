@@ -64,6 +64,11 @@ class DiagWindow:
     stereo_width: float | None = None
     low_ratio: float | None = None
     centroid_hz: float | None = None
+    spectral_flatness: float | None = None
+    rolloff_hz: float | None = None
+    spectral_contrast_mean: float | None = None
+    onset_strength_db: float | None = None
+    mfcc: tuple[float, ...] = ()
     tags: list[str] = field(default_factory=list)
 
 
@@ -72,6 +77,10 @@ class DiagnoseReport:
     name: str
     duration_s: float
     overall_rms_db: float
+    integrated_lufs: float | None = None
+    loudness_range_lu: float | None = None
+    overall_flatness: float | None = None
+    overall_onset_db: float | None = None
     windows: list[DiagWindow] = field(default_factory=list)
     flagged: int = 0
 
@@ -123,28 +132,58 @@ def _camelot_distance(a: int, b: int) -> int:
 
 def _match_windows_to_segment(
     windows: list[DiagWindow], start_s: float, end_s: float
-) -> tuple[float, float, float | None, float | None, float | None, list[str]]:
+) -> dict[str, Any]:
     """Aggregate DiagWindow metrics over a track segment time range."""
     import numpy as np
 
     selected = [w for w in windows if start_s <= w.offset_s < end_s]
     if not selected:
-        return -60.0, -60.0, None, None, None, []
+        return {
+            "rms_db": -60.0,
+            "low_db": -60.0,
+            "centroid_hz": None,
+            "stereo_width": None,
+            "low_ratio": None,
+            "spectral_flatness": None,
+            "rolloff_hz": None,
+            "spectral_contrast_mean": None,
+            "onset_strength_db": None,
+            "tags": [],
+        }
 
     rms_arr = np.array([w.rms_db for w in selected])
     low_arr = np.array([w.low_db for w in selected])
     centroids = [w.centroid_hz for w in selected if w.centroid_hz is not None]
     widths = [w.stereo_width for w in selected if w.stereo_width is not None]
     ratios = [w.low_ratio for w in selected if w.low_ratio is not None]
+    flatness = [w.spectral_flatness for w in selected if w.spectral_flatness is not None]
+    rolloffs = [w.rolloff_hz for w in selected if w.rolloff_hz is not None]
+    contrasts = [
+        w.spectral_contrast_mean for w in selected if w.spectral_contrast_mean is not None
+    ]
+    onsets = [w.onset_strength_db for w in selected if w.onset_strength_db is not None]
+
+    # MFCC vectors: average within segment
+    mfcc_vectors = [np.array(w.mfcc, dtype=np.float64) for w in selected if len(w.mfcc) == 13]
+    avg_mfcc: tuple[float, ...] | None = None
+    if mfcc_vectors:
+        avg_mfcc = tuple(round(float(v), 4) for v in np.mean(mfcc_vectors, axis=0))
+
     all_tags = list(dict.fromkeys(t for w in selected for t in w.tags))
-    return (
-        float(np.mean(rms_arr)),
-        float(np.mean(low_arr)),
-        float(np.mean(centroids)) if centroids else None,
-        float(np.mean(widths)) if widths else None,
-        float(np.mean(ratios)) if ratios else None,
-        all_tags,
-    )
+
+    return {
+        "rms_db": float(np.mean(rms_arr)),
+        "low_db": float(np.mean(low_arr)),
+        "centroid_hz": float(np.mean(centroids)) if centroids else None,
+        "stereo_width": float(np.mean(widths)) if widths else None,
+        "low_ratio": float(np.mean(ratios)) if ratios else None,
+        "spectral_flatness": float(np.mean(flatness)) if flatness else None,
+        "rolloff_hz": float(np.mean(rolloffs)) if rolloffs else None,
+        "spectral_contrast_mean": float(np.mean(contrasts)) if contrasts else None,
+        "onset_strength_db": float(np.mean(onsets)) if onsets else None,
+        "mfcc": avg_mfcc,
+        "tags": all_tags,
+    }
 
 
 def analyze_set_flow(
@@ -155,6 +194,7 @@ def analyze_set_flow(
     features: dict[int, object],
     titles: dict[int, str],
     target_subgenre: str | None = None,
+    lra: float | None = None,
 ) -> dict[str, Any]:
     """Structural analysis of a DJ set combining audio windows and track features.
 
@@ -174,6 +214,8 @@ def analyze_set_flow(
         Human-readable track titles keyed by track_id.
     target_subgenre : str | None
         Optional subgenre tag for context-aware scoring.
+    lra : float | None
+        Full-mix Loudness Range (LRA) from pyloudnorm.
 
     Returns
     -------
@@ -191,9 +233,7 @@ def analyze_set_flow(
         energy = getattr(feat, "energy_mean", None) if feat else None
         mood = getattr(feat, "mood", None) if feat else None
 
-        seg_rms, seg_low, seg_cent, seg_width, seg_lowr, seg_tags = _match_windows_to_segment(
-            windows, start_s, end_s
-        )
+        seg = _match_windows_to_segment(windows, start_s, end_s)
 
         track_rows.append(
             {
@@ -208,12 +248,31 @@ def analyze_set_flow(
                 "integrated_lufs": lufs,
                 "energy": energy,
                 "mood": mood,
-                "segment_rms_db": round(seg_rms, 1),
-                "segment_low_db": round(seg_low, 1),
-                "segment_centroid_hz": round(seg_cent, 0) if seg_cent is not None else None,
-                "segment_stereo_width": round(seg_width, 3) if seg_width is not None else None,
-                "segment_low_ratio": round(seg_lowr, 4) if seg_lowr is not None else None,
-                "segment_flags": seg_tags,
+                "segment_rms_db": round(seg["rms_db"], 1),
+                "segment_low_db": round(seg["low_db"], 1),
+                "segment_centroid_hz": round(seg["centroid_hz"], 0)
+                if seg["centroid_hz"] is not None
+                else None,
+                "segment_stereo_width": round(seg["stereo_width"], 3)
+                if seg["stereo_width"] is not None
+                else None,
+                "segment_low_ratio": round(seg["low_ratio"], 4)
+                if seg["low_ratio"] is not None
+                else None,
+                "segment_spectral_flatness": round(seg["spectral_flatness"], 4)
+                if seg["spectral_flatness"] is not None
+                else None,
+                "segment_rolloff_hz": round(seg["rolloff_hz"], 0)
+                if seg["rolloff_hz"] is not None
+                else None,
+                "segment_spectral_contrast": round(seg["spectral_contrast_mean"], 4)
+                if seg["spectral_contrast_mean"] is not None
+                else None,
+                "segment_onset_db": round(seg["onset_strength_db"], 1)
+                if seg["onset_strength_db"] is not None
+                else None,
+                "segment_mfcc": seg.get("mfcc"),
+                "segment_flags": seg["tags"],
             }
         )
 
@@ -275,31 +334,101 @@ def analyze_set_flow(
     rms_values = [t["segment_rms_db"] for t in track_rows]
     rms_std = round(float(np.std(rms_values)), 1) if len(rms_values) > 1 else None
 
-    quality_components: list[float] = []
+    # -- New diversity metrics --
+    flatness_vals = [
+        t["segment_spectral_flatness"]
+        for t in track_rows
+        if t["segment_spectral_flatness"] is not None
+    ]
+    flatness_std = round(float(np.std(flatness_vals)), 4) if len(flatness_vals) > 1 else None
+
+    rolloff_vals = [
+        t["segment_rolloff_hz"] for t in track_rows if t["segment_rolloff_hz"] is not None
+    ]
+    rolloff_std = round(float(np.std(rolloff_vals)), 1) if len(rolloff_vals) > 1 else None
+
+    onset_vals = [t["segment_onset_db"] for t in track_rows if t["segment_onset_db"] is not None]
+    onset_std = round(float(np.std(onset_vals)), 1) if len(onset_vals) > 1 else None
+
+    # -- MFCC texture diversity via pairwise cosine distance --
+    mfcc_diversity: float | None = None
+    mfcc_vectors = []
+    for t in track_rows:
+        seg_mfcc = t.get("segment_mfcc")
+        if seg_mfcc is not None and len(seg_mfcc) == 13:
+            mfcc_vectors.append(np.array(seg_mfcc, dtype=np.float64))
+    if len(mfcc_vectors) >= 2:
+        arr = np.array(mfcc_vectors)
+        norms = np.linalg.norm(arr, axis=1, keepdims=True)
+        norms[norms == 0] = 1.0
+        arr_norm = arr / norms
+        sim = arr_norm @ arr_norm.T
+        sim = np.clip(sim, -1.0, 1.0)
+        dists = 1.0 - sim
+        upper = dists[np.triu_indices(len(mfcc_vectors), k=1)]
+        mfcc_diversity = round(float(np.mean(upper)), 4) if len(upper) > 0 else None
+
+    # -- Quality score with weighted average (proper 0-1 range) --
+    quality_weighted: list[float] = []
+    quality_weights: list[float] = []
+
     if n_trans and camelot_compat_count + camelot_conflicts > 0:
         total = camelot_compat_count + camelot_conflicts
         camelot_score = 1.0 - (camelot_conflicts / total)
-        quality_components.append(camelot_score * 0.30)
+        quality_weighted.append(camelot_score * 0.20)
+        quality_weights.append(0.20)
+
     if bpm_deltas:
         bpm_smoothness = max(0.0, 1.0 - (avg_abs_bpm_jump / 8.0))
-        quality_components.append(bpm_smoothness * 0.25)
+        quality_weighted.append(bpm_smoothness * 0.15)
+        quality_weights.append(0.15)
+
     if energy_std is not None:
         eq = (
             1.0
             if energy_std < 0.1
             else (0.8 if energy_std < 0.2 else (0.5 if energy_std < 0.3 else 0.2))
         )
-        quality_components.append(eq * 0.25)
-    if centroid_std is not None:
+        quality_weighted.append(eq * 0.15)
+        quality_weights.append(0.15)
+
+    if centroid_std is not None and flatness_std is not None and rolloff_std is not None:
+        tq_cent = (
+            0.3
+            if centroid_std < 100
+            else (0.7 if centroid_std < 300 else (0.9 if centroid_std < 600 else 0.5))
+        )
+        tq_flat = min(1.0, flatness_std * 20.0)
+        tq_roll = min(1.0, rolloff_std / 200.0)
+        tq = 0.5 * tq_cent + 0.25 * tq_flat + 0.25 * tq_roll
+        quality_weighted.append(tq * 0.15)
+        quality_weights.append(0.15)
+    elif centroid_std is not None:
         tq = (
             0.3
             if centroid_std < 100
             else (0.7 if centroid_std < 300 else (0.9 if centroid_std < 600 else 0.5))
         )
-        quality_components.append(tq * 0.20)
-    quality_score = (
-        round(sum(quality_components) / len(quality_components), 3) if quality_components else 0.0
-    )
+        quality_weighted.append(tq * 0.15)
+        quality_weights.append(0.15)
+
+    if mfcc_diversity is not None:
+        md = min(1.0, mfcc_diversity * 8.0)
+        quality_weighted.append(md * 0.15)
+        quality_weights.append(0.15)
+
+    if onset_std is not None:
+        oc = max(0.0, 1.0 - onset_std / 6.0)
+        quality_weighted.append(oc * 0.10)
+        quality_weights.append(0.10)
+
+    if lra is not None:
+        lra_score = 0.5 if lra < 5 else (1.0 if lra < 15 else (0.8 if lra < 25 else 0.3))
+        quality_weighted.append(lra_score * 0.10)
+        quality_weights.append(0.10)
+
+    total_w = sum(quality_weights)
+    quality_score = round(sum(quality_weighted) / total_w, 3) if total_w > 0 else 0.0
 
     warnings: list[str] = []
     for t in transitions:
@@ -319,6 +448,12 @@ def analyze_set_flow(
         warnings.append("Energy arc is very flat \u2014 consider more dynamic track selection")
     if centroid_std is not None and centroid_std < 80 and len(centroids) > 1:
         warnings.append("Spectral texture is very uniform \u2014 risk of listener fatigue")
+    if onset_std is not None and onset_std > 5 and len(onset_vals) > 1:
+        warnings.append(
+            f"Onset strength varies widely (std={onset_std:.1f}dB) \u2014 check transient consistency"
+        )
+    if flatness_std is not None and flatness_std < 0.01 and len(flatness_vals) > 1:
+        warnings.append("Spectral flatness is nearly constant \u2014 tonal monotony risk")
 
     return {
         "name": name,
@@ -338,6 +473,11 @@ def analyze_set_flow(
             "centroid_std": centroid_std,
             "low_ratio_std": low_ratio_std,
             "rms_std": rms_std,
+            "flatness_std": flatness_std,
+            "rolloff_std": rolloff_std,
+            "onset_std": onset_std,
+            "mfcc_diversity": mfcc_diversity,
+            "loudness_range_lu": round(lra, 2) if lra is not None else None,
             "quality_score": quality_score,
         },
         "warnings": warnings,
@@ -347,6 +487,7 @@ def analyze_set_flow(
 def diagnose_mix(path: str) -> DiagnoseReport:
     import librosa
     import numpy as np
+    import pyloudnorm as pyln
     from scipy.signal import butter, sosfiltfilt
 
     win, sr = 4.0, _SR
@@ -363,6 +504,7 @@ def diagnose_mix(path: str) -> DiagnoseReport:
             left = y_st[0]
             right = y_st[1]
             mono = (left + right) / 2.0
+
         rms = 20 * np.log10(np.sqrt(np.mean(mono**2)) + 1e-9)
         low = sosfiltfilt(losos, mono).astype(np.float32)
         lo_rms = 20 * np.log10(np.sqrt(np.mean(low**2)) + 1e-9)
@@ -376,20 +518,70 @@ def diagnose_mix(path: str) -> DiagnoseReport:
         total = float(np.sum(spec) + 1e-12)
         low_ratio = float(np.sum(spec[(freqs >= 20) & (freqs < 120)])) / total
         centroid = float(np.sum(freqs * spec) / total)
-        rows.append((off, float(rms), float(lo_rms), corr, width, low_ratio, centroid))
+
+        # -- New spectral features --
+        flatness = float(librosa.feature.spectral_flatness(y=mono).mean())
+        rolloff = float(librosa.feature.spectral_rolloff(y=mono, sr=sr).mean())
+        contrast = librosa.feature.spectral_contrast(y=mono, sr=sr)
+        contrast_mean = float(np.mean(contrast))
+
+        # Onset strength per window
+        onset_env = librosa.onset.onset_strength(y=mono, sr=sr)
+        onset_db = float(20 * np.log10(np.mean(onset_env) + 1e-9))
+
+        # 13-band MFCC vector
+        mfcc = tuple(float(v) for v in librosa.feature.mfcc(y=mono, sr=sr, n_mfcc=13).mean(axis=1))
+
+        rows.append(
+            (
+                off,
+                float(rms),
+                float(lo_rms),
+                corr,
+                width,
+                low_ratio,
+                centroid,
+                flatness,
+                rolloff,
+                contrast_mean,
+                onset_db,
+                mfcc,
+            )
+        )
 
     rms_arr = np.array([r[1] for r in rows]) if rows else np.array([0.0])
-    mean = float(rms_arr.mean())
+    mean_rms = float(rms_arr.mean())
+    onset_arr = np.array([r[10] for r in rows]) if rows else np.array([-60.0])
+    mean_onset = float(onset_arr.mean())
+    flatness_arr = np.array([r[7] for r in rows]) if rows else np.array([0.5])
+    mean_flatness = float(flatness_arr.mean())
+
     windows: list[DiagWindow] = []
     flagged = 0
-    for i, (off, r, lo, corr, width, low_ratio, centroid) in enumerate(rows):
+    for i, row in enumerate(rows):
+        (
+            off,
+            r,
+            lo,
+            corr,
+            width,
+            low_ratio,
+            centroid,
+            flatness,
+            rolloff,
+            contrast_mean,
+            onset_db,
+            mfcc,
+        ) = row
         tags: list[str] = []
         if i > 0 and abs(r - rows[i - 1][1]) > 5:
             tags.append(f"LEVEL-JUMP {r - rows[i - 1][1]:+.0f}dB")
-        if r < mean - 7:
+        if r < mean_rms - 7:
             tags.append(f"DROPOUT {r:.0f}dB")
-        if lo < r - 22:
+        if lo < r - 18:
             tags.append("bass-thin")
+        if low_ratio is not None and low_ratio < 0.015:
+            tags.append(f"bass-thin-spectral ratio={low_ratio:.4f}")
         if corr < 0.2 or width > 0.9:
             tags.append("PHASE-UNSTABLE")
         if i > 0:
@@ -402,8 +594,20 @@ def diagnose_mix(path: str) -> DiagnoseReport:
                 tags.append("ENTRY-SHOCK")
             if prev_low_ratio > 0 and low_ratio < prev_low_ratio * 0.25 and (r - prev_r) > 3:
                 tags.append("LOW-END-COLLAPSE")
+
+        # -- New defect tags --
+        if flatness > 0.75:
+            tags.append(f"TONAL-FLAT flatness={flatness:.3f}")
+        if rolloff < 1500:
+            tags.append(f"MUFFLED rolloff={int(rolloff)}Hz")
+        if onset_db < mean_onset - 8:
+            tags.append(f"TRANSIENT-GAP onset={onset_db:.0f}dB")
+        if contrast_mean < 5:
+            tags.append(f"THIN-MIDS contrast={contrast_mean:.1f}")
+
         if tags:
             flagged += 1
+
         windows.append(
             DiagWindow(
                 offset_s=off,
@@ -413,9 +617,33 @@ def diagnose_mix(path: str) -> DiagnoseReport:
                 stereo_width=width,
                 low_ratio=low_ratio,
                 centroid_hz=centroid,
+                spectral_flatness=flatness,
+                rolloff_hz=rolloff,
+                spectral_contrast_mean=contrast_mean,
+                onset_strength_db=onset_db,
+                mfcc=mfcc,
                 tags=tags,
             )
         )
+
+    # -- Full-mix loudness metrics via pyloudnorm --
+    try:
+        y_full, sr_full = librosa.load(path, sr=None, mono=True)
+        meter = pyln.Meter(sr_full)
+        integrated_lufs = float(meter.integrated_loudness(y_full))
+        lra = float(meter.loudness_range(y_full))
+    except Exception:
+        integrated_lufs = None
+        lra = None
+
     return DiagnoseReport(
-        name=Path(path).name, duration_s=dur, overall_rms_db=mean, windows=windows, flagged=flagged
+        name=Path(path).name,
+        duration_s=dur,
+        overall_rms_db=mean_rms,
+        integrated_lufs=integrated_lufs,
+        loudness_range_lu=lra,
+        overall_flatness=mean_flatness,
+        overall_onset_db=mean_onset,
+        windows=windows,
+        flagged=flagged,
     )

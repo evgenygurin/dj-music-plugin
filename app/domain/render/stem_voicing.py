@@ -27,6 +27,7 @@ STEM_VOICING: dict[str, StemVoicing] = {
 _DEMUCS_STEM_VOICING: dict[str, StemVoicing] = {
     "vocals": StemVoicing(hpf_hz=120, gain_db=0.0),
     "other": StemVoicing(hpf_hz=80, gain_db=0.0),
+    "percussion": StemVoicing(hpf_hz=50, gain_db=1.0),
 }
 
 

@@ -145,11 +145,11 @@ class AnalyzerRegistry:
         (librosa-based analyzers: bpm, key, beat, mfcc).
         """
         import importlib
+        import pathlib
         import pkgutil
 
-        import app.audio.analyzers as pkg
-
-        for info in pkgutil.iter_modules(pkg.__path__):
+        pkg_path = pathlib.Path(__file__).parent
+        for info in pkgutil.iter_modules([str(pkg_path)]):
             if info.name in ("base", "__init__"):
                 continue
             with contextlib.suppress(ImportError):
