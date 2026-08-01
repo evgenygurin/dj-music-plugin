@@ -22,13 +22,17 @@ class HardConstraintChain:
         pre_energy_delta: float | None = None,
     ) -> TransitionScore | None:
         for c in self._constraints:
-            reason = c.check(
+            result = c.check(
                 from_t,
                 to_t,
                 pre_bpm_dist=pre_bpm_dist,
                 pre_key_dist=pre_key_dist,
                 pre_energy_delta=pre_energy_delta,
             )
+            if isinstance(result, tuple):
+                reason, _warning = result
+            else:
+                reason = result
             if reason is not None:
                 from app.domain.transition.score import TransitionScore
 

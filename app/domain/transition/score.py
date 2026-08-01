@@ -59,3 +59,4 @@ class TransitionScore:
     reject_reason: str | None = None
     best_transition: NeuralMixTransition | None = None
     section_pair_class: str | None = None
+    warnings: tuple[str, ...] = ()

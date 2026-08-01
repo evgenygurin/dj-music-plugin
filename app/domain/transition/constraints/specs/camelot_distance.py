@@ -17,7 +17,8 @@ class CamelotDistanceSpec:
         pre_bpm_dist: float | None = None,
         pre_key_dist: int | None = None,
         pre_energy_delta: float | None = None,
-    ) -> str | None:
+        soft: bool = False,
+    ) -> tuple[str | None, str | None]:
         settings = get_settings().transition
 
         key_dist: int | None
@@ -35,6 +36,11 @@ class CamelotDistanceSpec:
             and key_reliable(from_t, key_floor)
             and key_reliable(to_t, key_floor)
         ):
-            return f"Camelot distance {key_dist} >= {settings.hard_reject_camelot_dist}"
+            if soft:
+                return (
+                    None,
+                    f"Camelot distance {key_dist} >= {settings.hard_reject_camelot_dist} (soft)",
+                )
+            return f"Camelot distance {key_dist} >= {settings.hard_reject_camelot_dist}", None
 
-        return None
+        return None, None
