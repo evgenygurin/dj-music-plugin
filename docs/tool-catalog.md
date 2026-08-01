@@ -1,6 +1,6 @@
 # MCP Tool Catalog
 
-Quick reference — **29 model-visible tools** (13 core dispatchers + 3 render + 8 UI/Prefab + 4 deep analysis + `tool_invoke`) + **41 resources** + **32 prompts** + **6 handlers** + **11 registered entities**. One extra tool — `render_studio_panel` — is registered but app-visibility only (`visibility=["app"]`), hidden from the model / BM25 so the `ui_render_studio` UI can `CallTool` it.
+Quick reference — **30 model-visible tools** (13 core dispatchers + 4 render + 8 UI/Prefab + 4 deep analysis + `tool_invoke`) + **44 resources** + **33 prompts** + **6 handlers** + **11 registered entities**. One extra tool — `render_studio_panel` — is registered but app-visibility only (`visibility=["app"]`), hidden from the model / BM25 so the `ui_render_studio` UI can `CallTool` it.
 
 The 88-tool catalog of v0.8 was collapsed via polymorphism: generic CRUD
 (`entity_*`) dispatches via `EntityRegistry`, generic provider access
@@ -119,10 +119,10 @@ Handlers wire side-effects on create/update/delete:
 |------|--------|-----|--------|
 | `playlist_sync` | playlist_id, direction(pull\|push\|diff)=diff, source="yandex", dry_run=false | no | `sync` |
 
-### Render (3, namespace `render`)
+### Render (4, namespace `render`)
 
 Continuous-mix render pipeline over a persisted `set_version`. Visible by
-default (like `sync` / `compute`). All three are heavy DSP passes
+default (like `sync` / `compute`). All four are heavy DSP passes
 (librosa / ffmpeg+rubberband) declared `task=True` — the host runs them as
 background tasks (`FastMCP(tasks=True)`, `fastmcp[tasks]` extra). Whitelisted
 in `ALWAYS_VISIBLE_TOOLS` so `BM25SearchTransform` never hides them.
@@ -131,6 +131,7 @@ in `ALWAYS_VISIBLE_TOOLS` so `BM25SearchTransform` never hides them.
 |------|--------|-----|
 | `render_beatgrid` | version_id, refresh=false | no (idempotent) |
 | `render_mixdown` | version_id, out_name?, transition_bars?, body_bars?, refresh_grid=false, stem=true | no |
+| `render_validate_grid` | version_id, mix_path? | yes |
 | `render_diagnose` | version_id, mix_path? | yes |
 
 - `render_beatgrid` — kick-phase detect + sub-beat phase refine + LUFS
@@ -141,6 +142,10 @@ in `ALWAYS_VISIBLE_TOOLS` so `BM25SearchTransform` never hides them.
   gradual harmonics/vocals, HPF bleed-masking on vocals/other, intro/outro
   fades). `stem=false` uses the classic 3-band EQ bass-swap. Falls back to
   classic when demucs is unavailable. Auto-runs the beatgrid if missing.
+- `render_validate_grid` — post-render grid QA: measures each track body's BPM
+  in the mix vs `target_bpm` (proves rubberband honored the grid `tempo_ratio`)
+  plus pre-render `bpm_measured` vs stored-BPM drift; gates 0.5/1.0 BPM
+  (ok/warn/fail); writes `grid_check.json`.
 - `render_diagnose` — scan + per-4s librosa defect sweep (level jumps,
   dropouts, bass-thin) of a rendered mix; writes `diagnostics.json`.
 
@@ -379,13 +384,13 @@ for clients that do honour the notification.
 | `compute` | transition_score_pool, sequence_optimize | visible |
 | `deep_analysis` | deep_analyze_track, deep_analyze_pool, find_compatible_tracks, get_cross_similarity | visible |
 | `sync` | playlist_sync | visible |
-| `render` | render_beatgrid, render_mixdown, render_diagnose | visible |
+| `render` | render_beatgrid, render_mixdown, render_validate_grid, render_diagnose | visible |
 | `admin` | unlock_namespace, tool_invoke | visible |
 | `ui:read` | ui_set_view, ui_transition_score, ui_library_audit, ui_score_pool_matrix, ui_library_dashboard, ui_camelot_wheel, ui_render_studio, ui_control_center | visible |
 | `workflow` | all prompts | visible |
 
 `ALWAYS_VISIBLE_TOOLS` in `app/server/transforms.py` whitelists every tool
-listed above (including `tool_invoke`, the 8 UI tools, the 4 deep analysis tools, and the 3 render tools)
+listed above (including `tool_invoke`, the 8 UI tools, the 4 deep analysis tools, and the 4 render tools)
 so `BM25SearchTransform` never hides them behind a search query. The
 `render_studio_panel` UI helper is `visibility=["app"]` — deliberately NOT
 whitelisted (hidden from the model / BM25; the UI reaches it via `CallTool`).
@@ -410,3 +415,4 @@ whitelisted (hidden from the model / BM25; the UI reaches it via `CallTool`).
 | L6 deep analysis | **29** | **36** | +4 deep analysis tools (`deep_analyze_track`, `deep_analyze_pool`, `find_compatible_tracks`, `get_cross_similarity`, namespace `deep_analysis`) + 3 track resources (`local://tracks/{id}/deep_features{?stem}`, `.../structure`, `.../waveform{?stem}`). Demucs 4-stem separation → per-stem pipeline (×5) → beatgrid → SBic structural segmentation → pgvector embeddings (5 types, HNSW index) → CrossSimilarityMatrix → Supabase Storage timeseries/waveform upload. 59 new files, ~5.7k LOC. |
 | multi-deck resources | **29** | **38** | +2 reference resources from `app/resources/multi_deck.py`: `reference://feature-catalog/stem_features`, `reference://section-types`. |
 | Suno agent layer | **29** | **41** | +3 Suno reference resources (`reference://suno/models`, `reference://suno/prompt-craft`, `reference://suno/voices`) + `suno_track_production_workflow` prompt (31 → **32**) + Claude Code skill `skills/suno`. Provider runtime unchanged. |
+| grid validation | **30** | **44** | +`render_validate_grid` tool (namespace `render`, `task=True`, read) + 3 resources (`reference://render/validation`, `local://render/{version_id}/plan`, `local://render/{version_id}/grid_check`) + `validate_grid_workflow` prompt (32 → **33**) + skill `skills/validate-set` + `grid_check.json` in the render workspace. Beatgrid rows now carry `bpm_measured` (long-window kick detector) → `tempo_ratio = bpm_measured/target` in `bar_plan`; `detect_kick_trim` returns `(trim, bpm_measured)`, `max_trim_start_s` 8 → 120. Fixes real drift bug (wrong stored BPM → track +1.6 BPM; after fix all tracks ≤0.4 BPM). See `docs/render-pipeline.md` → Grid validation. |

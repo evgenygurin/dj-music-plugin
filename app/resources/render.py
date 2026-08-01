@@ -138,3 +138,85 @@ async def render_timeline_resource(
             ],
         }
     )
+
+
+@resource(
+    "local://render/{version_id}/plan",
+    mime_type="application/json",
+    tags={"namespace:library"},
+    annotations=ANNOTATIONS_READ_ONLY,
+    meta=RESOURCE_META,
+)
+async def render_plan_resource(version_id: int) -> str:
+    """The persisted render_plan.json for a version (actual geometry used)."""
+    path = Path(render_workspace(version_id)) / "render_plan.json"
+    if not path.exists():
+        raise NotFoundError("render_plan", version_id)
+    return path.read_text()
+
+
+@resource(
+    "local://render/{version_id}/grid_check",
+    mime_type="application/json",
+    tags={"namespace:library"},
+    annotations=ANNOTATIONS_READ_ONLY,
+    meta=RESOURCE_META,
+)
+async def render_grid_check_resource(version_id: int) -> str:
+    """Saved grid_check.json for a version (or 404 → run render_validate_grid)."""
+    path = Path(render_workspace(version_id)) / "grid_check.json"
+    if not path.exists():
+        raise NotFoundError("render_grid_check", version_id)
+    return path.read_text()
+
+
+@resource(
+    "reference://render/validation",
+    mime_type="application/json",
+    tags={"namespace:reference"},
+    annotations=ANNOTATIONS_READ_ONLY,
+    meta=RESOURCE_META,
+)
+async def render_validation_gates_resource() -> str:
+    """Grid-validation gates: BPM thresholds + how to read render_validate_grid.
+
+    Phase measurement on a demucs-stem mix is UNRELIABLE (stems shift
+    transients 30-100ms) — always verify on the ORIGINAL audio, never on
+    stems (see AGENTS.md render lesson #3).
+    """
+    return json.dumps(
+        {
+            "tool": "render_validate_grid",
+            "checks": [
+                {
+                    "name": "plan_drift",
+                    "what": "beatgrid bpm_measured vs stored bpm",
+                    "when": "pre-render (cheap)",
+                    "note": "catches the class of bug where a wrong stored BPM "
+                    "made one track play +1.6 BPM off (max dev 1.60, mean 0.34)",
+                },
+                {
+                    "name": "mix_body_bpm",
+                    "what": "each track body's measured BPM in the mix vs target_bpm",
+                    "when": "post-render (heavy: librosa on the mix)",
+                    "note": "proves rubberband honored tempo_ratio = bpm_measured/target; "
+                    "after the bpm_measured fix tracks sit within 0.4 BPM",
+                },
+            ],
+            "thresholds_bpm": {
+                "ok": 0.5,
+                "warn": 1.0,
+                "fail": 1.0,
+            },
+            "rules": [
+                "measure phase on ORIGINAL audio only, never demucs stems",
+                "a 0.5 BPM discrepancy is audible on a 60s transition (~0.5 beat drift)",
+                "never re-render unless DSP params actually changed — reuse cached stems",
+            ],
+            "resources": [
+                "local://render/{version_id}/grid_check",
+                "local://render/{version_id}/plan",
+            ],
+            "prompt": "validate_grid_workflow",
+        }
+    )

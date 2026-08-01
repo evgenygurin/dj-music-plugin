@@ -14,4 +14,9 @@ async def test_render_tools_registered():
     mcp = await build_mcp_app_for_tests()
     tools = await mcp.list_tools()
     names = {t.name for t in tools}
-    assert {"render_beatgrid", "render_mixdown", "render_diagnose"} <= names
+    assert {
+        "render_beatgrid",
+        "render_mixdown",
+        "render_validate_grid",
+        "render_diagnose",
+    } <= names

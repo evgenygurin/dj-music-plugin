@@ -31,13 +31,21 @@ tracks-only DJ mix (EQ bass-swap transitions) and deliver it:
    This is heavy (ffmpeg+rubberband) and runs as a background task; poll
    local://render/jobs/{{job_id}}/status for progress.
 
-5. Diagnose the result:
+5. Validate the grid alignment BEFORE diagnosing:
+   dj_render_validate_grid(version_id={version_id})
+   Read local://render/{version_id}/grid_check — each track body should play
+   within 0.5 BPM of target_bpm (proves rubberband honored the beatgrid
+   tempo_ratio). If any track is warn/fail, run the validate_grid_workflow
+   decision tree FIRST: refresh the grid from the ORIGINAL audio, then
+   re-render only if DSP params actually changed.
+
+6. Diagnose the result:
    dj_render_diagnose(version_id={version_id})
    Read local://render/{version_id}/timeline to tell a TRANSITION-window hole
    (a mix defect) from a track's own breakdown (music). Most -17..-20 dB dips
    inside a track body are breakdowns — do NOT chase them.
 
-6. Deliver: run the deliver_set_workflow prompt for this set. With
+7. Deliver: run the deliver_set_workflow prompt for this set. With
    emit_continuous_mix enabled the rendered MIX.mp3 ships alongside the M3U8 /
    rekordbox XML / cheatsheet bundle.
 

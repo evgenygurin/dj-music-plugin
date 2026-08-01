@@ -53,6 +53,7 @@ EXPECTED_PROMPTS: frozenset[str] = frozenset(
         "suno_track_production_workflow",
         # render (1)
         "render_set_workflow",
+        "validate_grid_workflow",
     }
 )
 
@@ -124,6 +125,7 @@ def test_all_prompts_return_prompt_result() -> None:
     from app.prompts.taste_profile_workflow import taste_profile_workflow
     from app.prompts.tempo_journey_workflow import tempo_journey_workflow
     from app.prompts.track_prep_workflow import track_prep_workflow
+    from app.prompts.validate_grid_workflow import validate_grid_workflow
 
     results = [
         dj_expert_session(),
@@ -161,6 +163,7 @@ def test_all_prompts_return_prompt_result() -> None:
         library_cleanup_workflow(playlist_id=1),
         suno_set_asset_workflow(set_id=1),
         suno_track_production_workflow(title="Test Suno", brief="hypnotic techno"),
+        validate_grid_workflow(version_id=1),
     ]
     for r in results:
         assert isinstance(r, PromptResult)
