@@ -20,8 +20,16 @@ class DatabaseSettings(BaseSettings):
         default="sqlite+aiosqlite:///:memory:",
         description="Async DB connection URL. Supports postgresql+asyncpg or sqlite+aiosqlite.",
     )
-    db_pool_size: int = Field(default=5, ge=1, le=50)
-    db_pool_pre_ping: bool = Field(default=True)
+    db_pool_size: int = Field(default=20, ge=1, le=100)
+    db_pool_timeout_s: float = Field(
+        default=30.0, ge=1.0, le=300.0,
+        description="Seconds to wait for a pool connection before raising TimeoutError.",
+    )
+    db_pool_pre_ping: bool = Field(
+        default=False,
+        description="Pre-ping connections before checkout. Disable for Supabase "
+        "(PgBouncer handles stale connections); keep True for direct Postgres.",
+    )
     db_echo: bool = Field(default=False, description="Log all SQL statements.")
     db_statement_cache_size: int = Field(
         default=0,
