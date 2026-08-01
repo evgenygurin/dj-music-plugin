@@ -61,7 +61,9 @@ def _cosine_similarity_bulk(matrix: FloatArr, ia: IntArr, ib: IntArr) -> FloatAr
 # ── Hard-reject vectorised ────────────────────────────────────────
 
 
-def hard_reject_mask_bulk(fa: FeatureArrays, ia: IntArr, ib: IntArr) -> BoolArr:
+def hard_reject_mask_bulk(
+    fa: FeatureArrays, ia: IntArr, ib: IntArr, *, soft_camelot: bool = False
+) -> BoolArr:
     settings = get_settings().transition
 
     bpm_a = fa.bpm[ia]
@@ -86,6 +88,8 @@ def hard_reject_mask_bulk(fa: FeatureArrays, ia: IntArr, ib: IntArr) -> BoolArr:
     energy_gap = np.abs(lufs_a - lufs_b)
     lufs_violates = lufs_present & (energy_gap > settings.hard_reject_energy_gap_lufs)
 
+    if soft_camelot:
+        return bpm_violates | lufs_violates
     return bpm_violates | key_violates | lufs_violates
 
 
@@ -224,6 +228,8 @@ def score_pairs_bulk(
     fa: FeatureArrays,
     pairs: Sequence[tuple[int, int]],
     intents: Iterable[TransitionIntent],
+    *,
+    soft_camelot: bool = False,
 ) -> dict[tuple[int, int, str], float]:
     intents_list = list(intents)
     if not pairs or not intents_list:
@@ -239,7 +245,7 @@ def score_pairs_bulk(
     harmonics = score_harmonics_bulk(fa, ia, ib)
     vocals = score_vocals_bulk(fa, ia, ib)
 
-    rejected = hard_reject_mask_bulk(fa, ia, ib)
+    rejected = hard_reject_mask_bulk(fa, ia, ib, soft_camelot=soft_camelot)
 
     out: dict[tuple[int, int, str], float] = {}
     for intent in intents_list:
