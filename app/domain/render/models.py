@@ -141,6 +141,7 @@ class RenderPlan:
     segments: list[TrackSegment] = field(default_factory=list)
     stem_segments: list[StemSegment] | None = None
     stem_order: tuple[str, ...] = STEM_ORDER
+    phrase_align_count: int = 0
     # ── effects (set-wide, one preset per render) ──
     filter_sweep_preset: str | None = None
     echo_preset: str | None = None
@@ -164,6 +165,7 @@ class RenderPlan:
         segments: list[TrackSegment] | None = None,
         stem_segments: list[StemSegment] | None = None,
         stem_order: tuple[str, ...] = STEM_ORDER,
+        phrase_align_count: int = 0,
     ) -> RenderPlan:
         """Factory: DSP constants from ``settings``, effects from ``request``."""
         return cls(
@@ -196,6 +198,7 @@ class RenderPlan:
             segments=segments if segments is not None else [],
             stem_segments=stem_segments,
             stem_order=stem_order,
+            phrase_align_count=phrase_align_count,
             filter_sweep_preset=request.filter_sweep,
             echo_preset=request.echo,
             crossfade_curve_out=request.crossfade_curve_out,

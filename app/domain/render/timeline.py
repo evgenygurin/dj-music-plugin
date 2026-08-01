@@ -11,6 +11,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from app.domain.render.models import BeatgridEntry, TrackInput
+from app.domain.render.phrase_align import snap_trim_to_phrase
 
 
 @dataclass(frozen=True, slots=True)
@@ -46,6 +47,7 @@ class SegmentGeometry:
     d_out_s: float
     length_s: float
     start_s: float
+    phrase_aligned: bool = False
 
 
 def bar_seconds(target_bpm: float) -> float:
@@ -86,18 +88,26 @@ def place_segments(
         )
         length = seg_body * bar_s + d_in + d_out
         g = grid.get(ti.track_id)
+        raw_trim = g.effective_trim if g is not None else 0.0
+        phrase_aligned = False
+        if g is not None and ti.phrase_boundaries_ms and ti.bpm:
+            snapped = snap_trim_to_phrase(raw_trim, ti.phrase_boundaries_ms, ti.bpm)
+            if snapped != raw_trim:
+                phrase_aligned = True
+            raw_trim = snapped
         geometries.append(
             SegmentGeometry(
                 index=i,
                 track_id=ti.track_id,
                 tempo_ratio=ti.tempo_ratio(target_bpm),
-                trim_start_s=g.effective_trim if g is not None else 0.0,
+                trim_start_s=raw_trim,
                 gain_db=g.gain_db if g is not None else 0.0,
                 body_bars=seg_body,
                 d_in_s=d_in,
                 d_out_s=d_out,
                 length_s=length,
                 start_s=running_t,
+                phrase_aligned=phrase_aligned,
             )
         )
         running_t += length - d_out
