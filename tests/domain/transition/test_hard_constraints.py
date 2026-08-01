@@ -75,3 +75,32 @@ class TestHardConstraints:
         a = _features(bpm=120.0)
         b = _features(bpm=120.0 + settings.hard_reject_bpm_diff + 0.5)
         assert check_hard_constraints(a, b) is not None
+
+    def test_soft_camelot_becomes_warning_not_reject(self) -> None:
+        a = _features(key_code=0, key_confidence=0.9)
+        b = _features(key_code=12, key_confidence=0.9)
+        strict = check_hard_constraints(a, b)
+        assert strict is not None and strict.hard_reject is True
+        soft = check_hard_constraints(a, b, soft_camelot=True)
+        assert soft is not None
+        assert soft.hard_reject is False
+        assert any("Camelot" in w and "(soft)" in w for w in soft.warnings)
+
+    def test_soft_mode_bpm_still_rejects(self) -> None:
+        a = _features(bpm=120.0, key_code=0, key_confidence=0.9)
+        b = _features(bpm=140.0, key_code=12, key_confidence=0.9)
+        result = check_hard_constraints(a, b, soft_camelot=True)
+        assert result is not None and result.hard_reject is True
+        assert "BPM" in (result.reject_reason or "")
+
+    def test_soft_mode_compatible_pair_returns_none(self) -> None:
+        a = _features(key_code=8, key_confidence=0.9)
+        b = _features(key_code=9, key_confidence=0.9)
+        assert check_hard_constraints(a, b, soft_camelot=True) is None
+
+    def test_strict_mode_unchanged_with_warnings_empty(self) -> None:
+        a = _features(key_code=0, key_confidence=0.9)
+        b = _features(key_code=12, key_confidence=0.9)
+        strict = check_hard_constraints(a, b)
+        assert strict is not None and strict.hard_reject is True
+        assert strict.warnings == ()

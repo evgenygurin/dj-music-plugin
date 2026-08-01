@@ -20,7 +20,9 @@ class HardConstraintChain:
         pre_bpm_dist: float | None = None,
         pre_key_dist: int | None = None,
         pre_energy_delta: float | None = None,
+        soft_camelot: bool = False,
     ) -> TransitionScore | None:
+        warnings: list[str] = []
         for c in self._constraints:
             result = c.check(
                 from_t,
@@ -28,11 +30,12 @@ class HardConstraintChain:
                 pre_bpm_dist=pre_bpm_dist,
                 pre_key_dist=pre_key_dist,
                 pre_energy_delta=pre_energy_delta,
+                soft=soft_camelot,
             )
             if isinstance(result, tuple):
-                reason, _warning = result
+                reason, warning = result
             else:
-                reason = result
+                reason, warning = result, None
             if reason is not None:
                 from app.domain.transition.score import TransitionScore
 
@@ -47,4 +50,10 @@ class HardConstraintChain:
                     hard_reject=True,
                     reject_reason=reason,
                 )
+            if warning is not None:
+                warnings.append(warning)
+        if warnings:
+            from app.domain.transition.score import TransitionScore
+
+            return TransitionScore(hard_reject=False, warnings=tuple(warnings))
         return None
