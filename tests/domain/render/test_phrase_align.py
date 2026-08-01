@@ -43,6 +43,6 @@ def test_near_whole_bar_within_tolerance_applied():
 
 
 def test_nearest_boundary_wins():
-    # boundaries at 11.5s and 16.0s; trim 12.4s → nearest 11.5s (−0.9s,
+    # boundaries at 11.5s and 16.0s; trim 12.4s → nearest 11.5s (-0.9s,
     # not whole-bar) → unchanged
     assert snap_trim_to_phrase(12.4, [11500, 16000], BPM) == 12.4
