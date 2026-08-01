@@ -242,12 +242,14 @@ async def scoring_lifespan(app: Any) -> AsyncIterator[dict[str, Any]]:
     """Expose TransitionScorer + optimizer factory to compute tools."""
     scorer = TransitionScorer()
 
-    def optimizer_builder(*, algorithm: str, scorer: TransitionScorer) -> Any:
+    def optimizer_builder(
+        *, algorithm: str, scorer: TransitionScorer, soft_camelot: bool = False
+    ) -> Any:
         if algorithm == "constructive":
-            return ConstructiveSlotBuilder(scorer=scorer)
+            return ConstructiveSlotBuilder(scorer=scorer, soft_camelot=soft_camelot)
         if algorithm == "greedy":
-            return GreedyChainBuilder(scorer=scorer)
-        return GeneticAlgorithm(scorer=scorer)
+            return GreedyChainBuilder(scorer=scorer, soft_camelot=soft_camelot)
+        return GeneticAlgorithm(scorer=scorer, soft_camelot=soft_camelot)
 
     yield {"transition_scorer": scorer, "optimizer": optimizer_builder}
 

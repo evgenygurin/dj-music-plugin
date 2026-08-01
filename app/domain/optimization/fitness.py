@@ -29,6 +29,8 @@ def transition_quality(
     template: SetTemplateDefinition | None = None,
     score_cache: dict[tuple[int, int, str, str | None], float] | None = None,
     reject_mask: set[tuple[int, int]] | None = None,
+    *,
+    soft_camelot: bool = False,
 ) -> float:
     """Average transition score across consecutive pairs, using intent-aware weights.
 
@@ -80,6 +82,7 @@ def transition_quality(
                     b,
                     intent=context.intent,
                     section_context=context.section_context,
+                    soft_camelot=soft_camelot,
                 )
                 cached = 0.0 if score.hard_reject else score.overall
                 score_cache[key] = cached
@@ -90,6 +93,7 @@ def transition_quality(
                 b,
                 intent=context.intent,
                 section_context=context.section_context,
+                soft_camelot=soft_camelot,
             )
             total += 0.0 if score.hard_reject else score.overall
     return total / (n - 1)
@@ -216,6 +220,8 @@ def compute_fitness(
     moods: dict[int, str | None] | None = None,
     score_cache: dict[tuple[int, int, str, str | None], float] | None = None,
     reject_mask: set[tuple[int, int]] | None = None,
+    *,
+    soft_camelot: bool = False,
 ) -> float:
     """Weighted fitness for a track ordering. Returns 0-1.
 
@@ -234,6 +240,7 @@ def compute_fitness(
         template=template,
         score_cache=score_cache,
         reject_mask=reject_mask,
+        soft_camelot=soft_camelot,
     )
     bpm = bpm_smoothness(tracks, order, idx_map)
     energy = energy_arc_score(tracks, order, idx_map)

@@ -53,9 +53,12 @@ class GeneticAlgorithm:
         elitism_rate: float | None = None,
         tournament_size: int | None = None,
         convergence_threshold: int | None = None,
+        *,
+        soft_camelot: bool = False,
     ) -> None:
         settings = get_settings().optimization
         self.scorer = scorer
+        self.soft_camelot = soft_camelot
         self.population_size = population_size or settings.population_size
         self.max_generations = max_generations or settings.max_generations
         self.mutation_rate = mutation_rate or settings.mutation_rate
@@ -114,7 +117,9 @@ class GeneticAlgorithm:
         # Camelot distance, LUFS gap). For a 200-track pool it's
         # ~40 k cheap calls (<200 ms) but lets the GA loop skip the
         # heavy stem-aware ``scorer.score`` for those pairs entirely.
-        reject_mask = self._precompute_reject_mask(tracks, active_ids, idx_map)
+        reject_mask = self._precompute_reject_mask(
+            tracks, active_ids, idx_map, soft_camelot=self.soft_camelot
+        )
 
         # ── Stage 2: pool prefilter — drop low-connectivity tracks ──
         # Tracks with very few viable neighbours are isolated points
@@ -260,6 +265,7 @@ class GeneticAlgorithm:
             moods,
             score_cache=score_cache,
             reject_mask=reject_mask,
+            soft_camelot=self.soft_camelot,
         )
 
     # ── Pre-pass helpers ────────────────────────────────
@@ -269,6 +275,8 @@ class GeneticAlgorithm:
         tracks: list[TrackFeatures],
         active_ids: list[int],
         idx_map: dict[int, int],
+        *,
+        soft_camelot: bool = False,
     ) -> set[tuple[int, int]]:
         """Return the set of ``(idx_a, idx_b)`` pairs that fail hard constraints.
 
@@ -284,12 +292,11 @@ class GeneticAlgorithm:
             a = tracks[idx_a]
             for idx_b in indices[i + 1 :]:
                 b = tracks[idx_b]
-                if check_hard_constraints(a, b) is not None:
+                gate_ab = check_hard_constraints(a, b, soft_camelot=soft_camelot)
+                if gate_ab is not None and gate_ab.hard_reject:
                     reject.add((idx_a, idx_b))
-                # Hard constraints are symmetric (BPM diff and energy
-                # gap are absolute, Camelot distance is symmetric) so
-                # one call covers both directions.
-                if check_hard_constraints(b, a) is not None:
+                gate_ba = check_hard_constraints(b, a, soft_camelot=soft_camelot)
+                if gate_ba is not None and gate_ba.hard_reject:
                     reject.add((idx_b, idx_a))
         return reject
 
@@ -386,7 +393,9 @@ class GeneticAlgorithm:
 
         if generic_pairs:
             fa = extract_feature_arrays(tracks)
-            bulk = score_pairs_bulk(fa, generic_pairs, _PRECOMPUTE_INTENTS)
+            bulk = score_pairs_bulk(
+                fa, generic_pairs, _PRECOMPUTE_INTENTS, soft_camelot=self.soft_camelot
+            )
             score_cache.update(
                 {
                     (idx_a, idx_b, intent, None): value
@@ -400,6 +409,7 @@ class GeneticAlgorithm:
                 tracks[idx_b],
                 _PRECOMPUTE_INTENTS,
                 section_context=section_context,
+                soft_camelot=self.soft_camelot,
             )
             pair_class = section_context.section_pair_class.value
             for intent, score in scores.items():

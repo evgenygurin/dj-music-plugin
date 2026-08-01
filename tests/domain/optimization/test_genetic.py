@@ -70,3 +70,17 @@ def test_ga_reports_normalized_progress() -> None:
     assert events
     assert all(0 < progress <= 100 for progress, _ in events)
     assert events[-1][0] == 100
+
+
+def test_genetic_precompute_reject_mask_soft_omits_camelot() -> None:
+    tracks = [
+        TrackFeatures(bpm=130.0, key_code=0, key_confidence=0.9, integrated_lufs=-10.0),
+        TrackFeatures(bpm=130.0, key_code=12, key_confidence=0.9, integrated_lufs=-10.0),
+    ]
+    idx_map = {0: 0, 1: 1}
+    strict = GeneticAlgorithm._precompute_reject_mask(tracks, [0, 1], idx_map)
+    soft = GeneticAlgorithm._precompute_reject_mask(
+        tracks, [0, 1], idx_map, soft_camelot=True
+    )
+    assert (0, 1) in strict
+    assert (0, 1) not in soft
