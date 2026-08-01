@@ -111,7 +111,11 @@ def _phrase_input(trim_s, boundaries):
 
 
 def _grid_with_trim(trim_s):
-    return {1: BeatgridEntry(track_id=1, trim_start_s=trim_s, refined_trim_s=None, gain_db=0.0, phase_ms=0.0)}
+    return {
+        1: BeatgridEntry(
+            track_id=1, trim_start_s=trim_s, refined_trim_s=None, gain_db=0.0, phase_ms=0.0
+        )
+    }
 
 
 def test_place_segments_snaps_whole_bar_to_phrase():
@@ -133,10 +137,18 @@ def test_place_segments_skips_non_whole_bar():
 
 
 def test_place_segments_without_phrase_data_unchanged():
-    inputs = [TrackInput(
-        track_id=1, yandex_id=1, title="t", bpm=130.0, key_code=None,
-        mix_in_ms=0, integrated_lufs=-12.0, file_path="/x.mp3",
-    )]
+    inputs = [
+        TrackInput(
+            track_id=1,
+            yandex_id=1,
+            title="t",
+            bpm=130.0,
+            key_code=None,
+            mix_in_ms=0,
+            integrated_lufs=-12.0,
+            file_path="/x.mp3",
+        )
+    ]
     geoms = place_segments(
         inputs, _grid_with_trim(10.0), target_bpm=130.0, body_bars=24, transition_bars=32
     )
@@ -146,7 +158,12 @@ def test_place_segments_without_phrase_data_unchanged():
 
 def test_assemble_reports_phrase_align_count():
     request = RenderRequest(
-        version_id=1, workspace="/tmp/ws", timestamp="t", transition_bars=32, body_bars=24, stem=False
+        version_id=1,
+        workspace="/tmp/ws",
+        timestamp="t",
+        transition_bars=32,
+        body_bars=24,
+        stem=False,
     )
     bar_plan = BarPlan(transition_bars=(), body_bars=[24])
     plan = RenderPlanner().assemble(

@@ -79,8 +79,6 @@ def test_genetic_precompute_reject_mask_soft_omits_camelot() -> None:
     ]
     idx_map = {0: 0, 1: 1}
     strict = GeneticAlgorithm._precompute_reject_mask(tracks, [0, 1], idx_map)
-    soft = GeneticAlgorithm._precompute_reject_mask(
-        tracks, [0, 1], idx_map, soft_camelot=True
-    )
+    soft = GeneticAlgorithm._precompute_reject_mask(tracks, [0, 1], idx_map, soft_camelot=True)
     assert (0, 1) in strict
     assert (0, 1) not in soft

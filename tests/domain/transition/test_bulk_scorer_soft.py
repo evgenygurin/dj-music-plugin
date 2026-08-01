@@ -56,9 +56,7 @@ def test_score_pairs_bulk_soft_scores_camelot_pair() -> None:
     fa = extract_feature_arrays(_tracks())
     pairs = [(0, 1)]
     strict = score_pairs_bulk(fa, pairs, [TransitionIntent.MAINTAIN])
-    soft = score_pairs_bulk(
-        fa, pairs, [TransitionIntent.MAINTAIN], soft_camelot=True
-    )
+    soft = score_pairs_bulk(fa, pairs, [TransitionIntent.MAINTAIN], soft_camelot=True)
     key = (0, 1, TransitionIntent.MAINTAIN.value)
     assert strict[key] == 0.0
     assert soft[key] > 0.0

@@ -53,10 +53,14 @@ def _optimize_by_arc(
         TrackCandidate(
             track_id=tid,
             bpm=features[tid].bpm if features[tid].bpm is not None else 130.0,
-            energy_mean=features[tid].energy_mean if features[tid].energy_mean is not None else 0.5,
+            energy_mean=features[tid].energy_mean
+            if features[tid].energy_mean is not None
+            else 0.5,
             key_code=features[tid].key_code,
             integrated_lufs=(
-                features[tid].integrated_lufs if features[tid].integrated_lufs is not None else -12.0
+                features[tid].integrated_lufs
+                if features[tid].integrated_lufs is not None
+                else -12.0
             ),
             spectral_centroid_hz=features[tid].spectral_centroid_hz or 0.0,
         )
@@ -70,9 +74,7 @@ def _optimize_by_arc(
     arc.build_slots()
     by_id = {c.track_id: c for c in candidates}
     slot_energy = {s.position: s.target_energy for s in arc.slots}
-    deviations = [
-        abs(by_id[tid].energy_mean - slot_energy[i + 1]) for i, tid in enumerate(order)
-    ]
+    deviations = [abs(by_id[tid].energy_mean - slot_energy[i + 1]) for i, tid in enumerate(order)]
     quality = 1.0 - (sum(deviations) / len(deviations)) if deviations else 1.0
     return SequenceOptimizeResult(
         track_order=order,

@@ -26,7 +26,7 @@ def test_peak_only_arc_energy_peaks_near_75_percent():
     assert energies[0] < energies[peak_idx]
     assert energies[-1] < energies[peak_idx]
     assert all(0.45 <= e <= 0.80 for e in energies)
-    assert all(a <= b for a, b in itertools.pairwise(energies[:peak_idx + 1]))
+    assert all(a <= b for a, b in itertools.pairwise(energies[: peak_idx + 1]))
     assert all(a >= b for a, b in itertools.pairwise(energies[peak_idx:]))
 
 
