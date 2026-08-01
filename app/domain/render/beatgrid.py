@@ -21,7 +21,7 @@ _GRID_FILENAME = "beatgrid.json"
 @dataclass(frozen=True, slots=True)
 class BeatgridLimits:
     max_phase_ms: float = 120.0
-    max_trim_start_s: float = 8.0
+    max_trim_start_s: float = 120.0
     fixed_flag_threshold_ms: float = 40.0
     fixed_flag_gain_db: float = 1.5
 
@@ -43,6 +43,7 @@ def clamp_entry(entry: BeatgridEntry, limits: BeatgridLimits) -> BeatgridEntry:
         refined_trim_s=refined,
         gain_db=entry.gain_db,
         phase_ms=phase,
+        bpm_measured=entry.bpm_measured,
     )
 
 
@@ -62,18 +63,21 @@ def entry_to_row(entry: BeatgridEntry, limits: BeatgridLimits | None = None) -> 
         "refined_trim_s": entry.refined_trim_s,
         "gain_db": entry.gain_db,
         "phase_ms": entry.phase_ms,
+        "bpm_measured": entry.bpm_measured,
         "flags": entry_flags(entry, limits or BeatgridLimits()),
     }
 
 
 def entry_from_row(row: Mapping[str, Any]) -> BeatgridEntry:
     refined_trim_s = row.get("refined_trim_s")
+    bpm_measured = row.get("bpm_measured")
     return BeatgridEntry(
         track_id=int(row["track_id"]),
         trim_start_s=float(row["trim_start_s"]),
         refined_trim_s=None if refined_trim_s is None else float(refined_trim_s),
         gain_db=float(row.get("gain_db", 0.0)),
         phase_ms=float(row.get("phase_ms", 0.0)),
+        bpm_measured=None if bpm_measured is None else float(bpm_measured),
     )
 
 

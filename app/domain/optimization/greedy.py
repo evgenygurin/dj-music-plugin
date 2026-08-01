@@ -15,8 +15,9 @@ from app.shared.features import TrackFeatures
 class GreedyChainBuilder:
     """Fast O(n^2): greedily pick best next transition at each step."""
 
-    def __init__(self, scorer: TransitionScorer) -> None:
+    def __init__(self, scorer: TransitionScorer, *, soft_camelot: bool = False) -> None:
         self.scorer = scorer
+        self.soft_camelot = soft_camelot
 
     def optimize(
         self,
@@ -71,6 +72,7 @@ class GreedyChainBuilder:
                     tracks[idx_map[candidate]],
                     intent=context.intent,
                     section_context=context.section_context,
+                    soft_camelot=self.soft_camelot,
                 )
                 score = 0.0 if result.hard_reject else result.overall
                 if score > best_score:
@@ -84,7 +86,15 @@ class GreedyChainBuilder:
             if on_progress is not None:
                 on_progress(int((len(order) / len(active_ids)) * 100), max(0.0, best_score))
 
-        quality = compute_fitness(self.scorer, tracks, order, idx_map, template, moods)
+        quality = compute_fitness(
+            self.scorer,
+            tracks,
+            order,
+            idx_map,
+            template,
+            moods,
+            soft_camelot=self.soft_camelot,
+        )
         return OptimizationResult(
             track_order=order,
             quality_score=quality,

@@ -1,17 +1,18 @@
-"""Sub-beat kick-phase refinement (ported from qa()).
+"""Sub-beat kick-phase refinement.
 
-Stretch a 24 s chunk to the target BPM, take the kick onset envelope, and
-cross-correlate it with an ideal target-BPM pulse comb to find the exact
-sub-beat offset, so every track's kicks land on the SAME grid.
+The kick anchor from ``detect_kick_trim`` already lands on a real kick; this
+nudges it to the start of the kick transient for sub-beat precision. It works
+on a tiny local window of the SOURCE file (no time-stretch), so it can never
+jump half a beat the way the old ffmpeg+comb search did, and the shift is
+capped at a quarter beat.
 """
 
 from __future__ import annotations
 
-import os
-import subprocess
-
 _SR = 22050
-_HOP = 512
+_LOAD_MARGIN_S = 0.4
+_LOAD_WINDOW_S = 0.8
+_ONGRID_BEAT_RATIO = 0.25
 
 
 def refine_phase(
@@ -25,48 +26,27 @@ def refine_phase(
     import numpy as np
     from scipy.signal import butter, sosfiltfilt
 
-    beat_s = 60.0 / target_bpm
-    fpb = beat_s * _SR / _HOP  # onset-env frames per beat
-    tempo = target_bpm / bpm
+    beat_s = 60.0 / bpm
+    win_lo = max(0.0, base_trim_s - _LOAD_MARGIN_S)
+    y, _ = librosa.load(file_path, sr=_SR, mono=True, offset=win_lo, duration=_LOAD_WINDOW_S)
+    if y.size == 0:
+        return 0.0, round(base_trim_s, 4)
+
     sos = butter(4, 150, btype="low", fs=_SR, output="sos")
-
-    tmp = f"/tmp/_qa_{abs(hash(file_path))}.wav"
-    subprocess.run(
-        [
-            "ffmpeg",
-            "-y",
-            "-ss",
-            f"{base_trim_s}",
-            "-t",
-            f"{24 * bpm / target_bpm + 1:.1f}",
-            "-i",
-            file_path,
-            "-af",
-            f"rubberband=tempo={tempo:.5f}",
-            "-ar",
-            str(_SR),
-            "-ac",
-            "1",
-            tmp,
-        ],
-        stderr=subprocess.DEVNULL,
-        check=False,
-    )
-    try:
-        y, _ = librosa.load(tmp, sr=_SR, mono=True, duration=24.0)
-    finally:
-        if os.path.exists(tmp):
-            os.remove(tmp)
-
     low = sosfiltfilt(sos, y).astype(np.float32)
-    env = librosa.onset.onset_strength(y=low, sr=_SR, hop_length=_HOP)
-    best_s, best_phi = -1.0, 0
-    for phi in range(round(fpb)):
-        idx = np.round(phi + np.arange(0, len(env) - 1, fpb)).astype(int)
-        idx = idx[idx < len(env)]
-        s = float(env[idx].sum())
-        if s > best_s:
-            best_s, best_phi = s, phi
-    phase_s = best_phi * _HOP / _SR
-    delta = phase_s if phase_s <= beat_s / 2 else phase_s - beat_s
+    env = np.abs(low)
+    win = max(1, int(0.004 * _SR))
+    env = np.convolve(env, np.ones(win) / win, mode="same")
+
+    peak_i = int(np.argmax(env))
+    thresh = 0.5 * env[peak_i]
+    onset_i = peak_i
+    for j in range(peak_i, 0, -1):
+        if env[j] <= thresh:
+            onset_i = j
+            break
+    onset_s = win_lo + onset_i / _SR
+    delta = onset_s - base_trim_s
+    if abs(delta) > _ONGRID_BEAT_RATIO * beat_s:
+        delta = 0.0
     return round(delta * 1000.0, 1), round(base_trim_s + delta, 4)

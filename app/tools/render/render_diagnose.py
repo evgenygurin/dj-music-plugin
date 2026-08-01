@@ -54,20 +54,35 @@ async def render_diagnose(
     from app.config import get_settings
     from app.domain.render.timeline import timeline_windows
 
-    r = get_settings().render
-    wins = timeline_windows(
-        inputs,
-        target_bpm=r.target_bpm,
-        body_bars=r.body_bars,
-        transition_bars=r.transition_bars,
-    )
-    track_segments = [(inputs[idx].track_id, s, e) for (idx, s, e) in wins.segments]
+    plan_path = Path(render_workspace(version_id)) / "render_plan.json"
+    if plan_path.exists():
+        import json as _json
+
+        plan = _json.loads(plan_path.read_text())
+        track_segments = [
+            (seg["track_id"], float(seg["start_s"]), float(seg["end_s"]))
+            for seg in plan.get("segments", [])
+        ]
+        subgenre = plan.get("subgenre")
+        phrase_align_count = int(plan.get("phrase_align_count", 0))
+    else:
+        r = get_settings().render
+        wins = timeline_windows(
+            inputs,
+            target_bpm=r.target_bpm,
+            body_bars=r.body_bars,
+            transition_bars=r.transition_bars,
+        )
+        track_segments = [(inputs[idx].track_id, s, e) for (idx, s, e) in wins.segments]
+        subgenre = None
+        phrase_align_count = 0
 
     version_context = {
         "segments": track_segments,
         "features": features,
         "titles": titles,
-        "subgenre": None,
+        "subgenre": subgenre,
+        "phrase_align_count": phrase_align_count,
     }
 
     return await render_diagnose_handler(

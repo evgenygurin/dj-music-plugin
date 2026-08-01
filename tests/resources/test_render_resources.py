@@ -44,3 +44,30 @@ async def test_diagnostics_resource_malformed_job_id():
     # NotFoundError, not a bare ValueError (→ masked "internal error").
     with pytest.raises(NotFoundError):
         await render_job_diagnostics_resource("not-a-version")
+
+
+@pytest.mark.asyncio
+async def test_grid_check_resource_missing_raises():
+    from app.resources.render import render_grid_check_resource
+    from app.shared.errors import NotFoundError
+
+    with pytest.raises(NotFoundError):
+        await render_grid_check_resource(99999)
+
+
+@pytest.mark.asyncio
+async def test_plan_resource_missing_raises():
+    from app.resources.render import render_plan_resource
+    from app.shared.errors import NotFoundError
+
+    with pytest.raises(NotFoundError):
+        await render_plan_resource(99999)
+
+
+@pytest.mark.asyncio
+async def test_validation_gates_reference():
+    from app.resources.render import render_validation_gates_resource
+
+    payload = json.loads(await render_validation_gates_resource())
+    assert payload["thresholds_bpm"]["ok"] == 0.5
+    assert payload["tool"] == "render_validate_grid"

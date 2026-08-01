@@ -71,11 +71,13 @@ class RenderPlanner:
             settings,
             request,
         )
+        phrase_align_count = sum(1 for g in geometries if g.phrase_aligned)
         if request.mode is RenderMode.CLASSIC:
             return RenderPlan.from_settings(
                 settings,
                 request,
                 segments=cast(list[TrackSegment], segments),
+                phrase_align_count=phrase_align_count,
             )
         return RenderPlan.from_settings(
             settings,
@@ -83,4 +85,5 @@ class RenderPlanner:
             segments=[],
             stem_segments=cast(list[StemSegment], segments),
             stem_order=_resolve_stem_order(stem_paths),
+            phrase_align_count=phrase_align_count,
         )

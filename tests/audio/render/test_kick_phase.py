@@ -25,5 +25,6 @@ def test_detect_first_kick(tmp_path):
     from app.audio.render.kick_phase import detect_kick_trim
 
     f = _click_track(str(tmp_path / "k.wav"), first_kick_s=0.4)
-    trim = detect_kick_trim(f, start_s=0.0, bpm=130.0)
+    trim, bpm_measured = detect_kick_trim(f, start_s=0.0, bpm=130.0)
     assert 0.30 <= trim <= 0.55  # near the planted 0.4 s kick
+    assert 129.0 <= bpm_measured <= 131.0

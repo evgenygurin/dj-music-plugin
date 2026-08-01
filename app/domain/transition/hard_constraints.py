@@ -23,14 +23,16 @@ def check_hard_constraints(
     pre_bpm_dist: float | None = None,
     pre_key_dist: int | None = None,
     pre_energy_delta: float | None = None,
+    soft_camelot: bool = False,
 ) -> TransitionScore | None:
-    """Return a zero-score rejection or ``None`` if all constraints pass."""
+    """Return a rejection, a passing-with-warnings score, or ``None``."""
     return _chain.check(
         from_t,
         to_t,
         pre_bpm_dist=pre_bpm_dist,
         pre_key_dist=pre_key_dist,
         pre_energy_delta=pre_energy_delta,
+        soft_camelot=soft_camelot,
     )
 
 

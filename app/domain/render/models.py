@@ -39,6 +39,8 @@ class TrackInput:
     integrated_lufs: float | None
     file_path: str
     duration_ms: int | None = None
+    phrase_boundaries_ms: list[int] | None = None
+    dominant_phrase_bars: int | None = None
 
     def tempo_ratio(self, target_bpm: float) -> float:
         """Stretch ratio to reach ``target_bpm`` (>1 speeds a slow track up)."""
@@ -54,11 +56,17 @@ class BeatgridEntry:
     refined_trim_s: float | None
     gain_db: float
     phase_ms: float
+    bpm_measured: float | None = None
 
     @property
     def effective_trim(self) -> float:
         """Refined kick trim when QA ran, else the raw kick anchor."""
         return self.refined_trim_s if self.refined_trim_s is not None else self.trim_start_s
+
+    @property
+    def effective_bpm(self) -> float | None:
+        """Measured kick BPM (preferred for stretch), else None → fall back."""
+        return self.bpm_measured
 
 
 @dataclass(frozen=True, slots=True)
@@ -139,6 +147,7 @@ class RenderPlan:
     segments: list[TrackSegment] = field(default_factory=list)
     stem_segments: list[StemSegment] | None = None
     stem_order: tuple[str, ...] = STEM_ORDER
+    phrase_align_count: int = 0
     # ── effects (set-wide, one preset per render) ──
     filter_sweep_preset: str | None = None
     echo_preset: str | None = None
@@ -162,6 +171,7 @@ class RenderPlan:
         segments: list[TrackSegment] | None = None,
         stem_segments: list[StemSegment] | None = None,
         stem_order: tuple[str, ...] = STEM_ORDER,
+        phrase_align_count: int = 0,
     ) -> RenderPlan:
         """Factory: DSP constants from ``settings``, effects from ``request``."""
         return cls(
@@ -194,6 +204,7 @@ class RenderPlan:
             segments=segments if segments is not None else [],
             stem_segments=stem_segments,
             stem_order=stem_order,
+            phrase_align_count=phrase_align_count,
             filter_sweep_preset=request.filter_sweep,
             echo_preset=request.echo,
             crossfade_curve_out=request.crossfade_curve_out,

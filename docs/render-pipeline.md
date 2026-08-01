@@ -182,22 +182,24 @@ Handlers write per-version artefacts under
 
 ```text
 generated-sets/render/v{version_id}/
-├── beatgrid.json      per-track trim / refined_trim / gain / phase_ms / flags
+├── beatgrid.json      per-track trim / refined_trim / gain / phase_ms / bpm_measured / flags
+├── render_plan.json   actual geometry used (segments, target_bpm, subgenre)
 ├── MIX.mp3            the rendered continuous mix
-└── diagnostics.json   per-window scan report
+├── diagnostics.json   per-window scan report
+└── grid_check.json    per-track body BPM vs target_bpm (render_validate_grid)
 ```
 
 ## MCP surface
 
 The engine is exposed as MCP through thin `@tool` dispatchers
 (`app/tools/render/`) that inject the clock + workspace path and delegate to
-the handlers above, five read-only resources (`app/resources/render.py`), and
-one workflow prompt. Everything is keyed by `version_id` — generic over any
+the handlers above, read-only resources (`app/resources/render.py`), and
+workflow prompts. Everything is keyed by `version_id` — generic over any
 persisted `set_version`.
 
-### Tools (3, namespace `render`)
+### Tools (4, namespace `render`)
 
-All three are heavy DSP passes and are declared `task=True` — the host runs
+All four are heavy DSP passes and are declared `task=True` — the host runs
 them as background tasks (requires `FastMCP(tasks=True)`, wired in
 `app/server/app.py`, plus the `fastmcp[tasks]` extra). They are visible by
 default (like `sync` / `compute`) and whitelisted in `ALWAYS_VISIBLE_TOOLS`
@@ -207,38 +209,65 @@ default (like `sync` / `compute`) and whitelisted in `ALWAYS_VISIBLE_TOOLS`
 |---|---|---|
 | `render_beatgrid` | `version_id`, `refresh=false` | `render_beatgrid_handler` → `beatgrid.json` |
 | `render_mixdown` | `version_id`, `out_name?`, `transition_bars?`, `body_bars?`, `refresh_grid=false` | `render_mixdown_handler` → `MIX.mp3` |
+| `render_validate_grid` | `version_id`, `mix_path?` | `render_validate_grid_handler` → `grid_check.json` |
 | `render_diagnose` | `version_id`, `mix_path?` | `render_diagnose_handler` → `diagnostics.json` |
 
 `render_mixdown` auto-runs the beatgrid when missing (like `sequence_optimize`
-auto-scores). `render_diagnose` rejects a missing mix with a typed
-`ValidationError` ("run render_mixdown first").
+auto-scores). `render_validate_grid` / `render_diagnose` reject a missing mix
+with a typed `ValidationError` ("run render_mixdown first").
 
-### Resources (5)
+### Resources (8)
 
 Cheap reads only — the module imports only `app.shared` / `app.domain` /
 `app.config` / `app.repositories` (never `app.handlers`), so the heavy librosa
-sweep stays in the `render_diagnose` tool.
+sweep stays in the `render_validate_grid` / `render_diagnose` tools.
 
 | URI | Reads |
 |---|---|
 | `reference://render/defaults` | `RenderSettings` constants (target BPM, bars, XSPLIT, limiter) |
+| `reference://render/settings` | Full `RenderSettings` (30+ DSP defaults) |
+| `reference://render/validation` | Grid-validation gates (0.5/1.0 BPM) + interpretation rules |
 | `local://render/jobs/{job_id}/status` | Live progress from the in-process `RENDER_JOBS` registry |
 | `local://render/jobs/{job_id}/diagnostics` | Saved `diagnostics.json` for the job's version workspace |
 | `local://render/{version_id}/beatgrid` | Saved `beatgrid.json` |
+| `local://render/{version_id}/plan` | Saved `render_plan.json` (actual geometry used) |
+| `local://render/{version_id}/grid_check` | Saved `grid_check.json` |
 | `local://render/{version_id}/timeline` | Segment + transition-window timeline (pure `timeline_windows` math) |
 
 The `jobs/{job_id}/*` resources parse `v{version_id}[-{ts}]` out of the job id;
 a malformed job id raises the typed `NotFoundError`, not a bare `ValueError`.
 
-### Prompt
+### Grid validation (`render_validate_grid`)
 
-`render_set_workflow(version_id)` (namespace `workflow`, tag `delivery`) is the
-pure-text recipe: ensure every track has a registered `audio_file`
-(download first — the engine never downloads), optionally bring the set to
-`analysis_level=5`, `render_beatgrid` → inspect `local://render/{id}/beatgrid`,
-`render_mixdown`, `render_diagnose` → read `local://render/{id}/timeline` to
-tell a transition-window hole (a defect) from a track's own breakdown (music),
-then run `deliver_set_workflow`.
+Post-render QA gate: does every track in the mix actually play at `target_bpm`?
+The engine stretches with `tempo_ratio = bpm_measured / target`, where
+`bpm_measured` comes from the long-window kick detector (`detect_kick_trim`) —
+NOT the stored DB BPM. A wrong stored BPM used to produce a real drift bug
+(one track played +1.6 BPM, mean |dev| 0.34); with `bpm_measured` every track
+sits within 0.4 BPM (mean 0.09).
+
+The tool measures each track body's BPM in the mix by envelope autocorrelation
+(`app/audio/render/grid_check.py`) — phase-insensitive, so it survives the
+demucs chain. Gates: |dev| ≤ 0.5 ok · 0.5–1.0 warn · >1.0 fail. It also emits
+`plan_checks` (grid `bpm_measured` vs stored `bpm`) to catch the drift source
+pre-render. Phase measurement on the demucs mix is intentionally NOT done —
+stems shift transients 30–100ms; always verify phase on the ORIGINAL audio.
+
+### Prompts
+
+- `render_set_workflow(version_id)` (namespace `workflow`, tag `delivery`) is the
+  pure-text recipe: ensure every track has a registered `audio_file`
+  (download first — the engine never downloads), optionally bring the set to
+  `analysis_level=5`, `render_beatgrid` → inspect `local://render/{id}/beatgrid`,
+  `render_mixdown`, then `render_validate_grid` → read
+  `local://render/{id}/grid_check` (fix warn/fail via the decision tree before
+  proceeding), `render_diagnose` → read `local://render/{id}/timeline` to
+  tell a transition-window hole (a defect) from a track's own breakdown (music),
+  then run `deliver_set_workflow`.
+- `validate_grid_workflow(version_id)` (namespace `workflow`, tags
+  `delivery`/`render`) is the grid-QA recipe with the warn/fail decision tree:
+  find the root cause on the ORIGINAL audio, `render_beatgrid(refresh=True)`,
+  re-validate, and re-render only when DSP params actually changed.
 
 ### Delivery reuse
 

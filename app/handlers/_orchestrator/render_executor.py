@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from typing import Any
 
@@ -26,6 +27,7 @@ class RenderExecutor:
         except Exception as exc:
             RENDER_JOBS.update(job_id, error=str(exc), done=True)
             raise
+        self._persist_plan(plan, request, Path(request.workspace))
         scan = scan_mix(out_path)
         RENDER_JOBS.update(
             job_id,
@@ -44,3 +46,25 @@ class RenderExecutor:
             level_jumps=len(scan.level_jumps),
             near_silent_s=len(scan.near_silent_s),
         )
+
+    def _persist_plan(self, plan: RenderPlan, request: Any, workspace: Path) -> None:
+        """Persist the actual render geometry so diagnose can reuse it."""
+        segs = plan.stem_segments if plan.stem_segments is not None else plan.segments
+        timeline = [
+            {"track_id": s.track_id, "start_s": s.start_s, "end_s": s.start_s + s.length_s}
+            for s in segs
+        ]
+        payload = {
+            "target_bpm": plan.target_bpm,
+            "mode": plan.mode.value,
+            "subgenre": getattr(request, "subgenre", None),
+            "transition_bars": getattr(request, "transition_bars", None),
+            "body_bars": getattr(request, "body_bars", None),
+            "segments": timeline,
+            "phrase_align": plan.phrase_align_count > 0,
+            "phrase_align_count": plan.phrase_align_count,
+        }
+        import contextlib
+
+        with contextlib.suppress(OSError):
+            (workspace / "render_plan.json").write_text(json.dumps(payload, indent=1))

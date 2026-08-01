@@ -15,6 +15,7 @@ class EnergyGapSpec:
         pre_bpm_dist: float | None = None,
         pre_key_dist: int | None = None,
         pre_energy_delta: float | None = None,
+        soft: bool = False,
     ) -> str | None:
         settings = get_settings().transition
 

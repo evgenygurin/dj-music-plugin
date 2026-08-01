@@ -63,3 +63,34 @@ async def test_get_render_inputs_missing_audio_raises(session):
     with pytest.raises(Exception) as exc:  # ValidationError from app.shared.errors
         await uow.set_versions.get_render_inputs(200)
     assert "audio_file" in str(exc.value)
+
+
+@pytest.mark.asyncio
+async def test_get_render_inputs_reads_phrase_features(session):
+    await _create_tables(session)
+    session.add(Track(id=77, title="Phrase Test"))
+    session.add(DjSet(id=3, name="S3"))
+    session.add(DjSetVersion(id=300, set_id=3, label="v"))
+    await session.flush()
+    session.add(
+        TrackAudioFeaturesComputed(
+            track_id=77,
+            bpm=130.0,
+            key_code=8,
+            integrated_lufs=-11.0,
+            phrase_boundaries_ms="[96000, 128000, 160000]",
+            dominant_phrase_bars=16,
+        )
+    )
+    session.add(
+        DjLibraryItem(
+            track_id=77, file_path="/tmp/dj_audio/01 [77].mp3", file_hash="h", file_size=1
+        )
+    )
+    session.add(DjSetItem(version_id=300, track_id=77, sort_index=0, mix_in_point_ms=0))
+    await session.flush()
+    uow = UnitOfWork(session)
+    rows = await uow.set_versions.get_render_inputs(300)
+    r = rows[0]
+    assert r.phrase_boundaries_ms == [96000, 128000, 160000]
+    assert r.dominant_phrase_bars == 16

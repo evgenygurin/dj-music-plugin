@@ -4,7 +4,7 @@ from app.domain.render.bar_plan import BarPlan
 from app.domain.render.models import BeatgridEntry, TrackInput
 from app.domain.render.plan_assembler import RenderPlanner
 from app.domain.render.request import RenderRequest
-from app.domain.render.timeline import timeline_windows
+from app.domain.render.timeline import place_segments, timeline_windows
 
 # Two identical 130-BPM tracks, 24-bar bodies, 32-bar transitions.
 BAR = 4 * (60.0 / 130.0)
@@ -93,3 +93,127 @@ def test_timeline_passes_mastering_settings():
     assert plan.glue_comp_ratio == 2.5
     assert plan.limiter_attack_ms == 12.0
     assert plan.limiter_release_ms == 40.0
+
+
+def _phrase_input(trim_s, boundaries):
+    return TrackInput(
+        track_id=1,
+        yandex_id=1,
+        title="t",
+        bpm=120.0,  # 1 bar = 2.0 s
+        key_code=None,
+        mix_in_ms=0,
+        integrated_lufs=-12.0,
+        file_path="/x.mp3",
+        phrase_boundaries_ms=boundaries,
+        dominant_phrase_bars=4,
+    )
+
+
+def _grid_with_trim(trim_s):
+    return {
+        1: BeatgridEntry(
+            track_id=1, trim_start_s=trim_s, refined_trim_s=None, gain_db=0.0, phase_ms=0.0
+        )
+    }
+
+
+def test_place_segments_snaps_whole_bar_to_phrase():
+    inputs = [_phrase_input(10.0, [12000])]
+    geoms = place_segments(
+        inputs, _grid_with_trim(10.0), target_bpm=130.0, body_bars=24, transition_bars=32
+    )
+    assert geoms[0].trim_start_s == 12.0
+    assert geoms[0].phrase_aligned is True
+
+
+def test_place_segments_skips_non_whole_bar():
+    inputs = [_phrase_input(9.0, [12000])]
+    geoms = place_segments(
+        inputs, _grid_with_trim(9.0), target_bpm=130.0, body_bars=24, transition_bars=32
+    )
+    assert geoms[0].trim_start_s == 9.0
+    assert geoms[0].phrase_aligned is False
+
+
+def test_place_segments_without_phrase_data_unchanged():
+    inputs = [
+        TrackInput(
+            track_id=1,
+            yandex_id=1,
+            title="t",
+            bpm=130.0,
+            key_code=None,
+            mix_in_ms=0,
+            integrated_lufs=-12.0,
+            file_path="/x.mp3",
+        )
+    ]
+    geoms = place_segments(
+        inputs, _grid_with_trim(10.0), target_bpm=130.0, body_bars=24, transition_bars=32
+    )
+    assert geoms[0].trim_start_s == 10.0
+    assert geoms[0].phrase_aligned is False
+
+
+def test_assemble_reports_phrase_align_count():
+    request = RenderRequest(
+        version_id=1,
+        workspace="/tmp/ws",
+        timestamp="t",
+        transition_bars=32,
+        body_bars=24,
+        stem=False,
+    )
+    bar_plan = BarPlan(transition_bars=(), body_bars=[24])
+    plan = RenderPlanner().assemble(
+        RenderSettings(),
+        request,
+        [_phrase_input(10.0, [12000])],
+        _grid_with_trim(10.0),
+        bar_plan,
+        stem_paths=None,
+    )
+    assert plan.phrase_align_count == 1
+
+
+def test_place_segments_uses_measured_bpm_for_stretch():
+    ti = TrackInput(
+        track_id=1,
+        yandex_id=1,
+        title="t",
+        bpm=130.0,
+        key_code=None,
+        mix_in_ms=0,
+        integrated_lufs=-12.0,
+        file_path="/x.mp3",
+    )
+    grid = {
+        1: BeatgridEntry(
+            track_id=1,
+            trim_start_s=0.0,
+            refined_trim_s=0.0,
+            gain_db=0.0,
+            phase_ms=0.0,
+            bpm_measured=120.0,
+        )
+    }
+    geoms = place_segments([ti], grid, target_bpm=130.0, body_bars=24, transition_bars=32)
+    assert round(geoms[0].tempo_ratio, 4) == round(130.0 / 120.0, 4)
+
+
+def test_place_segments_falls_back_to_db_bpm_without_measurement():
+    ti = TrackInput(
+        track_id=1,
+        yandex_id=1,
+        title="t",
+        bpm=130.0,
+        key_code=None,
+        mix_in_ms=0,
+        integrated_lufs=-12.0,
+        file_path="/x.mp3",
+    )
+    geoms = place_segments(
+        [ti], _grid_with_trim(0.0), target_bpm=130.0, body_bars=24, transition_bars=32
+    )
+    assert round(geoms[0].tempo_ratio, 4) == 1.0

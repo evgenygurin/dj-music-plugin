@@ -50,10 +50,11 @@ Filters use Django-style lookups: `bpm__gte=120`, `mood__in=peak_time,driving`.
 
 `dj_ui_library_dashboard`, `dj_ui_library_audit`, `dj_ui_camelot_wheel`, `dj_ui_set_view`, `dj_ui_control_center`, `dj_ui_render_studio`, `dj_ui_transition_score`, `dj_ui_score_pool_matrix`
 
-### Render Pipeline (3)
+### Render Pipeline (4)
 
 - `dj_render_beatgrid` — kick-phase detect + sub-beat refine
 - `dj_render_mixdown` — continuous beatmatched mix (rubberband + EQ)
+- `dj_render_validate_grid` — post-render grid QA (per-track body BPM vs target)
 - `dj_render_diagnose` — defect sweep (level jumps, dropouts, bass-thin)
 
 ### Admin (2)
@@ -79,3 +80,4 @@ Filters use Django-style lookups: `bpm__gte=120`, `mood__in=peak_time,driving`.
 | Audit library quality | `dj_ui_library_audit` |
 | Generate Suno assets | `suno_set_asset_workflow` prompt |
 | Render mix | `dj_render_mixdown` |
+| Validate grid after render | `dj_render_validate_grid` + skill `validate-set` |

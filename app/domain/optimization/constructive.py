@@ -35,10 +35,12 @@ class ConstructiveSlotBuilder:
         *,
         beam_width: int = _DEFAULT_BEAM_WIDTH,
         slot_candidates: int = _DEFAULT_SLOT_CANDIDATES,
+        soft_camelot: bool = False,
     ) -> None:
         self.scorer = scorer
         self.beam_width = beam_width
         self.slot_candidates = slot_candidates
+        self.soft_camelot = soft_camelot
 
     def optimize(
         self,
@@ -166,6 +168,7 @@ class ConstructiveSlotBuilder:
             idx_map,
             template,
             moods,
+            soft_camelot=self.soft_camelot,
         )
         return OptimizationResult(
             track_order=best_state.order,
@@ -285,6 +288,7 @@ class ConstructiveSlotBuilder:
             tracks[idx_map[candidate_id]],
             intent=context.intent,
             section_context=context.section_context,
+            soft_camelot=self.soft_camelot,
         )
         return 0.0 if result.hard_reject else result.overall
 

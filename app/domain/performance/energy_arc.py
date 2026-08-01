@@ -76,7 +76,8 @@ class EnergyArc:
 
         elif self.shape == ArcShape.PEAK_ONLY:
             bpm_curve = np.full(n, self.target_bpm_peak)
-            energy_curve = np.full(n, 0.65)
+            energy_curve = 0.50 + 0.25 * np.exp(-((x - 0.75) ** 2) / 0.05)
+            energy_curve = np.clip(energy_curve, 0.45, 0.80)
 
         elif self.shape == ArcShape.JOURNEY:
             # Two peaks: one at 30%, one at 75%
@@ -266,9 +267,21 @@ def festival_arc(num_tracks: int = 14) -> EnergyArc:
     )
 
 
+def peak_only_arc(num_tracks: int = 12) -> EnergyArc:
+    return EnergyArc(
+        shape=ArcShape.PEAK_ONLY,
+        num_tracks=num_tracks,
+        target_bpm_start=130.0,
+        target_bpm_peak=130.0,
+        target_bpm_end=130.0,
+        name=f"PeakOnly-{num_tracks}",
+    )
+
+
 ARC_PRESETS: dict[str, Callable[[int], EnergyArc]] = {
     "roller": roller_arc,
     "journey": journey_arc,
     "warehouse": warehouse_arc,
     "festival": festival_arc,
+    "peak_only": peak_only_arc,
 }

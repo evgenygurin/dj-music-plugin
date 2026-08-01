@@ -96,6 +96,7 @@ class SetVersionRepository(BaseRepository[DjSetVersion]):
         duplicates. Raises ValidationError when a track has no registered
         audio file (download first — mirrors the L5 finalization contract).
         """
+        import json
         import re
 
         from app.models.audio_file import DjLibraryItem
@@ -121,6 +122,8 @@ class SetVersionRepository(BaseRepository[DjSetVersion]):
                 TrackAudioFeaturesComputed.bpm,
                 TrackAudioFeaturesComputed.key_code,
                 TrackAudioFeaturesComputed.integrated_lufs,
+                TrackAudioFeaturesComputed.phrase_boundaries_ms,
+                TrackAudioFeaturesComputed.dominant_phrase_bars,
                 file_path_subq,
             )
             .join(Track, Track.id == DjSetItem.track_id)
@@ -147,6 +150,9 @@ class SetVersionRepository(BaseRepository[DjSetVersion]):
                 )
             m = re.search(r"\[(\d+)\]", row.file_path)
             yandex_id = int(m.group(1)) if m else None
+            phrase_ms = None
+            if row.phrase_boundaries_ms:
+                phrase_ms = json.loads(row.phrase_boundaries_ms)
             out.append(
                 TrackInput(
                     track_id=row.track_id,
@@ -158,6 +164,8 @@ class SetVersionRepository(BaseRepository[DjSetVersion]):
                     integrated_lufs=row.integrated_lufs,
                     file_path=row.file_path,
                     duration_ms=row.duration_ms,
+                    phrase_boundaries_ms=phrase_ms,
+                    dominant_phrase_bars=row.dominant_phrase_bars,
                 )
             )
         return out

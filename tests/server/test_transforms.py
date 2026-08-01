@@ -43,6 +43,7 @@ def test_always_visible_list_matches_blueprint() -> None:
         "ui_control_center",
         "render_beatgrid",
         "render_mixdown",
+        "render_validate_grid",
         "render_diagnose",
     )
 

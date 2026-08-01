@@ -60,7 +60,9 @@ async def test_known_template_passes_through_to_optimizer() -> None:
     optimizer call as a real ``SetTemplateDefinition`` instance."""
     captured: dict[str, object] = {}
 
-    def fake_optimizer_builder(*, algorithm: str, scorer: object) -> object:
+    def fake_optimizer_builder(
+        *, algorithm: str, scorer: object, soft_camelot: bool = False
+    ) -> object:
         result = MagicMock()
         result.track_order = [146, 147, 148]
         result.quality_score = 0.5
@@ -90,7 +92,9 @@ async def test_no_template_passes_none_through() -> None:
     """``template=None`` (default) passes through unchanged."""
     captured: dict[str, object] = {}
 
-    def fake_optimizer_builder(*, algorithm: str, scorer: object) -> object:
+    def fake_optimizer_builder(
+        *, algorithm: str, scorer: object, soft_camelot: bool = False
+    ) -> object:
         result = MagicMock()
         result.track_order = [146, 147, 148]
         result.quality_score = 0.5
@@ -127,7 +131,9 @@ async def test_canonical_moods_pass_through_to_optimizer() -> None:
     uow.track_features.get_scoring_features_batch = AsyncMock(return_value=features)
     captured: dict[str, object] = {}
 
-    def fake_optimizer_builder(*, algorithm: str, scorer: object) -> object:
+    def fake_optimizer_builder(
+        *, algorithm: str, scorer: object, soft_camelot: bool = False
+    ) -> object:
         result = MagicMock(
             track_order=track_ids,
             quality_score=0.5,
@@ -170,7 +176,9 @@ async def test_progress_callback_is_forwarded_to_mcp_context() -> None:
     ctx = MagicMock()
     ctx.report_progress = AsyncMock()
 
-    def fake_optimizer_builder(*, algorithm: str, scorer: object) -> object:
+    def fake_optimizer_builder(
+        *, algorithm: str, scorer: object, soft_camelot: bool = False
+    ) -> object:
         result = MagicMock(
             track_order=track_ids,
             quality_score=0.5,

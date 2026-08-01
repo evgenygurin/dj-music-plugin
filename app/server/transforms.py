@@ -66,6 +66,7 @@ ALWAYS_VISIBLE_TOOLS: tuple[str, ...] = (
     # Render pipeline tools — visible by default (like compute/sync verbs).
     "render_beatgrid",
     "render_mixdown",
+    "render_validate_grid",
     "render_diagnose",
 )
 

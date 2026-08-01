@@ -62,12 +62,18 @@ async def _separate_stems(
         return None
 
     result: dict[int, dict[str, str]] = {}
-    await safe_info(ctx, f"stem render: separating {len(inputs)} tracks (demucs)...")
     for ti in inputs:
         input_file = Path(ti.file_path)
         if not input_file.exists():
             await safe_info(ctx, f"missing audio for track {ti.track_id}; classic fallback")
             return None
+        cached = _find_cached_stems(input_file)
+        if cached is not None:
+            result[ti.track_id] = cached
+            continue
+        await safe_info(
+            ctx, f"stem render: separating track {ti.track_id} ({Path(ti.file_path).name})..."
+        )
         try:
             stems = run_demucs(
                 input_file,
@@ -88,8 +94,44 @@ async def _separate_stems(
             return None
         result[ti.track_id] = mapped
 
-    await safe_info(ctx, f"stem render: {len(result)} tracks separated")
+    await safe_info(ctx, f"stem render: {len(result)} tracks ready")
     return result
+
+
+def _find_cached_stems(input_file: Path, output_dir: str | None = None) -> dict[str, str] | None:
+    """Reuse ready flac stems from any render workspace (per-file hash cache).
+
+    ``run_demucs`` keys its cache on ``sha256(resolved_path)[:12]`` under
+    ``{cache_root}/{stem}_{hash}/htdemucs_6s/{stem}/``. Since each render
+    workspace seeds that cache, a track already separated for another version
+    must not be separated again — scan every ``output_dir/render/*/stems``
+    for the matching directory and return its stems directly.
+    """
+    import hashlib
+
+    if output_dir is None:
+        from app.config import get_settings
+
+        output_dir = get_settings().delivery.output_dir
+
+    cache_key = hashlib.sha256(str(input_file.resolve()).encode()).hexdigest()[:12]
+    stem = input_file.stem
+    want = {
+        "vocals": "vocals.flac",
+        "drums": "drums.flac",
+        "bass": "bass.flac",
+        "other": "other.flac",
+        "percussion": "percussion.flac",
+    }
+    output_root = Path(output_dir)
+    for stems_root in sorted(output_root.glob("render/*/stems")):
+        stem_dir = stems_root / f"{stem}_{cache_key}" / "htdemucs_6s" / stem
+        if not stem_dir.is_dir():
+            continue
+        found = {name: str(stem_dir / fname) for name, fname in want.items()}
+        if all(Path(p).exists() for p in found.values()):
+            return found
+    return None
 
 
 class StemResolver:

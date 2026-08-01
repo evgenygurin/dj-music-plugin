@@ -117,6 +117,12 @@ This project is indexed by GitNexus as **dj-music-plugin** (37486 symbols, 81504
 
 ## Render Lessons (бойся граблей)
 
+> Уроки ниже закреплены как исполняемый QA-процесс: скил `skills/validate-set`,
+> тул `render_validate_grid` (→ `local://render/{version_id}/grid_check`), промпт
+> `validate_grid_workflow`, гейты в `reference://render/validation`.
+> beatgrid несёт `bpm_measured` (длинное окно kick-детектора) — именно он идёт
+> в `tempo_ratio`, а не stored BPM.
+
 ### 1. Всегда проверяй Camelot совместимость ДО рендера
 
 Перед рендером сета: получи ключи треков, проверь все переходы через
@@ -207,4 +213,20 @@ for a, b in zip(tracks, tracks[1:]):
 - **hi-hat / тарелки** — с Demucs стемы drums приходят вместе с хай-хэтами.
   ``hypnotic_techno`` решает это плавным вводом drums стема (transition 48+ bars,
   phase_1_ratio 0.55).
+
+### 7. Рендери каждый трек ОДИН раз — дальше переиспользуй результат
+
+Рендер (demucs стемы + rubberband time-stretch + лимитер) — очень дорогая
+операция (минуты на каждый трек). НЕ перерендеривай то, что уже срендерено.
+
+- Перед ``render_mixdown`` проверь, есть ли готовые стемы/микс в
+  ``generated-sets/render/`` или кеше трека. Если параметры рендера не менялись —
+  **копируй готовые файлы** (``cp``/``shutil.copy``) вместо повторного прогона.
+- Если меняется только порядок/арка сета — переиспользуй уже срендеренные стемы
+  треков, не запускай demucs/rubberband заново.
+- Перерендер нужен ТОЛЬКО если реально изменились параметры обработки аудио
+  (subgenre, эффекты, transition_bars, body_bars, уровень громкости).
+- Меняя только track_order в set_version — не трогай аудио, только порядок.
+- Та же логика для beatgrid: один раз посчитал phase/grid — бери из кеша
+  (``refresh_grid=False``), не пересчитывай.
 ```

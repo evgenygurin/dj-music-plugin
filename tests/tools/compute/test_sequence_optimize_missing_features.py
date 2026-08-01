@@ -62,7 +62,9 @@ async def test_partial_missing_drops_dead_ids() -> None:
 
     captured: dict[str, object] = {}
 
-    def fake_optimizer_builder(*, algorithm: str, scorer: object) -> object:
+    def fake_optimizer_builder(
+        *, algorithm: str, scorer: object, soft_camelot: bool = False
+    ) -> object:
         result = MagicMock()
         result.track_order = [146, 147]
         result.quality_score = 0.7

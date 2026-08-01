@@ -234,11 +234,13 @@ def resolve_drum_trim(
     key = f"{track.index}:{target_bpm:.3f}"
     if key not in cache:
         try:
-            raw_trim = detect_kick_trim(track.stems["drums"], start_s=0.0, bpm=track.bpm)
+            raw_trim, bpm_measured = detect_kick_trim(
+                track.stems["drums"], start_s=0.0, bpm=track.bpm
+            )
             delta_ms, refined = refine_phase(
                 track.stems["drums"],
                 base_trim_s=raw_trim,
-                bpm=track.bpm,
+                bpm=bpm_measured or track.bpm,
                 target_bpm=target_bpm,
             )
             trim = max(0.0, min(8.0, refined))
