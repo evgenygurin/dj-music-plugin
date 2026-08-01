@@ -195,6 +195,7 @@ def analyze_set_flow(
     titles: dict[int, str],
     target_subgenre: str | None = None,
     lra: float | None = None,
+    phrase_align_count: int = 0,
 ) -> dict[str, Any]:
     """Structural analysis of a DJ set combining audio windows and track features.
 
@@ -455,6 +456,12 @@ def analyze_set_flow(
     if flatness_std is not None and flatness_std < 0.01 and len(flatness_vals) > 1:
         warnings.append("Spectral flatness is nearly constant \u2014 tonal monotony risk")
 
+    if phrase_align_count > 0:
+        warnings.append(
+            f"{phrase_align_count} track(s) phrase-aligned on entry "
+            "(trim snapped to a phrase boundary)"
+        )
+
     return {
         "name": name,
         "duration_s": round(duration_s, 1),
@@ -478,6 +485,7 @@ def analyze_set_flow(
             "onset_std": onset_std,
             "mfcc_diversity": mfcc_diversity,
             "loudness_range_lu": round(lra, 2) if lra is not None else None,
+            "phrase_aligned_tracks": phrase_align_count,
             "quality_score": quality_score,
         },
         "warnings": warnings,

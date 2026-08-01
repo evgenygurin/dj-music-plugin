@@ -63,6 +63,7 @@ async def render_diagnose_handler(
             titles=version_context.get("titles", {}),
             target_subgenre=version_context.get("subgenre"),
             lra=rep.loudness_range_lu,
+            phrase_align_count=version_context.get("phrase_align_count", 0),
         )
         payload["flow"] = flow
 
