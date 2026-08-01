@@ -59,6 +59,52 @@ def _bp(**overrides: object) -> TrackFeatures:
     return TrackFeatures(**defaults)  # type: ignore[arg-type]
 
 
+def test_scorer_soft_camelot_scores_with_warning() -> None:
+    scorer = TransitionScorer()
+    a = _bp(key_code=0)
+    b = _bp(key_code=12)  # Camelot distance >= 5, reliable keys
+
+    strict = scorer.score(a, b)
+    assert strict.hard_reject is True
+    assert strict.warnings == ()
+
+    soft = scorer.score(a, b, soft_camelot=True)
+    assert soft.hard_reject is False
+    assert soft.overall > 0.0
+    assert any("Camelot" in w for w in soft.warnings)
+
+
+def test_scorer_soft_camelot_score_all_intents() -> None:
+    from app.domain.transition.intent import TransitionIntent
+
+    scorer = TransitionScorer()
+    a = _bp(key_code=0)
+    b = _bp(key_code=12)
+
+    results = scorer.score_all_intents(a, b, soft_camelot=True)
+    for intent in (TransitionIntent.MAINTAIN, TransitionIntent.RAMP_UP):
+        assert results[intent].hard_reject is False
+        assert any("Camelot" in w for w in results[intent].warnings)
+
+
+def test_scorer_soft_camelot_score_with_candidates() -> None:
+    scorer = TransitionScorer()
+    a = _bp(key_code=0)
+    b = _bp(key_code=12)
+
+    result = scorer.score_with_candidates(a, b, soft_camelot=True)
+    assert result.hard_reject is False
+    assert any("Camelot" in w for w in result.warnings)
+
+
+def test_scorer_strict_camelot_still_rejects() -> None:
+    scorer = TransitionScorer()
+    a = _bp(key_code=0)
+    b = _bp(key_code=12)
+    strict = scorer.score(a, b)
+    assert strict.hard_reject is True
+
+
 def test_scorer_without_section_context_unchanged() -> None:
     """Regression: no section_context → behaviour identical to v1.3 baseline.
 

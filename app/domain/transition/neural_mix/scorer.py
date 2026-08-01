@@ -33,11 +33,13 @@ class NeuralMixScorer:
         self,
         from_t: TrackFeatures,
         to_t: TrackFeatures,
+        *,
+        soft_camelot: bool = False,
     ) -> NeuralMixScore:
-        rejection = check_hard_constraints(from_t, to_t)
+        rejection = check_hard_constraints(from_t, to_t, soft_camelot=soft_camelot)
         return (
             self._from_rejection(rejection)
-            if rejection is not None
+            if rejection is not None and rejection.hard_reject
             else self._compute(from_t, to_t)
         )
 
@@ -48,6 +50,8 @@ class NeuralMixScorer:
         candidate_bpm_distance: float | None = None,
         candidate_key_distance: int | None = None,
         candidate_energy_delta: float | None = None,
+        *,
+        soft_camelot: bool = False,
     ) -> NeuralMixScore:
         rejection = check_hard_constraints(
             from_t,
@@ -55,10 +59,11 @@ class NeuralMixScorer:
             pre_bpm_dist=candidate_bpm_distance,
             pre_key_dist=candidate_key_distance,
             pre_energy_delta=candidate_energy_delta,
+            soft_camelot=soft_camelot,
         )
         return (
             self._from_rejection(rejection)
-            if rejection is not None
+            if rejection is not None and rejection.hard_reject
             else self._compute(from_t, to_t)
         )
 

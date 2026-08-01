@@ -65,6 +65,7 @@ class TransitionScorer:
         *,
         intent: TransitionIntent | None = None,
         section_context: SectionContext | None = None,
+        soft_camelot: bool = False,
     ) -> TransitionScore:
         """Compute the full six-component score.
 
@@ -75,18 +76,22 @@ class TransitionScorer:
         DRUM_ONLY overlay; other ``SectionPairClass`` buckets currently
         carry identity multipliers and will be calibrated in Phase 3.
         """
-        rejection = check_hard_constraints(from_t, to_t)
-        if rejection is not None:
-            return rejection
+        gate = check_hard_constraints(from_t, to_t, soft_camelot=soft_camelot)
+        if gate is not None and gate.hard_reject:
+            return gate
 
         base_weights = INTENT_WEIGHT_MODIFIERS[intent] if intent is not None else self.weights
         weights, pair_class_value = _apply_section_overlay(base_weights, section_context)
-        return self._compute_score(
+        score = self._compute_score(
             from_t,
             to_t,
             weights=weights,
             section_pair_class_value=pair_class_value,
+            soft_camelot=soft_camelot,
         )
+        if gate is not None and gate.warnings:
+            score.warnings = gate.warnings
+        return score
 
     def score_all_intents(
         self,
@@ -95,6 +100,7 @@ class TransitionScorer:
         intents: Iterable[TransitionIntent] | None = None,
         *,
         section_context: SectionContext | None = None,
+        soft_camelot: bool = False,
     ) -> dict[TransitionIntent, TransitionScore]:
         """Score one (a, b) pair for every requested intent in a single compute pass.
 
@@ -119,13 +125,13 @@ class TransitionScorer:
         """
         targets = tuple(intents) if intents is not None else _ALL_INTENTS
 
-        rejection = check_hard_constraints(from_t, to_t)
-        if rejection is not None:
+        gate = check_hard_constraints(from_t, to_t, soft_camelot=soft_camelot)
+        if gate is not None and gate.hard_reject:
             # Hard rejects share the same TransitionScore (overall=0,
             # hard_reject=True, reject_reason set) regardless of intent.
-            return {intent: rejection for intent in targets}
+            return {intent: gate for intent in targets}
 
-        nm = self._neural.score(from_t, to_t)
+        nm = self._neural.score(from_t, to_t, soft_camelot=soft_camelot)
         bpm = score_bpm(from_t, to_t)
         energy = score_energy(from_t, to_t)
         drums = nm.stem_scores.get(NeuralMixStem.DRUMS, 0.0)
@@ -134,6 +140,7 @@ class TransitionScorer:
         vocals = nm.stem_scores.get(NeuralMixStem.VOCALS, 0.0)
         best: NeuralMixTransition | None = nm.best_transition
 
+        warnings = gate.warnings if gate is not None else ()
         out: dict[TransitionIntent, TransitionScore] = {}
         for intent in targets:
             base_weights = INTENT_WEIGHT_MODIFIERS[intent]
@@ -156,6 +163,7 @@ class TransitionScorer:
                 overall=overall,
                 best_transition=best,
                 section_pair_class=pair_class_value,
+                warnings=warnings,
             )
         return out
 
@@ -168,6 +176,7 @@ class TransitionScorer:
         candidate_energy_delta: float | None = None,
         *,
         section_context: SectionContext | None = None,
+        soft_camelot: bool = False,
     ) -> TransitionScore:
         """Score reusing pre-computed candidate distances for hard checks.
 
@@ -175,23 +184,28 @@ class TransitionScorer:
         standard overlay+renormalise path (see ``score``). Phase 1 v2
         refactor — same semantics as ``score`` for any non-None context.
         """
-        rejection = check_hard_constraints(
+        gate = check_hard_constraints(
             from_t,
             to_t,
             pre_bpm_dist=candidate_bpm_distance,
             pre_key_dist=candidate_key_distance,
             pre_energy_delta=candidate_energy_delta,
+            soft_camelot=soft_camelot,
         )
-        if rejection is not None:
-            return rejection
+        if gate is not None and gate.hard_reject:
+            return gate
 
         weights, pair_class_value = _apply_section_overlay(self.weights, section_context)
-        return self._compute_score(
+        score = self._compute_score(
             from_t,
             to_t,
             weights=weights,
             section_pair_class_value=pair_class_value,
+            soft_camelot=soft_camelot,
         )
+        if gate is not None and gate.warnings:
+            score.warnings = gate.warnings
+        return score
 
     # ── Shared internals ───────────────────────────
 
@@ -202,9 +216,10 @@ class TransitionScorer:
         *,
         weights: dict[str, float],
         section_pair_class_value: str | None = None,
+        soft_camelot: bool = False,
     ) -> TransitionScore:
         """Compose BPM + energy + four stem compats into a TransitionScore."""
-        nm = self._neural.score(from_t, to_t)
+        nm = self._neural.score(from_t, to_t, soft_camelot=soft_camelot)
 
         bpm = score_bpm(from_t, to_t)
         energy = score_energy(from_t, to_t)
