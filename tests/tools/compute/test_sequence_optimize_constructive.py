@@ -46,7 +46,9 @@ async def test_constructive_passes_through_and_returns_subset() -> None:
     }
     captured: dict[str, object] = {}
 
-    def fake_optimizer_builder(*, algorithm: str, scorer: object) -> object:
+    def fake_optimizer_builder(
+        *, algorithm: str, scorer: object, soft_camelot: bool = False
+    ) -> object:
         captured["algorithm"] = algorithm
 
         result = MagicMock()

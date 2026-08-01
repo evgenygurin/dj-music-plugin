@@ -91,7 +91,9 @@ def _optimize_by_arc(
         "<200 tracks, greedy otherwise. Pass ``ga`` or ``greedy`` to force. "
         "Supports pinned/excluded + template-aware fitness. "
         "``energy_arc='peak_time'`` orders the pool by a peak-time energy "
-        "micro-arc (rise to ~75%, then ease) — arc order is authoritative."
+        "micro-arc (rise to ~75%, then ease) — arc order is authoritative. "
+        "``camelot_mode='soft'`` downgrades an over-threshold Camelot "
+        "distance to a warning instead of a hard reject."
     ),
     meta={"timeout_s": 300.0},
     timeout=300.0,
@@ -127,6 +129,16 @@ async def sequence_optimize(
             )
         ),
     ] = None,
+    camelot_mode: Annotated[
+        Literal["strict", "soft"],
+        Field(
+            description=(
+                "``'strict'`` (default) hard-rejects a Camelot distance >= "
+                "the threshold. ``'soft'`` downgrades it to a warning in "
+                "TransitionScore.warnings — BPM/energy hard rejects stay active."
+            )
+        ),
+    ] = "strict",
     uow: UnitOfWork = Depends(get_uow),
     scorer: Any = Depends(get_transition_scorer),
     optimizer_builder: Any = Depends(get_optimizer),
@@ -263,7 +275,11 @@ async def sequence_optimize(
     else:
         resolved_algorithm = algorithm
 
-    optimizer = optimizer_builder(algorithm=resolved_algorithm, scorer=scorer)
+    optimizer = optimizer_builder(
+        algorithm=resolved_algorithm,
+        scorer=scorer,
+        soft_camelot=camelot_mode == "soft",
+    )
 
     progress_tasks: list[asyncio.Task[None]] = []
     loop = asyncio.get_running_loop()

@@ -38,7 +38,9 @@ def _uow_with_features(feats: dict[int, TrackFeatures]) -> MagicMock:
 def _capturing_builder(captured: dict[str, object]) -> MagicMock:
     """Optimizer factory that records the algorithm it was called with."""
 
-    def fake_optimizer_builder(*, algorithm: str, scorer: object) -> object:
+    def fake_optimizer_builder(
+        *, algorithm: str, scorer: object, soft_camelot: bool = False
+    ) -> object:
         captured["algorithm_passed_to_builder"] = algorithm
 
         result = MagicMock()
