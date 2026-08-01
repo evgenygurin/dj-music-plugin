@@ -17,6 +17,7 @@ from app.repositories.unit_of_work import UnitOfWork
 from app.schemas.tool_responses import SequenceOptimizeResult
 from app.server.di import get_optimizer, get_transition_scorer, get_uow
 from app.shared.errors import ValidationError
+from app.shared.features import TrackFeatures
 from app.shared.types import JsonIntList, JsonIntListOrNone
 
 # Pool size at or above which the ``auto`` algorithm choice picks
@@ -31,6 +32,56 @@ from app.shared.types import JsonIntList, JsonIntListOrNone
 _AUTO_GREEDY_THRESHOLD = 200
 
 
+def _optimize_by_arc(
+    track_ids: list[int],
+    features: dict[int, TrackFeatures],
+) -> SequenceOptimizeResult:
+    """Order the pool by the peak-time energy micro-arc.
+
+    The arc is authoritative: ``fit_tracks_to_arc`` greedily assigns each
+    slot the remaining track whose BPM/energy/key deviates least from the
+    slot's target. ``quality_score`` is 1 minus the mean absolute energy
+    deviation of the assignment.
+    """
+    from app.domain.performance.energy_arc import (
+        TrackCandidate,
+        fit_tracks_to_arc,
+        peak_only_arc,
+    )
+
+    candidates = [
+        TrackCandidate(
+            track_id=tid,
+            bpm=features[tid].bpm if features[tid].bpm is not None else 130.0,
+            energy_mean=features[tid].energy_mean if features[tid].energy_mean is not None else 0.5,
+            key_code=features[tid].key_code,
+            integrated_lufs=(
+                features[tid].integrated_lufs if features[tid].integrated_lufs is not None else -12.0
+            ),
+            spectral_centroid_hz=features[tid].spectral_centroid_hz or 0.0,
+        )
+        for tid in track_ids
+    ]
+    arc = peak_only_arc(num_tracks=len(track_ids))
+    order = fit_tracks_to_arc(candidates, arc)
+    if order is None:
+        order = list(track_ids)
+
+    arc.build_slots()
+    by_id = {c.track_id: c for c in candidates}
+    slot_energy = {s.position: s.target_energy for s in arc.slots}
+    deviations = [
+        abs(by_id[tid].energy_mean - slot_energy[i + 1]) for i, tid in enumerate(order)
+    ]
+    quality = 1.0 - (sum(deviations) / len(deviations)) if deviations else 1.0
+    return SequenceOptimizeResult(
+        track_order=order,
+        quality_score=round(max(0.0, min(1.0, quality)), 4),
+        algorithm="peak_time",
+        generations=0,
+    )
+
+
 @tool(
     name="sequence_optimize",
     tags={"namespace:compute", "read"},
@@ -38,7 +89,9 @@ _AUTO_GREEDY_THRESHOLD = 200
     description=(
         "Find optimal track ordering. Defaults to ``auto``: GA for pools "
         "<200 tracks, greedy otherwise. Pass ``ga`` or ``greedy`` to force. "
-        "Supports pinned/excluded + template-aware fitness."
+        "Supports pinned/excluded + template-aware fitness. "
+        "``energy_arc='peak_time'`` orders the pool by a peak-time energy "
+        "micro-arc (rise to ~75%, then ease) — arc order is authoritative."
     ),
     meta={"timeout_s": 300.0},
     timeout=300.0,
@@ -63,6 +116,17 @@ async def sequence_optimize(
     ] = None,
     pinned: Annotated[JsonIntListOrNone, Field(description="Must-include track IDs")] = None,
     excluded: Annotated[JsonIntListOrNone, Field(description="Banned track IDs")] = None,
+    energy_arc: Annotated[
+        Literal["none", "peak_time"] | None,
+        Field(
+            description=(
+                "``None``/``'none'`` uses the GA/greedy/constructive path. "
+                "``'peak_time'`` orders the pool by a peak-time energy "
+                "micro-arc (rise to ~75%, then ease) — the arc is "
+                "authoritative for track order."
+            )
+        ),
+    ] = None,
     uow: UnitOfWork = Depends(get_uow),
     scorer: Any = Depends(get_transition_scorer),
     optimizer_builder: Any = Depends(get_optimizer),
@@ -184,6 +248,10 @@ async def sequence_optimize(
             )
         track_ids = valid_ids
     features_list = [features[tid] for tid in track_ids]
+
+    if energy_arc == "peak_time":
+        active_ids = [tid for tid in track_ids if tid not in excluded_set]
+        return _optimize_by_arc(track_ids=active_ids, features=features)
 
     # Resolve ``auto`` to a concrete algorithm based on pool size. The
     # response carries the *resolved* algorithm name so callers can
