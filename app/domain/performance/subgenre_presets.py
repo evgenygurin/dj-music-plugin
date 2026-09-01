@@ -233,6 +233,106 @@ ACID = SubgenreRenderPreset(
     dynaudnorm_maxgain=1.5,
 )
 
+DEEP_HOUSE = SubgenreRenderPreset(
+    transition_bars=32,
+    body_bars=48,
+    xsplit_low_hz=200,
+    xsplit_high_hz=3500,
+    eq_phase_1_ratio=0.50,
+    eq_phase_2_ratio=0.80,
+    low_swap_beats=2.0,
+    outro_fade_bars=16,
+    hpf_cutoff_hz=25.0,
+    per_track_eq_mid_cut_db=0.0,
+    per_track_eq_bright_boost_db=0.5,
+    pre_comp_threshold_db=-14.0,
+    pre_comp_ratio=2.0,
+    glue_comp_threshold_db=-12.0,
+    glue_comp_ratio=2.0,
+    master_eq_air_boost_db=0.5,
+    master_eq_mud_cut_db=0.0,
+    master_eq_sub_boost_db=1.5,
+    limiter_ceiling=0.88,
+    limiter_attack_ms=15.0,
+    limiter_release_ms=50.0,
+    dynaudnorm_maxgain=3.0,
+)
+
+TECH_HOUSE = SubgenreRenderPreset(
+    transition_bars=16,
+    body_bars=32,
+    xsplit_low_hz=280,
+    xsplit_high_hz=4500,
+    eq_phase_1_ratio=0.30,
+    eq_phase_2_ratio=0.60,
+    low_swap_beats=0.5,
+    outro_fade_bars=8,
+    hpf_cutoff_hz=35.0,
+    per_track_eq_mid_cut_db=-1.5,
+    per_track_eq_bright_boost_db=2.0,
+    pre_comp_threshold_db=-18.0,
+    pre_comp_ratio=3.5,
+    glue_comp_threshold_db=-15.0,
+    glue_comp_ratio=3.5,
+    master_eq_air_boost_db=2.0,
+    master_eq_mud_cut_db=-1.5,
+    master_eq_sub_boost_db=0.75,
+    limiter_ceiling=0.82,
+    limiter_attack_ms=8.0,
+    limiter_release_ms=25.0,
+    dynaudnorm_maxgain=1.8,
+)
+
+PROGRESSIVE_HOUSE = SubgenreRenderPreset(
+    transition_bars=32,
+    body_bars=56,
+    xsplit_low_hz=250,
+    xsplit_high_hz=4000,
+    eq_phase_1_ratio=0.40,
+    eq_phase_2_ratio=0.70,
+    low_swap_beats=1.5,
+    outro_fade_bars=16,
+    hpf_cutoff_hz=28.0,
+    per_track_eq_mid_cut_db=-0.5,
+    per_track_eq_bright_boost_db=1.0,
+    pre_comp_threshold_db=-16.0,
+    pre_comp_ratio=2.5,
+    glue_comp_threshold_db=-13.0,
+    glue_comp_ratio=2.5,
+    master_eq_air_boost_db=1.0,
+    master_eq_mud_cut_db=-0.5,
+    master_eq_sub_boost_db=1.0,
+    limiter_ceiling=0.85,
+    limiter_attack_ms=12.0,
+    limiter_release_ms=40.0,
+    dynaudnorm_maxgain=2.5,
+)
+
+CLASSIC_HOUSE = SubgenreRenderPreset(
+    transition_bars=16,
+    body_bars=32,
+    xsplit_low_hz=250,
+    xsplit_high_hz=3800,
+    eq_phase_1_ratio=0.35,
+    eq_phase_2_ratio=0.65,
+    low_swap_beats=1.0,
+    outro_fade_bars=12,
+    hpf_cutoff_hz=30.0,
+    per_track_eq_mid_cut_db=0.0,
+    per_track_eq_bright_boost_db=1.5,
+    pre_comp_threshold_db=-16.0,
+    pre_comp_ratio=2.5,
+    glue_comp_threshold_db=-13.0,
+    glue_comp_ratio=2.5,
+    master_eq_air_boost_db=1.0,
+    master_eq_mud_cut_db=0.0,
+    master_eq_sub_boost_db=1.0,
+    limiter_ceiling=0.85,
+    limiter_attack_ms=12.0,
+    limiter_release_ms=35.0,
+    dynaudnorm_maxgain=2.0,
+)
+
 
 # ── Preset lookup ───────────────────────────────────────────
 
@@ -251,6 +351,10 @@ PRESET_MAP: dict[str, SubgenreRenderPreset] = {
     "minimal_techno": DUB_TECHNO,  # близко к dub
     "progressive_techno": PEAK_TIME,  # close to peak_time
     "melodic_techno": HYPNOTIC,  # близко к hypnotic
+    "deep_house": DEEP_HOUSE,
+    "tech_house": TECH_HOUSE,
+    "progressive_house": PROGRESSIVE_HOUSE,
+    "classic_house": CLASSIC_HOUSE,
 }
 
 
