@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from pathlib import Path
 from typing import Any
 
@@ -75,7 +76,8 @@ async def _separate_stems(
             ctx, f"stem render: separating track {ti.track_id} ({Path(ti.file_path).name})..."
         )
         try:
-            stems = run_demucs(
+            stems = await asyncio.to_thread(
+                run_demucs,
                 input_file,
                 cache_root=Path(workspace) / "stems",
                 flac=True,
