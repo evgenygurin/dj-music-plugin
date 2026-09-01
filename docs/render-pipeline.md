@@ -52,9 +52,15 @@ of transition for HIGH phase), `eq_phase_2_ratio` (0.70 — fraction of transiti
 for MID phase), `low_swap_beats` (1.0 — low-band crossfade window in beats —
 tight pinch means two kicks never stack), `outro_fade_bars` (12 — end-of-mix fade),
 `limiter_ceiling` (0.85), per-subgenre bar overrides (`transition_bars_*`,
-`body_bars_*` for hypnotic/minimal/melodic/peak_time/hard/acid/industrial), and
-`workspace_subdir` (`render`). The `beat_s` / `bar_s` properties derive
+`body_bars_*` for hypnotic/minimal/melodic/peak_time/hard/acid/industrial +
+deep_house/tech_house/progressive_house/classic_house — 11 presets total), and
+`workspace_subdir` (`render`). `hypnotic_techno` deprecated for House — use house presets. The `beat_s` / `bar_s` properties derive
 seconds-per-beat and seconds-per-bar from `target_bpm`.
+
+> **11 presets (7 techno +4 house)** — see `reference/subgenres.md` and `app/domain/performance/subgenre_presets.py:PRESET_MAP`:
+> `industrial 16/48`, `dub 64/32`, `hard 8/64`, `hypnotic 48/40`, `peak 32/32`, `driving 24/40`, `acid 16/56`,
+> `deep_house 32/48` (warm 200/3500 0.50/0.80 2.0b), `tech_house 16/32` (punch 280/4500 0.30/0.60 0.5b),
+> `progressive_house 32/56` (cinematic 250/4000 0.40/0.70 1.5b), `classic_house 16/32` (vocal 250/3800 0.35/0.65 1.0b). House phrasing 16 beats, `camelot_mode soft`, single-bassline.
 
 ## Domain — pure compute (`app/domain/render/`)
 

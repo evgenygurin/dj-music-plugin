@@ -8,6 +8,12 @@ Shape adaptation: source profiles are ``SubgenreProfile`` dataclasses with
 targets ordered by insertion so callers can reproduce scoring logic.
 No standalone "description" field exists in the v2 source; the low-to-high
 ordering in ``ALL_PROFILES`` encodes the energy narrative.
+
+Render presets: 11 ``SubgenreRenderPreset`` entries (7 techno + 4 house) live in
+``app/domain/performance/subgenre_presets.py:PRESET_MAP`` — see
+``reference/subgenres.md`` for the full table. House presets:
+``deep_house 32/48``, ``tech_house 16/32``, ``progressive_house 32/56``,
+``classic_house 16/32``. ``hypnotic_techno`` is deprecated for House.
 """
 
 from __future__ import annotations
@@ -60,5 +66,5 @@ _PAYLOAD_JSON: str = SubgenresView(
     meta=RESOURCE_META,
 )
 async def reference_subgenres() -> str:
-    """15 techno subgenre profiles (low-to-high energy order)."""
+    """15 techno subgenre profiles (low-to-high) + 11 render presets (7 techno +4 house, see reference/subgenres.md)."""
     return _PAYLOAD_JSON
