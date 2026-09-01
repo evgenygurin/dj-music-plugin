@@ -95,3 +95,61 @@ def test_resolve_preset_by_subgenre_house_suffix():
     from app.domain.performance.subgenre_presets import INDUSTRIAL
 
     assert resolve_preset_by_subgenre("industrial") is INDUSTRIAL
+
+
+def test_all_presets_within_global_constraints():
+    from app.domain.performance.subgenre_presets import PRESET_MAP
+
+    for name, preset in PRESET_MAP.items():
+        assert 8 <= preset.transition_bars <= 64, f"{name} transition {preset.transition_bars}"
+        assert 8 <= preset.body_bars <= 64, f"{name} body {preset.body_bars}"
+        assert 0.75 <= preset.limiter_ceiling <= 0.88, f"{name} limiter {preset.limiter_ceiling}"
+        assert 200 <= preset.xsplit_low_hz <= 5500, f"{name} xsplit_low"
+        assert 200 <= preset.xsplit_high_hz <= 5500, f"{name} xsplit_high"
+        assert preset.xsplit_low_hz < preset.xsplit_high_hz, f"{name} xsplit order"
+        assert preset.transition_bars in range(8, 65)
+        assert preset.body_bars in range(8, 65)
+
+
+def test_bar_planner_house_env_override():
+    from types import SimpleNamespace
+
+    from app.config.render import RenderSettings
+    from app.domain.render.bar_plan import BarPlanner
+    from app.domain.render.models import BeatgridEntry
+
+    # direct _config_bar_override fallback for house (TechnoSubgenre miss)
+    settings = RenderSettings(transition_bars_deep_house=33, body_bars_deep_house=49)
+    planner = BarPlanner(settings)
+    assert planner._config_bar_override("deep_house", "transition_bars") == 33
+    assert planner._config_bar_override("deep_house", "body_bars") == 49
+    # case/space normalization
+    assert planner._config_bar_override("Deep House", "transition_bars") == 33
+    assert planner._config_bar_override("DEEP_HOUSE", "body_bars") == 49
+    # techno still via enum
+    settings2 = RenderSettings(transition_bars_hypnotic=99)
+    planner2 = BarPlanner(settings2)
+    assert planner2._config_bar_override("hypnotic", "transition_bars") == 99
+    # compute integration: 2 deep_house tracks with env override
+    def _inputs(moods):
+        return [
+            SimpleNamespace(track_id=i, mood=m, bpm=130.0, duration_ms=300000)
+            for i, m in enumerate(moods)
+        ]
+
+    def _grid(n):
+        return {
+            i: BeatgridEntry(
+                track_id=i, trim_start_s=0.5, refined_trim_s=0.5, gain_db=0.0, phase_ms=0.0
+            )
+            for i in range(n)
+        }
+
+    plan = BarPlanner(settings).compute(_inputs(["deep_house", "deep_house"]), _grid(2))
+    assert plan.transition_bars == (33,)
+    assert plan.body_bars == [49, 49]
+    # tech_house variant
+    s_tech = RenderSettings(transition_bars_tech_house=17)
+    p_tech = BarPlanner(s_tech)
+    assert p_tech._config_bar_override("tech_house", "transition_bars") == 17
+    assert p_tech._config_bar_override("Tech House", "transition_bars") == 17

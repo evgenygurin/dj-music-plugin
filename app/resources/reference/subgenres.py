@@ -9,7 +9,7 @@ targets ordered by insertion so callers can reproduce scoring logic.
 No standalone "description" field exists in the v2 source; the low-to-high
 ordering in ``ALL_PROFILES`` encodes the energy narrative.
 
-Render presets: 11 ``SubgenreRenderPreset`` entries (7 techno + 4 house) live in
+Render presets: 11 distinct ``SubgenreRenderPreset`` (7 techno + 4 house; 18 entries in ``PRESET_MAP`` with aliases) live in
 ``app/domain/performance/subgenre_presets.py:PRESET_MAP`` — see
 ``reference/subgenres.md`` for the full table. House presets:
 ``deep_house 32/48``, ``tech_house 16/32``, ``progressive_house 32/56``,
@@ -66,5 +66,5 @@ _PAYLOAD_JSON: str = SubgenresView(
     meta=RESOURCE_META,
 )
 async def reference_subgenres() -> str:
-    """15 techno subgenre profiles (low-to-high) + 11 render presets (7 techno +4 house, see reference/subgenres.md)."""
+    """15 techno subgenre profiles (low-to-high) + 11 distinct render presets (7 techno +4 house; 18 map entries, see reference/subgenres.md)."""
     return _PAYLOAD_JSON

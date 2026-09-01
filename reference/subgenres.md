@@ -1,6 +1,6 @@
 # Subgenre Render Presets
 
-> 11 presets: 7 techno + 4 house. House presets use single-bassline 7B phrasing (16-beat boundaries) via `SubgenreRenderPreset` → `RenderSettings` → `BarPlanner`/`RenderPlanner`.
+> 11 distinct presets (7 techno + 4 house; 18 entries in `PRESET_MAP` with aliases: 14 techno incl. aliases +4 house). House presets use single-bassline 7B phrasing (16-beat boundaries) via `SubgenreRenderPreset` → `RenderSettings` → `BarPlanner`/`RenderPlanner`.
 
 ## Preset Table (transition_bars / body_bars)
 
@@ -29,4 +29,4 @@ All values within `RenderSettings` constraints: transition/body 8-64, limiter 0.
 
 `hypnotic_techno` is deprecated for House — use `deep_house`/`tech_house`/`progressive_house`/`classic_house` instead. Kept for techno only.
 
-Source: `app/domain/performance/subgenre_presets.py` (`SubgenreRenderPreset`, `PRESET_MAP` 11 entries, `resolve_preset` with `_house` suffix).
+Source: `app/domain/performance/subgenre_presets.py` (`SubgenreRenderPreset`, `PRESET_MAP` 18 entries with aliases / 11 distinct, `resolve_preset` with `_house` suffix, `BarPlanner` house env fallback `DJ_RENDER_*_DEEP_HOUSE` etc.).
