@@ -362,17 +362,27 @@ def resolve_preset(mood: str | None) -> SubgenreRenderPreset | None:
     """Find the best preset for a mood label. Returns None if no match."""
     if not mood:
         return None
-    return PRESET_MAP.get(mood.lower().replace(" ", "_"))
+    key = mood.strip().lower().replace(" ", "_")
+    if key in PRESET_MAP:
+        return PRESET_MAP[key]
+    if f"{key}_house" in PRESET_MAP:
+        return PRESET_MAP[f"{key}_house"]
+    if f"{key}_techno" in PRESET_MAP:
+        return PRESET_MAP[f"{key}_techno"]
+    return None
 
 
 def resolve_preset_by_subgenre(subgenre: str | None) -> SubgenreRenderPreset | None:
     """Find preset by raw subgenre name (from stem filename genre tag)."""
     if not subgenre:
         return None
-    key = subgenre.lower().strip()
+    key = subgenre.strip().lower().replace(" ", "_")
     # Direct match
     if key in PRESET_MAP:
         return PRESET_MAP[key]
+    # Try with _house suffix (house before techno per house-preset plan)
+    if f"{key}_house" in PRESET_MAP:
+        return PRESET_MAP[f"{key}_house"]
     # Try with _techno suffix
     if f"{key}_techno" in PRESET_MAP:
         return PRESET_MAP[f"{key}_techno"]
