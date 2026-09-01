@@ -41,3 +41,11 @@ def test_classic_house_preset_values():
     assert preset.transition_bars == 16
     assert preset.body_bars == 32
     assert preset.limiter_ceiling == 0.85
+
+
+def test_render_settings_house_fields():
+    from app.config.render import RenderSettings
+
+    s = RenderSettings()
+    assert hasattr(s, "transition_bars_deep_house")
+    assert s.transition_bars_deep_house is None
