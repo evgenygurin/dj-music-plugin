@@ -1,7 +1,12 @@
 """Set template definitions — pure domain data (v2)."""
 
 from app.domain.template.models import SetTemplateDefinition, TemplateSlot
-from app.domain.template.registry import TEMPLATES, get_template, list_template_names
+from app.domain.template.registry import (
+    TEMPLATES,
+    get_template,
+    list_template_names,
+    resolve_template_name,
+)
 
 __all__ = [
     "TEMPLATES",
@@ -9,4 +14,5 @@ __all__ = [
     "TemplateSlot",
     "get_template",
     "list_template_names",
+    "resolve_template_name",
 ]

@@ -130,9 +130,88 @@ TEMPLATES: dict[str, SetTemplateDefinition] = {
 }
 
 
+# ── alias handling for legacy / LLM-hallucinated names ──────────
+_TEMPLATE_ALIASES: dict[str, str] = {
+    "hypnotic_60": "classic_60",
+    "hypnotic_90": "roller_90",
+    "hypnotic_120": "progressive_120",
+    "hypnotic_techno_60": "classic_60",
+    "hypnotic_techno_90": "roller_90",
+    "deep_house_60": "classic_60",
+    "tech_house_60": "classic_60",
+    "progressive_house_60": "classic_60",
+    "classic_house_60": "classic_60",
+    "hypnotic": "roller_90",
+}
+
+_DURATION_FALLBACK: dict[int, str] = {
+    30: "warm_up_30",
+    60: "classic_60",
+    90: "roller_90",
+    120: "progressive_120",
+}
+
+_KNOWN_PREFIXES: frozenset[str] = frozenset(
+    {
+        "ambient_dub",
+        "dub_techno",
+        "minimal",
+        "detroit",
+        "melodic_deep",
+        "progressive",
+        "hypnotic",
+        "driving",
+        "tribal",
+        "breakbeat",
+        "peak_time",
+        "acid",
+        "raw",
+        "industrial",
+        "hard_techno",
+        "hypnotic_techno",
+        "deep_house",
+        "tech_house",
+        "progressive_house",
+        "classic_house",
+        "dub",
+        "house",
+        "techno",
+    }
+)
+
+
+def resolve_template_name(name: str) -> str | None:
+    """Return canonical template name for ``name`` or ``None`` if unknown."""
+    if name in TEMPLATES:
+        return name
+    if name in _TEMPLATE_ALIASES:
+        canonical = _TEMPLATE_ALIASES[name]
+        if canonical in TEMPLATES:
+            return canonical
+    if "_" in name:
+        suffix = name.rsplit("_", 1)[-1]
+        if suffix.isdigit():
+            dur = int(suffix)
+            fallback = _DURATION_FALLBACK.get(dur)
+            if fallback is not None:
+                prefix = name[: -len(suffix) - 1]
+                if prefix in _KNOWN_PREFIXES or any(
+                    prefix == p or prefix.endswith(f"_{p}") or prefix.startswith(f"{p}_")
+                    for p in _KNOWN_PREFIXES
+                ):
+                    return fallback
+                for known in _KNOWN_PREFIXES:
+                    if known in prefix:
+                        return fallback
+    return None
+
+
 def get_template(name: str) -> SetTemplateDefinition:
-    """Look up template by name. Raises KeyError if not found."""
-    return TEMPLATES[name]
+    """Look up template by name (alias-aware). Raises KeyError if not found."""
+    canonical = resolve_template_name(name)
+    if canonical is None:
+        raise KeyError(name)
+    return TEMPLATES[canonical]
 
 
 def list_template_names() -> list[str]:
