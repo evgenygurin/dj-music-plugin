@@ -3,12 +3,12 @@
   "instructions": ["AGENTS.md"],
 
   "skills": {
-    "paths": [".opencode/skills"]
+    "paths": [".opencode/skills", "skills"]
   },
 
   "agent": {
     "dj-music": {
-      "description": "DJ techno music specialist — manages library, builds sets, analyzes audio transitions, works with Yandex Music/Beatport/Suno. Triggers on: dj, set, mix, track, transition.",
+      "description": "DJ techno music specialist — manages library, builds sets, analyzes audio transitions, works with Yandex Music/Beatport/Suno. Triggers on: dj, set, mix, track, bpm, camelot, transition, playlist, library, techno, suno, yandex music, beatport, stem_transition_policy, demucs, 5-stem, policy, electronic.",
       "mode": "subagent",
       "model": "claude-sonnet-4-6"
     },
