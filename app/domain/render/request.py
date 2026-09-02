@@ -31,6 +31,7 @@ class RenderRequest:
     crossfade_curve_in: str = "exp"
     reverb: str | None = None
     reverb_mix: float = 0.25
+    stem_policy_kwargs: dict | None = None
 
     @property
     def mode(self) -> RenderMode:

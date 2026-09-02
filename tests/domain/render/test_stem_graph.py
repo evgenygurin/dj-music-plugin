@@ -9,7 +9,7 @@ from app.domain.render.runner import build_ffmpeg_cmd
 from app.domain.render.stem_graph import build_stem_filtergraph
 
 _STEMS = STEM_ORDER
-_DEMUCS_STEMS = ("drums", "bass", "vocals", "other", "percussion")
+_DEMUCS_STEMS = ("drums", "bass", "vocals", "other")
 
 
 def _stem_plan(
@@ -86,8 +86,8 @@ def test_stem_filtergraph_shape_all_five_stems():
 
 def test_stem_filtergraph_artifact_masking_hpf():
     joined = ";".join(build_stem_filtergraph(_stem_plan(1)))
-    # harmonic/instrumental/acappella get bleed-masking high-pass; drums + bass stay full-range
-    assert "highpass=f=120" in joined  # instrumental + acappella
+    # vocals and percussion get bleed-masking high-pass; drums + bass stay full-range
+    assert "highpass=f=120" in joined  # vocals + percussion
     assert "highpass=f=80" in joined  # harmonic
     # the drums chain carries no highpass before its volume stage
     drums_chain = next(
@@ -117,25 +117,34 @@ def test_stem_filtergraph_is_deterministic():
     assert build_stem_filtergraph(_stem_plan(3)) == build_stem_filtergraph(_stem_plan(3))
 
 
-def test_stem_filtergraph_keeps_instrumental_as_quiet_safety_bed():
+def test_stem_filtergraph_keeps_harmonic_voicing():
+    """Harmonic stem: 80 Hz HPF, -2 dB gain."""
     joined = ";".join(build_stem_filtergraph(_stem_plan(1)))
-    assert "[s0_instrumental]" in joined
-    assert "volume=-7.00dB" in joined
+    assert "[s0_harmonic]" in joined
+    assert "highpass=f=80" in joined
+    assert "volume=-2.00dB" in joined
 
 
-def test_demucs_stem_plan_uses_five_stem_order_without_duplicate_other():
-    plan = _stem_plan(1, stems=_DEMUCS_STEMS)
+def test_legacy_four_stem_order_no_longer_supported():
+    """Legacy Demucs 4-stem order (no percussion, no canonical 'harmonic') is rejected.
 
-    assert plan.stem_order == _DEMUCS_STEMS
-    joined = ";".join(build_stem_filtergraph(plan))
+    Per the 2026-09-02 design: only the canonical 5-stem order is supported.
+    The stem_resolver translates legacy prepared-stem aliases (``other``
+    → ``harmonic``) so users still get a valid plan, but plans that were
+    assembled with the legacy 4-stem tuple cannot be rendered directly.
+    """
+    from app.domain.render.models import STEM_ORDER
 
-    for stem in _DEMUCS_STEMS:
-        assert f"[s0_{stem}]" in joined
-        assert f"[s0_{stem}_faded]" in joined
-    assert "[s0_harmonic]" not in joined
-    assert "[s0_instrumental]" not in joined
-    assert "[s0_acappella]" not in joined
-    assert "amix=inputs=5:normalize=0" in joined
+    # The canonical STEM_ORDER is the new 5-stem electronic-music order.
+    assert "percussion" in STEM_ORDER
+    assert "vocals" in STEM_ORDER
+    assert "harmonic" in STEM_ORDER
+    assert "instrumental" not in STEM_ORDER
+    assert "acappella" not in STEM_ORDER
+    # DEMUCS_STEM_ORDER is now an alias of STEM_ORDER (single source of truth).
+    from app.domain.render.models import DEMUCS_STEM_ORDER
+
+    assert DEMUCS_STEM_ORDER == STEM_ORDER
 
 
 def test_runner_stem_branch_maps_five_inputs_per_track():
@@ -144,35 +153,15 @@ def test_runner_stem_branch_maps_five_inputs_per_track():
     # 2 tracks x 5 stems = 10 inputs, in (track, stem) order
     inputs = [cmd[i + 1] for i, tok in enumerate(cmd) if tok == "-i"]
     assert inputs == [
+        "/stems/0/vocals.flac",
         "/stems/0/drums.flac",
         "/stems/0/bass.flac",
         "/stems/0/harmonic.flac",
-        "/stems/0/instrumental.flac",
-        "/stems/0/acappella.flac",
+        "/stems/0/percussion.flac",
+        "/stems/1/vocals.flac",
         "/stems/1/drums.flac",
         "/stems/1/bass.flac",
         "/stems/1/harmonic.flac",
-        "/stems/1/instrumental.flac",
-        "/stems/1/acappella.flac",
-    ]
-    assert "[mix]" in cmd
-
-
-def test_runner_demucs_stem_branch_maps_five_inputs_per_track():
-    plan = _stem_plan(2, stems=_DEMUCS_STEMS)
-    cmd = build_ffmpeg_cmd(plan, "/tmp/out.mp3")
-
-    inputs = [cmd[i + 1] for i, tok in enumerate(cmd) if tok == "-i"]
-    assert inputs == [
-        "/stems/0/drums.flac",
-        "/stems/0/bass.flac",
-        "/stems/0/vocals.flac",
-        "/stems/0/other.flac",
-        "/stems/0/percussion.flac",
-        "/stems/1/drums.flac",
-        "/stems/1/bass.flac",
-        "/stems/1/vocals.flac",
-        "/stems/1/other.flac",
         "/stems/1/percussion.flac",
     ]
     assert "[mix]" in cmd

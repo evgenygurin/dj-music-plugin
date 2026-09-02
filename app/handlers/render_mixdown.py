@@ -37,6 +37,7 @@ async def render_mixdown_handler(
     crossfade_curve_in: str = "exp",
     reverb: str | None = None,
     reverb_mix: float = 0.25,
+    stem_policy_kwargs: dict | None = None,
 ) -> RenderMixdownResult:
     _validate_out_name(out_name)
     request = RenderRequest(
@@ -55,5 +56,6 @@ async def render_mixdown_handler(
         crossfade_curve_in=crossfade_curve_in,
         reverb=reverb,
         reverb_mix=reverb_mix,
+        stem_policy_kwargs=stem_policy_kwargs,
     )
     return await RenderOrchestrator(uow).run(ctx, request)

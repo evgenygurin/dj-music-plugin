@@ -31,7 +31,7 @@ from app.domain.render.segments import (
     StemSegmentFactory,
 )
 from app.domain.render.stem_graph import build_stem_filtergraph
-from app.domain.render.stem_voicing import STEM_VOICING, StemVoicing
+from app.domain.render.stem_timbre import STEM_TIMBRE, StemTimbre
 from app.domain.render.timeline import (
     SegmentGeometry,
     TimelineWindows,
@@ -42,7 +42,7 @@ from app.domain.render.timeline import (
 
 __all__ = [
     "STEM_ORDER",
-    "STEM_VOICING",
+    "STEM_TIMBRE",
     "BarPlan",
     "BarPlanner",
     "BeatgridEntry",
@@ -60,7 +60,7 @@ __all__ = [
     "SegmentGeometry",
     "StemSegment",
     "StemSegmentFactory",
-    "StemVoicing",
+    "StemTimbre",
     "TimelineWindows",
     "TrackInput",
     "TrackSegment",

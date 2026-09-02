@@ -159,7 +159,8 @@ async def test_reports_progress_per_track(
     uow.tracks.get.return_value = MagicMock(id=1, title="X")
     data = {"track_ids": [1, 2, 3], "source": "yandex", "target_dir": str(tmp_path)}
     await audio_file_download_handler(ctx, uow, data, registry)
-    assert ctx.report_progress.await_count == 3
+    # BaseBatchHandler (1 per item) + AudioFileDownloadHandler (2 per item: resolving + downloading) = 3 per track
+    assert ctx.report_progress.await_count == 9
 
 
 @pytest.mark.asyncio

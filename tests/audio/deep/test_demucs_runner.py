@@ -15,10 +15,11 @@ def test_run_demucs_calls_subprocess_with_correct_args() -> None:
     input_path.write_bytes(b"test")  # ensure exists for resolve()
     cache_root = Path("/tmp/demucs_cache")
 
-    # Pre-create the cache structure that run_demucs will look for
+    # Pre-create the cache structure that run_demucs will look for (htdemucs_6s model)
     cache_key = hashlib.sha256(str(input_path.resolve()).encode()).hexdigest()[:12]
     stem_dir = cache_root / f"test_track_{cache_key}" / "htdemucs_6s" / "test_track"
     stem_dir.mkdir(parents=True, exist_ok=True)
+    # New canonical 5-stem order (htdemucs_6s)
     for name in ("vocals.wav", "drums.wav", "bass.wav", "other.wav", "percussion.wav"):
         (stem_dir / name).touch()
 
@@ -30,7 +31,8 @@ def test_run_demucs_calls_subprocess_with_correct_args() -> None:
     assert result["vocals"] == stem_dir / "vocals.wav"
     assert result["drums"] == stem_dir / "drums.wav"
     assert result["bass"] == stem_dir / "bass.wav"
-    assert result["other"] == stem_dir / "other.wav"
+    # "other" is mapped to "harmonic"
+    assert result["harmonic"] == stem_dir / "other.wav"
     assert result["percussion"] == stem_dir / "percussion.wav"
     input_path.unlink(missing_ok=True)
 

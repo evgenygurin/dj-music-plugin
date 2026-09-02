@@ -1,35 +1,38 @@
-"""Stem voicing: single source of bleed-masking HPF and headroom trim.
+"""DEPRECATED: Use ``app.domain.render.stem_timbre`` instead.
 
-Used by ``StemGraphBuilder`` so the HPF and per-stem gain staging live beside
-``models.STEM_ORDER`` instead of being scattered across static methods in the
-filtergraph module.
+This module is a transitional shim kept for one release. New code should
+import from ``stem_timbre``.
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+import warnings
+
+from app.domain.render.stem_timbre import STEM_TIMBRE, StemTimbre, stem_timbre
+
+__all__ = ["STEM_VOICING", "StemVoicing", "stem_voicing"]  # noqa: F822 — dynamic via __getattr__
 
 
-@dataclass(frozen=True, slots=True)
-class StemVoicing:
-    hpf_hz: int | None
-    gain_db: float
-
-
-STEM_VOICING: dict[str, StemVoicing] = {
-    "drums": StemVoicing(hpf_hz=None, gain_db=0.0),
-    "bass": StemVoicing(hpf_hz=None, gain_db=0.0),
-    "harmonic": StemVoicing(hpf_hz=80, gain_db=-2.0),
-    "instrumental": StemVoicing(hpf_hz=120, gain_db=-7.0),
-    "acappella": StemVoicing(hpf_hz=120, gain_db=-3.0),
-}
-
-_DEMUCS_STEM_VOICING: dict[str, StemVoicing] = {
-    "vocals": StemVoicing(hpf_hz=120, gain_db=0.0),
-    "other": StemVoicing(hpf_hz=80, gain_db=0.0),
-    "percussion": StemVoicing(hpf_hz=50, gain_db=1.0),
-}
-
-
-def stem_voicing(stem: str) -> StemVoicing:
-    return STEM_VOICING.get(stem) or _DEMUCS_STEM_VOICING[stem]
+def __getattr__(name: str):
+    if name == "STEM_VOICING":
+        warnings.warn(
+            "STEM_VOICING is deprecated, use STEM_TIMBRE from app.domain.render.stem_timbre",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return STEM_TIMBRE
+    if name == "StemVoicing":
+        warnings.warn(
+            "StemVoicing is deprecated, use StemTimbre from app.domain.render.stem_timbre",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return StemTimbre
+    if name == "stem_voicing":
+        warnings.warn(
+            "stem_voicing() is deprecated, use stem_timbre() from app.domain.render.stem_timbre",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return stem_timbre
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

@@ -21,6 +21,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from collections.abc import Sequence
 from dataclasses import dataclass
+from typing import Any
 
 from app.domain.render.effects_resolver import EffectPresetResolver, ResolvedEffects
 from app.domain.render.eq import build_master_eq
@@ -30,7 +31,12 @@ from app.domain.render.models import (
     StemSegment,
     TrackSegment,
 )
-from app.domain.render.stem_voicing import stem_voicing
+from app.domain.render.stem_timbre import stem_timbre
+
+try:  # Phase 2 policy engine is additive; filtergraph stays pure if absent
+    from app.domain.render.stem_policy.models import FadePlan, StemTransitionContext
+except Exception:  # pragma: no cover
+    FadePlan = StemTransitionContext = None  # type: ignore[assignment,misc]
 
 
 @dataclass(frozen=True, slots=True)
@@ -280,10 +286,14 @@ class StemGraphBuilder(FilterGraphBuilder):
     """5-stem multi-deck: staggered per-stem transitions + bleed-masking HPF.
 
     Staggered like the classic 3-band ritual: HARMONIC swaps early (p1), DRUMS
-    ride the whole window (continuous drive), ACAPPELLA stays wide (p2), and
-    BASS uses a 1-beat pinpoint swap at ``bass_swap_ratio``. INSTRUMENTAL is
-    kept as a lower-gain safety bed so five prepared stems can sum cleanly.
-    First track eases in, last fades out over ``outro_fade_bars``.
+    ride the whole window (continuous drive), vocals stay wide (p2), and
+    BASS uses a 1-beat pinpoint swap at ``bass_swap_ratio``. PERCUSSION is
+    early. First track eases in, last fades out over ``outro_fade_bars``.
+
+    Phase 2: if ``plan.stem_policy`` is set (CompositeStemTransitionPolicy)
+    the builder delegates per-stem HPF/gain + fade shaping to the policy
+    engine (design §4.7). When absent it falls back to the hardcoded
+    filtergraph math so existing renders stay bit-identical.
     """
 
     def _segments(self, plan: RenderPlan) -> Sequence[StemSegment]:
@@ -305,18 +315,73 @@ class StemGraphBuilder(FilterGraphBuilder):
         for stem_idx, stem in enumerate(plan.stem_order):
             input_idx = seg.track_idx * len(plan.stem_order) + stem_idx
             label = f"s{i}_{stem}"
-            voicing = stem_voicing(stem)
-            gain_db = seg.gain_db + voicing.gain_db
-            parts.append(self._stem_chain(input_idx, seg, label, voicing.hpf_hz, gain_db))
-            fades = self._stem_fades(
-                stem,
-                seg,
-                has_prev=has_prev,
-                has_next=has_next,
-                intro_d=intro_d,
-                outro_d=outro_d,
-                low_x=low_x,
-            )
+            # Policy-aware voicing: if a policy is attached, its BaseTimbrePolicy
+            # already set hpf_hz/gain_db in FadePlan; otherwise fall back to stem_timbre.
+            policy = getattr(plan, "stem_policy", None)
+            if policy is not None and FadePlan is not None and StemTransitionContext is not None:
+                try:
+                    ctx = StemTransitionContext(
+                        stem=stem,
+                        track_input={"track_id": seg.track_id},
+                        segment=seg,
+                        base_d_in_s=seg.d_in_s,
+                        base_d_out_s=seg.d_out_s,
+                        target_bpm=plan.target_bpm,
+                        is_first=not has_prev,
+                        is_last=not has_next,
+                    )
+                    fade_plan = policy.compute(ctx)  # type: ignore[union-attr]
+                    # Prefer policy's HPF/gain when set, else stem_timbre defaults
+                    voicing_hpf = (
+                        fade_plan.hpf_hz
+                        if fade_plan.hpf_hz is not None
+                        else stem_timbre(stem).hpf_hz
+                    )
+                    # FadePlan.gain_db already includes stem timbre (BaseTimbrePolicy copies it),
+                    # so use it directly + per-track gain, don't double-count timbre.
+                    voicing_gain = fade_plan.gain_db
+                    parts.append(
+                        self._stem_chain(
+                            input_idx, seg, label, voicing_hpf, seg.gain_db + voicing_gain
+                        )
+                    )
+                    fades = self._stem_fades_from_plan(
+                        stem,
+                        seg,
+                        fade_plan,
+                        has_prev=has_prev,
+                        has_next=has_next,
+                        intro_d=intro_d,
+                        outro_d=outro_d,
+                        low_x=low_x,
+                    )
+                except Exception:
+                    # graceful fallback: never break the render on policy error (design §5)
+                    voicing = stem_timbre(stem)
+                    gain_db = seg.gain_db + voicing.gain_db
+                    parts.append(self._stem_chain(input_idx, seg, label, voicing.hpf_hz, gain_db))
+                    fades = self._stem_fades(
+                        stem,
+                        seg,
+                        has_prev=has_prev,
+                        has_next=has_next,
+                        intro_d=intro_d,
+                        outro_d=outro_d,
+                        low_x=low_x,
+                    )
+            else:
+                voicing = stem_timbre(stem)
+                gain_db = seg.gain_db + voicing.gain_db
+                parts.append(self._stem_chain(input_idx, seg, label, voicing.hpf_hz, gain_db))
+                fades = self._stem_fades(
+                    stem,
+                    seg,
+                    has_prev=has_prev,
+                    has_next=has_next,
+                    intro_d=intro_d,
+                    outro_d=outro_d,
+                    low_x=low_x,
+                )
             parts.append(f"[{label}]{','.join(fades)}[{label}_faded]")
             faded.append(f"[{label}_faded]")
 
@@ -358,7 +423,15 @@ class StemGraphBuilder(FilterGraphBuilder):
         outro_d: float,
         low_x: float,
     ) -> list[str]:
-        """Staggered in/out fades for one stem within its segment."""
+        """Staggered in/out fades for one stem within its segment.
+
+        Electronic-music roles:
+            - ``drums``: continuous (full duration)
+            - ``bass``: pinpoint swap (1-beat crossfade)
+            - ``percussion``: early (enters/exits fast)
+            - ``harmonic``: mid
+            - ``vocals``: late
+        """
         length = seg.length_s
         d_in, d_out = seg.d_in_s, seg.d_out_s
         p1, p2 = seg.eq_phase_1_ratio, seg.eq_phase_2_ratio
@@ -369,9 +442,14 @@ class StemGraphBuilder(FilterGraphBuilder):
             fades.append(f"afade=t=in:curve=qsin:st=0:d={intro_d:.3f}")
         elif stem == "drums":
             fades.append(f"afade=t=in:curve=qsin:st=0:d={d_in:.3f}")
-        elif stem in {"harmonic", "instrumental", "other"}:
+        elif stem == "percussion":
+            # Early: shorter fade-in (faster energy buildup)
             fades.append(f"afade=t=in:curve=qsin:st=0:d={max(0.05, d_in * p1):.3f}")
-        elif stem in {"acappella", "vocals"}:
+        elif stem == "harmonic":
+            # Mid: standard p1 fade
+            fades.append(f"afade=t=in:curve=qsin:st=0:d={max(0.05, d_in * p1):.3f}")
+        elif stem == "vocals":
+            # Late: extended p2 fade for smooth vocal entry
             fades.append(f"afade=t=in:curve=qsin:st=0:d={max(0.05, d_in * p2):.3f}")
         else:  # bass — pinpoint swap
             st = max(0.0, d_in * seg.bass_swap_ratio - low_x / 2)
@@ -384,16 +462,97 @@ class StemGraphBuilder(FilterGraphBuilder):
         elif stem == "drums":
             st = max(0.0, length - d_out)
             fades.append(f"afade=t=out:curve=qsin:st={st:.3f}:d={d_out:.3f}")
-        elif stem in {"harmonic", "instrumental", "other"}:
+        elif stem == "percussion":
+            # Early: fade out first (drops off while bass still in)
             dur = max(0.05, d_out * p1)
             fades.append(f"afade=t=out:curve=qsin:st={length - dur:.3f}:d={dur:.3f}")
-        elif stem in {"acappella", "vocals"}:
+        elif stem == "harmonic":
+            # Mid: standard p1 fade out
+            dur = max(0.05, d_out * p1)
+            fades.append(f"afade=t=out:curve=qsin:st={length - dur:.3f}:d={dur:.3f}")
+        elif stem == "vocals":
+            # Late: extended p2 fade for smooth vocal exit
             dur = max(0.05, d_out * p2)
             fades.append(f"afade=t=out:curve=qsin:st={length - dur:.3f}:d={dur:.3f}")
         else:  # bass — pinpoint swap
             st = max(0.0, length - d_out * (1.0 - seg.bass_swap_ratio) - low_x / 2)
             fades.append(f"afade=t=out:curve=qsin:st={st:.3f}:d={low_x:.3f}")
 
+        return fades
+
+    @staticmethod
+    def _stem_fades_from_plan(
+        stem: str,
+        seg: StemSegment,
+        plan: Any,  # FadePlan
+        *,
+        has_prev: bool,
+        has_next: bool,
+        intro_d: float,
+        outro_d: float,
+        low_x: float,
+    ) -> list[str]:
+        """Translate a FadePlan (policy output) into ffmpeg afade statements.
+
+        Graceful: any None field falls back to the hardcoded stem fades.
+        """
+        # If the plan carries explicit pinpoint for bass, use it
+        if stem == "bass" and getattr(plan, "pinpoint_s", None) is not None:
+            try:
+                pinpoint = float(plan.pinpoint_s)  # type: ignore[arg-type]
+                curve_in = getattr(plan, "pinpoint_curve", None) or getattr(
+                    plan, "fade_in_curve", "qsin"
+                )
+                curve_out = getattr(plan, "fade_out_curve", "qsin")
+                # Use pinpoint for both in/out when provided
+                fades: list[str] = []
+                if not has_prev:
+                    fades.append(f"afade=t=in:curve=qsin:st=0:d={intro_d:.3f}")
+                else:
+                    st = max(0.0, seg.d_in_s * seg.bass_swap_ratio - low_x / 2)
+                    # if pinpoint overrides low_x window, use it
+                    d = pinpoint if pinpoint > 0 else low_x
+                    fades.append(f"afade=t=in:curve={curve_in}:st={st:.3f}:d={d:.3f}")
+                if not has_next:
+                    st = max(0.0, seg.length_s - outro_d)
+                    fades.append(f"afade=t=out:curve=qsin:st={st:.3f}:d={outro_d:.3f}")
+                else:
+                    st = max(
+                        0.0, seg.length_s - seg.d_out_s * (1.0 - seg.bass_swap_ratio) - low_x / 2
+                    )
+                    fades.append(f"afade=t=out:curve={curve_out}:st={st:.3f}:d={low_x:.3f}")
+                return fades
+            except Exception:
+                pass
+        # For non-bass or when pinpoint is None, use explicit fade_in/out if provided
+        fade_in = getattr(plan, "fade_in_s", None)
+        fade_out = getattr(plan, "fade_out_s", None)
+        curve_in = getattr(plan, "fade_in_curve", "qsin") or "qsin"
+        curve_out = getattr(plan, "fade_out_curve", "qsin") or "qsin"
+        # If policy didn't set durations, fall back to hardcoded
+        if fade_in is None and fade_out is None:
+            return StemGraphBuilder._stem_fades(
+                stem,
+                seg,
+                has_prev=has_prev,
+                has_next=has_next,
+                intro_d=intro_d,
+                outro_d=outro_d,
+                low_x=low_x,
+            )
+        fades = []
+        if not has_prev:
+            fades.append(f"afade=t=in:curve=qsin:st=0:d={intro_d:.3f}")
+        else:
+            d = fade_in if fade_in is not None else seg.d_in_s
+            fades.append(f"afade=t=in:curve={curve_in}:st=0:d={max(0.05, float(d)):.3f}")
+        if not has_next:
+            st = max(0.0, seg.length_s - outro_d)
+            fades.append(f"afade=t=out:curve=qsin:st={st:.3f}:d={outro_d:.3f}")
+        else:
+            d = fade_out if fade_out is not None else seg.d_out_s
+            dur = max(0.05, float(d))
+            fades.append(f"afade=t=out:curve={curve_out}:st={seg.length_s - dur:.3f}:d={dur:.3f}")
         return fades
 
 
