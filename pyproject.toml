@@ -100,6 +100,7 @@ known-first-party = ["app"]
 
 [tool.mypy]
 python_version = "3.12"
+exclude = ["scripts"]
 strict = true
 plugins = ["pydantic.mypy"]
 warn_return_any = true
