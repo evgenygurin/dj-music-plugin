@@ -1,7 +1,6 @@
 """Tests for BaseTimbrePolicy."""
 
 from app.domain.render.stem_policy.models import (
-    AvailableData,
     FadePlan,
     StemTransitionContext,
 )

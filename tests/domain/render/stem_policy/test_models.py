@@ -54,4 +54,4 @@ def test_stem_transition_context_is_immutable():
     except Exception as exc:
         assert "frozen" in str(exc).lower() or "FrozenInstanceError" in str(type(exc).__name__)
     else:
-        assert False, "expected mutation to fail on frozen dataclass"
+        raise AssertionError("expected mutation to fail on frozen dataclass")

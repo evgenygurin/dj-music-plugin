@@ -24,6 +24,7 @@ def test_scan_reports_peak_and_duration(tmp_path):
 
 
 def test_diagnose_flags_dropout(tmp_path):
+    pytest.importorskip("pyloudnorm")
     from app.audio.render.diagnostics import diagnose_mix
 
     f = _mix_with_dropout(str(tmp_path / "m.wav"))
@@ -33,6 +34,7 @@ def test_diagnose_flags_dropout(tmp_path):
 
 
 def test_diagnose_flags_phase_instability(tmp_path):
+    pytest.importorskip("pyloudnorm")
     from app.audio.render.diagnostics import diagnose_mix
 
     sr = 22050
@@ -54,6 +56,7 @@ def test_diagnose_flags_phase_instability(tmp_path):
 
 
 def test_diagnose_flags_abrupt_entry_shock(tmp_path):
+    pytest.importorskip("pyloudnorm")
     from app.audio.render.diagnostics import diagnose_mix
 
     sr = 22050

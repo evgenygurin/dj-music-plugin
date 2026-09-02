@@ -45,6 +45,7 @@ def test_always_visible_list_matches_blueprint() -> None:
         "render_mixdown",
         "render_validate_grid",
         "render_diagnose",
+        "stem_transition_policy",
     )
 
 

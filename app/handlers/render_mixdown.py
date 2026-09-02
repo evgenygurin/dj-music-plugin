@@ -37,7 +37,7 @@ async def render_mixdown_handler(
     crossfade_curve_in: str = "exp",
     reverb: str | None = None,
     reverb_mix: float = 0.25,
-    stem_policy_kwargs: dict | None = None,
+    stem_policy_kwargs: dict[str, object] | None = None,
 ) -> RenderMixdownResult:
     _validate_out_name(out_name)
     request = RenderRequest(

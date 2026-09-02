@@ -61,7 +61,10 @@ class TrackFeaturesAnalyzeHandler(BaseBatchHandler[int]):
         level: int = int(data.get("level", 3))
 
         await safe_report_progress(
-            ctx, progress=index + 1, total=total, message=f"track {index+1}/{total}: loading metadata"
+            ctx,
+            progress=index + 1,
+            total=total,
+            message=f"track {index + 1}/{total}: loading metadata",
         )
 
         track = await uow.tracks.get(item_id)
@@ -75,15 +78,19 @@ class TrackFeaturesAnalyzeHandler(BaseBatchHandler[int]):
         title = track.title or f"track_{item_id}"
 
         await safe_report_progress(
-            ctx, progress=index + 1, total=total,
-            message=f"track {index+1}/{total}: {title} — running audio pipeline",
+            ctx,
+            progress=index + 1,
+            total=total,
+            message=f"track {index + 1}/{total}: {title} — running audio pipeline",
         )
 
         result = await self._pipeline.analyze(lib.file_path)
 
         await safe_report_progress(
-            ctx, progress=index + 1, total=total,
-            message=f"track {index+1}/{total}: {title} — saving features",
+            ctx,
+            progress=index + 1,
+            total=total,
+            message=f"track {index + 1}/{total}: {title} — saving features",
         )
 
         await uow.track_features.upsert_analysis(
@@ -93,8 +100,10 @@ class TrackFeaturesAnalyzeHandler(BaseBatchHandler[int]):
         )
 
         await safe_report_progress(
-            ctx, progress=index + 1, total=total,
-            message=f"track {index+1}/{total}: {title} — enriching metadata",
+            ctx,
+            progress=index + 1,
+            total=total,
+            message=f"track {index + 1}/{total}: {title} — enriching metadata",
         )
 
         beatport = await enrich_beatport_genre(

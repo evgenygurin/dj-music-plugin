@@ -330,7 +330,7 @@ class StemGraphBuilder(FilterGraphBuilder):
                         is_first=not has_prev,
                         is_last=not has_next,
                     )
-                    fade_plan = policy.compute(ctx)  # type: ignore[union-attr]
+                    fade_plan = policy.compute(ctx)
                     # Prefer policy's HPF/gain when set, else stem_timbre defaults
                     voicing_hpf = (
                         fade_plan.hpf_hz
@@ -499,7 +499,7 @@ class StemGraphBuilder(FilterGraphBuilder):
         # If the plan carries explicit pinpoint for bass, use it
         if stem == "bass" and getattr(plan, "pinpoint_s", None) is not None:
             try:
-                pinpoint = float(plan.pinpoint_s)  # type: ignore[arg-type]
+                pinpoint = float(plan.pinpoint_s)
                 curve_in = getattr(plan, "pinpoint_curve", None) or getattr(
                     plan, "fade_in_curve", "qsin"
                 )

@@ -67,12 +67,16 @@ class TrackRenderContextBuilder:
                 from sqlalchemy import select
 
                 try:
-                    from app.models.set import DjSetVersion
+                    from app.models.set import DjSetItem
 
-                    stmt = select(DjSetVersion.track_order).where(DjSetVersion.id == version_id)
-                    row = (await uow.session.execute(stmt)).scalar_one_or_none()
-                    if row:
-                        track_ids = tuple(int(x) for x in (row or []))
+                    stmt = (
+                        select(DjSetItem.track_id)
+                        .where(DjSetItem.version_id == version_id)
+                        .order_by(DjSetItem.sort_index)
+                    )
+                    rows = (await uow.session.execute(stmt)).scalars().all()
+                    if rows:
+                        track_ids = tuple(int(x) for x in rows)
                 except Exception:
                     track_ids = ()
         except Exception:
