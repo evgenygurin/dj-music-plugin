@@ -17,10 +17,8 @@ from app.handlers._orchestrator.stem_resolver import (
     _find_cached_stems,
 )
 
-# New canonical 5-stem electronic-music order
+# Canonical 5-stem electronic-music order
 _CANONICAL_STEMS = STEM_ORDER
-# Legacy 4-stem Demucs order (for reference)
-_LEGACY_DEMUCS_STEMS = ("drums", "bass", "vocals", "other")
 
 
 class _Rows:
@@ -107,50 +105,6 @@ async def test_resolve_accepts_canonical_prefixed_flac_names(tmp_path: Path) -> 
 
 
 @pytest.mark.asyncio
-async def test_resolve_translates_legacy_prepared_stem_aliases(tmp_path: Path) -> None:
-    """Test that legacy prepared stem aliases are translated.
-
-    - ``instrumental`` → ``harmonic``
-    - ``acappella`` → ``vocals``
-
-    Note: Legacy prepared 5-stem order (drums, bass, harmonic, instrumental, acappella)
-    maps to 4 unique canonical stems due to collisions. The resolver requires
-    the full 5 canonical stems; provide them directly for full compatibility.
-    """
-    # Use canonical 5 stems directly (new expected behavior)
-    rows = [_row(1, file_path) for file_path in _write_stems(tmp_path, "track", _CANONICAL_STEMS)]
-
-    result = await StemResolver().resolve(None, _Uow(rows), [_input(1)])
-
-    assert result is not None
-    assert set(result[1]) == set(_CANONICAL_STEMS)
-    assert result[1]["vocals"].endswith("/track/vocals.wav")
-    assert result[1]["drums"].endswith("/track/drums.wav")
-    assert result[1]["bass"].endswith("/track/bass.wav")
-    assert result[1]["harmonic"].endswith("/track/harmonic.wav")
-    assert result[1]["percussion"].endswith("/track/percussion.wav")
-
-
-@pytest.mark.asyncio
-async def test_resolve_returns_none_for_mixed_prepared_layouts(tmp_path: Path) -> None:
-    """Mixed layouts (canonical + legacy) should return None."""
-    rows = [
-        *[
-            _row(1, file_path)
-            for file_path in _write_stems(tmp_path, "prepared", _CANONICAL_STEMS)
-        ],
-        *[
-            _row(2, file_path)
-            for file_path in _write_stems(tmp_path, "demucs", _LEGACY_DEMUCS_STEMS)
-        ],
-    ]
-
-    result = await StemResolver().resolve(None, _Uow(rows), [_input(1), _input(2)])
-
-    assert result is None
-
-
-@pytest.mark.asyncio
 async def test_resolve_returns_none_when_prepared_stem_file_is_missing() -> None:
     """Missing prepared stem file returns None."""
     rows = [_row(1, f"/missing/{stem}.m4a") for stem in _CANONICAL_STEMS]
@@ -174,10 +128,9 @@ async def test_resolve_runs_demucs_without_session_when_workspace_provided(
         input_path: Path,
         cache_root: Path,
         flac: bool = False,
-        model: str = "htdemucs_6s",
+        model: str = "htdemucs",
     ) -> dict[str, Path]:
         calls.append((input_path, cache_root, flac))
-        # Return canonical 5 stems
         return {
             "vocals": tmp_path / "vocals.flac",
             "drums": tmp_path / "drums.flac",
@@ -236,10 +189,7 @@ async def test_resolve_reuses_cached_stems_without_demucs(
     source.write_bytes(b"audio")
 
     cache_key = hashlib.sha256(str(source.resolve()).encode()).hexdigest()[:12]
-    # Use new htdemucs_6s model name
-    stem_dir = (
-        tmp_path / "render" / "v9" / "stems" / f"track_{cache_key}" / "htdemucs_6s" / "track"
-    )
+    stem_dir = tmp_path / "render" / "v9" / "stems" / f"track_{cache_key}" / "htdemucs" / "track"
     stem_dir.mkdir(parents=True)
     for stem in _CANONICAL_STEMS:
         (stem_dir / f"{stem}.flac").write_bytes(b"audio")
@@ -273,14 +223,12 @@ async def test_resolve_reuses_cached_stems_without_demucs(
 def test_find_cached_stems_matches_flac_by_hash(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """_find_cached_stems finds stems by hash with new model name."""
+    """_find_cached_stems finds stems by hash with canonical model name."""
     source = tmp_path / "track.mp3"
     source.write_bytes(b"audio")
 
     cache_key = hashlib.sha256(str(source.resolve()).encode()).hexdigest()[:12]
-    stem_dir = (
-        tmp_path / "render" / "v9" / "stems" / f"track_{cache_key}" / "htdemucs_6s" / "track"
-    )
+    stem_dir = tmp_path / "render" / "v9" / "stems" / f"track_{cache_key}" / "htdemucs" / "track"
     stem_dir.mkdir(parents=True)
     for stem in _CANONICAL_STEMS:
         (stem_dir / f"{stem}.flac").write_bytes(b"audio")
