@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Annotated
+from typing import Annotated, Any
 
 from fastmcp.dependencies import CurrentContext, Depends
 from fastmcp.server.context import Context
@@ -82,14 +82,14 @@ async def render_mixdown(
         Field(ge=0.0, le=1.0, description="Reverb wet/dry ratio"),
     ] = 0.25,
     stem_policy_kwargs: Annotated[
-        dict | None,
+        dict[str, Any] | None,
         Field(description="Per-stem policy overrides (UserOverridePolicy) for this render only"),
     ] = None,
     uow: UnitOfWork = Depends(get_uow),
     ctx: Context = CurrentContext(),
 ) -> RenderMixdownResult:
     # Merge session policy (dj_stem_transition_policy) with per-render overrides
-    effective_policy_kwargs: dict | None = None
+    effective_policy_kwargs: dict[str, Any] | None = None
     if stem_policy_kwargs is not None:
         effective_policy_kwargs = dict(stem_policy_kwargs)
     else:
