@@ -12,6 +12,7 @@ from pydantic import Field
 
 from app.domain.template.registry import get_template as _get_template
 from app.domain.template.registry import list_template_names as _list_template_names
+from app.domain.template.registry import resolve_template_name as _resolve_template_name
 from app.handlers._context_log import safe_report_progress
 from app.repositories.unit_of_work import UnitOfWork
 from app.schemas.tool_responses import SequenceOptimizeResult
@@ -152,13 +153,15 @@ async def sequence_optimize(
     # ``SetTemplateDefinition`` that the optimizer can actually use.
     template_def = None
     if template is not None:
-        if template not in _list_template_names():
+        canonical = _resolve_template_name(template)
+        if canonical is None:
             raise ValidationError(
                 f"unknown template {template!r}; "
                 f"valid templates: {sorted(_list_template_names())}",
                 details={"template": template},
             )
-        template_def = _get_template(template)
+        template = canonical
+        template_def = _get_template(canonical)
     if algorithm == "constructive" and template_def is None:
         raise ValidationError(
             "algorithm='constructive' requires a valid template",

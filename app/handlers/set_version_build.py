@@ -28,9 +28,22 @@ async def set_version_build_handler(
 ) -> dict[str, Any]:
     set_id: int = int(data["set_id"])
     track_order: list[int] = [int(t) for t in data.get("track_order") or []]
-    # Accept ``version_label`` (canonical schema field) or ``label`` (alias).
-    label: str = str(data.get("version_label") or data.get("label") or "auto")
+    # Accept ``label`` (canonical) + ``version_label``/``notes`` aliases
+    # (legacy LLM calls used ``notes: "GA optimized ..."`` with missing ``label``).
+    _raw_label = data.get("label")
+    _raw_version_label = data.get("version_label")
+    _raw_notes = data.get("notes")
+    label: str = str(
+        (_raw_label if _raw_label not in (None, "") else None)
+        or (_raw_version_label if _raw_version_label not in (None, "") else None)
+        or (_raw_notes if _raw_notes not in (None, "") else None)
+        or "auto"
+    )
+    if len(label) > 100:
+        label = label[:100]
     gen_meta = data.get("generator_run_meta") or {}
+    if _raw_notes and _raw_notes != label and "notes" not in gen_meta:
+        gen_meta = {**gen_meta, "notes": str(_raw_notes)[:500]}
 
     if not track_order:
         raise ValidationError("track_order must be non-empty")

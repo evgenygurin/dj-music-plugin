@@ -186,10 +186,32 @@ class SetVersionFilter(BaseModel):
 class SetVersionCreate(BaseModel):
     model_config = ConfigDict(extra="forbid")
     set_id: int
-    label: str
+    # ``label`` is the canonical DJ-facing version tag (``v1-ga``, ``peak``).
+    # Legacy / LLM callers used ``version_label`` or ``notes`` for the same
+    # intent (see screenshot: ``notes: "GA optimized 0.69, ..."`` with
+    # missing ``label``). Accept both aliases and coalesce to ``label`` so
+    # the call succeeds while preserving the info.
+    label: str | None = Field(default=None, max_length=100)
+    version_label: str | None = Field(default=None, max_length=100)
+    notes: str | None = Field(default=None, max_length=500)
     track_order: list[int]
     quality_score: float | None = Field(default=None, ge=0.0, le=1.0)
     generator_run_meta: JsonDictOrNone = None
+
+    @model_validator(mode="after")
+    def _coalesce_label(self) -> Self:
+        if self.label is None or not str(self.label).strip():
+            candidate = None
+            if self.version_label is not None and str(self.version_label).strip():
+                candidate = str(self.version_label).strip()
+            elif self.notes is not None and str(self.notes).strip():
+                candidate = str(self.notes).strip()
+            if candidate is not None:
+                candidate = candidate[:100]
+                self.label = candidate
+            else:
+                self.label = "auto"
+        return self
 
     @model_validator(mode="after")
     def _validate_track_order(self) -> Self:

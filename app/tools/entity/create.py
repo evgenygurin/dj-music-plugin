@@ -10,7 +10,7 @@ from fastmcp.tools import tool
 from pydantic import Field
 from pydantic import ValidationError as PydanticValidationError
 
-from app.domain.template.registry import list_template_names
+from app.domain.template.registry import list_template_names, resolve_template_name
 from app.registry.entity import EntityRegistry
 from app.registry.provider import ProviderRegistry
 from app.repositories.unit_of_work import UnitOfWork
@@ -126,13 +126,19 @@ async def entity_create(
     # ``template_name`` must point at a registered template -
     # otherwise the optimizer rejects it later, and the set lingers
     # with a bogus name that nothing can use.
+    # Alias-aware: ``hypnotic_60`` and other ``<prefix>_<duration>``
+    # hallucinations resolve via ``resolve_template_name``.
     template_name_val = getattr(validated, "template_name", None) if entity == "set" else None
-    if template_name_val is not None and template_name_val not in list_template_names():
-        raise ValidationError(
-            f"unknown template_name {template_name_val!r}; "
-            f"valid templates: {sorted(list_template_names())}",
-            details={"template_name": template_name_val},
-        )
+    if template_name_val is not None:
+        canonical = resolve_template_name(template_name_val)
+        if canonical is None:
+            raise ValidationError(
+                f"unknown template_name {template_name_val!r}; "
+                f"valid templates: {sorted(list_template_names())}",
+                details={"template_name": template_name_val},
+            )
+        if canonical != template_name_val:
+            validated = validated.model_copy(update={"template_name": canonical})
 
     repo = getattr(uow, config.repo_attr)
     row = await repo.create(**validated.model_dump())

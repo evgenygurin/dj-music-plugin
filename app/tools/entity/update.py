@@ -10,7 +10,7 @@ from fastmcp.tools import tool
 from pydantic import Field
 from pydantic import ValidationError as PydanticValidationError
 
-from app.domain.template.registry import list_template_names
+from app.domain.template.registry import list_template_names, resolve_template_name
 from app.domain.transition.neural_mix import NeuralMixTransition
 from app.registry.entity import EntityRegistry
 from app.registry.provider import ProviderRegistry
@@ -107,13 +107,18 @@ async def entity_update(
     # the dispatcher validates against the registered templates so
     # ``entity_update(set, ...)`` can't write a template name that
     # ``sequence_optimize`` will later reject.
+    # Alias-aware via ``resolve_template_name`` (hypnotic_60 → classic_60).
     template_name_val = getattr(validated, "template_name", None) if entity == "set" else None
-    if template_name_val is not None and template_name_val not in list_template_names():
-        raise ValidationError(
-            f"unknown template_name {template_name_val!r}; "
-            f"valid templates: {sorted(list_template_names())}",
-            details={"template_name": template_name_val},
-        )
+    if template_name_val is not None:
+        canonical = resolve_template_name(template_name_val)
+        if canonical is None:
+            raise ValidationError(
+                f"unknown template_name {template_name_val!r}; "
+                f"valid templates: {sorted(list_template_names())}",
+                details={"template_name": template_name_val},
+            )
+        if canonical != template_name_val:
+            validated = validated.model_copy(update={"template_name": canonical})
 
     # ``transition.fx_type`` is a free-form string on the schema (the
     # schema can't import ``app.domain``) but downstream Neural Mix
