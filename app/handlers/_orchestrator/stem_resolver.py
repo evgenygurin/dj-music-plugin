@@ -6,29 +6,14 @@ from typing import Any
 
 from sqlalchemy import select
 
-from app.domain.render.models import (
-    DEMUCS_STEM_ORDER,
-    LEGACY_PREPARED_STEM_ORDER,
-    STEM_ORDER,
-)
+from app.domain.render.models import STEM_ORDER
 from app.handlers._context_log import safe_info
 from app.models.audio_file import DjLibraryItem
 
 _STEM_EXTENSIONS = (".m4a", ".mp3", ".wav", ".flac")
 
-# Map prepared-stem filenames (legacy 5-stem layout) to canonical stem names.
-# This is the ONLY place legacy aliases are translated to the new electronic
-# music taxonomy (``instrumental`` → ``harmonic`` alias, etc.).
-_LEGACY_STEM_ALIASES: dict[str, str] = {
-    "instrumental": "harmonic",
-    "acappella": "vocals",
-    "other": "harmonic",
-}
-
 _STEM_ALIASES: dict[str, tuple[str, ...]] = {
     **{stem: (stem,) for stem in STEM_ORDER},
-    **{stem: (stem,) for stem in DEMUCS_STEM_ORDER},
-    **{stem: (stem,) for stem in LEGACY_PREPARED_STEM_ORDER},
     "other": ("other",),
 }
 
@@ -46,38 +31,26 @@ def _stem_type_from_path(path: str) -> tuple[str, ...]:
 def _expand_stem_paths(stems: Any) -> dict[str, str]:
     """Expand raw stem dict to canonical electronic-music taxonomy keys.
 
-    Translates legacy prepared-stem aliases (``instrumental``,
-    ``acappella``) into the new canonical names (``harmonic``,
-    ``vocals``). Demucs-native ``other`` is also mapped to ``harmonic``.
+    Demucs-native ``other`` is mapped to ``harmonic`` (pads / leads).
     """
     result: dict[str, str] = {}
     for key, path in stems.items():
         internal_stems = _stem_type_from_path(str(key)) or _stem_type_from_path(str(path))
         for stem in internal_stems:
-            canonical = _LEGACY_STEM_ALIASES.get(stem, stem)
-            result[canonical] = str(path)
+            if stem == "other":
+                result["harmonic"] = str(path)
+            else:
+                result[stem] = str(path)
     return result
 
 
 def _complete_stem_order(stems: dict[str, str]) -> tuple[str, ...] | None:
-    """Return the canonical STEM_ORDER if all required stems are present."""
-    keys = set(stems)
-    if set(STEM_ORDER).issubset(keys):
-        return STEM_ORDER
-    if set(DEMUCS_STEM_ORDER).issubset(keys):
-        return DEMUCS_STEM_ORDER
-    if set(LEGACY_PREPARED_STEM_ORDER).issubset(keys):
-        return LEGACY_PREPARED_STEM_ORDER
-    return None
+    """Return ``STEM_ORDER`` if all required stems are present."""
+    return STEM_ORDER if set(STEM_ORDER).issubset(stems) else None
 
 
 def _missing_for_any_order(stems: dict[str, str]) -> list[str]:
-    """Return the missing stems for the closest matching order."""
-    keys = set(stems)
-    missing_prepared = set(LEGACY_PREPARED_STEM_ORDER) - keys
-    missing_demucs = set(DEMUCS_STEM_ORDER) - keys
-    missing = missing_prepared if len(missing_prepared) <= len(missing_demucs) else missing_demucs
-    return sorted(missing)
+    return sorted(set(STEM_ORDER) - set(stems))
 
 
 async def _separate_stems(
@@ -114,7 +87,7 @@ async def _separate_stems(
             await safe_info(ctx, f"demucs failed ({exc}); classic fallback")
             return None
         mapped = _expand_stem_paths(stems)
-        missing = set(DEMUCS_STEM_ORDER) - set(mapped)
+        missing = set(STEM_ORDER) - set(mapped)
         if missing:
             await safe_info(
                 ctx,
@@ -132,7 +105,7 @@ def _find_cached_stems(input_file: Path, output_dir: str | None = None) -> dict[
     """Reuse ready flac stems from any render workspace (per-file hash cache).
 
     ``run_demucs`` keys its cache on ``sha256(resolved_path)[:12]`` under
-    ``{cache_root}/{stem}_{hash}/<model>/{stem}/``. Since each render
+    ``{cache_root}/{stem}_{hash}/htdemucs/{stem}/``. Since each render
     workspace seeds that cache, a track already separated for another version
     must not be separated again — scan every ``output_dir/render/*/stems``
     for the matching directory and return its stems directly.
@@ -155,15 +128,12 @@ def _find_cached_stems(input_file: Path, output_dir: str | None = None) -> dict[
     }
     output_root = Path(output_dir)
     for stems_root in sorted(output_root.glob("render/*/stems")):
-        # Phase 1: prefer htdemucs_6s cache; fall back to htdemucs for
-        # previously-cached outputs that predate the 6s switch.
-        for model in ("htdemucs_6s", "htdemucs"):
-            stem_dir = stems_root / f"{stem}_{cache_key}" / model / stem
-            if not stem_dir.is_dir():
-                continue
-            found = {name: str(stem_dir / fname) for name, fname in want.items()}
-            if all(Path(p).exists() for p in found.values()):
-                return found
+        stem_dir = stems_root / f"{stem}_{cache_key}" / "htdemucs" / stem
+        if not stem_dir.is_dir():
+            continue
+        found = {name: str(stem_dir / fname) for name, fname in want.items()}
+        if all(Path(p).exists() for p in found.values()):
+            return found
     return None
 
 
@@ -190,8 +160,10 @@ class StemResolver:
         by_track: dict[int, dict[str, str]] = {tid: {} for tid in track_ids}
         for row in rows:
             for stem in _stem_type_from_path(row.file_path):
-                canonical = _LEGACY_STEM_ALIASES.get(stem, stem)
-                by_track[row.track_id][canonical] = row.file_path
+                if stem == "other":
+                    by_track[row.track_id]["harmonic"] = row.file_path
+                else:
+                    by_track[row.track_id][stem] = row.file_path
 
         orders: dict[int, tuple[str, ...]] = {}
         missing = {}
