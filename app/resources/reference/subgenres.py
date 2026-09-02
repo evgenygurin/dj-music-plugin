@@ -66,5 +66,70 @@ _PAYLOAD_JSON: str = SubgenresView(
     meta=RESOURCE_META,
 )
 async def reference_subgenres() -> str:
-    """15 techno subgenre profiles (low-to-high) + 11 distinct render presets (7 techno +4 house; 18 map entries, see reference/subgenres.md)."""
+    """15 techno subgenre profiles (low-to-high) + 18 render presets (14 techno aliases + 4 house presets; see reference/subgenres.md and app/config/subgenre_constants.json)."""
     return _PAYLOAD_JSON
+
+
+# ── Multi-genre resource template (polymorphic) ─────────────────
+
+import json as _json_module
+
+
+@resource(
+    "local://genres/{genre}/subgenres",
+    mime_type="application/json",
+    tags={"core", "namespace:local", "view:subgenres", "polymorphic"},
+    annotations=ANNOTATIONS_READ_ONLY,
+    meta={**RESOURCE_META, "template": "multi-genre"},
+)
+async def genre_subgenres(genre: str = "techno") -> str:
+    """Polymorphic subgenre profile resource for a genre (techno, house, industrial, acid, etc.). Loads from subgenre_constants.json."""
+    try:
+        constants_path = __file__.replace(
+            "app/resources/reference/subgenres.py", "app/config/subgenre_constants.json"
+        )
+        # Use relative path from module file
+        import pathlib
+
+        constants_path = (
+            pathlib.Path(__file__).resolve().parents[2]
+            / "app"
+            / "config"
+            / "subgenre_constants.json"
+        )
+        with open(constants_path, encoding="utf-8") as _cf:
+            constants = _json_module.load(_cf)
+        presets = constants.get("presets", {})
+        profiles = constants.get("subgenre_profiles", {})
+        genre_key = genre.strip().lower().replace(" ", "_")
+        # Filter presets/profiles by group matching genre
+        genre_presets = {
+            k: v
+            for k, v in presets.items()
+            if v.get("group", "").startswith(genre_key) or genre_key in k
+        }
+        genre_profiles = {
+            k: v
+            for k, v in profiles.items()
+            if v.get("group", "").startswith(genre_key) or genre_key in k
+        }
+        result = {
+            "genre": genre,
+            "subgenres": list(genre_presets.keys()),
+            "profiles": genre_profiles,
+            "presets_summary": {
+                k: {
+                    "transition_bars": v.get("transition_bars"),
+                    "body_bars": v.get("body_bars"),
+                    "bpm_range": v.get("bpm_range"),
+                    "group": v.get("group"),
+                }
+                for k, v in genre_presets.items()
+            },
+            "audit_thresholds": constants.get("audit_thresholds", {}),
+        }
+        return _json_module.dumps(result, indent=2, ensure_ascii=False)
+    except Exception as _exc:
+        return _json_module.dumps(
+            {"genre": genre, "error": str(_exc), "fallback": "reference://subgenres"}, indent=2
+        )

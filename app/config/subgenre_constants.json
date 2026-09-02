@@ -1,0 +1,1372 @@
+{
+  "version": "v2.0",
+  "description": "Consolidated preset and profile constants for multi-genre manual DJ set building. Source: subgenre_presets.py + reference/subgenres.md + reference/subgenres resource.",
+  "defaults": {
+    "target_bpm": 130.0,
+    "transition_bars": 48,
+    "body_bars": 40,
+    "xsplit_low_hz": 250,
+    "xsplit_high_hz": 4000,
+    "eq_phase_1_ratio": 0.4,
+    "eq_phase_2_ratio": 0.7,
+    "low_swap_beats": 1.0,
+    "outro_fade_bars": 12,
+    "limiter_ceiling": 0.85,
+    "hpf_cutoff_hz": 30.0,
+    "per_track_eq_mid_cut_db": -1.0,
+    "per_track_eq_bright_boost_db": 1.5,
+    "pre_comp_threshold_db": -16.0,
+    "pre_comp_ratio": 2.5,
+    "glue_comp_threshold_db": -13.0,
+    "glue_comp_ratio": 2.5,
+    "master_eq_air_boost_db": 1.5,
+    "master_eq_mud_cut_db": -1.0,
+    "master_eq_sub_boost_db": 0.75,
+    "limiter_attack_ms": 12.0,
+    "limiter_release_ms": 40.0,
+    "dynaudnorm_maxgain": 2.5
+  },
+  "presets": {
+    "industrial_techno": {
+      "transition_bars": 16,
+      "body_bars": 48,
+      "xsplit_low_hz": 300,
+      "xsplit_high_hz": 5000,
+      "eq_phase_1_ratio": 0.25,
+      "eq_phase_2_ratio": 0.5,
+      "low_swap_beats": 0.5,
+      "outro_fade_bars": 8,
+      "hpf_cutoff_hz": 35.0,
+      "pre_comp_threshold_db": -15.0,
+      "pre_comp_ratio": 3.0,
+      "glue_comp_threshold_db": -12.0,
+      "glue_comp_ratio": 2.5,
+      "master_eq_air_boost_db": 1.5,
+      "master_eq_mud_cut_db": -1.5,
+      "master_eq_sub_boost_db": 0.75,
+      "limiter_ceiling": 0.85,
+      "limiter_attack_ms": 8.0,
+      "limiter_release_ms": 25.0,
+      "dynaudnorm_maxgain": 1.8
+    },
+    "dub_techno": {
+      "transition_bars": 64,
+      "body_bars": 32,
+      "xsplit_low_hz": 200,
+      "xsplit_high_hz": 3500,
+      "eq_phase_1_ratio": 0.6,
+      "eq_phase_2_ratio": 0.85,
+      "low_swap_beats": 2.0,
+      "outro_fade_bars": 24,
+      "hpf_cutoff_hz": 25.0,
+      "pre_comp_threshold_db": -14.0,
+      "pre_comp_ratio": 2.0,
+      "glue_comp_threshold_db": -12.0,
+      "glue_comp_ratio": 2.0,
+      "master_eq_air_boost_db": 0.5,
+      "master_eq_mud_cut_db": 0.0,
+      "master_eq_sub_boost_db": 1.5,
+      "limiter_ceiling": 0.88,
+      "limiter_attack_ms": 15.0,
+      "limiter_release_ms": 50.0,
+      "dynaudnorm_maxgain": 3.0
+    },
+    "hard_techno": {
+      "transition_bars": 8,
+      "body_bars": 64,
+      "xsplit_low_hz": 350,
+      "xsplit_high_hz": 5500,
+      "eq_phase_1_ratio": 0.2,
+      "eq_phase_2_ratio": 0.4,
+      "low_swap_beats": 0.25,
+      "outro_fade_bars": 4,
+      "hpf_cutoff_hz": 40.0,
+      "pre_comp_threshold_db": -22.0,
+      "pre_comp_ratio": 5.0,
+      "glue_comp_threshold_db": -18.0,
+      "glue_comp_ratio": 5.0,
+      "master_eq_air_boost_db": 2.5,
+      "master_eq_mud_cut_db": -2.5,
+      "master_eq_sub_boost_db": 1.5,
+      "limiter_ceiling": 0.75,
+      "limiter_attack_ms": 4.0,
+      "limiter_release_ms": 15.0,
+      "dynaudnorm_maxgain": 1.0
+    },
+    "hypnotic_techno": {
+      "transition_bars": 48,
+      "body_bars": 40,
+      "xsplit_low_hz": 220,
+      "xsplit_high_hz": 3800,
+      "eq_phase_1_ratio": 0.55,
+      "eq_phase_2_ratio": 0.8,
+      "low_swap_beats": 2.0,
+      "outro_fade_bars": 16,
+      "hpf_cutoff_hz": 28.0,
+      "pre_comp_threshold_db": -16.0,
+      "pre_comp_ratio": 2.5,
+      "glue_comp_threshold_db": -13.0,
+      "glue_comp_ratio": 2.5,
+      "master_eq_air_boost_db": 1.0,
+      "master_eq_mud_cut_db": -0.5,
+      "master_eq_sub_boost_db": 1.0,
+      "limiter_ceiling": 0.85,
+      "limiter_attack_ms": 12.0,
+      "limiter_release_ms": 40.0,
+      "dynaudnorm_maxgain": 2.5
+    },
+    "peak_time_techno": {
+      "transition_bars": 32,
+      "body_bars": 32,
+      "xsplit_low_hz": 260,
+      "xsplit_high_hz": 4200,
+      "eq_phase_1_ratio": 0.4,
+      "eq_phase_2_ratio": 0.7,
+      "low_swap_beats": 1.0,
+      "outro_fade_bars": 12,
+      "hpf_cutoff_hz": 30.0,
+      "pre_comp_threshold_db": -18.0,
+      "pre_comp_ratio": 3.0,
+      "glue_comp_threshold_db": -14.0,
+      "glue_comp_ratio": 3.0,
+      "master_eq_air_boost_db": 1.5,
+      "master_eq_mud_cut_db": -1.0,
+      "master_eq_sub_boost_db": 0.5,
+      "limiter_ceiling": 0.85,
+      "limiter_attack_ms": 10.0,
+      "limiter_release_ms": 30.0,
+      "dynaudnorm_maxgain": 2.0
+    },
+    "driving_techno": {
+      "transition_bars": 24,
+      "body_bars": 40,
+      "xsplit_low_hz": 280,
+      "xsplit_high_hz": 4500,
+      "eq_phase_1_ratio": 0.35,
+      "eq_phase_2_ratio": 0.65,
+      "low_swap_beats": 0.75,
+      "outro_fade_bars": 10,
+      "hpf_cutoff_hz": 32.0,
+      "pre_comp_threshold_db": -19.0,
+      "pre_comp_ratio": 3.5,
+      "glue_comp_threshold_db": -15.0,
+      "glue_comp_ratio": 3.5,
+      "master_eq_air_boost_db": 2.0,
+      "master_eq_mud_cut_db": -1.5,
+      "master_eq_sub_boost_db": 0.75,
+      "limiter_ceiling": 0.82,
+      "limiter_attack_ms": 8.0,
+      "limiter_release_ms": 25.0,
+      "dynaudnorm_maxgain": 1.8
+    },
+    "acid_techno": {
+      "transition_bars": 16,
+      "body_bars": 56,
+      "xsplit_low_hz": 270,
+      "xsplit_high_hz": 5000,
+      "eq_phase_1_ratio": 0.3,
+      "eq_phase_2_ratio": 0.55,
+      "low_swap_beats": 0.5,
+      "outro_fade_bars": 8,
+      "hpf_cutoff_hz": 35.0,
+      "pre_comp_threshold_db": -20.0,
+      "pre_comp_ratio": 4.0,
+      "glue_comp_threshold_db": -16.0,
+      "glue_comp_ratio": 4.0,
+      "master_eq_air_boost_db": 2.5,
+      "master_eq_mud_cut_db": -2.0,
+      "master_eq_sub_boost_db": 1.0,
+      "limiter_ceiling": 0.8,
+      "limiter_attack_ms": 5.0,
+      "limiter_release_ms": 20.0,
+      "dynaudnorm_maxgain": 1.5
+    },
+    "deep_techno": {
+      "transition_bars": 48,
+      "body_bars": 32,
+      "xsplit_low_hz": 220,
+      "xsplit_high_hz": 3800,
+      "eq_phase_1_ratio": 0.55,
+      "eq_phase_2_ratio": 0.8,
+      "low_swap_beats": 2.0,
+      "outro_fade_bars": 16,
+      "hpf_cutoff_hz": 28.0,
+      "pre_comp_threshold_db": -16.0,
+      "pre_comp_ratio": 2.5,
+      "glue_comp_threshold_db": -13.0,
+      "glue_comp_ratio": 2.5,
+      "master_eq_air_boost_db": 1.0,
+      "master_eq_mud_cut_db": -0.5,
+      "master_eq_sub_boost_db": 1.0,
+      "limiter_ceiling": 0.85,
+      "limiter_attack_ms": 12.0,
+      "limiter_release_ms": 40.0,
+      "dynaudnorm_maxgain": 2.5
+    },
+    "minimal_techno": {
+      "transition_bars": 48,
+      "body_bars": 32,
+      "xsplit_low_hz": 220,
+      "xsplit_high_hz": 3800,
+      "eq_phase_1_ratio": 0.55,
+      "eq_phase_2_ratio": 0.8,
+      "low_swap_beats": 2.0,
+      "outro_fade_bars": 16,
+      "hpf_cutoff_hz": 28.0,
+      "pre_comp_threshold_db": -16.0,
+      "pre_comp_ratio": 2.5,
+      "glue_comp_threshold_db": -13.0,
+      "glue_comp_ratio": 2.5,
+      "master_eq_air_boost_db": 1.0,
+      "master_eq_mud_cut_db": -0.5,
+      "master_eq_sub_boost_db": 1.0,
+      "limiter_ceiling": 0.85,
+      "limiter_attack_ms": 12.0,
+      "limiter_release_ms": 40.0,
+      "dynaudnorm_maxgain": 2.5
+    },
+    "raw_techno": {
+      "transition_bars": 16,
+      "body_bars": 48,
+      "xsplit_low_hz": 300,
+      "xsplit_high_hz": 5000,
+      "eq_phase_1_ratio": 0.25,
+      "eq_phase_2_ratio": 0.5,
+      "low_swap_beats": 0.5,
+      "outro_fade_bars": 8,
+      "hpf_cutoff_hz": 35.0,
+      "pre_comp_threshold_db": -15.0,
+      "pre_comp_ratio": 3.0,
+      "glue_comp_threshold_db": -12.0,
+      "glue_comp_ratio": 2.5,
+      "master_eq_air_boost_db": 1.5,
+      "master_eq_mud_cut_db": -1.5,
+      "master_eq_sub_boost_db": 0.75,
+      "limiter_ceiling": 0.85,
+      "limiter_attack_ms": 8.0,
+      "limiter_release_ms": 25.0,
+      "dynaudnorm_maxgain": 1.8
+    },
+    "tribal_techno": {
+      "transition_bars": 24,
+      "body_bars": 40,
+      "xsplit_low_hz": 280,
+      "xsplit_high_hz": 4500,
+      "eq_phase_1_ratio": 0.35,
+      "eq_phase_2_ratio": 0.65,
+      "low_swap_beats": 0.75,
+      "outro_fade_bars": 10,
+      "hpf_cutoff_hz": 32.0,
+      "pre_comp_threshold_db": -19.0,
+      "pre_comp_ratio": 3.5,
+      "glue_comp_threshold_db": -15.0,
+      "glue_comp_ratio": 3.5,
+      "master_eq_air_boost_db": 2.0,
+      "master_eq_mud_cut_db": -1.5,
+      "master_eq_sub_boost_db": 0.75,
+      "limiter_ceiling": 0.82,
+      "limiter_attack_ms": 8.0,
+      "limiter_release_ms": 25.0,
+      "dynaudnorm_maxgain": 1.8
+    },
+    "detroit_techno": {
+      "transition_bars": 32,
+      "body_bars": 32,
+      "xsplit_low_hz": 260,
+      "xsplit_high_hz": 4200,
+      "eq_phase_1_ratio": 0.4,
+      "eq_phase_2_ratio": 0.7,
+      "low_swap_beats": 1.0,
+      "outro_fade_bars": 12,
+      "hpf_cutoff_hz": 30.0,
+      "pre_comp_threshold_db": -18.0,
+      "pre_comp_ratio": 3.0,
+      "glue_comp_threshold_db": -14.0,
+      "glue_comp_ratio": 3.0,
+      "master_eq_air_boost_db": 1.5,
+      "master_eq_mud_cut_db": -1.0,
+      "master_eq_sub_boost_db": 0.5,
+      "limiter_ceiling": 0.85,
+      "limiter_attack_ms": 10.0,
+      "limiter_release_ms": 30.0,
+      "dynaudnorm_maxgain": 2.0
+    },
+    "progressive_techno": {
+      "transition_bars": 32,
+      "body_bars": 56,
+      "xsplit_low_hz": 250,
+      "xsplit_high_hz": 4000,
+      "eq_phase_1_ratio": 0.4,
+      "eq_phase_2_ratio": 0.7,
+      "low_swap_beats": 1.5,
+      "outro_fade_bars": 16,
+      "hpf_cutoff_hz": 28.0,
+      "pre_comp_threshold_db": -16.0,
+      "pre_comp_ratio": 2.5,
+      "glue_comp_threshold_db": -13.0,
+      "glue_comp_ratio": 2.5,
+      "master_eq_air_boost_db": 1.0,
+      "master_eq_mud_cut_db": -0.5,
+      "master_eq_sub_boost_db": 1.0,
+      "limiter_ceiling": 0.85,
+      "limiter_attack_ms": 12.0,
+      "limiter_release_ms": 40.0,
+      "dynaudnorm_maxgain": 2.5
+    },
+    "melodic_techno": {
+      "transition_bars": 48,
+      "body_bars": 40,
+      "xsplit_low_hz": 220,
+      "xsplit_high_hz": 3800,
+      "eq_phase_1_ratio": 0.55,
+      "eq_phase_2_ratio": 0.8,
+      "low_swap_beats": 2.0,
+      "outro_fade_bars": 16,
+      "hpf_cutoff_hz": 28.0,
+      "pre_comp_threshold_db": -16.0,
+      "pre_comp_ratio": 2.5,
+      "glue_comp_threshold_db": -13.0,
+      "glue_comp_ratio": 2.5,
+      "master_eq_air_boost_db": 1.0,
+      "master_eq_mud_cut_db": -0.5,
+      "master_eq_sub_boost_db": 1.0,
+      "limiter_ceiling": 0.85,
+      "limiter_attack_ms": 12.0,
+      "limiter_release_ms": 40.0,
+      "dynaudnorm_maxgain": 2.5
+    },
+    "deep_house": {
+      "transition_bars": 32,
+      "body_bars": 48,
+      "xsplit_low_hz": 200,
+      "xsplit_high_hz": 3500,
+      "eq_phase_1_ratio": 0.5,
+      "eq_phase_2_ratio": 0.8,
+      "low_swap_beats": 2.0,
+      "outro_fade_bars": 16,
+      "hpf_cutoff_hz": 25.0,
+      "pre_comp_threshold_db": -14.0,
+      "pre_comp_ratio": 2.0,
+      "glue_comp_threshold_db": -12.0,
+      "glue_comp_ratio": 2.0,
+      "master_eq_air_boost_db": 0.5,
+      "master_eq_mud_cut_db": 0.0,
+      "master_eq_sub_boost_db": 1.5,
+      "limiter_ceiling": 0.88,
+      "limiter_attack_ms": 15.0,
+      "limiter_release_ms": 50.0,
+      "dynaudnorm_maxgain": 3.0
+    },
+    "tech_house": {
+      "transition_bars": 16,
+      "body_bars": 32,
+      "xsplit_low_hz": 280,
+      "xsplit_high_hz": 4500,
+      "eq_phase_1_ratio": 0.3,
+      "eq_phase_2_ratio": 0.6,
+      "low_swap_beats": 0.5,
+      "outro_fade_bars": 8,
+      "hpf_cutoff_hz": 35.0,
+      "pre_comp_threshold_db": -18.0,
+      "pre_comp_ratio": 3.5,
+      "glue_comp_threshold_db": -15.0,
+      "glue_comp_ratio": 3.5,
+      "master_eq_air_boost_db": 2.0,
+      "master_eq_mud_cut_db": -1.5,
+      "master_eq_sub_boost_db": 0.75,
+      "limiter_ceiling": 0.82,
+      "limiter_attack_ms": 8.0,
+      "limiter_release_ms": 25.0,
+      "dynaudnorm_maxgain": 1.8
+    },
+    "progressive_house": {
+      "transition_bars": 32,
+      "body_bars": 56,
+      "xsplit_low_hz": 250,
+      "xsplit_high_hz": 4000,
+      "eq_phase_1_ratio": 0.4,
+      "eq_phase_2_ratio": 0.7,
+      "low_swap_beats": 1.5,
+      "outro_fade_bars": 16,
+      "hpf_cutoff_hz": 28.0,
+      "pre_comp_threshold_db": -16.0,
+      "pre_comp_ratio": 2.5,
+      "glue_comp_threshold_db": -13.0,
+      "glue_comp_ratio": 2.5,
+      "master_eq_air_boost_db": 1.0,
+      "master_eq_mud_cut_db": -0.5,
+      "master_eq_sub_boost_db": 1.0,
+      "limiter_ceiling": 0.85,
+      "limiter_attack_ms": 12.0,
+      "limiter_release_ms": 40.0,
+      "dynaudnorm_maxgain": 2.5
+    },
+    "classic_house": {
+      "transition_bars": 16,
+      "body_bars": 32,
+      "xsplit_low_hz": 250,
+      "xsplit_high_hz": 3800,
+      "eq_phase_1_ratio": 0.35,
+      "eq_phase_2_ratio": 0.65,
+      "low_swap_beats": 1.0,
+      "outro_fade_bars": 12,
+      "hpf_cutoff_hz": 30.0,
+      "pre_comp_threshold_db": -16.0,
+      "pre_comp_ratio": 2.5,
+      "glue_comp_threshold_db": -13.0,
+      "glue_comp_ratio": 2.5,
+      "master_eq_air_boost_db": 1.0,
+      "master_eq_mud_cut_db": 0.0,
+      "master_eq_sub_boost_db": 1.0,
+      "limiter_ceiling": 0.85,
+      "limiter_attack_ms": 12.0,
+      "limiter_release_ms": 35.0,
+      "dynaudnorm_maxgain": 2.0
+    }
+  },
+  "subgenre_profiles": {
+    "minimal": {
+      "energy_mean_ideal": 0.25,
+      "bpm_range": [
+        122,
+        128
+      ],
+      "mood_tags": [
+        "minimal",
+        "hypnotic"
+      ]
+    },
+    "hypnotic": {
+      "energy_mean_ideal": 0.45,
+      "bpm_range": [
+        130,
+        142
+      ],
+      "mood_tags": [
+        "hypnotic",
+        "driving"
+      ]
+    },
+    "driving": {
+      "energy_mean_ideal": 0.55,
+      "bpm_range": [
+        134,
+        140
+      ],
+      "mood_tags": [
+        "driving",
+        "peak_time"
+      ]
+    },
+    "tribal": {
+      "energy_mean_ideal": 0.5,
+      "bpm_range": [
+        134,
+        140
+      ],
+      "mood_tags": [
+        "tribal",
+        "driving"
+      ]
+    },
+    "peak_time": {
+      "energy_mean_ideal": 0.7,
+      "bpm_range": [
+        136,
+        142
+      ],
+      "mood_tags": [
+        "peak_time",
+        "hard_techno"
+      ]
+    },
+    "acid": {
+      "energy_mean_ideal": 0.55,
+      "bpm_range": [
+        138,
+        144
+      ],
+      "mood_tags": [
+        "acid",
+        "industrial"
+      ]
+    },
+    "industrial": {
+      "energy_mean_ideal": 0.75,
+      "bpm_range": [
+        140,
+        148
+      ],
+      "mood_tags": [
+        "industrial",
+        "hard_techno"
+      ]
+    },
+    "hard_techno": {
+      "energy_mean_ideal": 0.85,
+      "bpm_range": [
+        145,
+        160
+      ],
+      "mood_tags": [
+        "hard_techno",
+        "industrial"
+      ]
+    },
+    "raw": {
+      "energy_mean_ideal": 0.65,
+      "bpm_range": [
+        130,
+        142
+      ],
+      "mood_tags": [
+        "raw",
+        "industrial"
+      ]
+    },
+    "dub_techno": {
+      "energy_mean_ideal": 0.2,
+      "bpm_range": [
+        120,
+        128
+      ],
+      "mood_tags": [
+        "dub_techno",
+        "ambient_dub"
+      ]
+    },
+    "melodic_deep": {
+      "energy_mean_ideal": 0.35,
+      "bpm_range": [
+        126,
+        132
+      ],
+      "mood_tags": [
+        "melodic_deep",
+        "progressive"
+      ]
+    },
+    "progressive": {
+      "energy_mean_ideal": 0.4,
+      "bpm_range": [
+        128,
+        134
+      ],
+      "mood_tags": [
+        "progressive",
+        "melodic_deep"
+      ]
+    },
+    "ambient_dub": {
+      "energy_mean_ideal": 0.1,
+      "bpm_range": [
+        120,
+        126
+      ],
+      "mood_tags": [
+        "ambient_dub",
+        "dub_techno"
+      ]
+    },
+    "detroit": {
+      "energy_mean_ideal": 0.4,
+      "bpm_range": [
+        128,
+        135
+      ],
+      "mood_tags": [
+        "detroit",
+        "melodic_deep"
+      ]
+    },
+    "breakbeat": {
+      "energy_mean_ideal": 0.5,
+      "bpm_range": [
+        128,
+        135
+      ],
+      "mood_tags": [
+        "breakbeat",
+        "tribal"
+      ]
+    },
+    "deep_house": {
+      "energy_mean_ideal": 0.35,
+      "bpm_range": [
+        122,
+        128
+      ],
+      "mood_tags": [
+        "deep_house",
+        "melodic_deep"
+      ]
+    },
+    "tech_house": {
+      "energy_mean_ideal": 0.45,
+      "bpm_range": [
+        124,
+        132
+      ],
+      "mood_tags": [
+        "tech_house",
+        "driving"
+      ]
+    },
+    "progressive_house": {
+      "energy_mean_ideal": 0.4,
+      "bpm_range": [
+        126,
+        132
+      ],
+      "mood_tags": [
+        "progressive_house",
+        "progressive"
+      ]
+    },
+    "classic_house": {
+      "energy_mean_ideal": 0.35,
+      "bpm_range": [
+        124,
+        128
+      ],
+      "mood_tags": [
+        "classic_house",
+        "deep_house"
+      ]
+    }
+  },
+  "audit_thresholds": {
+    "techno_bpm_min": 120.0,
+    "techno_bpm_max": 155.0,
+    "techno_lufs_min": -20.0,
+    "techno_lufs_max": -4.0,
+    "audit_true_peak_max": 0.0,
+    "audit_bpm_confidence_min": 0.5,
+    "audit_key_confidence_min": 0.4,
+    "audit_hp_ratio_max": 8.0,
+    "audit_crest_factor_max": 30.0,
+    "audit_spectral_flatness_max": 0.5
+  },
+  "template_mapping": {
+    "roller_90": {
+      "duration_min": 90,
+      "template_slots": [
+        "minimal",
+        "hypnotic",
+        "driving",
+        "tribal",
+        "driving",
+        "hypnotic",
+        "driving",
+        "hypnotic"
+      ]
+    },
+    "peak_hour_60": {
+      "duration_min": 60,
+      "template_slots": [
+        "driving",
+        "peak_time",
+        "acid",
+        "raw",
+        "industrial",
+        "peak_time",
+        "driving"
+      ]
+    },
+    "classic_60": {
+      "duration_min": 60,
+      "template_slots": [
+        "minimal",
+        "dub_techno",
+        "melodic_deep",
+        "progressive",
+        "driving",
+        "peak_time",
+        "hypnotic",
+        "melodic_deep"
+      ]
+    },
+    "wave_120": {
+      "duration_min": 120,
+      "template_slots": [
+        "minimal",
+        "progressive",
+        "peak_time",
+        "melodic_deep",
+        "hypnotic",
+        "driving",
+        "acid",
+        "minimal",
+        "peak_time",
+        "melodic_deep"
+      ]
+    },
+    "progressive_120": {
+      "duration_min": 120,
+      "template_slots": [
+        "ambient_dub",
+        "dub_techno",
+        "minimal",
+        "melodic_deep",
+        "progressive",
+        "detroit",
+        "hypnotic",
+        "driving",
+        "peak_time",
+        "driving"
+      ]
+    },
+    "closing_60": {
+      "duration_min": 60,
+      "template_slots": [
+        "driving",
+        "hypnotic",
+        "melodic_deep",
+        "progressive",
+        "dub_techno",
+        "minimal",
+        "ambient_dub"
+      ]
+    },
+    "warm_up_30": {
+      "duration_min": 30,
+      "template_slots": [
+        "ambient_dub",
+        "dub_techno",
+        "minimal",
+        "melodic_deep"
+      ]
+    },
+    "full_library": {
+      "duration_min": 0,
+      "template_slots": [
+        null,
+        null,
+        null,
+        null
+      ]
+    }
+  },
+  "descriptions": {
+    "presets": {
+      "industrial_techno": {
+        "description": "Aggressive 16-bar bass swap; max energy (mean 0.85+); BPM 140-148; group: techno/industrial.",
+        "group": "techno",
+        "bpm_range": [
+          140,
+          148
+        ],
+        "energy_range": [
+          0.7,
+          0.85
+        ]
+      },
+      "dub_techno": {
+        "description": "Hypnotic 64-bar fade, warm sub, minimal processing; BPM 120-128; group: techno/dub.",
+        "group": "techno",
+        "bpm_range": [
+          120,
+          128
+        ],
+        "energy_range": [
+          0.15,
+          0.3
+        ]
+      },
+      "hard_techno": {
+        "description": "Punishing 8-bar cut, max body (64 bars), high compression; BPM 145-160; group: techno/hard.",
+        "group": "techno",
+        "bpm_range": [
+          145,
+          160
+        ],
+        "energy_range": [
+          0.8,
+          0.95
+        ]
+      },
+      "hypnotic_techno": {
+        "description": "Rolling 48-bar blend, smooth EQ phase (0.55/0.80), medium swap (2 beats); BPM 130-142; group: techno/hypnotic.",
+        "group": "techno",
+        "bpm_range": [
+          130,
+          142
+        ],
+        "energy_range": [
+          0.4,
+          0.55
+        ]
+      },
+      "peak_time_techno": {
+        "description": "Balanced peak (32-bar blend, 32-bar body), medium compression; BPM 136-142; group: techno/peak.",
+        "group": "techno",
+        "bpm_range": [
+          136,
+          142
+        ],
+        "energy_range": [
+          0.65,
+          0.75
+        ]
+      },
+      "driving_techno": {
+        "description": "Driving 24-bar blend, rolling groove, medium-high energy; BPM 134-140; group: techno/driving.",
+        "group": "techno",
+        "bpm_range": [
+          134,
+          140
+        ],
+        "energy_range": [
+          0.5,
+          0.65
+        ]
+      },
+      "acid_techno": {
+        "description": "303 acid focus, 16-bar sharp transition, long body (56 bars), bright EQ (270/5000); BPM 138-144; group: techno/acid.",
+        "group": "techno",
+        "bpm_range": [
+          138,
+          144
+        ],
+        "energy_range": [
+          0.5,
+          0.65
+        ]
+      },
+      "deep_techno": {
+        "description": "Deep/hypnotic 48-bar blend, warm sub, low compression; BPM 120-128; group: techno/deep.",
+        "group": "techno",
+        "bpm_range": [
+          120,
+          128
+        ],
+        "energy_range": [
+          0.15,
+          0.35
+        ]
+      },
+      "minimal_techno": {
+        "description": "Sparse, minimal processing, 48-bar blend, 32-bar body; BPM 122-128; group: techno/minimal.",
+        "group": "techno",
+        "bpm_range": [
+          122,
+          128
+        ],
+        "energy_range": [
+          0.2,
+          0.3
+        ]
+      },
+      "raw_techno": {
+        "description": "Raw analog warmth, 16-bar sharp blend, tight body (48 bars), aggressive EQ; BPM 130-142; group: techno/raw.",
+        "group": "techno",
+        "bpm_range": [
+          130,
+          142
+        ],
+        "energy_range": [
+          0.6,
+          0.75
+        ]
+      },
+      "tribal_techno": {
+        "description": "Percussive tribal groove, 24-bar blend, rolling drive, medium-high energy; BPM 134-140; group: techno/tribal.",
+        "group": "techno",
+        "bpm_range": [
+          134,
+          140
+        ],
+        "energy_range": [
+          0.45,
+          0.6
+        ]
+      },
+      "detroit_techno": {
+        "description": "Soulful melodic techno, 32-bar blend, balanced EQ, medium compression; BPM 128-135; group: techno/detroit.",
+        "group": "techno",
+        "bpm_range": [
+          128,
+          135
+        ],
+        "energy_range": [
+          0.35,
+          0.5
+        ]
+      },
+      "progressive_techno": {
+        "description": "Progressive build (32-bar blend, 56-bar body), cinematic EQ, medium compression; BPM 128-134; group: techno/progressive.",
+        "group": "techno",
+        "bpm_range": [
+          128,
+          134
+        ],
+        "energy_range": [
+          0.35,
+          0.5
+        ]
+      },
+      "melodic_techno": {
+        "description": "Melodic deep flow (48-bar blend, 40-bar body), smooth EQ phase (0.55/0.80), medium compression; BPM 126-132; group: techno/melodic.",
+        "group": "techno",
+        "bpm_range": [
+          126,
+          132
+        ],
+        "energy_range": [
+          0.3,
+          0.45
+        ]
+      },
+      "deep_house": {
+        "description": "Warm deep blend (32-bar blend, 48-bar body), gentle compression (threshold -14), low xsplit (200/3500); BPM 122-128; group: house/deep.",
+        "group": "house",
+        "bpm_range": [
+          122,
+          128
+        ],
+        "energy_range": [
+          0.3,
+          0.45
+        ]
+      },
+      "tech_house": {
+        "description": "Punchy 16-bar blend, tight 32-bar body, medium EQ (280/4500), medium compression; BPM 124-132; group: house/tech.",
+        "group": "house",
+        "bpm_range": [
+          124,
+          132
+        ],
+        "energy_range": [
+          0.4,
+          0.55
+        ]
+      },
+      "progressive_house": {
+        "description": "Cinematic progressive (32-bar blend, 56-bar body), wide EQ (250/4000), emotional arc; BPM 126-132; group: house/progressive.",
+        "group": "house",
+        "bpm_range": [
+          126,
+          132
+        ],
+        "energy_range": [
+          0.35,
+          0.5
+        ]
+      },
+      "classic_house": {
+        "description": "Vocal-centric classic (16-bar blend, 32-bar body), mid-cut 0dB, balanced EQ (250/3800); BPM 124-128; group: house/classic.",
+        "group": "house",
+        "bpm_range": [
+          124,
+          128
+        ],
+        "energy_range": [
+          0.3,
+          0.45
+        ]
+      }
+    },
+    "subgenre_profiles": {
+      "minimal": {
+        "description": "Sparse stripped groove; low energy mean (0.25); BPM 122-128; group: techno/minimal.",
+        "group": "techno",
+        "bpm_range": [
+          122,
+          128
+        ],
+        "energy_mean_ideal": 0.25
+      },
+      "hypnotic": {
+        "description": "Looping trance-inducing flow; medium-high energy (0.45); BPM 130-142; group: techno/hypnotic.",
+        "group": "techno",
+        "bpm_range": [
+          130,
+          142
+        ],
+        "energy_mean_ideal": 0.45
+      },
+      "driving": {
+        "description": "Propulsive rolling groove; medium-high energy (0.55); BPM 134-140; group: techno/driving.",
+        "group": "techno",
+        "bpm_range": [
+          134,
+          140
+        ],
+        "energy_mean_ideal": 0.55
+      },
+      "tribal": {
+        "description": "Percussive tribal loops, rolling percussion; medium-high energy (0.50); BPM 134-140; group: techno/tribal.",
+        "group": "techno",
+        "bpm_range": [
+          134,
+          140
+        ],
+        "energy_mean_ideal": 0.5
+      },
+      "peak_time": {
+        "description": "Festival-ready relentless intensity; very high energy (0.70); BPM 136-142; group: techno/peak.",
+        "group": "techno",
+        "bpm_range": [
+          136,
+          142
+        ],
+        "energy_mean_ideal": 0.7
+      },
+      "acid": {
+        "description": "303 acid squelch, intense psychedelic energy (0.55); BPM 138-144; group: techno/acid.",
+        "group": "techno",
+        "bpm_range": [
+          138,
+          144
+        ],
+        "energy_mean_ideal": 0.55
+      },
+      "industrial": {
+        "description": "Metallic distorted abrasive atmosphere; very high energy (0.75); BPM 140-148; group: techno/industrial.",
+        "group": "techno",
+        "bpm_range": [
+          140,
+          148
+        ],
+        "energy_mean_ideal": 0.75
+      },
+      "hard_techno": {
+        "description": "Pounding kick, screeching synths, maximum aggression (0.85); BPM 145-160; group: techno/hard.",
+        "group": "techno",
+        "bpm_range": [
+          145,
+          160
+        ],
+        "energy_mean_ideal": 0.85
+      },
+      "raw": {
+        "description": "Raw analog warmth, stripped but energetic (0.65); BPM 130-142; group: techno/raw.",
+        "group": "techno",
+        "bpm_range": [
+          130,
+          142
+        ],
+        "energy_mean_ideal": 0.65
+      },
+      "dub_techno": {
+        "description": "Deep echo-laden cavernous chords; very low energy (0.20); BPM 120-128; group: techno/dub.",
+        "group": "techno",
+        "bpm_range": [
+          120,
+          128
+        ],
+        "energy_mean_ideal": 0.2
+      },
+      "melodic_deep": {
+        "description": "Cinematic pads, emotional narrative, medium energy (0.35); BPM 126-132; group: techno/melodic.",
+        "group": "techno",
+        "bpm_range": [
+          126,
+          132
+        ],
+        "energy_mean_ideal": 0.35
+      },
+      "progressive": {
+        "description": "Gradual build, emotional progression, medium energy (0.40); BPM 128-134; group: techno/progressive.",
+        "group": "techno",
+        "bpm_range": [
+          128,
+          134
+        ],
+        "energy_mean_ideal": 0.4
+      },
+      "ambient_dub": {
+        "description": "Beatless/downtempo textures, very low energy (0.10); BPM 120-126; group: techno/ambient.",
+        "group": "techno",
+        "bpm_range": [
+          120,
+          126
+        ],
+        "energy_mean_ideal": 0.1
+      },
+      "detroit": {
+        "description": "Soulful melodic techno, medium energy (0.40); BPM 128-135; group: techno/detroit.",
+        "group": "techno",
+        "bpm_range": [
+          128,
+          135
+        ],
+        "energy_mean_ideal": 0.4
+      },
+      "breakbeat": {
+        "description": "Broken beat, percussive groove, medium-high energy (0.50); BPM 128-135; group: techno/breakbeat.",
+        "group": "techno",
+        "bpm_range": [
+          128,
+          135
+        ],
+        "energy_mean_ideal": 0.5
+      },
+      "deep_house": {
+        "description": "Warm sub-bass, lush pads, gentle groove (0.35); BPM 122-128; group: house/deep.",
+        "group": "house",
+        "bpm_range": [
+          122,
+          128
+        ],
+        "energy_mean_ideal": 0.35
+      },
+      "tech_house": {
+        "description": "Punchy kick, rolling bassline, driving groove (0.45); BPM 124-132; group: house/tech.",
+        "group": "house",
+        "bpm_range": [
+          124,
+          132
+        ],
+        "energy_mean_ideal": 0.45
+      },
+      "progressive_house": {
+        "description": "Layered pads, arpeggiated melody, cinematic arc (0.40); BPM 126-132; group: house/progressive.",
+        "group": "house",
+        "bpm_range": [
+          126,
+          132
+        ],
+        "energy_mean_ideal": 0.4
+      },
+      "classic_house": {
+        "description": "Vocal-centric classic groove (0.35); BPM 124-128; group: house/classic.",
+        "group": "house",
+        "bpm_range": [
+          124,
+          128
+        ],
+        "energy_mean_ideal": 0.35
+      }
+    },
+    "audit_thresholds": {
+      "techno_bpm_min": {
+        "description": "Minimum BPM for techno genres (120 BPM). Tracks below this are out of genre range.",
+        "value": 120.0,
+        "group": "audit"
+      },
+      "techno_bpm_max": {
+        "description": "Maximum BPM for techno genres (155 BPM). Tracks above are out of genre range; hard techno reaches 160 BPM but audit cap is 155.",
+        "value": 155.0,
+        "group": "audit"
+      },
+      "techno_lufs_min": {
+        "description": "Minimum loudness (–20 LUFS). Quieter tracks risk being lost in mix.",
+        "value": -20.0,
+        "group": "audit"
+      },
+      "techno_lufs_max": {
+        "description": "Maximum loudness (–4 LUFS). Louder tracks risk clipping after limiter.",
+        "value": -4.0,
+        "group": "audit"
+      },
+      "audit_true_peak_max": {
+        "description": "Peak level must not exceed 0.0 dBFS (no clipping).",
+        "value": 0.0,
+        "group": "audit"
+      },
+      "audit_bpm_confidence_min": {
+        "description": "BPM confidence must be ≥ 0.5; lower values are unreliable for beatmatching.",
+        "value": 0.5,
+        "group": "audit"
+      },
+      "audit_key_confidence_min": {
+        "description": "Key confidence must be ≥ 0.4; lower values make Camelot matching risky.",
+        "value": 0.4,
+        "group": "audit"
+      },
+      "audit_hp_ratio_max": {
+        "description": "HP ratio (high-frequency energy) must be ≤ 8.0; higher indicates excessive noise/brightness.",
+        "value": 8.0,
+        "group": "audit"
+      },
+      "audit_crest_factor_max": {
+        "description": "Crest factor must be ≤ 30 dB; higher indicates excessive dynamics (pumping).",
+        "value": 30.0,
+        "group": "audit"
+      },
+      "audit_spectral_flatness_max": {
+        "description": "Spectral flatness must be ≤ 0.5; higher indicates noise-like content.",
+        "value": 0.5,
+        "group": "audit"
+      }
+    },
+    "template_descriptions": {
+      "roller_90": {
+        "description": "Sustained driving energy over 90 minutes. Slots: minimal → hypnotic → driving → tribal → driving → hypnotic → driving → hypnotic. Best for long club sets.",
+        "duration_min": 90,
+        "group": "techno",
+        "template_slots": [
+          "minimal",
+          "hypnotic",
+          "driving",
+          "tribal",
+          "driving",
+          "hypnotic",
+          "driving",
+          "hypnotic"
+        ]
+      },
+      "peak_hour_60": {
+        "description": "Relentless intensity over 60 minutes. Slots: driving → peak_time → acid → raw → industrial → peak_time → driving. Best for peak-time club/festival.",
+        "duration_min": 60,
+        "group": "techno",
+        "template_slots": [
+          "driving",
+          "peak_time",
+          "acid",
+          "raw",
+          "industrial",
+          "peak_time",
+          "driving"
+        ]
+      },
+      "classic_60": {
+        "description": "Build-peak-release arc over 60 minutes. Slots: minimal → dub_techno → melodic_deep → progressive → driving → peak_time → hypnotic → melodic_deep. Best for balanced club set.",
+        "duration_min": 60,
+        "group": "techno",
+        "template_slots": [
+          "minimal",
+          "dub_techno",
+          "melodic_deep",
+          "progressive",
+          "driving",
+          "peak_time",
+          "hypnotic",
+          "melodic_deep"
+        ]
+      },
+      "wave_120": {
+        "description": "Multiple energy waves over 120 minutes. Slots: minimal → progressive → peak_time → melodic_deep → hypnotic → driving → acid → minimal → peak_time → melodic_deep. Best for progressive journeys.",
+        "duration_min": 120,
+        "group": "techno",
+        "template_slots": [
+          "minimal",
+          "progressive",
+          "peak_time",
+          "melodic_deep",
+          "hypnotic",
+          "driving",
+          "acid",
+          "minimal",
+          "peak_time",
+          "melodic_deep"
+        ]
+      },
+      "progressive_120": {
+        "description": "Gradual build over 2 hours. Slots: ambient_dub → dub_techno → minimal → melodic_deep → progressive → detroit → hypnotic → driving → peak_time → driving. Best for warm-up to peak journeys.",
+        "duration_min": 120,
+        "group": "techno",
+        "template_slots": [
+          "ambient_dub",
+          "dub_techno",
+          "minimal",
+          "melodic_deep",
+          "progressive",
+          "detroit",
+          "hypnotic",
+          "driving",
+          "peak_time",
+          "driving"
+        ]
+      },
+      "closing_60": {
+        "description": "Graceful wind-down over 60 minutes. Slots: driving → hypnotic → melodic_deep → progressive → dub_techno → minimal → ambient_dub. Best for closing sets.",
+        "duration_min": 60,
+        "group": "techno",
+        "template_slots": [
+          "driving",
+          "hypnotic",
+          "melodic_deep",
+          "progressive",
+          "dub_techno",
+          "minimal",
+          "ambient_dub"
+        ]
+      },
+      "warm_up_30": {
+        "description": "Low-energy opener over 30 minutes. Slots: ambient_dub → dub_techno → minimal → melodic_deep. Best for opening/warm-up.",
+        "duration_min": 30,
+        "group": "techno",
+        "template_slots": [
+          "ambient_dub",
+          "dub_techno",
+          "minimal",
+          "melodic_deep"
+        ]
+      },
+      "full_library": {
+        "description": "Use all available tracks; flexible duration; no preset arc; relies on user-curated order.",
+        "duration_min": 0,
+        "group": "any",
+        "template_slots": [
+          "free",
+          "free",
+          "free",
+          "free"
+        ]
+      }
+    },
+    "groups": {
+      "techno": [
+        "industrial_techno",
+        "dub_techno",
+        "hard_techno",
+        "hypnotic_techno",
+        "peak_time_techno",
+        "driving_techno",
+        "acid_techno",
+        "deep_techno",
+        "minimal_techno",
+        "raw_techno",
+        "tribal_techno",
+        "detroit_techno",
+        "progressive_techno",
+        "melodic_techno"
+      ],
+      "house": [
+        "deep_house",
+        "tech_house",
+        "progressive_house",
+        "classic_house"
+      ],
+      "industrial": [
+        "industrial_techno"
+      ],
+      "acid": [
+        "acid_techno"
+      ],
+      "hard": [
+        "hard_techno"
+      ],
+      "hypnotic": [
+        "hypnotic_techno",
+        "minimal_techno",
+        "dub_techno"
+      ],
+      "driving": [
+        "driving_techno",
+        "peak_time_techno"
+      ],
+      "peak_time": [
+        "peak_time_techno",
+        "hard_techno",
+        "industrial_techno"
+      ]
+    }
+  },
+  "computed_notes": {
+    "description": "These values are defaults; where possible, compute them dynamically from track features instead of using hardcoded constants.",
+    "transition_bars": "Can be computed from phrase boundaries (e.g., default 32 or 48 bars) or overridden manually (0, 16). Use track phrase analysis (`dominant_phrase_bars`, `phrase_boundaries_ms`) to determine actual overlap length.",
+    "body_bars": "Can be computed from dominant phrase length (`dominant_phrase_bars`) or set manually (32, 40, 56). For dense mix, shorter body (16-32) may be preferred.",
+    "target_bpm": "Fixed at 130.0 for standard techno; for multi-genre sets, compute median/mean BPM from selected `audio_bpm` values, or use `audio_bpm` per track for time-stretch ratios.",
+    "bpm_range": "Can be computed from `audio_bpm` and `bpm` fields of selected tracks; audit uses `BpmRangeRule` (120-155) as a gate, not a fixed range.",
+    "energy_mean_ideal": "Ideal energy for subgenre profiles; can be derived from `energy_mean` of candidate pool or set manually.",
+    "transition_bars_hypnotic": "Deprecated per-subgenre overrides in RenderSettings; use `subgenre_constants.json` presets instead.",
+    "transition_length_formula": "Standard blend length = max(32, min(64, dominant_phrase_bars * 2)) bars; for minimal/dub use 64+ bars; for peak-time/hard use 8-16 bars.",
+    "body_length_formula": "Body length = max(32, dominant_phrase_bars) for standard; for dense mix use 16-32.",
+    "camelot_distance": "Compute using `audio_key_code` or `beatport_camelot`; standard acceptance threshold <= 2 (strict) or <= 3 (soft).",
+    "energy_arc_phase": "Compute energy direction (up/down/flat) by comparing `integrated_lufs` or `energy_mean` between consecutive tracks with phase-aware scoring (warmup/build/peak/release).",
+    "transition_score_composite": "Use 6-component formula (BPM, harmony, energy, genre, brightness, rhythm) with weights from `audit_rules`; exclude axes with missing data (brightness, rhythm when no Essentia) without penalty."
+  }
+}
