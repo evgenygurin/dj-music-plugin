@@ -39,7 +39,7 @@ def merge_session_stem_policy(kwargs: dict[str, Any] | None) -> dict[str, Any]:
     return merged
 
 
-@tool(name="dj_stem_transition_policy", tags={"namespace:render:config"})
+@tool(name="stem_transition_policy", tags={"namespace:render:config"})
 async def stem_transition_policy(
     ctx: Context,
     vocals_swap_ratio: float | None = None,

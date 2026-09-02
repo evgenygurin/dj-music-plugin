@@ -68,6 +68,7 @@ ALWAYS_VISIBLE_TOOLS: tuple[str, ...] = (
     "render_mixdown",
     "render_validate_grid",
     "render_diagnose",
+    "stem_transition_policy",
 )
 
 
