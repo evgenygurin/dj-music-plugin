@@ -1,0 +1,144 @@
+{
+  "$schema": "https://mintlify.com/docs.json",
+  "appearance": {
+    "default": "system",
+    "strict": false
+  },
+  "background": {
+    "color": {
+      "dark": "#222831",
+      "light": "#EEEEEE"
+    },
+    "decoration": "gradient"
+  },
+  "banner": {
+    "color": {
+      "dark": "#475569",
+      "light": "#1e3a5f"
+    },
+    "content": "FastMCP 4 is here — built for the new MCP protocol. [See what's new](/getting-started/whats-new)."
+  },
+  "colors": {
+    "dark": "#f72585",
+    "light": "#4cc9f0",
+    "primary": "#2d00f7"
+  },
+  "contextual": {
+    "options": ["copy", "view"]
+  },
+  "description": "The fast, Pythonic way to build MCP servers and clients.",
+  "errors": {
+    "404": {
+      "description": "You’ve wandered outside the context.",
+      "redirect": false,
+      "title": "Don't panic."
+    }
+  },
+  "favicon": {
+    "dark": "/assets/brand/favicon-dark.svg",
+    "light": "/assets/brand/favicon-light.svg"
+  },
+  "footer": {
+    "socials": {
+      "discord": "https://discord.gg/uu8dJCgttd",
+      "github": "https://github.com/PrefectHQ/fastmcp",
+      "website": "https://www.prefect.io",
+      "x": "https://x.com/fastmcp"
+    }
+  },
+  "integrations": {
+    "ga4": {
+      "measurementId": "G-64R5W1TJXG"
+    }
+  },
+  "interaction": {
+    "drilldown": false
+  },
+  "logo": {
+    "dark": "/assets/brand/wordmark-white.png",
+    "light": "/assets/brand/wordmark.png"
+  },
+  "name": "FastMCP",
+  "navbar": {
+    "links": [
+      {
+        "href": "https://discord.gg/uu8dJCgttd",
+        "icon": "discord",
+        "label": ""
+      },
+      {
+        "href": "https://www.prefect.io/horizon?utm_source=gofastmcp&utm_medium=docs&utm_campaign=docs_horizon&utm_content=header",
+        "icon": "cloud",
+        "label": "Prefect Horizon"
+      }
+    ],
+    "primary": {
+      "href": "https://github.com/PrefectHQ/fastmcp",
+      "type": "github"
+    }
+  },
+  "navigation": {
+    "versions": [
+      {
+        "dropdowns": [
+          {
+            "dropdown": "Documentation",
+            "groups": [
+              {
+                "group": "Get Started",
+                "pages": [
+                  "getting-started/welcome",
+                  "getting-started/installation",
+                  "getting-started/quickstart",
+                  "getting-started/whats-new"
+                ]
+              },
+              {
+                "group": "Servers",
+                "pages": [
+                  "servers/server",
+                  {
+                    "collapsed": true,
+                    "group": "Core Components",
+                    "icon": "toolbox",
+                    "pages": [
+                      "servers/tools",
+                      "servers/resources",
+                      "servers/prompts",
+                      "servers/context"
+                    ]
+                  }
+                  // ... (truncated for brevity)
+                ]
+              }
+            ]
+          }
+        ],
+        "version": "v4.0.0 (beta 1)"
+      }
+    ]
+  },
+  "redirects": [
+    {
+      "destination": "/getting-started/whats-new",
+      "source": "/development/v4-notes/index"
+    }
+    // ... (additional redirects omitted for brevity)
+  ],
+  "search": {
+    "prompt": "Search the docs..."
+  },
+  "styling": {
+    "codeblocks": {
+      "theme": {
+        "dark": "dark-plus",
+        "light": "snazzy-light"
+      }
+    }
+  },
+  "theme": "almond",
+  "thumbnails": {
+    "appearance": "light",
+    "background": "/assets/brand/thumbnail-background-4.jpeg"
+  }
+}

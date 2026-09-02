@@ -86,6 +86,39 @@ This project is indexed by GitNexus as **dj-music-plugin** (37486 symbols, 81504
 
 <!-- gitnexus:end -->
 
+## About
+- **About** Added FastMCP CLI basics: `fastmcp list` lists tools on a server, `fastmcp call` invokes them with auto‑coerced arguments.
+- **Router principle** — `AGENTS.md` должен быть коротким ≈ 100 строк и лишь указывать на более детальные правила; всё остальное вынесено в `rules/`.
+
+## Setup
+- **Setup** Use `fastmcp discover` to see configured MCP servers, then `fastmcp list <target>` to view available tools before calling them.
+- **Rules directory** — создан каталог `rules/` в корне репозитория; в нём размещаются файлы `general.md`, `development.md`, `gitnexus.md`, `render.md`, `fastmcp.md` со всеми правилами проекта.
+
+## Development
+- **Development** Invoke tools via `fastmcp call <target> <tool> key=value …`; complex args via JSON. Type coercion (int, bool) is automatic based on tool schema.
+- **Impact workflow** — перед изменением любого символа обязательно запускать `gitnexus_impact` (LOW risk для `AGENTS.md`) и `gitnexus_detect_changes` после изменений.
+
+## Testing
+- **Testing** Use `fastmcp call … --json` for machine‑readable output to script verification steps in CI.
+- **Parallel testing** — использовать `uv run pytest -n auto` для ускорения тестов.
+
+## Technologies
+- **Technologies** FastMCP CLI (`fastmcp`) is the primary client for interacting with the FastMCP server and its tools.
+- Проект построен на **FastMCP v3**, управляется через **UV**, а кодовая база индексируется **GitNexus**.
+
+## Rules
+- **Rules** Always discover a server (`fastmcp discover`) and list its tools (`fastmcp list`) before invoking any tool to ensure correct target and version.
+- `AGENTS.md` не должен превышать ~ 100 строк; все детальные правила находятся в `rules/`.
+
+## Known Issues
+- **Known Issues** `fastmcp list` may require proper server configuration; missing `.mcp.json` can cause lookup failures.
+- Текущий `AGENTS.md` содержит ~ 230 строк, что приводит к избыточному потреблению контекста агентами.
+
+## Notes
+- **Notes** `fastmcp discover` scans editor configs (Claude Desktop, Code, Cursor, Gemini, Goose) and local `mcp.json` for server definitions.
+- Выполнен `gitnexus_impact` для `AGENTS.md` — риск LOW, 0 зависимых символов.
+- Added `docs/fastmcp.json` containing Mintlify FastMCP site configuration (theme, navigation, branding).
+
 ## Project Routing
 
 - Suno используй как opt-in provider в текущем проектном режиме no-browser
@@ -115,119 +148,9 @@ This project is indexed by GitNexus as **dj-music-plugin** (37486 symbols, 81504
   `provider_write(provider="suno", entity="generation", operation="download")`
   и держи эти файлы как export-side assets до появления local-file track import.
 
-## Render Lessons (бойся граблей)
+## Render Lessons
 
-> Уроки ниже закреплены как исполняемый QA-процесс: скил `skills/validate-set`,
-> тул `render_validate_grid` (→ `local://render/{version_id}/grid_check`), промпт
-> `validate_grid_workflow`, гейты в `reference://render/validation`.
-> beatgrid несёт `bpm_measured` (длинное окно kick-детектора) — именно он идёт
-> в `tempo_ratio`, а не stored BPM.
+> Рендер‑уроки (проверка Camelot, BPM, phase, дефолты `stem=True`, эффектов `None`) закреплены в `skills/validate-set/SKILL.md` и `reference://render/validation`. При ручном сборе набора используй `reference://render/defaults`, `reference://subgenres`, `reference://templates`, `reference://audit_rules`. Для детального чек-листа см. `AGENTS.md` раздел ниже или `skills/validate-set/`.
 
-### 1. Всегда проверяй Camelot совместимость ДО рендера
-
-Перед рендером сета: получи ключи треков, проверь все переходы через
-`_camelot_distance()`. Если хоть один трек изолирован (dist=99 со всеми) —
-удали его или замени. **Не рендерь сет с заведомыми конфликтами.**
-
-### 2. `render_mixdown(stem=True)` — всегда отключай эффекты явно
-
-```python
-# НЕПРАВИЛЬНО — автоэффекты (filter_sweep, echo, reverb) включены по умолчанию
-# и создают артефакты: фильтр пульсирует быстрее бита, приглушает треки
-dj_render_mixdown(version_id=X, stem=True)
-
-# ПРАВИЛЬНО — всегда передавай null для всех эффектов
-dj_render_mixdown(version_id=X, stem=True, filter_sweep=None, echo=None, reverb=None)
-```
-
-Без явного ``None`` рендер применяет дефолтные preset'ы эффектов, которые
-работают некорректно — фильтр «захлёбывается» быстрее основного бита.
-
-### 3. Проверяй beatgrid phase перед рендером — на оригинальном аудио, не на стемах!
-
-После ``render_beatgrid`` или автоматического битгрида:
-
-- **Demucs стемы сдвигают транзиенты!** Никогда не анализируй phase на Demucs
-  drums/other стемах — там первый удар может быть смещён на 30-100ms. Только
-  оригинальный файл: ``/tmp/dj_audio/NN. Artist - Title [ym_id].mp3``.
-- Если у трека ``phase_ms: 0.0`` и ``flags: []`` — алгоритм не нашёл первый
-  удар (тихое интро).
-- **Всегда анализируй ВСЕ треки**, а не только подозрительные:
-  ``librosa.beat.beat_track(y=..., sr=..., units='time')``.
-- Сравни phase_ms для КАЖДОЙ соседней пары: разница >0.25 бита = проблема.
-  ``phase_offset_beats = (phase_b - phase_a) * target_bpm / 60``.
-
-### 4. BPM discrepancy — проверяй реальный темп
-
-Stored BPM (из Beatport/DB) может отличаться от реального audio BPM на 1+ BPM.
-При time-stretch (rubberband) ошибка в 1 BPM на 60-секундном переходе даёт
-drift ~1 beat — слышимый рассинхрон.
-
-Перед рендером: сравни ``bpm`` и ``audio_bpm`` в track_features. Если
-расхождение >0.5 BPM — используй audio_bpm для time-stretch, а не stored BPM.
-
-### 5. Пре-рендер чеклист (выполнять ПЕРЕД каждым рендером)
-
-```python
-# 1. Camelot: проверить все пары
-for i in range(len(tracks) - 1):
-    if _camelot_distance(a.key, b.key) > 2:
-        WARN("Camelot conflict!")
-
-# 2. BPM: проверить discrepancy
-for t in tracks:
-    if abs(t.stored_bpm - t.audio_bpm) > 0.5:
-        WARN(f"BPM mismatch: stored={t.stored_bpm} audio={t.audio_bpm}")
-
-# 3. Phase: проверить каждый трек на оригинальном файле
-y, sr = librosa.load(orig_file, sr=22050, mono=True)
-_, beats = librosa.beat.beat_track(y=y, sr=sr, units='time')
-phase_ms = beats[0] * 1000
-if abs(beatgrid_phase - phase_ms) > 30:
-    WARN(f"Phase mismatch: grid={beatgrid_phase} actual={phase_ms}")
-
-# 4. Phase offset между соседями в битах
-for a, b in zip(tracks, tracks[1:]):
-    offset_beats = abs(a.phase_s - b.phase_s) * target_bpm / 60
-    if offset_beats > 0.25:
-        WARN(f"Transition {a}→{b}: phase offset {offset_beats:.2f} beats")
-```
-
-### 6. Sound quality — дефолтные параметры рендера
-
-Текущие дефолты (``app/config/render.py``): ``transition_bars=48, body_bars=40``,
-``pre_comp_threshold=-16.0, glue_comp_threshold=-13.0``.
-
-- **``stem=True``** — уже дефолт (Demucs 4-stem). Классический 3-полосный EQ
-  (``stem=False``) звучит дёшево («Siemens A52») и режет вокал на переходах.
-- **gain_db не трогать** — ``gains_to_median()`` в ``app/domain/render/levels.py``
-  заклуплен на ±0dB (отключён). С Demucs стем-войсинг сам балансит громкость.
-  Ручной gain_db толкает микс в лимитер и создаёт пампинг.
-- **Эффекты (filter_sweep, echo, reverb) всегда null** — их дефолтные пресеты
-  работают некорректно (фильтр пульсирует быстрее бита).
-- **subgenre="hypnotic_techno"** — дефолт для техно (с v206). Самый щадящий: плавное
-  введение стемов (phase_1_ratio 0.55), длинные переходы 48 bars, мягкая
-  компрессия. Для более энергичной атмосферы передавай ``driving_techno``,
-  ``peak_time_techno`` или ``hard_techno``. Dub-техно → ``dub_techno``
-  (64-bar переходы, минимальная обработка). Для House ``hypnotic_techno`` **deprecated** — используй house-пресеты ниже.
-- **hi-hat / тарелки** — с Demucs стемы drums приходят вместе с хай-хэтами.
-  ``hypnotic_techno`` решает это плавным вводом drums стема (transition 48+ bars,
-  phase_1_ratio 0.55).
-- **House пресеты (4):** ``deep_house`` 32/48 (warm, xsplit 200/3500, 0.50/0.80, low_swap 2.0b), ``tech_house`` 16/32 (punch, 280/4500, 0.30/0.60, 0.5b), ``progressive_house`` 32/56 (cinematic, 250/4000, 0.40/0.70, 1.5b), ``classic_house`` 16/32 (vocal, 250/3800, 0.35/0.65, 1.0b) — см. `reference/subgenres.md` (11 пресетов: 7 techno +4 house). Фраза 16 beats, `camelot_mode soft`, single-bassline.
-
-### 7. Рендери каждый трек ОДИН раз — дальше переиспользуй результат
-
-Рендер (demucs стемы + rubberband time-stretch + лимитер) — очень дорогая
-операция (минуты на каждый трек). НЕ перерендеривай то, что уже срендерено.
-
-- Перед ``render_mixdown`` проверь, есть ли готовые стемы/микс в
-  ``generated-sets/render/`` или кеше трека. Если параметры рендера не менялись —
-  **копируй готовые файлы** (``cp``/``shutil.copy``) вместо повторного прогона.
-- Если меняется только порядок/арка сета — переиспользуй уже срендеренные стемы
-  треков, не запускай demucs/rubberband заново.
-- Перерендер нужен ТОЛЬКО если реально изменились параметры обработки аудио
-  (subgenre, эффекты, transition_bars, body_bars, уровень громкости).
-- Меняя только track_order в set_version — не трогай аудио, только порядок.
-- Та же логика для beatgrid: один раз посчитал phase/grid — бери из кеша
-  (``refresh_grid=False``), не пересчитывай.
+- Для ручных наборов (`manual` / `template`-подход) основной упор на шаблоны (`reference://templates`), профили поджанров (`reference://subgenres`) и ручной `render_plan.json`.
 ```

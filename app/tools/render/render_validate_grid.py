@@ -1,4 +1,16 @@
-"""render_validate_grid — post-render grid-alignment QA for a version."""
+"""render_validate_grid — post-render grid-alignment QA for a version.
+
+Client usage (FastMCP v3 structured output):
+    res = await client.call_tool("render_validate_grid", {"version_id": 248})
+    # res.data is a hydrated GridCheckResult (Pydantic), not JSON-serializable
+    # via stdlib json directly. Use one of:
+    #   res.data.model_dump()  # Pydantic → dict
+    #   res.structured_content  # raw dict from server
+    #   res.content[0].text    # JSON string
+    # or helper: from app.shared.json_utils import pydantic_json_dumps
+    #   pydantic_json_dumps(res.data)
+See https://github.com/prefecthq/fastmcp/blob/main/docs/clients/tools.mdx
+"""
 
 from __future__ import annotations
 
@@ -46,10 +58,17 @@ async def render_validate_grid(
     if not Path(path).exists():
         raise ValidationError(f"no rendered mix at {path} — run render_mixdown first")
 
-    return await render_validate_grid_handler(
+    result = await render_validate_grid_handler(
         ctx=ctx,
         uow=uow,
         version_id=version_id,
         workspace=render_workspace(version_id),
         mix_path=path,
     )
+    # FastMCP Client exposes .data as the Pydantic model and .structured_content
+    # as the raw dict. Returning a BaseModel is correct for schema, but
+    # client-side json.dumps(model) fails (Root/BaseModel not JSON serializable).
+    # Callers should use res.data.model_dump() or res.structured_content.
+    # We return the model — FastMCP handles structured_content — but ensure
+    # the model is JSON-serializable via mode='json' for any direct dumps.
+    return result

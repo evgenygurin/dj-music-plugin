@@ -40,7 +40,19 @@ audio = [
     "numba>=0.65",
     "llvmlite>=0.47",
 ]
-stems = ["demucs>=4.0", "torch>=2.0", "torchcodec>=0.14"]
+stems = [
+    "demucs>=4.0",
+    "torch>=2.0",
+    "torchcodec>=0.14",
+    "psutil>=5.9",
+    # 3-tier: mlx 30× realtime (darwin arm64 unified memory)
+    "mlx>=0.20; sys_platform == 'darwin'",
+    # onnx CoreML EP — fp16 166MB, Neural Engine → CPU fallback (darwin only)
+    # silicon wheels only for cp38-cp311 (no cp312); keep marker python_version < '3.12'
+    # so `uv sync --all-extras` on cp312 darwin doesn't fail — fallback to onnxruntime CPU
+    "onnxruntime-silicon>=1.16.3; sys_platform == 'darwin' and python_version < '3.12'",
+    "onnxruntime>=1.18; sys_platform != 'darwin' or python_version >= '3.12'",
+]
 postgres = ["pgvector>=0.3"]
 supabase = [
     "supabase>=2.0",
@@ -81,12 +93,14 @@ unfixable = ["F401", "F811", "F841"]
 "app/resources/**" = ["B008", "E501", "RUF001"]  # FastMCP DI: Depends() in arg defaults is correct; RUF001: Russian descriptions contain Cyrillic lookalikes
 "app/providers/**" = ["E501"]  # long URLs and API paths
 "tests/**" = ["E501", "RUF012", "B017", "N806"]  # tests can use blind pytest.raises; mock context managers use uppercase
+"scripts/bench_stems_m2.py" = ["E501", "RUF001", "RUF002", "RUF003", "SIM105", "SIM108"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["app"]
 
 [tool.mypy]
 python_version = "3.12"
+exclude = ["scripts"]
 strict = true
 plugins = ["pydantic.mypy"]
 warn_return_any = true
@@ -108,6 +122,24 @@ filterwarnings = [
     # Production audio is always long enough; these only fire on test fixtures.
     "ignore:n_fft=.*is too large for input signal of length.*:UserWarning:librosa.*",
     "ignore:Trying to estimate tuning from empty frequency set.*:UserWarning:librosa.*",
+    # audioread (via librosa) still imports deprecated stdlib modules
+    # aifc/audioop/sunau removed in 3.13 — third-party, unavoidable.
+    "ignore:'aifc' is deprecated.*:DeprecationWarning:audioread.*",
+    "ignore:'audioop' is deprecated.*:DeprecationWarning:audioread.*",
+    "ignore:'sunau' is deprecated.*:DeprecationWarning:audioread.*",
+    "ignore:'aifc' is deprecated.*:DeprecationWarning",
+    "ignore:'audioop' is deprecated.*:DeprecationWarning",
+    "ignore:'sunau' is deprecated.*:DeprecationWarning",
+    # librosa fallback path: soundfile→audioread — noisy on corrupt fixtures,
+    # legit mp3 still goes through it in prod; silence the chatter.
+    "ignore:PySoundFile failed.*:UserWarning",
+    "ignore:.*__audioread_load.*:FutureWarning",
+    # audioread leaves BufferedReader open on decode failure (ResourceWarning)
+    "ignore:unclosed file.*:ResourceWarning",
+    "ignore::ResourceWarning",
+    # aiosqlite AsyncEngine disposal race — Connection._cancel never awaited (aiosqlite/sqlalchemy)
+    "ignore:coroutine.*was never awaited:RuntimeWarning",
+    "ignore:.*Connection\\._cancel.*:RuntimeWarning",
 ]
 markers = [
     "integration: live external-service round-trips, skipped without secrets (e.g. DJ_YM_TOKEN)",

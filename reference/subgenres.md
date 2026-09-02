@@ -1,6 +1,6 @@
 # Subgenre Render Presets
 
-> 11 distinct presets (7 techno + 4 house; 18 entries in `PRESET_MAP` with aliases: 14 techno incl. aliases +4 house). House presets use single-bassline 7B phrasing (16-beat boundaries) via `SubgenreRenderPreset` → `RenderSettings` → `BarPlanner`/`RenderPlanner`.
+> 18 entries in `PRESET_MAP` (14 techno aliases + 4 house presets; 7 techno + 4 house = 11 distinct render presets). House presets use single-bassline 16-beat phrasing (`deep_house`, `tech_house`, `progressive_house`, `classic_house`).
 
 ## Preset Table (transition_bars / body_bars)
 

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import os
 import subprocess
 from pathlib import Path
 
@@ -10,7 +11,46 @@ _DEMUCS_TIMEOUT = 1800
 # the 4-stem version (vocals/drums/bass/other) because it is the most stable
 # pretrained release and the others/guitar/piano heads of ``htdemucs_6s`` bleed
 # heavily into drums/other and degrade SDR (per upstream docs).
+#
+# Set ``DJ_DEMUCS_MODEL=htdemucs_ft`` to opt into the fine-tuned bag (4 sub-models,
+# +0.66 dB vocals / +0.60 dB bass SDR on MUSDB18-HQ) at ~2.4x wall-clock cost.
+# See ``AGENTS.md §8`` for the full SDR table.
 DEFAULT_DEMUCS_MODEL = "htdemucs"
+
+# Quality knobs. CLI defaults for ``demucs -n htdemucs`` are shifts=0 / overlap=0.25
+# / segment=Default / clip-mode=rescale / jobs=0 — these give the lowest quality
+# of any sane configuration. We raise shifts to 5 (the equivariant-stabilization
+# trick from Défossez et al. 2021, paper used 10), keep overlap at 0.25 (best
+# quality/speed tradeoff — see upstream docs), and force segment=7.8 to avoid
+# model-default chunking edge artifacts on long techno tracks. 7.8 is the
+# HTDemucs Transformer hard limit (≤7.8s); 10 triggers silent truncation.
+DEMUCS_SHIFTS = 5
+DEMUCS_OVERLAP = 0.25
+DEMUCS_SEGMENT = 7.8
+DEMUCS_CLIP_MODE = "rescale"
+try:
+    import psutil as _psutil  # type: ignore
+
+    _total_mem = _psutil.virtual_memory().total
+    # Global constraint: 8GB → jobs=0 (M2 Air). On darwin with <16GB total,
+    # never fork 2 jobs — unified memory OOMs with 2 parallel graphs.
+    if _total_mem < 16_000_000_000:
+        DEMUCS_JOBS = 0
+    else:
+        _available_mem = _psutil.virtual_memory().available
+        DEMUCS_JOBS = 0 if _available_mem < 4_000_000_000 else 2
+    os.environ.setdefault("PYTORCH_MPS_HIGH_WATERMARK_RATIO", "0.0")
+except ImportError:
+    DEMUCS_JOBS = 0
+    os.environ.setdefault("PYTORCH_MPS_HIGH_WATERMARK_RATIO", "0.0")
+
+# Percussion split cutoff. We pull hi-hats / cymbals / shakers OUT of ``drums``
+# and into ``percussion`` via a high-pass filter. 2000 Hz keeps the kick body
+# and low toms in ``drums`` (where DJ listeners expect them) while routing the
+# metallic cymbal energy to ``percussion`` (where the subgenre presets can EQ
+# it independently for hi-hat control). The old 400 Hz split was a stop-gap
+# that destroyed kick punch.
+PERCUSSION_SPLIT_HZ = 2000
 
 
 def _detect_device() -> str:
@@ -22,6 +62,11 @@ def _detect_device() -> str:
     except Exception:
         pass
     return "cpu"
+
+
+def _demucs_model() -> str:
+    """Resolve the active Demucs model (env override → default)."""
+    return os.environ.get("DJ_DEMUCS_MODEL", DEFAULT_DEMUCS_MODEL)
 
 
 def _run_with_retry(args: list[str], timeout: int = _DEMUCS_TIMEOUT) -> None:
@@ -53,23 +98,23 @@ def run_demucs(
     input_path: Path,
     cache_root: Path,
     flac: bool = False,
-    model: str = DEFAULT_DEMUCS_MODEL,
+    model: str | None = None,
 ) -> dict[str, Path]:
     """Separate audio into 5 electronic-music stems.
 
     Returns canonical 5 stems: ``vocals``, ``drums``, ``bass``, ``harmonic``,
     ``percussion``. ``harmonic`` is Demucs ``other`` (pads / leads / melodic
-    content). ``percussion`` is derived from the ``drums`` output via a 400 Hz
-    split (high-passed content becomes ``percussion``, low-passed keeps the
-    rest in ``drums``).
+    content). ``percussion`` is derived from the ``drums`` output via a 2 kHz
+    high-pass split (cymbals/hi-hats — kick body stays in ``drums``).
 
     Args:
         input_path: Path to the input audio file.
         cache_root: Root directory for stem cache.
         flac: Whether to output FLAC instead of WAV.
-        model: Demucs model. Default ``htdemucs`` (4-stem, most stable
-            electronic-music release).
+        model: Demucs model. Default ``htdemucs`` (4-stem, single-file, fast).
+            Pass ``htdemucs_ft`` for the fine-tuned 4-bag (slower, better SDR).
     """
+    model = model or _demucs_model()
     cache_root.mkdir(parents=True, exist_ok=True)
 
     cache_key = hashlib.sha256(str(input_path.resolve()).encode()).hexdigest()[:12]
@@ -94,6 +139,9 @@ def run_demucs(
 
     if need_demucs:
         device = _detect_device()
+        # demucs CLI --segment is type=int (separate.py: type=int), so 7.8
+        # must be floored to 7 — HTDemucs limit is <=7.8, int 7 is safe.
+        cli_segment = str(int(DEMUCS_SEGMENT))
         _run_with_retry(
             [
                 "python",
@@ -107,6 +155,16 @@ def run_demucs(
                 device,
                 "-o",
                 str(cache_dir),
+                "--shifts",
+                str(DEMUCS_SHIFTS),
+                "--overlap",
+                str(DEMUCS_OVERLAP),
+                "--segment",
+                cli_segment,
+                "--clip-mode",
+                DEMUCS_CLIP_MODE,
+                "-j",
+                str(DEMUCS_JOBS),
                 str(input_path),
             ]
         )
@@ -123,11 +181,16 @@ def run_demucs(
             stderr=subprocess.DEVNULL,
         )
 
-    # Derive ``percussion`` from ``drums`` via 400 Hz split.
+    # Derive ``percussion`` from ``drums`` via high-pass split (cymbals/hi-hats).
+    # 2 kHz keeps the kick fundamental (typically 40-120 Hz) and the snare body
+    # (150-400 Hz) inside ``drums`` where they belong — only the metallic
+    # energy above 2 kHz (hi-hats, ride cymbals, shakers) leaks into
+    # ``percussion`` for separate EQ control by subgenre presets.
     percussion_wav = stem_dir / "percussion.wav"
     drums_wav = stem_dir / "drums.wav"
     if not percussion_wav.exists() and drums_wav.exists():
         tmp_drums = stem_dir / "drums_tmp.wav"
+        cutoff = PERCUSSION_SPLIT_HZ
         subprocess.run(
             [
                 "ffmpeg",
@@ -135,7 +198,10 @@ def run_demucs(
                 "-i",
                 str(drums_wav),
                 "-filter_complex",
-                "[0]lowpass=f=400:poles=2,asetpts=PTS-STARTPTS[drums];[0]highpass=f=400:poles=2,asetpts=PTS-STARTPTS[perc]",
+                (
+                    f"[0]lowpass=f={cutoff}:poles=2,asetpts=PTS-STARTPTS[drums];"
+                    f"[0]highpass=f={cutoff}:poles=2,asetpts=PTS-STARTPTS[perc]"
+                ),
                 "-map",
                 "[drums]",
                 str(tmp_drums),

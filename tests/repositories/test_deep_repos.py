@@ -15,6 +15,9 @@ from app.repositories.track_embedding import TrackEmbeddingRepository
 async def test_stem_features_upsert() -> None:
     session = AsyncMock()
     session.scalar = AsyncMock(return_value=None)  # no existing row → INSERT
+    # session.add — синхронный (BaseRepository), AsyncMock давал coroutine never awaited
+    session.add = MagicMock()
+    session.flush = AsyncMock()
     repo = StemFeaturesRepository(session)
     features = {"bpm": 130.0, "integrated_lufs": -8.5}
 
@@ -63,6 +66,9 @@ async def test_track_embedding_search_similar_excludes_ids_in_sql() -> None:
 async def test_cross_similarity_upsert() -> None:
     session = AsyncMock()
     session.scalar = AsyncMock(return_value=None)
+    # AsyncMock.add → coroutine never awaited (session.add синхронный)
+    session.add = MagicMock()
+    session.flush = AsyncMock()
     repo = CrossSimilarityRepository(session)
 
     await repo.upsert(

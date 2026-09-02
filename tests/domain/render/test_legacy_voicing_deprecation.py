@@ -9,7 +9,25 @@ import warnings
 
 import pytest
 
-from app.domain.render.stem_voicing import stem_voicing
+# Импорт шима триггерит DeprecationWarning через __getattr__ — гасим на уровне модуля,
+# чтобы import не падал в warnings summary (те же 8 воркеров → 8 повторов).
+warnings.filterwarnings(
+    "ignore",
+    category=DeprecationWarning,
+    message="stem_voicing.*is deprecated.*",
+)
+warnings.filterwarnings(
+    "ignore",
+    category=DeprecationWarning,
+    message="STEM_VOICING.*is deprecated.*",
+)
+warnings.filterwarnings(
+    "ignore",
+    category=DeprecationWarning,
+    message="StemVoicing.*is deprecated.*",
+)
+
+from app.domain.render.stem_voicing import stem_voicing  # type: ignore[attr-defined]
 
 
 def _load_legacy_attr(name: str):
@@ -64,4 +82,4 @@ def test_legacy_voicing_raises_for_legacy_stems():
         warnings.simplefilter("ignore", DeprecationWarning)
         for legacy_stem in ("instrumental", "acappella", "other"):
             with pytest.raises(ValueError):
-                stem_voicing(legacy_stem)
+                stem_voicing(legacy_stem)  # type: ignore[operator]

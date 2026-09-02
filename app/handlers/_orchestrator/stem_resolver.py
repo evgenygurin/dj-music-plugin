@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import gc
 from pathlib import Path
 from typing import Any
 
@@ -9,6 +10,14 @@ from sqlalchemy import select
 from app.domain.render.models import STEM_ORDER
 from app.handlers._context_log import safe_info
 from app.models.audio_file import DjLibraryItem
+
+# Serialize stem separation — shared with app/tools/stems.py (same unified memory).
+# On M2 8GB two parallel MPS graphs OOM — Semaphore(1) + to_thread keeps MCP
+# event loop responsive. Imported from app.audio.deep for single source of truth.
+try:
+    from app.audio.deep import STEMS_SEMAPHORE as _SEM
+except ImportError:  # pragma: no cover - circular import fallback
+    _SEM = asyncio.Semaphore(1)
 
 _STEM_EXTENSIONS = (".m4a", ".mp3", ".wav", ".flac")
 
@@ -57,8 +66,16 @@ async def _separate_stems(
     ctx: Any, inputs: list[Any], workspace: str
 ) -> dict[int, dict[str, str]] | None:
     try:
-        from app.audio.deep.demucs_runner import DEFAULT_DEMUCS_MODEL, run_demucs
+        from app.audio.deep import get_runner
+        from app.config.stems import StemsConfig
     except ImportError as exc:  # pragma: no cover - optional [stems] extra
+        await safe_info(ctx, f"stem separation unavailable ({exc}); classic render")
+        return None
+
+    cfg = StemsConfig()
+    try:
+        runner = get_runner(cfg)
+    except Exception as exc:  # pragma: no cover - runner resolution failed
         await safe_info(ctx, f"stem separation unavailable ({exc}); classic render")
         return None
 
@@ -76,13 +93,26 @@ async def _separate_stems(
             ctx, f"stem render: separating track {ti.track_id} ({Path(ti.file_path).name})..."
         )
         try:
-            stems = await asyncio.to_thread(
-                run_demucs,
-                input_file,
-                cache_root=Path(workspace) / "stems",
-                flac=True,
-                model=DEFAULT_DEMUCS_MODEL,
-            )
+            async with _SEM:
+                stems = await asyncio.to_thread(
+                    runner,
+                    input_file,
+                    Path(workspace) / "stems",
+                    model=cfg.model,
+                    flac=True,
+                )
+                # cleanup after each track (M2 8GB: free unified memory)
+                try:
+                    gc.collect()
+                    try:
+                        import torch
+
+                        if torch.backends.mps.is_available():
+                            torch.mps.empty_cache()
+                    except Exception:
+                        pass
+                except Exception:
+                    pass
         except Exception as exc:
             await safe_info(ctx, f"demucs failed ({exc}); classic fallback")
             return None
@@ -96,6 +126,18 @@ async def _separate_stems(
             )
             return None
         result[ti.track_id] = mapped
+        # extra gc between tracks (outside semaphore, still frees memory)
+        try:
+            gc.collect()
+            try:
+                import torch
+
+                if torch.backends.mps.is_available():
+                    torch.mps.empty_cache()
+            except Exception:
+                pass
+        except Exception:
+            pass
 
     await safe_info(ctx, f"stem render: {len(result)} tracks ready")
     return result
