@@ -78,8 +78,10 @@ class AudioFileDownloadHandler(BaseBatchHandler[int]):
         number_files: bool = bool(data.get("number_files", True))
 
         await safe_report_progress(
-            ctx, progress=index + 1, total=total,
-            message=f"track {index+1}/{total}: resolving download info",
+            ctx,
+            progress=index + 1,
+            total=total,
+            message=f"track {index + 1}/{total}: resolving download info",
         )
 
         target_dir.mkdir(parents=True, exist_ok=True)
@@ -112,8 +114,10 @@ class AudioFileDownloadHandler(BaseBatchHandler[int]):
         )
 
         await safe_report_progress(
-            ctx, progress=index + 1, total=total,
-            message=f"track {index+1}/{total}: downloading {title}",
+            ctx,
+            progress=index + 1,
+            total=total,
+            message=f"track {index + 1}/{total}: downloading {title}",
         )
 
         path = await provider.download_audio(ext_id, dest=dest)

@@ -13,7 +13,7 @@ from app.domain.render.stem_timbre import STEM_TIMBRE, StemTimbre, stem_timbre
 __all__ = ["STEM_VOICING", "StemVoicing", "stem_voicing"]  # noqa: F822 — dynamic via __getattr__
 
 
-def __getattr__(name: str):
+def __getattr__(name: str) -> object:
     if name == "STEM_VOICING":
         warnings.warn(
             "STEM_VOICING is deprecated, use STEM_TIMBRE from app.domain.render.stem_timbre",

@@ -130,6 +130,7 @@ def test_bar_planner_house_env_override():
     settings2 = RenderSettings(transition_bars_hypnotic=99)
     planner2 = BarPlanner(settings2)
     assert planner2._config_bar_override("hypnotic", "transition_bars") == 99
+
     # compute integration: 2 deep_house tracks with env override
     def _inputs(moods):
         return [

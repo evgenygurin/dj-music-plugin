@@ -22,7 +22,9 @@ class DatabaseSettings(BaseSettings):
     )
     db_pool_size: int = Field(default=20, ge=1, le=100)
     db_pool_timeout_s: float = Field(
-        default=30.0, ge=1.0, le=300.0,
+        default=30.0,
+        ge=1.0,
+        le=300.0,
         description="Seconds to wait for a pool connection before raising TimeoutError.",
     )
     db_pool_pre_ping: bool = Field(
