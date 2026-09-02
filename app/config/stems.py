@@ -36,7 +36,7 @@ class StemsConfig(BaseSettings):
     )
     model: str = Field(default="htdemucs", description="Demucs model name.")
     shifts: int = Field(
-        default=1, ge=0, le=10, description="Demucs shifts (equivariant stabilization)."
+        default=5, ge=0, le=10, description="Demucs shifts (equivariant stabilization)."
     )
     overlap: float = Field(default=0.25, ge=0.0, le=0.95, description="Overlap between segments.")
     segment: float = Field(
@@ -77,21 +77,21 @@ def detect_runtime() -> Literal["mlx", "onnx", "torch", "cpu"]:
 
     # auto — probe in priority order
     try:
-        import mlx.core  # type: ignore[import-not-found]  # noqa: F401
+        import mlx.core  # type: ignore[import-not-found, unused-ignore]  # noqa: F401
 
         return "mlx"
     except Exception:
         pass
 
     try:
-        import onnxruntime  # type: ignore[import-not-found]  # noqa: F401
+        import onnxruntime  # type: ignore[import-not-found, unused-ignore]  # noqa: F401
 
         return "onnx"
     except Exception:
         pass
 
     try:
-        import torch  # noqa: F401
+        import torch  # type: ignore[import-not-found, unused-ignore]  # noqa: F401
 
         return "torch"
     except Exception:

@@ -24,11 +24,13 @@ from app.handlers._context_log import safe_info, safe_report_progress
 from app.repositories.unit_of_work import UnitOfWork
 from app.server.di import get_uow
 
-# Serialize separation — same invariant as stem_resolver._SEM (M2 8GB unified
-# memory). Keep a local semaphore so a standalone ``stems_separate`` call and
-# a concurrent ``render_mixdown(..., stem=True)`` don't race on the runner:
-# two Demucs/MPS graphs at once OOMs on 8GB.
-_STEM_TASK_SEM = asyncio.Semaphore(1)
+# Serialize separation — shared with stem_resolver (same unified memory).
+# On M2 8GB two parallel MPS graphs OOM — single Semaphore(1) in
+# app.audio.deep for both call-sites.
+try:
+    from app.audio.deep import STEMS_SEMAPHORE as _STEM_TASK_SEM
+except ImportError:  # pragma: no cover - fallback for tests without deep
+    _STEM_TASK_SEM = asyncio.Semaphore(1)
 
 
 async def _resolve_track_path(uow: Any, track_id: int) -> Path | None:

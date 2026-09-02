@@ -11,10 +11,13 @@ from app.domain.render.models import STEM_ORDER
 from app.handlers._context_log import safe_info
 from app.models.audio_file import DjLibraryItem
 
-# Serialize stem separation — Demucs/MLX/ONNX on M2 8GB OOMs if 2 tracks run
-# in parallel (8GB RAM, unified memory). Semaphore(1) + to_thread keeps the
-# MCP event loop responsive while the heavy DSP runs off-thread.
-_SEM = asyncio.Semaphore(1)
+# Serialize stem separation — shared with app/tools/stems.py (same unified memory).
+# On M2 8GB two parallel MPS graphs OOM — Semaphore(1) + to_thread keeps MCP
+# event loop responsive. Imported from app.audio.deep for single source of truth.
+try:
+    from app.audio.deep import STEMS_SEMAPHORE as _SEM
+except ImportError:  # pragma: no cover - circular import fallback
+    _SEM = asyncio.Semaphore(1)
 
 _STEM_EXTENSIONS = (".m4a", ".mp3", ".wav", ".flac")
 

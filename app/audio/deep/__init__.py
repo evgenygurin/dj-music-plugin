@@ -2,11 +2,17 @@
 
 from __future__ import annotations
 
+import asyncio
 from pathlib import Path
 
 from app.config.stems import StemRunner, StemsConfig, detect_runtime
 
-__all__ = ["get_runner"]
+# Shared semaphore for M2 8GB — any stem job (resolver or tools/stems) must
+# acquire this before touching MPS / unified memory, otherwise two parallel
+# graphs OOM on 8GB. Imported by both call-sites.
+STEMS_SEMAPHORE: asyncio.Semaphore = asyncio.Semaphore(1)
+
+__all__ = ["STEMS_SEMAPHORE", "get_runner"]
 
 
 def get_runner(cfg: StemsConfig | None = None) -> StemRunner:

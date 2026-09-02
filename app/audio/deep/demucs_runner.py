@@ -31,16 +31,15 @@ DEMUCS_CLIP_MODE = "rescale"
 try:
     import psutil as _psutil  # type: ignore
 
-    _available_mem = _psutil.virtual_memory().available
-    DEMUCS_JOBS = 0 if _available_mem < 4_000_000_000 else 2
-    # 8GB M2: available <3GB under load → disable MPS high-watermark caching
-    # to avoid OOM (PYTORCH_MPS_HIGH_WATERMARK_RATIO=0.0). Brief sets it
-    # unconditionally; global constraint gates on <3GB — unify: set when
-    # psutil reports <3GB, otherwise still setdefault (no-op if already set).
-    if _available_mem < 3_000_000_000:
-        os.environ.setdefault("PYTORCH_MPS_HIGH_WATERMARK_RATIO", "0.0")
+    _total_mem = _psutil.virtual_memory().total
+    # Global constraint: 8GB → jobs=0 (M2 Air). On darwin with <16GB total,
+    # never fork 2 jobs — unified memory OOMs with 2 parallel graphs.
+    if _total_mem < 16_000_000_000:
+        DEMUCS_JOBS = 0
     else:
-        os.environ.setdefault("PYTORCH_MPS_HIGH_WATERMARK_RATIO", "0.0")
+        _available_mem = _psutil.virtual_memory().available
+        DEMUCS_JOBS = 0 if _available_mem < 4_000_000_000 else 2
+    os.environ.setdefault("PYTORCH_MPS_HIGH_WATERMARK_RATIO", "0.0")
 except ImportError:
     DEMUCS_JOBS = 0
     os.environ.setdefault("PYTORCH_MPS_HIGH_WATERMARK_RATIO", "0.0")
