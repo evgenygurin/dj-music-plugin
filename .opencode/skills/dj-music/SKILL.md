@@ -11,8 +11,8 @@ description: >
 
 # DJ Music Plugin — MCP Tools Guide
 
-This project exposes **24 MCP tools**, **33 resources**, **31 prompts**, and
-**6 side-effect handlers** for DJ techno music library management.
+This project exposes **33 MCP tools** (25 dj + 8 generic), **29 resources**, **34 prompts**, and
+**6 side-effect handlers** for DJ techno music library management. Updated for electronic-music 5-stem Demucs 6s + 21-policy engine.
 
 ## MCP Servers
 
@@ -50,12 +50,13 @@ Filters use Django-style lookups: `bpm__gte=120`, `mood__in=peak_time,driving`.
 
 `dj_ui_library_dashboard`, `dj_ui_library_audit`, `dj_ui_camelot_wheel`, `dj_ui_set_view`, `dj_ui_control_center`, `dj_ui_render_studio`, `dj_ui_transition_score`, `dj_ui_score_pool_matrix`
 
-### Render Pipeline (4)
+### Render Pipeline (5)
 
 - `dj_render_beatgrid` — kick-phase detect + sub-beat refine
-- `dj_render_mixdown` — continuous beatmatched mix (rubberband + EQ)
+- `dj_render_mixdown` — continuous beatmatched mix (rubberband + 5-stem Demucs 6s, policy engine)
 - `dj_render_validate_grid` — post-render grid QA (per-track body BPM vs target)
 - `dj_render_diagnose` — defect sweep (level jumps, dropouts, bass-thin)
+- `dj_stem_transition_policy` — per-stem transition policy overrides (21 policies, UserOverride wins)
 
 ### Admin (2)
 
