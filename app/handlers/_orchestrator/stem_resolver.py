@@ -29,6 +29,7 @@ _STEM_ALIASES: dict[str, tuple[str, ...]] = {
     **{stem: (stem,) for stem in STEM_ORDER},
     **{stem: (stem,) for stem in DEMUCS_STEM_ORDER},
     **{stem: (stem,) for stem in LEGACY_PREPARED_STEM_ORDER},
+    "other": ("other",),
 }
 
 
