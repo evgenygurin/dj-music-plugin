@@ -1,4 +1,16 @@
-"""render_validate_grid — post-render grid-alignment QA for a version."""
+"""render_validate_grid — post-render grid-alignment QA for a version.
+
+Client usage (FastMCP v3 structured output):
+    res = await client.call_tool("render_validate_grid", {"version_id": 248})
+    # res.data is a hydrated GridCheckResult (Pydantic), not JSON-serializable
+    # via stdlib json directly. Use one of:
+    #   res.data.model_dump()  # Pydantic → dict
+    #   res.structured_content  # raw dict from server
+    #   res.content[0].text    # JSON string
+    # or helper: from app.shared.json_utils import pydantic_json_dumps
+    #   pydantic_json_dumps(res.data)
+See https://github.com/prefecthq/fastmcp/blob/main/docs/clients/tools.mdx
+"""
 
 from __future__ import annotations
 
