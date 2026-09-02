@@ -178,9 +178,17 @@ def _derive_percussion_from_drums(
 
 def _load_audio(input_path: Path, sr: int = 44100) -> tuple[np.ndarray, int]:
     """Загрузить стерео аудио как (channels, samples) float32. Мок-дружелюбно."""
+    import warnings
+
     if not input_path.exists():
         # тест-вход без файла — отдаём 1s тишины (44100)
         return np.zeros((2, sr), dtype=np.float32), sr
+    # мелкий/битый файл (как write_bytes(b'x') в тестах) — сразу тишина, без дорогой librosa ветки
+    try:
+        if input_path.stat().st_size < 1024:
+            return np.zeros((2, sr), dtype=np.float32), sr
+    except Exception:
+        pass
     try:
         import soundfile as sf
 
@@ -190,9 +198,13 @@ def _load_audio(input_path: Path, sr: int = 44100) -> tuple[np.ndarray, int]:
         # ресемпл если нужно (упрощённо)
         if file_sr != sr:
             try:
-                import librosa
+                with warnings.catch_warnings():
+                    warnings.filterwarnings("ignore", category=DeprecationWarning)
+                    warnings.filterwarnings("ignore", category=FutureWarning)
+                    warnings.filterwarnings("ignore", category=UserWarning)
+                    import librosa
 
-                wav = librosa.resample(wav, orig_sr=file_sr, target_sr=sr)
+                    wav = librosa.resample(wav, orig_sr=file_sr, target_sr=sr)
             except Exception:
                 pass
         # гарантируем 2 канала
@@ -204,9 +216,20 @@ def _load_audio(input_path: Path, sr: int = 44100) -> tuple[np.ndarray, int]:
     except Exception:
         pass
     try:
-        import librosa
+        with warnings.catch_warnings():
+            # audioread (через librosa) тянет deprecated stdlib aifc/audioop/sunau
+            # и шумит PySoundFile failed / __audioread_load — гасим локально,
+            # глобально то же продублировано в pyproject.toml filterwarnings.
+            warnings.filterwarnings("ignore", category=DeprecationWarning)
+            warnings.filterwarnings("ignore", category=FutureWarning)
+            warnings.filterwarnings("ignore", category=UserWarning, message="PySoundFile failed.*")
+            warnings.filterwarnings(
+                "ignore", category=FutureWarning, message=".*__audioread_load.*"
+            )
+            warnings.filterwarnings("ignore", category=ResourceWarning)
+            import librosa
 
-        y, file_sr = librosa.load(str(input_path), sr=sr, mono=False)
+            y, file_sr = librosa.load(str(input_path), sr=sr, mono=False)
         wav = np.atleast_2d(y).astype(np.float32)
         if wav.shape[0] == 1:
             wav = np.repeat(wav, 2, axis=0)
@@ -477,7 +500,9 @@ def onnx_separate(
         canon_arr: np.ndarray | None = canonical_accum.get(canon)
         if canon_arr is None:
             # если инференс не дал стем (мок с 1 выходом для vocals-only), дублируем первый
-            canon_arr = next(iter(canonical_accum.values())) if canonical_accum else np.zeros_like(wav)
+            canon_arr = (
+                next(iter(canonical_accum.values())) if canonical_accum else np.zeros_like(wav)
+            )
         out_path = expected_paths[canon]
         _write_flac(out_path, canon_arr, sr=sr)
 

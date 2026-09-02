@@ -188,7 +188,10 @@ def test_run_demucs_passes_quality_cli_flags(tmp_path: Path) -> None:
     assert "--overlap" in demucs_cmd
     assert "0.25" in demucs_cmd
     assert "--segment" in demucs_cmd
-    assert str(DEMUCS_SEGMENT) in demucs_cmd, f"segment {DEMUCS_SEGMENT} missing: {demucs_cmd}"
+    # demucs CLI --segment is type=int, so 7.8 → "7" (HTDemucs limit <=7.8)
+    assert str(int(DEMUCS_SEGMENT)) in demucs_cmd, (
+        f"segment {DEMUCS_SEGMENT} missing: {demucs_cmd}"
+    )
     assert DEMUCS_SEGMENT == 7.8, f"segment must be 7.8 on M2 8GB, got {DEMUCS_SEGMENT}"
     assert "--clip-mode" in demucs_cmd
     assert "rescale" in demucs_cmd

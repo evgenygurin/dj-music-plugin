@@ -140,6 +140,9 @@ def run_demucs(
 
     if need_demucs:
         device = _detect_device()
+        # demucs CLI --segment is type=int (separate.py: type=int), so 7.8
+        # must be floored to 7 — HTDemucs limit is <=7.8, int 7 is safe.
+        cli_segment = str(int(DEMUCS_SEGMENT))
         _run_with_retry(
             [
                 "python",
@@ -158,7 +161,7 @@ def run_demucs(
                 "--overlap",
                 str(DEMUCS_OVERLAP),
                 "--segment",
-                str(DEMUCS_SEGMENT),
+                cli_segment,
                 "--clip-mode",
                 DEMUCS_CLIP_MODE,
                 "-j",

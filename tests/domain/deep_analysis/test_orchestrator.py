@@ -41,7 +41,7 @@ async def test_orchestrator_runs_full_pipeline() -> None:
         ),
         patch(
             "app.domain.deep_analysis.orchestrator.build_beatgrid",
-            new_callable=AsyncMock,
+            return_value=MagicMock(bpm=128.0, refined_trim_s=0.1),
         ),
         patch(
             "app.domain.deep_analysis.orchestrator.analyze_structure",
