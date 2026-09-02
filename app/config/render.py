@@ -51,6 +51,14 @@ class RenderSettings(BaseSettings):
     body_bars_hard: int | None = Field(default=None, gt=0)
     body_bars_acid: int | None = Field(default=None, gt=0)
     body_bars_industrial: int | None = Field(default=None, gt=0)
+    transition_bars_deep_house: int | None = Field(default=None, gt=0)
+    transition_bars_tech_house: int | None = Field(default=None, gt=0)
+    transition_bars_progressive_house: int | None = Field(default=None, gt=0)
+    transition_bars_classic_house: int | None = Field(default=None, gt=0)
+    body_bars_deep_house: int | None = Field(default=None, gt=0)
+    body_bars_tech_house: int | None = Field(default=None, gt=0)
+    body_bars_progressive_house: int | None = Field(default=None, gt=0)
+    body_bars_classic_house: int | None = Field(default=None, gt=0)
     limiter_ceiling: float = Field(
         default=0.85, gt=0, le=1.0, description="alimiter limit (~-1.4 dBFS headroom)."
     )

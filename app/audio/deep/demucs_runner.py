@@ -6,6 +6,11 @@ from pathlib import Path
 
 _DEMUCS_TIMEOUT = 1800
 
+# Cache-versioned model name. Bump when the stem taxonomy changes so that
+# previously cached outputs (e.g. 4-stem ``htdemucs``) are not reused.
+# Phase 1: model is ``htdemucs_6s`` (5-stem: vocals, drums, bass, other, percussion).
+DEFAULT_DEMUCS_MODEL = "htdemucs_6s"
+
 
 def _detect_device() -> str:
     try:
@@ -43,38 +48,66 @@ def _run_with_retry(args: list[str], timeout: int = _DEMUCS_TIMEOUT) -> None:
                 pass
 
 
+# Mapping from Demucs native stem filename → electronic-music stem name.
+# Demucs 6s outputs: vocals, drums, bass, other, percussion.
+# We rename ``other`` to ``harmonic`` because that is the role in our
+# taxonomy (pads / leads / melodic content).
+_DEMUCS_STEM_FILE_MAP: dict[str, str] = {
+    "vocals": "vocals",
+    "drums": "drums",
+    "bass": "bass",
+    "other": "harmonic",
+    "percussion": "percussion",
+}
+
+
 def run_demucs(
     input_path: Path,
     cache_root: Path,
     flac: bool = False,
+    model: str = DEFAULT_DEMUCS_MODEL,
 ) -> dict[str, Path]:
+    """Separate audio into stems using Demucs.
+
+    Args:
+        input_path: Path to the input audio file.
+        cache_root: Root directory for stem cache.
+        flac: Whether to output FLAC instead of WAV.
+        model: Demucs model. ``htdemucs_6s`` (default) is the electronic-music
+            native 5-stem model. Older ``htdemucs`` / ``htdemucs_ft`` 4-stem
+            models are supported as a transitional path.
+    """
     cache_root.mkdir(parents=True, exist_ok=True)
 
     cache_key = hashlib.sha256(str(input_path.resolve()).encode()).hexdigest()[:12]
     cache_dir = cache_root / f"{input_path.stem}_{cache_key}"
-    stem_dir = cache_dir / "htdemucs_6s" / input_path.stem
+    stem_dir = cache_dir / model / input_path.stem
     ext = "flac" if flac else "wav"
 
+    # Demucs native stem filenames on disk.
+    demucs_native: tuple[str, ...] = (
+        (
+            "vocals",
+            "drums",
+            "bass",
+            "other",
+            "percussion",
+        )
+        if model.endswith("_6s")
+        else ("vocals", "drums", "bass", "other")
+    )
+
     stem_files: dict[str, Path] = {
-        "vocals": stem_dir / f"vocals.{ext}",
-        "drums": stem_dir / f"drums.{ext}",
-        "bass": stem_dir / f"bass.{ext}",
-        "other": stem_dir / f"other.{ext}",
-        "percussion": stem_dir / f"percussion.{ext}",
+        _DEMUCS_STEM_FILE_MAP[n]: stem_dir / f"{n}.{ext}" for n in demucs_native
     }
 
     if all(p.exists() for p in stem_files.values()):
         return stem_files
 
     wav_stems: dict[str, Path] = {
-        "vocals": stem_dir / "vocals.wav",
-        "drums": stem_dir / "drums.wav",
-        "bass": stem_dir / "bass.wav",
-        "other": stem_dir / "other.wav",
+        _DEMUCS_STEM_FILE_MAP[n]: stem_dir / f"{n}.wav" for n in demucs_native
     }
 
-    # Migration path: 4 demucs stems exist but no percussion
-    # Run demucs_6s to get the 5th stem
     need_demucs = not all(p.exists() for p in wav_stems.values())
 
     if need_demucs:
@@ -87,7 +120,7 @@ def run_demucs(
                 "-m",
                 "demucs",
                 "-n",
-                "htdemucs_6s",
+                model,
                 "-d",
                 device,
                 "-o",
@@ -99,34 +132,6 @@ def run_demucs(
     for name, wav_path in wav_stems.items():
         if not wav_path.exists():
             raise RuntimeError(f"Demucs failed to produce {name} stem at {wav_path}")
-
-    perc_wav = stem_dir / "percussion.wav"
-    if not perc_wav.exists():
-        drums_wav = wav_stems["drums"]
-        tmp_drums = stem_dir / "drums_tmp.wav"
-        subprocess.run(
-            [
-                "ffmpeg",
-                "-y",
-                "-i",
-                str(drums_wav),
-                "-filter_complex",
-                "[0]lowpass=f=400:poles=2,asetpts=PTS-STARTPTS[drums];"
-                "[0]highpass=f=400:poles=2,asetpts=PTS-STARTPTS[perc]",
-                "-map",
-                "[drums]",
-                str(tmp_drums),
-                "-map",
-                "[perc]",
-                str(perc_wav),
-            ],
-            check=True,
-            timeout=300,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-        )
-        tmp_drums.replace(drums_wav)
-    wav_stems["percussion"] = perc_wav
 
     if flac:
         for name, wav_path in wav_stems.items():

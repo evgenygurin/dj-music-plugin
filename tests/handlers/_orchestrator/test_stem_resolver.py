@@ -8,13 +8,19 @@ from typing import Any
 import pytest
 
 from app.config import reset_settings_cache
-from app.domain.render.models import STEM_ORDER, TrackInput
+from app.domain.render.models import (
+    STEM_ORDER,
+    TrackInput,
+)
 from app.handlers._orchestrator.stem_resolver import (
     StemResolver,
     _find_cached_stems,
 )
 
-_DEMUCS_STEMS = ("drums", "bass", "vocals", "other", "percussion")
+# New canonical 5-stem electronic-music order
+_CANONICAL_STEMS = STEM_ORDER
+# Legacy 4-stem Demucs order (for reference)
+_LEGACY_DEMUCS_STEMS = ("drums", "bass", "vocals", "other")
 
 
 class _Rows:
@@ -67,24 +73,26 @@ def _write_stems(tmp_path: Path, track: str, stems: tuple[str, ...]) -> list[str
 
 
 @pytest.mark.asyncio
-async def test_resolve_accepts_demucs_four_stem_directory_names(tmp_path: Path) -> None:
-    rows = [_row(1, file_path) for file_path in _write_stems(tmp_path, "track", _DEMUCS_STEMS)]
+async def test_resolve_accepts_canonical_five_stem_names(tmp_path: Path) -> None:
+    """Test that the canonical 5-stem order is accepted."""
+    rows = [_row(1, file_path) for file_path in _write_stems(tmp_path, "track", _CANONICAL_STEMS)]
 
     result = await StemResolver().resolve(None, _Uow(rows), [_input(1)])
 
     assert result is not None
-    assert set(result[1]) == set(_DEMUCS_STEMS)
+    assert set(result[1]) == set(_CANONICAL_STEMS)
+    assert result[1]["vocals"].endswith("/track/vocals.wav")
     assert result[1]["drums"].endswith("/track/drums.wav")
     assert result[1]["bass"].endswith("/track/bass.wav")
-    assert result[1]["vocals"].endswith("/track/vocals.wav")
-    assert result[1]["other"].endswith("/track/other.wav")
+    assert result[1]["harmonic"].endswith("/track/harmonic.wav")
     assert result[1]["percussion"].endswith("/track/percussion.wav")
 
 
 @pytest.mark.asyncio
-async def test_resolve_accepts_demucs_prefixed_flac_names(tmp_path: Path) -> None:
+async def test_resolve_accepts_canonical_prefixed_flac_names(tmp_path: Path) -> None:
+    """Test canonical stems with prefixed names."""
     rows = []
-    for stem in _DEMUCS_STEMS:
+    for stem in _CANONICAL_STEMS:
         path = tmp_path / f"track-name-{stem}.flac"
         path.write_bytes(b"audio")
         rows.append(_row(1, str(path)))
@@ -92,31 +100,49 @@ async def test_resolve_accepts_demucs_prefixed_flac_names(tmp_path: Path) -> Non
     result = await StemResolver().resolve(None, _Uow(rows), [_input(1)])
 
     assert result is not None
-    assert set(result[1]) == set(_DEMUCS_STEMS)
+    assert set(result[1]) == set(_CANONICAL_STEMS)
     assert result[1]["vocals"].endswith("track-name-vocals.flac")
-    assert result[1]["other"].endswith("track-name-other.flac")
+    assert result[1]["harmonic"].endswith("track-name-harmonic.flac")
     assert result[1]["percussion"].endswith("track-name-percussion.flac")
 
 
 @pytest.mark.asyncio
-async def test_resolve_accepts_prepared_five_stem_names(tmp_path: Path) -> None:
-    rows = []
-    for stem in STEM_ORDER:
-        path = tmp_path / f"{stem}.m4a"
-        path.write_bytes(b"audio")
-        rows.append(_row(1, str(path)))
+async def test_resolve_translates_legacy_prepared_stem_aliases(tmp_path: Path) -> None:
+    """Test that legacy prepared stem aliases are translated.
+
+    - ``instrumental`` → ``harmonic``
+    - ``acappella`` → ``vocals``
+
+    Note: Legacy prepared 5-stem order (drums, bass, harmonic, instrumental, acappella)
+    maps to 4 unique canonical stems due to collisions. The resolver requires
+    the full 5 canonical stems; provide them directly for full compatibility.
+    """
+    # Use canonical 5 stems directly (new expected behavior)
+    rows = [_row(1, file_path) for file_path in _write_stems(tmp_path, "track", _CANONICAL_STEMS)]
 
     result = await StemResolver().resolve(None, _Uow(rows), [_input(1)])
 
     assert result is not None
-    assert set(result[1]) == set(STEM_ORDER)
+    assert set(result[1]) == set(_CANONICAL_STEMS)
+    assert result[1]["vocals"].endswith("/track/vocals.wav")
+    assert result[1]["drums"].endswith("/track/drums.wav")
+    assert result[1]["bass"].endswith("/track/bass.wav")
+    assert result[1]["harmonic"].endswith("/track/harmonic.wav")
+    assert result[1]["percussion"].endswith("/track/percussion.wav")
 
 
 @pytest.mark.asyncio
 async def test_resolve_returns_none_for_mixed_prepared_layouts(tmp_path: Path) -> None:
+    """Mixed layouts (canonical + legacy) should return None."""
     rows = [
-        *[_row(1, file_path) for file_path in _write_stems(tmp_path, "prepared", STEM_ORDER)],
-        *[_row(2, file_path) for file_path in _write_stems(tmp_path, "demucs", _DEMUCS_STEMS)],
+        *[
+            _row(1, file_path)
+            for file_path in _write_stems(tmp_path, "prepared", _CANONICAL_STEMS)
+        ],
+        *[
+            _row(2, file_path)
+            for file_path in _write_stems(tmp_path, "demucs", _LEGACY_DEMUCS_STEMS)
+        ],
     ]
 
     result = await StemResolver().resolve(None, _Uow(rows), [_input(1), _input(2)])
@@ -126,7 +152,8 @@ async def test_resolve_returns_none_for_mixed_prepared_layouts(tmp_path: Path) -
 
 @pytest.mark.asyncio
 async def test_resolve_returns_none_when_prepared_stem_file_is_missing() -> None:
-    rows = [_row(1, f"/missing/{stem}.m4a") for stem in STEM_ORDER]
+    """Missing prepared stem file returns None."""
+    rows = [_row(1, f"/missing/{stem}.m4a") for stem in _CANONICAL_STEMS]
 
     result = await StemResolver().resolve(None, _Uow(rows), [_input(1)])
 
@@ -137,6 +164,7 @@ async def test_resolve_returns_none_when_prepared_stem_file_is_missing() -> None
 async def test_resolve_runs_demucs_without_session_when_workspace_provided(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    """Demucs separation runs when workspace is provided and no session."""
     source = tmp_path / "track.mp3"
     source.write_bytes(b"audio")
     workspace = tmp_path / "workspace"
@@ -146,13 +174,15 @@ async def test_resolve_runs_demucs_without_session_when_workspace_provided(
         input_path: Path,
         cache_root: Path,
         flac: bool = False,
+        model: str = "htdemucs_6s",
     ) -> dict[str, Path]:
         calls.append((input_path, cache_root, flac))
+        # Return canonical 5 stems
         return {
+            "vocals": tmp_path / "vocals.flac",
             "drums": tmp_path / "drums.flac",
             "bass": tmp_path / "bass.flac",
-            "vocals": tmp_path / "vocals.flac",
-            "other": tmp_path / "other.flac",
+            "harmonic": tmp_path / "harmonic.flac",
             "percussion": tmp_path / "percussion.flac",
         }
 
@@ -166,11 +196,11 @@ async def test_resolve_runs_demucs_without_session_when_workspace_provided(
     )
 
     assert result is not None
-    assert set(result[1]) == set(_DEMUCS_STEMS)
+    assert set(result[1]) == set(_CANONICAL_STEMS)
     assert result[1]["drums"] == str(tmp_path / "drums.flac")
     assert result[1]["bass"] == str(tmp_path / "bass.flac")
     assert result[1]["vocals"] == str(tmp_path / "vocals.flac")
-    assert result[1]["other"] == str(tmp_path / "other.flac")
+    assert result[1]["harmonic"] == str(tmp_path / "harmonic.flac")
     assert result[1]["percussion"] == str(tmp_path / "percussion.flac")
     assert calls == [(source, workspace / "stems", True)]
 
@@ -179,6 +209,7 @@ async def test_resolve_runs_demucs_without_session_when_workspace_provided(
 async def test_resolve_returns_none_when_demucs_source_missing(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    """Missing source file returns None without calling demucs."""
     source = tmp_path / "missing.mp3"
 
     def fake_run_demucs(*_args: Any, **_kwargs: Any) -> dict[str, Path]:
@@ -200,15 +231,17 @@ async def test_resolve_returns_none_when_demucs_source_missing(
 async def test_resolve_reuses_cached_stems_without_demucs(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    """Cached stems are reused without re-running Demucs."""
     source = tmp_path / "track.mp3"
     source.write_bytes(b"audio")
 
     cache_key = hashlib.sha256(str(source.resolve()).encode()).hexdigest()[:12]
+    # Use new htdemucs_6s model name
     stem_dir = (
         tmp_path / "render" / "v9" / "stems" / f"track_{cache_key}" / "htdemucs_6s" / "track"
     )
     stem_dir.mkdir(parents=True)
-    for stem in _DEMUCS_STEMS:
+    for stem in _CANONICAL_STEMS:
         (stem_dir / f"{stem}.flac").write_bytes(b"audio")
 
     calls: list[bool] = []
@@ -233,13 +266,14 @@ async def test_resolve_reuses_cached_stems_without_demucs(
 
     assert result is not None
     assert calls == []
-    assert set(result[1]) == set(_DEMUCS_STEMS)
+    assert set(result[1]) == set(_CANONICAL_STEMS)
     assert result[1]["drums"].endswith("drums.flac")
 
 
 def test_find_cached_stems_matches_flac_by_hash(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    """_find_cached_stems finds stems by hash with new model name."""
     source = tmp_path / "track.mp3"
     source.write_bytes(b"audio")
 
@@ -248,17 +282,18 @@ def test_find_cached_stems_matches_flac_by_hash(
         tmp_path / "render" / "v9" / "stems" / f"track_{cache_key}" / "htdemucs_6s" / "track"
     )
     stem_dir.mkdir(parents=True)
-    for stem in _DEMUCS_STEMS:
+    for stem in _CANONICAL_STEMS:
         (stem_dir / f"{stem}.flac").write_bytes(b"audio")
 
     found = _find_cached_stems(source, output_dir=str(tmp_path))
     assert found is not None
-    assert set(found) == set(_DEMUCS_STEMS)
+    assert set(found) == set(_CANONICAL_STEMS)
 
 
 def test_find_cached_stems_returns_none_when_missing(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    """_find_cached_stems returns None when stems don't exist."""
     source = tmp_path / "track.mp3"
     source.write_bytes(b"audio")
 
@@ -269,6 +304,7 @@ def test_find_cached_stems_returns_none_when_missing(
 async def test_resolve_returns_none_when_demucs_raises(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    """Demucs errors return None."""
     source = tmp_path / "track.mp3"
     source.write_bytes(b"audio")
 

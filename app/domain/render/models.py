@@ -4,19 +4,32 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from app.config.render import RenderSettings
     from app.domain.render.request import RenderRequest
 
-# Prepared stem order — the default source of truth for ffmpeg input ordering
-# (5 ``-i`` per track) and the stem filtergraph. Never reorder.
-STEM_ORDER: tuple[str, ...] = ("drums", "bass", "harmonic", "instrumental", "acappella")
+# Single canonical 5-stem order for electronic music (Demucs 6s native).
+# The order is: vocals, drums, bass, harmonic (from Demucs "other"), percussion.
+# Never reorder — this is the source of truth for ffmpeg input ordering
+# (5 ``-i`` per track) and the stem filtergraph.
+STEM_ORDER: tuple[str, ...] = ("vocals", "drums", "bass", "harmonic", "percussion")
 
-# Demucs' native 4-stem order. On-demand separation uses this to preserve the
-# pre-refactor render balance instead of duplicating ``other`` as two inputs.
-DEMUCS_STEM_ORDER: tuple[str, ...] = ("drums", "bass", "vocals", "other", "percussion")
+# Legacy alias kept for one release — Demucs 6s maps 1:1 to STEM_ORDER.
+# New code should use STEM_ORDER directly.
+DEMUCS_STEM_ORDER: tuple[str, ...] = STEM_ORDER
+
+# Legacy prepared-stem order (5-stem manual split). Kept for one release
+# to support existing prepared stem files (e.g. ``-instrumental.mp3``).
+# DEPRECATED: new code should use STEM_ORDER.
+LEGACY_PREPARED_STEM_ORDER: tuple[str, ...] = (
+    "drums",
+    "bass",
+    "harmonic",
+    "instrumental",
+    "acappella",
+)
 
 
 class RenderMode(str, Enum):  # noqa: UP042 - keep `str, Enum` for broader compat
@@ -148,6 +161,8 @@ class RenderPlan:
     stem_segments: list[StemSegment] | None = None
     stem_order: tuple[str, ...] = STEM_ORDER
     phrase_align_count: int = 0
+    # ── stem policy (Phase 2): pluggable per-stem fade engine; None = legacy hardcoded fades
+    stem_policy: Any | None = None  # CompositeStemTransitionPolicy | None
     # ── effects (set-wide, one preset per render) ──
     filter_sweep_preset: str | None = None
     echo_preset: str | None = None
@@ -172,6 +187,7 @@ class RenderPlan:
         stem_segments: list[StemSegment] | None = None,
         stem_order: tuple[str, ...] = STEM_ORDER,
         phrase_align_count: int = 0,
+        stem_policy: Any | None = None,
     ) -> RenderPlan:
         """Factory: DSP constants from ``settings``, effects from ``request``."""
         return cls(
@@ -205,6 +221,7 @@ class RenderPlan:
             stem_segments=stem_segments,
             stem_order=stem_order,
             phrase_align_count=phrase_align_count,
+            stem_policy=stem_policy,
             filter_sweep_preset=request.filter_sweep,
             echo_preset=request.echo,
             crossfade_curve_out=request.crossfade_curve_out,

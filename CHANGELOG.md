@@ -4,6 +4,30 @@ All notable changes to this project will be documented in this file.
 Format based on [Keep a Changelog](https://keepachangelog.com/).
 Versioning follows [Semantic Versioning](https://semver.org/).
 
+## [1.13.0] - 2026-09-01
+
+### Added
+- **House render presets (4)** — `SubgenreRenderPreset` constants in `app/domain/performance/subgenre_presets.py` with `PRESET_MAP` 18 entries (14 techno incl. aliases +4 house; 11 distinct presets 7 techno +4 house) and `_house` suffix resolver:
+  - `deep_house` 32/48 (warm, xsplit 200/3500, 0.50/0.80, low_swap 2.0b, outro 16, hpf 25Hz, pre -14/2.0, glue -12/2.0, limiter 0.88)
+  - `tech_house` 16/32 (punch, 280/4500, 0.30/0.60, 0.5b, outro 8, hpf 35Hz, pre -18/3.5, glue -15/3.5, limiter 0.82)
+  - `progressive_house` 32/56 (cinematic, 250/4000, 0.40/0.70, 1.5b, outro 16, hpf 28Hz, pre -16/2.5, glue -13/2.5, limiter 0.85)
+  - `classic_house` 16/32 (vocal, 250/3800, 0.35/0.65, 1.0b, outro 12, hpf 30Hz, pre -16/2.5, glue -13/2.5, limiter 0.85)
+  All within `RenderSettings` constraints (transition/body 8-64, limiter 0.75-0.88, xsplit 200-5500). House phrasing 16 beats, `camelot_mode soft`, single-bassline via `manual_house_render.py` (future `single_bass_source`).
+- **RenderSettings house env overrides (8)** — `app/config/render.py` adds `transition_bars_deep_house`, `transition_bars_tech_house`, `transition_bars_progressive_house`, `transition_bars_classic_house`, `body_bars_deep_house`, `body_bars_tech_house`, `body_bars_progressive_house`, `body_bars_classic_house` (`DJ_RENDER_*`, `gt=0`, default `None`). Wired via `BarPlanner._config_bar_override` fallback for house (raw `f"{prefix}_{subgenre}"` lookup when `TechnoSubgenre` misses).
+- **`reference/subgenres.md`** — new reference doc with 11-preset table (7 techno +4 house, 18 map entries with aliases), House phrasing notes, and deprecation of `hypnotic_techno` for House. Grep check `grep deep_house reference/subgenres.md` now passes.
+
+### Changed
+- **`reference://subgenres` (`app/resources/reference/subgenres.py`)** — docstring now documents 11 distinct render presets (18 map entries with aliases) alongside the 15 MoodClassifier profiles; `hypnotic_techno` marked deprecated for House.
+- **`docs/render-pipeline.md`** — config section lists 11 distinct presets (18 map entries) and `hypnotic` deprecation.
+- **`AGENTS.md` §6** — documents House presets (deep 32/48, tech 16/32, progressive 32/56, classic 16/32) and deprecates `hypnotic_techno` for House.
+
+### Fixed
+- **Stem separation no longer blocks event loop (280s)** — `app/handlers/_orchestrator/stem_resolver.py` wraps `run_demucs` in `asyncio.to_thread` to avoid blocking the MCP server during 7-track Demucs separation (Task 4 out-of-plan file, kept per whole-branch review).
+
+### Tests
+- `tests/test_house_presets.py` — 10 tests: `deep_house` exists, `tech_house` 16/32, env fields, `PRESET_MAP` 18 entries (14 techno +4 house alias; 11 distinct), suffix handling (`deep`→`deep_house`), global 8-64 / limiter constraints, `BarPlanner` house env override fallback.
+- `scripts/manual_house_render.py` + `render_validate_grid`/`diagnose` — v237 `deep_house` 32/48 validates 6/7 ok, flagged 50/223 (22.4% <23% scaled from 35/172 baseline), quality >0.84.
+
 ## [1.12.0] - 2026-07-23
 
 ### Added

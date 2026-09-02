@@ -96,7 +96,7 @@ def test_render_package_exports_resolvable() -> None:
 
     assert r.__all__ == [
         "STEM_ORDER",
-        "STEM_VOICING",
+        "STEM_TIMBRE",
         "BarPlan",
         "BarPlanner",
         "BeatgridEntry",
@@ -114,7 +114,7 @@ def test_render_package_exports_resolvable() -> None:
         "SegmentGeometry",
         "StemSegment",
         "StemSegmentFactory",
-        "StemVoicing",
+        "StemTimbre",
         "TimelineWindows",
         "TrackInput",
         "TrackSegment",

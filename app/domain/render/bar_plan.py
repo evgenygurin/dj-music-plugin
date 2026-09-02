@@ -101,10 +101,14 @@ class BarPlanner:
         if subgenre is None:
             return None
         if isinstance(subgenre, str):
+            raw = subgenre.strip().lower().replace(" ", "_")
             try:
                 subgenre = TechnoSubgenre(subgenre)
             except ValueError:
-                return None
+                # House and future non-techno subgenres lack TechnoSubgenre members.
+                # Fall back to raw field lookup so DJ_RENDER_* house overrides are read.
+                field_name = f"{prefix}_{raw}"
+                return getattr(self._settings, field_name, None)
         field_name = f"{prefix}_{subgenre.value}"
         return getattr(self._settings, field_name, None)
 

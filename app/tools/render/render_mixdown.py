@@ -81,9 +81,27 @@ async def render_mixdown(
         float,
         Field(ge=0.0, le=1.0, description="Reverb wet/dry ratio"),
     ] = 0.25,
+    stem_policy_kwargs: Annotated[
+        dict | None,
+        Field(description="Per-stem policy overrides (UserOverridePolicy) for this render only"),
+    ] = None,
     uow: UnitOfWork = Depends(get_uow),
     ctx: Context = CurrentContext(),
 ) -> RenderMixdownResult:
+    # Merge session policy (dj_stem_transition_policy) with per-render overrides
+    effective_policy_kwargs: dict | None = None
+    if stem_policy_kwargs is not None:
+        effective_policy_kwargs = dict(stem_policy_kwargs)
+    else:
+        try:
+            from app.tools.render.stem_transition_policy import get_session_stem_policy
+
+            sess = get_session_stem_policy()
+            if sess:
+                effective_policy_kwargs = dict(sess)
+        except Exception:
+            effective_policy_kwargs = None
+
     return await render_mixdown_handler(
         ctx=ctx,
         uow=uow,
@@ -102,4 +120,5 @@ async def render_mixdown(
         crossfade_curve_in=crossfade_curve_in,
         reverb=reverb,
         reverb_mix=reverb_mix,
+        stem_policy_kwargs=effective_policy_kwargs,
     )

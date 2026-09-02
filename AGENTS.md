@@ -205,14 +205,15 @@ for a, b in zip(tracks, tracks[1:]):
   Ручной gain_db толкает микс в лимитер и создаёт пампинг.
 - **Эффекты (filter_sweep, echo, reverb) всегда null** — их дефолтные пресеты
   работают некорректно (фильтр пульсирует быстрее бита).
-- **subgenre="hypnotic_techno"** — дефолт (с v206). Самый щадящий: плавное
+- **subgenre="hypnotic_techno"** — дефолт для техно (с v206). Самый щадящий: плавное
   введение стемов (phase_1_ratio 0.55), длинные переходы 48 bars, мягкая
   компрессия. Для более энергичной атмосферы передавай ``driving_techno``,
   ``peak_time_techno`` или ``hard_techno``. Dub-техно → ``dub_techno``
-  (64-bar переходы, минимальная обработка).
+  (64-bar переходы, минимальная обработка). Для House ``hypnotic_techno`` **deprecated** — используй house-пресеты ниже.
 - **hi-hat / тарелки** — с Demucs стемы drums приходят вместе с хай-хэтами.
   ``hypnotic_techno`` решает это плавным вводом drums стема (transition 48+ bars,
   phase_1_ratio 0.55).
+- **House пресеты (4):** ``deep_house`` 32/48 (warm, xsplit 200/3500, 0.50/0.80, low_swap 2.0b), ``tech_house`` 16/32 (punch, 280/4500, 0.30/0.60, 0.5b), ``progressive_house`` 32/56 (cinematic, 250/4000, 0.40/0.70, 1.5b), ``classic_house`` 16/32 (vocal, 250/3800, 0.35/0.65, 1.0b) — см. `reference/subgenres.md` (11 пресетов: 7 techno +4 house). Фраза 16 beats, `camelot_mode soft`, single-bassline.
 
 ### 7. Рендери каждый трек ОДИН раз — дальше переиспользуй результат
 
