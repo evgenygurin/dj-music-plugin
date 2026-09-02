@@ -46,10 +46,17 @@ async def render_validate_grid(
     if not Path(path).exists():
         raise ValidationError(f"no rendered mix at {path} — run render_mixdown first")
 
-    return await render_validate_grid_handler(
+    result = await render_validate_grid_handler(
         ctx=ctx,
         uow=uow,
         version_id=version_id,
         workspace=render_workspace(version_id),
         mix_path=path,
     )
+    # FastMCP Client exposes .data as the Pydantic model and .structured_content
+    # as the raw dict. Returning a BaseModel is correct for schema, but
+    # client-side json.dumps(model) fails (Root/BaseModel not JSON serializable).
+    # Callers should use res.data.model_dump() or res.structured_content.
+    # We return the model — FastMCP handles structured_content — but ensure
+    # the model is JSON-serializable via mode='json' for any direct dumps.
+    return result
