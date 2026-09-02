@@ -46,7 +46,7 @@ def _ensure_mlx() -> Any:
     в тесте срабатывал на вызове, а не на импорте модуля.
     """
     try:
-        import mlx.core as mx  # type: ignore[import-not-found]
+        import mlx.core as mx  # type: ignore[import-not-found, unused-ignore]
 
         return mx
     except Exception as exc:  # pragma: no cover — fallback ветка
@@ -62,12 +62,12 @@ def _get_mlx_model(model_name: str | None = None) -> Any | None:
     сделает заглушку zeros; в тестах мокается).
     """
     try:
-        import mlx.core as mx  # noqa: F401  # type: ignore[import-not-found]
+        import mlx.core as mx  # noqa: F401  # type: ignore[import-not-found, unused-ignore]
     except Exception as exc:
         raise RuntimeError("mlx not installed") from exc
 
     try:
-        from demucs_mlx import separate as mlx_fn  # type: ignore[import-not-found]
+        from demucs_mlx import separate as mlx_fn  # type: ignore[import-not-found, unused-ignore]
 
         return mlx_fn
     except Exception:
@@ -338,14 +338,14 @@ def mlx_separate(
 
     # пробуем поставить mx.gpu как default (unified memory, 30x realtime)
     try:
-        import mlx.core as mx  # type: ignore[import-not-found]
+        import mlx.core as mx  # type: ignore[import-not-found, unused-ignore]
 
         try:  # noqa: SIM105
-            mx.set_default_device(mx.gpu)  # type: ignore[attr-defined]
+            mx.set_default_device(mx.gpu)
         except Exception:
             pass
     except Exception:
-        mx = None  # type: ignore[assignment]
+        mx = None
 
     # overlap-add аккумуляторы
     accum: dict[str, np.ndarray] = {
@@ -370,7 +370,7 @@ def mlx_separate(
         if mlx_fn is not None:
             try:
                 # demucs_mlx API: separate(chunk) -> dict or list per stem
-                raw = mlx_fn(chunk)  # type: ignore[operator]
+                raw = mlx_fn(chunk)
                 if isinstance(raw, dict):
                     # dict stem->array
                     outputs = []
@@ -391,7 +391,7 @@ def mlx_separate(
                 # mx.eval для unified memory
                 if mx is not None:
                     try:  # noqa: SIM105
-                        mx.eval(outputs)  # type: ignore[attr-defined]
+                        mx.eval(outputs)
                     except Exception:
                         pass
             except Exception:
