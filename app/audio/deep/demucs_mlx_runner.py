@@ -32,8 +32,8 @@ PIPELINE_VERSION = "2"
 
 def mlx_backend_available() -> bool:
     try:
-        import mlx.core  # type: ignore[import-not-found, unused-ignore]  # noqa: F401
-        from demucs_mlx import Separator  # type: ignore[import-not-found, unused-ignore]  # noqa: F401
+        import mlx.core  # noqa: F401
+        from demucs_mlx import Separator  # noqa: F401
     except Exception:
         return False
     return True
@@ -41,14 +41,14 @@ def mlx_backend_available() -> bool:
 
 def _require_backend() -> None:
     try:
-        import mlx.core as mx  # type: ignore[import-not-found, unused-ignore]
-        from demucs_mlx import Separator  # type: ignore[import-not-found, unused-ignore]  # noqa: F401
+        import mlx.core as mx
+        from demucs_mlx import Separator  # noqa: F401
     except Exception as exc:
         raise StemBackendUnavailableError(
             "MLX stem backend is unavailable; install a compatible demucs-mlx/MLX pair."
         ) from exc
     try:
-        mx.set_default_device(mx.gpu)
+        mx.set_default_device(mx.gpu)  # type: ignore[arg-type]
     except Exception:
         logger.debug("Could not set MLX default device to GPU", exc_info=True)
 
@@ -57,7 +57,7 @@ def _require_backend() -> None:
 def _get_separator(options: SeparationOptions) -> Any:
     _require_backend()
     try:
-        from demucs_mlx import Separator  # type: ignore[import-not-found]
+        from demucs_mlx import Separator
 
         return Separator(
             model=options.model,
@@ -68,7 +68,9 @@ def _get_separator(options: SeparationOptions) -> Any:
             seed=options.seed,
         )
     except Exception as exc:
-        raise StemModelLoadError(f"Unable to load MLX Demucs model {options.model!r}: {exc}") from exc
+        raise StemModelLoadError(
+            f"Unable to load MLX Demucs model {options.model!r}: {exc}"
+        ) from exc
 
 
 def _to_numpy(audio: Any) -> np.ndarray:
@@ -157,7 +159,9 @@ def mlx_separate(
         batch_size=batch_size,
         seed=seed,
     )
-    stem_dir = cache_directory(cache_root, input_path, options.model, f"{PIPELINE_VERSION}:{options}")
+    stem_dir = cache_directory(
+        cache_root, input_path, options.model, f"{PIPELINE_VERSION}:{options}"
+    )
     paths = _expected_paths(stem_dir)
     if all(path.exists() for path in paths.values()) and _validate_cached_paths(paths):
         return paths
@@ -172,7 +176,9 @@ def mlx_separate(
 
     origin_np = _to_numpy(origin)
     try:
-        native = {name: _to_numpy(raw_stems[name]) for name in ("vocals", "drums", "bass", "other")}
+        native = {
+            name: _to_numpy(raw_stems[name]) for name in ("vocals", "drums", "bass", "other")
+        }
     except (KeyError, StemInferenceError) as exc:
         raise StemInferenceError(f"MLX returned an invalid stem set: {exc}") from exc
 

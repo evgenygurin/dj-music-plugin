@@ -26,6 +26,7 @@ def get_runner(cfg: StemsConfig | None = None) -> StemRunner:
                 raise RuntimeError("MLX backend requested but demucs-mlx/MLX is unavailable")
             runtime = "onnx"
         else:
+
             def _mlx_runner(
                 input_path: Path,
                 cache_root: Path,
@@ -55,6 +56,7 @@ def get_runner(cfg: StemsConfig | None = None) -> StemRunner:
                 raise RuntimeError("ONNX backend requested but unavailable") from exc
             runtime = "torch"
         else:
+
             def _onnx_runner(
                 input_path: Path,
                 cache_root: Path,
