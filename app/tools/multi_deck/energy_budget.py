@@ -20,17 +20,11 @@ async def energy_budget(
     target_lufs: float = -8.0,
     uow: UnitOfWork = Depends(get_uow),
 ) -> dict[str, Any]:
-    """Compute combined energy budget across active decks.
-
-    Args:
-        layers: List of {track_id: int, stem_name: str}.
-        gain_db: Per-layer gain adjustment in dB (same order as layers).
-        target_lufs: Target integrated LUFS (default -8.0).
-    """
+    """Compute combined energy budget across active decks."""
     stem_layers = [
         StemLayer(track_id=int(lyr["track_id"]), stem_name=str(lyr["stem_name"])) for lyr in layers
     ]
-    result = await compute_energy_budget(uow, stem_layers, gain_db, target_lufs)
+    result = await compute_energy_budget(uow.stem_features, stem_layers, gain_db, target_lufs)
     return {
         "total_lufs": result.total_lufs,
         "headroom_db": result.headroom_db,

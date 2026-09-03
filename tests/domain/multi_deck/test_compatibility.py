@@ -40,7 +40,7 @@ async def test_two_compatible_stems():
     )
 
     result = await compute_stem_compatibility(
-        uow,
+        uow.stem_features,
         [
             StemLayer(track_id=1, stem_name="drums"),
             StemLayer(track_id=2, stem_name="bass"),
@@ -82,7 +82,7 @@ async def test_clash_detection():
     )
 
     result = await compute_stem_compatibility(
-        uow,
+        uow.stem_features,
         [
             StemLayer(track_id=1, stem_name="drums"),
             StemLayer(track_id=2, stem_name="bass"),
@@ -96,7 +96,7 @@ async def test_clash_detection():
 async def test_single_stem():
     uow = MagicMock()
     result = await compute_stem_compatibility(
-        uow,
+        uow.stem_features,
         [
             StemLayer(track_id=1, stem_name="drums"),
         ],

@@ -20,15 +20,11 @@ async def stem_vertical_compatibility(
     layers: list[dict[str, str | int]],
     uow: UnitOfWork = Depends(get_uow),
 ) -> dict[str, Any]:
-    """Check N-way stem frequency/key/BPM compatibility for simultaneous playback.
-
-    Args:
-        layers: List of {track_id: int, stem_name: str} — stems to check.
-    """
+    """Check N-way stem frequency/key/BPM compatibility for simultaneous playback."""
     stem_layers = [
         StemLayer(track_id=int(lyr["track_id"]), stem_name=str(lyr["stem_name"])) for lyr in layers
     ]
-    result = await compute_stem_compatibility(uow, stem_layers)
+    result = await compute_stem_compatibility(uow.stem_features, stem_layers)
     return {
         "overall_score": result.overall_score,
         "hard_reject": result.hard_reject,
