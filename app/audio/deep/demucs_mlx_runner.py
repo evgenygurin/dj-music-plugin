@@ -13,6 +13,7 @@ from app.audio.deep.errors import (
     StemBackendUnavailableError,
     StemInferenceError,
     StemModelLoadError,
+    StemOutputValidationError,
 )
 from app.audio.deep.io import TARGET_SAMPLE_RATE, write_flac_atomic
 from app.audio.deep.models import CANONICAL_STEMS, AudioMetadata, SeparationOptions
@@ -95,11 +96,7 @@ def _expected_paths(stem_dir: Path) -> dict[str, Path]:
 
 def _validate_cached_paths(paths: dict[str, Path]) -> bool:
     for path in paths.values():
-        result = validate_stem(
-            path,
-            AudioMetadata(TARGET_SAMPLE_RATE, 2, 0),
-            check_duration=False,
-        )
+        result = validate_stem(path, AudioMetadata(TARGET_SAMPLE_RATE, 2, 0), check_duration=False)
         if not result.valid:
             return False
     return True
@@ -111,6 +108,9 @@ def _write_outputs(
     sample_rate: int,
     source_samples: int,
 ) -> dict[str, Path]:
+    if not any(float(np.max(np.abs(stem))) > 0.0 for stem in stems.values()):
+        raise StemOutputValidationError("Invalid MLX separation output: all native stems are zero")
+
     paths = _expected_paths(stem_dir)
     for name in ("vocals", "drums", "bass", "harmonic"):
         write_flac_atomic(paths[name], stems[name], sample_rate)
@@ -136,7 +136,7 @@ def mlx_separate(
     """Separate a track using native demucs-mlx and publish validated stems.
 
     Segmentation, overlap-add, resampling and MLX execution stay inside the
-    native backend. This adapter only handles the project's result contract.
+    native backend. This adapter handles project cache and canonical outputs.
     """
     if not input_path.is_file():
         raise AudioInputError(f"Audio input does not exist: {input_path}")
