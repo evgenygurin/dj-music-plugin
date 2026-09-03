@@ -13,11 +13,7 @@ __all__ = ["STEMS_SEMAPHORE", "get_runner"]
 
 
 def get_runner(cfg: StemsConfig | None = None) -> StemRunner:
-    """Return a runner using explicit or capability-based runtime policy.
-
-    In ``auto`` mode only backend-availability failures trigger fallback. An
-    explicitly selected backend is never silently replaced after selection.
-    """
+    """Return a runner using explicit or capability-based runtime policy."""
     cfg = cfg or StemsConfig()
     explicit = cfg.runtime != "auto"
     runtime = cfg.runtime if explicit else detect_runtime()
@@ -30,7 +26,25 @@ def get_runner(cfg: StemsConfig | None = None) -> StemRunner:
                 raise RuntimeError("MLX backend requested but demucs-mlx/MLX is unavailable")
             runtime = "onnx"
         else:
-            return mlx_separate
+            def _mlx_runner(
+                input_path: Path,
+                cache_root: Path,
+                *,
+                model: str | None = None,
+                flac: bool = False,
+            ) -> dict[str, Path]:
+                return mlx_separate(
+                    input_path,
+                    cache_root,
+                    model=model,
+                    flac=flac,
+                    shifts=cfg.shifts,
+                    overlap=cfg.overlap,
+                    batch_size=1,
+                )
+
+            _mlx_runner.__name__ = "mlx_separate"
+            return _mlx_runner
 
     if runtime == "onnx":
         try:
