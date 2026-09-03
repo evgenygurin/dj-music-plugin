@@ -25,16 +25,28 @@ Status: **EXECUTED — BOUNDED IMPLEMENTATION + RUNTIME AUDIT**
 - Official Mem0 plugin factory exposed **10 native tools**.
 - Real Mem0 probe: `add_memory` → `search_memories` → `delete_memory`, all successful.
 - OpenCode CLI startup after duplicate-wrapper removal produced no plugin config-hook
-  error, but the model-mediated prompt exceeded the bounded runtime window.
+  error. Cell 14 then completed a real `opencode run` using `opencode/big-pickle`,
+  executed the bounded MECE checks, and wrote its own `REPORT.md` with exit 0.
 - No full real Demucs E2E was run on the 8 GB M2 machine.
 
 ## Remaining risks
 
-- Model-mediated OpenCode invocation of `search_memories` is not independently
-  proven because the bounded CLI prompt did not complete.
+- Model-mediated Mem0 tool invocation is still not independently proven; the direct
+  Mem0 API/runtime probe is successful, while Cell 14 proves the MECE → OpenCode
+  execution path itself.
 - The L6 orchestrator remains an infrastructure-facing handler and should stay
   outside `app/domain`.
 - OpenCode package metadata is aligned to the local CLI version; a clean dependency install should be used to refresh any stale local node_modules state.
+
+## Cell 14 runtime smoke
+
+- `14-opencode-runtime-smoke`: **PASS**. OpenCode reached the cell, ran the requested
+  bounded checks, and created `.mece/cells/14-opencode-runtime-smoke/REPORT.md`.
+- 13 of 15 discovered cell directories contain both TASK.md and REPORT.md; the
+  legacy `07-wave-3-integration` directory has only REPORT.md and is not an
+  execution cell.
+- Current tracked user changes remain untouched: `.opencode/agents/dj-music.md`,
+  `AGENTS.md`, `CLAUDE.md`, `opencode.json`.
 
 ## Scope decision
 
