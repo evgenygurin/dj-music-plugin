@@ -9,6 +9,11 @@ from app.audio.core.loader import AudioLoader
 from app.audio.level_config import AnalysisLevel, get_analyzers_for_level
 from app.audio.pipeline import AnalysisPipeline
 
+__all__ = [
+    "_make_pipeline",
+    "analyze_stems",
+]
+
 
 def _make_pipeline() -> AnalysisPipeline:
     registry = AnalyzerRegistry()
