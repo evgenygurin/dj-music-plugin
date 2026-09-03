@@ -16,6 +16,7 @@ def validate_stem(
     source: AudioMetadata,
     *,
     check_duration: bool = True,
+    reject_all_zero: bool = False,
 ) -> StemValidationResult:
     if not path.is_file():
         return StemValidationResult(False, str(path), reason="missing")
@@ -37,7 +38,7 @@ def validate_stem(
         return StemValidationResult(False, str(path), info.samplerate, info.channels, info.frames, reason="non_finite")
     rms = float(np.sqrt(np.mean(np.square(data), dtype=np.float64))) if data.size else 0.0
     peak = float(np.max(np.abs(data))) if data.size else 0.0
-    if peak == 0.0:
+    if reject_all_zero and peak == 0.0:
         return StemValidationResult(False, str(path), info.samplerate, info.channels, info.frames, rms, peak, "all_zero")
     return StemValidationResult(True, str(path), info.samplerate, info.channels, info.frames, rms, peak)
 
