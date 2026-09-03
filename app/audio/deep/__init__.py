@@ -40,6 +40,7 @@ def get_runner(cfg: StemsConfig | None = None) -> StemRunner:
                     flac=flac,
                     shifts=cfg.shifts,
                     overlap=cfg.overlap,
+                    segment=cfg.segment,
                     batch_size=1,
                 )
 
