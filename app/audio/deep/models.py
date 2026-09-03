@@ -13,6 +13,7 @@ class SeparationOptions:
     model: str = "htdemucs"
     shifts: int = 1
     overlap: float = 0.25
+    segment: float = 7.8
     batch_size: int = 1
     seed: int | None = None
 
