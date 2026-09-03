@@ -13,7 +13,6 @@ from app.audio.deep.errors import (
     StemBackendUnavailableError,
     StemInferenceError,
     StemModelLoadError,
-    StemOutputValidationError,
 )
 from app.audio.deep.io import TARGET_SAMPLE_RATE, write_flac_atomic
 from app.audio.deep.models import CANONICAL_STEMS, AudioMetadata, SeparationOptions
@@ -53,7 +52,7 @@ def _require_backend() -> None:
         logger.debug("Could not set MLX default device to GPU", exc_info=True)
 
 
-@lru_cache(maxsize=2)
+@lru_cache(maxsize=4)
 def _get_separator(options: SeparationOptions) -> Any:
     _require_backend()
     try:
@@ -90,15 +89,17 @@ def _to_numpy(audio: Any) -> np.ndarray:
     return array
 
 
-def _expected_paths(stem_dir: Path, flac: bool = True) -> dict[str, Path]:
-    ext = "flac" if flac else "wav"
-    return {name: stem_dir / f"{name}.{ext}" for name in CANONICAL_STEMS}
+def _expected_paths(stem_dir: Path) -> dict[str, Path]:
+    return {name: stem_dir / f"{name}.flac" for name in CANONICAL_STEMS}
 
 
 def _validate_cached_paths(paths: dict[str, Path]) -> bool:
-    """Validate cache artifacts without inventing a source duration."""
     for path in paths.values():
-        result = validate_stem(path, AudioMetadata(TARGET_SAMPLE_RATE, 2, 0), check_duration=False)
+        result = validate_stem(
+            path,
+            AudioMetadata(TARGET_SAMPLE_RATE, 2, 0),
+            check_duration=False,
+        )
         if not result.valid:
             return False
     return True
@@ -127,20 +128,31 @@ def mlx_separate(
     *,
     model: str | None = None,
     flac: bool = True,
+    shifts: int = 1,
+    overlap: float = DEMUCS_OVERLAP,
+    batch_size: int = 1,
+    seed: int | None = None,
 ) -> dict[str, Path]:
-    """Separate a track using native demucs-mlx and publish validated stems."""
+    """Separate a track using native demucs-mlx and publish validated stems.
+
+    Segmentation, overlap-add, resampling and MLX execution stay inside the
+    native backend. This adapter only handles the project's result contract.
+    """
     if not input_path.is_file():
         raise AudioInputError(f"Audio input does not exist: {input_path}")
     if not flac:
         raise ValueError("MLX runner currently supports FLAC output only")
+    if shifts < 0 or overlap < 0 or overlap >= 1 or batch_size < 1:
+        raise ValueError("Invalid MLX separation options")
 
     options = SeparationOptions(
         model=model or DEFAULT_MLX_MODEL,
-        shifts=1,
-        overlap=DEMUCS_OVERLAP,
-        batch_size=1,
+        shifts=shifts,
+        overlap=overlap,
+        batch_size=batch_size,
+        seed=seed,
     )
-    stem_dir = cache_directory(cache_root, input_path, options.model, PIPELINE_VERSION)
+    stem_dir = cache_directory(cache_root, input_path, options.model, f"{PIPELINE_VERSION}:{options}")
     paths = _expected_paths(stem_dir)
     if all(path.exists() for path in paths.values()) and _validate_cached_paths(paths):
         return paths
@@ -168,9 +180,11 @@ def mlx_separate(
         "harmonic": native["other"],
     }
     logger.info(
-        "MLX separation completed input=%s model=%s samples=%d sr=%d",
+        "MLX separation completed input=%s model=%s shifts=%d overlap=%.3f samples=%d sr=%d",
         input_path,
         options.model,
+        options.shifts,
+        options.overlap,
         source_samples,
         sample_rate,
     )
