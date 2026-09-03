@@ -38,9 +38,9 @@ from sqlalchemy.ext.asyncio import (
 from app.config import get_settings
 
 __all__ = [
+    "dispose",
     "get_engine",
     "get_session_factory",
-    "dispose",
 ]
 
 _engine: AsyncEngine | None = None

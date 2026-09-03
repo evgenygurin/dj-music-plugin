@@ -68,10 +68,10 @@ _TEMPLATE_PHASE_TABLE: dict[SetTemplate, tuple[float, float, float]] = {
 _DEFAULT_PHASE = (0.20, 0.50, 0.85)
 
 __all__ = [
-    "TransitionIntent",
     "INTENT_WEIGHT_MODIFIERS",
-    "infer_intent",
     "_DEFAULT_PHASE",
+    "TransitionIntent",
+    "infer_intent",
 ]
 
 
