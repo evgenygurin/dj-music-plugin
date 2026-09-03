@@ -32,3 +32,5 @@ def build_beatgrid(audio_path: Path) -> BeatgridEntry:
     return BeatgridEntry(
         bpm=bpm, trim_start_s=trim_start, refined_trim_s=refined_trim_s, phase_ms=phase_ms
     )
+
+__all__ = ["BeatgridEntry", "_get_bpm_from_path", "build_beatgrid"]
