@@ -67,6 +67,13 @@ _TEMPLATE_PHASE_TABLE: dict[SetTemplate, tuple[float, float, float]] = {
 }
 _DEFAULT_PHASE = (0.20, 0.50, 0.85)
 
+__all__ = [
+    "TransitionIntent",
+    "INTENT_WEIGHT_MODIFIERS",
+    "infer_intent",
+    "_DEFAULT_PHASE",
+]
+
 
 def infer_intent(
     set_position: float,
@@ -82,7 +89,9 @@ def infer_intent(
     are used, so existing call sites are unaffected.
     """
     warmup_end, _peak_start, peak_end = (
-        _TEMPLATE_PHASE_TABLE[template] if template is not None else _DEFAULT_PHASE
+        _TEMPLATE_PHASE_TABLE.get(template, _DEFAULT_PHASE)
+        if template is not None
+        else _DEFAULT_PHASE
     )
 
     if set_position < warmup_end:
