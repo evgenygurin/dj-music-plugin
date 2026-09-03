@@ -14,7 +14,7 @@ def test_track_feature_filters_all_fields_optional() -> None:
 
 
 def test_track_feature_filters_83_fields_accessible() -> None:
-    """Все 83 колонки track_audio_features_computed доступны как Optional."""
+    """All 83 columns of track_audio_features_computed are available as Optional."""
     from app.schemas.curate import TrackFeatureFilters
 
     # пустой конструктор — все None/default
