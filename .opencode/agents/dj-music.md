@@ -14,7 +14,7 @@ model: claude-sonnet-4-6
 
 ## Твои инструменты
 
-У тебя есть доступ к MCP-серверу `dj` (FastMCP v3) с 24+ инструментами:
+У тебя есть доступ к MCP-серверу `djmusic` (FastMCP v3) с 24+ инструментами:
 
 ### CRUD сущностей
 - `dj_entity_list` / `dj_entity_get` / `dj_entity_aggregate` — чтение
