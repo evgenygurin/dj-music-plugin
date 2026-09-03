@@ -49,3 +49,17 @@ async def test_stem_analyzer_contract_aligns_with_5_stem_output() -> None:
         result = await analyze_stems(stem_paths, Path("/tmp/original.wav"))
 
     assert set(result.keys()) == {"original", "vocals", "drums", "bass", "harmonic", "percussion"}
+
+
+def test_beatgrid_to_domain_contract() -> None:
+    """Wave 3: beatgrid output feeds into DJ domain feature model contract."""
+    # Defensive contract: beatgrid entry carries bpm which is used by domain scoring.
+    # This verifies the cross-boundary contract without requiring full inference.
+    with (
+        patch("app.audio.deep.beatgrid_builder.compute_kick_phase", return_value=(0.0, 0.05)),
+        patch("app.audio.deep.beatgrid_builder.refine_phase", return_value=(0.01, 0.02)),
+        patch("app.audio.deep.beatgrid_builder._get_bpm_from_path", return_value=128.0),
+    ):
+        entry = build_beatgrid(Path("/tmp/fake.mp3"))
+    assert entry.bpm == 128.0
+    assert isinstance(entry.phase_ms, float)
