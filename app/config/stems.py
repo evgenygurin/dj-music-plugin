@@ -77,21 +77,21 @@ def detect_runtime() -> Literal["mlx", "onnx", "torch", "cpu"]:
 
     # auto — probe in priority order
     try:
-        import mlx.core  # type: ignore[import-not-found, unused-ignore]  # noqa: F401
+        import mlx.core  # noqa: F401
 
         return "mlx"
     except Exception:
         pass
 
     try:
-        import onnxruntime  # type: ignore[import-not-found, unused-ignore]  # noqa: F401
+        import onnxruntime  # type: ignore[import-untyped]  # noqa: F401
 
         return "onnx"
     except Exception:
         pass
 
     try:
-        import torch  # type: ignore[import-not-found, unused-ignore]  # noqa: F401
+        import torch  # noqa: F401
 
         return "torch"
     except Exception:

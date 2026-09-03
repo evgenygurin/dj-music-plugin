@@ -4,7 +4,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from app.domain.deep_analysis.orchestrator import L6AnalysisOrchestrator
+from app.handlers.l6_analysis_orchestrator import L6AnalysisOrchestrator
 
 
 @pytest.mark.asyncio
@@ -25,11 +25,11 @@ async def test_orchestrator_runs_full_pipeline() -> None:
 
     with (
         patch(
-            "app.domain.deep_analysis.orchestrator.run_demucs",
+            "app.handlers.l6_analysis_orchestrator.run_demucs",
             return_value={"vocals": None, "drums": None, "bass": None, "other": None},
         ),
         patch(
-            "app.domain.deep_analysis.orchestrator.analyze_stems",
+            "app.handlers.l6_analysis_orchestrator.analyze_stems",
             new_callable=AsyncMock,
             return_value={
                 "original": {"bpm": 128},
@@ -40,15 +40,15 @@ async def test_orchestrator_runs_full_pipeline() -> None:
             },
         ),
         patch(
-            "app.domain.deep_analysis.orchestrator.build_beatgrid",
+            "app.handlers.l6_analysis_orchestrator.build_beatgrid",
             return_value=MagicMock(bpm=128.0, refined_trim_s=0.1),
         ),
         patch(
-            "app.domain.deep_analysis.orchestrator.analyze_structure",
+            "app.handlers.l6_analysis_orchestrator.analyze_structure",
             return_value=[],
         ),
         patch(
-            "app.domain.deep_analysis.orchestrator.build_embeddings",
+            "app.handlers.l6_analysis_orchestrator.build_embeddings",
             return_value={
                 "full": None,
                 "timbral": None,
@@ -58,23 +58,23 @@ async def test_orchestrator_runs_full_pipeline() -> None:
             },
         ),
         patch(
-            "app.domain.deep_analysis.orchestrator.upload_timeseries",
+            "app.handlers.l6_analysis_orchestrator.upload_timeseries",
             new_callable=AsyncMock,
         ),
         patch(
-            "app.domain.deep_analysis.orchestrator.upload_waveform",
+            "app.handlers.l6_analysis_orchestrator.upload_waveform",
             new_callable=AsyncMock,
         ),
         patch(
-            "app.domain.deep_analysis.orchestrator.build_waveform",
+            "app.handlers.l6_analysis_orchestrator.build_waveform",
             return_value=[0.5, 0.3, 0.8],
         ),
         patch(
-            "app.domain.deep_analysis.orchestrator.Path.exists",
+            "app.handlers.l6_analysis_orchestrator.Path.exists",
             return_value=True,
         ),
         patch(
-            "app.domain.deep_analysis.orchestrator.Path.mkdir",
+            "app.handlers.l6_analysis_orchestrator.Path.mkdir",
         ),
     ):
         result = await orch.run(track_id=1, uow=uow)

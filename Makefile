@@ -40,10 +40,10 @@ migrate-new:
 	uv run alembic revision --autogenerate -m "$(msg)"
 
 dev:
-	uv run fastmcp run app/server/__init__.py --reload
+	uv run fastmcp run server.py --reload
 
 run:
-	uv run fastmcp run app/server/__init__.py
+	uv run fastmcp run server.py
 
 upgrade:
 	uv lock --upgrade && uv sync --all-extras

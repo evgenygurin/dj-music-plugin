@@ -46,7 +46,7 @@ def _ensure_mlx() -> Any:
     в тесте срабатывал на вызове, а не на импорте модуля.
     """
     try:
-        import mlx.core as mx  # type: ignore[import-not-found, unused-ignore]
+        import mlx.core as mx
 
         return mx
     except Exception as exc:  # pragma: no cover — fallback ветка
@@ -67,7 +67,7 @@ def _get_mlx_model(model_name: str | None = None) -> Any | None:
         raise RuntimeError("mlx not installed") from exc
 
     try:
-        from demucs_mlx import separate as mlx_fn  # type: ignore[import-not-found, unused-ignore]
+        from demucs_mlx import separate as mlx_fn  # type: ignore[import-untyped]
 
         return mlx_fn
     except Exception:
@@ -337,8 +337,9 @@ def mlx_separate(
     mlx_fn = _get_mlx_model(model_name)
 
     # пробуем поставить mx.gpu как default (unified memory, 30x realtime)
+    mx: Any = None
     try:
-        import mlx.core as mx  # type: ignore[import-not-found, unused-ignore]
+        import mlx.core as mx
 
         try:  # noqa: SIM105
             mx.set_default_device(mx.gpu)

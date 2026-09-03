@@ -19,13 +19,22 @@ async def timeline_overlay(
     align_mode: str = "downbeat",
     uow: UnitOfWork = Depends(get_uow),
 ) -> dict[str, Any]:
-    """Show sections of multiple tracks on a unified timeline aligned by downbeat.
+    """Show sections of multiple tracks on a unified timeline aligned by downbeat."""
 
-    Args:
-        track_ids: Track IDs to overlay.
-        align_mode: Alignment mode (only "downbeat" currently).
-    """
-    return await build_timeline_overlay(uow, track_ids, align_mode)
+    class Reader:
+        def __init__(self, repo: UnitOfWork) -> None:
+            self._repo = repo
+
+        async def get_track_sections(self, track_id: int) -> list[dict[str, Any]]:
+            return await self._repo.track_features.get_track_sections(track_id)
+
+        async def get_beatgrids(self, track_id: int) -> list[Any]:
+            return await self._repo.audio_files.get_beatgrids(track_id)
+
+        async def get_by_track_id(self, track_id: int) -> Any:
+            return await self._repo.track_features.get_by_track_id(track_id)
+
+    return await build_timeline_overlay(Reader(uow), track_ids, align_mode)
 
 
 @tool(name="find_loops", annotations={"readOnlyHint": True, "idempotentHint": True})
@@ -37,14 +46,10 @@ async def find_loops(
     min_energy_stability: float = 0.7,
     uow: UnitOfWork = Depends(get_uow),
 ) -> dict[str, Any]:
-    """Find loopable sections in a track for sustained multi-deck layering.
-
-    Args:
-        track_id: Track to scan.
-        min_bars/max_bars: Loop length range.
-        exclude_vocals: Skip sections with vocal energy > 0.15.
-        min_energy_stability: Minimum energy stability (0-1).
-    """
-    return await _find_loops(
-        uow, track_id, min_bars, max_bars, exclude_vocals, min_energy_stability
+    """Find loopable sections in a track for sustained multi-deck layering."""
+    sections = await uow.track_features.get_track_sections(track_id)
+    features_row = await uow.track_features.get_by_track_id(track_id)
+    bpm = features_row.bpm if features_row and features_row.bpm is not None else None
+    return _find_loops(
+        sections, bpm, track_id, min_bars, max_bars, exclude_vocals, min_energy_stability
     )

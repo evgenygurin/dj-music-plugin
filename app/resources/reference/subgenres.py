@@ -85,10 +85,6 @@ import json as _json_module
 async def genre_subgenres(genre: str = "techno") -> str:
     """Polymorphic subgenre profile resource for a genre (techno, house, industrial, acid, etc.). Loads from subgenre_constants.json."""
     try:
-        constants_path = __file__.replace(
-            "app/resources/reference/subgenres.py", "app/config/subgenre_constants.json"
-        )
-        # Use relative path from module file
         import pathlib
 
         constants_path = (

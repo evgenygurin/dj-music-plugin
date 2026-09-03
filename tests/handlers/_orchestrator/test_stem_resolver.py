@@ -139,7 +139,7 @@ async def test_resolve_runs_demucs_without_session_when_workspace_provided(
             "percussion": tmp_path / "percussion.flac",
         }
 
-    monkeypatch.setattr("app.audio.deep.demucs_runner.run_demucs", fake_run_demucs)
+    monkeypatch.setattr("app.audio.deep.get_runner", lambda _cfg: fake_run_demucs)
 
     result = await StemResolver().resolve(
         None,
@@ -168,7 +168,7 @@ async def test_resolve_returns_none_when_demucs_source_missing(
     def fake_run_demucs(*_args: Any, **_kwargs: Any) -> dict[str, Path]:
         raise AssertionError("run_demucs should not be called for missing source")
 
-    monkeypatch.setattr("app.audio.deep.demucs_runner.run_demucs", fake_run_demucs)
+    monkeypatch.setattr("app.audio.deep.get_runner", lambda _cfg: fake_run_demucs)
 
     result = await StemResolver().resolve(
         None,
@@ -200,7 +200,7 @@ async def test_resolve_reuses_cached_stems_without_demucs(
         calls.append(True)
         raise AssertionError("demucs must not rerun when cache is present")
 
-    monkeypatch.setattr("app.audio.deep.demucs_runner.run_demucs", fake_run_demucs)
+    monkeypatch.setattr("app.audio.deep.get_runner", lambda _cfg: fake_run_demucs)
     reset_settings_cache()
     monkeypatch.setenv("DJ_DELIVERY_OUTPUT_DIR", str(tmp_path))
 
@@ -259,7 +259,7 @@ async def test_resolve_returns_none_when_demucs_raises(
     def fake_run_demucs(*_args: Any, **_kwargs: Any) -> dict[str, Path]:
         raise RuntimeError("boom")
 
-    monkeypatch.setattr("app.audio.deep.demucs_runner.run_demucs", fake_run_demucs)
+    monkeypatch.setattr("app.audio.deep.get_runner", lambda _cfg: fake_run_demucs)
 
     result = await StemResolver().resolve(
         None,

@@ -2,8 +2,12 @@
 
 from __future__ import annotations
 
+from typing import Any
 
-def analyze_harmonic_profile(track_id: int, target_keys: list[str] | None = None) -> dict:
+
+def analyze_harmonic_profile(
+    track_id: int, target_keys: list[str] | None = None
+) -> dict[str, Any]:
     """Read-only harmonic profile — no DB write."""
     import numpy as np
 

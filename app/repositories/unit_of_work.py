@@ -141,3 +141,6 @@ class UnitOfWork:
     @cached_property
     def feature_extraction_runs(self) -> FeatureExtractionRunRepository:
         return FeatureExtractionRunRepository(self.session)
+
+
+__all__ = ["UnitOfWork"]

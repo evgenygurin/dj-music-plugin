@@ -28,6 +28,13 @@ DISABLED_NAMESPACE_TAGS: frozenset[str] = frozenset()
 # at startup — ``unlock_namespace`` still exists for clients that do
 # honour the notification, and for audit-log dependant workflows.
 
+__all__ = [
+    "DISABLED_NAMESPACE_TAGS",
+    "KNOWN_NAMESPACES",
+    "apply_visibility_policy",
+]
+
+
 KNOWN_NAMESPACES: frozenset[str] = frozenset(
     {
         "crud:destructive",

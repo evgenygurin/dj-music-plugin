@@ -1,5 +1,7 @@
 {
   "dependencies": {
-    "@opencode-ai/plugin": "1.17.15"
+    "@mem0/opencode-plugin": "0.2.2",
+    "@opencode-ai/plugin": "^1.18.27",
+    "mem0ai": "^3.0.8"
   }
 }

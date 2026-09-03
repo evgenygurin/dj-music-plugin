@@ -139,27 +139,6 @@ PRESET_MAP: dict[str, SubgenreRenderPreset] = {
     "classic_house": CLASSIC_HOUSE,
 }
 
-PRESET_MAP: dict[str, SubgenreRenderPreset] = {
-    "industrial_techno": INDUSTRIAL,
-    "dub_techno": DUB_TECHNO,
-    "hard_techno": HARD_TECHNO,
-    "hypnotic_techno": HYPNOTIC,
-    "peak_time_techno": PEAK_TIME,
-    "driving_techno": DRIVING,
-    "acid_techno": ACID,
-    "raw_techno": INDUSTRIAL,  # близко к industrial
-    "tribal_techno": DRIVING,  # близко к driving
-    "detroit_techno": PEAK_TIME,  # близко к peak_time
-    "deep_techno": DUB_TECHNO,  # близко к dub
-    "minimal_techno": DUB_TECHNO,  # близко к dub
-    "progressive_techno": PEAK_TIME,  # close to peak_time
-    "melodic_techno": HYPNOTIC,  # близко к hypnotic
-    "deep_house": DEEP_HOUSE,
-    "tech_house": TECH_HOUSE,
-    "progressive_house": PROGRESSIVE_HOUSE,
-    "classic_house": CLASSIC_HOUSE,
-}
-
 
 def resolve_preset(mood: str | None) -> SubgenreRenderPreset | None:
     """Find the best preset for a mood label. Returns None if no match."""

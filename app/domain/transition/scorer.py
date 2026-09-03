@@ -22,6 +22,12 @@ from app.domain.transition.neural_mix import (
 from app.domain.transition.score import TransitionScore
 from app.domain.transition.section_context import SectionContext
 from app.domain.transition.weights import DEFAULT_WEIGHTS, SECTION_PAIR_OVERLAY
+
+__all__ = [
+    "_ALL_INTENTS",
+    "TransitionScore",
+    "TransitionScorer",
+]
 from app.shared.features import TrackFeatures
 
 # Default intents the bulk-scoring path materialises. Mirrors the set

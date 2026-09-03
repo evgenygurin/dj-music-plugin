@@ -10,11 +10,13 @@ from app.audio.deep.stem_analyzer import analyze_stems
 
 @pytest.mark.asyncio
 async def test_analyze_stems_calls_pipeline_5_times() -> None:
+    # 5-stem contract from demucs_runner (harmonic = other; percussion = drums split)
     stem_paths = {
         "vocals": Path("/tmp/vocals.wav"),
         "drums": Path("/tmp/drums.wav"),
         "bass": Path("/tmp/bass.wav"),
-        "other": Path("/tmp/other.wav"),
+        "harmonic": Path("/tmp/harmonic.wav"),
+        "percussion": Path("/tmp/percussion.wav"),
     }
     original = Path("/tmp/original.wav")
 
@@ -28,7 +30,7 @@ async def test_analyze_stems_calls_pipeline_5_times() -> None:
     ):
         result = await analyze_stems(stem_paths, original)
 
-    assert mock_pipeline.analyze.call_count == 5
+    assert mock_pipeline.analyze.call_count == 6  # 5 stems + original
     assert result["original"] == pipeline_results
     assert result["vocals"] == pipeline_results
     assert result["drums"] == pipeline_results

@@ -52,6 +52,18 @@ except ImportError:
 # that destroyed kick punch.
 PERCUSSION_SPLIT_HZ = 2000
 
+__all__ = [
+    "DEFAULT_DEMUCS_MODEL",
+    "DEMUCS_CLIP_MODE",
+    "DEMUCS_JOBS",
+    "DEMUCS_OVERLAP",
+    "DEMUCS_SEGMENT",
+    "DEMUCS_SHIFTS",
+    "PERCUSSION_SPLIT_HZ",
+    "_demucs_model",
+    "run_demucs",
+]
+
 
 def _detect_device() -> str:
     try:
@@ -115,6 +127,8 @@ def run_demucs(
             Pass ``htdemucs_ft`` for the fine-tuned 4-bag (slower, better SDR).
     """
     model = model or _demucs_model()
+    if not input_path.exists():
+        raise FileNotFoundError(f"Demucs input not found: {input_path}")
     cache_root.mkdir(parents=True, exist_ok=True)
 
     cache_key = hashlib.sha256(str(input_path.resolve()).encode()).hexdigest()[:12]
