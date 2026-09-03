@@ -63,6 +63,7 @@ def _get_separator(options: SeparationOptions) -> Any:
             model=options.model,
             shifts=options.shifts,
             overlap=options.overlap,
+            segment=options.segment,
             batch_size=options.batch_size,
             seed=options.seed,
         )
@@ -130,6 +131,7 @@ def mlx_separate(
     flac: bool = True,
     shifts: int = 1,
     overlap: float = DEMUCS_OVERLAP,
+    segment: float = DEMUCS_SEGMENT,
     batch_size: int = 1,
     seed: int | None = None,
 ) -> dict[str, Path]:
@@ -144,11 +146,14 @@ def mlx_separate(
         raise ValueError("MLX runner currently supports FLAC output only")
     if shifts < 0 or overlap < 0 or overlap >= 1 or batch_size < 1:
         raise ValueError("Invalid MLX separation options")
+    if segment <= 0 or segment > DEMUCS_SEGMENT:
+        raise ValueError(f"MLX segment must be in (0, {DEMUCS_SEGMENT}]")
 
     options = SeparationOptions(
         model=model or DEFAULT_MLX_MODEL,
         shifts=shifts,
         overlap=overlap,
+        segment=segment,
         batch_size=batch_size,
         seed=seed,
     )
@@ -180,11 +185,12 @@ def mlx_separate(
         "harmonic": native["other"],
     }
     logger.info(
-        "MLX separation completed input=%s model=%s shifts=%d overlap=%.3f samples=%d sr=%d",
+        "MLX separation completed input=%s model=%s shifts=%d overlap=%.3f segment=%.2f samples=%d sr=%d",
         input_path,
         options.model,
         options.shifts,
         options.overlap,
+        options.segment,
         source_samples,
         sample_rate,
     )
