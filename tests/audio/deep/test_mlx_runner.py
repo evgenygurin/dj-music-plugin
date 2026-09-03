@@ -36,12 +36,15 @@ def _separator() -> MagicMock:
     base = 0.05 * np.sin(2 * np.pi * 440 * t)
     separator.separate_audio_file.return_value = (
         np.vstack((base, base)),
-        {name: np.vstack((base * scale, base * scale)) for name, scale in {
-            "vocals": 1.0,
-            "drums": 0.8,
-            "bass": 0.6,
-            "other": 0.4,
-        }.items()},
+        {
+            name: np.vstack((base * scale, base * scale))
+            for name, scale in {
+                "vocals": 1.0,
+                "drums": 0.8,
+                "bass": 0.6,
+                "other": 0.4,
+            }.items()
+        },
     )
     return separator
 
@@ -97,11 +100,14 @@ def test_mlx_runner_rejects_all_zero_model_output(tmp_path: Path) -> None:
     separator = MagicMock()
     zero = np.zeros((2, 44_100), dtype=np.float32)
     separator.samplerate = 44_100
-    separator.separate_audio_file.return_value = (zero, {name: zero for name in ("vocals", "drums", "bass", "other")})
+    separator.separate_audio_file.return_value = (
+        zero,
+        {name: zero for name in ("vocals", "drums", "bass", "other")},
+    )
 
     with (
         patch("app.audio.deep.demucs_mlx_runner._get_separator", return_value=separator),
-        pytest.raises(StemOutputValidationError, match="all_zero"),
+        pytest.raises(StemOutputValidationError, match="all native stems are zero"),
     ):
         mlx_separate(inp, tmp_path / "cache")
 
