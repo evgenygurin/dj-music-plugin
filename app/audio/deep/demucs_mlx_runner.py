@@ -13,11 +13,12 @@ from app.audio.deep.errors import (
     StemBackendUnavailableError,
     StemInferenceError,
     StemModelLoadError,
+    StemOutputValidationError,
 )
 from app.audio.deep.io import TARGET_SAMPLE_RATE, write_flac_atomic
-from app.audio.deep.models import CANONICAL_STEMS, SeparationOptions
+from app.audio.deep.models import CANONICAL_STEMS, AudioMetadata, SeparationOptions
 from app.audio.deep.postprocess import derive_percussion
-from app.audio.deep.validation import require_valid_stem
+from app.audio.deep.validation import require_valid_stem, validate_stem
 
 logger = logging.getLogger(__name__)
 
@@ -30,7 +31,6 @@ PIPELINE_VERSION = "2"
 
 
 def mlx_backend_available() -> bool:
-    """Return whether the native MLX Demucs backend can be imported."""
     try:
         import mlx.core  # type: ignore[import-not-found, unused-ignore]  # noqa: F401
         from demucs_mlx import Separator  # type: ignore[import-not-found, unused-ignore]  # noqa: F401
@@ -45,7 +45,7 @@ def _require_backend() -> None:
         from demucs_mlx import Separator  # type: ignore[import-not-found, unused-ignore]  # noqa: F401
     except Exception as exc:
         raise StemBackendUnavailableError(
-            "MLX stem backend is unavailable. Install a compatible demucs-mlx/MLX pair."
+            "MLX stem backend is unavailable; install a compatible demucs-mlx/MLX pair."
         ) from exc
     try:
         mx.set_default_device(mx.gpu)
@@ -90,17 +90,18 @@ def _to_numpy(audio: Any) -> np.ndarray:
     return array
 
 
-def _expected_paths(stem_dir: Path, flac: bool) -> dict[str, Path]:
+def _expected_paths(stem_dir: Path, flac: bool = True) -> dict[str, Path]:
     ext = "flac" if flac else "wav"
     return {name: stem_dir / f"{name}.{ext}" for name in CANONICAL_STEMS}
 
 
-def _validate_cache(paths: dict[str, Path], source_samples: int, sample_rate: int) -> bool:
-    from app.audio.deep.models import AudioMetadata
-
-    source = AudioMetadata(sample_rate, 2, source_samples)
-    results = [require_valid_stem(path, source) for path in paths.values()]
-    return all(result.valid for result in results)
+def _validate_cached_paths(paths: dict[str, Path]) -> bool:
+    """Validate cache artifacts without inventing a source duration."""
+    for path in paths.values():
+        result = validate_stem(path, AudioMetadata(TARGET_SAMPLE_RATE, 2, 0), check_duration=False)
+        if not result.valid:
+            return False
+    return True
 
 
 def _write_outputs(
@@ -108,19 +109,12 @@ def _write_outputs(
     stem_dir: Path,
     sample_rate: int,
     source_samples: int,
-    flac: bool,
 ) -> dict[str, Path]:
-    if not flac:
-        raise ValueError("The refactored native MLX pipeline currently writes FLAC only")
-
-    paths = _expected_paths(stem_dir, flac=True)
+    paths = _expected_paths(stem_dir)
     for name in ("vocals", "drums", "bass", "harmonic"):
         write_flac_atomic(paths[name], stems[name], sample_rate)
 
     derive_percussion(paths["drums"], paths["percussion"], sample_rate)
-
-    from app.audio.deep.models import AudioMetadata
-
     source = AudioMetadata(sample_rate, 2, source_samples)
     for path in paths.values():
         require_valid_stem(path, source)
@@ -134,40 +128,33 @@ def mlx_separate(
     model: str | None = None,
     flac: bool = True,
 ) -> dict[str, Path]:
-    """Separate one track using the native demucs-mlx Separator backend.
-
-    The native backend owns model-specific resampling and split/overlap-add.
-    This adapter owns project cache layout, canonical stem names, derived
-    percussion, atomic persistence, and output validation.
-    """
+    """Separate a track using native demucs-mlx and publish validated stems."""
     if not input_path.is_file():
         raise AudioInputError(f"Audio input does not exist: {input_path}")
     if not flac:
-        raise ValueError("MLX runner supports FLAC output only")
+        raise ValueError("MLX runner currently supports FLAC output only")
 
-    options = SeparationOptions(model=model or DEFAULT_MLX_MODEL, shifts=1, overlap=DEMUCS_OVERLAP, batch_size=1)
-    separator = _get_separator(options)
+    options = SeparationOptions(
+        model=model or DEFAULT_MLX_MODEL,
+        shifts=1,
+        overlap=DEMUCS_OVERLAP,
+        batch_size=1,
+    )
     stem_dir = cache_directory(cache_root, input_path, options.model, PIPELINE_VERSION)
-    paths = _expected_paths(stem_dir, flac=True)
+    paths = _expected_paths(stem_dir)
+    if all(path.exists() for path in paths.values()) and _validate_cached_paths(paths):
+        return paths
+    for path in paths.values():
+        path.unlink(missing_ok=True)
 
-    if all(path.exists() for path in paths.values()):
-        try:
-            # The native model uses 44.1 kHz for HTDemucs. Cache validation is
-            # intentionally performed before returning an artifact as a hit.
-            if _validate_cache(paths, source_samples=0, sample_rate=TARGET_SAMPLE_RATE):
-                return paths
-        except Exception:
-            logger.info("Ignoring invalid MLX stem cache for %s", input_path)
-        for path in paths.values():
-            path.unlink(missing_ok=True)
-
+    separator = _get_separator(options)
     try:
         origin, raw_stems = separator.separate_audio_file(str(input_path), return_mx=True)
     except Exception as exc:
         raise StemInferenceError(f"MLX Demucs inference failed for {input_path}: {exc}") from exc
 
+    origin_np = _to_numpy(origin)
     try:
-        origin_np = _to_numpy(origin)
         native = {name: _to_numpy(raw_stems[name]) for name in ("vocals", "drums", "bass", "other")}
     except (KeyError, StemInferenceError) as exc:
         raise StemInferenceError(f"MLX returned an invalid stem set: {exc}") from exc
@@ -181,10 +168,10 @@ def mlx_separate(
         "harmonic": native["other"],
     }
     logger.info(
-        "MLX separation completed: input=%s model=%s samples=%d sr=%d",
+        "MLX separation completed input=%s model=%s samples=%d sr=%d",
         input_path,
         options.model,
         source_samples,
         sample_rate,
     )
-    return _write_outputs(canonical, stem_dir, sample_rate, source_samples, flac)
+    return _write_outputs(canonical, stem_dir, sample_rate, source_samples)
