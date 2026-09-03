@@ -11,7 +11,12 @@ DURATION_TOLERANCE_SECONDS = 0.25
 MIN_ARTIFACT_BYTES = 512
 
 
-def validate_stem(path: Path, source: AudioMetadata) -> StemValidationResult:
+def validate_stem(
+    path: Path,
+    source: AudioMetadata,
+    *,
+    check_duration: bool = True,
+) -> StemValidationResult:
     if not path.is_file():
         return StemValidationResult(False, str(path), reason="missing")
     if path.stat().st_size < MIN_ARTIFACT_BYTES:
@@ -22,7 +27,7 @@ def validate_stem(path: Path, source: AudioMetadata) -> StemValidationResult:
         info = sf.info(str(path))
         if info.channels != source.channels:
             return StemValidationResult(False, str(path), info.samplerate, info.channels, info.frames, reason="channel_mismatch")
-        if abs(info.frames / info.samplerate - source.duration) > DURATION_TOLERANCE_SECONDS:
+        if check_duration and abs(info.frames / info.samplerate - source.duration) > DURATION_TOLERANCE_SECONDS:
             return StemValidationResult(False, str(path), info.samplerate, info.channels, info.frames, reason="duration_mismatch")
         data, _ = sf.read(str(path), always_2d=True, dtype="float32")
     except Exception as exc:
