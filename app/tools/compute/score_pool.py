@@ -1,8 +1,6 @@
-"""transition_score_pool — compute NxN score matrix through the application boundary."""
-
 from __future__ import annotations
 
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal
 
 from fastmcp.dependencies import CurrentContext, Depends
 from fastmcp.server.context import Context
@@ -52,13 +50,8 @@ async def transition_score_pool(
     ctx: Context = CurrentContext(),
 ) -> ScorePoolResult:
     try:
-        result = await ScoreTransitionPool(
-            UowCandidateCatalog(uow), scorer
-        ).execute(
-            list(track_ids),
-            intent=intent,
-            top_k=top_k,
-            components=components,
+        result = await ScoreTransitionPool(UowCandidateCatalog(uow), scorer).execute(
+            list(track_ids), intent=intent, top_k=top_k, components=components
         )
     except ValueError as exc:
         details = {}

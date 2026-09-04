@@ -159,3 +159,13 @@ Status: **implemented and focused-verified**.
 - New mode never invokes the legacy renderer; legacy mode never requires a new renderer. Missing new renderer fails explicitly rather than silently falling back.
 - Added TDD coverage for legacy adaptation, new-renderer isolation, and missing-new-renderer failure.
 - Verification: renderer rollout tests `3 passed`; targeted Ruff clean; targeted mypy clean; `git diff --check` clean.
+
+## Task 10 — production rollout configuration boundary
+
+Status: **implemented and focused-verified; full MCP import remains blocked by unrelated baseline discovery failures**.
+
+- Added `get_engine_selection()` to the application DI layer so runtime consumers can obtain the canonical `EngineSettings.selection()` without constructing rollout policy themselves.
+- Kept the default rollout `legacy`; environment values remain `DJ_ENGINE=legacy|shadow|new` and `DJ_RENDERER=legacy|new`.
+- Fixed the missing `Any` import in `transition_score_pool`, removing one unresolved annotation from FastMCP schema generation; full server discovery still reaches pre-existing `UnitOfWork`/other tool schema failures.
+- Added focused tests for engine selection defaults and environment mapping.
+- Verification: engine selection tests `2 passed`; targeted transition/engine tests `13 passed`; Ruff clean; mypy clean on changed source files; `git diff --check` clean.

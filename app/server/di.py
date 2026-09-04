@@ -141,3 +141,10 @@ async def get_transition_candidate_generator(ctx: Any = None) -> Any:
     uow = await get_uow(ctx)
     scorer = await get_transition_scorer(ctx)
     return GenerateTransitionCandidates(UowCandidateCatalog(uow), scorer)
+
+
+async def get_engine_selection(ctx: Any = None) -> Any:
+    """Return the process rollout selection from the canonical engine settings."""
+    from app.config import get_settings
+
+    return get_settings().engine.selection()
