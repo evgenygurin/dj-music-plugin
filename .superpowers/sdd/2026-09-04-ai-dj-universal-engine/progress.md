@@ -83,3 +83,11 @@ Status: **implemented and focused-verified**.
 - Precedence implemented as Global → Genre → Behavior → Set → Transition → Render; unknown fields and out-of-range values are rejected.
 - Focused configuration/application/domain verification: `26 passed` before the legacy adapter, then `7 passed` configuration tests after adapter completion; all new-module Ruff and mypy checks clean.
 - No legacy `app/config/transition.py` or `app/config/render.py` behavior was removed; adapter remains additive for later cutover.
+
+## Task 10 — rollout wiring and application boundary (in progress)
+
+- Added `EngineSettings` to expose `DJ_ENGINE=legacy|shadow|new` and `DJ_RENDERER=legacy|new` through the central settings facade; defaults remain legacy.
+- Added `TransitionEngineRouter` as the deterministic legacy/shadow/new execution boundary; shadow evaluates both paths and returns parity diagnostics without changing the selected new result.
+- Added `GenerateTransitionCandidates` application use case with protocol-based catalog/scorer ports and deterministic top-k ranking. This is the first concrete MCP migration boundary; the existing tool adapter remains to be wired to the use case next.
+- Verification: engine settings `2 passed`; candidate application use case `1 passed`; targeted Ruff/mypy clean.
+- Repository-wide `make check` remains blocked by pre-existing lint/import issues outside this slice; no baseline files were modified.
