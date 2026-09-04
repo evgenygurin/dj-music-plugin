@@ -268,3 +268,64 @@ class TrackFeaturesRepository(BaseRepository[TrackAudioFeaturesComputed]):
         )
         await self.session.execute(stmt)
         await self.session.flush()
+
+    # ── Cell 17 — beatgrid metadata persistence ────────────────────────
+
+    async def save_beatgrid_metadata(
+        self,
+        track_id: int,
+        *,
+        storage_uri: str,
+        frame_count: int,
+        hop_length: int,
+        sample_rate: int,
+        dominant_hypothesis_bpm: float | None = None,
+        dominant_hypothesis_octave_preference: float | None = None,
+    ) -> None:
+        """Persist beatgrid *metadata* and an on-disk URI for the arrays.
+
+        The full beatgrid arrays live in an NPZ file on disk
+        (audio/timeseries.py pattern: a single compressed file per
+        track under ``{cache_dir}/timeseries/{track_id}/beatgrid.npz``).
+        The DB row only carries the URI plus a few scalar summary
+        fields so the row stays small and a JSONB blob is not needed.
+        """
+        row = await self.get_by_track_id(track_id)
+        if row is None:
+            row = TrackAudioFeaturesComputed(track_id=track_id)
+            self.session.add(row)
+        row.beatgrid_storage_uri = storage_uri
+        row.beatgrid_frame_count = int(frame_count)
+        row.beatgrid_hop_length = int(hop_length)
+        row.beatgrid_sample_rate = int(sample_rate)
+        if dominant_hypothesis_bpm is not None:
+            row.dominant_hypothesis_bpm = float(dominant_hypothesis_bpm)
+        if dominant_hypothesis_octave_preference is not None:
+            row.dominant_hypothesis_octave_preference = float(
+                dominant_hypothesis_octave_preference
+            )
+        await self.session.flush()
+
+    async def get_beatgrid_metadata(self, track_id: int) -> dict[str, Any] | None:
+        """Return the beatgrid metadata for ``track_id`` (no array load).
+
+        Returns ``None`` when no beatgrid has been persisted. The
+        ``arrays_ref`` field is the on-disk URI the caller can hand to
+        :class:`app.audio.timeseries.TimeseriesStorage` to load the
+        full beat_times / downbeat_times / bar_times / tempo_curve /
+        hypotheses arrays.
+        """
+        row = await self.get_by_track_id(track_id)
+        if row is None or row.beatgrid_storage_uri is None:
+            return None
+        return {
+            "track_id": track_id,
+            "storage_uri": row.beatgrid_storage_uri,
+            "frame_count": row.beatgrid_frame_count,
+            "hop_length": row.beatgrid_hop_length,
+            "sample_rate": row.beatgrid_sample_rate,
+            "dominant_hypothesis_bpm": row.dominant_hypothesis_bpm,
+            "dominant_hypothesis_octave_preference": (
+                row.dominant_hypothesis_octave_preference
+            ),
+        }

@@ -1,30 +1,28 @@
-# ruff: noqa: RUF002
-"""MLX runner (30× realtime) — chunk 7.8s / overlap 0.25 / mps unified.
+"""MLX native stem separation runner — uses real ``demucs-mlx`` Separator API.
 
-Канонический 5-стем набор: vocals / drums / bass / harmonic / percussion.
-MLX/ONNX/Torch — 3-tier рантаймы через StemRunner Protocol (app/config/stems.py).
+No custom chunking/OLA pipeline — ``demucs-mlx`` handles split/overlap/add,
+resampling, and native MLX array operations. We only add:
 
-- 30× realtime на M2 (unified memory, mx.gpu, MPS)
-- чанк 7.8s (HTDemucs Transformer hard limit ≤7.8) / overlap 0.25 / hop 5.85s
-- STFT via torch cpu, heavy ops on mx.gpu (MPS)
-- запись flac (compression 8) + кэш ``sha256(path)[:12] / model / stem.flac`` (не менять схему)
-- percussion PERCUSSION_SPLIT_HZ=2000 (high-pass из drums, kick остаётся в drums)
-- fallback: RuntimeError("mlx not installed") если mlx не установлен
-- sync API: ``def mlx_separate(...) -> dict[str, Path]`` — вызывается через ``asyncio.to_thread`` в resolver
+- cache identity (sha12 / model / stem.flac)
+- canonical mapping (other → harmonic)
+- percussion derivation (2 kHz high-pass from drums)
+- FLAC encoding + audio integrity validation
+- explicit error propagation (no silent zero fallback)
+
+Requires on Apple Silicon (macOS + arm64):
+    mlx>=0.31.0, demucs-mlx>=1.4.4, mlx-audio-io>=1.3.8, mlx-spectro>=0.2.4
 """
 
 from __future__ import annotations
 
 import hashlib
 import subprocess
+import warnings
 from pathlib import Path
 from typing import Any
 
 import numpy as np
 
-# 7.8 — HTDemucs hard limit (≤7.8), 2000 Hz — percussion split (см. global constraints + AGENTS.md §8)
-DEMUCS_SEGMENT: float = 7.8
-DEMUCS_OVERLAP: float = 0.25
 PERCUSSION_SPLIT_HZ: int = 2000
 DEFAULT_MLX_MODEL: str = "htdemucs"
 FLAC_COMPRESSION: int = 8
@@ -36,57 +34,175 @@ _DEMUCS_NATIVE_TO_CANONICAL: dict[str, str] = {
     "bass": "bass",
     "other": "harmonic",
 }
-_NATIVE_4: tuple[str, ...] = ("vocals", "drums", "bass", "other")
 
 
-def _ensure_mlx() -> Any:
-    """Проверить что mlx установлен, иначе RuntimeError (fallback).
+class StemRuntimeUnavailableError(RuntimeError):
+    """MLX backend is not usable (missing package, incompatible version, or model missing)."""
 
-    Использует отложенный импорт чтобы ``patch.dict(sys.modules, {"mlx": None})``
-    в тесте срабатывал на вызове, а не на импорте модуля.
-    """
+
+class StemInferenceError(RuntimeError):
+    """Inferences produced invalid or silent output."""
+
+
+class StemOutputValidationError(RuntimeError):
+    """Separated stem failed integrity checks."""
+
+
+def _raise_for_missing_input(input_path: Path) -> None:
+    if not input_path.exists():
+        raise FileNotFoundError(f"Input audio not found: {input_path}")
     try:
-        import mlx.core as mx
+        if input_path.stat().st_size < 1024:
+            raise ValueError(f"Input audio file too small (<1KB): {input_path}")
+    except OSError as exc:
+        raise ValueError(f"Cannot stat input audio: {input_path}") from exc
 
-        return mx
-    except Exception as exc:  # pragma: no cover — fallback ветка
-        raise RuntimeError("mlx not installed") from exc
 
-
-def _get_mlx_model(model_name: str | None = None) -> Any | None:
-    """Лениво получить MLX-модель / separate-функцию.
-
-    Пытается ``import mlx.core`` + ``from demucs_mlx import separate``.
-    Если mlx не установлен — кидает ``RuntimeError("mlx not installed")``.
-    Если demucs_mlx отсутствует но mlx есть — возвращает None (inference
-    сделает заглушку zeros; в тестах мокается).
-    """
+def _load_separator(model: str | None = None) -> Any:
+    """Load ``demucs-mlx.Separator`` — raises on any import/model failure."""
     try:
-        import mlx.core as mx  # noqa: F401  # type: ignore[import-not-found, unused-ignore]
+        import mlx.core as mx  # noqa: F401
     except Exception as exc:
-        raise RuntimeError("mlx not installed") from exc
+        raise StemRuntimeUnavailableError(
+            "mlx.core is not available (this is a macOS Apple Silicon runtime)"
+        ) from exc
 
     try:
-        from demucs_mlx import separate as mlx_fn  # type: ignore[import-untyped]
+        from demucs_mlx import Separator
+    except Exception as exc:
+        raise StemRuntimeUnavailableError(
+            "demucs-mlx is not installed (pip install 'demucs-mlx>=1.4.4' on macOS)"
+        ) from exc
 
-        return mlx_fn
+    try:
+        sep = Separator(model=model or DEFAULT_MLX_MODEL, shifts=1)
+        return sep
+    except Exception as exc:
+        raise StemRuntimeUnavailableError(
+            f"Failed to load demucs-mlx model '{model or DEFAULT_MLX_MODEL}': {exc}"
+        ) from exc
+
+
+def _validate_stem_output(
+    path: Path, expected_sr: int = 44100, silence_rms_threshold: float = 1e-5
+) -> None:
+    """Validate that a written FLAC stem is present, finite, and non-silent.
+
+    Raises StemOutputValidationError on any failure.
+    """
+    if not path.exists():
+        raise StemOutputValidationError(f"Stem file missing after inference: {path}")
+    # Size check
+    try:
+        size = path.stat().st_size
+        if size < 256:
+            raise StemOutputValidationError(f"Stem file too small ({size} bytes): {path}")
+    except OSError as exc:
+        raise StemOutputValidationError(f"Cannot stat stem file: {path}") from exc
+
+    try:
+        import numpy as np
+        import soundfile as sf
+
+        arr, sr = sf.read(str(path), always_2d=True)
+    except Exception as exc:
+        raise StemOutputValidationError(f"Cannot read stem for validation: {path}: {exc}") from exc
+
+    # Duration / sample rate basic check
+    arr = np.atleast_2d(arr).astype(np.float32)
+    if arr.shape[1] == 0:
+        raise StemOutputValidationError(f"Stem has zero samples: {path}")
+    if sr != expected_sr:
+        # Not fatal — some libraries resample, but log-level issue. We don't auto-fix.
+        pass
+
+    # Check for non-finite or all-zero output
+    if not np.isfinite(arr).all():
+        bad = np.sum(~np.isfinite(arr))
+        raise StemOutputValidationError(f"Stem contains {bad} non-finite samples: {path}")
+
+    # RMS check for unexpected silence — but allow intentionally quiet stems
+    rms = float(np.sqrt(np.mean(arr**2)))
+    if rms < silence_rms_threshold:
+        # This could be a truly quiet stem OR a zero-output failure.
+        # We treat it as a potential failure but allow it if the peak is also near-zero
+        # and the duration is very short? Better: require at least one non-zero value.
+        peak = float(np.max(np.abs(arr)))
+        if peak < 1e-6:
+            # Definitely all-zero / silent — treat as failure unless we explicitly allow it.
+            # For regression, we refuse silent outputs.
+            raise StemOutputValidationError(
+                f"Stem output is silent (RMS={rms}, peak={peak}): {path} — inference may have produced zero arrays"
+            )
+
+
+def _derive_percussion_from_drums(drums_path: Path, percussion_path: Path) -> None:
+    """Derive percussion from drums via 2 kHz high-pass split using ffmpeg."""
+    if percussion_path.exists():
+        return
+    if not drums_path.exists():
+        return
+    cutoff = PERCUSSION_SPLIT_HZ
+    tmp_drums = drums_path.with_name("drums_tmp.wav")
+    try:
+        subprocess.run(
+            [
+                "ffmpeg",
+                "-y",
+                "-i",
+                str(drums_path),
+                "-filter_complex",
+                (
+                    f"[0]lowpass=f={cutoff}:poles=2,asetpts=PTS-STARTPTS[drums];"
+                    f"[0]highpass=f={cutoff}:poles=2,asetpts=PTS-STARTPTS[perc]"
+                ),
+                "-map",
+                "[drums]",
+                str(tmp_drums),
+                "-map",
+                "[perc]",
+                str(percussion_path),
+            ],
+            check=True,
+            timeout=120,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+        tmp_drums.replace(drums_path)
     except Exception:
-        return None
+        try:
+            import shutil
+
+            shutil.copy(drums_path, percussion_path)
+        except Exception:
+            pass
+        finally:
+            tmp_drums.unlink(missing_ok=True)
+    else:
+        tmp_drums.unlink(missing_ok=True)
 
 
 def _write_flac(path: Path, data: np.ndarray, sr: int = 44100) -> None:
-    """Записать (channels, samples) или (samples,) float32 в flac.
-
-    Пытается soundfile → ffmpeg fallback. Создаёт валидный flac даже для мок-данных.
-    """
+    """Write numpy array (channels, samples) or (samples, channels) to FLAC."""
     path.parent.mkdir(parents=True, exist_ok=True)
-    if data.ndim == 2:
-        if data.shape[0] in (1, 2) and data.shape[1] > 4:
-            wav = np.transpose(data).astype(np.float32)
-        else:
-            wav = data.astype(np.float32)
-    else:
-        wav = data.astype(np.float32)
+    wav = data.astype(np.float32)
+    # Ensure shape is (channels, samples) for soundfile
+    if wav.ndim == 1:
+        wav = np.expand_dims(wav, axis=0)
+    if wav.ndim == 2:
+        # If shape[0] is small and shape[1] is large, assume (channels, samples)
+        # soundfile expects (samples, channels) — but let's just transpose if it looks like (channels, samples)
+        # For our pipeline, arrays from demucs-mlx are (channels, samples) or (samples,)
+        # soundfile.write expects data with shape (frames, channels) for multi-channel
+        # So we should transpose if it's (channels, samples)
+        if wav.shape[0] in (1, 2, 4) and wav.shape[1] > wav.shape[0] * 4:
+            wav = np.transpose(wav)
+    # If it ended up as (channels, samples) after above logic, soundfile needs (samples, channels) for always_2d=False
+    # Let's just rely on soundfile's default: for stereo, shape should be (frames, 2)
+    # Our arrays from Separator are typically (channels, samples) where channels is 2 for stereo
+    # Let's transpose unconditionally to be safe: (samples, channels)
+    if wav.ndim == 2 and wav.shape[0] in (1, 2, 4) and wav.shape[1] > 4:
+        wav = np.transpose(wav)
 
     try:
         import soundfile as sf
@@ -137,107 +253,6 @@ def _write_flac(path: Path, data: np.ndarray, sr: int = 44100) -> None:
         tmp_wav.unlink(missing_ok=True)
 
 
-def _derive_percussion_from_drums(
-    drums_path: Path,
-    percussion_path: Path,
-) -> None:
-    """Выделить percussion (hi-hat/cymbal >2kHz) из drums через ffmpeg high-pass."""
-    if percussion_path.exists():
-        return
-    if not drums_path.exists():
-        return
-    cutoff = PERCUSSION_SPLIT_HZ
-    tmp_drums = drums_path.with_name("drums_tmp.wav")
-    try:
-        subprocess.run(
-            [
-                "ffmpeg",
-                "-y",
-                "-i",
-                str(drums_path),
-                "-filter_complex",
-                (
-                    f"[0]lowpass=f={cutoff}:poles=2,asetpts=PTS-STARTPTS[drums];"
-                    f"[0]highpass=f={cutoff}:poles=2,asetpts=PTS-STARTPTS[perc]"
-                ),
-                "-map",
-                "[drums]",
-                str(tmp_drums),
-                "-map",
-                "[perc]",
-                str(percussion_path),
-            ],
-            check=True,
-            timeout=120,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-        )
-        tmp_drums.replace(drums_path)
-    except Exception:
-        try:
-            import shutil
-
-            shutil.copy(drums_path, percussion_path)
-        except Exception:
-            pass
-        tmp_drums.unlink(missing_ok=True)
-
-
-def _load_audio(input_path: Path, sr: int = 44100) -> tuple[np.ndarray, int]:
-    """Загрузить стерео аудио как (channels, samples) float32. Мок-дружелюбно."""
-    import warnings
-
-    if not input_path.exists():
-        return np.zeros((2, sr), dtype=np.float32), sr
-    try:
-        if input_path.stat().st_size < 1024:
-            return np.zeros((2, sr), dtype=np.float32), sr
-    except Exception:
-        pass
-    try:
-        import soundfile as sf
-
-        data, file_sr = sf.read(str(input_path), always_2d=True)
-        wav = np.transpose(data).astype(np.float32)
-        if file_sr != sr:
-            try:
-                with warnings.catch_warnings():
-                    warnings.filterwarnings("ignore", category=DeprecationWarning)
-                    warnings.filterwarnings("ignore", category=FutureWarning)
-                    warnings.filterwarnings("ignore", category=UserWarning)
-                    import librosa
-
-                    wav = librosa.resample(wav, orig_sr=file_sr, target_sr=sr)
-            except Exception:
-                pass
-        if wav.shape[0] == 1:
-            wav = np.repeat(wav, 2, axis=0)
-        elif wav.shape[0] > 2:
-            wav = wav[:2, :]
-        return wav, sr
-    except Exception:
-        pass
-    try:
-        with warnings.catch_warnings():
-            warnings.filterwarnings("ignore", category=DeprecationWarning)
-            warnings.filterwarnings("ignore", category=FutureWarning)
-            warnings.filterwarnings("ignore", category=UserWarning, message="PySoundFile failed.*")
-            warnings.filterwarnings(
-                "ignore", category=FutureWarning, message=".*__audioread_load.*"
-            )
-            warnings.filterwarnings("ignore", category=ResourceWarning)
-            import librosa
-
-            y, file_sr = librosa.load(str(input_path), sr=sr, mono=False)
-        wav = np.atleast_2d(y).astype(np.float32)
-        if wav.shape[0] == 1:
-            wav = np.repeat(wav, 2, axis=0)
-        return wav, sr
-    except Exception:
-        pass
-    return np.zeros((2, sr), dtype=np.float32), sr
-
-
 def mlx_separate(
     input_path: Path,
     cache_root: Path,
@@ -245,28 +260,24 @@ def mlx_separate(
     model: str | None = None,
     flac: bool = True,
 ) -> dict[str, Path]:
-    """Разделить трек через MLX (30× realtime) чанками 7.8s / 0.25 overlap.
-
-    Unified memory (mx.gpu) + чанк 7.8s даёт ~30× realtime на M2
-    (vs ~5× на torch MPS). Кэш и percussion как у torch/onnx раннеров.
-
-    Кэш: ``cache_root / {stem}_{sha12} / {model} / {stem_name} / {stem}.flac``
-    (схема не меняется, как у torch-раннера).
+    """Separate audio into 5 canonical stems using native MLX Demucs.
 
     Args:
-        input_path: путь к входному mp3/wav/flac.
-        cache_root: корень кэша стемов.
-        model: имя модели для директории кэша (default ``htdemucs``).
-        flac: писать flac (True) или wav (False).
+        input_path: Path to input audio (mp3/wav/flac/etc).
+        cache_root: Root directory for stem cache.
+        model: Model name (default ``htdemucs``).
+        flac: Write FLAC (True) or WAV (False).
 
     Returns:
-        dict ``stem_name -> Path`` для канонических 5 стемов.
+        dict mapping canonical stem name → output Path.
 
     Raises:
-        RuntimeError: если ``mlx`` не установлен.
+        StemRuntimeUnavailableError: If MLX / demucs-mlx is unavailable.
+        StemInferenceError: If inference produces invalid output.
+        StemOutputValidationError: If output fails integrity checks.
+        FileNotFoundError: If input audio is missing.
     """
-    # fallback — проверяем mlx до любой тяжёлой работы
-    _ensure_mlx()
+    _raise_for_missing_input(input_path)
 
     model_name = model or DEFAULT_MLX_MODEL
     ext = "flac" if flac else "wav"
@@ -279,9 +290,13 @@ def mlx_separate(
 
     expected_paths: dict[str, Path] = {name: stem_dir / f"{name}.{ext}" for name in _CANONICAL_5}
 
+    # Cache hit
     if all(p.exists() for p in expected_paths.values()):
+        for p in expected_paths.values():
+            _validate_stem_output(p)
         return expected_paths
 
+    # FLAC conversion from WAV fallback (same contract as other runners)
     if flac:
         wav_fallback: dict[str, Path] = {name: stem_dir / f"{name}.wav" for name in _CANONICAL_5}
         if all(p.exists() for p in wav_fallback.values()):
@@ -310,154 +325,113 @@ def mlx_separate(
                         import shutil
 
                         shutil.copy(wav_p, flac_p)
+            # Validate converted stems
+            for p in expected_paths.values():
+                _validate_stem_output(p)
             return expected_paths
 
-    # --- inference (chunk 7.8s, overlap 0.25, overlap-add) ---
-    sr = 44100
-    segment_samples = int(DEMUCS_SEGMENT * sr)
-    hop_samples = int(segment_samples * (1.0 - DEMUCS_OVERLAP))
-    if hop_samples <= 0:
-        hop_samples = segment_samples
+    # Load the native MLX separator
+    separator = _load_separator(model_name)
 
-    wav, _sr = _load_audio(input_path, sr=sr)
-    n_samples = wav.shape[1]
-
-    offsets: list[int] = []
-    if n_samples <= segment_samples:
-        offsets = [0]
-    else:
-        off = 0
-        while off + segment_samples <= n_samples:
-            offsets.append(off)
-            off += hop_samples
-        if offsets and offsets[-1] + segment_samples < n_samples:
-            offsets.append(n_samples - segment_samples)
-
-    # получаем mlx модель/функцию (может быть None если demucs_mlx не установлен — fallback zeros)
-    mlx_fn = _get_mlx_model(model_name)
-
-    # пробуем поставить mx.gpu как default (unified memory, 30x realtime)
-    mx: Any = None
     try:
-        import mlx.core as mx
+        # Native demucs-mlx handles chunking, overlap-add, resampling, and audio I/O.
+        # It returns numpy arrays by default (not MLX arrays) unless return_mx=True.
+        # We stay with numpy to keep the downstream pipeline unchanged.
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            origin, stems = separator.separate_audio_file(str(input_path))
+    except Exception as exc:
+        raise StemInferenceError(f"MLX separation failed for {input_path}: {exc}") from exc
 
-        try:  # noqa: SIM105
-            mx.set_default_device(mx.gpu)
-        except Exception:
-            pass
-    except Exception:
-        mx = None
+    # Validate that we got the expected native 4 stems
+    expected_native: set[str] = set(_DEMUCS_NATIVE_TO_CANONICAL.keys())
+    if not isinstance(stems, dict):
+        raise StemInferenceError(
+            f"demucs-mlx returned unexpected type: {type(stems).__name__} (expected dict)"
+        )
+    if not stems:
+        raise StemInferenceError("demucs-mlx returned an empty stem dictionary")
 
-    # overlap-add аккумуляторы
-    accum: dict[str, np.ndarray] = {
-        name: np.zeros_like(wav, dtype=np.float32) for name in _NATIVE_4
-    }
-    weight = np.zeros(n_samples, dtype=np.float32)
-    chunk_window = np.ones(segment_samples, dtype=np.float32)
-    overlap_s = segment_samples - hop_samples
-    if overlap_s > 0:
-        ramp = np.hanning(overlap_s * 2)[:overlap_s].astype(np.float32)
-        chunk_window[:overlap_s] = ramp
-        chunk_window[-overlap_s:] = ramp[::-1]
+    # Convert any remaining MLX arrays to numpy
+    import numpy as np
 
-    for off in offsets:
-        chunk = wav[:, off : off + segment_samples]
-        if chunk.shape[1] < segment_samples:
-            pad = segment_samples - chunk.shape[1]
-            chunk = np.pad(chunk, ((0, 0), (0, pad)), mode="constant")
+    native_stems: dict[str, np.ndarray] = {}
+    for k, v in stems.items():
+        if hasattr(v, "__array__"):
+            native_stems[k] = np.asarray(v)
+        else:
+            native_stems[k] = np.asarray(v)
 
-        # --- MLX inference ---
-        outputs: list[np.ndarray] | None = None
-        if mlx_fn is not None:
+    # Check for silent / zero-output stems
+    for k, arr in native_stems.items():
+        if arr is not None:
+            peak = float(np.max(np.abs(arr)))
+            if peak < 1e-8:
+                # Only treat as error if ALL stems are silent — a truly quiet track might have low values.
+                # But given this is synthetic/test audio or dense mixes, near-zero peak is suspicious.
+                # We log it but don't fail here — validation catches it after encoding.
+                pass
+
+    # Canonical mapping + save
+    for native_name, arr in native_stems.items():
+        canon = _DEMUCS_NATIVE_TO_CANONICAL.get(native_name, native_name)
+        # If native is "other" but we need "harmonic", we've mapped it.
+        # If native is already canonical (e.g. drums), keep it.
+        # Handle case where multiple native names map to same canonical name
+        if canon in ("vocals", "drums", "bass", "harmonic"):
+            out_path = expected_paths[canon]
+            # Ensure array is float32 and shape is appropriate for soundfile
+            arr_f = np.asarray(arr).astype(np.float32)
+            # soundfile expects (frames, channels) for multi-channel; our arrays from demucs-mlx are (channels, frames) sometimes.
+            # Let's inspect: if ndim == 2 and shape[0] is small (1, 2, 4), it's likely (channels, frames).
+            if arr_f.ndim == 2:
+                if arr_f.shape[0] in (1, 2) and arr_f.shape[1] > 4:
+                    # (channels, frames) -> (frames, channels) for soundfile
+                    arr_f = np.transpose(arr_f)
+            elif arr_f.ndim == 1:
+                arr_f = np.expand_dims(arr_f, axis=0)
+            _write_flac(out_path, arr_f, sr=44100)
+            # Validate immediately after writing
+            _validate_stem_output(out_path)
+
+    # Derive percussion from drums (2 kHz high-pass split)
+    drums_path = expected_paths["drums"]
+    perc_path = expected_paths["percussion"]
+    # Only derive percussion if we have drums output
+    if drums_path.exists():
+        _derive_percussion_from_drums(drums_path, perc_path)
+        # If percussion wasn't produced (e.g., ffmpeg missing and copy failed), create a warning-level note
+        if not perc_path.exists():
+            # Fallback: copy drums to percussion rather than creating zeros
             try:
-                # demucs_mlx API: separate(chunk) -> dict or list per stem
-                raw = mlx_fn(chunk)
-                if isinstance(raw, dict):
-                    # dict stem->array
-                    outputs = []
-                    for stem in _NATIVE_4:
-                        arr = raw.get(stem)
-                        if arr is None:
-                            # other/harmonic alias
-                            arr = raw.get(_DEMUCS_NATIVE_TO_CANONICAL.get(stem, stem))
-                        if arr is not None:
-                            outputs.append(np.asarray(arr))
-                    if not outputs:
-                        outputs = [np.asarray(v) for v in raw.values()]
-                elif isinstance(raw, (list, tuple)):
-                    outputs = [np.asarray(o) for o in raw if o is not None]
-                else:
-                    arr = np.asarray(raw)
-                    outputs = [arr]
-                # mx.eval для unified memory
-                if mx is not None:
-                    try:  # noqa: SIM105
-                        mx.eval(outputs)
-                    except Exception:
-                        pass
-            except Exception:
-                outputs = None
+                import shutil
 
-        if outputs is None or len(outputs) == 0:
-            # fallback zeros (для тестов без реальной модели и для graceful degrades)
-            outputs = [np.zeros((2, segment_samples), dtype=np.float32) for _ in _NATIVE_4]
+                shutil.copy(drums_path, perc_path)
+            except Exception as exc:
+                # Last resort: if drums file exists but copy fails, raise so we don't produce silent percussion
+                raise StemInferenceError(
+                    f"Failed to derive percussion from drums ({drums_path}) and could not create fallback: {perc_path}"
+                ) from exc
+        _validate_stem_output(perc_path)
+    else:
+        raise StemInferenceError(
+            "Drums stem missing after MLX separation — cannot derive percussion"
+        )
 
-        for idx, stem_native in enumerate(_NATIVE_4):
-            if idx >= len(outputs):
-                break
-            out = outputs[idx]
-            if out is None:
-                continue
-            arr = np.asarray(out)
-            if arr.ndim == 3:
-                arr = arr[0]
-            if arr.ndim == 1:
-                arr = np.expand_dims(arr, axis=0)
-                arr = np.repeat(arr, 2, axis=0)
-            if arr.ndim == 2 and arr.shape[0] > 4 and arr.shape[1] in (1, 2):
-                arr = np.transpose(arr)
-            if arr.shape[1] != segment_samples:
-                if arr.shape[1] > segment_samples:
-                    arr = arr[:, :segment_samples]
-                else:
-                    arr = np.pad(arr, ((0, 0), (0, segment_samples - arr.shape[1])))
-            weighted = arr.astype(np.float32) * chunk_window
-            length = min(segment_samples, n_samples - off)
-            accum[stem_native][:, off : off + length] += weighted[:, :length]
-        wlen = min(segment_samples, n_samples - off)
-        weight[off : off + wlen] += chunk_window[:wlen]
+    # Final validation of all expected outputs
+    missing = [name for name in _CANONICAL_5 if not expected_paths[name].exists()]
+    if missing:
+        raise StemOutputValidationError(f"Missing stem files after separation: {missing}")
 
-    weight = np.maximum(weight, 1e-6)
-    for name in list(accum.keys()):
-        accum[name] = accum[name] / weight
-
-    canonical_accum: dict[str, np.ndarray] = {}
-    for native, arr in accum.items():
-        canon = _DEMUCS_NATIVE_TO_CANONICAL.get(native, native)
-        canonical_accum[canon] = arr
-
-    # запись vocals/drums/bass/harmonic (percussion — сплитом)
-    for canon in ("vocals", "drums", "bass", "harmonic"):
-        out_path = expected_paths[canon]
-        canon_arr = canonical_accum.get(canon)
-        if canon_arr is None:
-            canon_arr = (
-                next(iter(canonical_accum.values())) if canonical_accum else np.zeros_like(wav)
-            )
-        _write_flac(out_path, canon_arr, sr=sr)
-
-    # percussion split из drums (2kHz high-pass, kick остаётся в drums)
-    drums_p = expected_paths["drums"]
-    perc_p = expected_paths["percussion"]
-    if not drums_p.exists() and "drums" in canonical_accum:
-        _write_flac(drums_p, canonical_accum["drums"], sr=sr)
-    _derive_percussion_from_drums(drums_p, perc_p)
-    if not perc_p.exists() and drums_p.exists():
-        try:
-            import shutil
-
-            shutil.copy(drums_p, perc_p)
-        except Exception:
-            _write_flac(perc_p, canonical_accum.get("drums", np.zeros_like(wav)), sr=sr)
+    # Verify all outputs have actual audio content (not just valid FLAC headers)
+    for name in _CANONICAL_5:
+        p = expected_paths[name]
+        if not p.exists():
+            continue
+        # Basic read check already done by _validate_stem_output above; skip duplicate read.
+        # Just confirm path is non-empty.
+        size = p.stat().st_size
+        if size < 256:
+            raise StemOutputValidationError(f"Stem file suspiciously small ({size} bytes): {p}")
 
     return expected_paths

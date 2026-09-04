@@ -16,7 +16,7 @@ class AnalysisLevel(IntEnum):
 
 _LEVEL_ANALYZERS: dict[int, list[str]] = {
     AnalysisLevel.TRIAGE: ["loudness", "energy", "spectral", "bpm", "key", "mfcc"],
-    AnalysisLevel.SCORING: ["beat"],
+    AnalysisLevel.SCORING: ["beat", "beatgrid"],
     AnalysisLevel.TRANSITION: ["structure"],
     AnalysisLevel.ADVANCED: [
         "danceability",

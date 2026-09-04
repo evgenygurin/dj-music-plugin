@@ -33,6 +33,16 @@ DB column, and weights-dict labels in sync with the stem they hold.
   ``SectionContext``; one of ``SectionPairClass`` enum string values
   ("drum_only" / "drop_to_drop" / "breakdown_out" / "buildup_in" /
   "generic"), or ``None`` when no section context was provided.
+* ``align`` — Cell 16 four-component DJ-aware alignment score
+  (S_tempo, S_beat_alignment, S_phrase_alignment, S_drift).
+  Populated when scoring with ``align=True`` (the new beatgrid-aware
+  pipeline), ``None`` for the legacy six-component shape. Callers
+  that need to stay on the legacy path should leave the default.
+
+Adding a new top-level field is non-breaking for the public API:
+existing code reading ``score.overall`` / ``score.bpm`` etc. is
+unaffected. New code can opt into the four-component alignment view
+via ``score.align`` (a small dataclass with its own ``overall``).
 """
 
 from __future__ import annotations
@@ -41,6 +51,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
+    from app.domain.transition.dj_mixing import AlignmentScore
     from app.domain.transition.neural_mix import NeuralMixTransition
 
 
@@ -60,3 +71,4 @@ class TransitionScore:
     best_transition: NeuralMixTransition | None = None
     section_pair_class: str | None = None
     warnings: tuple[str, ...] = ()
+    align: AlignmentScore | None = None

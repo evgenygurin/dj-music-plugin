@@ -20,7 +20,7 @@ from __future__ import annotations
 
 from fastmcp import FastMCP
 
-DISABLED_NAMESPACE_TAGS: frozenset[str] = frozenset()
+DISABLED_NAMESPACE_TAGS: frozenset[str] = frozenset({"namespace:internal"})
 # Rationale: Claude Code does not always honour
 # ``notifications/tools/list_changed`` inside an active session, so
 # unlock_namespace() would flip the server-side gate without the client
