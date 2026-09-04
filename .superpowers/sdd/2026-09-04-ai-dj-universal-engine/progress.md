@@ -104,3 +104,15 @@ Status: **implemented and verified**.
 - Added application-boundary tests covering delegation and missing-source behavior.
 - Verification: focused boundary tests `2 passed`; targeted Ruff clean; targeted mypy clean; `git diff --check` clean.
 - Commit `00ed36f7` pushed to `codex/ai-dj-universal-engine`.
+
+## Task 10 — score-pool MCP migration slice
+
+Status: **implemented and verified**.
+
+- Added `ScoreTransitionPool` application use case with protocol-based catalog/scorer ports.
+- `transition_score_pool` now delegates pair generation, scoring, duplicate validation, missing-feature handling, and top-k selection to the application boundary.
+- Preserved the existing MCP response shape (`a`, `b`, `overall` plus optional components) and `ValidationError` contract at the tool boundary.
+- Added focused application tests for top-k/missing IDs and duplicate rejection.
+- Verification: focused application tests `2 passed`; targeted Ruff clean; targeted mypy clean; `git diff --check` clean.
+- Commit `b3302d0e` pushed to `codex/ai-dj-universal-engine`.
+- MCP server registration tests remain affected by an existing FastMCP/Pydantic schema-rebuild failure during full tool discovery; this is not treated as a passing integration gate.
