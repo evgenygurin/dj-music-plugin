@@ -127,3 +127,13 @@ Status: **application boundary implemented; MCP discovery verification remains b
 - Added application TDD coverage for delegation and missing features, plus an MCP boundary test.
 - Verification: application tests `2 passed`; targeted Ruff clean; targeted mypy clean; `git diff --check` clean.
 - The MCP boundary test cannot currently collect because importing the server triggers the known `ScorePoolResult` Pydantic `TypeAdapter` rebuild failure during FastMCP discovery.
+
+## Task 10 — real transition planning rollout slice
+
+Status: **implemented and focused-verified**.
+
+- Added `PlanTransition` as the application entry point for one transition-planning request.
+- It routes the same candidates/features/policy through the existing `TransitionEngineRouter` in `legacy`, `shadow`, or `new` mode.
+- Shadow mode now has a concrete planner-level integration path and default `ShadowComparison` projection for plan contracts; the router still returns the new result while retaining diagnostics.
+- Added focused tests proving both legacy isolation and shadow dual execution with the identical request.
+- Verification: focused tests `2 passed`; Ruff clean after formatting; mypy target is being re-run with the final edit; `git diff --check` required before commit.
