@@ -5,6 +5,14 @@ component scores with the four Neural Mix stem compats from
 ``neural_mix.py`` into a single ``TransitionScore``.
 
 See docs/transition-scoring.md for the full algorithm description.
+
+Cell 16 alignment: the scorer now accepts ``align=True`` on the
+``score`` / ``score_with_candidates`` paths. When enabled, the
+returned ``TransitionScore.align`` carries the four-component
+DJ-aware alignment (S_tempo, S_beat_alignment, S_phrase_alignment,
+S_drift) from :mod:`app.domain.transition.dj_mixing`. The legacy
+six-component path is byte-identical when ``align`` is left at its
+default ``False``.
 """
 
 from __future__ import annotations
@@ -12,6 +20,7 @@ from __future__ import annotations
 from collections.abc import Iterable
 
 from app.domain.transition.components import score_bpm, score_energy
+from app.domain.transition.dj_mixing import compute_alignment
 from app.domain.transition.hard_constraints import check_hard_constraints
 from app.domain.transition.intent import INTENT_WEIGHT_MODIFIERS, TransitionIntent
 from app.domain.transition.neural_mix import (
@@ -22,6 +31,12 @@ from app.domain.transition.neural_mix import (
 from app.domain.transition.score import TransitionScore
 from app.domain.transition.section_context import SectionContext
 from app.domain.transition.weights import DEFAULT_WEIGHTS, SECTION_PAIR_OVERLAY
+
+__all__ = [
+    "_ALL_INTENTS",
+    "TransitionScore",
+    "TransitionScorer",
+]
 from app.shared.features import TrackFeatures
 
 # Default intents the bulk-scoring path materialises. Mirrors the set
@@ -66,6 +81,9 @@ class TransitionScorer:
         intent: TransitionIntent | None = None,
         section_context: SectionContext | None = None,
         soft_camelot: bool = False,
+        align: bool = False,
+        transition_bars: int = 16,
+        planned_out_bar: int = 0,
     ) -> TransitionScore:
         """Compute the full six-component score.
 
@@ -75,9 +93,22 @@ class TransitionScorer:
         weights still sum to 1.0. Phase 1 (v2 refactor) ships only the
         DRUM_ONLY overlay; other ``SectionPairClass`` buckets currently
         carry identity multipliers and will be calibrated in Phase 3.
+
+        ``align=True`` (Cell 16) populates ``score.align`` with the
+        four-component DJ-aware alignment (S_tempo, S_beat_alignment,
+        S_phrase_alignment, S_drift). ``transition_bars`` controls the
+        length assumed by the drift component. Both are no-ops on the
+        legacy path; the legacy six-component overall stays unchanged.
         """
         gate = check_hard_constraints(from_t, to_t, soft_camelot=soft_camelot)
         if gate is not None and gate.hard_reject:
+            if align:
+                gate.align = compute_alignment(
+                    from_t,
+                    to_t,
+                    transition_bars=transition_bars,
+                    planned_out_bar=planned_out_bar,
+                )
             return gate
 
         base_weights = INTENT_WEIGHT_MODIFIERS[intent] if intent is not None else self.weights
@@ -91,6 +122,13 @@ class TransitionScorer:
         )
         if gate is not None and gate.warnings:
             score.warnings = gate.warnings
+        if align:
+            score.align = compute_alignment(
+                from_t,
+                to_t,
+                transition_bars=transition_bars,
+                planned_out_bar=planned_out_bar,
+            )
         return score
 
     def score_all_intents(
@@ -177,12 +215,19 @@ class TransitionScorer:
         *,
         section_context: SectionContext | None = None,
         soft_camelot: bool = False,
+        align: bool = False,
+        transition_bars: int = 16,
+        planned_out_bar: int = 0,
     ) -> TransitionScore:
         """Score reusing pre-computed candidate distances for hard checks.
 
         ``section_context`` is forwarded to ``_compute_score`` via the
         standard overlay+renormalise path (see ``score``). Phase 1 v2
         refactor — same semantics as ``score`` for any non-None context.
+
+        ``align=True`` (Cell 16) populates ``score.align`` with the
+        four-component DJ-aware alignment. ``transition_bars`` is
+        forwarded to the drift component.
         """
         gate = check_hard_constraints(
             from_t,
@@ -193,6 +238,13 @@ class TransitionScorer:
             soft_camelot=soft_camelot,
         )
         if gate is not None and gate.hard_reject:
+            if align:
+                gate.align = compute_alignment(
+                    from_t,
+                    to_t,
+                    transition_bars=transition_bars,
+                    planned_out_bar=planned_out_bar,
+                )
             return gate
 
         weights, pair_class_value = _apply_section_overlay(self.weights, section_context)
@@ -205,6 +257,13 @@ class TransitionScorer:
         )
         if gate is not None and gate.warnings:
             score.warnings = gate.warnings
+        if align:
+            score.align = compute_alignment(
+                from_t,
+                to_t,
+                transition_bars=transition_bars,
+                planned_out_bar=planned_out_bar,
+            )
         return score
 
     # ── Shared internals ───────────────────────────

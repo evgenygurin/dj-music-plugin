@@ -76,7 +76,10 @@ def build_mcp_server() -> FastMCP:
         transforms=build_pre_constructor_transforms(),
         lifespan=build_server_lifespan(),
         sampling_handler=build_sampling_handler(),
-        tasks=True,
+        # Do not opt every tool into background-task execution. Heavy tools
+        # explicitly declare task=True; keeping the server default off avoids
+        # unbounded task fan-out from MCP clients and protects the stdio loop.
+        tasks=False,
     )
 
     # Post-constructor transforms scan already-registered tools/resources/prompts.

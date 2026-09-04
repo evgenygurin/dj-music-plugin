@@ -2,12 +2,35 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
+from typing import Protocol
+
 import numpy as np
 
 from app.domain.multi_deck.models import BandScore, CompatibilityResult, StemLayer
 from app.domain.transition.kernels.bpm_distance import bpm_gauss
 from app.domain.transition.kernels.camelot_lookup import key_distance
-from app.repositories.unit_of_work import UnitOfWork
+
+
+class StemFeature(Protocol):
+    """Minimal stem feature shape required by the compatibility policy."""
+
+    stem_name: str
+    bpm: float | None
+    key_code: int | None
+    energy_sub: float | None
+    energy_low: float | None
+    energy_lowmid: float | None
+    energy_mid: float | None
+    energy_highmid: float | None
+    energy_high: float | None
+
+
+class StemFeatureReader(Protocol):
+    """Port for loading stem features; infrastructure implements this protocol."""
+
+    async def get_all_for_track(self, track_id: int) -> Sequence[StemFeature]: ...
+
 
 _BANDS = ["sub", "low", "lowmid", "mid", "highmid", "high"]
 _ENERGY_COLS = {
@@ -18,11 +41,11 @@ _ENERGY_COLS = {
     "highmid": "energy_highmid",
     "high": "energy_high",
 }
-_CLASH_THRESHOLD = 0.5  # high energy in same band → clash warning
+_CLASH_THRESHOLD = 0.5
 
 
 async def compute_stem_compatibility(
-    uow: UnitOfWork,
+    feature_reader: StemFeatureReader,
     layers: list[StemLayer],
 ) -> CompatibilityResult:
     if len(layers) < 2:
@@ -36,44 +59,43 @@ async def compute_stem_compatibility(
 
     features = {}
     for layer in layers:
-        rows = await uow.stem_features.get_all_for_track(layer.track_id)
-        match = [r for r in rows if r.stem_name == layer.stem_name]
+        rows = await feature_reader.get_all_for_track(layer.track_id)
+        match = [r for r in rows if getattr(r, "stem_name", None) == layer.stem_name]
         if match:
-            f = match[0]
-            features[(layer.track_id, layer.stem_name)] = f
+            features[(layer.track_id, layer.stem_name)] = match[0]
 
-    # BPM compatibility — minimum pairwise gauss
-    bpms = [bpm for k in features if (bpm := features[k].bpm) is not None]
+    bpms: list[float] = []
+    for feature in features.values():
+        bpm = feature.bpm
+        if bpm is not None:
+            bpms.append(bpm)
     bpm_min = 1.0
-    if len(bpms) >= 2:
-        for i in range(len(bpms)):
-            for j in range(i + 1, len(bpms)):
-                bpm_min = min(bpm_min, bpm_gauss(bpms[i], bpms[j]))
+    for i in range(len(bpms)):
+        for j in range(i + 1, len(bpms)):
+            bpm_min = min(bpm_min, bpm_gauss(bpms[i], bpms[j]))
 
-    # Key compatibility — minimum pairwise Camelot distance
-    keys = [key for k in features if (key := features[k].key_code) is not None]
+    keys: list[int] = []
+    for feature in features.values():
+        key_code = feature.key_code
+        if key_code is not None:
+            keys.append(key_code)
     key_min = 1.0
-    if len(keys) >= 2:
-        for i in range(len(keys)):
-            for j in range(i + 1, len(keys)):
-                kd = key_distance(keys[i], keys[j])
-                key_min = min(key_min, 1.0 - kd / 12.0)
+    for i in range(len(keys)):
+        for j in range(i + 1, len(keys)):
+            key_min = min(key_min, 1.0 - key_distance(keys[i], keys[j]) / 12.0)
 
-    # Hard constraints
     hard_reject = bpm_min < 0.05 or key_min < 0.01
-
-    # Per-band clash detection
     per_band = {}
     for band in _BANDS:
         col = _ENERGY_COLS[band]
-        band_energies = []
-        for k, f in features.items():
-            val = getattr(f, col, None)
-            if val is not None:
-                band_energies.append((k, val))
-        high = [(k, e) for k, e in band_energies if (e or 0) > _CLASH_THRESHOLD]
+        band_energies: list[tuple[tuple[int, str], float]] = []
+        for key, feature in features.items():
+            value = getattr(feature, col, None)
+            if isinstance(value, (int, float)):
+                band_energies.append((key, float(value)))
+        high = [(k, e) for k, e in band_energies if e > _CLASH_THRESHOLD]
         clash = len(high) >= 2
-        max_e = max((e for _, e in band_energies), default=0)
+        max_e = max((e for _, e in band_energies), default=0.0)
         score = 0.4 if clash else 0.85 + 0.15 * (1.0 - max_e)
         per_band[band] = BandScore(
             score=score,
@@ -91,20 +113,12 @@ async def compute_stem_compatibility(
                 rec += " — reduce gain on one kick or apply low-shelf"
             recommendations.append(rec)
 
-    band_scores = [bs.score for bs in per_band.values()]
-    overall = 0.3 * bpm_min + 0.3 * key_min + 0.4 * np.mean(band_scores)
-
+    overall = 0.3 * bpm_min + 0.3 * key_min + 0.4 * np.mean([bs.score for bs in per_band.values()])
     return CompatibilityResult(
         overall_score=round(float(overall), 4),
         hard_reject=hard_reject,
-        per_band={b: per_band[b] for b in _BANDS},
-        key_compatibility={
-            "score": round(key_min, 4),
-            "keys": [features[k].key_code for k in features],
-        },
-        bpm_compatibility={
-            "score": round(bpm_min, 4),
-            "bpms": [features[k].bpm for k in features],
-        },
+        per_band=per_band,
+        key_compatibility={"score": round(key_min, 4), "keys": keys},
+        bpm_compatibility={"score": round(bpm_min, 4), "bpms": bpms},
         recommendations=recommendations,
     )

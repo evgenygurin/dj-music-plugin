@@ -3,16 +3,20 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 
 import numpy as np  # required for annotations + sub-band math
 
 from app.schemas.analyzer import LoudnessProfile
 
 # Optional: pyloudnorm may not be installed in all environments.
+_pyloudnorm: Any = None
 try:
-    import pyloudnorm as pyloudnorm
+    import pyloudnorm as _pyloudnorm_module
+
+    _pyloudnorm = _pyloudnorm_module
 except Exception:
-    pyloudnorm = None  # type: ignore
+    pass
 
 
 # Sub-band cutoff frequencies (Hz) aligned with PERCUSSION_SPLIT_HZ.
@@ -47,7 +51,8 @@ def analyze_loudness_map(track_id: int, bars: int = 16) -> list[LoudnessProfile]
     sr = 22050
     if audio_path is not None:
         try:
-            y, sr = librosa.load(str(audio_path), sr=sr, mono=True)
+            y, loaded_sr = librosa.load(str(audio_path), sr=sr, mono=True)
+            sr = int(loaded_sr)
         except Exception:
             y = _synthetic_beat_signal(duration=30.0, sr=sr)
     else:
@@ -78,9 +83,9 @@ def analyze_loudness_map(track_id: int, bars: int = 16) -> list[LoudnessProfile]
 
     # Optional integrated LUFS.
     lufs_val = -14.0
-    if pyloudnorm is not None:
+    if _pyloudnorm is not None:
         try:
-            meter = pyloudnorm.Meter(sr)
+            meter = _pyloudnorm.Meter(sr)
             lufs_val = float(meter.integrated_loudness(y))
         except Exception:
             pass
@@ -105,15 +110,15 @@ def _sub_band_energy(y: np.ndarray, sr: int, low: float, high: float) -> np.ndar
     if low <= 0:
         # Low-pass for low band
         sos = signal.butter(N=4, Wn=min(high / nyq, 0.99), btype="low", output="sos")
-        filtered = signal.sosfilt(sos, y)
+        filtered = np.asarray(signal.sosfilt(sos, y))
     elif high >= nyq - 1:
         # High-pass for high band
         sos = signal.butter(N=4, Wn=max(low / nyq, 0.01), btype="high", output="sos")
-        filtered = signal.sosfilt(sos, y)
+        filtered = np.asarray(signal.sosfilt(sos, y))
     else:
         # Band-pass for mid band
         sos = signal.butter(N=4, Wn=[low / nyq, high / nyq], btype="band", output="sos")
-        filtered = signal.sosfilt(sos, y)
+        filtered = np.asarray(signal.sosfilt(sos, y))
     return filtered
 
 

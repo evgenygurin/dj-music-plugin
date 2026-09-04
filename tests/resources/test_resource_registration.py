@@ -70,6 +70,7 @@ EXPECTED_TEMPLATE_URIS: frozenset[str] = frozenset(
         "local://tracks/{id}/deep_features{?stem}",
         "local://tracks/{id}/structure",
         "local://tracks/{id}/waveform{?stem}",
+        "local://genres/{genre}/subgenres",
     }
 )
 

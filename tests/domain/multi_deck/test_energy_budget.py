@@ -36,7 +36,7 @@ async def test_energy_budget():
     )
 
     result = await compute_energy_budget(
-        uow,
+        uow.stem_features,
         [
             StemLayer(track_id=1, stem_name="drums"),
             StemLayer(track_id=2, stem_name="bass"),
@@ -64,7 +64,7 @@ async def test_energy_budget_with_gain():
     uow.stem_features.get_all_for_track = AsyncMock(return_value=[mock_a])
 
     result = await compute_energy_budget(
-        uow,
+        uow.stem_features,
         [StemLayer(track_id=1, stem_name="drums")],
         gain_db=[6.0],
         target_lufs=-8.0,
@@ -102,7 +102,7 @@ async def test_energy_budget_sums_lufs_in_power_domain():
     )
 
     result = await compute_energy_budget(
-        uow,
+        uow.stem_features,
         [
             StemLayer(track_id=1, stem_name="drums"),
             StemLayer(track_id=2, stem_name="bass"),
@@ -120,7 +120,7 @@ async def test_energy_budget_missing_features():
     uow.stem_features.get_all_for_track = AsyncMock(return_value=[])
 
     result = await compute_energy_budget(
-        uow,
+        uow.stem_features,
         [StemLayer(track_id=1, stem_name="missing")],
         target_lufs=-8.0,
     )
@@ -148,7 +148,7 @@ async def test_energy_budget_band_overload():
     uow.stem_features.get_all_for_track = AsyncMock(return_value=[mock_a])
 
     result = await compute_energy_budget(
-        uow,
+        uow.stem_features,
         [StemLayer(track_id=1, stem_name="drums")],
         target_lufs=-8.0,
     )

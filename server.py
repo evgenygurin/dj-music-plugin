@@ -9,4 +9,6 @@ files as synthetic modules, which breaks self-referential
 
 from app.server.app import build_mcp_server
 
+__all__ = ["build_mcp_server", "mcp"]
+
 mcp = build_mcp_server()

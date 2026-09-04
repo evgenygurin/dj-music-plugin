@@ -76,8 +76,31 @@ async def test_build_for_tests_lists_prompts() -> None:
     assert len(prompts) >= 1
 
 
+def test_build_does_not_enable_background_tasks_globally() -> None:
+    """Only explicitly heavy tools should opt into Docket task execution."""
+    mcp = build_mcp_server()
+    assert mcp._support_tasks_by_default is False
+
+
+@pytest.mark.asyncio
+async def test_heavy_tools_keep_explicit_task_support() -> None:
+    """The stems tool remains background-capable after disabling the global default."""
+    mcp = build_mcp_server()
+    tool = await mcp.get_tool("stems_separate")
+    assert tool is not None
+    assert tool.task_config.mode != "forbidden"
+
+
 @pytest.mark.asyncio
 async def test_build_for_tests_disables_middleware_on_request() -> None:
     mcp = await build_mcp_app_for_tests(with_middleware=False)
     names = [type(m).__name__ for m in mcp.middleware]
     assert "DomainErrorMiddleware" not in names
+
+
+@pytest.mark.asyncio
+async def test_interactive_mix_composer_is_model_visible() -> None:
+    """The composer entrypoint must survive the BM25 always-visible filter."""
+    mcp = build_mcp_server()
+    names = {tool.name for tool in await mcp.list_tools()}
+    assert "ui_mix_composer" in names

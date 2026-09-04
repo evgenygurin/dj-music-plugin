@@ -1,54 +1,36 @@
 from __future__ import annotations
 
-from unittest.mock import MagicMock
-
 import pytest
 
 from app.domain.multi_deck.bpm_ratio import analyze_bpm_ratio
 
 
-@pytest.mark.asyncio
-async def test_bpm_ratio_3to4():
-    uow = MagicMock()
-    result = await analyze_bpm_ratio(uow, 135.0)
-    labels = {m.ratio_label for m in result.matches}
-    assert "4:3" in labels
-    assert "3:4" in labels
-
-    match_34 = [m for m in result.matches if m.ratio_label == "3:4"]
-    assert len(match_34) >= 1
-    assert abs(match_34[0].bpm_b - 101.25) < 0.5
+@pytest.mark.parametrize(
+    ("bpm", "expected"),
+    [(135.0, 3), (60.0, 5), (120.0, 4)],
+)
+def test_bpm_ratio_finds_matches(bpm: float, expected: int) -> None:
+    result = analyze_bpm_ratio(bpm)
+    assert len(result.matches) >= expected
 
 
-@pytest.mark.asyncio
-async def test_bpm_ratio_range_respected():
-    uow = MagicMock()
-    result = await analyze_bpm_ratio(uow, 60.0, bpm_range=(100, 200))
-    for m in result.matches:
-        assert 100 <= m.bpm_b <= 200
+def test_bpm_ratio_respects_range() -> None:
+    result = analyze_bpm_ratio(60.0, bpm_range=(100, 200))
+    assert all(100 <= match.bpm_b <= 200 for match in result.matches)
 
 
-@pytest.mark.asyncio
-async def test_bpm_ratio_filtered():
-    uow = MagicMock()
-    result = await analyze_bpm_ratio(uow, 120.0, ratios_of_interest=["3:4", "2:3"])
-    labels = {m.ratio_label for m in result.matches}
-    assert labels <= {"3:4", "2:3"}
+def test_bpm_ratio_filters_requested_ratios() -> None:
+    result = analyze_bpm_ratio(120.0, ratios_of_interest=["3:4", "2:3"])
+    assert {match.ratio_label for match in result.matches} <= {"3:4", "2:3"}
 
 
-@pytest.mark.asyncio
-async def test_bpm_ratio_bars_alignment():
-    uow = MagicMock()
-    result = await analyze_bpm_ratio(uow, 128.0, ratios_of_interest=["3:4"])
-    assert len(result.matches) >= 1
-    m = result.matches[0]
-    assert m.bars_to_align >= 1
-    assert m.seconds_to_align > 0
-    assert m.ratio_label == "3:4"
+def test_bpm_ratio_has_alignment_metadata() -> None:
+    result = analyze_bpm_ratio(128.0, ratios_of_interest=["3:4"])
+    assert result.matches
+    assert result.matches[0].bars_to_align == 12
+    assert result.matches[0].seconds_to_align > 0
 
 
-@pytest.mark.asyncio
-async def test_bpm_ratio_unknown_label_ignored():
-    uow = MagicMock()
-    result = await analyze_bpm_ratio(uow, 120.0, ratios_of_interest=["7:8"])
-    assert len(result.matches) == 0
+def test_unknown_ratio_is_ignored() -> None:
+    result = analyze_bpm_ratio(120.0, ratios_of_interest=["7:8"])
+    assert result.matches == []

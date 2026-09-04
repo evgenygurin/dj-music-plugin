@@ -28,6 +28,7 @@ audio = [
     "librosa>=0.10",
     "soundfile>=0.12",
     "scipy>=1.12",
+    "pyloudnorm>=0.1.1",
     # Pin exact: essentia is published as undated dev builds with no semver
     # ordering guarantees. dev1438 (the current latest) dropped cp310-313
     # wheels and ships cp314 only, so `>=dev1389` resolves to a build with no
@@ -97,7 +98,7 @@ unfixable = ["F401", "F811", "F841"]
 "app/resources/**" = ["B008", "E501", "RUF001"]  # FastMCP DI: Depends() in arg defaults is correct; RUF001: Russian descriptions contain Cyrillic lookalikes
 "app/providers/**" = ["E501"]  # long URLs and API paths
 "tests/**" = ["E501", "RUF012", "B017", "N806"]  # tests can use blind pytest.raises; mock context managers use uppercase
-"scripts/bench_stems_m2.py" = ["E501", "RUF001", "RUF002", "RUF003", "SIM105"]
+"scripts/bench_stems_m2.py" = ["E501", "RUF001", "RUF002", "RUF003", "SIM105", "SIM108"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["app"]

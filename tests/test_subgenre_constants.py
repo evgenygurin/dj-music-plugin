@@ -6,7 +6,8 @@ def test_constants_load():
     path = (
         pathlib.Path(__file__).resolve().parents[1] / "app" / "config" / "subgenre_constants.json"
     )
-    data = json.load(open(path, encoding="utf-8"))
+    with path.open(encoding="utf-8") as f:
+        data = json.load(f)
     assert "presets" in data
     assert len(data["presets"]) == 18
     assert "subgenre_profiles" in data

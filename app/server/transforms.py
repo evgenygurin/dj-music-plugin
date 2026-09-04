@@ -63,6 +63,7 @@ ALWAYS_VISIBLE_TOOLS: tuple[str, ...] = (
     "ui_camelot_wheel",
     "ui_render_studio",
     "ui_control_center",
+    "ui_mix_composer",
     # Render pipeline tools — visible by default (like compute/sync verbs).
     "render_beatgrid",
     "render_mixdown",

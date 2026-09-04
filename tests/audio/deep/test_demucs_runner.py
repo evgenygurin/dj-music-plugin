@@ -109,10 +109,15 @@ def test_run_demucs_builds_harmonic_from_other_on_cache_miss() -> None:
 
 
 def test_run_demucs_raises_on_failure() -> None:
+    # Create a temporary input file so the FileNotFoundError guard passes,
+    # then rely on mock to trigger the RuntimeError from missing stems.
+    input_file = Path("/tmp/test.mp3")
+    input_file.write_bytes(b"fake-audio")
     with patch("subprocess.run") as mock_run:
         mock_run.return_value = MagicMock(returncode=0)
         with pytest.raises(RuntimeError, match="Demucs failed to produce"):
-            run_demucs(Path("/tmp/test.mp3"), cache_root=Path("/tmp/out"))
+            run_demucs(input_file, cache_root=Path("/tmp/out"))
+    input_file.unlink(missing_ok=True)
 
 
 def test_stems_config_defaults_m2_8gb(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

@@ -249,7 +249,7 @@ def _get_session(model_path: str | Path | None = None) -> Any:
     path = str(model_path or _os.environ.get("DJ_ONNX_MODEL_PATH", DEFAULT_ONNX_MODEL_PATH))
     # lazy import — позволяет мокать onnxruntime в тестах даже когда пакет не установлен
     try:
-        import onnxruntime as ort  # type: ignore[import-not-found]
+        import onnxruntime as ort  # type: ignore[import-untyped]
     except Exception as exc:  # pragma: no cover
         raise RuntimeError(
             "onnxruntime not installed (need onnxruntime-silicon for CoreML)"

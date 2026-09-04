@@ -132,6 +132,27 @@ class TrackAudioFeaturesComputed(Base, TimestampMixin):
 
     first_downbeat_ms: Mapped[float | None] = mapped_column(nullable=True)
 
+    # Cell 17 — beatgrid array reference. Cheap scalar metadata
+    # (bpm/bpm_confidence/bpm_stability/phrase_boundaries_ms/etc.) lives
+    # in the regular columns above; the *large* beatgrid arrays
+    # (beat_times, downbeat_times, bar_times, tempo_curve, hypotheses)
+    # are stored on disk as a single NPZ file and referenced by URI —
+    # mirroring the existing ``timeseries_references`` pattern instead
+    # of bloating the relational row with multi-KB JSON blobs.
+    beatgrid_storage_uri: Mapped[str | None] = mapped_column(
+        String(500), nullable=True
+    )
+    beatgrid_frame_count: Mapped[int | None] = mapped_column(nullable=True)
+    beatgrid_hop_length: Mapped[int | None] = mapped_column(nullable=True)
+    beatgrid_sample_rate: Mapped[int | None] = mapped_column(nullable=True)
+    # Dominant tempo hypothesis (BPM + octave preference, both
+    # truncated to four decimal places). Diagnostic only; the canonical
+    # BPM lives in ``bpm`` above.
+    dominant_hypothesis_bpm: Mapped[float | None] = mapped_column(nullable=True)
+    dominant_hypothesis_octave_preference: Mapped[float | None] = mapped_column(
+        nullable=True
+    )
+
     # Classification
     mood: Mapped[str | None] = mapped_column(String(30), nullable=True, index=True)
     mood_confidence: Mapped[float | None] = mapped_column(nullable=True)

@@ -116,6 +116,19 @@ class TrackFeatures:
     # P3-tier fields (e.g. ``danceability``, ``tonnetz_vector``) are populated.
     analysis_level: int | None = None
 
+    # Cell 17 — beatgrid metadata. ``beatgrid_arrays_ref`` is the
+    # on-disk URI of the NPZ file holding the large beatgrid arrays
+    # (beat_times, downbeat_times, bar_times, tempo_curve,
+    # hypotheses). The full arrays are not embedded in the relational
+    # row. Callers that need the full grid call
+    # ``app.audio.timeseries.TimeseriesStorage.load``.
+    beatgrid_arrays_ref: str | None = None
+    beatgrid_frame_count: int | None = None
+    beatgrid_hop_length: int | None = None
+    beatgrid_sample_rate: int | None = None
+    dominant_hypothesis_bpm: float | None = None
+    dominant_hypothesis_octave_preference: float | None = None
+
     @classmethod
     def from_db(cls, row: Any) -> TrackFeatures:
         """Construct from a TrackAudioFeaturesComputed DB row."""
@@ -244,4 +257,15 @@ class TrackFeatures:
             analysis_level=getattr(row, "analysis_level", None),
             # Beatgrid phase
             first_downbeat_ms=getattr(row, "first_downbeat_ms", None),
+            # Cell 17 — beatgrid metadata ref columns.
+            beatgrid_arrays_ref=getattr(row, "beatgrid_storage_uri", None),
+            beatgrid_frame_count=getattr(row, "beatgrid_frame_count", None),
+            beatgrid_hop_length=getattr(row, "beatgrid_hop_length", None),
+            beatgrid_sample_rate=getattr(row, "beatgrid_sample_rate", None),
+            dominant_hypothesis_bpm=getattr(
+                row, "dominant_hypothesis_bpm", None
+            ),
+            dominant_hypothesis_octave_preference=getattr(
+                row, "dominant_hypothesis_octave_preference", None
+            ),
         )

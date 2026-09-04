@@ -37,6 +37,12 @@ from sqlalchemy.ext.asyncio import (
 
 from app.config import get_settings
 
+__all__ = [
+    "dispose",
+    "get_engine",
+    "get_session_factory",
+]
+
 _engine: AsyncEngine | None = None
 _factory: async_sessionmaker[AsyncSession] | None = None
 

@@ -1,11 +1,14 @@
 {
   "$schema": "https://opencode.ai/config.json",
-  "instructions": ["AGENTS.md"],
-
+  "instructions": [
+    "AGENTS.md"
+  ],
   "skills": {
-    "paths": [".opencode/skills", "skills"]
+    "paths": [
+      ".opencode/skills",
+      "skills"
+    ]
   },
-
   "agent": {
     "dj-music": {
       "description": "DJ techno music specialist — manages library, builds sets, analyzes audio transitions, works with Yandex Music/Beatport/Suno. Triggers on: dj, set, mix, track, bpm, camelot, transition, playlist, library, techno, suno, yandex music, beatport, stem_transition_policy, demucs, 5-stem, policy, electronic.",
@@ -18,32 +21,44 @@
       "color": "warning"
     }
   },
-
-  "plugin": [
-    "gitnexus-opencode",
-    "superpowers@git+https://github.com/obra/superpowers.git"
-  ],
-
+  "plugin": [],
   "mcp": {
-    "dj": {
+    "djmusic": {
       "type": "local",
-      "command": ["uv", "run", "--project", "/Users/laptop/dev/dj-music-plugin", "--env-file", "/Users/laptop/dev/dj-music-plugin/.env", "fastmcp", "run", "/Users/laptop/dev/dj-music-plugin/fastmcp.json", "--no-banner"],
+      "command": [
+        "uv",
+        "run",
+        "--project",
+        "/Users/laptop/dev/dj-music-plugin",
+        "fastmcp",
+        "run",
+        "server.py:mcp",
+        "--transport",
+        "stdio",
+        "--no-banner"
+      ],
       "timeout": 3600000,
       "enabled": true
     },
     "supabase": {
       "type": "local",
-      "command": ["bash", "-c", "cd /Users/laptop/dev/dj-music-plugin && set -a && . .env && set +a && exec ./node_modules/.bin/mcp-server-supabase --read-only --project-ref=bowosphlnghhgaulcyfm --features=database,docs,debug"],
+      "command": [
+        "bash",
+        "-c",
+        "cd /Users/laptop/dev/dj-music-plugin && set -a && . .env && set +a && exec ./node_modules/.bin/mcp-server-supabase --read-only --project-ref=bowosphlnghhgaulcyfm --features=database,docs,debug"
+      ],
       "timeout": 60000,
       "enabled": true
     },
     "gitnexus": {
       "type": "local",
-      "command": ["/opt/homebrew/bin/gitnexus", "mcp"],
+      "command": [
+        "/opt/homebrew/bin/gitnexus",
+        "mcp"
+      ],
       "enabled": true
     }
   },
-
   "permission": {
     "gitnexus_query": "allow",
     "gitnexus_context": "allow",
