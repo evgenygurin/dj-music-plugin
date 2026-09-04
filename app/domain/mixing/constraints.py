@@ -13,6 +13,7 @@ class ConstraintResult:
     reason: str | None = None
     drift_beats: float = 0.0
     drift_ms: float = 0.0
+    technical_margin: float = 0.0
 
 
 @dataclass(frozen=True, slots=True)
@@ -26,19 +27,32 @@ class HardConstraintValidator:
         source = candidate.source_tempo.bpm
         target = candidate.target_tempo.bpm
         ratio = max(source, target) / min(source, target)
+        ratio_margin = self.max_tempo_ratio - ratio
         if ratio > self.max_tempo_ratio:
-            return ConstraintResult(False, "tempo_ratio")
+            return ConstraintResult(False, "tempo_ratio", technical_margin=ratio_margin)
         beat_period = 60.0 / target
         elapsed_phase_error_s = abs(60.0 / source - beat_period) * candidate.duration_s
         drift_beats = elapsed_phase_error_s / beat_period
         drift_ms = elapsed_phase_error_s * 1000.0
+        drift_margin = self.max_drift_beats - drift_beats
         if drift_beats > self.max_drift_beats:
-            return ConstraintResult(False, "tempo_drift", drift_beats, drift_ms)
+            return ConstraintResult(False, "tempo_drift", drift_beats, drift_ms, drift_margin)
         if self.max_drift_ms is not None and drift_ms > self.max_drift_ms:
-            return ConstraintResult(False, "tempo_drift_ms", drift_beats, drift_ms)
-        if (
-            self.max_phase_error_s is not None
-            and abs(candidate.phase_offset_s) > self.max_phase_error_s
-        ):
-            return ConstraintResult(False, "beat_phase_tolerance", drift_beats, drift_ms)
-        return ConstraintResult(True, drift_beats=drift_beats, drift_ms=drift_ms)
+            return ConstraintResult(
+                False, "tempo_drift_ms", drift_beats, drift_ms, self.max_drift_ms - drift_ms
+            )
+        phase_margin = (
+            self.max_phase_error_s - abs(candidate.phase_offset_s)
+            if self.max_phase_error_s is not None
+            else float("inf")
+        )
+        if phase_margin < 0:
+            return ConstraintResult(
+                False, "beat_phase_tolerance", drift_beats, drift_ms, phase_margin
+            )
+        return ConstraintResult(
+            True,
+            drift_beats=drift_beats,
+            drift_ms=drift_ms,
+            technical_margin=min(ratio_margin, drift_margin, phase_margin),
+        )

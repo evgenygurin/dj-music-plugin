@@ -15,3 +15,6 @@ class TransitionDecision:
     rejected: tuple[tuple[str, str], ...]
     policy: SelectionPolicy
     diagnostics: tuple[str, ...] = ()
+    score: float = 0.0
+    technical_margin: float = 0.0
+    dimension_scores: tuple[tuple[str, float], ...] = ()

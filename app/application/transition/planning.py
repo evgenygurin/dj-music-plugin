@@ -14,18 +14,24 @@ class TransitionPlannerPort(Protocol):
 
 
 def _compare_plans(legacy: Any, new: Any) -> ShadowComparison:
-    """Compare accepted plan contracts without coupling the router to planners."""
-    legacy_plan = getattr(legacy, "plan", legacy)
-    new_plan = getattr(new, "plan", new)
+    """Compare decision contracts with explicit score and technical diagnostics."""
+    legacy_plan = getattr(legacy, "selected", getattr(legacy, "plan", legacy))
+    new_plan = getattr(new, "selected", getattr(new, "plan", new))
     legacy_recipe = getattr(getattr(legacy_plan, "recipe", None), "kind", None)
     new_recipe = getattr(getattr(new_plan, "recipe", None), "kind", None)
     return ShadowComparison.compare(
         str(getattr(legacy_plan, "execution_identity", legacy_plan)),
         str(getattr(new_plan, "execution_identity", new_plan)),
-        0.0,
-        0.0,
+        float(getattr(legacy, "score", 0.0)),
+        float(getattr(new, "score", 0.0)),
         legacy_recipe=str(legacy_recipe) if legacy_recipe is not None else None,
         new_recipe=str(new_recipe) if new_recipe is not None else None,
+        legacy_rejected=tuple(reason for _, reason in getattr(legacy, "rejected", ())),
+        new_rejected=tuple(reason for _, reason in getattr(new, "rejected", ())),
+        legacy_technical_margin=float(getattr(legacy, "technical_margin", 0.0)),
+        new_technical_margin=float(getattr(new, "technical_margin", 0.0)),
+        legacy_dimensions=dict(getattr(legacy, "dimension_scores", ())),
+        new_dimensions=dict(getattr(new, "dimension_scores", ())),
     )
 
 

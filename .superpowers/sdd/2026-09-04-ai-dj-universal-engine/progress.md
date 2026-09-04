@@ -137,3 +137,14 @@ Status: **implemented and focused-verified**.
 - Shadow mode now has a concrete planner-level integration path and default `ShadowComparison` projection for plan contracts; the router still returns the new result while retaining diagnostics.
 - Added focused tests proving both legacy isolation and shadow dual execution with the identical request.
 - Verification: focused tests `2 passed`; Ruff clean after formatting; mypy target is being re-run with the final edit; `git diff --check` required before commit.
+
+
+## Task 10 — shadow parity diagnostics strengthening
+
+Status: **implemented and focused-verified**.
+
+- Extended `TransitionDecision` with explicit selected score, technical margin, and per-dimension scores so shadow comparison no longer relies on placeholder scalar values.
+- Extended `ConstraintResult` with a computed technical margin; accepted candidates expose the minimum remaining hard-constraint margin across tempo ratio, drift, and beat phase.
+- `_compare_plans` now compares actual decision score, technical margin, recipe, rejection reasons, and dimension deltas while retaining execution-identity comparison.
+- Added focused regression coverage proving non-zero score/margin/dimension deltas survive the default shadow comparison path.
+- Verification: planning/planner/domain transition tests `5 passed`; targeted Ruff clean; targeted mypy clean; `git diff --check` clean.

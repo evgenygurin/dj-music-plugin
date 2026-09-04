@@ -44,6 +44,7 @@ class TransitionPlanner:
         if self._config is not None:
             config_identity = self._config.config_hash
         scores: list[tuple[str, MusicalScore]] = []
+        margins: dict[str, float] = {}
         rejected: list[tuple[str, str]] = []
         source_features, target_features = features
         for candidate in candidates:
@@ -51,6 +52,7 @@ class TransitionPlanner:
             if not technical.accepted:
                 rejected.append((candidate.candidate_id, technical.reason or "technical"))
                 continue
+            margins[candidate.candidate_id] = technical.technical_margin
             musical = self._evaluator.evaluate(source_features, target_features)
             alignment_penalty = min(
                 1.0,
@@ -76,6 +78,7 @@ class TransitionPlanner:
             f"alignment:phrase_bars={chosen.phrase_offset_bars}",
         ]
         diagnostics.extend(f"rejected:{reason}" for _, reason in rejected)
+        chosen_score = next(score for name, score in scores if name == selection.selected)
         plan = TransitionPlan.create(
             chosen.source_hash,
             chosen.target_hash,
@@ -87,4 +90,16 @@ class TransitionPlanner:
             target_analysis_identity=chosen.target_hash,
             diagnostics=tuple(diagnostics),
         )
-        return TransitionDecision(plan, selection.alternatives, tuple(rejected), policy)
+        dimension_scores = tuple(
+            sorted((item.name, item.value) for item in chosen_score.dimensions)
+        )
+        return TransitionDecision(
+            plan,
+            selection.alternatives,
+            tuple(rejected),
+            policy,
+            tuple(diagnostics),
+            chosen_score.total(),
+            margins[selection.selected],
+            dimension_scores,
+        )

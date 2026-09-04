@@ -27,6 +27,35 @@ def test_shadow_planning_executes_legacy_and_new_for_the_same_request() -> None:
     assert result.comparison == "parity"
 
 
+def test_default_shadow_comparison_uses_decision_diagnostics() -> None:
+    from app.application.transition.planning import _compare_plans
+    from app.domain.mixing.plan import TransitionPlan
+    from app.domain.mixing.recipes import RecipeKind, RecipePlanner
+    from app.domain.mixing.transition import TransitionDecision
+
+    recipe = RecipePlanner().plan(RecipeKind.EQ_BLEND, 8)
+    legacy_plan = TransitionPlan.create("a", "b", 8, 128, recipe)
+    new_plan = TransitionPlan.create("a", "b", 8, 128, recipe)
+    legacy = TransitionDecision(
+        legacy_plan, (), (("x", "tempo_drift"),), SelectionPolicy.BEST,
+        score=0.70, technical_margin=0.20,
+        dimension_scores=(("harmony", 0.80), ("energy", 0.60)),
+    )
+    new = TransitionDecision(
+        new_plan, (), (("x", "tempo_drift"),), SelectionPolicy.BEST,
+        score=0.75, technical_margin=0.25,
+        dimension_scores=(("harmony", 0.90), ("energy", 0.60)),
+    )
+
+    comparison = _compare_plans(legacy, new)
+
+    assert comparison.score_delta == 0.05
+    assert comparison.technical_margin_delta == 0.05
+    assert comparison.recipe_parity is True
+    assert comparison.rejection_parity is True
+    assert comparison.dimension_deltas == (("energy", 0.0), ("harmony", 0.1))
+
+
 def test_legacy_planning_does_not_require_new_engine() -> None:
     legacy = MagicMock(return_value="legacy-plan")
     use_case = PlanTransition(
