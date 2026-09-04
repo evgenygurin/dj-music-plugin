@@ -22,6 +22,9 @@ class MusicalScore:
     def dimension(self, name: str) -> DimensionScore:
         return next(item for item in self.dimensions if item.name == name)
 
+    def dimension_value(self, name: str, default: float = 0.0) -> float:
+        return next((item.value for item in self.dimensions if item.name == name), default)
+
     def grouped_value(self, group: str) -> float:
         values = [item.value for item in self.dimensions if item.group == group]
         return sum(values) / len(values) if values else 0.0

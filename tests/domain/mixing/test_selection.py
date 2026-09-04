@@ -2,23 +2,21 @@ from app.domain.mixing.scores import DimensionScore, MusicalScore
 from app.domain.mixing.selection import SelectionPolicy, select
 
 
-def scores() -> tuple[tuple[str, MusicalScore], ...]:
-    names = ("harmony", "energy", "groove", "timbre")
-    safe = tuple(DimensionScore(name, 0.9 if name == "harmony" else 0.4) for name in names)
-    creative = tuple(DimensionScore(name, 0.9 if name == "energy" else 0.4) for name in names)
-    rejected = (DimensionScore("harmony", 1.0),)
-    return (
-        ("safe", MusicalScore(safe)),
-        ("creative", MusicalScore(creative)),
-        ("rejected", MusicalScore(rejected, True)),
+def score(harmony: float, energy: float, groove: float, *, rejected: bool = False) -> MusicalScore:
+    return MusicalScore(
+        (DimensionScore("harmony", harmony), DimensionScore("energy", energy), DimensionScore("groove", groove)),
+        hard_rejected=rejected,
     )
 
 
-def test_selection_policies_never_select_hard_rejection() -> None:
+def test_policies_choose_expected_dimension() -> None:
+    scores = (("a", score(.9, .2, .2)), ("b", score(.2, .9, .8)))
+    assert select(scores, SelectionPolicy.MOST_HARMONIC).selected == "a"
+    assert select(scores, SelectionPolicy.MOST_ENERGETIC).selected == "b"
+    assert select(scores, SelectionPolicy.MOST_GROOVY).selected == "b"
+
+
+def test_no_policy_can_select_hard_rejected_candidate() -> None:
+    scores = (("bad", score(1, 1, 1, rejected=True)), ("good", score(.1, .1, .1)))
     for policy in SelectionPolicy:
-        assert select(scores(), policy).selected != "rejected"
-
-
-def test_policy_can_prefer_harmony_or_energy() -> None:
-    assert select(scores(), SelectionPolicy.MOST_HARMONIC).selected == "safe"
-    assert select(scores(), SelectionPolicy.MOST_ENERGETIC).selected == "creative"
+        assert select(scores, policy).selected == "good"
