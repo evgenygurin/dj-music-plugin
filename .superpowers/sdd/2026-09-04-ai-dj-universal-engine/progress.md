@@ -116,3 +116,14 @@ Status: **implemented and verified**.
 - Verification: focused application tests `2 passed`; targeted Ruff clean; targeted mypy clean; `git diff --check` clean.
 - Commit `b3302d0e` pushed to `codex/ai-dj-universal-engine`.
 - MCP server registration tests remain affected by an existing FastMCP/Pydantic schema-rebuild failure during full tool discovery; this is not treated as a passing integration gate.
+
+## Task 10 — score-transition MCP boundary slice
+
+Status: **application boundary implemented; MCP discovery verification remains blocked by baseline FastMCP/Pydantic failure**.
+
+- Added `ScoreTransition` application use case with protocol-based feature catalog and pair-scorer ports.
+- `score_transition` now delegates feature loading and pair scoring through the application use case while preserving the existing five-component response and validation contract.
+- Kept the legacy five-component scoring formula behind a temporary tool-side adapter; no scoring semantics were changed in this slice.
+- Added application TDD coverage for delegation and missing features, plus an MCP boundary test.
+- Verification: application tests `2 passed`; targeted Ruff clean; targeted mypy clean; `git diff --check` clean.
+- The MCP boundary test cannot currently collect because importing the server triggers the known `ScorePoolResult` Pydantic `TypeAdapter` rebuild failure during FastMCP discovery.
