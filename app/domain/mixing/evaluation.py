@@ -20,28 +20,16 @@ class FeatureSet:
 
     def __post_init__(self) -> None:
         values = (
-            self.harmony,
-            self.energy,
-            self.low_end,
-            self.spectrum,
-            self.groove,
-            self.timbre,
-            self.vocals,
-            self.stems,
+            self.harmony, self.energy, self.low_end, self.spectrum,
+            self.groove, self.timbre, self.vocals, self.stems,
         )
         if any(not 0.0 <= value <= 1.0 for value in values):
             raise ValueError("feature values must be between 0 and 1")
 
 
 _DEFAULT_WEIGHTS = {
-    "harmony": 1.0,
-    "energy": 1.0,
-    "low_end": 1.0,
-    "spectrum": 0.75,
-    "groove": 1.0,
-    "timbre": 0.75,
-    "vocals": 1.0,
-    "stems": 0.5,
+    "harmony": 1.0, "energy": 1.0, "low_end": 1.0, "spectrum": 0.75,
+    "groove": 1.0, "timbre": 0.75, "vocals": 1.0, "stems": 0.5,
 }
 
 
@@ -59,16 +47,12 @@ class MusicalEvaluator:
                 "energy", similar(source.energy, target.energy), self._weights["energy"]
             ),
             DimensionScore(
-                "low_end",
-                similar(source.low_end, target.low_end),
-                self._weights["low_end"],
-                "spectral",
+                "low_end", similar(source.low_end, target.low_end),
+                self._weights["low_end"], "spectral"
             ),
             DimensionScore(
-                "spectrum",
-                similar(source.spectrum, target.spectrum),
-                self._weights["spectrum"],
-                "spectral",
+                "spectrum", similar(source.spectrum, target.spectrum),
+                self._weights["spectrum"], "spectral"
             ),
             DimensionScore(
                 "groove", similar(source.groove, target.groove), self._weights["groove"]
@@ -77,9 +61,12 @@ class MusicalEvaluator:
                 "timbre", similar(source.timbre, target.timbre), self._weights["timbre"]
             ),
             DimensionScore(
-                "vocals", self._vocal_score(source.vocals, target.vocals), self._weights["vocals"]
+                "vocals", self._vocal_score(source.vocals, target.vocals),
+                self._weights["vocals"]
             ),
-            DimensionScore("stems", similar(source.stems, target.stems), self._weights["stems"]),
+            DimensionScore(
+                "stems", similar(source.stems, target.stems), self._weights["stems"]
+            ),
         )
         return MusicalScore(dimensions)
 
