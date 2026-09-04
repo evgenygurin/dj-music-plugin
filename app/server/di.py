@@ -165,6 +165,23 @@ async def get_universal_transition_planner(ctx: Any = None) -> Any:
     return UniversalTransitionPlannerAdapter(TransitionPlanner())
 
 
+async def get_plan_transition_service(ctx: Any = None) -> Any:
+    """Build the persisted-analysis application facade for MCP planning."""
+    from app.application.transition.catalog import UowCandidateCatalog
+    from app.application.transition.plan_request import PlanTransitionService
+    from app.domain.mixing.candidate import CandidateGenerator
+    from app.repositories.engine_contracts import EngineContractStore
+
+    uow = await get_uow(ctx)
+    planner = await get_plan_transition(ctx)
+    return PlanTransitionService(
+        EngineContractStore(uow.session),
+        UowCandidateCatalog(uow),
+        CandidateGenerator(),
+        planner,
+    )
+
+
 async def get_plan_transition(ctx: Any = None) -> Any:
     """Build the feature-flagged production transition planning use case."""
     from app.application.engine.mode import EngineMode
