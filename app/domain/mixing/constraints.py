@@ -17,7 +17,7 @@ class ConstraintResult:
 
 @dataclass(frozen=True, slots=True)
 class HardConstraintValidator:
-    max_drift_beats: float = 1.0
+    max_drift_beats: float = 0.5
     max_drift_ms: float | None = None
     max_tempo_ratio: float = 1.06
 
