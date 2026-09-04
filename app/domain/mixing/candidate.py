@@ -20,6 +20,11 @@ class CandidateTransition:
     target_tempo: TempoHypothesis
     duration_s: float
     candidate_id: str
+    source_variant: str = "1x"
+    target_variant: str = "1x"
+    phase_offset_s: float = 0.0
+    downbeat_offset_beats: float = 0.0
+    phrase_offset_bars: int = 0
 
     @classmethod
     def from_values(
@@ -29,6 +34,12 @@ class CandidateTransition:
         source_bpm: float,
         target_bpm: float,
         duration_s: float,
+        *,
+        source_variant: str = "1x",
+        target_variant: str = "1x",
+        phase_offset_s: float = 0.0,
+        downbeat_offset_beats: float = 0.0,
+        phrase_offset_bars: int = 0,
     ) -> CandidateTransition:
         st = TempoHypothesis(source_bpm, 1.0, "candidate")
         tt = TempoHypothesis(target_bpm, 1.0, "candidate")
@@ -38,11 +49,28 @@ class CandidateTransition:
             "source_bpm": source_bpm,
             "target_bpm": target_bpm,
             "duration_s": duration_s,
+            "source_variant": source_variant,
+            "target_variant": target_variant,
+            "phase_offset_s": phase_offset_s,
+            "downbeat_offset_beats": downbeat_offset_beats,
+            "phrase_offset_bars": phrase_offset_bars,
         }
         candidate_id = hashlib.sha256(
             json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()
         ).hexdigest()
-        return cls(source.identity_hash, target.identity_hash, st, tt, duration_s, candidate_id)
+        return cls(
+            source.identity_hash,
+            target.identity_hash,
+            st,
+            tt,
+            duration_s,
+            candidate_id,
+            source_variant,
+            target_variant,
+            phase_offset_s,
+            downbeat_offset_beats,
+            phrase_offset_bars,
+        )
 
 
 class CandidateGenerator:
@@ -52,15 +80,18 @@ class CandidateGenerator:
         candidates: list[CandidateTransition] = []
         for source_h in source.tempo_hypotheses:
             for target_h in target.tempo_hypotheses:
-                for target_bpm in target_h.variants():
-                    if 20.0 <= target_bpm <= 300.0:
-                        candidates.append(
-                            CandidateTransition.from_values(
-                                source,
-                                target,
-                                source_h.bpm,
-                                target_bpm,
-                                request.bars * 4 * 60.0 / source_h.bpm,
+                for source_bpm in source_h.variants():
+                    for target_bpm in target_h.variants():
+                        if 20.0 <= target_bpm <= 300.0 and 20.0 <= source_bpm <= 300.0:
+                            candidates.append(
+                                CandidateTransition.from_values(
+                                    source,
+                                    target,
+                                    source_bpm,
+                                    target_bpm,
+                                    request.bars * 4 * 60.0 / source_bpm,
+                                    source_variant=f"{source_bpm / source_h.bpm:g}x",
+                                    target_variant=f"{target_bpm / target_h.bpm:g}x",
+                                )
                             )
-                        )
         return tuple(candidates)
