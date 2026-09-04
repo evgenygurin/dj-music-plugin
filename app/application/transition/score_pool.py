@@ -58,7 +58,9 @@ class ScoreTransitionPool:
         features = await self._catalog.features(track_ids)
         missing = tuple(track_id for track_id in track_ids if track_id not in features)
         if not features and len(track_ids) >= 2:
-            raise ValueError("none of the track_ids have scoring features")
+            raise ValueError(
+                f"none of the {len(track_ids)} track_ids have scoring features"
+            )
 
         pairs: list[ScoredPair] = []
         hard_rejects = 0
