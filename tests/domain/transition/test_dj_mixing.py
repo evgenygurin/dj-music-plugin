@@ -279,9 +279,7 @@ def test_score_phrase_alignment_with_phrase_hits_landmark() -> None:
     g1 = TransitionGrid.from_features(_tf(bpm=128.0))
     # 8-bar phrase = 8 * (60/128)*4 = 15.0 s at 128 BPM. We add a phrase
     # boundary at 15.0 s.
-    g2 = TransitionGrid.from_features(
-        _tf(bpm=128.0, phrase_boundaries_ms=[0, 15_000])
-    )
+    g2 = TransitionGrid.from_features(_tf(bpm=128.0, phrase_boundaries_ms=[0, 15_000]))
     # planned_out_bar=0 → t=0.0 is exactly the g2 phrase boundary at 0.
     assert score_phrase_alignment(g1, g2, planned_out_bar=0) == pytest.approx(1.0)
 
@@ -379,9 +377,7 @@ def test_generate_transition_cues_uses_phrase_boundaries() -> None:
         bpm=128.0,
         phrase_boundaries_ms=[0, 15_000, 30_000, 45_000, 60_000],
     )
-    cues = generate_transition_cues(
-        track_id=1, features=features, role="mix_out", n_candidates=4
-    )
+    cues = generate_transition_cues(track_id=1, features=features, role="mix_out", n_candidates=4)
     # First phrase boundary (t=0) is skipped because it has bar_index=0;
     # the remaining four produce 3 phrase cues + 1 grid anchor.
     assert len(cues) == 4
@@ -396,9 +392,7 @@ def test_generate_transition_cues_uses_phrase_boundaries() -> None:
 
 def test_generate_transition_cues_uses_grid_anchor_when_no_phrase() -> None:
     features = _tf(bpm=120.0, phrase_boundaries_ms=None)
-    cues = generate_transition_cues(
-        track_id=2, features=features, role="mix_in", n_candidates=2
-    )
+    cues = generate_transition_cues(track_id=2, features=features, role="mix_in", n_candidates=2)
     # Without phrase boundaries, every cue is a grid anchor.
     assert all(c.reason == "grid_anchor" for c in cues)
     assert all(c.role == "mix_in" for c in cues)
@@ -421,8 +415,11 @@ def test_transition_score_align_field_default_none() -> None:
 def test_transition_score_align_field_assignable() -> None:
     s = TransitionScore()
     s.align = AlignmentScore(
-        s_tempo=0.8, s_beat_alignment=0.7,
-        s_phrase_alignment=0.6, s_drift=0.9, overall=0.75,
+        s_tempo=0.8,
+        s_beat_alignment=0.7,
+        s_phrase_alignment=0.6,
+        s_drift=0.9,
+        overall=0.75,
     )
     assert s.align is not None
     assert s.align.s_tempo == 0.8
@@ -465,8 +462,6 @@ def test_scorer_with_align_true_on_hard_reject_returns_alignment() -> None:
 def test_scorer_score_with_candidates_align() -> None:
     a = _tf(bpm=128.0)
     b = _tf(bpm=128.0)
-    score = TransitionScorer().score_with_candidates(
-        a, b, align=True, transition_bars=8
-    )
+    score = TransitionScorer().score_with_candidates(a, b, align=True, transition_bars=8)
     assert score.align is not None
     assert score.align.s_tempo == pytest.approx(1.0)

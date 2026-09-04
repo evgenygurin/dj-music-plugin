@@ -14,7 +14,6 @@ from app.domain.template.registry import get_template as _get_template
 from app.domain.template.registry import list_template_names as _list_template_names
 from app.domain.template.registry import resolve_template_name as _resolve_template_name
 from app.handlers._context_log import safe_report_progress
-from app.repositories.unit_of_work import UnitOfWork
 from app.schemas.tool_responses import SequenceOptimizeResult
 from app.server.di import get_optimizer, get_transition_scorer, get_uow
 from app.shared.errors import ValidationError
@@ -140,7 +139,7 @@ async def sequence_optimize(
             )
         ),
     ] = "strict",
-    uow: UnitOfWork = Depends(get_uow),
+    uow: Any = Depends(get_uow),
     scorer: Any = Depends(get_transition_scorer),
     optimizer_builder: Any = Depends(get_optimizer),
     ctx: Context = CurrentContext(),

@@ -15,7 +15,7 @@ See https://github.com/prefecthq/fastmcp/blob/main/docs/clients/tools.mdx
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Any
 
 from fastmcp.dependencies import CurrentContext, Depends
 from fastmcp.server.context import Context
@@ -23,7 +23,6 @@ from fastmcp.tools import tool
 from pydantic import Field
 
 from app.handlers.render_validate_grid import render_validate_grid_handler
-from app.repositories.unit_of_work import UnitOfWork
 from app.schemas.render import GridCheckResult
 from app.server.di import get_uow
 from app.shared.errors import ValidationError
@@ -51,7 +50,7 @@ async def render_validate_grid(
     mix_path: Annotated[
         str | None, Field(description="Explicit mix path (default workspace MIX.mp3)")
     ] = None,
-    uow: UnitOfWork = Depends(get_uow),
+    uow: Any = Depends(get_uow),
     ctx: Context = CurrentContext(),
 ) -> GridCheckResult:
     path = mix_path or render_mix_path(version_id)

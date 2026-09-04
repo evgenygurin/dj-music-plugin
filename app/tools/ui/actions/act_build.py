@@ -10,7 +10,6 @@ from fastmcp.tools import tool
 from pydantic import Field
 
 from app.handlers.set_version_build import set_version_build_handler
-from app.repositories.unit_of_work import UnitOfWork
 from app.server.di import get_optimizer, get_transition_scorer, get_uow
 from app.shared.errors import NotFoundError
 from app.tools.compute.sequence_optimize import sequence_optimize
@@ -46,7 +45,7 @@ async def _run_sequence_optimize(**kwargs: Any) -> Any:
 async def act_build(
     version_id: Annotated[int, Field(ge=1, description="Source set version ID")],
     algorithm: Annotated[str, Field(description="ga | greedy | auto")] = "auto",
-    uow: UnitOfWork = Depends(get_uow),
+    uow: Any = Depends(get_uow),
     scorer: Any = Depends(get_transition_scorer),
     optimizer_builder: Any = Depends(get_optimizer),
     ctx: Context = CurrentContext(),

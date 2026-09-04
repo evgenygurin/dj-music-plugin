@@ -131,3 +131,74 @@ async def get_optimizer(ctx: Any = None) -> Any:
 
 async def get_provider_registry_from_lifespan(ctx: Any = None) -> Any:
     return _read_lifespan(ctx, "provider_registry", "ProviderRegistry")
+
+
+async def get_transition_candidate_generator(ctx: Any = None) -> Any:
+    """Build the application candidate use case from runtime ports."""
+    from app.application.transition.candidates import GenerateTransitionCandidates
+    from app.application.transition.catalog import UowCandidateCatalog
+
+    uow = await get_uow(ctx)
+    scorer = await get_transition_scorer(ctx)
+    return GenerateTransitionCandidates(UowCandidateCatalog(uow), scorer)
+
+
+async def get_engine_selection(ctx: Any = None) -> Any:
+    """Return the process rollout selection from the canonical engine settings."""
+    from app.config import get_settings
+
+    return get_settings().engine.selection()
+
+
+async def get_legacy_transition_planner(ctx: Any = None) -> Any:
+    """Build the legacy transition planner from the production scorer port."""
+    from app.application.transition.adapters import LegacyTransitionPlannerAdapter
+
+    return LegacyTransitionPlannerAdapter(await get_transition_scorer(ctx))
+
+
+async def get_universal_transition_planner(ctx: Any = None) -> Any:
+    """Build the universal planner without exposing domain objects to MCP."""
+    from app.application.transition.adapters import UniversalTransitionPlannerAdapter
+    from app.application.transition.planner import TransitionPlanner
+
+    return UniversalTransitionPlannerAdapter(TransitionPlanner())
+
+
+async def get_plan_transition_service(ctx: Any = None) -> Any:
+    """Build the persisted-analysis application facade for MCP planning."""
+    from app.application.transition.candidates import build_candidate_generator
+    from app.application.transition.catalog import UowCandidateCatalog
+    from app.application.transition.plan_request import PlanTransitionService
+    from app.repositories.engine_contracts import EngineContractStore
+
+    uow = await get_uow(ctx)
+    planner = await get_plan_transition(ctx)
+    store = EngineContractStore(uow.session)
+    return PlanTransitionService(
+        store,
+        UowCandidateCatalog(uow),
+        build_candidate_generator(),
+        planner,
+        transition_store=store,
+    )
+
+
+async def get_plan_transition(ctx: Any = None) -> Any:
+    """Build the feature-flagged production transition planning use case."""
+    from app.application.engine.mode import EngineMode
+    from app.application.transition.planning import PlanTransition
+    from app.repositories.engine_contracts import EngineContractStore
+
+    selection = await get_engine_selection(ctx)
+    shadow_store = None
+    if selection.engine is EngineMode.SHADOW:
+        uow = await get_uow(ctx)
+        shadow_store = EngineContractStore(uow.session)
+
+    return PlanTransition(
+        selection,
+        legacy_planner=await get_legacy_transition_planner(ctx),
+        new_planner=await get_universal_transition_planner(ctx),
+        shadow_store=shadow_store,
+    )

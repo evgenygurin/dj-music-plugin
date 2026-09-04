@@ -38,11 +38,18 @@ class BeatGrid:
         tempo_curve_times: np.ndarray | None = None,
         tempo_curve_bpm: np.ndarray | None = None,
     ) -> BeatGrid:
-        if tempo_curve_times is not None and tempo_curve_bpm is not None and len(tempo_curve_times) != len(tempo_curve_bpm):
+        if (
+            tempo_curve_times is not None
+            and tempo_curve_bpm is not None
+            and len(tempo_curve_times) != len(tempo_curve_bpm)
+        ):
             raise ValueError("tempo_curve_times and tempo_curve_bpm must have equal length")
         return cls(
-            float(bpm), np.asarray(beat_times, dtype=np.float64), max(1, int(beats_per_bar)),
-            float(np.clip(confidence, 0.0, 1.0)), float(np.clip(stability, 0.0, 1.0)),
+            float(bpm),
+            np.asarray(beat_times, dtype=np.float64),
+            max(1, int(beats_per_bar)),
+            float(np.clip(confidence, 0.0, 1.0)),
+            float(np.clip(stability, 0.0, 1.0)),
             None if tempo_curve_times is None else np.asarray(tempo_curve_times, dtype=np.float64),
             None if tempo_curve_bpm is None else np.asarray(tempo_curve_bpm, dtype=np.float64),
         )
@@ -81,13 +88,20 @@ class BeatGrid:
         return int(np.argmin(np.abs(self.beat_times - t_s)))
 
     def bpm_at(self, t_s: float) -> float:
-        if self.tempo_curve_times is None or self.tempo_curve_bpm is None or not len(self.tempo_curve_times):
+        if (
+            self.tempo_curve_times is None
+            or self.tempo_curve_bpm is None
+            or not len(self.tempo_curve_times)
+        ):
             return self.bpm
         return float(np.interp(t_s, self.tempo_curve_times, self.tempo_curve_bpm))
 
     def to_dict(self) -> dict[str, object]:
         return {
-            "bpm": self.bpm, "num_beats": self.num_beats, "num_bars": self.num_bars,
-            "beat_times": self.beat_times.tolist(), "downbeat_times": self.downbeat_times.tolist(),
+            "bpm": self.bpm,
+            "num_beats": self.num_beats,
+            "num_bars": self.num_bars,
+            "beat_times": self.beat_times.tolist(),
+            "downbeat_times": self.downbeat_times.tolist(),
             "tempo_hypothesis": 1.0,
         }

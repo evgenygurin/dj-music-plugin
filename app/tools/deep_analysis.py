@@ -7,7 +7,6 @@ from fastmcp.dependencies import Depends
 from fastmcp.tools import tool
 
 from app.handlers.deep_analysis import handle_deep_analyze_track
-from app.repositories.unit_of_work import UnitOfWork
 from app.server.di import get_uow
 
 
@@ -17,7 +16,7 @@ from app.server.di import get_uow
 )
 async def deep_analyze_track(
     track_id: int,
-    uow: UnitOfWork = Depends(get_uow),
+    uow: Any = Depends(get_uow),
 ) -> dict[str, Any]:
     return await handle_deep_analyze_track(track_id, uow)
 
@@ -28,7 +27,7 @@ async def deep_analyze_track(
 )
 async def deep_analyze_pool(
     track_ids: list[int],
-    uow: UnitOfWork = Depends(get_uow),
+    uow: Any = Depends(get_uow),
 ) -> dict[str, Any]:
     results: dict[str, Any] = {}
     for tid in track_ids:
@@ -44,7 +43,7 @@ async def find_compatible_tracks(
     active_track_ids: list[int],
     embedding_type: str = "full",
     limit: int = 20,
-    uow: UnitOfWork = Depends(get_uow),
+    uow: Any = Depends(get_uow),
 ) -> list[dict[str, Any]]:
     query = np.zeros(256, dtype=np.float32)
     count = 0
@@ -71,7 +70,7 @@ async def get_cross_similarity(
     track_a_id: int,
     track_b_id: int,
     stem_name: str = "original",
-    uow: UnitOfWork = Depends(get_uow),
+    uow: Any = Depends(get_uow),
 ) -> dict[str, Any] | None:
     row = await uow.cross_similarity.get_for_pair(track_a_id, track_b_id, stem_name)
     if row is None:

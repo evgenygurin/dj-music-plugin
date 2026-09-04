@@ -17,7 +17,6 @@ from fastmcp.tools import tool
 from pydantic import Field
 
 from app.domain.audit.rules import DEFAULT_AUDIT_RULES, run_audit_rules
-from app.repositories.unit_of_work import UnitOfWork
 from app.server.di import get_uow
 from app.shared.errors import NotFoundError
 from app.shared.ui_colors import SUBGENRE_COLORS
@@ -54,7 +53,7 @@ _LIBRARY_AUDIT_DEFAULT_LIMIT = 5000
 
 
 async def _gather(
-    uow: UnitOfWork,
+    uow: Any,
     playlist_id: int | None,
     limit: int = _LIBRARY_AUDIT_DEFAULT_LIMIT,
 ) -> dict[str, Any]:
@@ -158,7 +157,7 @@ async def ui_library_audit(
             ),
         ),
     ] = _LIBRARY_AUDIT_DEFAULT_LIMIT,
-    uow: UnitOfWork = Depends(get_uow),
+    uow: Any = Depends(get_uow),
     ctx: Context = CurrentContext(),
 ) -> Column | LibraryAuditFallback:
     data = await _gather(uow, playlist_id, limit=limit)

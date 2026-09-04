@@ -25,6 +25,8 @@ from app.audio.analyzers.base import AnalyzerRegistry
 from app.audio.analyzers.beatgrid import (
     BeatGridAnalyzer,
     _build_tempo_hypotheses,
+)
+from app.audio.analyzers.beatgrid import (
     beatgrid_from_arrays as build_beatgrid,
 )
 from app.audio.core.context import AnalysisContext
@@ -84,7 +86,7 @@ def test_beatgrid_analyzer_is_registered() -> None:
 
 def test_beatgrid_analyzer_level_3_scoring() -> None:
     """The beatgrid analyzer is registered at L3 (SCORING)."""
-    from app.audio.level_config import get_analyzers_for_level, AnalysisLevel
+    from app.audio.level_config import AnalysisLevel, get_analyzers_for_level
 
     names = get_analyzers_for_level(AnalysisLevel.SCORING)
     assert "beatgrid" in names

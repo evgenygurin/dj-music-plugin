@@ -9,7 +9,6 @@ from fastmcp.tools import tool
 
 from app.domain.multi_deck.energy_budget import compute_energy_budget
 from app.domain.multi_deck.models import StemLayer
-from app.repositories.unit_of_work import UnitOfWork
 from app.server.di import get_uow
 
 
@@ -18,7 +17,7 @@ async def energy_budget(
     layers: list[dict[str, str | int]],
     gain_db: list[float] | None = None,
     target_lufs: float = -8.0,
-    uow: UnitOfWork = Depends(get_uow),
+    uow: Any = Depends(get_uow),
 ) -> dict[str, Any]:
     """Compute combined energy budget across active decks."""
     stem_layers = [

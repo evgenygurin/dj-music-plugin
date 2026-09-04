@@ -44,7 +44,9 @@ def load_audio(path: Path) -> tuple[np.ndarray, AudioMetadata]:
         channels_first = channels_first[:TARGET_CHANNELS]
     if not np.isfinite(channels_first).all():
         raise AudioInputError(f"Audio input contains NaN/Inf samples: {path}")
-    return channels_first, AudioMetadata(int(sample_rate), int(channels_first.shape[0]), int(channels_first.shape[1]))
+    return channels_first, AudioMetadata(
+        int(sample_rate), int(channels_first.shape[0]), int(channels_first.shape[1])
+    )
 
 
 def write_flac_atomic(path: Path, data: np.ndarray, sample_rate: int = TARGET_SAMPLE_RATE) -> None:

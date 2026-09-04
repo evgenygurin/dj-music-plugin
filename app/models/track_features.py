@@ -139,9 +139,7 @@ class TrackAudioFeaturesComputed(Base, TimestampMixin):
     # are stored on disk as a single NPZ file and referenced by URI —
     # mirroring the existing ``timeseries_references`` pattern instead
     # of bloating the relational row with multi-KB JSON blobs.
-    beatgrid_storage_uri: Mapped[str | None] = mapped_column(
-        String(500), nullable=True
-    )
+    beatgrid_storage_uri: Mapped[str | None] = mapped_column(String(500), nullable=True)
     beatgrid_frame_count: Mapped[int | None] = mapped_column(nullable=True)
     beatgrid_hop_length: Mapped[int | None] = mapped_column(nullable=True)
     beatgrid_sample_rate: Mapped[int | None] = mapped_column(nullable=True)
@@ -149,9 +147,7 @@ class TrackAudioFeaturesComputed(Base, TimestampMixin):
     # truncated to four decimal places). Diagnostic only; the canonical
     # BPM lives in ``bpm`` above.
     dominant_hypothesis_bpm: Mapped[float | None] = mapped_column(nullable=True)
-    dominant_hypothesis_octave_preference: Mapped[float | None] = mapped_column(
-        nullable=True
-    )
+    dominant_hypothesis_octave_preference: Mapped[float | None] = mapped_column(nullable=True)
 
     # Classification
     mood: Mapped[str | None] = mapped_column(String(30), nullable=True, index=True)

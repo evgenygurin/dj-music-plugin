@@ -125,9 +125,7 @@ async def test_get_beatgrid_metadata_returns_none_when_no_beatgrid(
     track = Track(title="t1")
     session.add(track)
     await session.flush()
-    session.add(
-        TrackAudioFeaturesComputed(track_id=track.id, bpm=128.0, analysis_level=2)
-    )
+    session.add(TrackAudioFeaturesComputed(track_id=track.id, bpm=128.0, analysis_level=2))
     await session.flush()
     meta = await repo.get_beatgrid_metadata(track.id)
     assert meta is None
@@ -141,9 +139,7 @@ async def test_save_beatgrid_metadata_preserves_existing_bpm(
     track = Track(title="t1")
     session.add(track)
     await session.flush()
-    session.add(
-        TrackAudioFeaturesComputed(track_id=track.id, bpm=128.0, analysis_level=3)
-    )
+    session.add(TrackAudioFeaturesComputed(track_id=track.id, bpm=128.0, analysis_level=3))
     await session.flush()
     await repo.save_beatgrid_metadata(
         track.id,

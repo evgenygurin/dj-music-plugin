@@ -18,7 +18,6 @@ from pydantic import Field
 
 from app.handlers.audio_file_download import audio_file_download_handler
 from app.handlers.track_features_reanalyze import track_features_reanalyze_handler
-from app.repositories.unit_of_work import UnitOfWork
 from app.server.di import get_audio_pipeline, get_provider_registry, get_uow
 from app.shared.errors import NotFoundError
 from app.shared.render_jobs import RENDER_JOBS
@@ -52,7 +51,7 @@ DOWNLOAD_BATCH = 4
 )
 async def act_l5_set(
     version_id: Annotated[int, Field(ge=1, description="Set version ID")],
-    uow: UnitOfWork = Depends(get_uow),
+    uow: Any = Depends(get_uow),
     pipeline: Any = Depends(get_audio_pipeline),
     registry: Any = Depends(get_provider_registry),
     ctx: Context = CurrentContext(),

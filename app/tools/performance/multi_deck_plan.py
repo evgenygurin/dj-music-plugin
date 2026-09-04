@@ -9,7 +9,6 @@ from fastmcp.dependencies import Depends
 from fastmcp.tools import tool
 from pydantic import Field
 
-from app.repositories.unit_of_work import UnitOfWork
 from app.schemas.multi_deck import DeckAssign, DeckWindow, MultiDeckPlanResult
 from app.server.di import get_uow
 
@@ -40,7 +39,7 @@ async def multi_deck_plan(
     ],
     stem_mode: Annotated[bool, Field(description="Use demucs stem mode")] = False,
     max_simultaneous: Annotated[int, Field(ge=2, le=12, description="Max concurrent decks")] = 6,
-    uow: UnitOfWork = Depends(get_uow),
+    uow: Any = Depends(get_uow),
 ) -> MultiDeckPlanResult:
     # Read track metadata from DB
     input_map: dict[int, Any] = {}

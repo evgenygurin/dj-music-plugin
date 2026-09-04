@@ -9,7 +9,6 @@ from fastmcp.tools import tool
 
 from app.domain.multi_deck.compatibility import compute_stem_compatibility
 from app.domain.multi_deck.models import StemLayer
-from app.repositories.unit_of_work import UnitOfWork
 from app.server.di import get_uow
 
 
@@ -18,7 +17,7 @@ from app.server.di import get_uow
 )
 async def stem_vertical_compatibility(
     layers: list[dict[str, str | int]],
-    uow: UnitOfWork = Depends(get_uow),
+    uow: Any = Depends(get_uow),
 ) -> dict[str, Any]:
     """Check N-way stem frequency/key/BPM compatibility for simultaneous playback."""
     stem_layers = [

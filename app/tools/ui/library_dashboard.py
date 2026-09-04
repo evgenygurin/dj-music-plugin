@@ -19,7 +19,6 @@ from fastmcp.tools import tool
 
 from app.domain.camelot.wheel import key_code_to_camelot
 from app.models.track_features import TrackAudioFeaturesComputed
-from app.repositories.unit_of_work import UnitOfWork
 from app.server.di import get_uow
 from app.shared.ui_colors import CAMELOT_WHEEL_COLORS, SUBGENRE_COLORS
 from app.tools.ui._fallback import DashboardFallback, fallback_or, supports_ui
@@ -55,7 +54,7 @@ _BPM_BUCKETS: list[tuple[str, float, float]] = [
 ]
 
 
-async def _gather(uow: UnitOfWork) -> dict[str, Any]:
+async def _gather(uow: Any) -> dict[str, Any]:
     total = await uow.tracks.count()
     analyzed = await uow.track_features.count()
 
@@ -118,7 +117,7 @@ async def _gather(uow: UnitOfWork) -> dict[str, Any]:
     timeout=30.0,
 )
 async def ui_library_dashboard(
-    uow: UnitOfWork = Depends(get_uow),
+    uow: Any = Depends(get_uow),
     ctx: Context = CurrentContext(),
 ) -> Column | DashboardFallback:
     data = await _gather(uow)

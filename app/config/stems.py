@@ -9,7 +9,6 @@ from typing import Literal, Protocol
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-
 RuntimeName = Literal["auto", "mlx", "onnx", "torch", "cpu"]
 
 
@@ -30,8 +29,12 @@ class StemsConfig(BaseSettings):
     model: str = Field(default="htdemucs", description="Demucs model name.")
     shifts: int = Field(default=1, ge=0, le=10, description="Demucs shift averaging rounds.")
     overlap: float = Field(default=0.25, ge=0.0, le=0.95, description="Segment overlap ratio.")
-    segment: float = Field(default=7.8, gt=0, le=7.8, description="HTDemucs maximum segment length.")
-    jobs: int = Field(default=0, ge=0, le=8, description="Parallel CPU jobs; 0 avoids extra process pressure.")
+    segment: float = Field(
+        default=7.8, gt=0, le=7.8, description="HTDemucs maximum segment length."
+    )
+    jobs: int = Field(
+        default=0, ge=0, le=8, description="Parallel CPU jobs; 0 avoids extra process pressure."
+    )
     fp16: bool = Field(default=True, description="Use fp16 where supported by the backend.")
 
 

@@ -1,0 +1,26 @@
+from app.domain.mixing.scores import DimensionScore, MusicalScore
+from app.domain.mixing.selection import SelectionPolicy, select
+
+
+def score(harmony: float, energy: float, groove: float, *, rejected: bool = False) -> MusicalScore:
+    return MusicalScore(
+        (
+            DimensionScore("harmony", harmony),
+            DimensionScore("energy", energy),
+            DimensionScore("groove", groove),
+        ),
+        hard_rejected=rejected,
+    )
+
+
+def test_policies_choose_expected_dimension() -> None:
+    scores = (("a", score(0.9, 0.2, 0.2)), ("b", score(0.2, 0.9, 0.8)))
+    assert select(scores, SelectionPolicy.MOST_HARMONIC).selected == "a"
+    assert select(scores, SelectionPolicy.MOST_ENERGETIC).selected == "b"
+    assert select(scores, SelectionPolicy.MOST_GROOVY).selected == "b"
+
+
+def test_no_policy_can_select_hard_rejected_candidate() -> None:
+    scores = (("bad", score(1, 1, 1, rejected=True)), ("good", score(0.1, 0.1, 0.1)))
+    for policy in SelectionPolicy:
+        assert select(scores, policy).selected == "good"

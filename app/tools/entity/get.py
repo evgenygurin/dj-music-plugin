@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal
 
 from fastmcp.dependencies import CurrentContext, Depends
 from fastmcp.server.context import Context
@@ -10,7 +10,6 @@ from fastmcp.tools import tool
 from pydantic import Field
 
 from app.registry.entity import EntityRegistry, resolve_field_projection
-from app.repositories.unit_of_work import UnitOfWork
 from app.schemas.tool_responses import EntityGetResult
 from app.server.di import get_uow
 from app.shared.errors import NotFoundError, ValidationError
@@ -53,7 +52,7 @@ async def entity_get(
     include_relations: Annotated[
         JsonStrListOrNone, Field(description="Relations to eager-load")
     ] = None,
-    uow: UnitOfWork = Depends(get_uow),
+    uow: Any = Depends(get_uow),
     ctx: Context = CurrentContext(),
 ) -> EntityGetResult:
     config = EntityRegistry.get(entity)

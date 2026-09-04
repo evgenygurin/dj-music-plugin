@@ -262,9 +262,7 @@ class TrackFeatures:
             beatgrid_frame_count=getattr(row, "beatgrid_frame_count", None),
             beatgrid_hop_length=getattr(row, "beatgrid_hop_length", None),
             beatgrid_sample_rate=getattr(row, "beatgrid_sample_rate", None),
-            dominant_hypothesis_bpm=getattr(
-                row, "dominant_hypothesis_bpm", None
-            ),
+            dominant_hypothesis_bpm=getattr(row, "dominant_hypothesis_bpm", None),
             dominant_hypothesis_octave_preference=getattr(
                 row, "dominant_hypothesis_octave_preference", None
             ),

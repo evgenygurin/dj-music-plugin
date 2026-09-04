@@ -1,5 +1,4 @@
-"""Settings facade — aggregates per-domain Settings classes.
-
+"""
 Usage:
     from app.config import get_settings
 
@@ -22,6 +21,7 @@ from app.config.beatport import BeatportSettings
 from app.config.database import DatabaseSettings
 from app.config.delivery import DeliverySettings
 from app.config.discovery import DiscoverySettings
+from app.config.engine import EngineSettings
 from app.config.mcp import MCPSettings
 from app.config.optimization import OptimizationSettings
 from app.config.render import RenderSettings
@@ -36,6 +36,7 @@ __all__ = [
     "DatabaseSettings",
     "DeliverySettings",
     "DiscoverySettings",
+    "EngineSettings",
     "MCPSettings",
     "OptimizationSettings",
     "RenderSettings",
@@ -64,6 +65,7 @@ class Settings:
     mcp: MCPSettings
     render: RenderSettings
     supabase: SupabaseSettings
+    engine: EngineSettings
 
     def __init__(self) -> None:
         object.__setattr__(self, "database", DatabaseSettings())
@@ -78,6 +80,7 @@ class Settings:
         object.__setattr__(self, "mcp", MCPSettings())
         object.__setattr__(self, "render", RenderSettings())
         object.__setattr__(self, "supabase", SupabaseSettings())
+        object.__setattr__(self, "engine", EngineSettings())
 
 
 @lru_cache(maxsize=1)

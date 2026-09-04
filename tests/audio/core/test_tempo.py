@@ -12,11 +12,9 @@ deterministic. The tests pin invariants the render layer relies on:
 
 from __future__ import annotations
 
-import numpy as np
 import pytest
 
 from app.audio.core.tempo import (
-    BeatGrid,
     TempoCurvePoint,
     TempoHypothesis,
     beatgrid_from_arrays,
@@ -28,7 +26,6 @@ from app.audio.core.tempo import (
     round_bpm,
     tempo_curve_from_beat_times,
 )
-
 
 # ── downbeats / bars ─────────────────────────────────────────────────
 
@@ -42,7 +39,7 @@ def test_downbeats_from_beats_splits_on_bar_boundary() -> None:
 
 def test_downbeats_3_4_meter() -> None:
     beats = [0.0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0]
-    downbeats, bars = downbeats_from_beats(beats, beats_per_bar=3)
+    downbeats, _bars = downbeats_from_beats(beats, beats_per_bar=3)
     assert downbeats == (0.0, 1.5, 3.0)
 
 
@@ -55,7 +52,7 @@ def test_downbeats_truncates_partial_bar() -> None:
 
 def test_downbeats_handles_invalid_beats_per_bar() -> None:
     beats = [0.0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5]
-    downbeats, bars = downbeats_from_beats(beats, beats_per_bar=0)
+    downbeats, _bars = downbeats_from_beats(beats, beats_per_bar=0)
     # Invalid bpb falls back to 4.
     assert downbeats == (0.0, 2.0)
 

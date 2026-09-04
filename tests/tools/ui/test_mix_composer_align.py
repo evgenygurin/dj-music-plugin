@@ -41,7 +41,6 @@ async def session(engine: AsyncEngine) -> AsyncSession:
         yield s
 
 
-
 async def _seed_full(session: AsyncSession) -> int:
     source = Track(title="source")
     c1 = Track(title="c1")

@@ -26,7 +26,10 @@ class TempoLattice:
 
     @property
     def ambiguous(self) -> bool:
-        return len(self.hypotheses) > 1 and self.hypotheses[1].confidence >= self.hypotheses[0].confidence * 0.8
+        return (
+            len(self.hypotheses) > 1
+            and self.hypotheses[1].confidence >= self.hypotheses[0].confidence * 0.8
+        )
 
     def hypothesis_for_multiplier(self, multiplier: float) -> TempoHypothesis | None:
         return next((h for h in self.hypotheses if h.multiplier == multiplier), None)
@@ -62,7 +65,11 @@ def extract_tempo_lattice(acf: np.ndarray, frames_per_sec: float) -> TempoLattic
             continue
         value = float(acf[lag])
         if value > 0:
-            candidates.append(TempoHypothesis(float(60.0 * frames_per_sec / lag), multiplier, float(lag), value, value))
+            candidates.append(
+                TempoHypothesis(
+                    float(60.0 * frames_per_sec / lag), multiplier, float(lag), value, value
+                )
+            )
     candidates.sort(key=lambda h: h.confidence, reverse=True)
     return TempoLattice(tuple(candidates))
 

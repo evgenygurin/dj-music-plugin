@@ -8,7 +8,6 @@ it only projects typed fields. The tests pin that contract.
 
 from __future__ import annotations
 
-import numpy as np
 import pytest
 
 from app.audio.core.tempo import BeatGrid, TempoHypothesis, beatgrid_from_arrays
