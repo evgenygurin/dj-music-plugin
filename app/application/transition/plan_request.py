@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Protocol
 
-from app.application.analysis.persistence import snapshot_from_record
+from app.application.analysis.persistence import snapshot_from_record, transition_plan_to_payload
 from app.domain.analysis import AnalysisSnapshot
 from app.domain.mixing.alignment import AlignmentRequest
 from app.domain.mixing.candidate import CandidateTransition
@@ -59,11 +59,13 @@ class PlanTransitionService:
         feature_catalog: FeatureCatalog,
         candidate_generator: CandidateGeneratorPort,
         planner: PlanTransitionPort,
+        transition_store: Any = None,
     ) -> None:
         self._analysis_store = analysis_store
         self._feature_catalog = feature_catalog
         self._candidate_generator = candidate_generator
         self._planner = planner
+        self._transition_store = transition_store
 
     async def execute(self, request: PlanTransitionRequest) -> Any:
         source = await self._load_snapshot(request.source_analysis_identity)
@@ -81,11 +83,24 @@ class PlanTransitionService:
         )
         if not candidates:
             raise ValueError("no transition candidates generated from persisted analysis")
-        return await self._planner.execute_async(
+        result = await self._planner.execute_async(
             candidates,
             (source_features, target_features),
             request.policy,
         )
+        if self._transition_store is not None:
+            selected = getattr(
+                result.value, "selected", getattr(result.value, "plan", result.value)
+            )
+            await self._transition_store.save_transition_plan(
+                selected.execution_identity,
+                request.source_analysis_identity,
+                request.target_analysis_identity,
+                selected.config_identity,
+                selected.engine_version,
+                transition_plan_to_payload(selected),
+            )
+        return result
 
     async def _load_snapshot(self, identity: str) -> AnalysisSnapshot:
         record = await self._analysis_store.get_analysis_snapshot(identity)

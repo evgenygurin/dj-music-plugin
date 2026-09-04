@@ -37,17 +37,17 @@ def test_snapshot_round_trip_preserves_beatgrid_and_identity() -> None:
     assert restored.identity_hash == snapshot.identity_hash
 
 
-def test_snapshot_from_record_rejects_identity_mismatch() -> None:
+def test_snapshot_from_record_preserves_record_identity_inputs() -> None:
     snapshot = AnalysisSnapshot(
         "source", "1", tempo_hypotheses=(TempoHypothesis(128, 1.0),)
     )
     record = {
         "source_hash": snapshot.source_hash,
-        "schema_version": snapshot.schema_version,
+        "schema_version": "2",
         "analyzer_versions": {},
         "model_versions": {},
         "payload": snapshot_to_payload(snapshot),
     }
 
     restored = snapshot_from_record(record)
-    assert restored.identity_hash == snapshot.identity_hash
+    assert restored.identity_hash != snapshot.identity_hash

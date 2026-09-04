@@ -174,11 +174,13 @@ async def get_plan_transition_service(ctx: Any = None) -> Any:
 
     uow = await get_uow(ctx)
     planner = await get_plan_transition(ctx)
+    store = EngineContractStore(uow.session)
     return PlanTransitionService(
-        EngineContractStore(uow.session),
+        store,
         UowCandidateCatalog(uow),
         CandidateGenerator(),
         planner,
+        transition_store=store,
     )
 
 

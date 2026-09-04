@@ -17,6 +17,7 @@ class TransitionPlan:
     effective_bpm: float
     recipe: TransitionRecipe
     plan_version: str = "1"
+    engine_version: str = "universal-1"
     config_identity: str = ""
     source_analysis_identity: str = ""
     target_analysis_identity: str = ""
@@ -31,6 +32,7 @@ class TransitionPlan:
         effective_bpm: float,
         recipe: TransitionRecipe,
         *,
+        engine_version: str = "universal-1",
         config_identity: str = "",
         source_analysis_identity: str = "",
         target_analysis_identity: str = "",
@@ -38,6 +40,7 @@ class TransitionPlan:
     ) -> TransitionPlan:
         return cls(
             source_id, target_id, duration_bars, effective_bpm, recipe,
+            engine_version=engine_version,
             config_identity=config_identity,
             source_analysis_identity=source_analysis_identity,
             target_analysis_identity=target_analysis_identity,
@@ -56,6 +59,7 @@ class TransitionPlan:
                 "parameters": self.recipe.parameters,
             },
             "plan_version": self.plan_version,
+            "engine_version": self.engine_version,
             "config_identity": self.config_identity,
             "source_analysis_identity": self.source_analysis_identity,
             "target_analysis_identity": self.target_analysis_identity,

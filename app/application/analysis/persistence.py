@@ -61,3 +61,25 @@ def _beatgrid_payload(grid: Any) -> dict[str, Any] | None:
             for beat in grid.beats
         ],
     }
+
+
+def transition_plan_to_payload(plan: Any) -> dict[str, Any]:
+    """Serialize an immutable transition plan without losing its identity inputs."""
+    return {
+        "source_id": plan.source_id,
+        "target_id": plan.target_id,
+        "duration_bars": plan.duration_bars,
+        "effective_bpm": plan.effective_bpm,
+        "recipe": {
+            "kind": plan.recipe.kind.value,
+            "bars": plan.recipe.bars,
+            "parameters": list(plan.recipe.parameters),
+        },
+        "plan_version": plan.plan_version,
+        "engine_version": plan.engine_version,
+        "config_identity": plan.config_identity,
+        "source_analysis_identity": plan.source_analysis_identity,
+        "target_analysis_identity": plan.target_analysis_identity,
+        "diagnostics": list(plan.diagnostics),
+        "execution_identity": plan.execution_identity,
+    }
