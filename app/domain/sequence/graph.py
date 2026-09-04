@@ -13,6 +13,11 @@ class TransitionEdge:
     target: str
     plan: TransitionPlan
     score: float
+    target_energy: float | None = None
+    target_artist: str | None = None
+    target_genre: str | None = None
+    target_key: str | None = None
+    target_recipe: str | None = None
 
 
 @dataclass(frozen=True, slots=True)

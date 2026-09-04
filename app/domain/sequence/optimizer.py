@@ -51,9 +51,27 @@ class BeamSearchOptimizer:
             expanded: list[tuple[SetState, tuple[str, ...], float]] = []
             for state, transitions, total in beam:
                 for edge in graph.outgoing(state.current_track):
-                    if not constraints.accepts(edge.target, state.tracks):
+                    recipe = edge.target_recipe or edge.plan.recipe.kind.value
+                    if not constraints.accepts(
+                        edge.target,
+                        state.tracks,
+                        bpm=edge.plan.effective_bpm,
+                        energy=edge.target_energy,
+                        artist=edge.target_artist,
+                        artists=state.artists,
+                        recipe=recipe,
+                        recipes=state.recipes,
+                    ):
                         continue
-                    next_state = state.append(edge.target)
+                    next_state = state.append(
+                        edge.target,
+                        energy=edge.target_energy,
+                        bpm=edge.plan.effective_bpm,
+                        key=edge.target_key,
+                        artist=edge.target_artist,
+                        genre=edge.target_genre,
+                        recipe=recipe,
+                    )
                     value = objective.edge_value(edge.score)
                     expanded.append(
                         (next_state, (*transitions, edge.plan.execution_identity), total + value)
