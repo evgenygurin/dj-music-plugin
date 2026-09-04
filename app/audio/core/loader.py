@@ -83,10 +83,11 @@ class AudioLoader:
                 samples, file_sr = sf_module.read(str(path), dtype="float32", always_2d=True)
                 return samples.mean(axis=1), file_sr
             except sf_module.LibsndfileError as e:
-                # Format not recognised by libsndfile (e.g. M4A/AAC).
-                # Fall through to librosa which may succeed via
-                # audioread (macOS Core Audio) or ffmpeg.
+                # A codec failure may be recoverable via librosa/audioread,
+                # but a file that exists and cannot be decoded must never
+                # fall through to the WAV-only stdlib backend as a cryptic error.
                 log.warning("soundfile decode failed for %s: %s", path, e)
+                soundfile_decode_error = e
             except RuntimeError:
                 # soundfile may raise generic RuntimeError on truly
                 # broken inputs — re-raise so it is not swallowed.
@@ -109,11 +110,15 @@ class AudioLoader:
                 msg = f"audio decode failed: {detail}"
                 raise RuntimeError(msg) from e
             except Exception as e:
-                if e.__class__.__module__.startswith("audioread"):
+                if e.__class__.__module__.startswith(("audioread", "soundfile")):
                     detail = str(e) or type(e).__name__
                     msg = f"audio decode failed: {detail}"
                     raise RuntimeError(msg) from e
                 raise
+
+        if sf_module is not None and 'soundfile_decode_error' in locals():
+            detail = str(soundfile_decode_error) or type(soundfile_decode_error).__name__
+            raise RuntimeError(f"audio decode failed: {detail}") from soundfile_decode_error
 
         import wave
 
