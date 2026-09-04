@@ -2,14 +2,13 @@
 
 from __future__ import annotations
 
-from typing import Annotated
+from typing import Annotated, Any
 
 from fastmcp.dependencies import Depends
 from fastmcp.tools import tool
 from pydantic import Field
 
 from app.domain.performance.cue_points import CueType, detect_cues
-from app.repositories.unit_of_work import UnitOfWork
 from app.schemas.cue_points import CueItem, CuePointsResult
 from app.server.di import get_uow
 
@@ -39,7 +38,7 @@ CUE_LABELS = {
 )
 async def cue_points(
     track_id: Annotated[int, Field(ge=1, description="Track ID")],
-    uow: UnitOfWork = Depends(get_uow),
+    uow: Any = Depends(get_uow),
 ) -> CuePointsResult:
     sections = await uow.track_sections.list_by_track(track_id)
     features = await uow.track_features.get_by_track_id(track_id)

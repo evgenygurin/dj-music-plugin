@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Annotated
+from typing import Annotated, Any
 
 from fastmcp.dependencies import CurrentContext, Depends
 from fastmcp.server.context import Context
@@ -10,7 +10,6 @@ from fastmcp.tools import tool
 from pydantic import Field
 
 from app.handlers.render_beatgrid import render_beatgrid_handler
-from app.repositories.unit_of_work import UnitOfWork
 from app.schemas.render import RenderBeatgridResult
 from app.server.di import get_uow
 from app.tools.render._shared import render_workspace
@@ -32,7 +31,7 @@ from app.tools.render._shared import render_workspace
 async def render_beatgrid(
     version_id: Annotated[int, Field(ge=1, description="Set version ID")],
     refresh: Annotated[bool, Field(description="Recompute even if cached")] = False,
-    uow: UnitOfWork = Depends(get_uow),
+    uow: Any = Depends(get_uow),
     ctx: Context = CurrentContext(),
 ) -> RenderBeatgridResult:
     return await render_beatgrid_handler(

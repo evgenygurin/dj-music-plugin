@@ -17,7 +17,6 @@ from pydantic import Field
 
 from app.domain.camelot.wheel import key_code_to_camelot
 from app.domain.transition.scorer import TransitionScorer
-from app.repositories.unit_of_work import UnitOfWork
 from app.server.di import get_uow
 from app.shared.errors import NotFoundError
 from app.shared.ui_colors import score_color
@@ -52,7 +51,7 @@ except ImportError as _exc:  # pragma: no cover — fastmcp[apps] extra missing
     ) from _exc
 
 
-async def _gather(uow: UnitOfWork, set_id: int, version_id: int | None) -> dict[str, Any]:
+async def _gather(uow: Any, set_id: int, version_id: int | None) -> dict[str, Any]:
     s = await uow.sets.get(set_id)
     if s is None:
         raise NotFoundError("set", set_id)
@@ -176,7 +175,7 @@ async def ui_set_view(
     version_id: Annotated[
         int | None, Field(description="Specific set version (default: latest)")
     ] = None,
-    uow: UnitOfWork = Depends(get_uow),
+    uow: Any = Depends(get_uow),
     ctx: Context = CurrentContext(),
 ) -> Column | SetViewFallback:
     data = await _gather(uow, set_id, version_id)

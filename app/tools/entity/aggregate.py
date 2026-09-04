@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal
 
 from fastmcp.dependencies import CurrentContext, Depends
 from fastmcp.server.context import Context
@@ -11,7 +11,6 @@ from pydantic import Field
 from pydantic import ValidationError as PydanticValidationError
 
 from app.registry.entity import EntityRegistry
-from app.repositories.unit_of_work import UnitOfWork
 from app.schemas.tool_responses import AggregateResult
 from app.server.di import get_uow
 from app.shared.errors import ValidationError
@@ -67,7 +66,7 @@ async def entity_aggregate(
             ),
         ),
     ] = None,
-    uow: UnitOfWork = Depends(get_uow),
+    uow: Any = Depends(get_uow),
     ctx: Context = CurrentContext(),
 ) -> AggregateResult:
     config = EntityRegistry.get(entity)

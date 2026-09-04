@@ -8,7 +8,7 @@ All DSP params are optional (None = use RenderSettings config default).
 
 from __future__ import annotations
 
-from typing import Annotated
+from typing import Annotated, Any
 
 from fastmcp.dependencies import CurrentContext, Depends
 from fastmcp.server.context import Context
@@ -16,7 +16,6 @@ from fastmcp.tools import tool
 from pydantic import Field
 
 from app.handlers.render_mixdown_extended import render_mixdown_extended_handler
-from app.repositories.unit_of_work import UnitOfWork
 from app.schemas.render import RenderMixdownResult
 from app.server.di import get_uow
 from app.tools.render._shared import render_timestamp, render_workspace
@@ -157,7 +156,7 @@ async def render_mixdown_extended(
     outro_fade_bars: Annotated[
         int | None, Field(gt=0, description="End-of-mix fade length. Default 12")
     ] = None,
-    uow: UnitOfWork = Depends(get_uow),
+    uow: Any = Depends(get_uow),
     ctx: Context = CurrentContext(),
 ) -> RenderMixdownResult:
     return await render_mixdown_extended_handler(

@@ -17,7 +17,7 @@ from app.server.di import get_uow
 async def timeline_overlay(
     track_ids: list[int],
     align_mode: str = "downbeat",
-    uow: UnitOfWork = Depends(get_uow),
+    uow: Any = Depends(get_uow),
 ) -> dict[str, Any]:
     """Show sections of multiple tracks on a unified timeline aligned by downbeat."""
 
@@ -44,7 +44,7 @@ async def find_loops(
     max_bars: int = 32,
     exclude_vocals: bool = True,
     min_energy_stability: float = 0.7,
-    uow: UnitOfWork = Depends(get_uow),
+    uow: Any = Depends(get_uow),
 ) -> dict[str, Any]:
     """Find loopable sections in a track for sustained multi-deck layering."""
     sections = await uow.track_features.get_track_sections(track_id)

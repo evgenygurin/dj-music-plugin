@@ -18,7 +18,6 @@ from pydantic import Field
 
 from app.domain.transition.intent import TransitionIntent
 from app.domain.transition.recipe import DEFAULT_TRANSITION_BARS
-from app.repositories.unit_of_work import UnitOfWork
 from app.server.di import get_transition_scorer, get_uow
 from app.shared.errors import NotFoundError
 from app.tools.ui._fallback import (
@@ -78,7 +77,7 @@ def _parse_intent(value: str | None) -> TransitionIntent | None:
 
 
 async def _compute(
-    uow: UnitOfWork, scorer: Any, a: int, b: int, intent: str | None
+    uow: Any, scorer: Any, a: int, b: int, intent: str | None
 ) -> dict[str, Any]:
     # Mixing a track into itself is meaningless and elsewhere in the v1
     # surface (``transition_score_pool``, ``entity_create(transition)``,
@@ -131,7 +130,7 @@ async def ui_transition_score(
     intent: Annotated[
         str | None, Field(description="Optional transition intent (e.g. 'build', 'close')")
     ] = None,
-    uow: UnitOfWork = Depends(get_uow),
+    uow: Any = Depends(get_uow),
     scorer: Any = Depends(get_transition_scorer),
     ctx: Context = CurrentContext(),
 ) -> Column | TransitionScoreFallback:

@@ -3,7 +3,7 @@
 
 from __future__ import annotations
 
-from typing import Annotated, cast
+from typing import Annotated, Any, cast
 
 from fastmcp.dependencies import CurrentContext, Depends
 from fastmcp.server.context import Context
@@ -12,7 +12,6 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from app.application.transition.score import ScoreTransition
 from app.domain.transition.weights import CAMELOT_HARMONIC_BASE
-from app.repositories.unit_of_work import UnitOfWork
 from app.schemas.scoring import ScoringWeights
 from app.server.di import get_uow
 from app.shared.errors import ValidationError
@@ -215,7 +214,7 @@ async def score_harmonic(
     alpha: Annotated[
         float, Field(ge=0, le=1, description="α для S_h, 0=only roughness 1=only Camelot")
     ] = 0.5,
-    uow: UnitOfWork = Depends(get_uow),
+    uow: Any = Depends(get_uow),
     ctx: Context = CurrentContext(),
 ) -> ScoreHarmonicResult:
     _ = ctx  # unused, kept for FastMCP context parity
@@ -279,9 +278,9 @@ async def score_transition(
         ScoringWeights | None,
         Field(description="веса S=Σw·S, None=дефолт 0.25/0.25/0.2/0.15/0.15"),
     ] = None,
-    uow: UnitOfWork = Depends(get_uow),
+    uow: Any = Depends(get_uow),
     ctx: Context = CurrentContext(),
-    generator: ScoreTransition | None = None,
+    generator: Any | None = None,
 ) -> ScoreTransitionResult:
     _ = ctx
     use_case = generator or ScoreTransition(_UowPairCatalog(uow), _LegacyPairScorer())
@@ -304,7 +303,7 @@ async def score_transition(
 
 
 class _UowPairCatalog:
-    def __init__(self, uow: UnitOfWork) -> None:
+    def __init__(self, uow: Any) -> None:
         self._uow = uow
 
     async def features(self, track_ids: list[int]) -> dict[int, TrackFeatures]:

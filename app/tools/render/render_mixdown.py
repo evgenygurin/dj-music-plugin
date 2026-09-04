@@ -10,7 +10,6 @@ from fastmcp.tools import tool
 from pydantic import Field
 
 from app.handlers.render_mixdown import render_mixdown_handler
-from app.repositories.unit_of_work import UnitOfWork
 from app.schemas.render import RenderMixdownResult
 from app.server.di import get_uow
 from app.tools.render._shared import render_timestamp, render_workspace
@@ -85,7 +84,7 @@ async def render_mixdown(
         dict[str, Any] | None,
         Field(description="Per-stem policy overrides (UserOverridePolicy) for this render only"),
     ] = None,
-    uow: UnitOfWork = Depends(get_uow),
+    uow: Any = Depends(get_uow),
     ctx: Context = CurrentContext(),
 ) -> RenderMixdownResult:
     # Merge session policy (dj_stem_transition_policy) with per-render overrides

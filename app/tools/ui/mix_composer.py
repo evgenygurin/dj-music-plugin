@@ -70,7 +70,7 @@ def _file_audio_uri(path: str | None) -> str | None:
 
 
 async def _candidates(
-    uow: UnitOfWork, scorer: Any, source_id: int, limit: int = 8
+    uow: Any, scorer: Any, source_id: int, limit: int = 8
 ) -> list[dict[str, Any]]:
     source = (await uow.track_features.get_scoring_features_batch([source_id])).get(source_id)
     if source is None or source.bpm is None:
@@ -168,7 +168,7 @@ async def _candidates(
     return top
 
 
-async def _panel_data(session_id: str, uow: UnitOfWork, scorer: Any) -> dict[str, Any]:
+async def _panel_data(session_id: str, uow: Any, scorer: Any) -> dict[str, Any]:
     session = MIX_SESSIONS.get(session_id)
     if session is None:
         raise ValueError(f"unknown or expired mix session: {session_id}")
@@ -189,7 +189,7 @@ async def _panel_data(session_id: str, uow: UnitOfWork, scorer: Any) -> dict[str
     return snapshot
 
 
-async def _snapshot(session: Any, uow: UnitOfWork, scorer: Any) -> dict[str, Any]:
+async def _snapshot(session: Any, uow: Any, scorer: Any) -> dict[str, Any]:
     tracks = await uow.tracks.get_many(session.track_ids)
     features = await uow.track_features.get_scoring_features_batch(session.track_ids)
     rows = []
@@ -403,7 +403,7 @@ def _panel_view(data: dict[str, Any], set_id: int | None) -> Any:
 )
 async def ui_mix_composer_panel(
     session_id: Annotated[str, Field(min_length=4)],
-    uow: UnitOfWork = Depends(get_uow),
+    uow: Any = Depends(get_uow),
     scorer: Any = Depends(get_transition_scorer),
     ctx: Context = CurrentContext(),
 ) -> Column:
@@ -427,7 +427,7 @@ async def ui_mix_composer_panel(
 async def ui_mix_composer(
     first_track_id: Annotated[int, Field(ge=1, description="Track to start the set with")],
     set_id: Annotated[int | None, Field(ge=1, description="Existing set to save into")] = None,
-    uow: UnitOfWork = Depends(get_uow),
+    uow: Any = Depends(get_uow),
     scorer: Any = Depends(get_transition_scorer),
     ctx: Context = CurrentContext(),
 ) -> PrefabApp:

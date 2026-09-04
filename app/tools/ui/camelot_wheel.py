@@ -18,7 +18,6 @@ from pydantic import Field
 
 from app.domain.camelot.wheel import key_code_to_camelot
 from app.models.track_features import TrackAudioFeaturesComputed
-from app.repositories.unit_of_work import UnitOfWork
 from app.server.di import get_uow
 from app.shared.errors import NotFoundError
 from app.shared.ui_colors import CAMELOT_WHEEL_COLORS
@@ -51,7 +50,7 @@ except ImportError as _exc:  # pragma: no cover — fastmcp[apps] extra missing
     ) from _exc
 
 
-async def _track_ids_for_scope(uow: UnitOfWork, playlist_id: int) -> list[int]:
+async def _track_ids_for_scope(uow: Any, playlist_id: int) -> list[int]:
     """Resolve track ids for a specific playlist scope.
 
     Whole-library scope intentionally bypasses this helper — see
@@ -64,7 +63,7 @@ async def _track_ids_for_scope(uow: UnitOfWork, playlist_id: int) -> list[int]:
     return await uow.playlists.get_track_ids(playlist_id)
 
 
-async def _gather(uow: UnitOfWork, playlist_id: int | None) -> dict[str, Any]:
+async def _gather(uow: Any, playlist_id: int | None) -> dict[str, Any]:
     from sqlalchemy import select
 
     if playlist_id is None:
@@ -131,7 +130,7 @@ async def ui_camelot_wheel(
     playlist_id: Annotated[
         int | None, Field(description="Playlist ID; None = entire analyzed library")
     ] = None,
-    uow: UnitOfWork = Depends(get_uow),
+    uow: Any = Depends(get_uow),
     ctx: Context = CurrentContext(),
 ) -> Column | CamelotWheelFallback:
     data = await _gather(uow, playlist_id)

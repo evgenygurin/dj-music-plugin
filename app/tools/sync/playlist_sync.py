@@ -11,7 +11,6 @@ from fastmcp.tools import tool
 from pydantic import BaseModel, Field
 
 from app.registry.provider import ProviderRegistry
-from app.repositories.unit_of_work import UnitOfWork
 from app.schemas.tool_responses import PlaylistSyncResult
 from app.server.di import get_provider_registry, get_uow
 from app.shared.errors import NotFoundError, ValidationError
@@ -46,7 +45,7 @@ async def playlist_sync(
         str, Field(description="Provider name (matches platform_ids key)")
     ] = "yandex",
     dry_run: Annotated[bool, Field(description="Preview without applying")] = False,
-    uow: UnitOfWork = Depends(get_uow),
+    uow: Any = Depends(get_uow),
     registry: ProviderRegistry = Depends(get_provider_registry),
     ctx: Context = CurrentContext(),
 ) -> PlaylistSyncResult:

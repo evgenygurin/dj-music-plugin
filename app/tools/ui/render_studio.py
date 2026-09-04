@@ -24,7 +24,6 @@ from fastmcp.server.context import Context
 from fastmcp.tools import tool
 from pydantic import Field
 
-from app.repositories.unit_of_work import UnitOfWork
 from app.server.di import get_uow
 from app.shared.render_studio_data import gather_render_studio as gather_render_studio
 from app.tools.ui._fallback import RenderStudioFallback, supports_ui
@@ -161,7 +160,7 @@ def _render_diagnostics_card(data: dict[str, Any]) -> None:
 async def render_studio_panel(
     version_id: Annotated[int, Field(ge=1)],
     job_id: Annotated[str | None, Field(description="Active render job id")] = None,
-    uow: UnitOfWork = Depends(get_uow),
+    uow: Any = Depends(get_uow),
     ctx: Context = CurrentContext(),
 ) -> Any:
     """Return the panel fragment for ``Slot("panel")`` (not a full PrefabApp).
@@ -187,7 +186,7 @@ async def render_studio_panel(
 )
 async def ui_render_studio(
     version_id: Annotated[int, Field(ge=1, description="Set version ID")],
-    uow: UnitOfWork = Depends(get_uow),
+    uow: Any = Depends(get_uow),
     ctx: Context = CurrentContext(),
 ) -> Any:
     data = await gather_render_studio(uow, version_id=version_id, job_id=None)

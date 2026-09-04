@@ -2,13 +2,12 @@
 
 from __future__ import annotations
 
-from typing import Annotated
+from typing import Annotated, Any
 
 from fastmcp.dependencies import Depends
 from fastmcp.tools import tool
 from pydantic import Field
 
-from app.repositories.unit_of_work import UnitOfWork
 from app.schemas.stem_matrix import ActiveStem, MatrixFrame, StemMatrixResult
 from app.server.di import get_uow
 
@@ -39,7 +38,7 @@ async def stem_matrix(
     body_bars: Annotated[
         int, Field(ge=4, le=128, description="Per-track body length in bars")
     ] = 32,
-    uow: UnitOfWork = Depends(get_uow),
+    uow: Any = Depends(get_uow),
 ) -> StemMatrixResult:
     bar_s = 4.0 * (60.0 / target_bpm)
     body_s = body_bars * bar_s

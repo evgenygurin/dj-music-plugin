@@ -8,7 +8,6 @@ import numpy as np
 from fastmcp.dependencies import Depends
 from fastmcp.tools import tool
 
-from app.repositories.unit_of_work import UnitOfWork
 from app.server.di import get_uow
 
 
@@ -18,7 +17,7 @@ async def stem_embedding_search(
     stem_name: str = "bass",
     embedding_type: str = "timbral",
     limit: int = 10,
-    uow: UnitOfWork = Depends(get_uow),
+    uow: Any = Depends(get_uow),
 ) -> list[dict[str, Any]]:
     """Find similar stems using pgvector ANN search.
 

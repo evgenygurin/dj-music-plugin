@@ -14,7 +14,6 @@ from app.domain.template.registry import list_template_names, resolve_template_n
 from app.domain.transition.neural_mix import NeuralMixTransition
 from app.registry.entity import EntityRegistry
 from app.registry.provider import ProviderRegistry
-from app.repositories.unit_of_work import UnitOfWork
 from app.schemas.tool_responses import EntityUpdateResult
 from app.server.di import (
     get_audio_pipeline,
@@ -63,7 +62,7 @@ async def entity_update(
     entity: Annotated[EntityName, Field(description="Entity type")],
     id: Annotated[int, Field(ge=1, description="Entity primary key")],
     data: Annotated[JsonDict, Field(description="Partial update payload")],
-    uow: UnitOfWork = Depends(get_uow),
+    uow: Any = Depends(get_uow),
     registry: ProviderRegistry = Depends(get_provider_registry),
     pipeline: Any = Depends(get_audio_pipeline),
     scorer: Any = Depends(get_transition_scorer),

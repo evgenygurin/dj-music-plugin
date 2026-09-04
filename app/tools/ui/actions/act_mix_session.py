@@ -12,12 +12,11 @@ from pydantic import Field
 
 from app.handlers.mix_preview import start_preview
 from app.handlers.set_version_build import set_version_build_handler
-from app.repositories.unit_of_work import UnitOfWork
 from app.server.di import get_transition_scorer, get_uow
 from app.shared.mix_composer import MIX_SESSIONS
 
 
-async def _snapshot(session: Any, uow: UnitOfWork, scorer: Any) -> dict[str, Any]:
+async def _snapshot(session: Any, uow: Any, scorer: Any) -> dict[str, Any]:
     tracks = await uow.tracks.get_many(session.track_ids)
     features = await uow.track_features.get_scoring_features_batch(session.track_ids)
     rows: list[dict[str, Any]] = []
@@ -81,7 +80,7 @@ async def act_mix_session(
     subgenre: str | None = None,
     set_id: int | None = None,
     label: str = "interactive-mix",
-    uow: UnitOfWork = Depends(get_uow),
+    uow: Any = Depends(get_uow),
     scorer: Any = Depends(get_transition_scorer),
     ctx: Context = CurrentContext(),
 ) -> dict[str, Any]:

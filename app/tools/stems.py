@@ -21,7 +21,6 @@ from fastmcp.tools import tool
 from pydantic import Field
 
 from app.handlers._context_log import safe_info, safe_report_progress
-from app.repositories.unit_of_work import UnitOfWork
 from app.server.di import get_uow
 
 # Serialize separation — shared with stem_resolver (same unified memory).
@@ -99,7 +98,7 @@ async def stems_separate(
         Field(description="Track IDs to separate (1+ ids, order preserved)"),
     ],
     ctx: Context = CurrentContext(),
-    uow: UnitOfWork = Depends(get_uow),
+    uow: Any = Depends(get_uow),
 ) -> dict[str, Any]:
     """FastMCP Task: batch stem separation with progress + cancel.
 

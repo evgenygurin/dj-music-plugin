@@ -9,12 +9,11 @@ from fastmcp.tools import tool
 from pydantic import Field
 
 from app.domain.performance.cue_points import find_transition_window
-from app.repositories.unit_of_work import UnitOfWork
 from app.schemas.transition_window import TransitionWindowResult
 from app.server.di import get_uow
 
 
-async def _get_sections(uow: UnitOfWork, track_id: int) -> list[dict[str, Any]]:
+async def _get_sections(uow: Any, track_id: int) -> list[dict[str, Any]]:
     sections = await uow.track_sections.list_by_track(track_id)
     return [
         {
@@ -48,7 +47,7 @@ async def transition_window(
     preferred_bars: Annotated[
         int, Field(ge=4, le=128, description="Preferred transition length in bars")
     ] = 32,
-    uow: UnitOfWork = Depends(get_uow),
+    uow: Any = Depends(get_uow),
 ) -> TransitionWindowResult:
     from_sections = await _get_sections(uow, from_track_id)
     to_sections = await _get_sections(uow, to_track_id)

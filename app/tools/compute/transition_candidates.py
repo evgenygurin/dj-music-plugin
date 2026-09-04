@@ -12,7 +12,6 @@ from pydantic import Field
 from app.application.transition.candidates import GenerateTransitionCandidates
 from app.application.transition.catalog import UowCandidateCatalog
 from app.handlers._context_log import safe_report_progress
-from app.repositories.unit_of_work import UnitOfWork
 from app.schemas.tool_responses import TransitionCandidate, TransitionCandidatesResult
 from app.server.di import get_transition_candidate_generator
 
@@ -33,7 +32,7 @@ async def get_transition_candidates(
     top_k: Annotated[int, Field(ge=1, le=100, description="Maximum candidates")] = 20,
     min_score: Annotated[float, Field(ge=0.0, le=1.0, description="Minimum score")] = 0.0,
     generator: GenerateTransitionCandidates = Depends(get_transition_candidate_generator),
-    uow: UnitOfWork | None = None,
+    uow: Any = None,
     scorer: Any = None,
     ctx: Context = CurrentContext(),
 ) -> TransitionCandidatesResult:
