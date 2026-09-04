@@ -29,8 +29,8 @@ components without breaking the existing public score API.
 from __future__ import annotations
 
 import math
-from collections.abc import Iterable, Sequence
-from dataclasses import dataclass, field
+from collections.abc import Sequence
+from dataclasses import dataclass
 from typing import Final
 
 from app.audio.core.tempo import TempoHypothesis, beatgrid_from_arrays
@@ -619,9 +619,8 @@ def _bpm_distance(bpm_a: float, bpm_b: float) -> float:
 # want to build a domain TransitionGrid from an audio BeatGrid.
 __all__ = [
     "ALIGNMENT_DEFAULT_WEIGHTS",
-    "AlignmentScore",
-    "MIXING_DEFAULT_TRANSITION_BARS",
     "MIXING_DEFAULT_TARGET_BARS",
+    "MIXING_DEFAULT_TRANSITION_BARS",
     "MIXING_MAX_TRANSITION_BARS",
     "MIXING_MIN_TRANSITION_BARS",
     "NEUTRAL_ALIGNMENT",
@@ -630,9 +629,11 @@ __all__ = [
     "S_DRIFT_SIGMA_S",
     "S_PHRASE_SIGMA_S",
     "S_TEMPO_SIGMA",
+    "AlignmentScore",
     "TempoModel",
     "TransitionCue",
     "TransitionGrid",
+    "beatgrid_from_arrays",
     "compute_alignment",
     "generate_transition_cues",
     "score_beat_alignment",
@@ -640,8 +641,4 @@ __all__ = [
     "score_phrase_alignment",
     "score_tempo",
     "select_transition_bars",
-    # ``beatgrid_from_arrays`` is re-exported so domain callers don't
-    # have to import from the audio layer directly when constructing
-    # test fixtures.
-    "beatgrid_from_arrays",
 ]
