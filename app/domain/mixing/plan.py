@@ -17,6 +17,10 @@ class TransitionPlan:
     effective_bpm: float
     recipe: TransitionRecipe
     plan_version: str = "1"
+    config_identity: str = ""
+    source_analysis_identity: str = ""
+    target_analysis_identity: str = ""
+    diagnostics: tuple[str, ...] = ()
 
     @classmethod
     def create(
@@ -26,8 +30,19 @@ class TransitionPlan:
         duration_bars: int,
         effective_bpm: float,
         recipe: TransitionRecipe,
+        *,
+        config_identity: str = "",
+        source_analysis_identity: str = "",
+        target_analysis_identity: str = "",
+        diagnostics: tuple[str, ...] = (),
     ) -> TransitionPlan:
-        return cls(source_id, target_id, duration_bars, effective_bpm, recipe)
+        return cls(
+            source_id, target_id, duration_bars, effective_bpm, recipe,
+            config_identity=config_identity,
+            source_analysis_identity=source_analysis_identity,
+            target_analysis_identity=target_analysis_identity,
+            diagnostics=diagnostics,
+        )
 
     def canonical_json(self) -> str:
         payload = {
@@ -41,6 +56,10 @@ class TransitionPlan:
                 "parameters": self.recipe.parameters,
             },
             "plan_version": self.plan_version,
+            "config_identity": self.config_identity,
+            "source_analysis_identity": self.source_analysis_identity,
+            "target_analysis_identity": self.target_analysis_identity,
+            "diagnostics": self.diagnostics,
         }
         return json.dumps(payload, sort_keys=True, separators=(",", ":"))
 

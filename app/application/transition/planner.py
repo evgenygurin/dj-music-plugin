@@ -25,6 +25,8 @@ class TransitionPlanner:
         candidates: tuple[CandidateTransition, ...],
         features: tuple[FeatureSet, FeatureSet],
         policy: SelectionPolicy,
+        *,
+        config_identity: str = "",
     ) -> TransitionDecision:
         scores: list[tuple[str, MusicalScore]] = []
         rejected: list[tuple[str, str]] = []
@@ -34,12 +36,8 @@ class TransitionPlanner:
             if not technical.accepted:
                 rejected.append((candidate.candidate_id, technical.reason or "technical"))
                 continue
-            scores.append(
-                (
-                    candidate.candidate_id,
-                    self._evaluator.evaluate(source_features, target_features),
-                )
-            )
+            musical = self._evaluator.evaluate(source_features, target_features)
+            scores.append((candidate.candidate_id, musical))
         if not scores:
             raise ValueError("no technically acceptable transition candidates")
         selection = select(tuple(scores), policy)
@@ -54,5 +52,12 @@ class TransitionPlanner:
             recipe.bars,
             chosen.source_tempo.bpm,
             recipe,
+            config_identity=config_identity,
+            source_analysis_identity=chosen.source_hash,
+            target_analysis_identity=chosen.target_hash,
+            diagnostics=tuple(
+                [f"selected:{selection.selected}", f"policy:{policy}"]
+                + [f"rejected:{reason}" for _, reason in rejected]
+            ),
         )
         return TransitionDecision(plan, selection.alternatives, tuple(rejected), policy)
