@@ -4,7 +4,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from .constraints import SetConstraints
 from .graph import CandidateGraph
+from .objective import SequenceObjective
 from .state import SetState
 
 
@@ -13,6 +15,7 @@ class SetPlan:
     tracks: tuple[str, ...]
     transitions: tuple[str, ...]
     score: float
+    diagnostics: tuple[str, ...] = ()
 
 
 class BeamSearchOptimizer:
@@ -22,27 +25,41 @@ class BeamSearchOptimizer:
         self.beam_width = beam_width
         self.lookahead = lookahead
 
-    def optimize(self, graph: CandidateGraph, initial: SetState, target: str) -> SetPlan:
-        beam: list[tuple[tuple[str, ...], tuple[str, ...], float]] = [(initial.tracks, (), 0.0)]
+    def optimize(
+        self,
+        graph: CandidateGraph,
+        initial: SetState,
+        target: str,
+        *,
+        constraints: SetConstraints | None = None,
+        objective: SequenceObjective | None = None,
+    ) -> SetPlan:
+        constraints = constraints or SetConstraints()
+        objective = objective or SequenceObjective()
+        if target in constraints.excluded_tracks:
+            raise ValueError(f"target is excluded: {target}")
+        beam: list[tuple[SetState, tuple[str, ...], float]] = [(initial, (), 0.0)]
         for _ in range(self.lookahead):
-            completed = [item for item in beam if item[0][-1] == target]
+            completed = [
+                item for item in beam
+                if item[0].current_track == target
+                and constraints.mandatory_satisfied(item[0].tracks)
+            ]
             if completed:
-                best = max(completed, key=lambda item: (item[2], tuple(item[0])))
-                return SetPlan(*best)
-            expanded: list[tuple[tuple[str, ...], tuple[str, ...], float]] = []
-            for tracks, transitions, score in beam:
-                for edge in graph.outgoing(tracks[-1]):
-                    if edge.target in tracks:
+                best = max(completed, key=lambda item: (item[2], tuple(item[0].tracks)))
+                return SetPlan(best[0].tracks, best[1], best[2])
+            expanded: list[tuple[SetState, tuple[str, ...], float]] = []
+            for state, transitions, total in beam:
+                for edge in graph.outgoing(state.current_track):
+                    if not constraints.accepts(edge.target, state.tracks):
                         continue
+                    next_state = state.append(edge.target)
+                    value = objective.edge_value(edge.score)
                     expanded.append(
-                        (
-                            (*tracks, edge.target),
-                            (*transitions, edge.plan.execution_identity),
-                            score + edge.score,
-                        )
+                        (next_state, (*transitions, edge.plan.execution_identity), total + value)
                     )
             if not expanded:
                 break
-            expanded.sort(key=lambda item: (-item[2], item[0]))
+            expanded.sort(key=lambda item: (-item[2], item[0].tracks))
             beam = expanded[: self.beam_width]
         raise ValueError(f"no path from {initial.current_track} to {target}")
