@@ -9,7 +9,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 _METADATA = sa.MetaData()
 _ANALYSIS = sa.Table(
-    "analysis_snapshots", _METADATA,
+    "analysis_snapshots",
+    _METADATA,
     sa.Column("identity_hash", sa.String(64), primary_key=True),
     sa.Column("source_hash", sa.String(128), nullable=False),
     sa.Column("schema_version", sa.String(32), nullable=False),
@@ -18,7 +19,8 @@ _ANALYSIS = sa.Table(
     sa.Column("payload", sa.JSON(), nullable=False),
 )
 _TRANSITIONS = sa.Table(
-    "transition_plans", _METADATA,
+    "transition_plans",
+    _METADATA,
     sa.Column("execution_identity", sa.String(64), primary_key=True),
     sa.Column("source_identity", sa.String(64), nullable=False),
     sa.Column("target_identity", sa.String(64), nullable=False),
@@ -27,15 +29,24 @@ _TRANSITIONS = sa.Table(
     sa.Column("plan", sa.JSON(), nullable=False),
 )
 _SETS = sa.Table(
-    "set_plans", _METADATA,
+    "set_plans",
+    _METADATA,
     sa.Column("identity", sa.String(64), primary_key=True),
     sa.Column("config_identity", sa.String(64), nullable=False),
     sa.Column("plan", sa.JSON(), nullable=False),
 )
 _MANIFESTS = sa.Table(
-    "execution_manifests", _METADATA,
+    "execution_manifests",
+    _METADATA,
     sa.Column("identity", sa.String(64), primary_key=True),
     sa.Column("manifest", sa.JSON(), nullable=False),
+)
+_SHADOW = sa.Table(
+    "shadow_comparisons",
+    _METADATA,
+    sa.Column("comparison_identity", sa.String(64), primary_key=True),
+    sa.Column("execution_identity", sa.String(64), nullable=False),
+    sa.Column("comparison", sa.JSON(), nullable=False),
 )
 
 
@@ -105,9 +116,21 @@ class EngineContractStore:
     async def get_execution_manifest(self, identity: str) -> dict[str, Any] | None:
         return await self._get(_MANIFESTS, "identity", identity)
 
-    async def _get(
-        self, table: sa.Table, key_column: str, identity: str
-    ) -> dict[str, Any] | None:
+    async def save_shadow_comparison(
+        self, comparison_identity: str, execution_identity: str, comparison: dict[str, Any]
+    ) -> None:
+        await self._upsert(
+            _SHADOW,
+            "comparison_identity",
+            comparison_identity,
+            execution_identity=execution_identity,
+            comparison=comparison,
+        )
+
+    async def get_shadow_comparison(self, comparison_identity: str) -> dict[str, Any] | None:
+        return await self._get(_SHADOW, "comparison_identity", comparison_identity)
+
+    async def _get(self, table: sa.Table, key_column: str, identity: str) -> dict[str, Any] | None:
         key = table.c[key_column]
         result = await self._session.execute(sa.select(table).where(key == identity))
         row = result.mappings().first()

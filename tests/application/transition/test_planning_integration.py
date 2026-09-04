@@ -51,3 +51,31 @@ def test_shadow_mode_returns_universal_decision_and_compares_real_paths() -> Non
     assert isinstance(result.comparison.recipe_parity, bool)
     assert isinstance(result.comparison.score_delta, float)
     assert isinstance(result.comparison.technical_margin_delta, float)
+
+
+async def test_shadow_planning_persists_comparison_only_in_shadow_mode() -> None:
+    from app.application.transition.shadow import ShadowComparisonRecord
+
+    class Store:
+        def __init__(self) -> None:
+            self.records: list[ShadowComparisonRecord] = []
+
+        async def save_shadow_comparison(
+            self, identity: str, execution_identity: str, comparison: dict
+        ) -> None:
+            self.records.append((identity, execution_identity, comparison))
+
+    candidates, features = _request()
+    store = Store()
+    use_case = PlanTransition(
+        EngineSelection(EngineMode.SHADOW, "legacy"),
+        legacy_planner=LegacyTransitionPlannerAdapter(TransitionScorer()),
+        new_planner=UniversalTransitionPlannerAdapter(TransitionPlanner()),
+        shadow_store=store,
+    )
+
+    result = await use_case.execute_async(candidates, features, SelectionPolicy.BEST)
+
+    assert result.comparison is not None
+    assert len(store.records) == 1
+    assert store.records[0][1] == result.value.selected.execution_identity

@@ -167,10 +167,19 @@ async def get_universal_transition_planner(ctx: Any = None) -> Any:
 
 async def get_plan_transition(ctx: Any = None) -> Any:
     """Build the feature-flagged production transition planning use case."""
+    from app.application.engine.mode import EngineMode
     from app.application.transition.planning import PlanTransition
+    from app.repositories.engine_contracts import EngineContractStore
+
+    selection = await get_engine_selection(ctx)
+    shadow_store = None
+    if selection.engine is EngineMode.SHADOW:
+        uow = await get_uow(ctx)
+        shadow_store = EngineContractStore(uow.session)
 
     return PlanTransition(
-        await get_engine_selection(ctx),
+        selection,
         legacy_planner=await get_legacy_transition_planner(ctx),
         new_planner=await get_universal_transition_planner(ctx),
+        shadow_store=shadow_store,
     )

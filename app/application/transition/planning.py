@@ -6,7 +6,7 @@ from typing import Any, Protocol
 
 from app.application.engine.mode import EngineSelection
 from app.application.engine.router import EngineRunResult, TransitionEngineRouter
-from app.application.transition.shadow import ShadowComparison
+from app.application.transition.shadow import ShadowComparison, ShadowComparisonRecord
 
 
 class TransitionPlannerPort(Protocol):
@@ -45,11 +45,13 @@ class PlanTransition:
         legacy_planner: TransitionPlannerPort,
         new_planner: TransitionPlannerPort | None = None,
         compare: Any = _compare_plans,
+        shadow_store: Any = None,
     ) -> None:
         self._selection = selection
         self._legacy = legacy_planner
         self._new = new_planner
         self._compare = compare
+        self._shadow_store = shadow_store
 
     def execute(self, candidates: Any, features: Any, policy: Any) -> EngineRunResult[Any, Any]:
         new_planner = self._new
@@ -64,3 +66,32 @@ class PlanTransition:
             new=new_call,
             compare=self._compare,
         ).run()
+
+    async def execute_async(
+        self, candidates: Any, features: Any, policy: Any
+    ) -> EngineRunResult[Any, Any]:
+        """Execute planning and persist shadow diagnostics when configured."""
+        result = self.execute(candidates, features, policy)
+        if (
+            self._selection.engine.value == "shadow"
+            and result.comparison is not None
+            and self._shadow_store is not None
+        ):
+            selected = getattr(
+                result.value, "selected", getattr(result.value, "plan", result.value)
+            )
+            execution_identity = str(selected.execution_identity)
+            await _persist_shadow_comparison(
+                self._shadow_store, result.comparison, execution_identity
+            )
+        return result
+
+
+# Async persistence is deliberately separate so existing synchronous callers remain compatible.
+async def _persist_shadow_comparison(
+    store: Any, comparison: ShadowComparison, execution_identity: str
+) -> None:
+    record = ShadowComparisonRecord.create(execution_identity, comparison)
+    await store.save_shadow_comparison(
+        record.identity, execution_identity, record.canonical_payload()
+    )

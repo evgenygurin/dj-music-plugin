@@ -41,3 +41,25 @@ async def test_plan_transition_factory_wires_real_rollout_components() -> None:
     assert isinstance(planner, PlanTransition)
     assert planner._legacy.__class__.__name__ == "LegacyTransitionPlannerAdapter"
     assert planner._new.__class__.__name__ == "UniversalTransitionPlannerAdapter"
+
+
+@pytest.mark.asyncio
+async def test_plan_transition_factory_wires_shadow_store_for_shadow_mode(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from app.application.engine.mode import EngineMode, EngineSelection
+    from app.repositories.unit_of_work import UnitOfWork
+
+    ctx = make_di_ctx(lifespan={"transition_scorer": MagicMock()})
+    uow = MagicMock(spec=UnitOfWork)
+    uow.session = MagicMock()
+    ctx.fastmcp_context.state["uow"] = uow
+
+    async def shadow_selection(_ctx: object) -> EngineSelection:
+        return EngineSelection(EngineMode.SHADOW, "legacy")
+
+    monkeypatch.setattr(di, "get_engine_selection", shadow_selection)
+
+    planner = await di.get_plan_transition(ctx)
+
+    assert planner._shadow_store.__class__.__name__ == "EngineContractStore"

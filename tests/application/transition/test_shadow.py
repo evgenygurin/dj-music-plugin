@@ -25,3 +25,14 @@ def test_shadow_comparison_reports_selection_recipe_rejections_and_dimension_del
     assert result.rejection_parity is False
     assert result.technical_margin_delta == 0.1
     assert result.dimension_deltas == (("energy", -0.1), ("harmony", 0.1))
+
+
+def test_shadow_record_has_deterministic_identity() -> None:
+    from app.application.transition.shadow import ShadowComparisonRecord
+
+    comparison = ShadowComparison.compare("legacy-plan", "new-plan", 0.7, 0.8)
+    first = ShadowComparisonRecord.create("new-execution", comparison)
+    second = ShadowComparisonRecord.create("new-execution", comparison)
+
+    assert first.identity == second.identity
+    assert first.canonical_payload() == second.canonical_payload()

@@ -2,6 +2,8 @@
 
 from unittest.mock import MagicMock
 
+import pytest
+
 from app.application.engine.mode import EngineMode, EngineSelection
 from app.application.transition.planning import PlanTransition
 from app.domain.mixing.selection import SelectionPolicy
@@ -37,13 +39,21 @@ def test_default_shadow_comparison_uses_decision_diagnostics() -> None:
     legacy_plan = TransitionPlan.create("a", "b", 8, 128, recipe)
     new_plan = TransitionPlan.create("a", "b", 8, 128, recipe)
     legacy = TransitionDecision(
-        legacy_plan, (), (("x", "tempo_drift"),), SelectionPolicy.BEST,
-        score=0.70, technical_margin=0.20,
+        legacy_plan,
+        (),
+        (("x", "tempo_drift"),),
+        SelectionPolicy.BEST,
+        score=0.70,
+        technical_margin=0.20,
         dimension_scores=(("harmony", 0.80), ("energy", 0.60)),
     )
     new = TransitionDecision(
-        new_plan, (), (("x", "tempo_drift"),), SelectionPolicy.BEST,
-        score=0.75, technical_margin=0.25,
+        new_plan,
+        (),
+        (("x", "tempo_drift"),),
+        SelectionPolicy.BEST,
+        score=0.75,
+        technical_margin=0.25,
         dimension_scores=(("harmony", 0.90), ("energy", 0.60)),
     )
 
@@ -67,3 +77,21 @@ def test_legacy_planning_does_not_require_new_engine() -> None:
 
     assert result.value == "legacy-plan"
     assert result.comparison is None
+
+
+@pytest.mark.asyncio
+async def test_async_shadow_without_store_keeps_planning_result() -> None:
+    legacy = MagicMock(return_value="legacy-plan")
+    new = MagicMock(return_value="new-plan")
+    compare = MagicMock(return_value="parity")
+    use_case = PlanTransition(
+        EngineSelection(EngineMode.SHADOW, "legacy"),
+        legacy_planner=legacy,
+        new_planner=new,
+        compare=compare,
+    )
+
+    result = await use_case.execute_async("candidates", "features", SelectionPolicy.BEST)
+
+    assert result.value == "new-plan"
+    assert result.comparison == "parity"
