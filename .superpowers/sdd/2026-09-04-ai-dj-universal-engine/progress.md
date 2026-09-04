@@ -1,0 +1,62 @@
+# SDD ledger — plan: docs/superpowers/plans/2026-09-04-ai-dj-universal-engine.md
+
+## Pre-flight conflict scan
+
+| Pair / task | Shared file or interface | Finding | Ruling |
+|---|---|---|---|
+| Task 1 ↔ Task 2 | AnalysisSnapshot | Task 1 defines immutable contract; Task 2 produces normalized snapshots. | Consistent: Task 2 may only depend on Task 1 contracts. |
+| Task 1 ↔ Task 6 | snapshot hashes / plan identity | Task 6 consumes snapshot hashes. | Consistent: identity is defined in Task 1. |
+| Task 2 ↔ Task 8 | analysis snapshots / cache | Task 2 reads/writes cache; Task 8 persists cache metadata. | Consistent: Task 2 owns orchestration semantics, Task 8 owns infrastructure persistence. |
+| Task 3 ↔ Task 4 | ResolvedTransitionConfig | Task 4 consumes resolved config. | Consistent: Task 3 precedes Task 4. |
+| Task 3 ↔ Task 9 | RenderConfig | Task 3 defines resolution; Task 9 executes render. | Consistent: renderer receives resolved render settings, never plans. |
+| Task 4 ↔ Task 5 | CandidateTransition / hard validation | Task 4 rejects technical violations; Task 5 scores survivors. | Consistent with hard-before-soft invariant. |
+| Task 5 ↔ Task 6 | MusicalScore / recipes | Task 5 produces dimensions and recipes; Task 6 selects and packages. | Consistent. |
+| Task 6 ↔ Task 7 | TransitionPlan | Task 6 produces immutable plans; Task 7 consumes cached plans in graph. | Consistent. |
+| Task 6 ↔ Task 8 | TransitionPlan persistence | Task 6 defines mapping; Task 8 owns repository/infrastructure. | Consistent. |
+| Task 7 ↔ Task 10 | optimize_sequence / plan_set | Task 7 defines optimizer; Task 10 exposes use cases through MCP. | Consistent. |
+| Task 8 ↔ Task 9 | RenderManifest | Task 8 persists manifests; Task 9 creates them. | Consistent. |
+| Task 9 ↔ Task 10 | render_transition / render_set | Task 9 owns renderer contract; Task 10 exposes application use cases. | Consistent. |
+| Task 10 ↔ Task 11 | legacy adapters / feature flags | Task 10 adds shadow path; Task 11 performs cutover. | Consistent. |
+| Task 0 | working tree | Existing unrelated changes must remain untouched. | Isolated worktree created; original checkout preserved. |
+
+## Per-task self-consistency scan
+
+| Task | Tests vs files/contracts | Finding | Ruling |
+|---|---|---|---|
+| 0 | baseline report + repository checks | Self-consistent. | Proceed. |
+| 1 | value-object tests vs analysis contracts | Self-consistent. | Proceed. |
+| 2 | tier/orchestrator tests vs adapters | Self-consistent. | Proceed. |
+| 3 | precedence/provenance tests vs resolver | Self-consistent. | Proceed. |
+| 4 | technical edge-case tests vs candidate validator | Self-consistent. | Proceed. |
+| 5 | dimension/recipe tests vs evaluator | Self-consistent. | Proceed. |
+| 6 | policy/serialization tests vs TransitionPlan | Self-consistent. | Proceed. |
+| 7 | graph/constraint/beam tests vs optimizer | Self-consistent. | Proceed. |
+| 8 | migration/repository tests vs persistence layer | Self-consistent; integration tests may need project-specific fixtures. | Ruling: use existing DB test conventions rather than inventing a second harness. |
+| 9 | plan/render validation tests vs renderer adapters | Self-consistent. | Proceed. |
+| 10 | MCP contracts vs application boundary | Self-consistent. | Proceed. |
+| 11 | parity/resource/reproducibility tests vs cutover | Self-consistent. | Proceed. |
+
+## Global rulings
+
+- Ruling: Preserve the existing `test-assembly` working tree unchanged by implementing only in `codex/ai-dj-universal-engine` worktree — because the plan explicitly forbids unrelated changes — cost if wrong: branch divergence requiring manual reconciliation.
+- Ruling: Treat the approved architecture spec as binding over implementation conveniences — because the subagent workflow says spec outranks plan — cost if wrong: rework of a phase that violates architectural invariants.
+- Ruling: Keep one writer at a time; use sequential task dispatch/review even where tasks appear parallelizable — because shared Python contracts and adapters create integration risk and Adaptive Orchestration caps writers — cost if wrong: slower execution.
+
+## Task 0 completion
+
+- Baseline report committed as `96733627` (`docs: record universal engine baseline`).
+- Confirmed project target Python is >=3.12; established a local 3.12 test environment with uv.
+- Recorded pre-existing collection/static failures, unresolved merge markers, MCP surface and persistence anchors.
+
+## Task 1 — domain contracts
+
+Status: **implemented and focused-verified**.
+
+- RED: six new analysis test modules initially failed because the requested domain modules did not exist.
+- GREEN: added immutable/slotted `TempoHypothesis`, `BeatPosition`, `BeatGrid`, `Phrase`, `Section`, `CuePoint`, and `AnalysisSnapshot` contracts plus package exports.
+- Snapshot identity canonically hashes source, schema, analyzer/model versions, engine, DSP backend and analysis configuration hash.
+- Domain purity check: analysis package imports successfully without audio/repository/provider/FastMCP/concrete-DSP imports.
+- Focused tests: `14 passed`.
+- Ruff on new domain/tests: clean.
+- Mypy on new domain: clean.
+- Import-linter remains blocked repository-wide by the pre-existing syntax error in `app/audio/deep/demucs_mlx_runner.py`; this is recorded as baseline, not a Task-1 failure.
