@@ -7,13 +7,13 @@ from unittest.mock import MagicMock, patch
 import numpy as np
 import pytest
 
-from app.audio.deep.errors import AudioInputError, StemInferenceError, StemOutputValidationError
 from app.audio.deep.demucs_mlx_runner import (
     DEMUCS_OVERLAP,
     DEMUCS_SEGMENT,
     PERCUSSION_SPLIT_HZ,
     mlx_separate,
 )
+from app.audio.deep.errors import AudioInputError, StemInferenceError, StemOutputValidationError
 
 
 def _write_valid_wav(path: Path, sr: int = 44_100, duration: float = 1.0) -> None:

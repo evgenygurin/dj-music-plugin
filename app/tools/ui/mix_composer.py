@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import base64
 from pathlib import Path
-from typing import Annotated, Any
+from typing import Annotated, Any, cast
 
 from fastmcp.apps import AppConfig, app_config_to_meta_dict
 from fastmcp.dependencies import CurrentContext, Depends
@@ -108,9 +108,7 @@ async def _candidates(
     # ``scorer.score`` path below — the cheap DJ-aware alignment runs
     # *before* the full stem pass so we can rank-align first and only
     # then pay the Neural Mix cost.
-    align_shortlist: list[tuple[int, Any]] = [
-        (tid, target) for _rank, tid, target in cheap[:80]
-    ]
+    align_shortlist: list[tuple[int, Any]] = [(tid, target) for _rank, tid, target in cheap[:80]]
     align_scores: dict[int, AlignmentScore] = {}
     for tid, target in align_shortlist:
         align_scores[tid] = compute_alignment(source, target, transition_bars=16)
@@ -151,12 +149,8 @@ async def _candidates(
         cheap_rank = {tid: r for r, tid, _ in cheap[:80]}
         for entry in scored:
             tid = entry["track_id"]
-            align_overall = (
-                entry["align"]["overall"] if entry.get("align") else 0.0
-            )
-            entry["align_overall"] = round(
-                0.5 * cheap_rank.get(tid, 0.0) + 0.5 * align_overall, 4
-            )
+            align_overall = entry["align"]["overall"] if entry.get("align") else 0.0
+            entry["align_overall"] = round(0.5 * cheap_rank.get(tid, 0.0) + 0.5 * align_overall, 4)
     else:
         for entry in scored:
             entry["align_overall"] = 0.0
@@ -349,7 +343,7 @@ def _panel_view(data: dict[str, Any], set_id: int | None) -> Any:
                 CardHeader(children=[CardTitle("Rendering preview")])
                 with CardContent():
                     job = (
-                        RENDER_JOBS.get(data.get("preview_job_id"))
+                        RENDER_JOBS.get(cast(str, data.get("preview_job_id")))
                         if data.get("preview_job_id")
                         else None
                     )
@@ -408,9 +402,8 @@ async def ui_mix_composer_panel(
     ctx: Context = CurrentContext(),
 ) -> Column:
     data = await _panel_data(session_id, uow, scorer)
-    return _panel_view(
-        data, MIX_SESSIONS.get(session_id).set_id if MIX_SESSIONS.get(session_id) else None
-    )
+    session = MIX_SESSIONS.get(session_id)
+    return cast(Column, _panel_view(data, session.set_id if session else None))
 
 
 @tool(

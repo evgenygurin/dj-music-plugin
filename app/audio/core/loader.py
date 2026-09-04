@@ -116,7 +116,7 @@ class AudioLoader:
                     raise RuntimeError(msg) from e
                 raise
 
-        if sf_module is not None and 'soundfile_decode_error' in locals():
+        if sf_module is not None and "soundfile_decode_error" in locals():
             detail = str(soundfile_decode_error) or type(soundfile_decode_error).__name__
             raise RuntimeError(f"audio decode failed: {detail}") from soundfile_decode_error
 

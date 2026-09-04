@@ -28,11 +28,19 @@ def test_small_tempo_difference_can_pass() -> None:
 
 def test_phase_alignment_is_a_hard_constraint() -> None:
     aligned = CandidateTransition.from_values(
-        AnalysisSnapshot("a", "1"), AnalysisSnapshot("b", "1"), 128, 128, 60,
+        AnalysisSnapshot("a", "1"),
+        AnalysisSnapshot("b", "1"),
+        128,
+        128,
+        60,
         phase_offset_s=0.04,
     )
     misaligned = CandidateTransition.from_values(
-        AnalysisSnapshot("a", "1"), AnalysisSnapshot("b", "1"), 128, 128, 60,
+        AnalysisSnapshot("a", "1"),
+        AnalysisSnapshot("b", "1"),
+        128,
+        128,
+        60,
         phase_offset_s=0.08,
     )
 

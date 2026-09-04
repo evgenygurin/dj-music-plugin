@@ -41,7 +41,8 @@ class BeamSearchOptimizer:
         beam: list[tuple[SetState, tuple[str, ...], float]] = [(initial, (), 0.0)]
         for _ in range(self.lookahead):
             completed = [
-                item for item in beam
+                item
+                for item in beam
                 if item[0].current_track == target
                 and constraints.mandatory_satisfied(item[0].tracks)
             ]

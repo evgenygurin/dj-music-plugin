@@ -35,12 +35,12 @@ from app.audio.core.tempo import (
 # Re-export the audio builder so render callers can construct a grid
 # from raw analysis features without re-importing the analyzer.
 __all__ = [
-    "BeatgridBuilder",
-    "beatgrid_to_render_entry",
-    "beatgrid_from_arrays",
     "BeatGrid",
+    "BeatgridBuilder",
     "TempoCurvePoint",
     "TempoHypothesis",
+    "beatgrid_from_arrays",
+    "beatgrid_to_render_entry",
 ]
 
 

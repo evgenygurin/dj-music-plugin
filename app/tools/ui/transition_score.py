@@ -76,9 +76,7 @@ def _parse_intent(value: str | None) -> TransitionIntent | None:
         raise ValueError(msg) from err
 
 
-async def _compute(
-    uow: Any, scorer: Any, a: int, b: int, intent: str | None
-) -> dict[str, Any]:
+async def _compute(uow: Any, scorer: Any, a: int, b: int, intent: str | None) -> dict[str, Any]:
     # Mixing a track into itself is meaningless and elsewhere in the v1
     # surface (``transition_score_pool``, ``entity_create(transition)``,
     # ``sequence_optimize``) it is rejected up front. Mirror that here so

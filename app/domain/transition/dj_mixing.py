@@ -111,11 +111,7 @@ class TempoModel:
         ``bpm`` / ``bpm_confidence`` columns.
         """
         bpm = float(features.bpm) if features.bpm is not None else 0.0
-        confidence = (
-            float(features.bpm_confidence)
-            if features.bpm_confidence is not None
-            else 0.0
-        )
+        confidence = float(features.bpm_confidence) if features.bpm_confidence is not None else 0.0
         if bpm <= 0.0:
             return cls(hypotheses=(), octave_correction=octave_correction)
         hyp = TempoHypothesis(
@@ -211,14 +207,10 @@ class TransitionGrid:
         return cls(
             bpm=bpm,
             bpm_confidence=(
-                float(features.bpm_confidence)
-                if features.bpm_confidence is not None
-                else 0.0
+                float(features.bpm_confidence) if features.bpm_confidence is not None else 0.0
             ),
             bpm_stability=(
-                float(features.bpm_stability)
-                if features.bpm_stability is not None
-                else 0.0
+                float(features.bpm_stability) if features.bpm_stability is not None else 0.0
             ),
             beats_per_bar=bpb,
             first_downbeat_s=first_downbeat_s,
@@ -411,7 +403,7 @@ def score_phrase_alignment(
     fraction = nearest_phrase_s / to_grid.bar_period_s
     if fraction > 1.0:
         fraction = 1.0
-    return math.exp(-(fraction * to_grid.bar_period_s) ** 2 / (2 * S_PHRASE_SIGMA_S**2))
+    return math.exp(-((fraction * to_grid.bar_period_s) ** 2) / (2 * S_PHRASE_SIGMA_S**2))
 
 
 def score_drift(
@@ -502,9 +494,7 @@ def compute_alignment(
     s_tempo = score_tempo(from_t, to_t)
     s_beat = score_beat_alignment(from_grid, to_grid)
     s_phrase = score_phrase_alignment(from_grid, to_grid, planned_out_bar=planned_out_bar)
-    s_drift = score_drift(
-        from_grid, to_grid, transition_bars=transition_bars
-    )
+    s_drift = score_drift(from_grid, to_grid, transition_bars=transition_bars)
     weights = ALIGNMENT_DEFAULT_WEIGHTS
     overall = (
         weights["s_tempo"] * s_tempo
@@ -549,9 +539,7 @@ def generate_transition_cues(
     ``n_candidates``.
     """
     grid = TransitionGrid.from_features(features)
-    length = select_transition_bars(
-        target_bars=target_bars, allowed=allowed
-    )
+    length = select_transition_bars(target_bars=target_bars, allowed=allowed)
     if not grid.is_valid:
         return []
     candidates: list[TransitionCue] = []

@@ -41,7 +41,9 @@ def test_universal_adapter_maps_track_features(mode: SelectionPolicy) -> None:
     planner.plan.return_value = expected
     adapter = UniversalTransitionPlannerAdapter(planner)
 
-    result = adapter.plan((_candidate("a"),), (TrackFeatures(bpm=128), TrackFeatures(bpm=128)), mode)
+    result = adapter.plan(
+        (_candidate("a"),), (TrackFeatures(bpm=128), TrackFeatures(bpm=128)), mode
+    )
 
     assert result is expected
     planner.plan.assert_called_once()

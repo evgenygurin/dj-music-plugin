@@ -15,14 +15,12 @@ import numpy as np
 import pytest
 
 from app.audio.core.beatgrid import BeatGrid
-from app.audio.core.rhythm import onset_autocorrelation
 from app.audio.core.tempo_hypothesis import (
     TempoHypothesis,
     TempoLattice,
     extract_tempo_lattice,
     resolve_dominant_bpm,
 )
-
 
 # ── BeatGrid construction ────────────────────────────────────────────────────
 
@@ -173,7 +171,7 @@ def _synthetic_onset_autocorr(fps: float, peak_lag: int, height: float = 1.0) ->
 
 
 def _synthetic_click_acf(fps: float, bpm: float) -> np.ndarray:
-    period_frames = int(round(fps * 60.0 / bpm))
+    period_frames = round(fps * 60.0 / bpm)
     n = 4000
     acf = np.zeros(n)
     if period_frames < n:
@@ -210,7 +208,7 @@ def test_extract_lattice_finds_half_tempo() -> None:
     with BPM ~128.
     """
     fps = 22050 / 512
-    lag_128 = int(round(fps * 60.0 / 128.0))
+    lag_128 = round(fps * 60.0 / 128.0)
     n = 4000
     acf = np.zeros(n)
     acf[lag_128] = 1.0
@@ -241,7 +239,7 @@ def test_extract_lattice_short_input() -> None:
 
 def test_tempo_lattice_ambiguous() -> None:
     fps = 22050 / 512
-    lag = int(round(fps * 60.0 / 128.0))
+    lag = round(fps * 60.0 / 128.0)
     n = 4000
     acf = np.zeros(n)
     acf[lag] = 0.85
@@ -253,7 +251,7 @@ def test_tempo_lattice_ambiguous() -> None:
 
 def test_tempo_lattice_not_ambiguous() -> None:
     fps = 22050 / 512
-    lag = int(round(fps * 60.0 / 128.0))
+    lag = round(fps * 60.0 / 128.0)
     n = 4000
     acf = np.zeros(n)
     acf[lag] = 0.95
@@ -265,7 +263,7 @@ def test_tempo_lattice_not_ambiguous() -> None:
 
 def test_resolve_dominant_bpm_in_range() -> None:
     fps = 22050 / 512
-    lag = int(round(fps * 60.0 / 128.0))
+    lag = round(fps * 60.0 / 128.0)
     n = 4000
     acf = np.zeros(n)
     acf[lag] = 1.0
@@ -282,7 +280,7 @@ def test_resolve_dominant_bpm_empty() -> None:
 
 def test_resolve_dominant_bpm_half_tempo_lock() -> None:
     fps = 22050 / 512
-    lag_64 = int(round(fps * 60.0 / 64.0))
+    lag_64 = round(fps * 60.0 / 64.0)
     lag_128 = lag_64 * 2
     n = 4000
     acf = np.zeros(n)
@@ -300,7 +298,7 @@ def test_resolve_dominant_bpm_half_tempo_lock() -> None:
 
 def test_tempo_lattice_todict() -> None:
     fps = 22050 / 512
-    lag = int(round(fps * 60.0 / 128.0))
+    lag = round(fps * 60.0 / 128.0)
     n = 4000
     acf = np.zeros(n)
     acf[lag] = 1.0

@@ -14,9 +14,18 @@ def _snapshot(name: str, bpm: float) -> AnalysisSnapshot:
 
 
 def _schema() -> TransitionSchema:
-    return TransitionSchema((ParameterDefinition(
-        "tempo.max_ratio", "ratio", 1.0, 2.0, 1.06, ParameterClass.HARD,
-    ),))
+    return TransitionSchema(
+        (
+            ParameterDefinition(
+                "tempo.max_ratio",
+                "ratio",
+                1.0,
+                2.0,
+                1.06,
+                ParameterClass.HARD,
+            ),
+        )
+    )
 
 
 def test_planner_resolves_config_and_records_hash() -> None:
@@ -24,12 +33,12 @@ def test_planner_resolves_config_and_records_hash() -> None:
     target = _snapshot("b", 128)
     candidate = CandidateTransition.from_values(source, target, 128, 128, 30)
     resolver = ConfigResolver(_schema())
-    config = resolver.resolve(
-        genre_profile=TransitionProfile("techno", {"tempo.max_ratio": 1.04})
-    )
+    config = resolver.resolve(genre_profile=TransitionProfile("techno", {"tempo.max_ratio": 1.04}))
 
     decision = TransitionPlanner(config_resolver=resolver, resolved_config=config).plan(
-        (candidate,), (FeatureSet(), FeatureSet()), SelectionPolicy.BEST,
+        (candidate,),
+        (FeatureSet(), FeatureSet()),
+        SelectionPolicy.BEST,
     )
 
     assert decision.selected.config_identity == config.config_hash
@@ -39,14 +48,28 @@ def test_planner_uses_candidate_specific_alignment_metadata() -> None:
     source = _snapshot("a", 128)
     target = _snapshot("b", 128)
     aligned = CandidateTransition.from_values(
-        source, target, 128, 128, 30, downbeat_offset_beats=0.0, phrase_offset_bars=0,
+        source,
+        target,
+        128,
+        128,
+        30,
+        downbeat_offset_beats=0.0,
+        phrase_offset_bars=0,
     )
     misaligned = CandidateTransition.from_values(
-        source, target, 128, 128, 30, downbeat_offset_beats=1.0, phrase_offset_bars=2,
+        source,
+        target,
+        128,
+        128,
+        30,
+        downbeat_offset_beats=1.0,
+        phrase_offset_bars=2,
     )
 
     decision = TransitionPlanner().plan(
-        (misaligned, aligned), (FeatureSet(), FeatureSet()), SelectionPolicy.BEST,
+        (misaligned, aligned),
+        (FeatureSet(), FeatureSet()),
+        SelectionPolicy.BEST,
     )
 
     assert decision.selected.source_analysis_identity == source.identity_hash

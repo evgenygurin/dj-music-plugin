@@ -22,7 +22,9 @@ def test_renderer_executes_the_supplied_plan_without_replanning() -> None:
 def test_renderer_rejects_invalid_plan_before_execution() -> None:
     calls: list[str] = []
     renderer = PlanDrivenRenderer(lambda plan: calls.append(plan.execution_identity))
-    invalid = TransitionPlan.create("same", "same", 8, 128.0, RecipePlanner().plan(RecipeKind.EQ_BLEND, 8))
+    invalid = TransitionPlan.create(
+        "same", "same", 8, 128.0, RecipePlanner().plan(RecipeKind.EQ_BLEND, 8)
+    )
 
     with pytest.raises(ValueError, match="invalid transition plan"):
         renderer.render(invalid)

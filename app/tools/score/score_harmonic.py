@@ -245,7 +245,11 @@ class _LegacyPairScorer:
     """Preserve the existing score_transition formula behind the app port."""
 
     def score(
-        self, source: TrackFeatures, target: TrackFeatures, *, weights: ScoringWeights | None = None
+        self,
+        source: TrackFeatures,
+        target: TrackFeatures,
+        *,
+        weights: ScoringWeights | None = None,
     ) -> ScoreTransitionResult:
         w = weights or ScoringWeights()
         s_h, s_r, s_t, s_e, s_s, overall, detail = _compute_transition(source, target, w)
@@ -291,9 +295,7 @@ async def score_transition(
         )
     except ValueError as exc:
         missing = [a_id, b_id]
-        raise ValidationError(
-            str(exc), details={"missing_track_ids": missing}
-        ) from exc
+        raise ValidationError(str(exc), details={"missing_track_ids": missing}) from exc
     result.a_id = a_id
     result.b_id = b_id
     if result.harmonic_detail is not None:
@@ -307,7 +309,10 @@ class _UowPairCatalog:
         self._uow = uow
 
     async def features(self, track_ids: list[int]) -> dict[int, TrackFeatures]:
-        return await self._uow.track_features.get_scoring_features_batch(track_ids)
+        return cast(
+            dict[int, TrackFeatures],
+            await self._uow.track_features.get_scoring_features_batch(track_ids),
+        )
 
 
 # Pure helpers for unit tests / domain reuse

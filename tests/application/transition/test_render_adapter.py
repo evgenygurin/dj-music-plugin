@@ -54,7 +54,9 @@ def test_adapter_projects_selected_transition_plan_without_replanning():
 
 def test_adapter_rejects_template_with_wrong_transition_tracks():
     template = _render_plan()
-    bad = replace(template, segments=[replace(template.segments[0], track_id=99), template.segments[1]])
+    bad = replace(
+        template, segments=[replace(template.segments[0], track_id=99), template.segments[1]]
+    )
 
     with pytest.raises(ValueError, match="source track"):
         TransitionRenderAdapter().adapt(_transition_plan(), bad)

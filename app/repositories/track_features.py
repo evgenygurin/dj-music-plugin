@@ -325,7 +325,5 @@ class TrackFeaturesRepository(BaseRepository[TrackAudioFeaturesComputed]):
             "hop_length": row.beatgrid_hop_length,
             "sample_rate": row.beatgrid_sample_rate,
             "dominant_hypothesis_bpm": row.dominant_hypothesis_bpm,
-            "dominant_hypothesis_octave_preference": (
-                row.dominant_hypothesis_octave_preference
-            ),
+            "dominant_hypothesis_octave_preference": (row.dominant_hypothesis_octave_preference),
         }

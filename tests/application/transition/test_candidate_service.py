@@ -23,11 +23,15 @@ class FakeCatalog:
 
 class FakeScorer:
     def score(self, source, target):
-        return type("Score", (), {
-            "hard_reject": False,
-            "overall": 0.8,
-            "best_transition": type("Transition", (), {"name": "eq_blend"})(),
-        })()
+        return type(
+            "Score",
+            (),
+            {
+                "hard_reject": False,
+                "overall": 0.8,
+                "best_transition": type("Transition", (), {"name": "eq_blend"})(),
+            },
+        )()
 
 
 @pytest.mark.asyncio

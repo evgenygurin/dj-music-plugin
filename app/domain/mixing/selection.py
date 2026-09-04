@@ -43,7 +43,5 @@ def select(
             key=lambda item: (-item[1].dimension_value(dimension), item[0]),
         )
     else:
-        ordered = sorted(
-            acceptable, key=lambda item: (-item[1].total(), item[0])
-        )
+        ordered = sorted(acceptable, key=lambda item: (-item[1].total(), item[0]))
     return SelectionResult(ordered[0][0], tuple(name for name, _ in ordered[1:]))

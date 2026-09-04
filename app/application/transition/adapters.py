@@ -44,9 +44,7 @@ class LegacyTransitionPlannerAdapter:
             ranked.append((candidate, score))
         if not ranked:
             raise ValueError("no technically acceptable transition candidates")
-        ranked.sort(
-            key=lambda item: (-_legacy_rank_value(item[1], policy), item[0].candidate_id)
-        )
+        ranked.sort(key=lambda item: (-_legacy_rank_value(item[1], policy), item[0].candidate_id))
         chosen, score = ranked[0]
         bars = max(1, round(chosen.duration_s * chosen.source_tempo.bpm / 60 / 4))
         recipe = _legacy_recipe(score.best_transition, bars)
@@ -122,14 +120,18 @@ def _legacy_recipe(kind: NeuralMixTransition | None, bars: int) -> Any:
 
 
 def _legacy_dimensions(score: Any) -> tuple[tuple[str, float], ...]:
-    return tuple(sorted((
-        ("bpm", float(score.bpm)),
-        ("energy", float(score.energy)),
-        ("drums", float(score.drums)),
-        ("bass", float(score.bass)),
-        ("harmonics", float(score.harmonics)),
-        ("vocals", float(score.vocals)),
-    )))
+    return tuple(
+        sorted(
+            (
+                ("bpm", float(score.bpm)),
+                ("energy", float(score.energy)),
+                ("drums", float(score.drums)),
+                ("bass", float(score.bass)),
+                ("harmonics", float(score.harmonics)),
+                ("vocals", float(score.vocals)),
+            )
+        )
+    )
 
 
 def _clip(value: float, low: float = 0.0, high: float = 1.0) -> float:

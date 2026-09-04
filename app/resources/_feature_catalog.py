@@ -82,12 +82,36 @@ TRACK_FEATURE_CATALOG: dict[str, CatalogEntry] = {
         "label": "BPM stability",
         "description": "0-1 measure of how steady the tempo is across the track (outlier-filtered IBI coefficient of variation). Library-wide sits 0.92-0.96 — near-constant, low discriminating power.",
     },
-    "beatgrid_storage_uri": {"group": "tempo", "label": "Beatgrid storage URI", "description": "Reference to the persisted beatgrid array; large timing arrays stay outside relational columns."},
-    "beatgrid_frame_count": {"group": "tempo", "label": "Beatgrid frame count", "description": "Number of frames represented by the persisted beatgrid array."},
-    "beatgrid_hop_length": {"group": "tempo", "label": "Beatgrid hop length", "description": "Analysis hop length in samples used to derive the persisted beatgrid."},
-    "beatgrid_sample_rate": {"group": "tempo", "label": "Beatgrid sample rate", "description": "Sample rate in Hz associated with the persisted beatgrid."},
-    "dominant_hypothesis_bpm": {"group": "tempo", "label": "Dominant tempo hypothesis BPM", "description": "BPM selected as the dominant tempo hypothesis for DJ alignment."},
-    "dominant_hypothesis_octave_preference": {"group": "tempo", "label": "Dominant tempo octave preference", "description": "Preference weight associated with the selected 0.5x/1x/2x tempo hypothesis."},
+    "beatgrid_storage_uri": {
+        "group": "tempo",
+        "label": "Beatgrid storage URI",
+        "description": "Reference to the persisted beatgrid array; large timing arrays stay outside relational columns.",
+    },
+    "beatgrid_frame_count": {
+        "group": "tempo",
+        "label": "Beatgrid frame count",
+        "description": "Number of frames represented by the persisted beatgrid array.",
+    },
+    "beatgrid_hop_length": {
+        "group": "tempo",
+        "label": "Beatgrid hop length",
+        "description": "Analysis hop length in samples used to derive the persisted beatgrid.",
+    },
+    "beatgrid_sample_rate": {
+        "group": "tempo",
+        "label": "Beatgrid sample rate",
+        "description": "Sample rate in Hz associated with the persisted beatgrid.",
+    },
+    "dominant_hypothesis_bpm": {
+        "group": "tempo",
+        "label": "Dominant tempo hypothesis BPM",
+        "description": "BPM selected as the dominant tempo hypothesis for DJ alignment.",
+    },
+    "dominant_hypothesis_octave_preference": {
+        "group": "tempo",
+        "label": "Dominant tempo octave preference",
+        "description": "Preference weight associated with the selected 0.5x/1x/2x tempo hypothesis.",
+    },
     "variable_tempo": {
         "group": "tempo",
         "label": "Variable tempo flag",

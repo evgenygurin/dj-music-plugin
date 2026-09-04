@@ -23,6 +23,8 @@ def test_auto_prefers_usable_mlx() -> None:
 
 def test_explicit_mlx_does_not_silently_downgrade() -> None:
     cfg = StemsConfig(runtime="mlx")
-    with patch("app.audio.deep.demucs_mlx_runner.mlx_backend_available", return_value=False):
-        with pytest.raises(RuntimeError, match="MLX backend requested"):
-            get_runner(cfg)
+    with (
+        patch("app.audio.deep.demucs_mlx_runner.mlx_backend_available", return_value=False),
+        pytest.raises(RuntimeError, match="MLX backend requested"),
+    ):
+        get_runner(cfg)

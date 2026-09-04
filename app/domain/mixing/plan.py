@@ -39,7 +39,11 @@ class TransitionPlan:
         diagnostics: tuple[str, ...] = (),
     ) -> TransitionPlan:
         return cls(
-            source_id, target_id, duration_bars, effective_bpm, recipe,
+            source_id,
+            target_id,
+            duration_bars,
+            effective_bpm,
+            recipe,
             engine_version=engine_version,
             config_identity=config_identity,
             source_analysis_identity=source_analysis_identity,

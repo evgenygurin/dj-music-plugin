@@ -30,10 +30,22 @@ from app.config.transition import TransitionSettings
 from app.config.yandex import YandexSettings
 
 __all__ = [
-    "AudioSettings", "AuditSettings", "BeatportSettings", "DatabaseSettings",
-    "DeliverySettings", "DiscoverySettings", "EngineSettings", "MCPSettings",
-    "OptimizationSettings", "RenderSettings", "Settings", "SupabaseSettings",
-    "TransitionSettings", "YandexSettings", "get_settings", "reset_settings_cache",
+    "AudioSettings",
+    "AuditSettings",
+    "BeatportSettings",
+    "DatabaseSettings",
+    "DeliverySettings",
+    "DiscoverySettings",
+    "EngineSettings",
+    "MCPSettings",
+    "OptimizationSettings",
+    "RenderSettings",
+    "Settings",
+    "SupabaseSettings",
+    "TransitionSettings",
+    "YandexSettings",
+    "get_settings",
+    "reset_settings_cache",
 ]
 
 

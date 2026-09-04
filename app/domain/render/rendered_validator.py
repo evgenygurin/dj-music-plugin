@@ -42,7 +42,9 @@ class RenderedAudioValidator:
     def validate(self, metrics: AudioMetrics) -> RenderedValidation:
         reasons: list[str] = []
         values: tuple[float, ...] = (
-            metrics.duration_s, metrics.peak_db, metrics.loudness_lufs,
+            metrics.duration_s,
+            metrics.peak_db,
+            metrics.loudness_lufs,
         )
         if metrics.true_peak_db is not None:
             values += (metrics.true_peak_db,)

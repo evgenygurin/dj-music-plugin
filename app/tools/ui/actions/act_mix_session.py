@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Any, Literal
+from typing import Annotated, Any, Literal, cast
 
 from fastmcp.apps import AppConfig, app_config_to_meta_dict
 from fastmcp.dependencies import CurrentContext, Depends
@@ -47,7 +47,7 @@ async def _snapshot(session: Any, uow: Any, scorer: Any) -> dict[str, Any]:
                 "hard_reject": bool(score.hard_reject),
                 "reason": score.reject_reason,
                 "preset": score.best_transition.name if score.best_transition else None,
-                "bars": int(session.transition.get("transition_bars", 8)),
+                "bars": int(cast(int, session.transition.get("transition_bars", 8))),
                 "align": score.align.to_dict() if score.align is not None else None,
             }
     return {
@@ -135,9 +135,11 @@ async def act_mix_session(
         if len(session.track_ids) < 2:
             raise ValueError("add a second track before previewing")
         session.transition["transition_bars"] = transition_bars or int(
-            session.transition.get("transition_bars", 8)
+            cast(int, session.transition.get("transition_bars", 8))
         )
-        session.transition["body_bars"] = body_bars or int(session.transition.get("body_bars", 8))
+        session.transition["body_bars"] = body_bars or int(
+            cast(int, session.transition.get("body_bars", 8))
+        )
         session.transition["stem"] = stem
         if subgenre is not None:
             session.transition["subgenre"] = subgenre
@@ -146,8 +148,8 @@ async def act_mix_session(
             uow,
             session_id=session.session_id,
             track_ids=session.track_ids[-2:],
-            transition_bars=int(session.transition["transition_bars"]),
-            body_bars=int(session.transition["body_bars"]),
+            transition_bars=int(cast(int, session.transition["transition_bars"])),
+            body_bars=int(cast(int, session.transition["body_bars"])),
             stem=stem,
             subgenre=subgenre,
         )

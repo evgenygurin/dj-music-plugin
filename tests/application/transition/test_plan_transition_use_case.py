@@ -23,14 +23,18 @@ async def test_service_loads_persisted_snapshots_and_plans_without_fabricating_a
                 "schema_version": source.schema_version,
                 "analyzer_versions": {},
                 "model_versions": {},
-                "payload": {"tempo_hypotheses": [{"bpm": 128, "confidence": 1.0, "source": "audio"}]},
+                "payload": {
+                    "tempo_hypotheses": [{"bpm": 128, "confidence": 1.0, "source": "audio"}]
+                },
             },
             {
                 "source_hash": target.source_hash,
                 "schema_version": target.schema_version,
                 "analyzer_versions": {},
                 "model_versions": {},
-                "payload": {"tempo_hypotheses": [{"bpm": 128, "confidence": 1.0, "source": "audio"}]},
+                "payload": {
+                    "tempo_hypotheses": [{"bpm": 128, "confidence": 1.0, "source": "audio"}]
+                },
             },
         ]
     )
@@ -88,14 +92,18 @@ async def test_service_persists_selected_transition_plan_idempotently() -> None:
                 "schema_version": source.schema_version,
                 "analyzer_versions": {},
                 "model_versions": {},
-                "payload": {"tempo_hypotheses": [{"bpm": 128, "confidence": 1.0, "source": "audio"}]},
+                "payload": {
+                    "tempo_hypotheses": [{"bpm": 128, "confidence": 1.0, "source": "audio"}]
+                },
             },
             {
                 "source_hash": target.source_hash,
                 "schema_version": target.schema_version,
                 "analyzer_versions": {},
                 "model_versions": {},
-                "payload": {"tempo_hypotheses": [{"bpm": 128, "confidence": 1.0, "source": "audio"}]},
+                "payload": {
+                    "tempo_hypotheses": [{"bpm": 128, "confidence": 1.0, "source": "audio"}]
+                },
             },
         ]
     )
@@ -113,9 +121,7 @@ async def test_service_persists_selected_transition_plan_idempotently() -> None:
     )
     planner = MagicMock()
     planner.execute_async = AsyncMock(
-        return_value=MagicMock(
-            value=TransitionDecision(plan, (), (), SelectionPolicy.BEST)
-        )
+        return_value=MagicMock(value=TransitionDecision(plan, (), (), SelectionPolicy.BEST))
     )
     candidate_generator = MagicMock()
     candidate_generator.generate = MagicMock(return_value=("candidate",))
@@ -147,11 +153,7 @@ async def test_service_rejects_persisted_analysis_identity_mismatch() -> None:
             "schema_version": "2",
             "analyzer_versions": {},
             "model_versions": {},
-            "payload": {
-                "tempo_hypotheses": [
-                    {"bpm": 128, "confidence": 1.0, "source": "audio"}
-                ]
-            },
+            "payload": {"tempo_hypotheses": [{"bpm": 128, "confidence": 1.0, "source": "audio"}]},
         }
     )
     service = PlanTransitionService(store, MagicMock(), MagicMock(), MagicMock())

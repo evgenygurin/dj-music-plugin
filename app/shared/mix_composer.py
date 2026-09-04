@@ -3,6 +3,7 @@
 Sessions are deliberately ephemeral: the user edits a candidate chain, previews
 transitions, and only the final action persists a set version.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field

@@ -9,7 +9,7 @@ inner, major keys outer conceptually) + a DataTable with slot counts. Reuses
 from __future__ import annotations
 
 from collections import Counter
-from typing import Annotated, Any
+from typing import Annotated, Any, cast
 
 from fastmcp.dependencies import CurrentContext, Depends
 from fastmcp.server.context import Context
@@ -60,7 +60,7 @@ async def _track_ids_for_scope(uow: Any, playlist_id: int) -> list[int]:
     """
     if await uow.playlists.get(playlist_id) is None:
         raise NotFoundError("playlist", playlist_id)
-    return await uow.playlists.get_track_ids(playlist_id)
+    return cast(list[int], await uow.playlists.get_track_ids(playlist_id))
 
 
 async def _gather(uow: Any, playlist_id: int | None) -> dict[str, Any]:

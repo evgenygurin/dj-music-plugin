@@ -82,3 +82,10 @@ class GenerateTransitionCandidates:
                 for item in scored
             ]
         return tuple(scored[:top_k])
+
+
+def build_candidate_generator() -> Any:
+    """Construct the domain candidate generator behind the application port."""
+    from app.domain.mixing.candidate import CandidateGenerator
+
+    return CandidateGenerator()

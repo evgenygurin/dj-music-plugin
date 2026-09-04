@@ -38,9 +38,7 @@ def test_snapshot_round_trip_preserves_beatgrid_and_identity() -> None:
 
 
 def test_snapshot_from_record_preserves_record_identity_inputs() -> None:
-    snapshot = AnalysisSnapshot(
-        "source", "1", tempo_hypotheses=(TempoHypothesis(128, 1.0),)
-    )
+    snapshot = AnalysisSnapshot("source", "1", tempo_hypotheses=(TempoHypothesis(128, 1.0),))
     record = {
         "source_hash": snapshot.source_hash,
         "schema_version": "2",

@@ -34,9 +34,7 @@ class TransitionRecipe:
 class RecipePlanner:
     _VOCAL_KINDS = frozenset((RecipeKind.VOCAL_CUT, RecipeKind.VOCAL_SUSTAIN))
 
-    def plan(
-        self, kind: RecipeKind, bars: int, *, vocal_overlap: float = 0.0
-    ) -> TransitionRecipe:
+    def plan(self, kind: RecipeKind, bars: int, *, vocal_overlap: float = 0.0) -> TransitionRecipe:
         params = (
             (("vocal_overlap", max(0.0, min(1.0, vocal_overlap))),)
             if kind in self._VOCAL_KINDS

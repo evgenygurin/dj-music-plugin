@@ -80,7 +80,9 @@ async def transition_score_pool(
                 }
             )
         pairs.append(item)
-    await safe_report_progress(ctx, progress=result.total_scored_pairs, total=result.total_scored_pairs)
+    await safe_report_progress(
+        ctx, progress=result.total_scored_pairs, total=result.total_scored_pairs
+    )
     return ScorePoolResult(
         track_ids=list(track_ids),
         pairs=pairs,

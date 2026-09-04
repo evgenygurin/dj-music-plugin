@@ -26,7 +26,4 @@ class UowCandidateCatalog:
 
     async def titles(self, track_ids: list[int]) -> dict[int, str]:
         tracks = await self._uow.tracks.get_many(track_ids) if track_ids else {}
-        return {
-            track_id: getattr(track, "title", "") or ""
-            for track_id, track in tracks.items()
-        }
+        return {track_id: getattr(track, "title", "") or "" for track_id, track in tracks.items()}

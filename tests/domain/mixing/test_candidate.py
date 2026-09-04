@@ -26,18 +26,23 @@ def test_generator_carries_beat_and_phrase_alignment_metadata() -> None:
     from app.domain.analysis.phrase import Phrase
 
     source = AnalysisSnapshot(
-        "a", "1", tempo_hypotheses=(TempoHypothesis(120, 1.0),),
+        "a",
+        "1",
+        tempo_hypotheses=(TempoHypothesis(120, 1.0),),
         beatgrid=BeatGrid(120, (), phase_s=0.0),
         phrases=(Phrase(4.0, 8.0, 8, 12),),
     )
     target = AnalysisSnapshot(
-        "b", "1", tempo_hypotheses=(TempoHypothesis(120, 1.0),),
+        "b",
+        "1",
+        tempo_hypotheses=(TempoHypothesis(120, 1.0),),
         beatgrid=BeatGrid(120, (), phase_s=0.02),
         phrases=(Phrase(6.0, 10.0, 12, 16),),
     )
 
     candidate = next(
-        c for c in CandidateGenerator().generate(source, target, AlignmentRequest(8))
+        c
+        for c in CandidateGenerator().generate(source, target, AlignmentRequest(8))
         if c.source_variant == "1x" and c.target_variant == "1x"
     )
 
