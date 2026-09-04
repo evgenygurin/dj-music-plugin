@@ -78,11 +78,18 @@ class CandidateGenerator:
         self, source: AnalysisSnapshot, target: AnalysisSnapshot, request: AlignmentRequest
     ) -> tuple[CandidateTransition, ...]:
         candidates: list[CandidateTransition] = []
+        phase_offset_s = 0.0
+        if source.beatgrid is not None and target.beatgrid is not None:
+            phase_offset_s = target.beatgrid.phase_s - source.beatgrid.phase_s
+        phrase_offset_bars = 0
+        if source.phrases and target.phrases:
+            phrase_offset_bars = target.phrases[0].start_bar - source.phrases[0].start_bar
         for source_h in source.tempo_hypotheses:
             for target_h in target.tempo_hypotheses:
                 for source_bpm in source_h.variants():
                     for target_bpm in target_h.variants():
                         if 20.0 <= target_bpm <= 300.0 and 20.0 <= source_bpm <= 300.0:
+                            target_period = 60.0 / target_bpm
                             candidates.append(
                                 CandidateTransition.from_values(
                                     source,
@@ -92,6 +99,9 @@ class CandidateGenerator:
                                     request.bars * 4 * 60.0 / source_bpm,
                                     source_variant=f"{source_bpm / source_h.bpm:g}x",
                                     target_variant=f"{target_bpm / target_h.bpm:g}x",
+                                    phase_offset_s=phase_offset_s,
+                                    downbeat_offset_beats=phase_offset_s / target_period,
+                                    phrase_offset_bars=phrase_offset_bars,
                                 )
                             )
         return tuple(candidates)

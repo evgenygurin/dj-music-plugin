@@ -20,6 +20,7 @@ class HardConstraintValidator:
     max_drift_beats: float = 0.5
     max_drift_ms: float | None = None
     max_tempo_ratio: float = 1.06
+    max_phase_error_s: float | None = 0.05
 
     def validate(self, candidate: CandidateTransition) -> ConstraintResult:
         source = candidate.source_tempo.bpm
@@ -35,4 +36,9 @@ class HardConstraintValidator:
             return ConstraintResult(False, "tempo_drift", drift_beats, drift_ms)
         if self.max_drift_ms is not None and drift_ms > self.max_drift_ms:
             return ConstraintResult(False, "tempo_drift_ms", drift_beats, drift_ms)
+        if (
+            self.max_phase_error_s is not None
+            and abs(candidate.phase_offset_s) > self.max_phase_error_s
+        ):
+            return ConstraintResult(False, "beat_phase_tolerance", drift_beats, drift_ms)
         return ConstraintResult(True, drift_beats=drift_beats, drift_ms=drift_ms)
