@@ -24,15 +24,13 @@ import pytest
 
 from app.domain.transition.dj_mixing import (
     ALIGNMENT_DEFAULT_WEIGHTS,
-    AlignmentScore,
     MIXING_DEFAULT_TARGET_BARS,
     MIXING_DEFAULT_TRANSITION_BARS,
     MIXING_MAX_TRANSITION_BARS,
     MIXING_MIN_TRANSITION_BARS,
     NEUTRAL_ALIGNMENT,
-    S_BEAT_SIGMA_S,
-    S_DRIFT_MAX_S,
     S_TEMPO_SIGMA,
+    AlignmentScore,
     TempoModel,
     TransitionCue,
     TransitionGrid,
@@ -47,7 +45,6 @@ from app.domain.transition.dj_mixing import (
 from app.domain.transition.score import TransitionScore
 from app.domain.transition.scorer import TransitionScorer
 from app.shared.features import TrackFeatures
-
 
 # ── Helpers ─────────────────────────────────────────────────────────
 
@@ -317,8 +314,8 @@ def test_score_drift_saturates_at_max() -> None:
     g1 = TransitionGrid.from_features(_tf(bpm=128.0))
     g2 = TransitionGrid.from_features(_tf(bpm=140.0))  # 12 BPM gap
     score = score_drift(g1, g2, transition_bars=64)
-    # 12 BPM / 128 BPM ≈ 9 % per-beat drift. Over 64 bars × 4 beats
-    # × 0.469 s = 0.469 * 256 * 0.094 = 11.3 s of accumulated drift,
+    # 12 BPM / 128 BPM ≈ 9 % per-beat drift. Over 64 bars x 4 beats
+    # x 0.469 s = 0.469 * 256 * 0.094 = 11.3 s of accumulated drift,
     # well past S_DRIFT_MAX_S → score should be 0.
     assert score == pytest.approx(0.0)
 

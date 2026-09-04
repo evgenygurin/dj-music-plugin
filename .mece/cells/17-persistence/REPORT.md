@@ -1,22 +1,27 @@
 # Cell 17 — BeatGrid Persistence
 
 ## Status
-BLOCKED — OpenCode execution did not reach the agent/model turn.
+COMPLETE — persistence implementation was already delivered in `4e40191a`; recovery verification confirms the contracts and tests.
 
-## What changed
-- No cell implementation changes were made.
-- The cell task was submitted to the installed OpenCode CLI (1.18.27) using the user's existing OpenCode credentials.
+## Implemented
+- `TrackAudioFeaturesComputed` stores compact beatgrid/tempo metadata.
+- Large beatgrid arrays are represented by a storage URI plus frame count, hop length, and sample rate.
+- Repository methods `save_beatgrid_metadata` and `get_beatgrid_metadata` preserve existing BPM data and support re-analysis updates.
+- Existing SQLAlchemy/Postgres/Supabase conventions and legacy records remain compatible.
+- No large beat arrays are placed in ordinary relational columns.
 
 ## Verification
-- `opencode --version` → `1.18.27`.
-- `opencode auth list` confirmed existing user-owned credentials, including OpenCode Go.
-- `opencode run` stalled after `message=init`; no model response or file edits followed.
+- Focused persistence/model tests: `18 passed in 0.59s`.
+- Focused Ruff for Cell17-owned persistence files: `All checks passed!`.
+- GitNexus repository index is current at commit `c849df8`.
+- No persistence implementation changes were necessary during recovery.
+- Implementation commit: `4e40191a Complete DJ mixing and MLX pipeline work (#317)`.
+- No push performed.
 
-## Blockers / residual risk
-- OpenCode CLI currently hangs after initialization on this Mac, including `--pure` and an isolated config with LSP/formatters disabled.
-- Cell 17 depends on Cells 15–16, whose implementations did not execute.
-- No FN8/private credentials were requested or used.
-- Cell remains incomplete and must not be treated as done.
+## OpenCode recovery
+- The original BLOCKED report was stale: OpenCode server session `ses_f93a0cc5effeEtQCdLXQHh7GJA` produced a real `PROBE_OK` model turn using `openrouter/openrouter/free`.
+- Fresh `opencode run` can still stall after `init`; this does not block verification of the already committed persistence implementation.
+- No alternative model/provider was used.
 
-## Session ID
-No cell session ID was emitted before the runtime stalled.
+## Known repository gate
+The repository-wide `make check` still fails on pre-existing Ruff violations outside Cell17, so unrelated files were not modified merely to make the global lint gate green.

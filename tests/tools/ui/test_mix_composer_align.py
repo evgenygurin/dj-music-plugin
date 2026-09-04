@@ -10,16 +10,13 @@ combines them with a stable 50/50 mix.
 
 from __future__ import annotations
 
-import asyncio
-from typing import Any
-
 import pytest
 import pytest_asyncio
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
+from app.domain.transition.scorer import TransitionScorer
 from app.models import Base, Track, TrackAudioFeaturesComputed
 from app.tools.ui.mix_composer import _candidates
-from app.domain.transition.scorer import TransitionScorer
 
 
 @pytest_asyncio.fixture
@@ -43,13 +40,6 @@ async def session(engine: AsyncEngine) -> AsyncSession:
     async with factory() as s:
         yield s
 
-
-def _seed(session: AsyncSession) -> int:
-    """Seed one source track + four candidates with overlapping BPMs."""
-    src = Track(title="source")
-    session.add(src)
-    await_commit = session.flush()
-    return src.id  # type: ignore[return-value]
 
 
 async def _seed_full(session: AsyncSession) -> int:
@@ -117,6 +107,10 @@ async def test_candidates_payload_includes_align_field(session: AsyncSession) ->
         assert "overall" in c
         assert "align" in c
         assert "align_overall" in c
+        assert "transition_bars" in c
+        assert c["transition_bars"] in {4, 8, 16, 32, 64}
+        assert "cue_points" in c
+        assert isinstance(c["cue_points"], list)
         if c["align"] is not None:
             assert "s_tempo" in c["align"]
             assert "s_beat_alignment" in c["align"]

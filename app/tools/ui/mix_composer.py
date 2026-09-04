@@ -45,7 +45,6 @@ from sqlalchemy import select
 from app.domain.transition.components import score_bpm, score_energy
 from app.domain.transition.dj_mixing import (
     AlignmentScore,
-    TransitionCue,
     compute_alignment,
     generate_transition_cues,
     select_transition_bars,
@@ -121,6 +120,17 @@ async def _candidates(
         if score.hard_reject:
             continue
         align = align_scores.get(tid)
+        transition_bars = select_transition_bars()
+        cue_points = [
+            cue.to_dict()
+            for cue in generate_transition_cues(
+                track_id=tid,
+                features=target,
+                role="mix_in",
+                n_candidates=4,
+                target_bars=transition_bars,
+            )
+        ]
         scored.append(
             {
                 "track_id": tid,
@@ -129,6 +139,8 @@ async def _candidates(
                 "key": getattr(target, "key_code", None),
                 "energy": getattr(target, "energy_mean", None),
                 "align": align.to_dict() if align is not None else None,
+                "transition_bars": transition_bars,
+                "cue_points": cue_points,
             }
         )
     # Cheap alignment rank: combine the cheap BPM+energy rank with the
