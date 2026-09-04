@@ -1,4 +1,4 @@
-"""get_transition_candidates — score one track against the analyzed library."""
+"""get_transition_candidates — application boundary for candidate discovery."""
 
 from __future__ import annotations
 
@@ -9,10 +9,12 @@ from fastmcp.server.context import Context
 from fastmcp.tools import tool
 from pydantic import Field
 
+from app.application.transition.candidates import GenerateTransitionCandidates
+from app.application.transition.catalog import UowCandidateCatalog
 from app.handlers._context_log import safe_report_progress
 from app.repositories.unit_of_work import UnitOfWork
 from app.schemas.tool_responses import TransitionCandidate, TransitionCandidatesResult
-from app.server.di import get_transition_scorer, get_uow
+from app.server.di import get_transition_candidate_generator
 
 
 @tool(
@@ -20,99 +22,46 @@ from app.server.di import get_transition_scorer, get_uow
     tags={"namespace:compute", "namespace:internal", "read"},
     annotations={"readOnlyHint": True, "idempotentHint": True},
     description=(
-        "INTERNAL / PROGRAMMATIC ONLY — NOT a user-facing interactive composer step. "
-        "When using the interactive DJ mix composer (ui_mix_composer), candidate discovery "
-        "is handled automatically by the composer's background worker (MIX_SESSIONS / "
-        "act_mix_session). Do NOT call this tool manually during an active ui_mix_composer "
-        "session; it duplicates the internal candidate scan and can hang. "
-        "Score one source track against the analyzed library and return the "
-        "top-k non-rejected candidates sorted by transition quality."
+        "INTERNAL / PROGRAMMATIC ONLY — discovers and ranks transition candidates "
+        "through the universal application use case."
     ),
     meta={"timeout_s": 300.0},
     timeout=300.0,
 )
 async def get_transition_candidates(
-    track_id: Annotated[
-        int,
-        Field(ge=1, description="Source track ID to score candidates for"),
-    ],
-    top_k: Annotated[
-        int,
-        Field(ge=1, le=100, description="Maximum number of candidates to return"),
-    ] = 20,
-    min_score: Annotated[
-        float,
-        Field(ge=0.0, le=1.0, description="Minimum overall score threshold"),
-    ] = 0.0,
-    uow: UnitOfWork = Depends(get_uow),
-    scorer: Any = Depends(get_transition_scorer),
+    track_id: Annotated[int, Field(ge=1, description="Source track ID")],
+    top_k: Annotated[int, Field(ge=1, le=100, description="Maximum candidates")] = 20,
+    min_score: Annotated[float, Field(ge=0.0, le=1.0, description="Minimum score")] = 0.0,
+    generator: GenerateTransitionCandidates = Depends(get_transition_candidate_generator),
+    uow: UnitOfWork | None = None,
+    scorer: Any = None,
     ctx: Context = CurrentContext(),
 ) -> TransitionCandidatesResult:
-    features = await uow.track_features.get_scoring_features_batch([track_id])
-    source_features = features.get(track_id)
-    if source_features is None:
-        return TransitionCandidatesResult(
-            from_track_id=track_id,
-            total_analyzed=0,
-            candidates=[],
-            missing_features=True,
+    # Direct-call compatibility keeps existing unit tests/headless callers working;
+    # MCP runtime always supplies the application use case through DI.
+    if not hasattr(generator, "execute"):
+        if uow is None or scorer is None:
+            raise RuntimeError("candidate generator or legacy test dependencies are required")
+        generator = GenerateTransitionCandidates(UowCandidateCatalog(uow), scorer)
+
+    summaries = await generator.execute(track_id, top_k=top_k, min_score=min_score)
+    candidates = [
+        TransitionCandidate(
+            track_id=item.track_id,
+            overall=item.overall,
+            bpm=item.bpm,
+            key=item.key,
+            energy=item.energy,
+            mood=item.mood,
+            best_transition=item.best_transition,
+            title=item.title,
         )
-
-    analyzed_page = await uow.tracks.filter(
-        where={"has_features": True},
-        order=["id"],
-        limit=10000,
-    )
-    candidate_ids = [row.id for row in analyzed_page.items if row.id != track_id]
-    if not candidate_ids:
-        return TransitionCandidatesResult(
-            from_track_id=track_id,
-            total_analyzed=0,
-            candidates=[],
-        )
-
-    candidate_features = await uow.track_features.get_scoring_features_batch(candidate_ids)
-    scored: list[tuple[int, TransitionCandidate]] = []
-    total = len(candidate_ids)
-    for index, candidate_id in enumerate(candidate_ids, start=1):
-        target_features = candidate_features.get(candidate_id)
-        if target_features is None:
-            continue
-
-        score = scorer.score(source_features, target_features)
-        if score.hard_reject or score.overall < min_score:
-            continue
-
-        best_transition = score.best_transition.name if score.best_transition else None
-        scored.append(
-            (
-                candidate_id,
-                TransitionCandidate(
-                    track_id=candidate_id,
-                    overall=float(score.overall),
-                    bpm=getattr(target_features, "bpm", None),
-                    key=getattr(target_features, "key_code", None),
-                    energy=getattr(target_features, "energy_mean", None),
-                    mood=getattr(target_features, "mood", None),
-                    best_transition=best_transition,
-                ),
-            )
-        )
-        if index % 50 == 0 or index == total:
-            await safe_report_progress(ctx, progress=index, total=total)
-
-    scored.sort(key=lambda item: item[1].overall, reverse=True)
-    limited = scored[:top_k]
-    title_ids = [candidate_id for candidate_id, _candidate in limited]
-    tracks = await uow.tracks.get_many(title_ids) if title_ids else {}
-
+        for item in summaries
+    ]
+    await safe_report_progress(ctx, progress=len(candidates), total=len(candidates))
     return TransitionCandidatesResult(
         from_track_id=track_id,
-        total_analyzed=total,
-        candidates=[
-            candidate.model_copy(
-                update={"title": getattr(tracks.get(candidate_id), "title", "") or ""}
-            )
-            for candidate_id, candidate in limited
-        ],
+        total_analyzed=len(candidates),
+        candidates=candidates,
+        missing_features=not summaries,
     )

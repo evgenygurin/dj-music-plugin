@@ -131,3 +131,13 @@ async def get_optimizer(ctx: Any = None) -> Any:
 
 async def get_provider_registry_from_lifespan(ctx: Any = None) -> Any:
     return _read_lifespan(ctx, "provider_registry", "ProviderRegistry")
+
+
+async def get_transition_candidate_generator(ctx: Any = None) -> Any:
+    """Build the application candidate use case from runtime ports."""
+    from app.application.transition.candidates import GenerateTransitionCandidates
+    from app.application.transition.catalog import UowCandidateCatalog
+
+    uow = await get_uow(ctx)
+    scorer = await get_transition_scorer(ctx)
+    return GenerateTransitionCandidates(UowCandidateCatalog(uow), scorer)

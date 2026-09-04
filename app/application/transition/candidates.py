@@ -65,4 +65,20 @@ class GenerateTransitionCandidates:
                 )
             )
         scored.sort(key=lambda item: (-item.overall, item.track_id))
+        titles = getattr(self._catalog, "titles", None)
+        if callable(titles):
+            title_map = await titles([item.track_id for item in scored[:top_k]])
+            scored = [
+                CandidateSummary(
+                    track_id=item.track_id,
+                    overall=item.overall,
+                    bpm=item.bpm,
+                    key=item.key,
+                    energy=item.energy,
+                    mood=item.mood,
+                    best_transition=item.best_transition,
+                    title=title_map.get(item.track_id, ""),
+                )
+                for item in scored
+            ]
         return tuple(scored[:top_k])
