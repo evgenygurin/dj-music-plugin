@@ -91,3 +91,16 @@ Status: **implemented and focused-verified**.
 - Added `GenerateTransitionCandidates` application use case with protocol-based catalog/scorer ports and deterministic top-k ranking. This is the first concrete MCP migration boundary; the existing tool adapter remains to be wired to the use case next.
 - Verification: engine settings `2 passed`; candidate application use case `1 passed`; targeted Ruff/mypy clean.
 - Repository-wide `make check` remains blocked by pre-existing lint/import issues outside this slice; no baseline files were modified.
+
+
+## Task 10 — candidate MCP migration slice
+
+Status: **implemented and verified**.
+
+- Added `UowCandidateCatalog` as an infrastructure adapter for the `CandidateCatalog` application port.
+- `get_transition_candidates` now delegates discovery/ranking to `GenerateTransitionCandidates`; MCP no longer owns candidate iteration/scoring logic.
+- Preserved direct-call compatibility for existing headless/unit-test callers while MCP runtime receives the application use case through DI.
+- Added DI factory `get_transition_candidate_generator`.
+- Added application-boundary tests covering delegation and missing-source behavior.
+- Verification: focused boundary tests `2 passed`; targeted Ruff clean; targeted mypy clean; `git diff --check` clean.
+- Commit `00ed36f7` pushed to `codex/ai-dj-universal-engine`.
