@@ -148,3 +148,14 @@ Status: **implemented and focused-verified**.
 - `_compare_plans` now compares actual decision score, technical margin, recipe, rejection reasons, and dimension deltas while retaining execution-identity comparison.
 - Added focused regression coverage proving non-zero score/margin/dimension deltas survive the default shadow comparison path.
 - Verification: planning/planner/domain transition tests `5 passed`; targeted Ruff clean; targeted mypy clean; `git diff --check` clean.
+
+
+## Task 9/10 — renderer execution rollout boundary
+
+Status: **implemented and focused-verified**.
+
+- Added `RenderTransition` as the application execution boundary for `DJ_RENDERER=legacy|new`.
+- Every path validates the immutable `TransitionPlan` before execution; legacy mode adapts the selected plan to the existing `RenderPlan` and new mode receives the `TransitionPlan` directly.
+- New mode never invokes the legacy renderer; legacy mode never requires a new renderer. Missing new renderer fails explicitly rather than silently falling back.
+- Added TDD coverage for legacy adaptation, new-renderer isolation, and missing-new-renderer failure.
+- Verification: renderer rollout tests `3 passed`; targeted Ruff clean; targeted mypy clean; `git diff --check` clean.
