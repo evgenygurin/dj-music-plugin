@@ -60,3 +60,16 @@ Status: **implemented and focused-verified**.
 - Ruff on new domain/tests: clean.
 - Mypy on new domain: clean.
 - Import-linter remains blocked repository-wide by the pre-existing syntax error in `app/audio/deep/demucs_mlx_runner.py`; this is recorded as baseline, not a Task-1 failure.
+
+## Task 2 — analysis tiers and orchestration
+
+Status: **core orchestration implemented; legacy L6 handler cutover deferred to the application-surface migration boundary**.
+
+- RED: application analysis tests initially failed because `AnalysisOrchestrator` and tier contracts did not exist.
+- Added `AnalysisTier` and `ResourceBudget` with conservative single-analysis/single-stem defaults for the M2 8 GB target.
+- Added `AnalysisOrchestrator` with explicit tier selection, optional snapshot cache, deterministic request keying, and normalization into `AnalysisSnapshot`.
+- Added normalizers for tempo hypotheses, beatgrid, phrases, sections and cues.
+- Focused tests: `19 passed` including all Task-1 domain tests.
+- Ruff and mypy on new application analysis modules: clean.
+- Repository import-linter remains blocked by pre-existing syntax in `app/audio/deep/demucs_mlx_runner.py`.
+- Existing `L6AnalysisOrchestrator` still owns a rich `L6AnalysisResult` plus DB/storage side effects. Moving that whole legacy result contract behind the new snapshot boundary without losing public behavior belongs in the later MCP/application migration work; no legacy behavior was silently removed in Task 2.
