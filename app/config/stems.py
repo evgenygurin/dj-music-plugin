@@ -76,8 +76,10 @@ def detect_runtime() -> Literal["mlx", "onnx", "torch", "cpu"]:
         return "cpu"
 
     # auto — probe in priority order
+    # MLX requires both mlx.core AND demucs-mlx.Separator to be usable.
     try:
         import mlx.core  # noqa: F401
+        from demucs_mlx import Separator  # noqa: F401
 
         return "mlx"
     except Exception:

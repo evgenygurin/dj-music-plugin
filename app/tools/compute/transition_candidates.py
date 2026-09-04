@@ -17,9 +17,14 @@ from app.server.di import get_transition_scorer, get_uow
 
 @tool(
     name="get_transition_candidates",
-    tags={"namespace:compute", "read"},
+    tags={"namespace:compute", "namespace:internal", "read"},
     annotations={"readOnlyHint": True, "idempotentHint": True},
     description=(
+        "INTERNAL / PROGRAMMATIC ONLY — NOT a user-facing interactive composer step. "
+        "When using the interactive DJ mix composer (ui_mix_composer), candidate discovery "
+        "is handled automatically by the composer's background worker (MIX_SESSIONS / "
+        "act_mix_session). Do NOT call this tool manually during an active ui_mix_composer "
+        "session; it duplicates the internal candidate scan and can hang. "
         "Score one source track against the analyzed library and return the "
         "top-k non-rejected candidates sorted by transition quality."
     ),

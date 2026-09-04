@@ -20,6 +20,7 @@ async def test_tool_registered_readonly(mcp_server: FastMCP) -> None:
 
     assert tool.annotations.readOnlyHint is True
     assert "namespace:compute" in tool.tags
+    assert "namespace:internal" in tool.tags
 
 
 @pytest.mark.asyncio

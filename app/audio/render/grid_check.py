@@ -84,7 +84,12 @@ def measure_body_bpm(
             rows.append(BodyBpm(tid, s, e, 0.0, 0.0))
             continue
         cap = int(40 * sr)
-        bpm = _bpm_autocorr(y[lo : min(hi, lo + cap)], sr, target_bpm)
+        body = y[lo : min(hi, lo + cap)]
+        rms = float(np.sqrt(np.mean(body.astype(np.float64) ** 2))) if body.size else 0.0
+        if rms < 1e-5:
+            rows.append(BodyBpm(tid, s, e, 0.0, 0.0))
+            continue
+        bpm = _bpm_autocorr(body, sr, target_bpm)
         rows.append(BodyBpm(tid, s, e, round(bpm, 3), round(bpm - target_bpm, 3)))
     return rows
 
