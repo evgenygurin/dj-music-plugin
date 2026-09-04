@@ -3,13 +3,14 @@
 
 from __future__ import annotations
 
-from typing import Annotated
+from typing import Annotated, cast
 
 from fastmcp.dependencies import CurrentContext, Depends
 from fastmcp.server.context import Context
 from fastmcp.tools import tool
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.application.transition.score import ScoreTransition
 from app.domain.transition.weights import CAMELOT_HARMONIC_BASE
 from app.repositories.unit_of_work import UnitOfWork
 from app.schemas.scoring import ScoringWeights
@@ -241,6 +242,28 @@ async def score_harmonic(
     return res
 
 
+class _LegacyPairScorer:
+    """Preserve the existing score_transition formula behind the app port."""
+
+    def score(
+        self, source: TrackFeatures, target: TrackFeatures, *, weights: ScoringWeights | None = None
+    ) -> ScoreTransitionResult:
+        w = weights or ScoringWeights()
+        s_h, s_r, s_t, s_e, s_s, overall, detail = _compute_transition(source, target, w)
+        return ScoreTransitionResult(
+            a_id=1,
+            b_id=1,
+            S_harmony=s_h,
+            S_rhythmic=s_r,
+            S_timbral=s_t,
+            S_energy=s_e,
+            S_structure=s_s,
+            overall=overall,
+            weights=w,
+            harmonic_detail=detail,
+        )
+
+
 @tool(
     name="score_transition",
     tags={"namespace:score", "read"},
@@ -258,38 +281,34 @@ async def score_transition(
     ] = None,
     uow: UnitOfWork = Depends(get_uow),
     ctx: Context = CurrentContext(),
+    generator: ScoreTransition | None = None,
 ) -> ScoreTransitionResult:
     _ = ctx
-    w = weights or ScoringWeights()
-    feats = await uow.track_features.get_scoring_features_batch([a_id, b_id])
-    a = feats.get(a_id)
-    b = feats.get(b_id)
-    missing: list[int] = []
-    if a is None:
-        missing.append(a_id)
-    if b is None:
-        missing.append(b_id)
-    if missing:
-        raise ValidationError(
-            f"missing scoring features for track_ids={missing}",
-            details={"missing_track_ids": missing},
+    use_case = generator or ScoreTransition(_UowPairCatalog(uow), _LegacyPairScorer())
+    try:
+        result = cast(
+            ScoreTransitionResult,
+            await use_case.execute(a_id, b_id, weights=weights),
         )
-    assert a is not None and b is not None
-    s_h, s_r, s_t, s_e, s_s, overall, detail = _compute_transition(a, b, w)
-    detail.a_id = a_id
-    detail.b_id = b_id
-    return ScoreTransitionResult(
-        a_id=a_id,
-        b_id=b_id,
-        S_harmony=s_h,
-        S_rhythmic=s_r,
-        S_timbral=s_t,
-        S_energy=s_e,
-        S_structure=s_s,
-        overall=overall,
-        weights=w,
-        harmonic_detail=detail,
-    )
+    except ValueError as exc:
+        missing = [a_id, b_id]
+        raise ValidationError(
+            str(exc), details={"missing_track_ids": missing}
+        ) from exc
+    result.a_id = a_id
+    result.b_id = b_id
+    if result.harmonic_detail is not None:
+        result.harmonic_detail.a_id = a_id
+        result.harmonic_detail.b_id = b_id
+    return result
+
+
+class _UowPairCatalog:
+    def __init__(self, uow: UnitOfWork) -> None:
+        self._uow = uow
+
+    async def features(self, track_ids: list[int]) -> dict[int, TrackFeatures]:
+        return await self._uow.track_features.get_scoring_features_batch(track_ids)
 
 
 # Pure helpers for unit tests / domain reuse
