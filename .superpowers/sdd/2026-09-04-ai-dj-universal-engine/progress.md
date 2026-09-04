@@ -73,3 +73,13 @@ Status: **core orchestration implemented; legacy L6 handler cutover deferred to 
 - Ruff and mypy on new application analysis modules: clean.
 - Repository import-linter remains blocked by pre-existing syntax in `app/audio/deep/demucs_mlx_runner.py`.
 - Existing `L6AnalysisOrchestrator` still owns a rich `L6AnalysisResult` plus DB/storage side effects. Moving that whole legacy result contract behind the new snapshot boundary without losing public behavior belongs in the later MCP/application migration work; no legacy behavior was silently removed in Task 2.
+
+## Task 3 — configuration engine
+
+Status: **implemented and focused-verified**.
+
+- RED: configuration tests initially failed because schema/resolver/provenance/profile contracts did not exist; legacy adapter test then failed until the adapter was added.
+- Added declarative `ParameterDefinition`, `ParameterClass`, `TransitionSchema`, data-only `TransitionProfile`, `Provenance`, immutable `ResolvedTransitionConfig`, deterministic config hashing, precedence resolution, validation, and `LegacyConfigAdapter`.
+- Precedence implemented as Global → Genre → Behavior → Set → Transition → Render; unknown fields and out-of-range values are rejected.
+- Focused configuration/application/domain verification: `26 passed` before the legacy adapter, then `7 passed` configuration tests after adapter completion; all new-module Ruff and mypy checks clean.
+- No legacy `app/config/transition.py` or `app/config/render.py` behavior was removed; adapter remains additive for later cutover.
