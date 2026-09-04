@@ -1,22 +1,29 @@
 # Cell 16 — Pure DJ Mixing Domain
 
 ## Status
-BLOCKED — OpenCode execution did not reach the agent/model turn.
+COMPLETE — implementation was already present in commit `4e40191a`; this recovery pass verified it and committed a lint-only cleanup as `d8eb8fef`.
 
-## What changed
-- No cell implementation changes were made.
-- The cell task was submitted to the installed OpenCode CLI (1.18.27) using the user's existing OpenCode credentials.
+## Implemented
+- `TempoModel` consumes ranked `TempoHypothesis` values and applies explicit octave correction.
+- `TransitionGrid` projects BPM, phase, bars, and phrase boundaries into pure domain math.
+- Deterministic beat/phase alignment, accumulated drift, phrase alignment, and bar-constrained duration selection.
+- `TransitionCue` and deterministic cue generation for phrase/grid anchors.
+- `AlignmentScore` composes tempo, beat, phrase, and drift components.
+- `TransitionScorer` integration preserves the legacy score API and exposes optional alignment data.
 
 ## Verification
-- `opencode --version` → `1.18.27`.
-- `opencode auth list` confirmed existing user-owned credentials, including OpenCode Go.
-- `opencode run` stalled after `message=init`; no model response or file edits followed.
+- Focused Cell16 tests: `45 passed in 0.26s`.
+- Focused Cell16 Ruff: `All checks passed!`.
+- GitNexus was re-indexed successfully: 88,851 nodes, 192,192 edges, 721 clusters, 300 flows.
+- GitNexus impact was run for `TempoModel`, `compute_alignment`, and `TransitionScorer` before edits.
+- GitNexus staged `detect-changes`: 2 files, 4 symbols, low risk.
+- Commit: `d8eb8fef fix(cell16): clean mixing-domain lint`.
+- No push performed.
 
-## Blockers / residual risk
-- OpenCode CLI currently hangs after initialization on this Mac, including `--pure` and an isolated config with LSP/formatters disabled.
-- Cell 16 depends on Cell 15, whose implementation did not execute.
-- No FN8/private credentials were requested or used.
-- Cell remains incomplete and must not be treated as done.
+## Repository-wide check
+`make check` is currently blocked by 43 pre-existing Ruff violations outside the Cell16-owned files (audio, config, UI, and other tests). Those unrelated files were not modified.
 
-## Session ID
-No cell session ID was emitted before the runtime stalled.
+## OpenCode recovery
+- OpenCode `1.18.27` real model turn was proven with `openrouter/openrouter/free` in session `ses_f93a0cc5effeEtQCdLXQHh7GJA`; response `PROBE_OK` was persisted by the server.
+- CLI still hangs during fresh bootstrap after `init` in some runs; this is separate from provider/model execution. OpenCode server health remains available.
+- No fallback provider/model was used.
