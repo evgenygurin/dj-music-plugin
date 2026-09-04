@@ -73,6 +73,7 @@ def place_segments(
     transition_bars: int,
     per_transition_bars: list[int] | None = None,
     per_body_bars: list[int] | None = None,
+    use_measured_bpm: bool = True,
 ) -> list[SegmentGeometry]:
     """Resolve ordered inputs + beatgrid into placed, overlap-aware geometries."""
     bar_s = bar_seconds(target_bpm)
@@ -90,7 +91,7 @@ def place_segments(
         g = grid.get(ti.track_id)
         raw_trim = g.effective_trim if g is not None else 0.0
         grid_bpm = g.effective_bpm if g is not None else None
-        stretch_bpm = grid_bpm if grid_bpm else ti.bpm
+        stretch_bpm = (grid_bpm if grid_bpm else ti.bpm) if use_measured_bpm else ti.bpm
         phrase_aligned = False
         if g is not None and ti.phrase_boundaries_ms and stretch_bpm:
             snapped = snap_trim_to_phrase(raw_trim, ti.phrase_boundaries_ms, stretch_bpm)

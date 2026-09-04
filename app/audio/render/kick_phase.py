@@ -66,7 +66,9 @@ def detect_kick_trim(file_path: str, *, start_s: float, bpm: float) -> tuple[flo
     if med <= 0.0:
         return _fallback_trim(file_path, start_s=start_s, bpm=bpm), bpm
     beat_s = float(np.median(diffs[diffs < 1.3 * med]))
-    bpm_measured = 60.0 / beat_s
+    bpm_measured = _measure_bpm(low)
+    if bpm_measured <= 0.0:
+        bpm_measured = bpm
 
     anchor = _first_ongrid_kick(kicks, beat_s)
     return round(anchor, 4), round(bpm_measured, 4)
@@ -91,6 +93,25 @@ def _peak_times(env: np.ndarray) -> list[float]:
         wait=int(_PEAK_WAIT * _SR),
     )
     return [float(i) / _SR for i in idx]
+
+
+def _measure_bpm(y: np.ndarray) -> float:
+    """Measure dominant tempo from audio onset strength with sub-frame precision."""
+    import librosa
+
+    from app.audio.core.rhythm import tempo_from_onset_autocorrelation
+
+    onset_env = librosa.onset.onset_strength(y=y, sr=_SR, hop_length=512)
+    estimate = tempo_from_onset_autocorrelation(
+        onset_env,
+        _SR,
+        512,
+        min_bpm=110.0,
+        max_bpm=200.0,
+    )
+    if estimate.bpm <= 0.0 or estimate.confidence < 0.75:
+        return 0.0
+    return round(estimate.bpm, 4)
 
 
 def _first_ongrid_kick(kicks: list[float], beat_s: float) -> float:

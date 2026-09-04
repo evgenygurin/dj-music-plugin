@@ -74,6 +74,7 @@ class RenderPlanner:
             transition_bars=transition_bars,
             per_transition_bars=per_transition_bars,
             per_body_bars=per_body_bars,
+            use_measured_bpm=request.mode is RenderMode.CLASSIC,
         )
         segments = self._FACTORIES[request.mode].build_segments(
             geometries,

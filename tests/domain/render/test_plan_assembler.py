@@ -117,3 +117,25 @@ def test_classic_factory_ignores_stem_paths() -> None:
 
 
 STEM_NAMES = ("drums", "bass", "harmonic", "instrumental", "acappella")
+
+
+def test_assemble_stem_uses_prepared_stem_bpm_not_raw_measured_grid_bpm() -> None:
+    settings = RenderSettings(target_bpm=130.0)
+    request = _req(stem=True)
+    inputs = _inputs(1, bpm=130.0)
+    grid = _grid(1)
+    grid[0] = BeatgridEntry(
+        track_id=0,
+        trim_start_s=0.0,
+        refined_trim_s=0.0,
+        gain_db=0.0,
+        phase_ms=0.0,
+        bpm_measured=133.0,
+    )
+    stem_paths = {0: {stem: f"/stems/0/{stem}.flac" for stem in STEM_NAMES}}
+    bar_plan = BarPlan(transition_bars=(), body_bars=[24])
+
+    plan = RenderPlanner().assemble(settings, request, inputs, grid, bar_plan, stem_paths)
+
+    assert plan.stem_segments is not None
+    assert plan.stem_segments[0].tempo_ratio == 1.0
