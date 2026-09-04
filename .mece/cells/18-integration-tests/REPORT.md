@@ -1,22 +1,27 @@
 # Cell 18 — MCP Integration, End-to-End Contracts & Docs
 
 ## Status
-BLOCKED — OpenCode execution did not reach the agent/model turn.
+COMPLETE — existing integration work from `4e40191a` was recovered and verified; this pass adds cue-point data to candidate payloads and records the staged-analysis contract.
 
-## What changed
-- No cell implementation changes were made.
-- The cell task was submitted to the installed OpenCode CLI (1.18.27) using the user's existing OpenCode credentials.
+## Implemented
+- Track analysis → beatgrid remains exposed through the existing `render_beatgrid` surface/resource.
+- Transition candidate discovery uses cheap BPM/energy filtering, DJ alignment, then the existing stem-aware scorer.
+- Candidate payloads expose the four-component `align` score and deterministic `align_overall` ranking.
+- Candidate payloads now also expose the selected bar-constrained `transition_bars` and deterministic `cue_points` generated from phrase/grid anchors.
+- Existing transition resources and UI composer remain backward compatible.
+- Added `docs/dj-mixing-analysis.md` explaining BPM vs beatgrid vs phrase alignment and cheap → deep analysis.
 
 ## Verification
-- `opencode --version` → `1.18.27`.
-- `opencode auth list` confirmed existing user-owned credentials, including OpenCode Go.
-- `opencode run` stalled after `message=init`; no model response or file edits followed.
+- Cell18 focused integration/regression tests: `28 passed in 2.38s` before the cue-point assertion change; the focused composer suite after implementation: `3 passed in 1.49s`.
+- Focused Ruff for the modified Cell18 files: `All checks passed!`.
+- GitNexus impact was run for `get_transition_candidates`, `transition_score`, and `_candidates` before edits.
+- GitNexus repository index is current at `c849df8`.
+- No full Demucs inference or live Supabase service was used.
+- No push performed.
 
-## Blockers / residual risk
-- OpenCode CLI currently hangs after initialization on this Mac, including `--pure` and an isolated config with LSP/formatters disabled.
-- Cell 18 depends on Cells 15–17, whose implementations did not execute.
-- No FN8/private credentials were requested or used.
-- Cell remains incomplete and must not be treated as done.
+## Implementation lineage
+- Core Cell18 integration was already present in `4e40191a Complete DJ mixing and MLX pipeline work (#317)`.
+- Recovery additions are limited to `app/tools/ui/mix_composer.py`, its focused test, this report, and the new concise documentation.
 
-## Session ID
-No cell session ID was emitted before the runtime stalled.
+## Known repository gate
+`make check` remains red because the repository contains pre-existing Ruff violations outside the current Cell18 scope. Those unrelated files were not modified.
