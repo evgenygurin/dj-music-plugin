@@ -17,6 +17,7 @@ COMPLETE — existing integration work from `4e40191a` was recovered and verifie
 - GitNexus impact was run for `get_transition_candidates`, `transition_score`, and `_candidates` before edits.
 - GitNexus repository index is current at `c849df8`.
 - No full Demucs inference or live Supabase service was used.
+- Recovery implementation commit: `a62d01c0 feat(cell18): expose DJ cue candidates`.
 - No push performed.
 
 ## Implementation lineage
@@ -24,4 +25,4 @@ COMPLETE — existing integration work from `4e40191a` was recovered and verifie
 - Recovery additions are limited to `app/tools/ui/mix_composer.py`, its focused test, this report, and the new concise documentation.
 
 ## Known repository gate
-`make check` remains red because the repository contains pre-existing Ruff violations outside the current Cell18 scope. Those unrelated files were not modified.
+`make check` remains red with 28 Ruff violations outside the current Cell18 scope. Those unrelated files were not modified.
