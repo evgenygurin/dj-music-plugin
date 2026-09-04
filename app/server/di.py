@@ -148,3 +148,29 @@ async def get_engine_selection(ctx: Any = None) -> Any:
     from app.config import get_settings
 
     return get_settings().engine.selection()
+
+
+async def get_legacy_transition_planner(ctx: Any = None) -> Any:
+    """Build the legacy transition planner from the production scorer port."""
+    from app.application.transition.adapters import LegacyTransitionPlannerAdapter
+
+    return LegacyTransitionPlannerAdapter(await get_transition_scorer(ctx))
+
+
+async def get_universal_transition_planner(ctx: Any = None) -> Any:
+    """Build the universal planner without exposing domain objects to MCP."""
+    from app.application.transition.adapters import UniversalTransitionPlannerAdapter
+    from app.application.transition.planner import TransitionPlanner
+
+    return UniversalTransitionPlannerAdapter(TransitionPlanner())
+
+
+async def get_plan_transition(ctx: Any = None) -> Any:
+    """Build the feature-flagged production transition planning use case."""
+    from app.application.transition.planning import PlanTransition
+
+    return PlanTransition(
+        await get_engine_selection(ctx),
+        legacy_planner=await get_legacy_transition_planner(ctx),
+        new_planner=await get_universal_transition_planner(ctx),
+    )

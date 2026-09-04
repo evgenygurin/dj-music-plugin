@@ -169,3 +169,16 @@ Status: **implemented and focused-verified; full MCP import remains blocked by u
 - Fixed the missing `Any` import in `transition_score_pool`, removing one unresolved annotation from FastMCP schema generation; full server discovery still reaches pre-existing `UnitOfWork`/other tool schema failures.
 - Added focused tests for engine selection defaults and environment mapping.
 - Verification: engine selection tests `2 passed`; targeted transition/engine tests `13 passed`; Ruff clean; mypy clean on changed source files; `git diff --check` clean.
+
+
+## Task 10 — production planner adapter + DI slice
+
+Status: **implemented and focused-verified**.
+
+- Added `LegacyTransitionPlannerAdapter` around the existing production `TransitionScorer`; hard candidate constraints are applied before legacy musical ranking.
+- Added `UniversalTransitionPlannerAdapter` to map repository `TrackFeatures` into the universal `FeatureSet` contract without exposing persistence concerns to the planner.
+- Added deterministic legacy policy ranking and legacy Neural Mix → universal `RecipeKind` compatibility mapping.
+- Added DI factories for legacy planner, universal planner, and `PlanTransition`, using the canonical `DJ_ENGINE` selection.
+- Added real LEGACY/NEW/SHADOW integration coverage and DI wiring tests.
+- Verification: planning integration/adapter/rollout tests and server DI/build tests passed; targeted Ruff and `git diff --check` clean.
+- MCP `plan_transition` facade is intentionally deferred until a non-fabricated persisted `AnalysisSnapshot`/beatgrid input path exists; the current application/DI boundary is production-wired without inventing analysis data.
