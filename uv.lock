@@ -737,6 +737,7 @@ dependencies = [
     { name = "pyrekordbox" },
     { name = "python-dotenv" },
     { name = "sqlalchemy", extra = ["asyncio"] },
+    { name = "supabase" },
 ]
 
 [package.optional-dependencies]
@@ -780,7 +781,6 @@ stems = [
 ]
 supabase = [
     { name = "pgvector" },
-    { name = "supabase" },
 ]
 
 [package.dev-dependencies]
@@ -832,7 +832,7 @@ requires-dist = [
     { name = "soundfile", marker = "extra == 'audio'", specifier = ">=0.12" },
     { name = "soundfile", marker = "extra == 'stems'", specifier = ">=0.12" },
     { name = "sqlalchemy", extras = ["asyncio"], specifier = ">=2.0" },
-    { name = "supabase", marker = "extra == 'supabase'", specifier = ">=2.0" },
+    { name = "supabase", specifier = ">=2.0" },
     { name = "torch", marker = "sys_platform == 'linux' and extra == 'stems'", specifier = ">=2.0", index = "https://download.pytorch.org/whl/cpu" },
     { name = "torch", marker = "sys_platform != 'linux' and extra == 'stems'", specifier = ">=2.0" },
     { name = "torchcodec", marker = "extra == 'stems'", specifier = ">=0.14" },

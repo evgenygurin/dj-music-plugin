@@ -20,6 +20,7 @@ dependencies = [
     "numpy>=1.26",
     "python-dotenv>=1.0",
     "mdxnet-infer>=0.1.0",
+    "supabase>=2.0",
     "pyrekordbox>=0.4.4",
 ]
 
@@ -60,7 +61,6 @@ stems = [
 ]
 postgres = ["pgvector>=0.3"]
 supabase = [
-    "supabase>=2.0",
     "pgvector>=0.3",
 ]
 otel = [
