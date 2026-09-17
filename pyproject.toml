@@ -75,6 +75,17 @@ observability = [
     "opentelemetry-exporter-otlp-proto-http>=1.25",
 ]
 
+
+[tool.uv.sources]
+torch = [
+    { index = "pytorch-cpu", marker = "sys_platform == 'linux'" },
+]
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
 [tool.ruff]
 line-length = 99
 target-version = "py312"
