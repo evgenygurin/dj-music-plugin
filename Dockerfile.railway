@@ -19,10 +19,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /app
 COPY pyproject.toml uv.lock README.md ./
-RUN uv sync --frozen --no-install-project --extra http --extra audio
+RUN uv sync --frozen --no-install-project --extra audio --extra postgres
 COPY app ./app
 COPY server.py fastmcp.json ./
-RUN uv sync --frozen --extra http --extra audio
+RUN uv sync --frozen --extra audio --extra postgres
 
 EXPOSE 8080
 CMD ["fastmcp", "run", "server.py:mcp", "--transport", "streamable-http", "--host", "0.0.0.0", "--port", "8080", "--path", "/mcp", "--log-level", "INFO"]
