@@ -1,0 +1,5 @@
+[build]
+builder = "RAILPACK"
+
+[deploy]
+startCommand = "fastmcp run server.py:mcp --transport streamable-http --host 0.0.0.0 --port 8080 --path /mcp --log-level INFO"
