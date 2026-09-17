@@ -19,11 +19,11 @@ ENV UV_LINK_MODE=copy \
 
 WORKDIR /app
 COPY pyproject.toml README.md ./
-RUN uv sync --no-install-project --extra audio --extra postgres
+RUN uv sync --no-dev --no-install-project --extra audio --extra postgres
 
 COPY app ./app
 COPY server.py fastmcp.json ./
-RUN uv sync --extra audio --extra postgres
+RUN uv sync --no-dev --extra audio --extra postgres
 
 EXPOSE 8080
 CMD ["fastmcp", "run", "server.py:mcp", "--transport", "streamable-http", "--host", "0.0.0.0", "--port", "8080", "--path", "/mcp", "--log-level", "INFO"]
