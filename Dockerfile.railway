@@ -1,0 +1,28 @@
+# Railway runtime for the FastMCP Streamable HTTP server.
+# The service is the MCP capability layer consumed by DJ Hermes.
+
+ARG PYTHON_VERSION=3.12
+FROM python:${PYTHON_VERSION}-slim-bookworm
+
+COPY --from=ghcr.io/astral-sh/uv:0.6.6 /uv /uvx /usr/local/bin/
+
+ENV UV_LINK_MODE=copy \
+    UV_COMPILE_BYTECODE=1 \
+    UV_PYTHON_DOWNLOADS=never \
+    PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PATH="/app/.venv/bin:$PATH"
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        build-essential libsndfile1 ffmpeg ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+COPY pyproject.toml uv.lock README.md ./
+RUN uv sync --frozen --no-install-project --extra http --extra audio
+COPY app ./app
+COPY server.py fastmcp.json ./
+RUN uv sync --frozen --extra http --extra audio
+
+EXPOSE 8080
+CMD ["fastmcp", "run", "server.py:mcp", "--transport", "streamable-http", "--host", "0.0.0.0", "--port", "8080", "--path", "/mcp", "--log-level", "INFO"]
