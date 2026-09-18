@@ -3,208 +3,78 @@
 ## System Overview
 
 ```text
-┌─────────────────────────────────────────────────────────────┐
-│                    MCP Clients (Claude, etc.)                │
-└──────────────────────────┬──────────────────────────────────┘
-                           │ stdio / streamable-http
-┌──────────────────────────▼──────────────────────────────────┐
-│                   FastMCP v3.x Server                        │
-│  (root server.py — entrypoint;                              │
-│   app/server/app.py — build_mcp_server composition)          │
-│                                                              │
-│  ┌─────────────┐ ┌────────────┐ ┌─────────────────────────┐ │
-│  │ Middleware  │ │ Transforms │ │ Visibility (Namespaces) │ │
-│  │ (log, time, │ │ (prompts→t,│ │ (crud:destructive,      │ │
-│  │ rate limit, │ │ resources→t)│ │ provider:write, sync,   │ │
-│  │ session,    │ │            │ │ admin — unlock per sess)│ │
-│  │ error mask) │ │            │ │                         │ │
-│  └──────┬──────┘ └────────────┘ └─────────────────────────┘ │
-│         │                                                    │
-│  ┌──────▼──────────────────────────────────────────────────┐│
-│  │           FileSystemProvider (auto-discover)             ││
-│  │  ┌──────────┐  ┌────────────┐  ┌──────────────────────┐ ││
-│  │  │ 20 Tools │  │27 Resources│  │ 30 Workflow Prompts  │ ││
-│  │  └────┬─────┘  └──────┬─────┘  └──────────────────────┘ ││
-│  └───────┼───────────────┼─────────────────────────────────┘│
-└──────────┼───────────────┼──────────────────────────────────┘
-           │               │
-    ┌──────▼───────┐ ┌─────▼──────┐
-    │ Depends()    │ │ Depends()  │
-    │ get_uow,     │ │ get_uow,   │
-    │ EntityReg,   │ │ caches     │
-    │ ProviderReg  │ │            │
-    └──────┬───────┘ └─────┬──────┘
-           │               │
-    ┌──────▼───────────────▼──────┐
-    │     Handlers Layer           │
-    │  track_import, track_features│
-    │  _analyze / _reanalyze,      │
-    │  audio_file_download,        │
-    │  set_version_build,          │
-    │  transition_persist          │
-    │  (keyed by entity in         │
-    │   EntityRegistry)            │
-    └──────────────┬───────────────┘
-                   │
-    ┌──────────────▼───────────────┐
-    │   Repositories + UnitOfWork  │
-    │  BaseRepository[M] generic:  │
-    │  list/get/create/update/del  │
-    │  + Django-style lookups      │
-    │  (bpm__gte, mood__in)        │
-    │  UoW flushes + commits once  │
-    │  per tool call               │
-    └──────────────┬───────────────┘
-                   │
-    ┌──────────────▼───────────────┐
-    │    SQLAlchemy 2.0 Async       │
-    │  Supabase PostgreSQL          │
-    │  SQLite (tests, in-mem)       │
-    │  47 tables (17 drop-pending), │
-    │  Alembic                      │
-    └──────────────────────────────┘
-
-Parallel layers (called from handlers, never from tools directly):
-    ┌──────────────────────────────┐
-    │  Providers (app/providers/)  │
-    │  yandex/, future: spotify…   │
-    │  Rate limited, OAuth token   │
-    └──────────────────────────────┘
-    ┌──────────────────────────────┐
-    │  Audio pipeline (app/audio/) │
-    │  Tiered L1-L4, 18 analyzers  │
-    └──────────────────────────────┘
-    ┌──────────────────────────────┐
-    │  Domain (app/domain/)        │
-    │  Pure compute — transition,  │
-    │  optimization, camelot,      │
-    │  template, audit             │
-    └──────────────────────────────┘
+MCP client
+   │
+   ▼
+FastMCP composition
+   │
+   ├── tools ───────► application/handler orchestration
+   ├── resources ───► read-only views and context
+   └── prompts ─────► workflow instructions
+                     │
+                     ▼
+              application layer
+               │      │      │
+          domain   audio   providers
+               │      │      │
+               └──────┼──────┘
+                      ▼
+              repositories / UoW
+                      │
+                      ▼
+                 persistence
 ```
 
-## Bounded Contexts
+FastMCP is the transport-facing composition boundary. Business behaviour belongs below that boundary and must remain testable without an MCP client.
 
-| Context | Path | Responsibility |
-|---|---|---|
-| **Tools** | `app/tools/` | 14 `@tool` dispatchers (6 entity + 3 provider + 2 compute + 1 sync + `unlock_namespace` + `tool_invoke`) — no business logic, only dispatch |
-| **UI Tools** | `app/tools/ui/` | 6 Prefab Apps renderers (`meta={"ui": True}`) — return `prefab_ui.components.Column` trees; JSON fallback via `ctx.client_supports_extension("io.modelcontextprotocol/ui")` |
-| **Resources** | `app/resources/` | 27 `@resource` URIs — read-only views (16 local://, 4 schema://, 3 session://, 4 reference://) |
-| **Prompts** | `app/prompts/` | 30 workflow recipes (LLM-visible) |
-| **Handlers** | `app/handlers/` | Entity-specific side-effect logic (registered in EntityRegistry) |
-| **Registry** | `app/registry/` | `EntityRegistry` (entity→repo+handler) + `ProviderRegistry` (name→client) |
-| **Repositories** | `app/repositories/` | `BaseRepository[M]` + `UnitOfWork`. Flush-only, never commit |
-| **Models** | `app/models/` | SQLAlchemy 2.0 ORM, one file per aggregate root |
-| **Schemas** | `app/schemas/` | Pydantic DTOs — request/response/view |
-| **Domain** | `app/domain/` | Pure compute (transition, optimization, camelot, template, audit) |
-| **Audio** | `app/audio/` | Tiered pipeline + analyzers + mood classification |
-| **Providers** | `app/providers/` | External platform clients (yandex/…) |
-| **Server** | `app/server/` | FastMCP composition: lifespan, middleware, transforms, visibility, observability, DI |
-| **Shared** | `app/shared/` | Errors, constants, filters, ids, pagination, time (leaf module) |
-| **Config** | `app/config/` | Settings split by concern (audio, yandex, database, mcp, …) |
+## Layer boundaries
 
-## Data Flow: Tool Call Lifecycle
+| Layer | Responsibility |
+|---|---|
+| MCP surface | Exposes tools, resources and prompts; validates public contracts and composes workflows. |
+| Application | Coordinates use cases, side effects and dependency injection. |
+| Domain | Implements pure DJ/music policy and algorithms without transport or persistence dependencies. |
+| Audio | Extracts and transforms audio information behind typed analysis contracts. |
+| Providers | Integrates external music platforms behind explicit provider contracts. |
+| Repositories | Encapsulates persistence and transaction participation. |
+| Shared/config | Holds cross-cutting primitives and configuration without becoming a hidden service layer. |
 
-```text
-1. Client sends tool call → FastMCP
-2. Middleware pipeline (app/server/middleware/):
-   log → timing → rate limit → response limit → session → DomainErrorMiddleware
-   (wraps tool + resource + prompt envelopes since v1.3.7 — translates
-   NotFoundError / ValidationError / etc. into typed MCP error envelopes
-   instead of leaking as "internal error: ...")
-3. FastMCP resolves tool via FileSystemProvider (flat scan of app/tools/)
-4. DI chain (app/server/di.py):
-   Depends(get_uow) → UnitOfWork(AsyncSession) with repos attached
-   Depends(get_entity_registry) / Depends(get_provider_registry)
-5. Generic tool dispatches:
-   - entity_create / entity_update → schema-validate payload → FK gate
-     (app/tools/entity/_fk_gate.py:validate_fk_constraints, auto-derived
-     from cls.__table__.foreign_keys) → handler if registered → repo persist
-   - entity_list / entity_get / entity_aggregate → EntityRegistry lookup →
-     BaseRepository[M] call (+ optional handler for side-effects)
-   - provider_* → ProviderRegistry lookup → provider client
-   - compute_* → app/domain/ pure function
-   - playlist_sync → handler chain
-6. On success: UoW.commit() in DI wrapper
-7. On error: UoW.rollback(); raw pydantic ValidationError is wrapped into
-   typed app.shared.errors.ValidationError("invalid payload for entity 'X': ...")
-   for entity_create/update so mask_details=True production envelopes stay
-   informative.
-8. Return typed Pydantic model → structuredContent + content + meta
-9. Response through middleware (timing recorded, logged)
-10. Back to client
-```
+The exact inventory of runtime objects belongs to the code and framework discovery, not to this document.
 
-## Startup Flow
+## Data flow
 
-```text
-uv run fastmcp run server.py
-└── MCP lifespan (app/server/lifespan.py):
-    composes DB + providers + audio pipeline + caches
-```
+A normal tool call crosses the MCP boundary, resolves dependencies, executes application/domain logic, persists through the repository/UoW boundary when required, and returns a typed result. Failures are translated at the appropriate boundary rather than leaking infrastructure exceptions to callers.
 
-**DB session setup (v1.3.7).** `app/db/session.py` registers a SQLAlchemy
-`connect` event listener that issues `PRAGMA foreign_keys=ON` on every
-aiosqlite connection. Erases the prod-on-Supabase-Postgres (FK enforced
-by default) / dev-tests-on-SQLite (FK off by default) behaviour drift
-that previously masked orphan-row bugs. Production (Postgres) is
-unaffected.
+Transactions are owned by the application/server composition. Repositories do not become an alternative transaction manager.
 
-**Handler ctx wrappers (v1.3.7).** Handlers (`app/handlers/*.py`) use
-`safe_info(ctx, ...)` / `safe_report_progress(ctx, ...)` from
-`app/handlers/_context_log.py` instead of calling `ctx.info()` /
-`ctx.report_progress()` directly. The wrappers fall back to stdlib
-logger when no active MCP session exists (headless scripts, unit
-tests) — successful builds are no longer misreported as failures.
+## Bounded contexts
 
-## EntityRegistry
+The main conceptual boundaries are library/entity management, audio analysis, DJ transition/set logic, external music providers, and MCP composition. Each context owns its policy and contracts; integration happens through explicit interfaces or application orchestration.
 
-```text
-EntityRegistry
-├── track           → TrackRepository + handlers(create=track_import)
-├── track_features  → TrackFeaturesRepository
-│                     + handlers(create=track_features_analyze,
-│                                update=track_features_reanalyze)
-├── audio_file      → AudioFileRepository
-│                     + handlers(create=audio_file_download)
-├── playlist        → PlaylistRepository
-├── set             → SetRepository
-├── set_version     → SetVersionRepository
-│                     + handlers(create=set_version_build)
-├── transition      → TransitionRepository
-│                     + handlers(create=transition_persist)
-├── transition_history, track_affinity, track_feedback,
-│  scoring_profile → BaseRepository[M]
-```
+## Audio architecture
 
-Note: `key` and `provider_metadata` have ORM models + repositories
-under `app/repositories/` but are **not** registered in
-`EntityRegistry` — they're internal references (Camelot wheel lookup,
-provider response cache). Surface via `reference://camelot` /
-`reference://providers` instead of `entity_*`.
+Audio processing follows a staged analysis model: inexpensive information can be computed before deeper analysis, dependent analysis consumes prior results, and expensive capabilities remain isolated behind optional dependencies/capability checks.
 
-`entity_list(entity="track", filter={...})` → `EntityRegistry.get("track").repo.list(filter)`.
-`entity_create(entity="track", data={ym_id: 42})` → dispatches to `track_import` handler
-(download metadata from YM, persist).
+Shared analysis state should be reused where multiple analyzers need the same DSP primitives. Cache identity and invalidation must account for all inputs that can change the computed result.
 
-## ProviderRegistry
+## Universal AI DJ Engine
 
-```text
-ProviderRegistry
-└── yandex → YandexMusicClient (see app/providers/yandex/)
-```
+The DJ engine conceptually separates:
 
-`provider_read(provider="yandex", entity="track", id=42)` → `YandexMusicClient.get_track(42)`.
+`analysis → candidate generation → hard technical validation → musical scoring → planning → rendering → persistence`
 
-## Key Architectural Decisions
+Technical feasibility and musical preference are separate dimensions. A hard constraint rejects an unusable transition; scoring ranks technically valid candidates.
 
-| Decision | Rationale |
-|----------|-----------|
-| FastMCP v3 canonical layout (`tools/`, `resources/`, `prompts/`) | Matches upstream; FileSystemProvider auto-discovery; zero registration boilerplate |
-| 20 tool dispatchers (14 core + 6 UI) | 88-tool catalog collapsed via polymorphism (EntityRegistry, ProviderRegistry, handlers) |
-| Handlers over services | Side-effects live at the tool layer, colocated with the entity they mutate |
-| BaseRepository[M] + Django lookups | Generic CRUD + filter DSL (`bpm__gte`, `mood__in`) without bespoke methods per entity |
-| Unit of Work | Explicit transaction boundary; middleware commits/rollbacks; repos only flush |
-| Pydantic v2 for tool returns | Structured content, self-documenting, type-safe |
-| Domain pure | No IO in `app/domain/` — testable, composable, fast |
-| Tool Search (BM25) + Namespace Activation | ~10 tools always visible; others discoverable per session — context stays lean |
-| Supabase PostgreSQL (prod) + SQLite (tests) | Production-grade + RLS-capable; tests stay fast without external DB |
+Transition and set plans carry explicit identity/provenance so results can be reproduced and compared. Rollout of replacement implementations must preserve a safe compatibility path until the new path is intentionally promoted.
+
+## MCP composition principles
+
+Prefer polymorphic, schema-driven operations and workflow composition over proliferating near-duplicate endpoints.
+
+Resources provide context and representations. Tools perform operations. Prompts describe repeatable workflows. None of these should silently replace a domain service or repository abstraction.
+
+## Source of truth
+
+Runtime surface, registration, schemas, dependency versions, test counts, and generated inventories are derived facts. Use the code, manifests, framework introspection, tests and validators to obtain them.
+
+This architecture document intentionally does not repeat volatile counts, index statistics, historical implementation snapshots, or release-specific inventories.

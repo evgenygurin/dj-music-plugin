@@ -1,192 +1,61 @@
-# Project Structure & Database Schema
+# Project Structure
 
-> Структура директорий, файлов и таблиц БД проекта DJ Music Plugin (v1.3.7).
-> Обновлено: 2026-05-13.
+This document describes the stable organization of the codebase. It is intentionally not a generated file tree or database snapshot.
 
-## 1. Directory Tree
+## Repository-level responsibilities
 
 ```text
-dj-music-plugin/
-├── CLAUDE.md                       # Главные инструкции для Claude
-├── README.md
-├── CHANGELOG.md
-├── Makefile                        # make check / lint / test
-├── Dockerfile
-├── alembic.ini                     # Alembic config
-├── pyproject.toml
-├── start.sh                        # Dev environment setup (uv sync)
-│
-├── .claude/
-│   ├── settings.json
-│   ├── rules/                      # Правила по слоям (tools, resources, …)
-│   └── worktrees/                  # git worktrees
-│
-├── .claude-plugin/
-│   ├── plugin.json
-│   └── marketplace.json
-│
-├── agents/
-│   └── dj-assistant.md
-│
-├── docs/                           # Архитектурная документация
-│   ├── architecture.md             # Bounded contexts, data flow
-│   ├── domain-glossary.md
-│   ├── tool-catalog.md             # 20 tools + 27 resources + 31 prompts
-│   ├── audio-pipeline.md
-│   ├── ym-api-guide.md
-│   ├── transition-scoring.md
-│   ├── structure.md                # ← этот файл
-│   ├── reports/
-│   └── superpowers/specs/
-│
-├── app/                            # Backend (Python, FastMCP v3)
-│   ├── __init__.py
-│   │
-│   ├── tools/                      # @tool — 20 dispatchers
-│   │   ├── entity/                 # list, get, aggregate, create, update, delete
-│   │   │   └── _fk_gate.py         # v1.3.7: validate_fk_constraints, auto-derived from table.foreign_keys
-│   │   ├── provider/               # read, write, search
-│   │   ├── compute/                # score_pool, sequence_optimize
-│   │   ├── sync/                   # playlist_sync
-│   │   ├── admin/                  # unlock_namespace, tool_invoke
-│   │   └── ui/                     # 6 Prefab Apps (ui_set_view, ui_transition_score, ...)
-│   │
-│   ├── resources/                  # @resource — 27 URIs (16 local://, 4 schema://, 3 session://, 4 reference://)
-│   │   ├── track.py, playlist.py, set.py, transition.py,
-│   │   │  transition_history.py, session.py, schema.py
-│   │   └── reference/              # camelot, subgenres, templates, audit_rules
-│   │
-│   ├── handlers/                   # 6 entity-scoped side-effect handlers
-│   │   ├── _context_log.py         # v1.3.7: safe_info / safe_report_progress wrappers (ctx may be None in headless/tests)
-│   │   └── track_import.py, track_features_{analyze,reanalyze}.py, audio_file_download.py, set_version_build.py, transition_persist.py
-│   │
-│   ├── prompts/                    # @prompt — 30 workflow recipes
-│   │   ├── dj_expert_session.py            # core (6)
-│   │   ├── build_set_workflow.py
-│   │   ├── deliver_set_workflow.py
-│   │   ├── expand_playlist_workflow.py
-│   │   ├── full_pipeline.py
-│   │   ├── quick_mix_check.py
-│   │   ├── library_health_workflow.py      # library & analysis (2)
-│   │   ├── analyze_library_workflow.py
-│   │   ├── harmonic_journey_workflow.py     # set design (5)
-│   │   ├── subgenre_journey_workflow.py
-│   │   ├── scenario_set_workflow.py
-│   │   ├── b2b_planning_workflow.py
-│   │   ├── extend_set_workflow.py
-│   │   ├── set_review_workflow.py           # set repair (3)
-│   │   ├── fix_transition_workflow.py
-│   │   ├── replace_track_workflow.py
-│   │   ├── crate_digging_workflow.py        # discovery & ops (3)
-│   │   ├── taste_profile_workflow.py
-│   │   └── playlist_sync_workflow.py
-│   │
-│   ├── handlers/                   # entity-specific side-effects
-│   │   ├── track_import.py
-│   │   ├── track_features_analyze.py
-│   │   ├── track_features_reanalyze.py
-│   │   ├── audio_file_download.py
-│   │   ├── set_version_build.py
-│   │   └── transition_persist.py
-│   │
-│   ├── registry/                   # EntityRegistry + ProviderRegistry
-│   │   ├── entity.py
-│   │   ├── provider.py
-│   │   └── defaults.py
-│   │
-│   ├── repositories/               # BaseRepository[M] + UnitOfWork
-│   │   ├── base.py                 # BaseRepository[M] with Django lookups
-│   │   ├── unit_of_work.py
-│   │   ├── track.py, track_features.py, audio_file.py,
-│   │   │  playlist.py, set.py, transition.py,
-│   │   │  transition_history.py, track_affinity.py,
-│   │   │  track_feedback.py, scoring_profile.py,
-│   │   │  key.py, provider_metadata.py
-│   │   └── …
-│   │
-│   ├── models/                     # SQLAlchemy 2.0 ORM
-│   │   ├── base.py
-│   │   └── <one file per aggregate root>
-│   │
-│   ├── schemas/                    # Pydantic DTOs
-│   │   ├── common.py
-│   │   ├── tool_responses.py
-│   │   └── <one family per entity>
-│   │
-│   ├── domain/                     # Pure compute (no IO)
-│   │   ├── transition/             # 6-component scoring, hard_constraints, recipe engine
-│   │   ├── optimization/           # GA, greedy, fitness, protocol
-│   │   ├── camelot/                # Camelot wheel
-│   │   ├── template/               # Set templates registry
-│   │   └── audit/                  # Techno audit rules
-│   │
-│   ├── audio/                      # Tiered L1-L4 pipeline
-│   │   ├── pipeline.py
-│   │   ├── level_config.py
-│   │   ├── temp_download.py
-│   │   ├── timeseries.py
-│   │   ├── core/                   # AudioSignal, AnalysisContext, clip helpers
-│   │   ├── analyzers/              # 18 analyzers
-│   │   └── classification/         # mood classifier (15 subgenres)
-│   │
-│   ├── providers/                  # External platforms
-│   │   └── yandex/                 # YandexMusicClient
-│   │
-│   ├── server/                     # FastMCP composition
-│   │   ├── app.py                  # FastMCP server entry
-│   │   ├── lifespan.py
-│   │   ├── di.py                   # get_uow, get_entity_registry, …
-│   │   ├── middleware/             # log, timing, rate limit, session, errors
-│   │   ├── transforms.py           # resources↔tools, prompts↔tools
-│   │   ├── visibility.py           # namespace activation
-│   │   ├── observability.py        # Sentry / OTEL
-│   │   ├── sampling.py             # LLM sampling fallback
-│   │   ├── session_store.py
-│   │   └── prefetch.py
-│   │
-│   ├── shared/                     # Leaf module
-│   │   ├── errors.py               # NotFoundError, ValidationError, …
-│   │   ├── constants.py
-│   │   ├── filters.py              # Django-style lookup DSL
-│   │   ├── ids.py
-│   │   ├── pagination.py
-│   │   └── time.py                 # utc_now, utc_timestamp_iso, sa_now
-│   │
-│   ├── config/                     # Settings split by concern
-│   │   ├── database.py, audio.py, yandex.py, mcp.py,
-│   │   │  audit.py, delivery.py, discovery.py,
-│   │   │  optimization.py, transition.py
-│   │
-│   └── db/                         # DB bootstrap, migrations
-│       ├── session.py              # async_session_factory
-│       ├── migrations/             # Alembic
-│       └── seed.py                 # 24 keys + providers
-│
-├── tests/                          # pytest + in-memory SQLite
-├── scripts/                        # Dev / ops scripts (smoke_test_all_tools, verify_audio_pipeline, prefab_previews, …)
-└── hooks/                          # git pre-push
+AGENTS.md / rules/       project and agent policy
+README.md                user-facing overview and getting started
+CLAUDE.md / agents/      host-specific agent guidance
+app/                     application and domain implementation
+docs/                    durable architecture and domain documentation
+scripts/                 maintenance and verification utilities
+tests/                   executable contracts and regression coverage
 ```
 
-## 2. DB Schema — 47 live tables (30 live + 17 drop-pending)
+## Application boundaries
 
-Blueprint §13.2 пометил 17 legacy-таблиц на удаление, но миграция
-`p2_drop_dead_tables` пока **не применена** к Supabase — пустые схемы
-существуют (`app_exports` с 2 устаревшими rows, остальные 0). v1-код
-их не трогает.
+```text
+app/
+├── tools/                MCP operations and public tool contracts
+├── resources/            MCP read-only context and views
+├── prompts/              MCP workflow instructions
+├── handlers/             application-side effects and orchestration
+├── registry/             runtime entity/provider composition
+├── repositories/         persistence access and transaction participation
+├── models/               persistence models
+├── schemas/              typed request/response contracts
+├── domain/               pure DJ/music policy and algorithms
+├── audio/                audio analysis and DSP orchestration
+├── providers/            external music-service integrations
+├── server/               FastMCP composition, DI and cross-cutting concerns
+├── shared/               leaf cross-cutting primitives
+└── config/               configuration by concern
+```
 
-Drop-pending: spotify_\* (×5), beatport_metadata, soundcloud_metadata,
-embeddings, transition_candidates, dj_saved_loops, dj_cue_points,
-dj_beatgrid_change_points, dj_set_constraints, dj_set_feedback,
-labels, track_labels, app_exports.
+The exact set of modules and files is owned by the repository itself. Do not copy the current tree into this document when implementation changes.
 
-Подробный список актуальных таблиц — в `app/models/` (one file per aggregate root) и Alembic history (`uv run alembic history`). Текущие row counts — `mcp__plugin_dj-music_db__list_tables` или `entity_aggregate(entity="...", operation="count")`.
+## Dependency direction
 
-Core aggregate roots:
-- `tracks`, `track_audio_features_computed`, `track_sections`,
-  `track_external_ids`, `feature_extraction_runs`
-- `dj_library_items` (audio_file), `dj_playlists`, `dj_playlist_items`
-- `dj_sets`, `dj_set_versions`, `dj_set_items`, `transitions`
-- `transition_history`, `track_affinity`, `track_feedback`,
-  `scoring_profiles`
-- `keys` (24 static), `providers` (static), `yandex_metadata`,
-  `raw_provider_responses`
+Keep transport-facing code above application orchestration and domain policy. Domain code must not acquire dependencies on FastMCP, HTTP, or persistence infrastructure.
+
+Providers and audio execution are integration/processing concerns and should not become implicit dependencies of pure domain algorithms.
+
+## Persistence
+
+Repositories encapsulate persistence operations. Transaction lifecycle is coordinated at the application/server boundary rather than distributed across individual repository methods.
+
+## MCP surface
+
+Tools, resources and prompts are auto-discovered from their implementation packages where the framework configuration permits it. Runtime inventory must be obtained from FastMCP discovery, registries and schema tests rather than maintained as a duplicate file tree.
+
+## Database schema
+
+The authoritative database schema is represented by the SQLAlchemy models and migration history. This document deliberately does not embed a table count or a generated table list, because those values drift by design.
+
+For current schema questions, inspect the models/migrations or use the project's database inspection tooling.
+
+## Historical documents
+
+Older architecture snapshots, implementation plans and audits remain valuable as history. They should be read as time-bounded records, not as current structure documentation.
