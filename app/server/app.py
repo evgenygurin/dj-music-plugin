@@ -30,10 +30,12 @@ FastMCP v3 API used:
 from __future__ import annotations
 
 import logging
+import os
 from pathlib import Path
 from typing import Any
 
 from fastmcp import FastMCP
+from fastmcp.server.auth import StaticTokenVerifier
 from fastmcp.server.providers.filesystem import FileSystemProvider
 
 from app.config import get_settings
@@ -70,9 +72,19 @@ def build_mcp_server() -> FastMCP:
     fsp_resources = FileSystemProvider(root=root / "resources")
     fsp_prompts = FileSystemProvider(root=root / "prompts")
 
+    auth_token = os.getenv("DJ_MCP_AUTH_TOKEN")
+    auth = (
+        StaticTokenVerifier(
+            tokens={auth_token: {"sub": "dj-hermes", "client_id": "dj-hermes"}}
+        )
+        if auth_token
+        else None
+    )
+
     mcp = FastMCP(
         name="dj-music-v2",
         providers=[fsp_tools, fsp_resources, fsp_prompts],
+        auth=auth,
         transforms=build_pre_constructor_transforms(),
         lifespan=build_server_lifespan(),
         sampling_handler=build_sampling_handler(),
