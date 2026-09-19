@@ -13,7 +13,7 @@
     "dj-music": {
       "description": "DJ techno music specialist — manages library, builds sets, analyzes audio transitions, works with Yandex Music/Beatport/Suno. Triggers on: dj, set, mix, track, bpm, camelot, transition, playlist, library, techno, suno, yandex music, beatport, stem_transition_policy, demucs, 5-stem, policy, electronic.",
       "mode": "subagent",
-      "model": "claude-sonnet-4-6"
+      "model": "omniroute/dj-free-coding"
     },
     "ym-api-specialist": {
       "description": "Yandex Music API specialist — debug provider_read/write/search, investigate 429/403/400 errors, trace YM API quirks.",
@@ -65,5 +65,47 @@
     "gitnexus_impact": "allow",
     "gitnexus_list_repos": "allow",
     "gitnexus_analyze": "allow"
+  },
+  "model": "omniroute/dj-free-coding",
+  "small_model": "omniroute/dj-free-fast",
+  "provider": {
+    "omniroute": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "OmniRoute",
+      "whitelist": [
+        "dj-free-coding",
+        "dj-free-reasoning",
+        "dj-free-fast"
+      ],
+      "options": {
+        "baseURL": "https://omniroute-production-a7ce.up.railway.app/v1",
+        "apiKey": "{env:OMNIROUTE_API_KEY}",
+        "timeout": 600000,
+        "chunkTimeout": 60000
+      },
+      "models": {
+        "dj-free-coding": {
+          "name": "DJ Free Coding Pool",
+          "limit": {
+            "context": 262144,
+            "output": 16384
+          }
+        },
+        "dj-free-reasoning": {
+          "name": "DJ Free Reasoning Pool",
+          "limit": {
+            "context": 262144,
+            "output": 16384
+          }
+        },
+        "dj-free-fast": {
+          "name": "DJ Free Fast Pool",
+          "limit": {
+            "context": 65536,
+            "output": 8192
+          }
+        }
+      }
+    }
   }
 }
