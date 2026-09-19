@@ -191,10 +191,10 @@ pipeline.py, level_config.py, temp_download.py, timeseries.py
 
 ```bash
 # В .env
-DJ_ANTHROPIC_API_KEY=sk-ant-...
+OMNIROUTE_API_KEY=sk-ant-...
 ```
 
-`ctx.sample()` fallback подтягивает Anthropic API (см. `app/server/sampling.py`).
+`ctx.sample()` fallback подтягивает OmniRoute gateway (см. `app/server/sampling.py`).
 
 ## E2E Pipeline
 
