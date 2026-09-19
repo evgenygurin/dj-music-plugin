@@ -107,5 +107,8 @@
         }
       }
     }
-  }
+  },
+  "enabled_providers": [
+    "omniroute"
+  ]
 }
