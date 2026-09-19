@@ -21,9 +21,9 @@ Claude Code IS the LLM. Prompt `expand_playlist_workflow` ведёт его по
 
 **Why**: Claude Code doesn't support MCP sampling (`createMessage`) — `ctx.sample()` can't call back to the client.
 
-## 2. Server-side (requires `DJ_ANTHROPIC_API_KEY`)
+## 2. Server-side (requires `OMNIROUTE_API_KEY`)
 
-`ctx.sample()` calls Anthropic API via fallback handler в `app/server/sampling.py`. Используется только в headless/automated scenarios (не Claude Code).
+`ctx.sample()` calls OmniRoute gateway via fallback handler в `app/server/sampling.py`. Используется только в headless/automated scenarios (не Claude Code).
 
 ## Gotchas
 
