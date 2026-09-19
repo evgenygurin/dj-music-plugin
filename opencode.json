@@ -1,22 +1,15 @@
 {
   "$schema": "https://opencode.ai/config.json",
-  "instructions": [
-    "AGENTS.md"
-  ],
-  "skills": {
-    "paths": [
-      ".opencode/skills",
-      "skills"
-    ]
-  },
+  "instructions": ["AGENTS.md"],
+  "skills": {"paths": [".opencode/skills", "skills"]},
   "agent": {
     "dj-music": {
-      "description": "DJ techno music specialist — manages library, builds sets, analyzes audio transitions, works with Yandex Music/Beatport/Suno. Triggers on: dj, set, mix, track, bpm, camelot, transition, playlist, library, techno, suno, yandex music, beatport, stem_transition_policy, demucs, 5-stem, policy, electronic.",
+      "description": "DJ techno music specialist.",
       "mode": "subagent",
-      "model": "omniroute/dj-free-coding"
+      "model": "omniroute/conflux-coding"
     },
     "ym-api-specialist": {
-      "description": "Yandex Music API specialist — debug provider_read/write/search, investigate 429/403/400 errors, trace YM API quirks.",
+      "description": "Yandex Music API specialist.",
       "mode": "subagent",
       "color": "warning"
     }
@@ -25,37 +18,19 @@
   "mcp": {
     "djmusic": {
       "type": "local",
-      "command": [
-        "uv",
-        "run",
-        "--project",
-        "/Users/laptop/dev/dj-music-plugin",
-        "fastmcp",
-        "run",
-        "server.py:mcp",
-        "--transport",
-        "stdio",
-        "--no-banner"
-      ],
+      "command": ["uv","run","--project","/Users/laptop/dev/dj-music-plugin","fastmcp","run","server.py:mcp","--transport","stdio","--no-banner"],
       "timeout": 3600000,
       "enabled": true
     },
     "supabase": {
       "type": "local",
-      "command": [
-        "bash",
-        "-c",
-        "cd /Users/laptop/dev/dj-music-plugin && set -a && . .env && set +a && exec ./node_modules/.bin/mcp-server-supabase --read-only --project-ref=bowosphlnghhgaulcyfm --features=database,docs,debug"
-      ],
+      "command": ["bash","-c","cd /Users/laptop/dev/dj-music-plugin && set -a && . .env && set +a && exec ./node_modules/.bin/mcp-server-supabase --read-only --project-ref=bowosphlnghhgaulcyfm --features=database,docs,debug"],
       "timeout": 60000,
       "enabled": true
     },
     "gitnexus": {
       "type": "local",
-      "command": [
-        "/opt/homebrew/bin/gitnexus",
-        "mcp"
-      ],
+      "command": ["/opt/homebrew/bin/gitnexus","mcp"],
       "enabled": true
     }
   },
@@ -66,49 +41,25 @@
     "gitnexus_list_repos": "allow",
     "gitnexus_analyze": "allow"
   },
-  "model": "omniroute/dj-free-coding",
-  "small_model": "omniroute/dj-free-fast",
+  "model": "omniroute/conflux-coding",
+  "small_model": "omniroute/conflux-fast",
   "provider": {
     "omniroute": {
       "npm": "@ai-sdk/openai-compatible",
       "name": "OmniRoute",
-      "whitelist": [
-        "dj-free-coding",
-        "dj-free-reasoning",
-        "dj-free-fast"
-      ],
+      "whitelist": ["conflux-coding","conflux-reasoning","conflux-fast"],
       "options": {
         "baseURL": "https://omniroute-production-a7ce.up.railway.app/v1",
-        "apiKey": "{env:OMNIROUTE_API_KEY}",
+        "apiKey": "{file:~/.config/opencode/omniroute.key}",
         "timeout": 600000,
         "chunkTimeout": 60000
       },
       "models": {
-        "dj-free-coding": {
-          "name": "DJ Free Coding Pool",
-          "limit": {
-            "context": 262144,
-            "output": 16384
-          }
-        },
-        "dj-free-reasoning": {
-          "name": "DJ Free Reasoning Pool",
-          "limit": {
-            "context": 262144,
-            "output": 16384
-          }
-        },
-        "dj-free-fast": {
-          "name": "DJ Free Fast Pool",
-          "limit": {
-            "context": 65536,
-            "output": 8192
-          }
-        }
+        "conflux-coding": {"name":"Conflux Coding Pool","limit":{"context":262144,"output":16384}},
+        "conflux-reasoning": {"name":"Conflux Reasoning Pool","limit":{"context":262144,"output":16384}},
+        "conflux-fast": {"name":"Conflux Fast Pool","limit":{"context":65536,"output":8192}}
       }
     }
   },
-  "enabled_providers": [
-    "omniroute"
-  ]
+  "enabled_providers": ["omniroute"]
 }
