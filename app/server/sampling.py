@@ -1,10 +1,8 @@
-"""Server-side fallback sampling handler (Anthropic).
+"""Server-side fallback sampling handler via OmniRoute.
 
-When ``DJ_ANTHROPIC_API_KEY`` is set, tools that call ``ctx.sample(...)``
-without a client-provided LLM transport use this handler to proxy directly
-to Claude. Without the key the function returns ``None`` — FastMCP with
-``sampling_handler_behavior="fallback"`` then raises if the client does not
-provide sampling.
+When OMNIROUTE_API_KEY is set, tools that call ctx.sample(...)
+without a client-provided LLM transport use this handler to proxy through
+the same OmniRoute gateway as Hermes/OpenCode.
 """
 
 from __future__ import annotations
@@ -14,61 +12,70 @@ import os
 from collections.abc import Awaitable, Callable
 from typing import Any
 
-try:  # pragma: no cover - optional extra
-    from anthropic import AsyncAnthropic
-except ImportError:  # pragma: no cover
-    AsyncAnthropic = None
+import httpx
 
 log = logging.getLogger(__name__)
 
-_DEFAULT_MODEL = "claude-3-5-sonnet-20241022"
+_DEFAULT_MODEL = "dj-free-fast"
+_DEFAULT_BASE_URL = "https://omniroute-production-a7ce.up.railway.app/v1"
 
 SamplingHandler = Callable[..., Awaitable[Any]]
 
 
 def build_sampling_handler() -> SamplingHandler | None:
-    """Return an async sampling handler or ``None`` if disabled.
-
-    Disabled when ``DJ_ANTHROPIC_API_KEY`` is unset or the ``anthropic``
-    SDK is not installed.
-    """
-    api_key = os.getenv("DJ_ANTHROPIC_API_KEY")
-    if not api_key or AsyncAnthropic is None:
-        if not api_key:
-            log.debug("DJ_ANTHROPIC_API_KEY unset — sampling fallback disabled")
-        else:  # pragma: no cover
-            log.warning("anthropic SDK unavailable — sampling fallback disabled")
+    """Return an async OmniRoute sampling handler or None if disabled."""
+    api_key = os.getenv("OMNIROUTE_API_KEY")
+    if not api_key:
+        log.debug("OMNIROUTE_API_KEY unset - sampling fallback disabled")
         return None
 
-    client = AsyncAnthropic(api_key=api_key)
+    base_url = os.getenv("OMNIROUTE_BASE_URL", _DEFAULT_BASE_URL).rstrip("/")
+    model = os.getenv("DJ_SAMPLING_MODEL", _DEFAULT_MODEL)
+
+    client = httpx.AsyncClient(
+        base_url=base_url,
+        headers={"Authorization": f"Bearer {api_key}"},
+        timeout=httpx.Timeout(120.0, connect=10.0),
+    )
 
     async def handler(messages: Any, params: Any, context: Any) -> Any:
-        anthropic_messages = [
-            {
-                "role": "user",
-                "content": getattr(m.content, "text", str(m.content)),
-            }
-            for m in messages
-        ]
-        response = await client.messages.create(
-            model=_DEFAULT_MODEL,
-            system=getattr(params, "system_prompt", "") or "",
-            max_tokens=getattr(params, "max_tokens", 1024),
-            temperature=getattr(params, "temperature", 0.2),
-            messages=anthropic_messages,
+        chat_messages: list[dict[str, str]] = []
+        system_prompt = getattr(params, "system_prompt", "") or ""
+        if system_prompt:
+            chat_messages.append({"role": "system", "content": system_prompt})
+
+        for message in messages:
+            content = getattr(message, "content", "")
+            text = getattr(content, "text", None)
+            if text is None:
+                text = str(content)
+            chat_messages.append({"role": "user", "content": text})
+
+        response = await client.post(
+            "/chat/completions",
+            json={
+                "model": model,
+                "messages": chat_messages,
+                "max_tokens": getattr(params, "max_tokens", 1024),
+                "temperature": getattr(params, "temperature", 0.2),
+            },
         )
-        # Bump LLM token counter on state if present.
+        response.raise_for_status()
+        payload = response.json()
+
+        choice = (payload.get("choices") or [{}])[0]
+        text = ((choice.get("message") or {}).get("content") or "").strip()
+
+        usage = payload.get("usage") or {}
         fmctx = getattr(context, "fastmcp_context", None) if context else None
         state = getattr(fmctx, "state", None) if fmctx else None
         if isinstance(state, dict):
             cost = state.setdefault("cost", {"provider_calls": 0, "llm_tokens": 0})
-            usage = getattr(response, "usage", None)
-            if usage is not None:
-                cost["llm_tokens"] += int(
-                    getattr(usage, "input_tokens", 0) + getattr(usage, "output_tokens", 0)
-                )
+            cost["provider_calls"] += 1
+            cost["llm_tokens"] += int(
+                usage.get("prompt_tokens", 0) + usage.get("completion_tokens", 0)
+            )
 
-        text = "".join(block.text for block in response.content if hasattr(block, "text"))
         return text
 
     return handler
