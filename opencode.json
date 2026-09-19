@@ -1,7 +1,14 @@
 {
   "$schema": "https://opencode.ai/config.json",
-  "instructions": ["AGENTS.md"],
-  "skills": {"paths": [".opencode/skills", "skills"]},
+  "instructions": [
+    "AGENTS.md"
+  ],
+  "skills": {
+    "paths": [
+      ".opencode/skills",
+      "skills"
+    ]
+  },
   "agent": {
     "dj-music": {
       "description": "DJ techno music specialist.",
@@ -18,19 +25,37 @@
   "mcp": {
     "djmusic": {
       "type": "local",
-      "command": ["uv","run","--project","/Users/laptop/dev/dj-music-plugin","fastmcp","run","server.py:mcp","--transport","stdio","--no-banner"],
+      "command": [
+        "uv",
+        "run",
+        "--project",
+        "/Users/laptop/dev/dj-music-plugin",
+        "fastmcp",
+        "run",
+        "server.py:mcp",
+        "--transport",
+        "stdio",
+        "--no-banner"
+      ],
       "timeout": 3600000,
       "enabled": true
     },
     "supabase": {
       "type": "local",
-      "command": ["bash","-c","cd /Users/laptop/dev/dj-music-plugin && set -a && . .env && set +a && exec ./node_modules/.bin/mcp-server-supabase --read-only --project-ref=bowosphlnghhgaulcyfm --features=database,docs,debug"],
+      "command": [
+        "bash",
+        "-c",
+        "cd /Users/laptop/dev/dj-music-plugin && set -a && . .env && set +a && exec ./node_modules/.bin/mcp-server-supabase --read-only --project-ref=bowosphlnghhgaulcyfm --features=database,docs,debug"
+      ],
       "timeout": 60000,
       "enabled": true
     },
     "gitnexus": {
       "type": "local",
-      "command": ["/opt/homebrew/bin/gitnexus","mcp"],
+      "command": [
+        "/opt/homebrew/bin/gitnexus",
+        "mcp"
+      ],
       "enabled": true
     }
   },
@@ -47,7 +72,11 @@
     "omniroute": {
       "npm": "@ai-sdk/openai-compatible",
       "name": "OmniRoute",
-      "whitelist": ["conflux-coding","conflux-reasoning","conflux-fast"],
+      "whitelist": [
+        "conflux-coding",
+        "conflux-reasoning",
+        "conflux-fast"
+      ],
       "options": {
         "baseURL": "https://omniroute-production-a7ce.up.railway.app/v1",
         "apiKey": "{file:~/.config/opencode/omniroute.key}",
@@ -55,11 +84,31 @@
         "chunkTimeout": 60000
       },
       "models": {
-        "conflux-coding": {"name":"Conflux Coding Pool","limit":{"context":262144,"output":16384}},
-        "conflux-reasoning": {"name":"Conflux Reasoning Pool","limit":{"context":262144,"output":16384}},
-        "conflux-fast": {"name":"Conflux Fast Pool","limit":{"context":65536,"output":8192}}
+        "conflux-coding": {
+          "name": "Conflux Coding Pool",
+          "limit": {
+            "context": 32768,
+            "output": 16384
+          }
+        },
+        "conflux-reasoning": {
+          "name": "Conflux Reasoning Pool",
+          "limit": {
+            "context": 32768,
+            "output": 16384
+          }
+        },
+        "conflux-fast": {
+          "name": "Conflux Fast Pool",
+          "limit": {
+            "context": 400000,
+            "output": 8192
+          }
+        }
       }
     }
   },
-  "enabled_providers": ["omniroute"]
+  "enabled_providers": [
+    "omniroute"
+  ]
 }
