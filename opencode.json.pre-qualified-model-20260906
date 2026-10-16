@@ -1,0 +1,234 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "instructions": [
+    "AGENTS.md"
+  ],
+  "skills": {
+    "paths": [
+      ".opencode/skills",
+      "skills"
+    ]
+  },
+  "agent": {
+    "dj-music": {
+      "description": "DJ techno music specialist — manages library, builds sets, analyzes audio transitions, works with Yandex Music/Beatport/Suno. Triggers on: dj, set, mix, track, bpm, camelot, transition, playlist, library, techno, suno, yandex music, beatport, stem_transition_policy, demucs, 5-stem, policy, electronic.",
+      "mode": "subagent",
+      "model": "claude-sonnet-4-6"
+    },
+    "ym-api-specialist": {
+      "description": "Yandex Music API specialist — debug provider_read/write/search, investigate 429/403/400 errors, trace YM API quirks.",
+      "mode": "subagent",
+      "color": "warning"
+    }
+  },
+  "provider": {
+    "nvidia": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "NVIDIA NIM",
+      "shouldFetchModels": false,
+      "options": {
+        "baseURL": "https://integrate.api.nvidia.com/v1",
+        "apiKey": "{env:NVIDIA_API_KEY}"
+      },
+      "models": {
+        "moonshotai/kimi-k3": { "name": "Kimi K3" },
+        "deepseek-ai/deepseek-v4-pro-0813": { "name": "DeepSeek V4 Pro" },
+        "deepseek-ai/deepseek-v4-flash-0731": { "name": "DeepSeek V4 Flash" },
+        "nvidia/nemotron-3-5-lightning-30b-a3b": { "name": "Nemotron 3-5 Lightning 30B" },
+        "z-ai/glm-5-2": { "name": "GLM 5-2" },
+        "minimaxai/minimax-m3": { "name": "MiniMax M3" },
+        "meta/muse-glimmer-30b": { "name": "Muse Glimmer 30B" },
+        "thinkingmachines/inkling": { "name": "Inkling" },
+        "google/diffusiongemma-26b-a4b-it": { "name": "DiffusionGemma 26B" },
+        "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning": { "name": "Nemotron 3 Nano Omni 30B" },
+        "poolside/laguna-xs-2-1": { "name": "Laguna XS 2-1" },
+        "google/gemma-4-31b-it": { "name": "Gemma 4 31B" }
+      }
+    },
+    "openrouter": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "OpenRouter",
+      "options": {
+        "baseURL": "https://openrouter.ai/api/v1",
+        "apiKey": "{env:OPENROUTER_API_KEY}"
+      },
+      "models": {
+        "openrouter/free": { "name": "OpenRouter Free Router" },
+        "z-ai/glm-5-2:free": { "name": "GLM 5-2 (Free)" },
+        "minimax/minimax-m3:free": { "name": "MiniMax M3 (Free)" },
+        "nvidia/nemotron-3-ultra-550b-a55b:free": { "name": "Nemotron 3 Ultra (Free)" },
+        "nvidia/nemotron-3-super-120b-a12b:free": { "name": "Nemotron 3 Super (Free)" },
+        "nvidia/nemotron-3-5-lightning:free": { "name": "Nemotron 3-5 Lightning (Free)" },
+        "nvidia/nemotron-3-nano-30b-a3b:free": { "name": "Nemotron 3 Nano 30B A3B (Free)" },
+        "nvidia/nemotron-3-nano-omni-30b-a3b:free": { "name": "Nemotron 3 Nano Omni (Free)" },
+        "nvidia/nemotron-nano-12b-v2-vl:free": { "name": "Nemotron Nano 12B 2 VL (Free)" },
+        "nvidia/nemotron-3-5-content-safety:free": { "name": "Nemotron 3-5 Content Safety (Free)" },
+        "cohere/north-mini-code:free": { "name": "Cohere North Mini Code (Free)" },
+        "poolside/laguna-m-1:free": { "name": "Laguna M-1 (Free)" },
+        "poolside/laguna-s-2-1:free": { "name": "Laguna S 2-1 (Free)" },
+        "poolside/laguna-xs-2-1:free": { "name": "Laguna XS 2-1 (Free)" },
+        "openai/gpt-oss-20b:free": { "name": "GPT OSS 20B (Free)" },
+        "google/gemma-4-26b-a4b-it:free": { "name": "Gemma 4 26B A4B (Free)" },
+        "google/gemma-4-31b-it:free": { "name": "Gemma 4 31B (Free)" }
+      }
+    },
+    "opencode": {
+      "name": "OpenCode Zen",
+      "models": {
+        "mimo-v2-5-free": { "name": "MiMo V2-5 Free" },
+        "hy3-free": { "name": "HY3 Free" },
+        "ling-3-0-flash-fin-free": { "name": "Ling 3-0 Flash Fin Free" },
+        "nemotron-3-ultra-free": { "name": "Nemotron 3 Ultra Free" },
+        "nemotron-3-5-lightning-free": { "name": "Nemotron 3-5 Lightning Free" },
+        "big-pickle": { "name": "Big Pickle" },
+        "muse-spark-1-3-contributor-free": { "name": "Muse Spark 1-3 Contributor Free" },
+        "muse-spark-1-2-contributor-free": { "name": "Muse Spark 1-2 Contributor Free" }
+      }
+    },
+    "google": {
+      "npm": "@ai-sdk/google",
+      "name": "Google Gemini",
+      "options": {
+        "apiKey": "{env:GOOGLE_GENERATIVE_AI_API_KEY}"
+      },
+      "models": {
+        "gemini-3-8-flash": { "name": "Gemini 3-8 Flash" },
+        "gemini-3-7-flash": { "name": "Gemini 3-7 Flash" },
+        "gemini-3-6-flash": { "name": "Gemini 3-6 Flash" },
+        "gemini-3-5-flash": { "name": "Gemini 3-5 Flash" },
+        "gemini-3-5-flash-lite": { "name": "Gemini 3-5 Flash Lite" },
+        "gemini-3-1-flash-lite": { "name": "Gemini 3-1 Flash Lite" }
+      }
+    },
+    "zai": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "Z.AI",
+      "options": {
+        "baseURL": "https://api.z.ai/api/paas/v4",
+        "apiKey": "{env:ZAI_API_KEY}"
+      },
+      "models": {
+        "glm-4-7-flash": { "name": "GLM 4-7 Flash" },
+        "glm-4-5-flash": { "name": "GLM 4-5 Flash" },
+        "glm-4-6v-flash": { "name": "GLM 4-6V Flash" }
+      }
+    },
+    "groq": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "Groq",
+      "options": {
+        "baseURL": "https://api.groq.com/openai/v1",
+        "apiKey": "{env:GROQ_API_KEY}"
+      },
+      "models": {
+        "openai/gpt-oss-120b": { "name": "GPT OSS 120B" },
+        "openai/gpt-oss-20b": { "name": "GPT OSS 20B" }
+      }
+    },
+    "cloudflare": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "Cloudflare Workers AI",
+      "options": {
+        "baseURL": "https://api.cloudflare.com/client/v4/accounts/{env:CLOUDFLARE_ACCOUNT_ID}/ai/v1",
+        "apiKey": "{env:CLOUDFLARE_API_TOKEN}"
+      },
+      "models": {
+        "@cf/zai-org/glm-4-7-flash": { "name": "GLM 4-7 Flash" },
+        "@cf/google/gemma-4-26b-a4b-it": { "name": "Gemma 4 26B A4B" },
+        "@cf/nvidia/nemotron-3-120b": { "name": "Nemotron 3 120B" },
+        "@cf/openai/gpt-oss-120b": { "name": "GPT OSS 120B" },
+        "@cf/meta/llama-4-scout-17b-16e-instruct": { "name": "Llama 4 Scout 17B" },
+        "@cf/moonshotai/kimi-k2-5": { "name": "Kimi K2-5" }
+      }
+    },
+    "cerebras": {
+      "npm": "@ai-sdk/cerebras",
+      "name": "Cerebras",
+      "options": {
+        "apiKey": "{env:CEREBRAS_API_KEY}"
+      },
+      "models": {
+        "gpt-oss-120b": { "name": "GPT OSS 120B" },
+        "llama3-1-8b": { "name": "Llama 3-1 8B" },
+        "qwen-3-235b-a22b-instruct-2507": { "name": "Qwen 3 235B A22B" },
+        "zai-glm-4-7": { "name": "GLM 4-7" }
+      }
+    },
+    "mistral": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "Mistral",
+      "options": {
+        "baseURL": "https://api.mistral.ai/v1",
+        "apiKey": "{env:MISTRAL_API_KEY}"
+      },
+      "models": {
+        "codestral-latest": { "name": "Codestral" },
+        "mistral-large-latest": { "name": "Mistral Large" }
+      }
+    },
+    "huggingface": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "Hugging Face",
+      "options": {
+        "baseURL": "https://router.huggingface.co/v1",
+        "apiKey": "{env:HF_TOKEN}"
+      },
+      "models": {
+        "openai/gpt-oss-120b": { "name": "GPT OSS 120B" },
+        "deepseek-ai/DeepSeek-V3-0324": { "name": "DeepSeek V3 0324" }
+      }
+    }
+  },
+  "model": "openrouter/z-ai/glm-5-2:free",
+  "small_model": "openrouter/openai/gpt-oss-20b:free",
+  "plugin": [
+    "@mem0/opencode-plugin",
+    "opencode-supabase",
+    "superpowers@git+https://github.com/obra/superpowers.git",
+    "gitnexus-opencode"
+  ],
+  "mcp": {
+    "djmusic": {
+      "type": "local",
+      "command": [
+        "uv",
+        "run",
+        "--project",
+        "/Users/laptop/dev/dj-music-plugin",
+        "fastmcp",
+        "run",
+        "server.py:mcp",
+        "--transport",
+        "stdio",
+        "--no-banner"
+      ],
+      "timeout": 3600000,
+      "enabled": true
+    },
+    "supabase": {
+      "type": "local",
+      "command": [
+        "bash",
+        "-c",
+        "cd /Users/laptop/dev/dj-music-plugin && set -a && . .env && set +a && exec ./node_modules/.bin/mcp-server-supabase --read-only --project-ref=bowosphlnghhgaulcyfm --features=database,docs,debug"
+      ],
+      "timeout": 60000,
+      "enabled": true
+    },
+    "gitnexus": {
+      "type": "local",
+      "command": [
+        "/opt/homebrew/bin/gitnexus",
+        "mcp"
+      ],
+      "enabled": true
+    }
+  },
+  "permission": {
+    "gitnexus_query": "allow",
+    "gitnexus_context": "allow",
+    "gitnexus_impact": "allow",
+    "gitnexus_list_repos": "allow",
+    "gitnexus_analyze": "allow"
+  }
+}

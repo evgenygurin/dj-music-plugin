@@ -1,0 +1,282 @@
+{
+  "version": 3,
+  "writtenAt": 1788770009547,
+  "workflowSchema": "exact-task-v1",
+  "toolAggregates": {
+    "bash": {
+      "tool": "bash",
+      "count": 477,
+      "successCount": 477,
+      "failureCount": 0,
+      "totalDuration": 4121583
+    },
+    "djmusic_search_tools": {
+      "tool": "djmusic_search_tools",
+      "count": 1,
+      "successCount": 1,
+      "failureCount": 0,
+      "totalDuration": 345
+    },
+    "djmusic_unlock_namespace": {
+      "tool": "djmusic_unlock_namespace",
+      "count": 1,
+      "successCount": 1,
+      "failureCount": 0,
+      "totalDuration": 54
+    },
+    "edit": {
+      "tool": "edit",
+      "count": 27,
+      "successCount": 27,
+      "failureCount": 0,
+      "totalDuration": 8920
+    },
+    "gitnexus_query": {
+      "tool": "gitnexus_query",
+      "count": 1,
+      "successCount": 1,
+      "failureCount": 0,
+      "totalDuration": 103
+    },
+    "gitnexus_tool_map": {
+      "tool": "gitnexus_tool_map",
+      "count": 1,
+      "successCount": 1,
+      "failureCount": 0,
+      "totalDuration": 421
+    },
+    "glob": {
+      "tool": "glob",
+      "count": 6,
+      "successCount": 6,
+      "failureCount": 0,
+      "totalDuration": 30356
+    },
+    "invalid": {
+      "tool": "invalid",
+      "count": 1,
+      "successCount": 1,
+      "failureCount": 0,
+      "totalDuration": 1
+    },
+    "list_mcp_resources": {
+      "tool": "list_mcp_resources",
+      "count": 4,
+      "successCount": 4,
+      "failureCount": 0,
+      "totalDuration": 951
+    },
+    "question": {
+      "tool": "question",
+      "count": 4,
+      "successCount": 4,
+      "failureCount": 0,
+      "totalDuration": 200831
+    },
+    "read": {
+      "tool": "read",
+      "count": 31,
+      "successCount": 31,
+      "failureCount": 0,
+      "totalDuration": 213599
+    },
+    "read_mcp_resource": {
+      "tool": "read_mcp_resource",
+      "count": 4,
+      "successCount": 4,
+      "failureCount": 0,
+      "totalDuration": 693
+    },
+    "retrieve_summary": {
+      "tool": "retrieve_summary",
+      "count": 1,
+      "successCount": 1,
+      "failureCount": 0,
+      "totalDuration": 4
+    },
+    "skill": {
+      "tool": "skill",
+      "count": 5,
+      "successCount": 5,
+      "failureCount": 0,
+      "totalDuration": 136
+    },
+    "todowrite": {
+      "tool": "todowrite",
+      "count": 12,
+      "successCount": 12,
+      "failureCount": 0,
+      "totalDuration": 1032
+    },
+    "web_search": {
+      "tool": "web_search",
+      "count": 1,
+      "successCount": 1,
+      "failureCount": 0,
+      "totalDuration": 7
+    },
+    "webfetch": {
+      "tool": "webfetch",
+      "count": 11,
+      "successCount": 11,
+      "failureCount": 0,
+      "totalDuration": 4814
+    },
+    "write": {
+      "tool": "write",
+      "count": 75,
+      "successCount": 75,
+      "failureCount": 0,
+      "totalDuration": 51973
+    }
+  },
+  "activeAgent": {
+    "ses_f85054646ffedDEJaMlTzVT2n5": "architect",
+    "ses_f8505fc1cffeVbu2I3Js69TW7U": "build"
+  },
+  "delegationChains": {
+    "ses_f8505fc1cffeVbu2I3Js69TW7U": [
+      {
+        "from": "unknown",
+        "to": "build",
+        "timestamp": 1788769604769
+      }
+    ]
+  },
+  "agentSessions": {
+    "ses_f85054646ffedDEJaMlTzVT2n5": {
+      "agentName": "architect",
+      "lastToolCallTime": 1788769650579,
+      "lastAgentEventTime": 1788769650528,
+      "delegationActive": false,
+      "activeInvocationId": 1,
+      "lastInvocationIdByAgent": {
+        "architect": 1
+      },
+      "windows": {},
+      "lastCompactionHint": 0,
+      "architectWriteCount": 0,
+      "lastCoderDelegationTaskId": null,
+      "currentTaskId": null,
+      "turboMode": false,
+      "leanTurboActive": false,
+      "epicModeActive": false,
+      "gateLog": {},
+      "reviewerCallCount": {},
+      "lastGateFailure": null,
+      "partialGateWarningsIssuedForTask": [
+        "ses_f85054646ffedDEJaMlTzVT2n5:unknown"
+      ],
+      "completionGateWarnedForTask": [],
+      "selfFixAttempted": false,
+      "selfCodingWarnedAtCount": 0,
+      "catastrophicPhaseWarnings": [],
+      "lastPhaseCompleteTimestamp": 0,
+      "lastPhaseCompletePhase": 0,
+      "phaseAgentsDispatched": [],
+      "lastCompletedPhaseAgentsDispatched": [],
+      "qaSkipCount": 0,
+      "qaSkipTaskIds": [],
+      "pendingAdvisoryMessages": [],
+      "taskWorkflowStates": {},
+      "scopeViolationDetected": false,
+      "model_fallback_index": 0,
+      "modelFallbackExhausted": false,
+      "coderRevisions": 0,
+      "revisionLimitHit": false,
+      "fullAutoMode": false,
+      "fullAutoInteractionCount": 0,
+      "fullAutoDeadlockCount": 0,
+      "fullAutoLastQuestionHash": null,
+      "sessionRehydratedAt": 0,
+      "cachedCohortId": "96d9f3e1dd75"
+    },
+    "ses_f8505fc1cffeVbu2I3Js69TW7U": {
+      "agentName": "build",
+      "lastToolCallTime": 1788770009547,
+      "lastAgentEventTime": 1788769604769,
+      "delegationActive": true,
+      "activeInvocationId": 3,
+      "lastInvocationIdByAgent": {
+        "build": 3
+      },
+      "windows": {
+        "build:3": {
+          "id": 3,
+          "agentName": "build",
+          "startedAtMs": 1788769909333,
+          "toolCalls": 0,
+          "consecutiveErrors": 0,
+          "hardLimitHit": false,
+          "lastSuccessTimeMs": 1788770009547,
+          "recentToolCalls": [],
+          "warningIssued": false,
+          "warningReason": "",
+          "transientRetryCount": 0
+        },
+        "build:2": {
+          "id": 2,
+          "agentName": "build",
+          "startedAtMs": 1788769786840,
+          "toolCalls": 0,
+          "consecutiveErrors": 0,
+          "hardLimitHit": false,
+          "lastSuccessTimeMs": 1788769824625,
+          "recentToolCalls": [],
+          "warningIssued": false,
+          "warningReason": "",
+          "transientRetryCount": 0
+        },
+        "build:1": {
+          "id": 1,
+          "agentName": "build",
+          "startedAtMs": 1788769604770,
+          "toolCalls": 0,
+          "consecutiveErrors": 0,
+          "hardLimitHit": false,
+          "lastSuccessTimeMs": 1788769638449,
+          "recentToolCalls": [],
+          "warningIssued": false,
+          "warningReason": "",
+          "transientRetryCount": 0
+        }
+      },
+      "lastCompactionHint": 0,
+      "architectWriteCount": 0,
+      "lastCoderDelegationTaskId": null,
+      "currentTaskId": null,
+      "turboMode": false,
+      "leanTurboActive": false,
+      "epicModeActive": false,
+      "gateLog": {},
+      "reviewerCallCount": {},
+      "lastGateFailure": null,
+      "partialGateWarningsIssuedForTask": [],
+      "completionGateWarnedForTask": [],
+      "selfFixAttempted": false,
+      "selfCodingWarnedAtCount": 0,
+      "catastrophicPhaseWarnings": [],
+      "lastPhaseCompleteTimestamp": 0,
+      "lastPhaseCompletePhase": 0,
+      "phaseAgentsDispatched": [
+        "build"
+      ],
+      "lastCompletedPhaseAgentsDispatched": [],
+      "qaSkipCount": 0,
+      "qaSkipTaskIds": [],
+      "pendingAdvisoryMessages": [],
+      "taskWorkflowStates": {},
+      "scopeViolationDetected": false,
+      "model_fallback_index": 0,
+      "modelFallbackExhausted": false,
+      "coderRevisions": 0,
+      "revisionLimitHit": false,
+      "fullAutoMode": false,
+      "fullAutoInteractionCount": 0,
+      "fullAutoDeadlockCount": 0,
+      "fullAutoLastQuestionHash": null,
+      "sessionRehydratedAt": 0,
+      "cachedCohortId": "96d9f3e1dd75"
+    }
+  }
+}

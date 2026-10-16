@@ -1,0 +1,706 @@
+{
+  "schema_version": 1,
+  "scanned_at": "2026-09-07T08:27:34.755Z",
+  "files": [
+    {
+      "path": ".github/BRANCH_STRATEGY.md",
+      "title": "Branch Strategy",
+      "summary": "[Warning: 100+ docs found, listing first 100] ```text main ← production-ready, default branch, only mover via PR ↑ squash merge (PR only, never direct push) release/*, feat/*, fix/*, chore/*, docs/*, refactor/* ← short-lived ``` The historical...",
+      "lines": 80,
+      "mtime": 1785090398427.5264
+    },
+    {
+      "path": ".github/pull_request_template.md",
+      "title": "pull_request_template.md",
+      "summary": "<!-- BEFORE SUBMITTING: Read every word of this template. PRs that leave sections blank, contain multiple unrelated changes, or show no evidence of human involvement will be closed without review. -->",
+      "lines": 144,
+      "mtime": 1785090398427.6384
+    },
+    {
+      "path": ".pytest_cache/README.md",
+      "title": "pytest cache directory #",
+      "summary": "This directory contains data from the pytest's cache plugin, which provides the `--lf` and `--ff` options, as well as the `cache` fixture. **Do not** commit this to version control. See [the docs](...",
+      "lines": 9,
+      "mtime": 1784636347172.5693
+    },
+    {
+      "path": ".venv/lib/python3.12/site-packages/caio/src/threadpool/README.md",
+      "title": "README.md",
+      "summary": "[![Build Status](https://travis-ci.org/mbrossard/threadpool.svg?branch=master)](https://travis-ci.org/mbrossard/threadpool) A simple C thread pool implementation ===================================...",
+      "lines": 25,
+      "mtime": 1774702150363.9092
+    },
+    {
+      "path": ".venv/lib/python3.12/site-packages/fastmcp/contrib/bulk_tool_caller/README.md",
+      "title": "Bulk Tool Caller",
+      "summary": "This module provides the `BulkToolCaller` class, which extends the `MCPMixin` to offer tools for performing multiple tool calls in a single request to a FastMCP server. This can be useful for optim...",
+      "lines": 35,
+      "mtime": 1776307536376.643
+    },
+    {
+      "path": ".venv/lib/python3.12/site-packages/fastmcp/contrib/component_manager/README.md",
+      "title": "Component Manager – Contrib Module for FastMCP",
+      "summary": "The **Component Manager** provides a unified API for enabling and disabling tools, resources, and prompts at runtime in a FastMCP server. This module is useful for dynamic control over which compon...",
+      "lines": 164,
+      "mtime": 1776307536377.0203
+    },
+    {
+      "path": ".venv/lib/python3.12/site-packages/fastmcp/contrib/mcp_mixin/README.md",
+      "title": "MCP Mixin",
+      "summary": "from mcp.types import ToolAnnotations This module provides the `MCPMixin` base class and associated decorators (`@mcp_tool`, `@mcp_resource`, `@mcp_prompt`). It allows developers to easily define c...",
+      "lines": 148,
+      "mtime": 1776307536377.456
+    },
+    {
+      "path": ".venv/lib/python3.12/site-packages/fastmcp/contrib/README.md",
+      "title": "FastMCP Contrib Modules",
+      "summary": "This directory holds community-contributed modules for FastMCP. These modules extend FastMCP's functionality but are not officially maintained by the core team. **Guarantees:** *   Modules in `cont...",
+      "lines": 19,
+      "mtime": 1776307536376.5315
+    },
+    {
+      "path": ".venv/lib/python3.12/site-packages/fastmcp/server/providers/openapi/README.md",
+      "title": "OpenAPI Server Implementation (New)",
+      "summary": "This directory contains the next-generation FastMCP server implementation for OpenAPI integration, designed to replace the legacy implementation in `/server/openapi.py`. The new implementation uses...",
+      "lines": 266,
+      "mtime": 1776307536432.2683
+    },
+    {
+      "path": ".venv/lib/python3.12/site-packages/fastmcp/utilities/openapi/README.md",
+      "title": "OpenAPI Utilities",
+      "summary": "This directory contains the OpenAPI integration utilities for FastMCP. The implementation follows a **stateless request building strategy** using `openapi-core` for high-performance, per-request HT...",
+      "lines": 211,
+      "mtime": 1776307536445.3271
+    },
+    {
+      "path": ".venv/lib/python3.12/site-packages/mlx/include/metal_cpp/README.md",
+      "title": "README.md",
+      "summary": "**metal-cpp** is a low overhead and header only C++ interface for Metal that helps developers add Metal functionality to graphics applications that are written in C++ (such as game engines). **meta...",
+      "lines": 314,
+      "mtime": 1788445978955.598
+    },
+    {
+      "path": ".venv/lib/python3.12/site-packages/openapi_pydantic/v3/v3_0/README.md",
+      "title": "OpenAPI v3.0 schema classes",
+      "summary": "Due to the reserved words in python and pydantic, the following fields are used with [alias](https://pydantic-docs.helpmanual.io/usage/schema/#field-customisation) feature provided by pydantic: | C...",
+      "lines": 40,
+      "mtime": 1774702149867.1187
+    },
+    {
+      "path": ".venv/lib/python3.12/site-packages/openapi_pydantic/v3/v3_1/README.md",
+      "title": "OpenAPI v3.1 schema classes",
+      "summary": "Due to the reserved words in python and pydantic, the following fields are used with [alias](https://pydantic-docs.helpmanual.io/usage/schema/#field-customisation) feature provided by pydantic: | C...",
+      "lines": 42,
+      "mtime": 1774702150637.4497
+    },
+    {
+      "path": ".venv/lib/python3.12/site-packages/opentelemetry/sdk/_configuration/README.md",
+      "title": "SDK File Configuration",
+      "summary": "This package implements [OpenTelemetry file-based configuration](https://opentelemetry.io/docs/specs/otel/configuration). - `schema.json` — vendored copy of the [OpenTelemetry configuration JSON sc...",
+      "lines": 30,
+      "mtime": 1788492797664.3193
+    },
+    {
+      "path": ".venv/lib/python3.12/site-packages/sklearn/externals/array_api_compat/README.md",
+      "title": "README.md",
+      "summary": "Update this directory using maint_tools/vendor_array_api_compat.sh",
+      "lines": 2,
+      "mtime": 1783248336777.9946
+    },
+    {
+      "path": ".venv/lib/python3.12/site-packages/sklearn/externals/array_api_extra/README.md",
+      "title": "README.md",
+      "summary": "Update this directory using maint_tools/vendor_array_api_extra.sh",
+      "lines": 2,
+      "mtime": 1783248337186.4194
+    },
+    {
+      "path": ".venv/lib/python3.12/site-packages/torchgen/packaged/autograd/README.md",
+      "title": "README.md",
+      "summary": "If you add a file to this directory, you **MUST** update `torch/CMakeLists.txt` and add the file as a dependency to the `add_custom_command` call.",
+      "lines": 4,
+      "mtime": 1783248464487.2163
+    },
+    {
+      "path": ".worktrees/ai-dj-universal-engine/.pytest_cache/README.md",
+      "title": "pytest cache directory #",
+      "summary": "This directory contains data from the pytest's cache plugin, which provides the `--lf` and `--ff` options, as well as the `cache` fixture. **Do not** commit this to version control. See [the docs](...",
+      "lines": 9,
+      "mtime": 1788541542062.222
+    },
+    {
+      "path": ".worktrees/ai-dj-universal-engine/.venv/lib/python3.12/site-packages/caio/src/threadpool/README.md",
+      "title": "README.md",
+      "summary": "[![Build Status](https://travis-ci.org/mbrossard/threadpool.svg?branch=master)](https://travis-ci.org/mbrossard/threadpool) A simple C thread pool implementation ===================================...",
+      "lines": 25,
+      "mtime": 1787818839772.7905
+    },
+    {
+      "path": ".worktrees/ai-dj-universal-engine/.venv/lib/python3.12/site-packages/fastmcp/contrib/bulk_tool_caller/README.md",
+      "title": "Bulk Tool Caller",
+      "summary": "This module provides the `BulkToolCaller` class, which extends the `MCPMixin` to offer tools for performing multiple tool calls in a single request to a FastMCP server. This can be useful for optim...",
+      "lines": 35,
+      "mtime": 1784709579973.1787
+    },
+    {
+      "path": ".worktrees/ai-dj-universal-engine/.venv/lib/python3.12/site-packages/fastmcp/contrib/component_manager/README.md",
+      "title": "Component Manager – Contrib Module for FastMCP",
+      "summary": "The **Component Manager** provides a unified API for enabling and disabling tools, resources, and prompts at runtime in a FastMCP server. This module is useful for dynamic control over which compon...",
+      "lines": 164,
+      "mtime": 1784709579974.869
+    },
+    {
+      "path": ".worktrees/ai-dj-universal-engine/.venv/lib/python3.12/site-packages/fastmcp/contrib/mcp_mixin/README.md",
+      "title": "MCP Mixin",
+      "summary": "from mcp.types import ToolAnnotations This module provides the `MCPMixin` base class and associated decorators (`@mcp_tool`, `@mcp_resource`, `@mcp_prompt`). It allows developers to easily define c...",
+      "lines": 148,
+      "mtime": 1784709582676.3806
+    },
+    {
+      "path": ".worktrees/ai-dj-universal-engine/.venv/lib/python3.12/site-packages/fastmcp/contrib/README.md",
+      "title": "FastMCP Contrib Modules",
+      "summary": "This directory holds community-contributed modules for FastMCP. These modules extend FastMCP's functionality but are not officially maintained by the core team. **Guarantees:** *   Modules in `cont...",
+      "lines": 19,
+      "mtime": 1784709579972.858
+    },
+    {
+      "path": ".worktrees/ai-dj-universal-engine/.venv/lib/python3.12/site-packages/fastmcp/server/providers/openapi/README.md",
+      "title": "OpenAPI Server Implementation (New)",
+      "summary": "This directory contains the next-generation FastMCP server implementation for OpenAPI integration, designed to replace the legacy implementation in `/server/openapi.py`. The new implementation uses...",
+      "lines": 266,
+      "mtime": 1784709632911.398
+    },
+    {
+      "path": ".worktrees/ai-dj-universal-engine/.venv/lib/python3.12/site-packages/fastmcp/utilities/openapi/README.md",
+      "title": "OpenAPI Utilities",
+      "summary": "This directory contains the OpenAPI integration utilities for FastMCP. The implementation follows a **stateless request building strategy** using `openapi-core` for high-performance, per-request HT...",
+      "lines": 211,
+      "mtime": 1784709653528.227
+    },
+    {
+      "path": ".worktrees/ai-dj-universal-engine/.venv/lib/python3.12/site-packages/mypy/typeshed/stdlib/_typeshed/README.md",
+      "title": "Utility types for typeshed",
+      "summary": "This package and its submodules contain various common types used by typeshed. It can also be used by packages outside typeshed, but beware the API stability guarantees below. The `_typeshed` packa...",
+      "lines": 35,
+      "mtime": 1787818841620.8738
+    },
+    {
+      "path": ".worktrees/ai-dj-universal-engine/.venv/lib/python3.12/site-packages/openapi_pydantic/v3/v3_0/README.md",
+      "title": "OpenAPI v3.0 schema classes",
+      "summary": "Due to the reserved words in python and pydantic, the following fields are used with [alias](https://pydantic-docs.helpmanual.io/usage/schema/#field-customisation) feature provided by pydantic: | C...",
+      "lines": 40,
+      "mtime": 1784315614625.2888
+    },
+    {
+      "path": ".worktrees/ai-dj-universal-engine/.venv/lib/python3.12/site-packages/openapi_pydantic/v3/v3_1/README.md",
+      "title": "OpenAPI v3.1 schema classes",
+      "summary": "Due to the reserved words in python and pydantic, the following fields are used with [alias](https://pydantic-docs.helpmanual.io/usage/schema/#field-customisation) feature provided by pydantic: | C...",
+      "lines": 42,
+      "mtime": 1784315614921.8513
+    },
+    {
+      "path": ".worktrees/ai-dj-universal-engine/.venv/lib/python3.12/site-packages/sklearn/externals/array_api_compat/README.md",
+      "title": "README.md",
+      "summary": "Update this directory using maint_tools/vendor_array_api_compat.sh",
+      "lines": 2,
+      "mtime": 1784709845371.72
+    },
+    {
+      "path": ".worktrees/ai-dj-universal-engine/.venv/lib/python3.12/site-packages/sklearn/externals/array_api_extra/README.md",
+      "title": "README.md",
+      "summary": "Update this directory using maint_tools/vendor_array_api_extra.sh",
+      "lines": 2,
+      "mtime": 1784709847017.7124
+    },
+    {
+      "path": ".worktrees/ai-dj-universal-engine/AGENTS.md",
+      "title": "DJ Music Plugin — Project Instructions",
+      "summary": "> MCP-сервер для управления DJ techno библиотекой, построения оптимизированных сетов и интеграции с Яндекс Музыкой. > Версия: 1.12.0 **Всегда думай по-русски и отвечай по-русски, если только явно н...",
+      "lines": 157,
+      "mtime": 1788541514584.04
+    },
+    {
+      "path": ".worktrees/ai-dj-universal-engine/CHANGELOG.md",
+      "title": "Changelog",
+      "summary": "All notable changes to this project will be documented in this file. Format based on [Keep a Changelog](https://keepachangelog.com/). Versioning follows [Semantic Versioning](https://semver.org/). ...",
+      "lines": 2141,
+      "mtime": 1788541514585.2856
+    },
+    {
+      "path": ".worktrees/ai-dj-universal-engine/CLAUDE.md",
+      "title": "DJ Music Plugin",
+      "summary": "// Всегда думай по-русски и отвечай по-русски, если только явно не просят другое. MCP-сервер для управления DJ techno библиотекой, построения оптимизированных сетов и интеграции с Яндекс Музыкой. *...",
+      "lines": 287,
+      "mtime": 1788541514585.5981
+    },
+    {
+      "path": ".worktrees/ai-dj-universal-engine/docs/technical-requirements/features/README.md",
+      "title": "Feature Specifications — DJ Music Plugin",
+      "summary": "> **Note:** 6 specs (`core-01-track-management`, `core-04-deck-mixer-engines`, > `workflow-01-set-building`, `workflow-02-audio-analysis`, > `lifecycle-01-curation`, `integration-01-yandex-music`) ...",
+      "lines": 46,
+      "mtime": 1788541514709.0464
+    },
+    {
+      "path": ".worktrees/ai-dj-universal-engine/README.md",
+      "title": "DJ Music Plugin",
+      "summary": "**v1.12.0** · MIT · MCP-сервер для управления личной DJ techno библиотекой, построения оптимизированных DJ сетов и интеграции с Яндекс Музыкой. Surface: **MCP** (Claude Desktop / Cursor / любой MCP...",
+      "lines": 236,
+      "mtime": 1788541514590.0283
+    },
+    {
+      "path": ".worktrees/ai-dj-universal-engine/scripts/prefab_previews/README.md",
+      "title": "Prefab UI previews",
+      "summary": "Standalone reproductions of the 7 Prefab UI tools (`app/tools/ui/`) with seeded fake data. Lets us: 1. Render each tool to static HTML (`artifacts/previews/*.html`) via `prefab export`. 2. Screensh...",
+      "lines": 71,
+      "mtime": 1788541514720.6685
+    },
+    {
+      "path": ".worktrees/ai-dj-universal-engine/suno_out/rimjoba/README.md",
+      "title": "RimJoba — Suno voice recipe (copy-paste)",
+      "summary": "Референс: https://suno.com/song/e4d68e9a-d35d-4e70-8af0-4205cf484d2f 1. **Style** = содержимое `VOICE_BLOCK.txt` + `. ` + один файл из `tails/` + `.` 2. **Negative** = `NEGATIVE.txt` (+ опциональны...",
+      "lines": 27,
+      "mtime": 1788541514728.6077
+    },
+    {
+      "path": ".worktrees/ai-dj-universal-engine/suno_out/rimjoba/swallow_boy/README.md",
+      "title": "Swallow Boy short variants",
+      "summary": "Reference: `https://suno.com/song/ed011c66-bd94-4bb2-bfd8-ec96a78ddc93` Generation goal: - `chirp-fenix` - short-form `15-35 s` - one fixed `swallow boy` voice core - 10 controlled twists Run: ```bash",
+      "lines": 29,
+      "mtime": 1788541514729.0044
+    },
+    {
+      "path": "AGENTS.md",
+      "title": "DJ Music Plugin — Project Instructions",
+      "summary": "> MCP-сервер для управления DJ techno библиотекой, построения оптимизированных сетов и интеграции с Яндекс Музыкой. > Версия: 1.12.0 **Всегда думай по-русски и отвечай по-русски, если только явно н...",
+      "lines": 157,
+      "mtime": 1788723866000.6133
+    },
+    {
+      "path": "CHANGELOG.md",
+      "title": "Changelog",
+      "summary": "All notable changes to this project will be documented in this file. Format based on [Keep a Changelog](https://keepachangelog.com/). Versioning follows [Semantic Versioning](https://semver.org/). ...",
+      "lines": 2141,
+      "mtime": 1788260382763.224
+    },
+    {
+      "path": "CLAUDE.md",
+      "title": "DJ Music Plugin",
+      "summary": "// Всегда думай по-русски и отвечай по-русски, если только явно не просят другое. MCP-сервер для управления DJ techno библиотекой, построения оптимизированных сетов и интеграции с Яндекс Музыкой. *...",
+      "lines": 287,
+      "mtime": 1788723866001.5828
+    },
+    {
+      "path": "dj-music-plugin-cell16/.pytest_cache/README.md",
+      "title": "pytest cache directory #",
+      "summary": "This directory contains data from the pytest's cache plugin, which provides the `--lf` and `--ff` options, as well as the `cache` fixture. **Do not** commit this to version control. See [the docs](...",
+      "lines": 9,
+      "mtime": 1788525273553.9866
+    },
+    {
+      "path": "dj-music-plugin-cell16/.venv/lib/python3.12/site-packages/caio/src/threadpool/README.md",
+      "title": "README.md",
+      "summary": "[![Build Status](https://travis-ci.org/mbrossard/threadpool.svg?branch=master)](https://travis-ci.org/mbrossard/threadpool) A simple C thread pool implementation ===================================...",
+      "lines": 25,
+      "mtime": 1787818839772.7905
+    },
+    {
+      "path": "dj-music-plugin-cell16/.venv/lib/python3.12/site-packages/fastmcp/contrib/bulk_tool_caller/README.md",
+      "title": "Bulk Tool Caller",
+      "summary": "This module provides the `BulkToolCaller` class, which extends the `MCPMixin` to offer tools for performing multiple tool calls in a single request to a FastMCP server. This can be useful for optim...",
+      "lines": 35,
+      "mtime": 1784709579973.1787
+    },
+    {
+      "path": "dj-music-plugin-cell16/.venv/lib/python3.12/site-packages/fastmcp/contrib/component_manager/README.md",
+      "title": "Component Manager – Contrib Module for FastMCP",
+      "summary": "The **Component Manager** provides a unified API for enabling and disabling tools, resources, and prompts at runtime in a FastMCP server. This module is useful for dynamic control over which compon...",
+      "lines": 164,
+      "mtime": 1784709579974.869
+    },
+    {
+      "path": "dj-music-plugin-cell16/.venv/lib/python3.12/site-packages/fastmcp/contrib/mcp_mixin/README.md",
+      "title": "MCP Mixin",
+      "summary": "from mcp.types import ToolAnnotations This module provides the `MCPMixin` base class and associated decorators (`@mcp_tool`, `@mcp_resource`, `@mcp_prompt`). It allows developers to easily define c...",
+      "lines": 148,
+      "mtime": 1784709582676.3806
+    },
+    {
+      "path": "dj-music-plugin-cell16/.venv/lib/python3.12/site-packages/fastmcp/contrib/README.md",
+      "title": "FastMCP Contrib Modules",
+      "summary": "This directory holds community-contributed modules for FastMCP. These modules extend FastMCP's functionality but are not officially maintained by the core team. **Guarantees:** *   Modules in `cont...",
+      "lines": 19,
+      "mtime": 1784709579972.858
+    },
+    {
+      "path": "dj-music-plugin-cell16/.venv/lib/python3.12/site-packages/fastmcp/server/providers/openapi/README.md",
+      "title": "OpenAPI Server Implementation (New)",
+      "summary": "This directory contains the next-generation FastMCP server implementation for OpenAPI integration, designed to replace the legacy implementation in `/server/openapi.py`. The new implementation uses...",
+      "lines": 266,
+      "mtime": 1784709632911.398
+    },
+    {
+      "path": "dj-music-plugin-cell16/.venv/lib/python3.12/site-packages/fastmcp/utilities/openapi/README.md",
+      "title": "OpenAPI Utilities",
+      "summary": "This directory contains the OpenAPI integration utilities for FastMCP. The implementation follows a **stateless request building strategy** using `openapi-core` for high-performance, per-request HT...",
+      "lines": 211,
+      "mtime": 1784709653528.227
+    },
+    {
+      "path": "dj-music-plugin-cell16/.venv/lib/python3.12/site-packages/mypy/typeshed/stdlib/_typeshed/README.md",
+      "title": "Utility types for typeshed",
+      "summary": "This package and its submodules contain various common types used by typeshed. It can also be used by packages outside typeshed, but beware the API stability guarantees below. The `_typeshed` packa...",
+      "lines": 35,
+      "mtime": 1787818841620.8738
+    },
+    {
+      "path": "dj-music-plugin-cell16/.venv/lib/python3.12/site-packages/openapi_pydantic/v3/v3_0/README.md",
+      "title": "OpenAPI v3.0 schema classes",
+      "summary": "Due to the reserved words in python and pydantic, the following fields are used with [alias](https://pydantic-docs.helpmanual.io/usage/schema/#field-customisation) feature provided by pydantic: | C...",
+      "lines": 40,
+      "mtime": 1784315614625.2888
+    },
+    {
+      "path": "dj-music-plugin-cell16/.venv/lib/python3.12/site-packages/openapi_pydantic/v3/v3_1/README.md",
+      "title": "OpenAPI v3.1 schema classes",
+      "summary": "Due to the reserved words in python and pydantic, the following fields are used with [alias](https://pydantic-docs.helpmanual.io/usage/schema/#field-customisation) feature provided by pydantic: | C...",
+      "lines": 42,
+      "mtime": 1784315614921.8513
+    },
+    {
+      "path": "dj-music-plugin-cell16/.venv/lib/python3.12/site-packages/sklearn/externals/array_api_compat/README.md",
+      "title": "README.md",
+      "summary": "Update this directory using maint_tools/vendor_array_api_compat.sh",
+      "lines": 2,
+      "mtime": 1784709845371.72
+    },
+    {
+      "path": "dj-music-plugin-cell16/.venv/lib/python3.12/site-packages/sklearn/externals/array_api_extra/README.md",
+      "title": "README.md",
+      "summary": "Update this directory using maint_tools/vendor_array_api_extra.sh",
+      "lines": 2,
+      "mtime": 1784709847017.7124
+    },
+    {
+      "path": "dj-music-plugin-cell16/AGENTS.md",
+      "title": "DJ Music Plugin — Project Instructions",
+      "summary": "> MCP-сервер для управления DJ techno библиотекой, построения оптимизированных сетов и интеграции с Яндекс Музыкой. > Версия: 1.12.0 **Всегда думай по-русски и отвечай по-русски, если только явно н...",
+      "lines": 158,
+      "mtime": 1788523773606.374
+    },
+    {
+      "path": "dj-music-plugin-cell16/CHANGELOG.md",
+      "title": "Changelog",
+      "summary": "All notable changes to this project will be documented in this file. Format based on [Keep a Changelog](https://keepachangelog.com/). Versioning follows [Semantic Versioning](https://semver.org/). ...",
+      "lines": 2141,
+      "mtime": 1788522385833.8093
+    },
+    {
+      "path": "dj-music-plugin-cell16/CLAUDE.md",
+      "title": "DJ Music Plugin",
+      "summary": "// Всегда думай по-русски и отвечай по-русски, если только явно не просят другое. MCP-сервер для управления DJ techno библиотекой, построения оптимизированных сетов и интеграции с Яндекс Музыкой. *...",
+      "lines": 287,
+      "mtime": 1788522385834.1035
+    },
+    {
+      "path": "dj-music-plugin-cell16/docs/technical-requirements/features/README.md",
+      "title": "Feature Specifications — DJ Music Plugin",
+      "summary": "> **Note:** 6 specs (`core-01-track-management`, `core-04-deck-mixer-engines`, > `workflow-01-set-building`, `workflow-02-audio-analysis`, > `lifecycle-01-curation`, `integration-01-yandex-music`) ...",
+      "lines": 46,
+      "mtime": 1788522385970.8503
+    },
+    {
+      "path": "dj-music-plugin-cell16/README.md",
+      "title": "DJ Music Plugin",
+      "summary": "**v1.12.0** · MIT · MCP-сервер для управления личной DJ techno библиотекой, построения оптимизированных DJ сетов и интеграции с Яндекс Музыкой. Surface: **MCP** (Claude Desktop / Cursor / любой MCP...",
+      "lines": 236,
+      "mtime": 1788522385835.7166
+    },
+    {
+      "path": "dj-music-plugin-cell16/scripts/prefab_previews/README.md",
+      "title": "Prefab UI previews",
+      "summary": "Standalone reproductions of the 7 Prefab UI tools (`app/tools/ui/`) with seeded fake data. Lets us: 1. Render each tool to static HTML (`artifacts/previews/*.html`) via `prefab export`. 2. Screensh...",
+      "lines": 71,
+      "mtime": 1788522385980.9426
+    },
+    {
+      "path": "dj-music-plugin-cell16/suno_out/rimjoba/README.md",
+      "title": "RimJoba — Suno voice recipe (copy-paste)",
+      "summary": "Референс: https://suno.com/song/e4d68e9a-d35d-4e70-8af0-4205cf484d2f 1. **Style** = содержимое `VOICE_BLOCK.txt` + `. ` + один файл из `tails/` + `.` 2. **Negative** = `NEGATIVE.txt` (+ опциональны...",
+      "lines": 27,
+      "mtime": 1788522385988.871
+    },
+    {
+      "path": "dj-music-plugin-cell16/suno_out/rimjoba/swallow_boy/README.md",
+      "title": "Swallow Boy short variants",
+      "summary": "Reference: `https://suno.com/song/ed011c66-bd94-4bb2-bfd8-ec96a78ddc93` Generation goal: - `chirp-fenix` - short-form `15-35 s` - one fixed `swallow boy` voice core - 10 controlled twists Run: ```bash",
+      "lines": 29,
+      "mtime": 1788522385989.0356
+    },
+    {
+      "path": "dj-music-plugin-cell17/.pytest_cache/README.md",
+      "title": "pytest cache directory #",
+      "summary": "This directory contains data from the pytest's cache plugin, which provides the `--lf` and `--ff` options, as well as the `cache` fixture. **Do not** commit this to version control. See [the docs](...",
+      "lines": 9,
+      "mtime": 1788525438098.6948
+    },
+    {
+      "path": "dj-music-plugin-cell17/.venv/lib/python3.12/site-packages/caio/src/threadpool/README.md",
+      "title": "README.md",
+      "summary": "[![Build Status](https://travis-ci.org/mbrossard/threadpool.svg?branch=master)](https://travis-ci.org/mbrossard/threadpool) A simple C thread pool implementation ===================================...",
+      "lines": 25,
+      "mtime": 1787818839772.7905
+    },
+    {
+      "path": "dj-music-plugin-cell17/.venv/lib/python3.12/site-packages/fastmcp/contrib/bulk_tool_caller/README.md",
+      "title": "Bulk Tool Caller",
+      "summary": "This module provides the `BulkToolCaller` class, which extends the `MCPMixin` to offer tools for performing multiple tool calls in a single request to a FastMCP server. This can be useful for optim...",
+      "lines": 35,
+      "mtime": 1784709579973.1787
+    },
+    {
+      "path": "dj-music-plugin-cell17/.venv/lib/python3.12/site-packages/fastmcp/contrib/component_manager/README.md",
+      "title": "Component Manager – Contrib Module for FastMCP",
+      "summary": "The **Component Manager** provides a unified API for enabling and disabling tools, resources, and prompts at runtime in a FastMCP server. This module is useful for dynamic control over which compon...",
+      "lines": 164,
+      "mtime": 1784709579974.869
+    },
+    {
+      "path": "dj-music-plugin-cell17/.venv/lib/python3.12/site-packages/fastmcp/contrib/mcp_mixin/README.md",
+      "title": "MCP Mixin",
+      "summary": "from mcp.types import ToolAnnotations This module provides the `MCPMixin` base class and associated decorators (`@mcp_tool`, `@mcp_resource`, `@mcp_prompt`). It allows developers to easily define c...",
+      "lines": 148,
+      "mtime": 1784709582676.3806
+    },
+    {
+      "path": "dj-music-plugin-cell17/.venv/lib/python3.12/site-packages/fastmcp/contrib/README.md",
+      "title": "FastMCP Contrib Modules",
+      "summary": "This directory holds community-contributed modules for FastMCP. These modules extend FastMCP's functionality but are not officially maintained by the core team. **Guarantees:** *   Modules in `cont...",
+      "lines": 19,
+      "mtime": 1784709579972.858
+    },
+    {
+      "path": "dj-music-plugin-cell17/.venv/lib/python3.12/site-packages/fastmcp/server/providers/openapi/README.md",
+      "title": "OpenAPI Server Implementation (New)",
+      "summary": "This directory contains the next-generation FastMCP server implementation for OpenAPI integration, designed to replace the legacy implementation in `/server/openapi.py`. The new implementation uses...",
+      "lines": 266,
+      "mtime": 1784709632911.398
+    },
+    {
+      "path": "dj-music-plugin-cell17/.venv/lib/python3.12/site-packages/fastmcp/utilities/openapi/README.md",
+      "title": "OpenAPI Utilities",
+      "summary": "This directory contains the OpenAPI integration utilities for FastMCP. The implementation follows a **stateless request building strategy** using `openapi-core` for high-performance, per-request HT...",
+      "lines": 211,
+      "mtime": 1784709653528.227
+    },
+    {
+      "path": "dj-music-plugin-cell17/.venv/lib/python3.12/site-packages/mypy/typeshed/stdlib/_typeshed/README.md",
+      "title": "Utility types for typeshed",
+      "summary": "This package and its submodules contain various common types used by typeshed. It can also be used by packages outside typeshed, but beware the API stability guarantees below. The `_typeshed` packa...",
+      "lines": 35,
+      "mtime": 1787818841620.8738
+    },
+    {
+      "path": "dj-music-plugin-cell17/.venv/lib/python3.12/site-packages/openapi_pydantic/v3/v3_0/README.md",
+      "title": "OpenAPI v3.0 schema classes",
+      "summary": "Due to the reserved words in python and pydantic, the following fields are used with [alias](https://pydantic-docs.helpmanual.io/usage/schema/#field-customisation) feature provided by pydantic: | C...",
+      "lines": 40,
+      "mtime": 1784315614625.2888
+    },
+    {
+      "path": "dj-music-plugin-cell17/.venv/lib/python3.12/site-packages/openapi_pydantic/v3/v3_1/README.md",
+      "title": "OpenAPI v3.1 schema classes",
+      "summary": "Due to the reserved words in python and pydantic, the following fields are used with [alias](https://pydantic-docs.helpmanual.io/usage/schema/#field-customisation) feature provided by pydantic: | C...",
+      "lines": 42,
+      "mtime": 1784315614921.8513
+    },
+    {
+      "path": "dj-music-plugin-cell17/.venv/lib/python3.12/site-packages/sklearn/externals/array_api_compat/README.md",
+      "title": "README.md",
+      "summary": "Update this directory using maint_tools/vendor_array_api_compat.sh",
+      "lines": 2,
+      "mtime": 1784709845371.72
+    },
+    {
+      "path": "dj-music-plugin-cell17/.venv/lib/python3.12/site-packages/sklearn/externals/array_api_extra/README.md",
+      "title": "README.md",
+      "summary": "Update this directory using maint_tools/vendor_array_api_extra.sh",
+      "lines": 2,
+      "mtime": 1784709847017.7124
+    },
+    {
+      "path": "dj-music-plugin-cell17/AGENTS.md",
+      "title": "DJ Music Plugin — Project Instructions",
+      "summary": "> MCP-сервер для управления DJ techno библиотекой, построения оптимизированных сетов и интеграции с Яндекс Музыкой. > Версия: 1.12.0 **Всегда думай по-русски и отвечай по-русски, если только явно н...",
+      "lines": 157,
+      "mtime": 1788525429191.333
+    },
+    {
+      "path": "dj-music-plugin-cell17/CHANGELOG.md",
+      "title": "Changelog",
+      "summary": "All notable changes to this project will be documented in this file. Format based on [Keep a Changelog](https://keepachangelog.com/). Versioning follows [Semantic Versioning](https://semver.org/). ...",
+      "lines": 2141,
+      "mtime": 1788525429192.5095
+    },
+    {
+      "path": "dj-music-plugin-cell17/CLAUDE.md",
+      "title": "DJ Music Plugin",
+      "summary": "// Всегда думай по-русски и отвечай по-русски, если только явно не просят другое. MCP-сервер для управления DJ techno библиотекой, построения оптимизированных сетов и интеграции с Яндекс Музыкой. *...",
+      "lines": 287,
+      "mtime": 1788525429192.7866
+    },
+    {
+      "path": "dj-music-plugin-cell17/docs/technical-requirements/features/README.md",
+      "title": "Feature Specifications — DJ Music Plugin",
+      "summary": "> **Note:** 6 specs (`core-01-track-management`, `core-04-deck-mixer-engines`, > `workflow-01-set-building`, `workflow-02-audio-analysis`, > `lifecycle-01-curation`, `integration-01-yandex-music`) ...",
+      "lines": 46,
+      "mtime": 1788525429313.2502
+    },
+    {
+      "path": "dj-music-plugin-cell17/README.md",
+      "title": "DJ Music Plugin",
+      "summary": "**v1.12.0** · MIT · MCP-сервер для управления личной DJ techno библиотекой, построения оптимизированных DJ сетов и интеграции с Яндекс Музыкой. Surface: **MCP** (Claude Desktop / Cursor / любой MCP...",
+      "lines": 236,
+      "mtime": 1788525429194.2896
+    },
+    {
+      "path": "dj-music-plugin-cell17/scripts/prefab_previews/README.md",
+      "title": "Prefab UI previews",
+      "summary": "Standalone reproductions of the 7 Prefab UI tools (`app/tools/ui/`) with seeded fake data. Lets us: 1. Render each tool to static HTML (`artifacts/previews/*.html`) via `prefab export`. 2. Screensh...",
+      "lines": 71,
+      "mtime": 1788525429325.078
+    },
+    {
+      "path": "dj-music-plugin-cell17/suno_out/rimjoba/README.md",
+      "title": "RimJoba — Suno voice recipe (copy-paste)",
+      "summary": "Референс: https://suno.com/song/e4d68e9a-d35d-4e70-8af0-4205cf484d2f 1. **Style** = содержимое `VOICE_BLOCK.txt` + `. ` + один файл из `tails/` + `.` 2. **Negative** = `NEGATIVE.txt` (+ опциональны...",
+      "lines": 27,
+      "mtime": 1788525429333.4124
+    },
+    {
+      "path": "dj-music-plugin-cell17/suno_out/rimjoba/swallow_boy/README.md",
+      "title": "Swallow Boy short variants",
+      "summary": "Reference: `https://suno.com/song/ed011c66-bd94-4bb2-bfd8-ec96a78ddc93` Generation goal: - `chirp-fenix` - short-form `15-35 s` - one fixed `swallow boy` voice core - 10 controlled twists Run: ```bash",
+      "lines": 29,
+      "mtime": 1788525429333.554
+    },
+    {
+      "path": "dj-music-plugin-cell18/.pytest_cache/README.md",
+      "title": "pytest cache directory #",
+      "summary": "This directory contains data from the pytest's cache plugin, which provides the `--lf` and `--ff` options, as well as the `cache` fixture. **Do not** commit this to version control. See [the docs](...",
+      "lines": 9,
+      "mtime": 1788525475956.0125
+    },
+    {
+      "path": "dj-music-plugin-cell18/.venv/lib/python3.12/site-packages/caio/src/threadpool/README.md",
+      "title": "README.md",
+      "summary": "[![Build Status](https://travis-ci.org/mbrossard/threadpool.svg?branch=master)](https://travis-ci.org/mbrossard/threadpool) A simple C thread pool implementation ===================================...",
+      "lines": 25,
+      "mtime": 1787818839772.7905
+    },
+    {
+      "path": "dj-music-plugin-cell18/.venv/lib/python3.12/site-packages/fastmcp/contrib/bulk_tool_caller/README.md",
+      "title": "Bulk Tool Caller",
+      "summary": "This module provides the `BulkToolCaller` class, which extends the `MCPMixin` to offer tools for performing multiple tool calls in a single request to a FastMCP server. This can be useful for optim...",
+      "lines": 35,
+      "mtime": 1784709579973.1787
+    },
+    {
+      "path": "dj-music-plugin-cell18/.venv/lib/python3.12/site-packages/fastmcp/contrib/component_manager/README.md",
+      "title": "Component Manager – Contrib Module for FastMCP",
+      "summary": "The **Component Manager** provides a unified API for enabling and disabling tools, resources, and prompts at runtime in a FastMCP server. This module is useful for dynamic control over which compon...",
+      "lines": 164,
+      "mtime": 1784709579974.869
+    },
+    {
+      "path": "dj-music-plugin-cell18/.venv/lib/python3.12/site-packages/fastmcp/contrib/mcp_mixin/README.md",
+      "title": "MCP Mixin",
+      "summary": "from mcp.types import ToolAnnotations This module provides the `MCPMixin` base class and associated decorators (`@mcp_tool`, `@mcp_resource`, `@mcp_prompt`). It allows developers to easily define c...",
+      "lines": 148,
+      "mtime": 1784709582676.3806
+    },
+    {
+      "path": "dj-music-plugin-cell18/.venv/lib/python3.12/site-packages/fastmcp/contrib/README.md",
+      "title": "FastMCP Contrib Modules",
+      "summary": "This directory holds community-contributed modules for FastMCP. These modules extend FastMCP's functionality but are not officially maintained by the core team. **Guarantees:** *   Modules in `cont...",
+      "lines": 19,
+      "mtime": 1784709579972.858
+    },
+    {
+      "path": "dj-music-plugin-cell18/.venv/lib/python3.12/site-packages/fastmcp/server/providers/openapi/README.md",
+      "title": "OpenAPI Server Implementation (New)",
+      "summary": "This directory contains the next-generation FastMCP server implementation for OpenAPI integration, designed to replace the legacy implementation in `/server/openapi.py`. The new implementation uses...",
+      "lines": 266,
+      "mtime": 1784709632911.398
+    },
+    {
+      "path": "dj-music-plugin-cell18/.venv/lib/python3.12/site-packages/fastmcp/utilities/openapi/README.md",
+      "title": "OpenAPI Utilities",
+      "summary": "This directory contains the OpenAPI integration utilities for FastMCP. The implementation follows a **stateless request building strategy** using `openapi-core` for high-performance, per-request HT...",
+      "lines": 211,
+      "mtime": 1784709653528.227
+    },
+    {
+      "path": "dj-music-plugin-cell18/.venv/lib/python3.12/site-packages/mlx/include/metal_cpp/README.md",
+      "title": "README.md",
+      "summary": "**metal-cpp** is a low overhead and header only C++ interface for Metal that helps developers add Metal functionality to graphics applications that are written in C++ (such as game engines). **meta...",
+      "lines": 314,
+      "mtime": 1788445978955.598
+    },
+    {
+      "path": "dj-music-plugin-cell18/.venv/lib/python3.12/site-packages/mypy/typeshed/stdlib/_typeshed/README.md",
+      "title": "Utility types for typeshed",
+      "summary": "This package and its submodules contain various common types used by typeshed. It can also be used by packages outside typeshed, but beware the API stability guarantees below. The `_typeshed` packa...",
+      "lines": 35,
+      "mtime": 1787818841620.8738
+    },
+    {
+      "path": "dj-music-plugin-cell18/.venv/lib/python3.12/site-packages/openapi_pydantic/v3/v3_0/README.md",
+      "title": "OpenAPI v3.0 schema classes",
+      "summary": "Due to the reserved words in python and pydantic, the following fields are used with [alias](https://pydantic-docs.helpmanual.io/usage/schema/#field-customisation) feature provided by pydantic: | C...",
+      "lines": 40,
+      "mtime": 1784315614625.2888
+    },
+    {
+      "path": "dj-music-plugin-cell18/.venv/lib/python3.12/site-packages/openapi_pydantic/v3/v3_1/README.md",
+      "title": "OpenAPI v3.1 schema classes",
+      "summary": "Due to the reserved words in python and pydantic, the following fields are used with [alias](https://pydantic-docs.helpmanual.io/usage/schema/#field-customisation) feature provided by pydantic: | C...",
+      "lines": 42,
+      "mtime": 1784315614921.8513
+    },
+    {
+      "path": "dj-music-plugin-cell18/.venv/lib/python3.12/site-packages/sklearn/externals/array_api_compat/README.md",
+      "title": "README.md",
+      "summary": "Update this directory using maint_tools/vendor_array_api_compat.sh",
+      "lines": 2,
+      "mtime": 1784709845371.72
+    },
+    {
+      "path": "dj-music-plugin-cell18/.venv/lib/python3.12/site-packages/sklearn/externals/array_api_extra/README.md",
+      "title": "README.md",
+      "summary": "Update this directory using maint_tools/vendor_array_api_extra.sh",
+      "lines": 2,
+      "mtime": 1784709847017.7124
+    },
+    {
+      "path": "dj-music-plugin-cell18/AGENTS.md",
+      "title": "DJ Music Plugin — Project Instructions",
+      "summary": "> MCP-сервер для управления DJ techno библиотекой, построения оптимизированных сетов и интеграции с Яндекс Музыкой. > Версия: 1.12.0 **Всегда думай по-русски и отвечай по-русски, если только явно н...",
+      "lines": 157,
+      "mtime": 1788526709915.3254
+    },
+    {
+      "path": "dj-music-plugin-cell18/CHANGELOG.md",
+      "title": "Changelog",
+      "summary": "All notable changes to this project will be documented in this file. Format based on [Keep a Changelog](https://keepachangelog.com/). Versioning follows [Semantic Versioning](https://semver.org/). ...",
+      "lines": 2141,
+      "mtime": 1788525429453.9397
+    },
+    {
+      "path": "README.md",
+      "title": "DJ Music Plugin",
+      "summary": "**v1.12.0** · MIT · MCP-сервер для управления личной DJ techno библиотекой, построения оптимизированных DJ сетов и интеграции с Яндекс Музыкой. Surface: **MCP** (Claude Desktop / Cursor / любой MCP...",
+      "lines": 236,
+      "mtime": 1788344571894.0188
+    }
+  ]
+}
